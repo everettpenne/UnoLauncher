@@ -11,7 +11,7 @@ To make Duo the launcher, choose **Set as home app** in customization, or open *
 ## Move around Home
 
 - Swipe horizontally across Home, the dock, or the right rail to move one page per gesture.
-- Swipe right from Home 1 for Discover. Swipe left, press Back, or use its right-pointing arrow to return.
+- Swipe right from Home 1 for Discover — or for **My feed** where Google's feed isn't available. Swipe left, press Back, or use its right-pointing arrow to return.
 - Swipe past the last Home page for **All apps**. Its **Search apps** field always searches installed apps locally.
 - The dock and its search control stay on the right. The page controls also open Discover or All apps.
 - Pressing the system Home control from an app returns to the Home page or unfolded pair you last had visible. From All apps, search, or Discover it returns to the last Home view.
@@ -23,6 +23,7 @@ Long press an empty Home cell to open **Add to Home**, then choose **Widgets**, 
 - **Wallpaper & appearance** for launcher photos, Android wallpaper, and color mode.
 - **Home layout** for icon size, row spacing, dock geometry, Home apps, and widgets on the visible page.
 - **Gestures & search** for app names, the upper-right status display, and Google search behavior.
+- **News feed** to add your own RSS/Atom feeds, refresh them, and choose whether the feed replaces Discover. On devices without Discover support the feed appears automatically once a feed is added.
 - **Backup** to save or restore the layout.
 - **Help & setup** for Home selection, widgets, shade gestures, and Discover.
 

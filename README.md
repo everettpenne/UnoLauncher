@@ -20,6 +20,7 @@ Screenshots use sample data on an emulator sized to the reference Fold. [Fresh-i
 - Android widgets, visual widget selection, resizing, native scrolling, and drag-and-drop between pages.
 - App dragging, pages created during an edge drag, Home folders, and separate personal/work catalogs where device policy permits.
 - Alphabetical All apps, Google search with a local app-search fallback, and live Discover on compatible devices.
+- An optional personal RSS/Atom news feed that fills the Discover slot where Google can't — no Google account or app required.
 - Local photo wallpapers, light/dark/system or sunrise/sunset appearance, and layout export/import.
 
 Android still controls the lock screen, notification panels, recents, and system app transitions.
@@ -41,7 +42,7 @@ Normal beta updates install over the existing beta with the same signing key. Un
 | --- | --- |
 | Change pages | Swipe horizontally across Home, the dock, or right rail; one page per gesture |
 | All apps | Swipe past the last Home page or tap its page control |
-| Discover | Swipe right from the first Home page or tap the compass |
+| Discover / My feed | Swipe right from the first Home page or tap the compass; shows your news feed when Google's feed isn't available |
 | Return from Discover | Swipe left, use the right-pointing arrow, or press Back |
 | Rearrange apps/widgets | Hold, then drag; pause at the screen edge to change or create a page |
 | Add to the dock | Drag into a vacancy; move an app out first when the dock is full |
@@ -65,7 +66,8 @@ Read [data and permissions](PRIVACY.md) before sharing backups or diagnostics.
 
 ## Known limits
 
-- Discover can differ across Google, Android, and vendor updates. Its smooth embedding transition includes a version-scoped compatibility workaround; it is not a portable SystemUI API. Recovery controls let you return Home when unavailable.
+- Discover can differ across Google, Android, and vendor updates. Its smooth embedding transition includes a version-scoped compatibility workaround; it is not a portable SystemUI API. Recovery controls let you return Home when unavailable. The news feed works without the Google app.
+- The news feed reads RSS 2.0 and Atom pages with plain summaries; it does not render web pages, media, or script, and needs a browser app to open stories.
 - Work apps/widgets remain subject to administrator policy. Private Space is not supported.
 - Icon packs and notification dots are not implemented. Folders cannot nest or occupy dock slots.
 - Imported Android widgets require binding again. Cross-installation work entries may require manual placement. Backups exclude photo backgrounds and system widget capabilities.

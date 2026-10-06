@@ -22,7 +22,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
-internal enum class CustomizationPage { OVERVIEW, WALLPAPER, HOME, GESTURES, BACKUP, HELP }
+internal enum class CustomizationPage { OVERVIEW, WALLPAPER, HOME, GESTURES, FEED, BACKUP, HELP }
 
 @Composable
 internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, model: LauncherModel,
@@ -34,6 +34,11 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onAppearanceManual: (String, Double, Double) -> Unit, onAppearanceDeviceLocation: () -> Unit,
     onAppearanceClear: () -> Unit, backgrounds: LauncherBackgroundController, homePage: Int = 0,
     onShadeSetup: () -> Unit = {},
+    feed: FeedState = FeedState(),
+    onFeedRefresh: () -> Unit = {},
+    onAddFeed: (String, (FeedAddResult) -> Unit) -> Unit = { _, _ -> },
+    onRemoveFeed: (String) -> Unit = {},
+    onFeedPreferred: (Boolean) -> Unit = {},
 ) {
     var wide by rememberSaveable { mutableStateOf(initiallyWide) }
     val title = when (page) {
@@ -41,6 +46,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
         CustomizationPage.WALLPAPER -> "Wallpaper & appearance"
         CustomizationPage.HOME -> "Home layout"
         CustomizationPage.GESTURES -> "Gestures & search"
+        CustomizationPage.FEED -> "News feed"
         CustomizationPage.BACKUP -> "Backup"
         CustomizationPage.HELP -> "Help & setup"
     }
@@ -69,6 +75,8 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         "Icons, spacing, dock, and widgets", "customization-home") { onPage(CustomizationPage.HOME) }
                     CustomizationDestination(Icons.Rounded.Search, "Gestures & search",
                         "Labels, status, and search behavior", "customization-gestures") { onPage(CustomizationPage.GESTURES) }
+                    CustomizationDestination(Icons.Rounded.RssFeed, "News feed",
+                        "Your own headlines in place of Discover", "customization-feed") { onPage(CustomizationPage.FEED) }
                     CustomizationDestination(Icons.Rounded.Save, "Backup",
                         "Save or restore this layout", "customization-backup") { onPage(CustomizationPage.BACKUP) }
                     CustomizationDestination(Icons.Rounded.HelpOutline, "Help & setup",
@@ -119,6 +127,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     Text("Swipe sideways anywhere on Home to change pages. Swipe down for notifications or quick settings.",
                         style = MaterialTheme.typography.bodyMedium)
                 }
+                CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onFeedPreferred)
                 CustomizationPage.BACKUP -> {
                     Text("Save the current Home layout, folders, widgets, and layout settings.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -167,7 +176,7 @@ private fun LauncherHelp(
         Text("Set up shade gestures")
     }
     HelpSection(Icons.Rounded.Explore, "Discover",
-        "Swipe right from the first Home page. If Google can’t provide the feed, Duo keeps a Home return and recovery actions available.")
+        "Swipe right from the first Home page. If Google can't provide the feed, Duo keeps a Home return and recovery actions available. Add your own feeds in News feed customization to fill this slot without Google.")
 }
 
 @Composable
@@ -256,7 +265,7 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     TextButton(onClick = { onAddWidget(homePage) }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Add widget to this page") }
 }
 
-@Composable private fun SettingsSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit, tag: String? = null) {
+@Composable internal fun SettingsSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit, tag: String? = null) {
     Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f)); Switch(checked, onChecked, Modifier.then(if (tag != null) Modifier.testTag(tag) else Modifier))
     }

@@ -14,6 +14,7 @@ All paths below are relative to `app/src/main/java/com/jake/duolauncher/`.
 | Editing and folders | `HomeEditing.kt`, `HomeDrag.kt`, `FolderEditing.kt`, `FolderPanel.kt` | Placement rules, drag previews, insertion, folders and cancellation |
 | Native widgets | `WidgetController.kt`, `WidgetPicker.kt`, `WidgetSizing.kt`, `ZeroPaddingWidgetHost.kt`, `WidgetVerticalGestures.kt` | Provider catalog, binding/configuration, geometry and native touch arbitration |
 | Google features | `GoogleSearch.kt`, `DiscoverClient.kt`, `LiveDiscoverActivity.kt`, `DiscoverBounds.kt` | Search intents, feed protocol, persistent host and embedding compatibility |
+| News feed | `FeedStore`/`FeedFetcher`/`FeedParser` (`FeedModel.kt`, `FeedFetcher.kt`, `FeedParser.kt`), `FeedPage.kt`, `FeedSettings.kt` | User-added RSS/Atom sources, direct bounded fetching, on-device cache, and the Discover-slot surface |
 | Customization | `CustomizationSheet.kt`, `LauncherActionSheet.kt` | Long-press actions, settings subpages and sheet navigation |
 | Photos, appearance and status | `LauncherBackground.kt`, `AppearanceSettings.kt`, `SolarSchedule.kt`, `DeviceStatus.kt`, `StatusRail.kt` | Private photo staging, theme scheduling, live status and its presentation |
 | Backup and shade access | `LayoutBackup.kt`, `BackupController.kt`, `SystemShadeController.kt` | Portable layout import/export and optional system-panel actions |
@@ -41,6 +42,8 @@ Widget size publication uses measured content with `updateAppWidgetOptions`, pos
 The live path keeps a persistent Google window and live Home graphics layers. Healthy Discover backing remains transparent; a recovery surface appears while a status message is present, including a delayed connection or an error. Google reports feed progress but owns native feed gestures, so a timeout or progress reversal is not proof that a finger was released.
 
 `DiscoverBounds.kt` contains an unsupported alignment-hint workaround scoped to audited Window Extensions versions 8–10. Other versions retain normal alignment. This avoids an additional vendor task-fragment transition in the tested configuration; it is not a public SystemUI animation API or a compatibility guarantee. Keep the version guard, host-start recovery and fallback path when changing embedding behavior.
+
+The leading pager slot has exactly one owner at a time. When feeds are configured and the user prefers them (or Window Extensions are absent), the news feed owns the slot: `LauncherScreen` enables the leading page and calls `LiveDiscover.setFeedOwnsSlot(true)`, which keeps the Google window closed and ignores its progress callbacks. Flipping the preference off returns the slot to Google through the normal prepare path. Never drive both surfaces from the same page state.
 
 ## Persistence and recovery
 

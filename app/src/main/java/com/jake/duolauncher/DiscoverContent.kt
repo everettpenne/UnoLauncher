@@ -13,7 +13,13 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
 @Composable
-internal fun DiscoverContent(modifier: Modifier = Modifier) {
+internal fun DiscoverContent(modifier: Modifier = Modifier, feed: FeedState = FeedState(),
+    feedVisible: Boolean = false, onFeedRefresh: () -> Unit = {},
+    onFeedOpenEntry: (String) -> Unit = {}, onAddFeed: () -> Unit = {}) {
+    if (feedVisible) {
+        FeedPage(feed, onFeedRefresh, onFeedOpenEntry, onAddFeed, modifier)
+        return
+    }
     val context = androidx.compose.ui.platform.LocalContext.current
     val message = LiveDiscover.message.value
     val googleIntent = remember(message) {

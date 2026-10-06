@@ -5,6 +5,7 @@ import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.LauncherApps
+import android.net.Uri
 import android.os.Bundle
 import android.os.UserManager
 import android.provider.Settings
@@ -21,6 +22,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.doOnPreDraw
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.pm.PackageManager
 import android.location.LocationManager
@@ -39,11 +41,14 @@ class MainActivity : ComponentActivity() {
         private set
     private val homeRequests = mutableIntStateOf(0)
     private val searchRequests = mutableIntStateOf(0)
+    private val feedSetupRequests = mutableIntStateOf(0)
     private val defaultHome = mutableStateOf(false)
     private val showFirstRun = mutableStateOf(false)
     private lateinit var setupExperience: SetupExperience
     private lateinit var status: DeviceStatusMonitor
     private lateinit var appearance: AppearanceStore
+    internal lateinit var feeds: FeedStore
+        private set
     private var appearanceLocationGeneration = 0
     private var appearancePermissionGeneration = -1
     private var appearanceLocationCancellation: CancellationSignal? = null
@@ -72,6 +77,7 @@ class MainActivity : ComponentActivity() {
         returningFromShadeSettings = savedInstanceState?.getBoolean(SHADE_SETTINGS_PENDING) == true
         val restoreShadeDialog = savedInstanceState?.getBoolean(SHADE_DIALOG_VISIBLE) == true
         appearance = AppearanceStore(this)
+        feeds = FeedStore(this, lifecycleScope)
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         widgets = WidgetController(this, model) { active ->
@@ -103,7 +109,15 @@ class MainActivity : ComponentActivity() {
                     onAppearanceClear = { cancelAppearanceLocation(); appearance.clearLocation(systemDark()) },
                     showFirstRun = showFirstRun.value,
                     onFinishFirstRun = ::finishFirstRun,
-                    onShadeSetup = ::showShadeSetup)
+                    onShadeSetup = ::showShadeSetup,
+                    feed = feeds.state.collectAsStateWithLifecycle().value,
+                    feedSetupRequests = feedSetupRequests.intValue,
+                    onFeedRefresh = feeds::refresh,
+                    onFeedOpenEntry = ::openFeedEntry,
+                    onFeedVisible = { feeds.refreshIfStale() },
+                    onAddFeed = feeds::addFeed,
+                    onRemoveFeed = feeds::removeFeed,
+                    onFeedPreferred = feeds::setPreferred)
             }
         }
         FoldRenderExperiment.attach(this)
@@ -145,7 +159,7 @@ class MainActivity : ComponentActivity() {
         if (discover != null) window.decorView.doOnPreDraw {
             it.postOnAnimation { if (DiscoverSession.host.get() === discover) DiscoverSession.dismiss() }
         }
-        model.refresh(); appearance.refresh(systemDark()); updateDefaultHome()
+        model.refresh(); appearance.refresh(systemDark()); updateDefaultHome(); feeds.refreshIfStale()
         window.decorView.post {
             if (!isFinishing && !isDestroyed && !LiveDiscover.viewport.isEmpty)
                 LiveDiscover.prepare(this, LiveDiscover.viewport, LiveDiscover.pageWidth)
@@ -270,14 +284,24 @@ class MainActivity : ComponentActivity() {
         val google = packageManager.getLaunchIntentForPackage(DiscoverClient.GOOGLE_PACKAGE)
         android.app.AlertDialog.Builder(this)
             .setTitle("Discover isn’t available here")
-            .setMessage("Duo can’t place the Discover feed beside Home on this device. You can open the Google app or stay on Home.")
+            .setMessage("Duo can’t place the Discover feed beside Home on this device. You can open the Google app, add your own news feeds for this slot, or stay on Home.")
             .setNegativeButton("Stay on Home", null)
+            .setNeutralButton("Add a feed") { _, _ -> feedSetupRequests.intValue++ }
             .apply {
                 if (google != null) setPositiveButton("Open Google") { _, _ ->
                     runCatching { startActivity(google) }
                 }
             }
             .show()
+    }
+
+    private fun openFeedEntry(link: String) {
+        if (!FeedParser.isWebLink(link)) return
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "No browser app is available to open this story.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun makeDefault() {

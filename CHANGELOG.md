@@ -1,5 +1,11 @@
 # Changelog
 
+## Next (unreleased)
+
+- Add an optional personal news feed: RSS 2.0 and Atom pages fetched directly from the addresses you add, cached on the device, and shown in the Discover slot where Google's feed is unavailable or when you prefer it.
+- Open the Discover slot on devices without Window Extensions support when feeds are configured, so the feed works without the Google app.
+- Keep the feed private: the new internet permission is used only for fetching added feeds, nothing is uploaded, and removing a feed removes its cache.
+
 ## 0.15.0-beta01
 
 First public-beta preparation release. Tested scope and APK checksums accompany the release package.

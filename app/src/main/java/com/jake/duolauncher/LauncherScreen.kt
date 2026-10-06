@@ -135,6 +135,14 @@ fun LauncherScreen(
     showFirstRun: Boolean = false,
     onFinishFirstRun: () -> Unit = {},
     onShadeSetup: () -> Unit = {},
+    feed: FeedState = FeedState(),
+    feedSetupRequests: Int = 0,
+    onFeedRefresh: () -> Unit = {},
+    onFeedOpenEntry: (String) -> Unit = {},
+    onFeedVisible: () -> Unit = {},
+    onAddFeed: (String, (FeedAddResult) -> Unit) -> Unit = { _, _ -> },
+    onRemoveFeed: (String) -> Unit = {},
+    onFeedPreferred: (Boolean) -> Unit = {},
 ) {
     var sheet by rememberSaveable { mutableStateOf("") }
     var dockSlot by rememberSaveable { mutableIntStateOf(0) }
@@ -184,10 +192,37 @@ fun LauncherScreen(
     val pendingNewPage = widgets.pendingPlacement?.page == homePages
     val visibleHomePages = homePages + if (drag.active || widgetSession != null || pendingNewPage) 1 else 0
     var expandedWorkspace by remember { mutableStateOf(false) }
-    val firstHome = if (DiscoverBounds.available) 1 else 0
+    // The leading slot hosts Google Discover where Window extensions exist, and the
+    // local news feed wherever it doesn't — or whenever the user prefers the feed.
+    val discoverAvailable = DiscoverBounds.available
+    val feedVisible = feed.configured && (feed.feedPreferred || !discoverAvailable)
+    val firstHome = if (discoverAvailable || feed.configured) 1 else 0
     val pageCount = visibleHomePages + 1
     val nativePager = rememberPagerState(initialPage = savedPage.coerceIn(-firstHome, pageCount - 1) + firstHome, pageCount = { pageCount + firstHome })
-    val pager = remember(nativePager) { LauncherPager(nativePager, firstHome) }
+    val pager = remember(nativePager, firstHome) { LauncherPager(nativePager, firstHome) }
+    // The feed page and Google's window must never own the slot at the same time.
+    LaunchedEffect(feedVisible) { LiveDiscover.setFeedOwnsSlot(feedVisible) }
+    var priorFeedConfigured by remember { mutableStateOf(feed.configured) }
+    LaunchedEffect(feed.configured, feedVisible) {
+        if (feed.configured != priorFeedConfigured) {
+            // The first feed inserts the leading page on devices without Window Extensions:
+            // physical page 0 stops meaning Home 1, so keep the user on Home.
+            if (feed.configured && !discoverAvailable && nativePager.currentPage == 0) {
+                nativePager.animateScrollToPage(1)
+            }
+            priorFeedConfigured = feed.configured
+        }
+        if (feedVisible && pager.settledPage == -1) onFeedVisible()
+    }
+    LaunchedEffect(feedSetupRequests) {
+        if (feedSetupRequests > 0) { customizationPage = CustomizationPage.FEED; sheet = "settings" }
+    }
+    val feedVisibleState = rememberUpdatedState(feedVisible)
+    LaunchedEffect(pager) {
+        snapshotFlow { pager.settledPage }.collect {
+            if (it == -1 && feedVisibleState.value) onFeedVisible()
+        }
+    }
     fun leaveTemporaryWidgetPage() {
         val persistedPages = model.state.value.homePages
         if (pager.currentPage >= persistedPages)
@@ -203,7 +238,7 @@ fun LauncherScreen(
         }
     }
     val pageGestures = remember(nativePager) { PageGestureLimits(nativePager) }
-    SideEffect { pageGestures.editing = drag.active || widgetSession != null || resizeSlot != null; LiveDiscover.allowNativeOpen = pager.currentPage == 0 && !drag.active && widgetSession == null && resizeSlot == null }
+    SideEffect { pageGestures.editing = drag.active || widgetSession != null || resizeSlot != null; LiveDiscover.allowNativeOpen = !feedVisible && pager.currentPage == 0 && !drag.active && widgetSession == null && resizeSlot == null }
     val pageFling = androidx.compose.foundation.pager.PagerDefaults.flingBehavior(nativePager, pagerSnapDistance = pageGestures)
     var nativeMotion by remember { mutableStateOf(false) }
     DisposableEffect(nativePager) {
@@ -229,7 +264,7 @@ fun LauncherScreen(
         snapshotFlow { Triple((1f - nativePager.currentPage - nativePager.currentPageOffsetFraction).coerceIn(0f, 1f), nativePager.isScrollInProgress, nativeMotion) to (nativePager.targetPage < firstHome) }
             .collect { (motion, towardFeed) ->
                 val (progress, scrolling, native) = motion
-                if (firstHome > 0) {
+                if (firstHome > 0 && !feedVisible) {
                     if (DuoMotionTrace.enabled) DuoMotionTrace.event("pager_observer",
                         "progress=$progress scrolling=$scrolling nativeMotion=$native towardFeed=$towardFeed")
                     if (scrolling) {
@@ -505,7 +540,7 @@ fun LauncherScreen(
                 .discoverSwipe(firstHome == 0 && pager.currentPage == 0 && !drag.active && sheet.isEmpty() &&
                     !showFirstRun && selectedId == null, onDiscover)
                 .onGloballyPositioned {
-                    if (firstHome > 0) {
+                    if (firstHome > 0 && !feedVisible) {
                         val bounds = it.boundsInWindow()
                         LiveDiscover.pagerOrigin = bounds.topLeft
                         val padding = 32 * density.density
@@ -514,7 +549,7 @@ fun LauncherScreen(
                                 (bounds.right - 16 * density.density).toInt(), (bounds.bottom - padding).toInt()), bounds.width)
                     }
                 }
-                .semantics { stateDescription = if (pager.currentPage == -1) "Discover" else if (pager.currentPage == visibleHomePages) "All apps" else "Home page ${pager.currentPage + 1} of $visibleHomePages" }
+                .semantics { stateDescription = if (pager.currentPage == -1) if (feedVisible) "Feed" else "Discover" else if (pager.currentPage == visibleHomePages) "All apps" else "Home page ${pager.currentPage + 1} of $visibleHomePages" }
             if (geometry.expanded) {
                 Box(pagerModifier) {
                     // PagerState remains the source of truth for native Discover progress,
@@ -528,6 +563,9 @@ fun LauncherScreen(
                         state = state, previewSlots = previewLayout.slots, previewLeadingSlots = previewLayout.leadingSlots,
                         previewWidgetPlacements = previewLayout.widgetPlacements, appsById = appsById,
                         widgets = widgets, drag = drag, target = target, insertionTarget = insertionTarget,
+                        feed = feed, feedVisible = feedVisible,
+                        onFeedRefresh = onFeedRefresh, onFeedOpenEntry = onFeedOpenEntry,
+                        onFeedAdd = { customizationPage = CustomizationPage.FEED; sheet = "settings" },
                         libraryQuery = libraryQuery, onLibraryQuery = { libraryQuery = it },
                         onLaunch = onLaunch, onLaunchFrom = onLaunchFrom, onPinned = model::setPinned,
                         onTurnOnWork = { model.turnOnWork(it) },
@@ -548,7 +586,9 @@ fun LauncherScreen(
                     key = { if (it < firstHome) "discover" else if (it - firstHome == visibleHomePages) "library" else "home-${it - firstHome}" }) { physicalPage ->
                     val page = physicalPage - firstHome
                     if (page == -1) {
-                        DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp))
+                        DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp),
+                            feed, feedVisible, onFeedRefresh, onFeedOpenEntry,
+                            onAddFeed = { customizationPage = CustomizationPage.FEED; sheet = "settings" })
                     } else if (page == visibleHomePages) {
                         AppLibrary(state, libraryQuery, { libraryQuery = it }, onLaunch, model::setPinned,
                             onActions = { selectedId = it.id }, modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace).testTag("library-page"),
@@ -670,7 +710,9 @@ fun LauncherScreen(
                             onAppearanceClear = onAppearanceClear,
                             onShadeSetup = { sheet = ""; onShadeSetup() },
                             backgrounds = launcherActivity.backgrounds,
-                            onWallpaperPreview = { sheet = ""; onWallpaperPreview() }, homePage = pager.currentPage.coerceIn(0, homePages - 1))
+                            onWallpaperPreview = { sheet = ""; onWallpaperPreview() }, homePage = pager.currentPage.coerceIn(0, homePages - 1),
+                            feed = feed, onFeedRefresh = onFeedRefresh,
+                            onAddFeed = onAddFeed, onRemoveFeed = onRemoveFeed, onFeedPreferred = onFeedPreferred)
                         "widgetActions" -> model.placement(widgetSlot)?.let { placement ->
                             val topPitch = (geometry.widgetHeight + 18f) / 2f
                             val gridSizing = WidgetGridSizing(GRID_COLUMNS, GRID_ROWS, geometry.gridWidth / GRID_COLUMNS,
@@ -1212,6 +1254,11 @@ private fun ExpandedWorkspace(
     drag: HomeDragState,
     target: DropTarget?,
     insertionTarget: DropTarget?,
+    feed: FeedState,
+    feedVisible: Boolean,
+    onFeedRefresh: () -> Unit,
+    onFeedOpenEntry: (String) -> Unit,
+    onFeedAdd: () -> Unit,
     libraryQuery: String,
     onLibraryQuery: (String) -> Unit,
     onLaunch: (AppEntry) -> Unit,
@@ -1278,7 +1325,8 @@ private fun ExpandedWorkspace(
         if (showDiscover) {
             key("discover-pane") {
                 Box(Modifier.place(-viewportWidth).fillMaxSize()) {
-                    DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp))
+                    DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp),
+                        feed, feedVisible, onFeedRefresh, onFeedOpenEntry, onFeedAdd)
                 }
             }
         }

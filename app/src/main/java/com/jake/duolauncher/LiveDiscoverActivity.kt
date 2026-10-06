@@ -61,7 +61,7 @@ internal class DiscoverHostStartGate(private var nextToken: Long = System.nanoTi
 internal object LiveDiscover {
     var host = WeakReference<LiveDiscoverActivity>(null)
     var owner = WeakReference<MainActivity>(null)
-    val message = mutableStateOf<String?>("Connecting to Discover…")
+    val message = mutableStateOf<String?>(CONNECTING)
     var onNativeProgress: ((Float) -> Unit)? = null
     var onHomeRequest: (() -> Unit)? = null
     var fullSize = androidx.compose.ui.geometry.Size.Zero
@@ -77,11 +77,15 @@ internal object LiveDiscover {
     private val driver = DiscoverPageDriver()
     private val startGate = DiscoverHostStartGate()
     private val externalResultOwners = mutableSetOf<Pair<String, String>>()
+    // True while the local news feed owns the Discover slot; the Google window stays down.
+    private var feedOwnsSlot = false
     // Isolate Compose UI tests from the external service; native integration tests leave this on.
     internal var attachNativeFeed = true
 
+    const val CONNECTING = "Connecting to Discover…"
+
     fun prepare(activity: MainActivity, bounds: Rect, width: Float) {
-        if (!attachNativeFeed || externalResultOwners.isNotEmpty() || !DiscoverBounds.available || bounds.isEmpty ||
+        if (feedOwnsSlot || !attachNativeFeed || externalResultOwners.isNotEmpty() || !DiscoverBounds.available || bounds.isEmpty ||
             activity.isFinishing || activity.isDestroyed ||
             !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return
         pageWidth = width
@@ -90,7 +94,7 @@ internal object LiveDiscover {
         owner = WeakReference(activity)
         if (host.get() != null) return
         val token = startGate.request(activity) ?: return
-        message.value = "Connecting to Discover…"
+        message.value = CONNECTING
         val options = ActivityOptions.makeCustomAnimation(activity, 0, 0).toBundle().apply {
             DiscoverBounds.launchOptions(suppressOverlayAnimation = true)?.let(::putAll)
         }
@@ -129,6 +133,7 @@ internal object LiveDiscover {
     fun pageProgress(native: Float) = discoverPageProgress(native, pageWidth, viewport.width().toFloat())
     fun nativeProgress(page: Float) = discoverNativeProgress(page, pageWidth, viewport.width().toFloat())
     fun page(progress: Float, scrolling: Boolean, towardFeed: Boolean = false) {
+        if (feedOwnsSlot) return
         this.progress = progress
         pagerOwnsMotion = scrolling
         pendingEndpoint = if (scrolling || nativePosition == nativeProgress(progress)) null
@@ -136,6 +141,7 @@ internal object LiveDiscover {
         driver.request(nativeProgress(progress), scrolling, towardFeed)?.let { host.get()?.page(it.position, it.scrolling) }
     }
     fun native(progress: Float): Boolean {
+        if (feedOwnsSlot) return false
         nativePosition = progress
         if (DuoMotionTrace.enabled) DuoMotionTrace.event("native_progress_received",
             "native=$progress page=${this.progress} pagerOwns=$pagerOwnsMotion pending=$pendingEndpoint allowOpen=$allowNativeOpen")
@@ -183,9 +189,28 @@ internal object LiveDiscover {
         } }
     }
     fun retry() {
+        if (feedOwnsSlot) return
         host.get()?.connect() ?: owner.get()?.let { activity ->
             startGate.reset(activity)
             prepare(activity, viewport, pageWidth)
+        }
+    }
+
+    /** Hands the Discover slot to the local news feed (or returns it to Google).
+     * While the feed owns the slot the native window stays closed and its progress
+     * callbacks are ignored, so the two surfaces can never fight over the page.
+     */
+    fun setFeedOwnsSlot(active: Boolean) {
+        if (feedOwnsSlot == active) return
+        feedOwnsSlot = active
+        if (active) {
+            startGate.reset()
+            host.get()?.finish()
+            host.clear()
+        } else owner.get()?.let { activity ->
+            if (!activity.isFinishing && !activity.isDestroyed &&
+                activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED))
+                prepare(activity, viewport, pageWidth)
         }
     }
 

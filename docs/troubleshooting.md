@@ -79,6 +79,15 @@ Layout backups exclude photos and cannot restore a photo deleted from its source
 
 The lower status dots represent cellular strength. **Cellular signal unavailable** is expected on a device without a SIM, including the reference Fold used for this beta. SIM-equipped no-service, airplane-mode, and signal transitions have not yet been broadly validated. Battery is the surrounding arc; Wi-Fi uses the inner arcs.
 
+## My feed will not load
+
+Duo connects directly to the feed addresses you added; it has no feed service of its own.
+
+- Check that the address is an RSS 2.0 or Atom page. Duo reports a readable feed when you add it, so an added feed that later fails usually means the server or the network changed.
+- If Duo says **Network access is turned off**, the system's per-app network setting for Duo is off (for example, a hardened Android network toggle). The last cached entries stay readable; turn network access back on to refresh.
+- Feed pages only fetch when you open the feed or press refresh, and only the addresses you added. Removing a feed removes its saved entries.
+- Stories open in your browser. If nothing happens, install or enable a browser app.
+
 ## Before reporting a problem
 
 Include the Duo version, phone model, Android version, folded or unfolded state, the page and gesture involved, and exact reproduction steps. Review screenshots and logs before sharing them: widgets, account names, work data, and app lists may be visible. Duo does not upload diagnostics automatically.

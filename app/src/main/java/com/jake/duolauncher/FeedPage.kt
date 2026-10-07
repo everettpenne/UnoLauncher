@@ -28,11 +28,31 @@ internal fun FeedPage(
     onOpenEntry: (String) -> Unit,
     onAddFeed: () -> Unit,
     modifier: Modifier = Modifier,
+    glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
 ) {
+    if (glassBackdrop != null) {
+        Box(modifier.fillMaxSize().testTag("feed-page")
+            .liquidGlass(glassBackdrop, RoundedCornerShape(30.dp), Glass.copy(alpha = .82f), blurRadius = 2f)) {
+            FeedPageBody(feed, onRefresh, onOpenEntry, onAddFeed, Modifier.fillMaxSize())
+        }
+        return
+    }
     Surface(modifier.fillMaxSize().testTag("feed-page"),
         shape = RoundedCornerShape(30.dp), color = Glass.copy(alpha = .92f),
         border = BorderStroke(1.dp, Color.White.copy(alpha = .5f))) {
-        Column(Modifier.fillMaxSize().padding(start = 22.dp, top = 18.dp, end = 14.dp, bottom = 10.dp)) {
+        FeedPageBody(feed, onRefresh, onOpenEntry, onAddFeed, Modifier.fillMaxSize())
+    }
+}
+
+@Composable
+private fun FeedPageBody(
+    feed: FeedState,
+    onRefresh: () -> Unit,
+    onOpenEntry: (String) -> Unit,
+    onAddFeed: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.padding(start = 22.dp, top = 18.dp, end = 14.dp, bottom = 10.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("My feed", style = MaterialTheme.typography.headlineMedium)
@@ -84,7 +104,6 @@ internal fun FeedPage(
             }
         }
     }
-}
 
 @Composable
 private fun EmptyFeedState(onAddFeed: () -> Unit, modifier: Modifier = Modifier) {

@@ -143,6 +143,7 @@ fun LauncherScreen(
     onAddFeed: (String, (FeedAddResult) -> Unit) -> Unit = { _, _ -> },
     onRemoveFeed: (String) -> Unit = {},
     onFeedPreferred: (Boolean) -> Unit = {},
+    onLiquidGlass: (Boolean) -> Unit = {},
 ) {
     var sheet by rememberSaveable { mutableStateOf("") }
     var dockSlot by rememberSaveable { mutableIntStateOf(0) }
@@ -448,7 +449,11 @@ fun LauncherScreen(
             }
         },
         onFinish = { cancelled -> finishDrag(cancelled) })) {
-        DuneWallpaper()
+        val homeBackdrop = rememberHomeBackdrop()
+        val glassEnabled = appearance.liquidGlass
+        Box(Modifier.matchParentSize().then(if (glassEnabled) Modifier.recordBackdrop(homeBackdrop) else Modifier)) {
+            DuneWallpaper()
+        }
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             val wide = maxWidth.value >= 650f
             val preset = if (wide) state.expanded else state.compact
@@ -537,6 +542,7 @@ fun LauncherScreen(
                     drawLayer(homeLayer)
                     LiveDiscover.host.get()?.invalidateFrame()
                 }.testTag("app-pager")
+                .then(if (glassEnabled) Modifier.recordBackdrop(homeBackdrop) else Modifier)
                 .discoverSwipe(firstHome == 0 && pager.currentPage == 0 && !drag.active && sheet.isEmpty() &&
                     !showFirstRun && selectedId == null, onDiscover)
                 .onGloballyPositioned {
@@ -566,6 +572,7 @@ fun LauncherScreen(
                         feed = feed, feedVisible = feedVisible,
                         onFeedRefresh = onFeedRefresh, onFeedOpenEntry = onFeedOpenEntry,
                         onFeedAdd = { customizationPage = CustomizationPage.FEED; sheet = "settings" },
+                        glassBackdrop = homeBackdrop.takeIf { glassEnabled },
                         libraryQuery = libraryQuery, onLibraryQuery = { libraryQuery = it },
                         onLaunch = onLaunch, onLaunchFrom = onLaunchFrom, onPinned = model::setPinned,
                         onTurnOnWork = { model.turnOnWork(it) },
@@ -588,7 +595,8 @@ fun LauncherScreen(
                     if (page == -1) {
                         DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp),
                             feed, feedVisible, onFeedRefresh, onFeedOpenEntry,
-                            onAddFeed = { customizationPage = CustomizationPage.FEED; sheet = "settings" })
+                            onAddFeed = { customizationPage = CustomizationPage.FEED; sheet = "settings" },
+                            glassBackdrop = homeBackdrop.takeIf { glassEnabled })
                     } else if (page == visibleHomePages) {
                         AppLibrary(state, libraryQuery, { libraryQuery = it }, onLaunch, model::setPinned,
                             onActions = { selectedId = it.id }, modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace).testTag("library-page"),
@@ -614,7 +622,18 @@ fun LauncherScreen(
                             if (contentHeight < 500.dp) 0f else 23f).coerceAtLeast(0f)
                     },
                 compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp)
-            Surface(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.dockTop.dp)
+            if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.dockTop.dp)
+                .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
+                .liquidGlass(homeBackdrop, RoundedCornerShape(30.dp), Glass.copy(alpha = .30f))
+                .graphicsLayer {
+                    compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+                }.testTag("dock")) {
+                Column(Modifier.padding(vertical = 8.dp).verticalScroll(dockScroll)) {
+                    DockAppColumn(state.dock, previewLayout.dock, appsById, geometry.dockRowHeight,
+                        dockIconSize(geometry.iconSize), drag, insertionTarget,
+                        onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" })
+                }
+            } else Surface(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp).graphicsLayer {
                     // Composite the stationary dock independently of the shared pager layer.
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
@@ -712,7 +731,9 @@ fun LauncherScreen(
                             backgrounds = launcherActivity.backgrounds,
                             onWallpaperPreview = { sheet = ""; onWallpaperPreview() }, homePage = pager.currentPage.coerceIn(0, homePages - 1),
                             feed = feed, onFeedRefresh = onFeedRefresh,
-                            onAddFeed = onAddFeed, onRemoveFeed = onRemoveFeed, onFeedPreferred = onFeedPreferred)
+                            onAddFeed = onAddFeed, onRemoveFeed = onRemoveFeed, onFeedPreferred = onFeedPreferred,
+                            glassBackdrop = homeBackdrop.takeIf { glassEnabled },
+                            onLiquidGlass = onLiquidGlass)
                         "widgetActions" -> model.placement(widgetSlot)?.let { placement ->
                             val topPitch = (geometry.widgetHeight + 18f) / 2f
                             val gridSizing = WidgetGridSizing(GRID_COLUMNS, GRID_ROWS, geometry.gridWidth / GRID_COLUMNS,
@@ -1259,6 +1280,7 @@ private fun ExpandedWorkspace(
     onFeedRefresh: () -> Unit,
     onFeedOpenEntry: (String) -> Unit,
     onFeedAdd: () -> Unit,
+    glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop?,
     libraryQuery: String,
     onLibraryQuery: (String) -> Unit,
     onLaunch: (AppEntry) -> Unit,
@@ -1326,7 +1348,7 @@ private fun ExpandedWorkspace(
             key("discover-pane") {
                 Box(Modifier.place(-viewportWidth).fillMaxSize()) {
                     DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp),
-                        feed, feedVisible, onFeedRefresh, onFeedOpenEntry, onFeedAdd)
+                        feed, feedVisible, onFeedRefresh, onFeedOpenEntry, onFeedAdd, glassBackdrop)
                 }
             }
         }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.2-uno01
+
+- Experiment: liquid glass aesthetics. The dock, customization panel, and feed page now blur and refract Home behind them (vibrancy, blur, and lens effects).
+- Add a Liquid glass switch under Wallpaper & appearance; turning it off restores the flat glass look and saves battery.
+- The effect is drawn locally with runtime shaders; no new permissions or data use.
+
 ## 0.16.1-uno01
 
 Maintenance release: identical app, built and published by the new automated CI release pipeline.

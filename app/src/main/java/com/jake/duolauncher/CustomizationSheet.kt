@@ -39,6 +39,8 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onAddFeed: (String, (FeedAddResult) -> Unit) -> Unit = { _, _ -> },
     onRemoveFeed: (String) -> Unit = {},
     onFeedPreferred: (Boolean) -> Unit = {},
+    glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
+    onLiquidGlass: (Boolean) -> Unit = {},
 ) {
     var wide by rememberSaveable { mutableStateOf(initiallyWide) }
     val title = when (page) {
@@ -52,7 +54,10 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     }
     val bodyScroll = rememberScrollState()
     LaunchedEffect(page) { bodyScroll.scrollTo(0) }
-    Column(Modifier.fillMaxWidth().fillMaxHeight(.92f).padding(horizontal = 20.dp).padding(bottom = 12.dp)) {
+    Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)
+        .then(if (glassBackdrop != null) Modifier.liquidGlass(glassBackdrop, RoundedCornerShape(30.dp),
+            Glass.copy(alpha = .62f), blurRadius = 4f) else Modifier)
+        .padding(horizontal = 20.dp).padding(bottom = 12.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             if (page != CustomizationPage.OVERVIEW) IconButton(onClick = { onPage(CustomizationPage.OVERVIEW) },
                 Modifier.testTag("customization-back")) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
@@ -113,6 +118,10 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedButton(onClick = onWallpaperPreview, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         .testTag("wallpaper-preview")) { Icon(Icons.Rounded.Wallpaper, null); Spacer(Modifier.width(8.dp)); Text("Preview Android wallpaper") }
+                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                    SettingsSwitch("Liquid glass", appearance.liquidGlass, onLiquidGlass, "liquid-glass-switch")
+                    Text("Blurs and refracts Home behind the dock and panels. Turn off for a flat look or to save battery.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear)
                 }

@@ -27,6 +27,7 @@ Screenshots use sample data on an emulator sized to the reference Fold. [Fresh-i
 - App dragging, pages created during an edge drag, Home folders, and separate personal/work catalogs where device policy permits.
 - Alphabetical All apps, Google search with a local app-search fallback, and live Discover on compatible devices.
 - An optional personal RSS/Atom news feed that fills the Discover slot where Google can't — no Google account or app required.
+- Experimental liquid glass: the dock, panels, and feed page blur and refract Home behind them, with an on/off switch.
 - Local photo wallpapers, light/dark/system or sunrise/sunset appearance, and layout export/import.
 
 Android still controls the lock screen, notification panels, recents, and system app transitions.

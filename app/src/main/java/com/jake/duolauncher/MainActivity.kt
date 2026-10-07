@@ -117,7 +117,8 @@ class MainActivity : ComponentActivity() {
                     onFeedVisible = { feeds.refreshIfStale() },
                     onAddFeed = feeds::addFeed,
                     onRemoveFeed = feeds::removeFeed,
-                    onFeedPreferred = feeds::setPreferred)
+                    onFeedPreferred = feeds::setPreferred,
+                    onLiquidGlass = appearance::setLiquidGlass)
             }
         }
         FoldRenderExperiment.attach(this)

@@ -481,7 +481,7 @@ internal fun LauncherScreen(
             val geometry = homeGeometry(maxWidth.value, maxHeight.value, preset, state.labels,
                 statusHeight = if (state.verticalStatus) statusHeight + 22f else 0f,
                 labelHeight = with(density) { 14.sp.toDp().value } + 6f, inLibrary = inLibrary,
-                homeBottomSpace = if (isDefaultHome) 44f else 88f)
+                homeBottomSpace = PageIndicatorLayout.reserveDp(isDefaultHome))
             SideEffect {
                 resizePitchX = with(density) { (geometry.gridWidth / GRID_COLUMNS).dp.toPx() }
                 resizePitchY = with(density) { minOf((geometry.widgetHeight + 18f) / 2f, geometry.rowHeight).dp.toPx() }
@@ -523,7 +523,7 @@ internal fun LauncherScreen(
             val pagerEndInset = maxWidth - pagerWidth
             val leftColumnOrigin = (maxWidth / 2f - geometry.gridWidth.dp) / 2f - 16.dp
             val homeStride = panelWidth - leftColumnOrigin
-            val bottomSpace = if (isDefaultHome) 44.dp else 88.dp
+            val bottomSpace = PageIndicatorLayout.reserveDp(isDefaultHome).dp
             val workspaceMotion = if (geometry.expanded) remember(firstHome, visibleHomePages, pagerWidth, homeStride, density) {
                 WorkspacePageMotion(firstHome, visibleHomePages, with(density) { pagerWidth.toPx() }, with(density) { homeStride.toPx() })
             } else null
@@ -578,7 +578,9 @@ internal fun LauncherScreen(
                         val inset = with(density) { pagerEndInset.toPx() }
                         LiveDiscover.prepare(launcherActivity,
                             android.graphics.Rect((bounds.left + padding).toInt(), (bounds.top + padding).toInt(),
-                                (bounds.right - inset - 16 * density.density).toInt(), (bounds.bottom - padding).toInt()), bounds.width - inset)
+                                (bounds.right - inset - 16 * density.density).toInt(),
+                                // Leave the page-dots strip clear, like every other page does.
+                                (bounds.bottom - with(density) { bottomSpace.toPx() }).toInt()), bounds.width - inset)
                     }
                 }
                 .semantics { stateDescription = if (pager.currentPage == -1) if (feedVisible) "Feed" else "Discover" else if (pager.currentPage == visibleHomePages) "All apps" else "Home page ${pager.currentPage + 1} of $visibleHomePages" }
@@ -624,7 +626,7 @@ internal fun LauncherScreen(
                     Box(Modifier.fillMaxSize().padding(end = pagerEndInset)) {
                     CompositionLocalProvider(LocalPageGlass provides pageGlass) {
                     if (page == -1) {
-                        DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp),
+                        DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace),
                             feed, feedVisible, onFeedRefresh, onFeedOpenEntry,
                             onAddFeed = { customizationPage = CustomizationPage.FEED; sheet = "settings" },
                             glassBackdrop = homeBackdrop.wallpaper.takeIf { glassEnabled },
@@ -691,7 +693,7 @@ internal fun LauncherScreen(
                         onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" })
                 }
             }
-            Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).padding(start = 16.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).padding(start = 16.dp, bottom = PageIndicatorLayout.BOTTOM_MARGIN_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (!isDefaultHome) FilledTonalButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
                     Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Set as home app")
                 }
@@ -1437,7 +1439,7 @@ private fun ExpandedWorkspace(
         if (showDiscover) Box(Modifier.width(viewportWidth).fillMaxHeight().clipToBounds()) {
             key("discover-pane") {
                 Box(Modifier.place(-viewportPx).width(viewportWidth).fillMaxHeight()) {
-                    DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp),
+                    DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace),
                         feed, feedVisible, onFeedRefresh, onFeedOpenEntry, onFeedAdd, glassBackdrop, glassTint, settings)
                 }
             }

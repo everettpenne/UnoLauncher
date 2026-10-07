@@ -102,16 +102,29 @@ class IslandGeometryTest {
     }
 
     @Test fun punchHoleScaleChangesTheCapsuleVisiblyAndKeepsTheHoleWrapped() {
-        // Pixel-10a-like centered punch hole: 41x42dp near the top.
+        // Pixel-10a-like centered punch hole. Android reports a 108x110 px (41x42 dp) bounding
+        // rectangle; the visible hole inside it, taken from the cutout path, is a circle roughly
+        // 80 px across. (Assumed numbers: confirm with `dumpsys window displays | grep mDisplayCutout`.)
         val camera = PxRect(486f, 30f, 594f, 140f)
-        val small = IslandGeometry.frame(env(camera), d, 0f, scale = 0f)
-        val large = IslandGeometry.frame(env(camera), d, 0f, scale = 1f)
+        val visible = IslandGeometry.refine(camera, PxRect(500f, 44f, 580f, 124f))
+        val small = IslandGeometry.frame(env(visible), d, 0f, scale = 0f)
+        val large = IslandGeometry.frame(env(visible), d, 0f, scale = 1f)
         assertTrue("height should change", large.height - small.height >= 24f)
         assertTrue("width should change", large.width - small.width >= 32f)
         for (frame in listOf(small, large)) {
             val hole = frame.hole!!
             assertTrue(hole.top >= 0f && hole.bottom <= frame.height)
+            assertTrue("pill clears the top edge", frame.top >= 6f * d - .5f)
         }
+    }
+
+    @Test fun withOnlyTheBoundingRectangleTheSliderStillWorksButStaysOffTheTopEdge() {
+        // If no cutout path is available the rectangle is all there is: less room, same rules.
+        val camera = PxRect(486f, 30f, 594f, 140f)
+        val small = IslandGeometry.frame(env(camera), d, 0f, scale = 0f)
+        val large = IslandGeometry.frame(env(camera), d, 0f, scale = 1f)
+        assertTrue("height still changes", large.height > small.height + 8f)
+        assertTrue(small.top >= 6f * d - .5f && large.top >= 6f * d - .5f)
     }
 
     @Test fun expandedIslandClearsTheDockStrip() {
@@ -123,5 +136,38 @@ class IslandGeometryTest {
         val dockLeft = screenW - dockPx - 16f * d
         assertTrue("island right edge must clear the dock",
             frame.left + frame.width <= dockLeft)
+    }
+
+    // A phone that reports a tall cutout rectangle starting at y = 0 even though the visible hole
+    // is a small circle inside it (the emulator's "hole" overlay, and many real Pixels).
+    private val tallRect = PxRect(414f, 0f, 666f, 136f)
+    private val visibleHole = PxRect(500f, 36f, 588f, 124f)
+
+    @Test fun refineUsesTheVisibleHoleInsideATallRectangle() {
+        assertEquals(visibleHole, IslandGeometry.refine(tallRect, visibleHole))
+        assertEquals("falls back without a path", tallRect, IslandGeometry.refine(tallRect, null))
+        assertEquals("falls back for a degenerate path", tallRect,
+            IslandGeometry.refine(tallRect, PxRect(600f, 60f, 601f, 61f)))
+    }
+
+    @Test fun pillNeverTouchesTheTopOfTheScreen() {
+        val hole = IslandGeometry.refine(tallRect, visibleHole)
+        listOf(0f, .5f, 1f).forEach { scale ->
+            val frame = IslandGeometry.frame(env(hole), d, 0f, scale)
+            assertTrue("top ${frame.top} at scale $scale leaves 6 dp clear", frame.top >= 6f * d - .5f)
+        }
+    }
+
+    @Test fun sizeSliderChangesTheCollapsedHeightOverItsWholeRange() {
+        val hole = IslandGeometry.refine(tallRect, visibleHole)
+        val heights = listOf(0f, .25f, .5f, .75f, 1f).map { IslandGeometry.frame(env(hole), d, 0f, it).height }
+        heights.zipWithNext().forEach { (a, b) -> assertTrue("$heights strictly grows", b > a) }
+        assertTrue("never shorter than the hole", heights.first() >= hole.height)
+    }
+
+    @Test fun usingTheRawTallRectangleIsWhatMadeTheSliderADeadControl() {
+        // Documents the bug this guards against: sized from the raw rectangle the height is fixed.
+        val heights = listOf(0f, .5f, 1f).map { IslandGeometry.frame(env(tallRect), d, 0f, it).height }
+        assertEquals(1, heights.toSet().size)
     }
 }

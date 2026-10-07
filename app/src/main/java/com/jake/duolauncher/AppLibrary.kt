@@ -66,7 +66,7 @@ internal fun AppLibrary(
     // dock keeps the long list legible; the lens still bends the panel's rim.
     val liquid = LocalPageGlass.current?.takeIf { glass }
     Surface(modifier.then(if (liquid != null) Modifier.liquidGlass(liquid.backdrop, Corner.large,
-            liquid.tint.copy(alpha = .40f), blurRadius = 6f, refraction = liquid.refraction) else Modifier),
+            liquid.tint.copy(alpha = .40f), blurRadius = 6f, settings = liquid.settings) else Modifier),
         shape = Corner.large,
         color = if (liquid != null) Color.Transparent else if (glass) Glass.copy(alpha = .48f) else MaterialTheme.colorScheme.surface,
         contentColor = ink,

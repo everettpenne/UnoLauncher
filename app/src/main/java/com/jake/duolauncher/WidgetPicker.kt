@@ -221,7 +221,7 @@ internal fun VisualWidgetPicker(
         .then(if (hiddenForDrag) Modifier.clearAndSetSemantics { }.focusProperties { canFocus = false } else Modifier)
         .then(if (glass != null) Modifier.statusBarsPadding().navigationBarsPadding().padding(8.dp)
             .liquidGlass(glass.backdrop, Corner.xlarge, glass.tint.copy(alpha = .62f),
-                blurRadius = 12f, refraction = glass.refraction.coerceAtMost(1f)) else Modifier)
+                blurRadius = 12f, settings = glass.settings) else Modifier)
         .testTag("visual-widget-picker"),
         color = if (glass != null) Color.Transparent else Glass.copy(alpha = .96f)) {
         Column(Modifier.fillMaxSize().then(if (glass != null) Modifier.padding(top = 8.dp)

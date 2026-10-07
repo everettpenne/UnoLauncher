@@ -16,7 +16,8 @@ enum class AppearanceMode { LIGHT, DARK, SYSTEM, SUNRISE_SUNSET }
 data class AppearanceState(val mode: AppearanceMode = AppearanceMode.LIGHT, val place: String = "",
     val latitude: Double? = null, val longitude: Double? = null, val locationTime: Long = 0,
     val deviceLocation: Boolean = false, val dark: Boolean = false, val fallback: String? = null,
-    val locationStatus: String? = null, val liquidGlass: Boolean = true, val refraction: Float = .55f)
+    val locationStatus: String? = null, val liquidGlass: Boolean = true,
+    val refractionHeight: Float = .55f, val refractionAmount: Float = .55f, val refractionChroma: Float = 0f)
 
 class AppearanceStore(private val context: Context) {
     private val prefs = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
@@ -28,15 +29,22 @@ class AppearanceStore(private val context: Context) {
         val mode = runCatching { AppearanceMode.valueOf(prefs.getString("mode", "LIGHT")!!) }.getOrDefault(AppearanceMode.LIGHT)
         val lat = runCatching { prefs.getString("lat", null)?.toDoubleOrNull() }.getOrNull()
         val lon = runCatching { prefs.getString("lon", null)?.toDoubleOrNull() }.getOrNull()
+        // One-time migration from the single refraction slider to the three lens knobs.
+        val legacyRefraction = runCatching { prefs.getFloat("refraction", .55f) }.getOrDefault(.55f).coerceIn(0f, 1f)
         return resolve(AppearanceState(mode, runCatching { prefs.getString("place", "") ?: "" }.getOrDefault(""), lat, lon,
             runCatching { prefs.getLong("locationTime", 0) }.getOrDefault(0),
             runCatching { prefs.getBoolean("deviceLocation", false) }.getOrDefault(false),
             liquidGlass = runCatching { prefs.getBoolean("liquidGlass", true) }.getOrDefault(true),
-            refraction = runCatching { prefs.getFloat("refraction", .55f) }.getOrDefault(.55f).coerceIn(0f, MAX_REFRACTION)), systemDark)
+            refractionHeight = runCatching { prefs.getFloat("refractionHeight", legacyRefraction) }.getOrDefault(legacyRefraction).coerceIn(0f, 1f),
+            refractionAmount = runCatching { prefs.getFloat("refractionAmount", legacyRefraction) }.getOrDefault(legacyRefraction).coerceIn(0f, 1f),
+            refractionChroma = runCatching { prefs.getFloat("refractionChroma", if (legacyRefraction >= .5f) legacyRefraction else 0f) }
+                .getOrDefault(if (legacyRefraction >= .5f) legacyRefraction else 0f).coerceIn(0f, 1f)), systemDark)
     }
     fun setMode(mode: AppearanceMode, systemDark: Boolean) { save(state.copy(mode = mode), systemDark) }
     fun setLiquidGlass(value: Boolean) { save(state.copy(liquidGlass = value), currentSystemDark()) }
-    fun setRefraction(value: Float) { save(state.copy(refraction = value.coerceIn(0f, MAX_REFRACTION)), currentSystemDark()) }
+    fun setRefractionHeight(value: Float) { save(state.copy(refractionHeight = value.coerceIn(0f, 1f)), currentSystemDark()) }
+    fun setRefractionAmount(value: Float) { save(state.copy(refractionAmount = value.coerceIn(0f, 1f)), currentSystemDark()) }
+    fun setRefractionChroma(value: Float) { save(state.copy(refractionChroma = value.coerceIn(0f, 1f)), currentSystemDark()) }
     fun setManual(place: String, latitude: Double, longitude: Double, systemDark: Boolean) {
         require(latitude in -90.0..90.0 && longitude in -180.0..180.0)
         save(state.copy(place = place.trim(), latitude = latitude, longitude = longitude,
@@ -58,7 +66,10 @@ class AppearanceStore(private val context: Context) {
         prefs.edit().putString("mode", value.mode.name).putString("place", value.place)
             .putString("lat", value.latitude?.toString()).putString("lon", value.longitude?.toString())
             .putLong("locationTime", value.locationTime).putBoolean("deviceLocation", value.deviceLocation)
-            .putBoolean("liquidGlass", value.liquidGlass).putFloat("refraction", value.refraction).apply()
+            .putBoolean("liquidGlass", value.liquidGlass)
+            .putFloat("refractionHeight", value.refractionHeight)
+            .putFloat("refractionAmount", value.refractionAmount)
+            .putFloat("refractionChroma", value.refractionChroma).apply()
         state = resolve(value, systemDark)
         DuoAppearanceRuntime.dark = state.dark
     }

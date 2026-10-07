@@ -124,7 +124,9 @@ class MainActivity : ComponentActivity() {
                     onRemoveFeed = feeds::removeFeed,
                     onFeedPreferred = feeds::setPreferred,
                     onLiquidGlass = appearance::setLiquidGlass,
-                    onRefraction = appearance::setRefraction)
+                    onRefractionHeight = appearance::setRefractionHeight,
+                    onRefractionAmount = appearance::setRefractionAmount,
+                    onRefractionChroma = appearance::setRefractionChroma)
                 }
             }
         }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.7-uno01
+
+- Liquid controls: sliders and switches in customization are glass when liquid glass is on — an orange iOS slider with a refracting glass thumb and a green iOS switch with a glass thumb, with the stock Material fallback when glass is off.
+- Three lens knobs replace the single refraction slider: refraction height, refraction amount, and chromatic aberration, each 0-100% and persisted separately (the old single value migrates).
+- iOS accents: green switches, orange slider tracks and value labels.
+
 ## 0.16.6-uno01
 
 - Target Pixel phones on GrapheneOS, with the Pixel Fold (2023) as the primary design device; documentation no longer names a Samsung reference device.

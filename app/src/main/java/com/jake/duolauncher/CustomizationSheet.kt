@@ -42,9 +42,11 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onFeedPreferred: (Boolean) -> Unit = {},
     glassBackdrop: com.kyant.backdrop.Backdrop? = null,
     glassTint: Color = Glass.copy(alpha = .62f),
-    refraction: Float = .55f,
+    settings: GlassSettings = GlassSettings.Default,
     onLiquidGlass: (Boolean) -> Unit = {},
-    onRefraction: (Float) -> Unit = {},
+    onRefractionHeight: (Float) -> Unit = {},
+    onRefractionAmount: (Float) -> Unit = {},
+    onRefractionChroma: (Float) -> Unit = {},
 ) {
     var wide by rememberSaveable { mutableStateOf(initiallyWide) }
     val title = when (page) {
@@ -60,7 +62,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     LaunchedEffect(page) { bodyScroll.scrollTo(0) }
     Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)
         .then(if (glassBackdrop != null) Modifier.liquidGlass(glassBackdrop, Corner.xlarge,
-            glassTint, blurRadius = 4f, refraction = refraction) else Modifier)
+            glassTint, blurRadius = 4f, settings = settings) else Modifier)
         .padding(horizontal = 20.dp).padding(bottom = 12.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             if (page != CustomizationPage.OVERVIEW) IconButton(onClick = { onPage(CustomizationPage.OVERVIEW) },
@@ -124,10 +126,15 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         .testTag("wallpaper-preview")) { Icon(Icons.Rounded.Wallpaper, null); Spacer(Modifier.width(8.dp)); Text("Preview Android wallpaper") }
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     SettingsSwitch("Liquid glass", appearance.liquidGlass, onLiquidGlass, "liquid-glass-switch")
-                    if (appearance.liquidGlass) CustomizationSlider("Refraction intensity",
-                        "${(appearance.refraction * 100).toInt()}%", appearance.refraction, 0f..MAX_REFRACTION,
-                        tag = "refraction-slider") { onRefraction(it) }
-                    Text("Blurs and refracts Home behind the dock, widgets, buttons, and panels. Higher refraction bends the view behind the glass more; above 100% the effect is exaggerated. Turn off for a flat look or to save battery.",
+                    if (appearance.liquidGlass) {
+                        CustomizationSlider("Refraction height", "${(appearance.refractionHeight * 100).toInt()}%",
+                            appearance.refractionHeight, 0f..1f, tag = "refraction-height-slider") { onRefractionHeight(it) }
+                        CustomizationSlider("Refraction amount", "${(appearance.refractionAmount * 100).toInt()}%",
+                            appearance.refractionAmount, 0f..1f, tag = "refraction-amount-slider") { onRefractionAmount(it) }
+                        CustomizationSlider("Chromatic aberration", "${(appearance.refractionChroma * 100).toInt()}%",
+                            appearance.refractionChroma, 0f..1f, tag = "chromatic-slider") { onRefractionChroma(it) }
+                    }
+                    Text("Height widens the glass rim the lens bends; amount sets how far the view behind is displaced; chromatic adds the color fringe at the edges. Turn off liquid glass for a flat look or to save battery.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear)
@@ -282,16 +289,18 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
 }
 
 @Composable internal fun SettingsSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit, tag: String? = null) {
+    val glass = LocalPageGlass.current
     Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f)); Switch(checked, onChecked, Modifier.then(if (tag != null) Modifier.testTag(tag) else Modifier),
-            colors = IosSwitchColors)
+        Text(label, Modifier.weight(1f))
+        LiquidSwitchControl(checked, onChecked, glass, Modifier.then(if (tag != null) Modifier.testTag(tag) else Modifier))
     }
 }
 
 @Composable private fun CustomizationSlider(label: String, valueLabel: String, value: Float,
     range: ClosedFloatingPointRange<Float>, tag: String? = null, onChange: (Float) -> Unit) {
+    val glass = LocalPageGlass.current
     Column(Modifier.then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
-        Row { Text(label, Modifier.weight(1f)); Text(valueLabel, color = MaterialTheme.colorScheme.primary) }
-        Slider(value, onChange, valueRange = range, modifier = Modifier.semantics { contentDescription = label })
+        Row { Text(label, Modifier.weight(1f)); Text(valueLabel, color = if (glass != null) IosOrange else MaterialTheme.colorScheme.primary) }
+        LiquidSliderControl(value, range, onChange, glass, Modifier.semantics { contentDescription = label })
     }
 }

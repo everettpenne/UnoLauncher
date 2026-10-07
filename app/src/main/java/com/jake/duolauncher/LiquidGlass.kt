@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -14,6 +13,7 @@ import androidx.compose.material3.ModalBottomSheetDefaults
 import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -22,14 +22,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.util.lerp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.palette.graphics.Palette
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.LayerBackdrop
-import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -58,23 +58,29 @@ internal fun rememberHomeBackdrop(): HomeBackdrop {
 @Composable
 internal fun Modifier.recordBackdrop(backdrop: LayerBackdrop): Modifier = layerBackdrop(backdrop)
 
-/** Upper end of the refraction slider. 1.0 was the original ceiling; values above it
- * extrapolate the lens mapping for an exaggerated, full-pill lens.
+/** The three lens knobs, each 0..1 and independently persisted:
+ * [height] is the rim band the lens bends, [amount] is the displacement it applies, and
+ * [chromatic] engages the color fringe above a small threshold.
  */
-internal const val MAX_REFRACTION = 2f
+internal data class GlassSettings(
+    val height: Float = .55f,
+    val amount: Float = .55f,
+    val chromatic: Float = 0f,
+) {
+    companion object { val Default = GlassSettings() }
+}
 
 /** Glass settings for surfaces drawn inside the Home pager (widgets, Discover, the feed).
  * Those surfaces must sample the wallpaper-only backdrop: the pager itself records into
  * the pages backdrop, so sampling that from inside it would draw the layer into itself.
  * Null when liquid glass is off, and outside the pager.
  */
-internal class PageGlass(val backdrop: Backdrop, val tint: Color, val refraction: Float)
+internal class PageGlass(val backdrop: Backdrop, val tint: Color, val settings: GlassSettings)
 
 internal val LocalPageGlass = compositionLocalOf<PageGlass?> { null }
 
-/** Liquid-glass surface: vibrancy, blur, and lens refraction over the recorded backdrop.
- * [refraction] (0..1) scales the lens: height, displacement, and at the top end
- * chromatic aberration and depth weighting, matching the demo's deep-refraction look.
+/** Liquid-glass surface: vibrancy, blur, and lens refraction over the recorded backdrop,
+ * tuned by the three [GlassSettings] knobs so every surface reads as one family.
  */
 @Composable
 internal fun Modifier.liquidGlass(
@@ -82,21 +88,18 @@ internal fun Modifier.liquidGlass(
     shape: Shape,
     tint: Color = Glass.copy(alpha = .3f),
     blurRadius: Float = 2f,
-    refraction: Float = .55f,
+    settings: GlassSettings = GlassSettings.Default,
 ): Modifier = drawBackdrop(
     backdrop = backdrop,
     shape = { shape },
     effects = {
         vibrancy()
         blur(blurRadius.dp.toPx())
-        // Strong by default: the old 6..30dp band and 10..60dp displacement read as flat
-        // glass on a Duo-sized dock. The band now covers most of a 64-84dp-wide surface
-        // at the top of the slider, so the whole pill behaves like a curved lens.
         lens(
-            refractionHeight = lerp(14f, 40f, refraction).coerceAtMost(64f).dp.toPx(),
-            refractionAmount = lerp(32f, 120f, refraction).dp.toPx(),
+            refractionHeight = lerp(8f, 44f, settings.height).coerceAtMost(72f).dp.toPx(),
+            refractionAmount = lerp(16f, 132f, settings.amount).dp.toPx(),
             depthEffect = true,
-            chromaticAberration = refraction >= 0.5f,
+            chromaticAberration = settings.chromatic > 0.05f,
         )
     },
     highlight = { Highlight.Plain },
@@ -130,6 +133,8 @@ internal fun rememberGlassTint(base: Color): Color {
  * is the stock opaque sheet otherwise. The sheet's dialog window is full-screen like the
  * launcher's, so window coordinates line up and the glass samples Home through the dialog.
  * The tint follows the theme surface so sheet text keeps its contrast in light and dark.
+ * Controls inside the sheet sample [LocalPageGlass], which is set to the sheet's own
+ * exported backdrop so sliders and switches refract the panel they sit on.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -148,15 +153,33 @@ internal fun GlassModalSheet(
         return
     }
     val shape = Corner.xlarge
+    val sheetBackdrop = rememberLayerBackdrop()
+    val sheetSurface = MaterialTheme.colorScheme.surface.copy(alpha = .58f)
+    val sheetGlass = PageGlass(sheetBackdrop, sheetSurface, glass.settings)
     ModalBottomSheet(onDismissRequest, modifier, sheetState, shape = shape,
         containerColor = Color.Transparent, contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 0.dp, scrimColor = Color.Black.copy(alpha = .22f), dragHandle = null,
         properties = properties) {
         Column(Modifier.padding(horizontal = 8.dp).padding(bottom = 8.dp).fillMaxWidth()
-            .liquidGlass(glass.backdrop, shape, MaterialTheme.colorScheme.surface.copy(alpha = .58f),
-                blurRadius = 8f, refraction = glass.refraction.coerceAtMost(1f))) {
-            BottomSheetDefaults.DragHandle(Modifier.align(Alignment.CenterHorizontally))
-            content()
+            .drawBackdrop(
+                backdrop = glass.backdrop,
+                shape = { shape },
+                effects = {
+                    vibrancy()
+                    blur(8f.dp.toPx())
+                    lens(lerp(8f, 44f, glass.settings.height).dp.toPx(),
+                        lerp(16f, 132f, glass.settings.amount).dp.toPx(),
+                        depthEffect = true,
+                        chromaticAberration = glass.settings.chromatic > 0.05f)
+                },
+                highlight = { Highlight.Plain },
+                exportedBackdrop = sheetBackdrop,
+                onDrawSurface = { drawRect(sheetSurface) })
+            ) {
+            CompositionLocalProvider(LocalPageGlass provides sheetGlass) {
+                BottomSheetDefaults.DragHandle(Modifier.align(Alignment.CenterHorizontally))
+                content()
+            }
         }
     }
 }

@@ -18,9 +18,9 @@ internal fun DiscoverContent(modifier: Modifier = Modifier, feed: FeedState = Fe
     onFeedOpenEntry: (String) -> Unit = {}, onAddFeed: () -> Unit = {},
     glassBackdrop: com.kyant.backdrop.Backdrop? = null,
     glassTint: Color = Glass.copy(alpha = .82f),
-    refraction: Float = .55f) {
+    settings: GlassSettings = GlassSettings.Default) {
     if (feedVisible) {
-        FeedPage(feed, onFeedRefresh, onFeedOpenEntry, onAddFeed, modifier, glassBackdrop, glassTint, refraction)
+        FeedPage(feed, onFeedRefresh, onFeedOpenEntry, onAddFeed, modifier, glassBackdrop, glassTint, settings)
         return
     }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -39,7 +39,7 @@ internal fun DiscoverContent(modifier: Modifier = Modifier, feed: FeedState = Fe
         val glass = LocalPageGlass.current
         if (showMessage && message != null) Surface(Modifier.fillMaxSize().testTag("discover-recovery-surface")
             .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.xlarge,
-                glass.tint.copy(alpha = .45f), blurRadius = 3f, refraction = glass.refraction) else Modifier),
+                glass.tint.copy(alpha = .45f), blurRadius = 3f, settings = glass.settings) else Modifier),
             shape = Corner.xlarge, color = if (glass != null) Color.Transparent else Glass.copy(alpha = .92f),
             border = if (glass != null) null else BorderStroke(1.dp, Color.White.copy(alpha = .5f))) {
             Column(Modifier.fillMaxSize().padding(32.dp),

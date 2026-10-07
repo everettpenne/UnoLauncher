@@ -100,4 +100,28 @@ class IslandGeometryTest {
         assertTrue(large.height > small.height)
         assertTrue(large.width > small.width)
     }
+
+    @Test fun punchHoleScaleChangesTheCapsuleVisiblyAndKeepsTheHoleWrapped() {
+        // Pixel-10a-like centered punch hole: 41x42dp near the top.
+        val camera = PxRect(486f, 30f, 594f, 140f)
+        val small = IslandGeometry.frame(env(camera), d, 0f, scale = 0f)
+        val large = IslandGeometry.frame(env(camera), d, 0f, scale = 1f)
+        assertTrue("height should change", large.height - small.height >= 24f)
+        assertTrue("width should change", large.width - small.width >= 32f)
+        for (frame in listOf(small, large)) {
+            val hole = frame.hole!!
+            assertTrue(hole.top >= 0f && hole.bottom <= frame.height)
+        }
+    }
+
+    @Test fun expandedIslandClearsTheDockStrip() {
+        // Cover-width window with a 56dp dock: the expanded island must never reach the dock.
+        val camera = PxRect(486f, 30f, 594f, 140f)
+        val dockPx = 56f * d
+        val frame = IslandGeometry.frame(
+            IslandEnvironment(camera, screenW, 80f, dockWidthPx = dockPx), d, 1f)
+        val dockLeft = screenW - dockPx - 16f * d
+        assertTrue("island right edge must clear the dock",
+            frame.left + frame.width <= dockLeft)
+    }
 }

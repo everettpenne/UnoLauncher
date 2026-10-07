@@ -650,7 +650,7 @@ internal fun LauncherScreen(
                 }
             }
             if (state.verticalStatus) {
-                if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.contentTop.dp)
+                if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.contentTop.dp)
                     .width(preset.dockWidth.dp)
                     .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
                     .padding(vertical = 8.dp)) {
@@ -659,7 +659,7 @@ internal fun LauncherScreen(
                             if (contentHeight < 500.dp) 0f else 23f).coerceAtLeast(0f)
                     }, compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp)
                 } else StatusRail(deviceStatus,
-                    Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.contentTop.dp)
+                    Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.contentTop.dp)
                         .width(preset.dockWidth.dp).onSizeChanged {
                             // The normal rail's 20dp location slot and 3dp gap do not move the dock.
                             statusHeight = (with(density) { it.height.toDp().value } -
@@ -667,7 +667,7 @@ internal fun LauncherScreen(
                         },
                     compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp)
             }
-            if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.dockTop.dp)
+            if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
                 .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
                 .graphicsLayer {
@@ -678,7 +678,7 @@ internal fun LauncherScreen(
                         dockIconSize(geometry.iconSize), drag, insertionTarget,
                         onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" })
                 }
-            } else Surface(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.dockTop.dp)
+            } else Surface(Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp).graphicsLayer {
                     // Composite the stationary dock independently of the shared pager layer.
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
@@ -691,7 +691,7 @@ internal fun LauncherScreen(
                         onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" })
                 }
             }
-            Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).padding(start = 16.dp, bottom = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).padding(start = 16.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (!isDefaultHome) FilledTonalButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
                     Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Set as home app")
                 }
@@ -715,7 +715,7 @@ internal fun LauncherScreen(
                     }
                 }
             }
-            if (!inLibrary && !drag.active) Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 6.dp)
+            if (!inLibrary && !drag.active) Column(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 8.dp)
                 .width(preset.dockWidth.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val controlSize = dockIconSize(geometry.iconSize).dp
@@ -731,6 +731,7 @@ internal fun LauncherScreen(
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.entries.firstOrNull()?.title,
                     sizeScale = appearance.islandScale,
+                    dockWidthPx = with(density) { preset.dockWidth.dp.toPx() },
                     onSearch = { island.collapse(); openLibrary() },
                     onOpenFeed = {
                         island.collapse()

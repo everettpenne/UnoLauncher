@@ -83,6 +83,7 @@ internal fun DynamicIsland(
     deviceStatus: DeviceStatus,
     feedHeadline: String?,
     sizeScale: Float = .5f,
+    dockWidthPx: Float = 0f,
     onSearch: () -> Unit,
     onOpenFeed: () -> Unit,
     onCustomize: () -> Unit,
@@ -99,7 +100,7 @@ internal fun DynamicIsland(
     // the view attaches and again after rotation, folding, or a display-size change.
     var environment by remember { mutableStateOf(IslandEnvironment(null, view.rootView.width.toFloat(), 0f)) }
     var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
-    LaunchedEffect(configuration) { environment = readIslandEnvironment(view) }
+    LaunchedEffect(configuration) { environment = readIslandEnvironment(view, dockWidthPx) }
 
     val progress by animateFloatAsState(if (state.expanded) 1f else 0f,
         spring(dampingRatio = 0.5f, stiffness = 300f), label = "island expand")
@@ -118,7 +119,7 @@ internal fun DynamicIsland(
 
     Box(modifier.fillMaxSize().onGloballyPositioned {
         origin = it.positionInWindow()
-        val read = readIslandEnvironment(view)
+        val read = readIslandEnvironment(view, dockWidthPx)
         if (read != environment) environment = read
     }) {
         // The island's window-pixel position, translated into this parent's own frame.

@@ -115,11 +115,11 @@ Cutout = the camera hole nearest the top-center.
 | Expanded body below hole | 112 dp |
 | Edge margin | 8 dp |
 | No-cutout capsule | 108–132 × 30–38 dp |
-| Collapsed, by the Island size slider | slots 50–66 dp each side, min half-height 15–21 dp, hole surround 2–10 dp |
+| Collapsed, by the Island size slider | slots 44–80 dp each side, min half-height 12–24 dp, hole surround 0–16 dp; expanded body 96–128 dp |
 
 The collapsed face keeps the time and battery on opposite sides of the hole; the
-expanded panel hangs below it. **Known collision:** on cover-width displays the 336 dp
-expanded island overlaps the status rail (see the spacing audit below).
+expanded panel hangs below it. The expanded width is capped at
+`screenWidth − 2 × (dockWidth + 16 dp)` so it can never reach the dock strip.
 
 ## Motion
 

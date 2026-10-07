@@ -26,6 +26,7 @@ internal data class IslandFrame(
 /** What the window reports about the camera and system bars. */
 internal data class IslandEnvironment(
     val cutout: PxRect?, val screenWidth: Float, val statusBarHeight: Float,
+    val dockWidthPx: Float = 0f,
 )
 
 /** Pure layout for the dynamic island: wraps the camera hole, whatever its position or size.
@@ -37,7 +38,6 @@ internal object IslandGeometry {
     private const val SLOT_DP = 58f
     private const val MIN_HALF_HEIGHT_DP = 17f
     private const val EXPANDED_WIDTH_DP = 336f
-    private const val EXPANDED_BODY_DP = 112f
     private const val EDGE_MARGIN_DP = 8f
     private const val NO_CUTOUT_WIDTH_DP = 120f
     private const val NO_CUTOUT_HEIGHT_DP = 34f
@@ -69,22 +69,26 @@ internal object IslandGeometry {
             // setting and never shorter than a 30-42 dp capsule. A hole that sits close to the
             // top edge leaves less room above it, so the island shrinks to the margin that fits
             // rather than crossing the screen edge.
-            val surround = mix(2f, 10f, size) * d
-            val wanted = max(mix(15f, 21f, size) * d, cutout.height / 2f + surround)
+            val surround = mix(0f, 16f, size) * d
+            val wanted = max(mix(12f, 24f, size) * d, cutout.height / 2f + surround)
             val half = wanted.coerceAtMost(cutout.centerY).coerceAtLeast(cutout.height / 2f)
             top = cutout.centerY - half
             collapsedHeight = half * 2f
-            collapsedWidth = cutout.width + 2f * mix(50f, 66f, size) * d
+            collapsedWidth = cutout.width + 2f * mix(44f, 80f, size) * d
         } else {
             centerX = env.screenWidth / 2f
-            top = env.statusBarHeight + 4f * d
-            collapsedHeight = mix(30f, 38f, size) * d
-            collapsedWidth = mix(108f, 132f, size) * d
+            top = env.statusBarHeight + 8f * d
+            collapsedHeight = mix(28f, 44f, size) * d
+            collapsedWidth = mix(96f, 152f, size) * d
         }
         // The expanded panel hangs below the hole; its body starts under it.
         val holeBottom = cutout?.bottom ?: (top + collapsedHeight)
-        val expandedHeight = (holeBottom - top) + EXPANDED_BODY_DP * d
-        val expandedWidth = min(EXPANDED_WIDTH_DP * d, max(collapsedWidth, env.screenWidth - 2f * margin))
+        val expandedHeight = (holeBottom - top) + mix(96f, 128f, size) * d
+        // The expanded panel must clear the dock/rail strip: cap its width so it can never
+        // reach the glass column on the right, whatever the dock-width preset.
+        val dockClearance = env.dockWidthPx + 16f * d
+        val expandedWidth = min(EXPANDED_WIDTH_DP * d,
+            max(collapsedWidth, env.screenWidth - 2f * dockClearance))
         val width = collapsedWidth + (expandedWidth - collapsedWidth) * p
         val height = collapsedHeight + (expandedHeight - collapsedHeight) * p
         // Keep the island off the screen edges, but never at the cost of the hole: it must always
@@ -101,7 +105,7 @@ internal object IslandGeometry {
 }
 
 /** Reads the camera cutout and bars from the live window. Cheap enough to call on layout. */
-internal fun readIslandEnvironment(view: View): IslandEnvironment {
+internal fun readIslandEnvironment(view: View, dockWidthPx: Float = 0f): IslandEnvironment {
     val root = view.rootView
     val insets = view.rootWindowInsets
     val width = root.width.toFloat()
@@ -112,5 +116,6 @@ internal fun readIslandEnvironment(view: View): IslandEnvironment {
         cutout = IslandGeometry.pickCutout(rects, width, height),
         screenWidth = width,
         statusBarHeight = (insets?.getInsets(WindowInsets.Type.statusBars())?.top ?: 0).toFloat(),
+        dockWidthPx = dockWidthPx,
     )
 }

@@ -66,7 +66,7 @@ private fun FeedPageBody(
     onAddFeed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.padding(start = 22.dp, top = 18.dp, end = 14.dp, bottom = 10.dp)) {
+    Column(modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("My feed", style = MaterialTheme.typography.headlineMedium)
@@ -108,7 +108,7 @@ private fun FeedPageBody(
                             maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                     LazyColumn(Modifier.weight(1f).padding(top = 10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(end = 8.dp, bottom = 8.dp)) {
                         itemsIndexed(feed.entries, key = { _, entry -> entry.link }) { index, entry ->
                             FeedEntryCard(entry, Modifier.testTag("feed-entry-$index")) { onOpenEntry(entry.link) }

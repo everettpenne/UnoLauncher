@@ -70,7 +70,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)
         .then(if (glassBackdrop != null) Modifier.liquidGlass(glassBackdrop, Corner.xlarge,
             glassTint, blurRadius = 4f, settings = settings) else Modifier)
-        .padding(horizontal = 20.dp).padding(bottom = 12.dp)) {
+        .padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             if (page != CustomizationPage.OVERVIEW) IconButton(onClick = { onPage(CustomizationPage.OVERVIEW) },
                 Modifier.testTag("customization-back")) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
@@ -78,7 +78,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close customization") }
         }
         Column(Modifier.weight(1f).verticalScroll(bodyScroll).padding(bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (page) {
                 CustomizationPage.OVERVIEW -> {
                     if (!isDefaultHome) Button(onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)

@@ -101,6 +101,14 @@ jobs:
           set -euo pipefail
           NOTES="docs/releases/$VERSION.md"
           [ -f "$NOTES" ] || { echo "::error::missing release notes at $NOTES"; exit 1; }
+          # Substitute the CI-built APK hash when the notes carry the placeholder.
+          if grep -q "TBD-APK-SHA256" "$NOTES"; then
+            APK_HASH=$(grep "UnoLauncher-$VERSION-release.apk" \
+              "dist/UnoLauncher-$VERSION/SHA256SUMS.txt" | awk '{print $1}')
+            [ -n "$APK_HASH" ] || { echo "::error::could not resolve APK hash"; exit 1; }
+            sed -i "s/TBD-APK-SHA256/$APK_HASH/" "$NOTES"
+            echo "Substituted APK hash in release notes: $APK_HASH"
+          fi
           sed -E 's|\(\.\./|('"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"'/blob/v'"$VERSION"'/|g' \
             "$NOTES" > "$RUNNER_TEMP/notes.md"
           gh release create "v$VERSION" \

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.8-uno01
+
+- Dynamic island: a liquid-glass capsule anchored to the camera cutout on Home. Collapsed it shows the time (and charging); tap it to expand into a live panel with time, battery, the top feed headline, and search/feed/customize actions; it auto-collapses after five seconds.
+- App launches and charging transitions flash through the island.
+- The island is launcher-local and never overlays other apps; a Dynamic island switch lives under Wallpaper & appearance.
+
 ## 0.16.7-uno01
 
 - Liquid controls: sliders and switches in customization are glass when liquid glass is on — an orange iOS slider with a refracting glass thumb and a green iOS switch with a glass thumb, with the stock Material fallback when glass is off.

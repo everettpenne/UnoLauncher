@@ -120,7 +120,7 @@ fun DuoTheme(dark: Boolean = false, content: @Composable () -> Unit) {
 
 
 @Composable
-fun LauncherScreen(
+internal fun LauncherScreen(
     state: LauncherState, model: LauncherModel, widgets: WidgetController, homeRequests: Int,
     onLaunch: (AppEntry) -> Unit, onMakeDefault: () -> Unit, onAppInfo: (AppEntry) -> Unit,
     isDefaultHome: Boolean, deviceStatus: DeviceStatus, onStatusMode: (Boolean) -> Unit, onWallpaperPreview: () -> Unit,
@@ -144,6 +144,8 @@ fun LauncherScreen(
     onRemoveFeed: (String) -> Unit = {},
     onFeedPreferred: (Boolean) -> Unit = {},
     onLiquidGlass: (Boolean) -> Unit = {},
+    island: IslandState = IslandState(),
+    onIsland: (Boolean) -> Unit = {},
     onRefractionHeight: (Float) -> Unit = {},
     onRefractionAmount: (Float) -> Unit = {},
     onRefractionChroma: (Float) -> Unit = {},
@@ -720,6 +722,21 @@ fun LauncherScreen(
                     }
                 }
             }
+            if (appearance.island && sheet.isEmpty() && !showFirstRun && !drag.active) {
+                DynamicIsland(island, controlGlass, deviceStatus,
+                    feedHeadline = feed.entries.firstOrNull()?.title,
+                    onSearch = { island.collapse(); openLibrary() },
+                    onOpenFeed = {
+                        island.collapse()
+                        if (pager.currentPage != -1) scope.launch { pager.animateScrollToPage(-1) }
+                    },
+                    onCustomize = { island.collapse(); customizationPage = CustomizationPage.WALLPAPER; sheet = "settings" },
+                    modifier = Modifier.align(Alignment.TopCenter))
+                // Charging transitions flash through the island.
+                LaunchedEffect(deviceStatus.charging) {
+                    if (deviceStatus.charging == true) island.showCharging(true)
+                }
+            }
             if (sheet.isNotEmpty() && sheet != "widgets") {
                 val activeCustomizationPage = if (sheet == "settings:wallpaper") CustomizationPage.WALLPAPER else customizationPage
                 GlassModalSheet(controlGlass, onDismissRequest = {
@@ -781,7 +798,8 @@ fun LauncherScreen(
                             onLiquidGlass = onLiquidGlass,
                             onRefractionHeight = onRefractionHeight,
                             onRefractionAmount = onRefractionAmount,
-                            onRefractionChroma = onRefractionChroma)
+                            onRefractionChroma = onRefractionChroma,
+                            onIsland = onIsland)
                         "widgetActions" -> model.placement(widgetSlot)?.let { placement ->
                             val topPitch = (geometry.widgetHeight + 18f) / 2f
                             val gridSizing = WidgetGridSizing(GRID_COLUMNS, GRID_ROWS, geometry.gridWidth / GRID_COLUMNS,

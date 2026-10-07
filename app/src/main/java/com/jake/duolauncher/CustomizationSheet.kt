@@ -45,6 +45,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     settings: GlassSettings = GlassSettings.Default,
     onLiquidGlass: (Boolean) -> Unit = {},
     onRefractionHeight: (Float) -> Unit = {},
+    onIsland: (Boolean) -> Unit = {},
     onRefractionAmount: (Float) -> Unit = {},
     onRefractionChroma: (Float) -> Unit = {},
 ) {
@@ -135,6 +136,10 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                             appearance.refractionChroma, 0f..1f, tag = "chromatic-slider") { onRefractionChroma(it) }
                     }
                     Text("Height widens the glass rim the lens bends; amount sets how far the view behind is displaced; chromatic adds the color fringe at the edges. Turn off liquid glass for a flat look or to save battery.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                    SettingsSwitch("Dynamic island", appearance.island, onIsland, "island-switch")
+                    Text("A liquid capsule at the camera cutout: the time, then a tap expands battery, the top feed headline, and quick actions. It flashes app launches and charging and never overlays other apps.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear)

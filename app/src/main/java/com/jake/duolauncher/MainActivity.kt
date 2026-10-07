@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var appearance: AppearanceStore
     internal lateinit var feeds: FeedStore
         private set
+    internal val island = IslandState()
     private var appearanceLocationGeneration = 0
     private var appearancePermissionGeneration = -1
     private var appearanceLocationCancellation: CancellationSignal? = null
@@ -124,6 +125,8 @@ class MainActivity : ComponentActivity() {
                     onRemoveFeed = feeds::removeFeed,
                     onFeedPreferred = feeds::setPreferred,
                     onLiquidGlass = appearance::setLiquidGlass,
+                    island = island,
+                    onIsland = appearance::setIsland,
                     onRefractionHeight = appearance::setRefractionHeight,
                     onRefractionAmount = appearance::setRefractionAmount,
                     onRefractionChroma = appearance::setRefractionChroma)
@@ -261,6 +264,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun launchApp(app: AppEntry, bounds: android.graphics.Rect? = null) {
+        island.showLaunch(app)
         try {
             val user = getSystemService(UserManager::class.java).getUserForSerialNumber(app.userSerial)
                 ?: throw IllegalStateException("Profile is unavailable")

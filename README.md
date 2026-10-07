@@ -55,7 +55,8 @@ Normal beta updates install over the existing beta with the same signing key. Un
 | Add to the dock | Drag into a vacancy; move an app out first when the dock is full |
 | Scroll a widget | Swipe vertically inside its content; hold still to pick it up |
 | Customize | Long press empty Home space or the wallpaper margin beside the grid |
-| Notifications / Quick Settings | Swipe down from Home's left 70% / right 30%, after enabling optional shade gestures |
+| Notifications | Swipe down from Home's left 70%, after enabling optional shade gestures |
+| Control panel | Swipe down from Home's right 30%: media, volume, brightness, ringer, flashlight, and a hand-off to Android's Quick Settings. Needs no accessibility service |
 
 The surrounding status ring shows battery, the inner arcs show Wi-Fi strength, and the lower dots show cellular strength. Unknown readings are not displayed as full signal. This rail applies to Home only.
 
@@ -70,6 +71,8 @@ No launcher account, server, advertising, analytics, or automatic crash-upload s
 - **Photos:** the system picker grants access to chosen images, without whole-library access.
 - **Google features:** the installed Google app's account, network, and privacy settings apply.
 
+- **Optional grants, all off until you use the feature:** notification access (badges, track titles, island peek), contacts (search), "Modify system settings" (brightness slider), Do Not Disturb access (Silent), and exact alarms (to-the-second timer). Declining any of them only turns off the one feature.
+
 Read [data and permissions](PRIVACY.md) before sharing backups or diagnostics.
 
 ## Known limits
@@ -79,7 +82,7 @@ Read [data and permissions](PRIVACY.md) before sharing backups or diagnostics.
 - Discover can differ across Google, Android, and vendor updates. Its smooth embedding transition includes a version-scoped compatibility workaround; it is not a portable SystemUI API. Recovery controls let you return Home when unavailable. The news feed works without the Google app.
 - The news feed reads RSS 2.0 and Atom pages with plain summaries; it does not render web pages, media, or script, and needs a browser app to open stories.
 - Work apps/widgets remain subject to administrator policy. Private Space is not supported.
-- Icon packs and notification dots are not implemented. Folders cannot nest or occupy dock slots.
+- Icon packs are not implemented (themed icons use each app's own monochrome layer). Folders cannot nest or occupy dock slots.
 - Imported Android widgets require binding again. Cross-installation work entries may require manual placement. Backups exclude photo backgrounds and system widget capabilities.
 - Secure lock-screen replacement and hinge-driven cross-display animation are outside this beta.
 

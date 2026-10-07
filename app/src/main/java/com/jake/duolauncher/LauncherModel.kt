@@ -12,6 +12,7 @@ import android.os.Process
 import android.os.UserHandle
 import android.os.UserManager
 import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -125,7 +126,13 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         invalidatedPackages.clear()
         removedPackages.clear()
         val resources = getApplication<Application>().resources
-        val configuration = resources.configuration.let { "${it.densityDpi}|${it.locales.toLanguageTags()}|${it.uiMode}" }
+        val iconStyle = IconStyle.fromPreference(getApplication<Application>().getSharedPreferences("extras", 0).getString("iconStyle", null))
+        val themedDark = DuoAppearanceRuntime.dark
+        // The icon style and, only while themed, the light/dark palette are part of what an icon looks
+        // like, so changing either rebuilds every cached icon.
+        val configuration = resources.configuration.let {
+            "${it.densityDpi}|${it.locales.toLanguageTags()}|${it.uiMode}|$iconStyle|${if (iconStyle == IconStyle.THEMED) themedDark else ""}"
+        }
         viewModelScope.launch {
             try {
                 val apps = withContext(Dispatchers.IO) {
@@ -170,7 +177,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
                             val label = info.label.toString()
                             iconCache[id]?.takeIf { it.label == label && it.available } ?: run {
                                 val icon = runCatching { info.getBadgedIcon(0) }.getOrElse { application.packageManager.defaultActivityIcon }
-                                AppEntry(id, label, launcherIcon(icon), component, profile, serial, descriptor.label,
+                                AppEntry(id, label, launcherIcon(icon, iconStyle, themedDark), component, profile, serial, descriptor.label,
                                     descriptor.isWork, available = true).also { iconCache[id] = it }
                             }
                         }
@@ -631,17 +638,55 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
  * Layers are drawn in full and the outside is then cleared through an antialiased mask, rather
  * than hard-clipping, so the curved edge is smooth at every size.
  */
-private fun launcherIcon(drawable: Drawable): Bitmap {
+private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGINAL, dark: Boolean = false): Bitmap {
     if (drawable !is AdaptiveIconDrawable) return drawable.toBitmap(144, 144)
     val bitmap = Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     drawable.setBounds(0, 0, 144, 144)
-    drawable.background?.draw(canvas)
-    drawable.foreground?.draw(canvas)
+    if (style == IconStyle.THEMED) drawThemed(canvas, drawable, dark)
+    else {
+        drawable.background?.draw(canvas)
+        drawable.foreground?.draw(canvas)
+    }
     val outside = Path().also { Squircle.build(144f, 144f, 144f * Corner.ICON_FRACTION, AndroidPathSink(it)) }
     outside.fillType = Path.FillType.INVERSE_WINDING
     canvas.drawPath(outside, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR)
     })
     return bitmap
+}
+
+/** Themed icons: the app's own monochrome layer (Android 13+, when the app ships one) in the palette's
+ * ink on its glass colour. Apps without a monochrome layer keep their artwork, turned greyscale and
+ * washed with the ink so they sit in the same family instead of staying the one saturated icon.
+ */
+private fun drawThemed(canvas: Canvas, drawable: AdaptiveIconDrawable, dark: Boolean) {
+    val palette = if (dark) DarkDuoPalette else LightDuoPalette
+    val ink = palette.ink.toArgb()
+    val monochrome = if (android.os.Build.VERSION.SDK_INT >= 33) drawable.monochrome else null
+    if (monochrome != null) {
+        canvas.drawColor(palette.glass.toArgb())
+        monochrome.mutate().apply { setBounds(0, 0, 144, 144); setTint(ink) }.draw(canvas)
+        return
+    }
+    val layer = Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888)
+    val layerCanvas = Canvas(layer)
+    drawable.background?.draw(layerCanvas)
+    drawable.foreground?.draw(layerCanvas)
+    // Greyscale, then pulled toward the palette's glass colour: most of the artwork's contrast survives, but
+    // it sits on a tile of the same family as the monochrome icons rather than a dark-grey slab.
+    val keep = .45f
+    val glass = palette.glass.toArgb()
+    val lift = 1f - keep
+    val grey = android.graphics.ColorMatrix().apply { setSaturation(0f) }
+    grey.postConcat(android.graphics.ColorMatrix(floatArrayOf(
+        keep, 0f, 0f, 0f, android.graphics.Color.red(glass) * lift,
+        0f, keep, 0f, 0f, android.graphics.Color.green(glass) * lift,
+        0f, 0f, keep, 0f, android.graphics.Color.blue(glass) * lift,
+        0f, 0f, 0f, 1f, 0f)))
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        colorFilter = android.graphics.ColorMatrixColorFilter(grey)
+    }
+    canvas.drawColor(glass)
+    canvas.drawBitmap(layer, 0f, 0f, paint)
 }

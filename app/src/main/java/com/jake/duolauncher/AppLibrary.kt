@@ -40,6 +40,8 @@ internal fun AppLibrary(
     drag: HomeDragState? = null, page: Int? = null,
     onLaunchFrom: (AppEntry, android.graphics.Rect?) -> Unit = { app, _ -> onLaunch(app) },
     onTurnOnWork: (Long) -> Unit = {},
+    contacts: List<ContactResult> = emptyList(),
+    onContact: (ContactResult) -> Unit = {},
 ) {
     val glass = !editing
     val palette = LocalDuoPalette.current
@@ -104,7 +106,7 @@ internal fun AppLibrary(
                             Modifier.padding(top = 10.dp).testTag("turn-on-work")) { Text("Turn on work apps") }
                     }
                 }
-                if (groups.isEmpty()) item { Text(if (state.loading) "Loading apps…" else "No apps found", Modifier.padding(vertical = 20.dp)) }
+                if (groups.isEmpty() && contacts.isEmpty()) item { Text(if (state.loading) "Loading apps…" else "No apps found", Modifier.padding(vertical = 20.dp)) }
                 groups.forEach { (letter, entries) ->
                     stickyHeader(key = "heading-$letter") {
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -136,6 +138,22 @@ internal fun AppLibrary(
                                     tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                                     modifier = Modifier.size(20.dp))
                             }
+                        }
+                    }
+                }
+                if (contacts.isNotEmpty()) {
+                    item("contacts-header") {
+                        Text("Contacts", Modifier.padding(top = 14.dp, bottom = 6.dp), fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp, color = ink)
+                    }
+                    items(contacts, key = { "contact-${it.id}" }) { contact ->
+                        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.small).clickable { onContact(contact) }
+                            .testTag("contact-${contact.id}").padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), androidx.compose.foundation.shape.CircleShape),
+                                contentAlignment = Alignment.Center) {
+                                Text(contact.name.firstOrNull()?.uppercase() ?: "?", color = ink, fontWeight = FontWeight.SemiBold)
+                            }
+                            Text(contact.name, Modifier.weight(1f).padding(start = 12.dp), maxLines = 1, fontSize = 14.sp)
                         }
                     }
                 }

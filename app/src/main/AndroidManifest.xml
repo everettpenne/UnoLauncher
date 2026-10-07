@@ -8,6 +8,17 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Control panel: both are special accesses the user grants in Android Settings, and neither is
+         needed until they reach for brightness or the Silent ringer mode. -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <!-- Opt-in contact search in All apps; asked for only when the user turns it on. Names only. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Island timer: lets it fire to the second with Home closed. Off by default on Android 14+, and the
+         user can leave it off; the timer then ends a little late (still in Doze) instead of failing. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- The island timer buzzes while it rings. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <queries>
         <package android:name="com.google.android.googlequicksearchbox" />
         <intent>
@@ -28,6 +39,17 @@
         <activity android:name=".DiscoverFeedActivity" android:theme="@style/Theme.Duo.Discover" android:exported="false" android:resizeableActivity="true" />
         <activity android:name=".LiveDiscoverActivity" android:theme="@style/Theme.Duo.LiveDiscover"
             android:exported="false" android:resizeableActivity="true" />
+        <!-- Fires when an island timer ends; not exported, so only this app's own alarm can reach it. -->
+        <receiver android:name=".TimerReceiver" android:exported="false" />
+        <!-- Opt-in: bound only after the user turns on notification access in Android's settings. It reads
+             unread counts, the playing track and the posting app's name, and nothing else. -->
+        <service android:name=".UnoNotificationListener" android:exported="true"
+            android:label="Uno Launcher notifications"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
         <service android:name=".DuneWallpaperService" android:label="Uno dunes"
             android:permission="android.permission.BIND_WALLPAPER" android:exported="true">
             <intent-filter><action android:name="android.service.wallpaper.WallpaperService" /></intent-filter>

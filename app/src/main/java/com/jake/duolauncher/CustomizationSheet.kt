@@ -23,7 +23,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
-internal enum class CustomizationPage { OVERVIEW, WALLPAPER, HOME, GESTURES, FEED, UPDATES, BACKUP, HELP }
+internal enum class CustomizationPage { OVERVIEW, WALLPAPER, HOME, GESTURES, EXTRAS, FEED, UPDATES, BACKUP, HELP }
 
 @Composable
 internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, model: LauncherModel,
@@ -35,6 +35,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onAppearanceManual: (String, Double, Double) -> Unit, onAppearanceDeviceLocation: () -> Unit,
     onAppearanceClear: () -> Unit, backgrounds: LauncherBackgroundController, homePage: Int = 0,
     onShadeSetup: () -> Unit = {},
+    extras: ExtrasActions? = null,
     feed: FeedState = FeedState(),
     onFeedRefresh: () -> Unit = {},
     onAddFeed: (String, (FeedAddResult) -> Unit) -> Unit = { _, _ -> },
@@ -60,6 +61,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
         CustomizationPage.WALLPAPER -> "Wallpaper & appearance"
         CustomizationPage.HOME -> "Home layout"
         CustomizationPage.GESTURES -> "Gestures & search"
+        CustomizationPage.EXTRAS -> "Control panel & extras"
         CustomizationPage.FEED -> "News feed"
         CustomizationPage.UPDATES -> "Updates"
         CustomizationPage.BACKUP -> "Backup"
@@ -93,6 +95,8 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         "Icons, spacing, dock, and widgets", "customization-home") { onPage(CustomizationPage.HOME) }
                     CustomizationDestination(Icons.Rounded.Search, "Gestures & search",
                         "Labels, status, and search behavior", "customization-gestures") { onPage(CustomizationPage.GESTURES) }
+                    if (extras != null) CustomizationDestination(Icons.Rounded.Tune, "Control panel & extras",
+                        "Panel tiles, Focus, icon style, badges, contacts", "customization-extras") { onPage(CustomizationPage.EXTRAS) }
                     CustomizationDestination(Icons.Rounded.RssFeed, "News feed",
                         "Your own headlines in place of Discover", "customization-feed") { onPage(CustomizationPage.FEED) }
                     CustomizationDestination(Icons.Rounded.SystemUpdateAlt, "Updates",
@@ -163,9 +167,10 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     SettingsSwitch("Search button opens Google", state.googleSearch, model::setGoogleSearch, "google-search-switch")
                     Text("All apps always keeps local app search.", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Swipe sideways anywhere on Home to change pages. Swipe down for notifications or quick settings.",
+                    Text("Swipe sideways anywhere on Home to change pages. Swipe down on the left for notifications, and on the right for the control panel (or Android Quick Settings; see Control panel & extras).",
                         style = MaterialTheme.typography.bodyMedium)
                 }
+                CustomizationPage.EXTRAS -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps)
                 CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onFeedPreferred)
                 CustomizationPage.UPDATES -> UpdatesPanel(updates, onCheckUpdates, onInstallRelease, onAutoUpdate)
                 CustomizationPage.BACKUP -> {

@@ -25,6 +25,8 @@ internal enum class IslandSymbol(val tint: Color) {
     VIBRATE(Color.White),
     AIRPLANE(Color(0xFFFF9F0A)),
     FOCUS(Color(0xFF7D7AFF)),
+    TIMER(Color(0xFFFF9F0A)),
+    NOTIFICATION(Color.White),
 }
 
 /** A brief event shown in the collapsed island, like iOS's ringer, charging and Focus flashes. */

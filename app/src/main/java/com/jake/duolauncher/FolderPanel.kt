@@ -59,7 +59,7 @@ internal fun FolderPanel(
         if (glassBackdrop != null) {
             Box(panelModifier.liquidGlass(glassBackdrop, Corner.xlarge, glassTint, blurRadius = 4f, settings = settings)) {
                 FolderPanelBody(title, { title = it }, folder, apps, drag, page, homeDestinations,
-                    dockVacancies, onRename, onLaunch, onMoveOut, onDismiss)
+                    dockVacancies, onRename, onLaunch, onMoveOut, onDismiss, glass = true)
             }
         } else {
             Surface(panelModifier, color = glassTint, shape = Corner.xlarge,
@@ -85,6 +85,7 @@ private fun FolderPanelBody(
     onLaunch: (AppEntry, android.graphics.Rect?) -> Unit,
     onMoveOut: (String, DropTarget) -> Unit,
     onDismiss: () -> Unit,
+    glass: Boolean = false,
 ) {
     Column(Modifier.padding(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -97,7 +98,7 @@ private fun FolderPanelBody(
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(folder.appIds, key = { it }) { appId ->
                 apps[appId]?.let { app -> FolderChild(app, folder.id, drag, page, homeDestinations, dockVacancies,
-                    onLaunch = onLaunch, onMoveOut = onMoveOut) }
+                    onLaunch = onLaunch, onMoveOut = onMoveOut, glass = glass) }
             }
         }
     }
@@ -108,15 +109,22 @@ private fun FolderChild(
     app: AppEntry, folderId: String, drag: HomeDragState, page: Int,
     homeDestinations: List<Int>, dockVacancies: List<Int>,
     onLaunch: (AppEntry, android.graphics.Rect?) -> Unit, onMoveOut: (String, DropTarget) -> Unit,
+    glass: Boolean = false,
 ) {
     var menu by remember { mutableStateOf(false) }
-    Surface(Modifier.fillMaxWidth().testTag("folder-child-${app.id}"), color = Color.White.copy(alpha = .34f),
-        shape = Corner.medium) {
+    // On glass the tiles are faint, edge-lit cards that let the panel show through, like the dock and widgets;
+    // the flat panel keeps the denser tile so labels stay readable.
+    Surface(Modifier.fillMaxWidth().testTag("folder-child-${app.id}"),
+        color = Color.White.copy(alpha = if (glass) .14f else .34f), shape = Corner.medium,
+        border = if (glass) androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .22f)) else null) {
         Box {
             Column(Modifier.fillMaxWidth().dropRegion(drag, DropTarget.Library(app.id), app.id, page,
                 folderId = folderId, scope = folderId).clickable(enabled = app.available) { onLaunch(app, null) }
                 .padding(horizontal = 6.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(app.icon.asImageBitmap(), null, Modifier.size(46.dp).clip(Corner.icon))
+                Box {
+                    Image(app.icon.asImageBitmap(), null, Modifier.size(46.dp).clip(Corner.icon))
+                    AppBadge(badgeCount(app.packageName), Modifier.align(Alignment.TopEnd))
+                }
                 Text(app.label, Modifier.padding(top = 6.dp), maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelMedium)
                 if (app.isWork || !app.available) Text(if (app.available) app.profileLabel else "${app.profileLabel} unavailable",

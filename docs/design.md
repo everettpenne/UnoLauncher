@@ -221,3 +221,25 @@ Audited against: 16 dp edge margins, ≥ 8 dp sibling gaps, 8 dp grid.
 ≈ 37–374 dp while the rail starts at ≈ 315 dp — a ≈ 30–58 dp overlap (depending on dock width). Fix when next
 editing `IslandGeometry`: cap the expanded width at
 `screenWidth − 2 × (dockWidth + 16 dp)`, or fade the rail while the island is expanded.
+
+## Control panel
+
+The right 30% of a downward swipe on Home opens a glass panel (`ControlPanel.kt`) rather than Android's Quick Settings; Notifications still use the system shade from the left 70%. Tiles: media transport (media keys, no notification access, so no titles), volume (music stream), brightness (system setting), a Ring / Vibrate / Silent selector, and a flashlight. A **System settings** row hands off to the real Quick Settings through the optional accessibility service, so everything the panel doesn't cover is one tap away.
+
+Principles:
+
+- No new always-on grant. Brightness needs "Modify system settings" and Silent needs Do Not Disturb access; each is requested only when the user taps the control, and the panel shows an "Allow ..." row instead of a dead slider.
+- Nothing runs while the panel is closed. `SystemControls` registers its receiver, torch, playback and brightness listeners when the panel enters composition and removes them when it leaves.
+- Every binder call (audio, camera, settings, notification policy) runs on one worker thread; slider drags are coalesced to the newest value, and the thumb moves optimistically while the write follows.
+- The rules (volume and brightness mapping, when Silent needs access, which camera has the torch) live in `ControlLogic.kt` and are unit-tested.
+
+## Extras
+
+Everything below is opt-in or user-arranged, kept in one preference file (`extras`, `ExtrasStore.kt`) with its rules in `ExtrasModel.kt` so they are unit-tested.
+
+- **Panel tiles** (`PanelLayout`): a saved order and a hidden set. An old saved order keeps its order and gains any tile a newer build added; with everything hidden, System settings returns so Quick Settings stays reachable. Ringer and Flashlight share a row when adjacent.
+- **Focus** (`Focus.filter`): applied in `MainActivity` to the app list the UI sees, not to the model, so the saved layout and pins never change and hidden apps return untouched. The optional ringer change only touches the ringer when it was ringing and only restores it if it is still on vibrate.
+- **Island tools** (`IslandTools.kt`): the timer is an alarm-clock alarm when exact alarms are allowed and an inexact Doze-friendly alarm otherwise, plus an in-process trigger; whichever arrives first rings. State persists so a timer that ended while the process was gone is shown as done. The island's torch worker exists only while the tools face is open.
+- **Themed icons** (`drawThemed`): the app's monochrome layer in the palette's ink on its glass colour; apps without one are greyscaled and pulled toward the glass colour. Icons are baked into bitmaps, so a style or light/dark change rebuilds the cache.
+- **Notification access** (`NotificationFeed.kt`): a `NotificationListenerService` that is only bound after the user enables it. All system calls run on a private worker thread. It publishes badge counts (ongoing notifications and group summaries are not counted), the current media session, and a throttled app-name peek. Apps without a launcher icon are invisible to the launcher under Android's package visibility, so they never peek.
+- **Contact search** (`ContactsSearch.kt`): names only, on demand, word-prefix matching (`ContactMatch`), at most five results.

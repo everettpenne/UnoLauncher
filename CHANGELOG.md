@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.4-uno01
+
+- Real liquid refraction: the lens effect now uses deeper displacement with depth weighting, and adds chromatic aberration at high intensities.
+- Add a refraction intensity slider under Wallpaper & appearance; the default sits at 55% and the top end matches the demo's heavy bending.
+
 ## 0.16.3-uno01
 
 - Extend liquid glass: the status rail and folder panel are now glass surfaces.

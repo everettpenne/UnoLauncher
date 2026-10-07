@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.unit.dp
 import androidx.palette.graphics.Palette
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -28,20 +29,29 @@ internal fun rememberHomeBackdrop(): LayerBackdrop = rememberLayerBackdrop()
 @Composable
 internal fun Modifier.recordBackdrop(backdrop: LayerBackdrop): Modifier = layerBackdrop(backdrop)
 
-/** Liquid-glass surface: vibrancy, blur, and lens refraction over the recorded backdrop. */
+/** Liquid-glass surface: vibrancy, blur, and lens refraction over the recorded backdrop.
+ * [refraction] (0..1) scales the lens: height, displacement, and at the top end
+ * chromatic aberration and depth weighting, matching the demo's deep-refraction look.
+ */
 @Composable
 internal fun Modifier.liquidGlass(
     backdrop: LayerBackdrop,
     shape: Shape,
     tint: Color = Glass.copy(alpha = .3f),
     blurRadius: Float = 2f,
+    refraction: Float = .55f,
 ): Modifier = drawBackdrop(
     backdrop = backdrop,
     shape = { shape },
     effects = {
         vibrancy()
         blur(blurRadius.dp.toPx())
-        lens(12f.dp.toPx(), 24f.dp.toPx())
+        lens(
+            refractionHeight = lerp(6f, 30f, refraction).dp.toPx(),
+            refractionAmount = lerp(10f, 60f, refraction).dp.toPx(),
+            depthEffect = true,
+            chromaticAberration = refraction > 0.7f,
+        )
     },
     highlight = { Highlight.Plain },
     onDrawSurface = { drawRect(tint) },

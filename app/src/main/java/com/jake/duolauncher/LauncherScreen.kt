@@ -144,6 +144,7 @@ fun LauncherScreen(
     onRemoveFeed: (String) -> Unit = {},
     onFeedPreferred: (Boolean) -> Unit = {},
     onLiquidGlass: (Boolean) -> Unit = {},
+    onRefraction: (Float) -> Unit = {},
 ) {
     var sheet by rememberSaveable { mutableStateOf("") }
     var dockSlot by rememberSaveable { mutableIntStateOf(0) }
@@ -451,6 +452,7 @@ fun LauncherScreen(
         onFinish = { cancelled -> finishDrag(cancelled) })) {
         val homeBackdrop = rememberHomeBackdrop()
         val glassEnabled = appearance.liquidGlass
+        val glassRefraction = appearance.refraction
         val glassTint = if (glassEnabled) rememberGlassTint(Glass) else Glass
         Box(Modifier.matchParentSize().then(if (glassEnabled) Modifier.recordBackdrop(homeBackdrop) else Modifier)) {
             DuneWallpaper()
@@ -575,6 +577,7 @@ fun LauncherScreen(
                         onFeedAdd = { customizationPage = CustomizationPage.FEED; sheet = "settings" },
                         glassBackdrop = homeBackdrop.takeIf { glassEnabled },
                         glassTint = glassTint.copy(alpha = .82f),
+                        refraction = glassRefraction,
                         libraryQuery = libraryQuery, onLibraryQuery = { libraryQuery = it },
                         onLaunch = onLaunch, onLaunchFrom = onLaunchFrom, onPinned = model::setPinned,
                         onTurnOnWork = { model.turnOnWork(it) },
@@ -599,7 +602,8 @@ fun LauncherScreen(
                             feed, feedVisible, onFeedRefresh, onFeedOpenEntry,
                             onAddFeed = { customizationPage = CustomizationPage.FEED; sheet = "settings" },
                             glassBackdrop = homeBackdrop.takeIf { glassEnabled },
-                            glassTint = glassTint.copy(alpha = .82f))
+                            glassTint = glassTint.copy(alpha = .82f),
+                            refraction = glassRefraction)
                     } else if (page == visibleHomePages) {
                         AppLibrary(state, libraryQuery, { libraryQuery = it }, onLaunch, model::setPinned,
                             onActions = { selectedId = it.id }, modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace).testTag("library-page"),
@@ -620,7 +624,7 @@ fun LauncherScreen(
             if (state.verticalStatus) {
                 if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.contentTop.dp)
                     .width(preset.dockWidth.dp)
-                    .liquidGlass(homeBackdrop, RoundedCornerShape(26.dp), glassTint.copy(alpha = .30f), blurRadius = 1.5f)
+                    .liquidGlass(homeBackdrop, RoundedCornerShape(26.dp), glassTint.copy(alpha = .30f), blurRadius = 1.5f, refraction = glassRefraction)
                     .padding(vertical = 8.dp)) {
                     StatusRail(deviceStatus, Modifier.fillMaxWidth().onSizeChanged {
                         statusHeight = (with(density) { it.height.toDp().value } -
@@ -637,7 +641,7 @@ fun LauncherScreen(
             }
             if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
-                .liquidGlass(homeBackdrop, RoundedCornerShape(30.dp), glassTint.copy(alpha = .30f))
+                .liquidGlass(homeBackdrop, RoundedCornerShape(30.dp), glassTint.copy(alpha = .30f), refraction = glassRefraction)
                 .graphicsLayer {
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                 }.testTag("dock")) {
@@ -747,7 +751,9 @@ fun LauncherScreen(
                             onAddFeed = onAddFeed, onRemoveFeed = onRemoveFeed, onFeedPreferred = onFeedPreferred,
                             glassBackdrop = homeBackdrop.takeIf { glassEnabled },
                             glassTint = glassTint.copy(alpha = .62f),
-                            onLiquidGlass = onLiquidGlass)
+                            refraction = glassRefraction,
+                            onLiquidGlass = onLiquidGlass,
+                            onRefraction = onRefraction)
                         "widgetActions" -> model.placement(widgetSlot)?.let { placement ->
                             val topPitch = (geometry.widgetHeight + 18f) / 2f
                             val gridSizing = WidgetGridSizing(GRID_COLUMNS, GRID_ROWS, geometry.gridWidth / GRID_COLUMNS,
@@ -1220,7 +1226,8 @@ fun LauncherScreen(
                         if (model.removeAppFromFolder(id, appId, destination)) openFolderId = model.folder(id)?.id
                     },
                     glassBackdrop = homeBackdrop.takeIf { glassEnabled },
-                    glassTint = glassTint.copy(alpha = .90f))
+                    glassTint = glassTint.copy(alpha = .90f),
+                    refraction = glassRefraction)
             } ?: LaunchedEffect(id) { openFolderId = null }
         }
         launcherActivity.backups.preview?.let { preview ->
@@ -1298,6 +1305,7 @@ private fun ExpandedWorkspace(
     onFeedAdd: () -> Unit,
     glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop?,
     glassTint: Color,
+    refraction: Float,
     libraryQuery: String,
     onLibraryQuery: (String) -> Unit,
     onLaunch: (AppEntry) -> Unit,
@@ -1365,7 +1373,7 @@ private fun ExpandedWorkspace(
             key("discover-pane") {
                 Box(Modifier.place(-viewportWidth).fillMaxSize()) {
                     DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp),
-                        feed, feedVisible, onFeedRefresh, onFeedOpenEntry, onFeedAdd, glassBackdrop, glassTint)
+                        feed, feedVisible, onFeedRefresh, onFeedOpenEntry, onFeedAdd, glassBackdrop, glassTint, refraction)
                 }
             }
         }

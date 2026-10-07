@@ -42,7 +42,9 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onFeedPreferred: (Boolean) -> Unit = {},
     glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
     glassTint: Color = Glass.copy(alpha = .62f),
+    refraction: Float = .55f,
     onLiquidGlass: (Boolean) -> Unit = {},
+    onRefraction: (Float) -> Unit = {},
 ) {
     var wide by rememberSaveable { mutableStateOf(initiallyWide) }
     val title = when (page) {
@@ -58,7 +60,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     LaunchedEffect(page) { bodyScroll.scrollTo(0) }
     Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)
         .then(if (glassBackdrop != null) Modifier.liquidGlass(glassBackdrop, RoundedCornerShape(30.dp),
-            glassTint, blurRadius = 4f) else Modifier)
+            glassTint, blurRadius = 4f, refraction = refraction) else Modifier)
         .padding(horizontal = 20.dp).padding(bottom = 12.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             if (page != CustomizationPage.OVERVIEW) IconButton(onClick = { onPage(CustomizationPage.OVERVIEW) },
@@ -122,7 +124,10 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         .testTag("wallpaper-preview")) { Icon(Icons.Rounded.Wallpaper, null); Spacer(Modifier.width(8.dp)); Text("Preview Android wallpaper") }
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     SettingsSwitch("Liquid glass", appearance.liquidGlass, onLiquidGlass, "liquid-glass-switch")
-                    Text("Blurs and refracts Home behind the dock and panels. Turn off for a flat look or to save battery.",
+                    if (appearance.liquidGlass) CustomizationSlider("Refraction intensity",
+                        "${(appearance.refraction * 100).toInt()}%", appearance.refraction, 0f..1f,
+                        tag = "refraction-slider") { onRefraction(it) }
+                    Text("Blurs and refracts Home behind the dock and panels. Higher refraction bends the view behind the glass more, like the full liquid effect. Turn off for a flat look or to save battery.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear)
@@ -283,7 +288,9 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
 }
 
 @Composable private fun CustomizationSlider(label: String, valueLabel: String, value: Float,
-    range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
-    Column { Row { Text(label, Modifier.weight(1f)); Text(valueLabel, color = MaterialTheme.colorScheme.primary) }
-        Slider(value, onChange, valueRange = range, modifier = Modifier.semantics { contentDescription = label }) }
+    range: ClosedFloatingPointRange<Float>, tag: String? = null, onChange: (Float) -> Unit) {
+    Column(Modifier.then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
+        Row { Text(label, Modifier.weight(1f)); Text(valueLabel, color = MaterialTheme.colorScheme.primary) }
+        Slider(value, onChange, valueRange = range, modifier = Modifier.semantics { contentDescription = label })
+    }
 }

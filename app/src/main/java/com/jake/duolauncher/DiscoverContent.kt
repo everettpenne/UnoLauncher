@@ -17,9 +17,10 @@ internal fun DiscoverContent(modifier: Modifier = Modifier, feed: FeedState = Fe
     feedVisible: Boolean = false, onFeedRefresh: () -> Unit = {},
     onFeedOpenEntry: (String) -> Unit = {}, onAddFeed: () -> Unit = {},
     glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
-    glassTint: Color = Glass.copy(alpha = .82f)) {
+    glassTint: Color = Glass.copy(alpha = .82f),
+    refraction: Float = .55f) {
     if (feedVisible) {
-        FeedPage(feed, onFeedRefresh, onFeedOpenEntry, onAddFeed, modifier, glassBackdrop, glassTint)
+        FeedPage(feed, onFeedRefresh, onFeedOpenEntry, onAddFeed, modifier, glassBackdrop, glassTint, refraction)
         return
     }
     val context = androidx.compose.ui.platform.LocalContext.current

@@ -118,7 +118,8 @@ class MainActivity : ComponentActivity() {
                     onAddFeed = feeds::addFeed,
                     onRemoveFeed = feeds::removeFeed,
                     onFeedPreferred = feeds::setPreferred,
-                    onLiquidGlass = appearance::setLiquidGlass)
+                    onLiquidGlass = appearance::setLiquidGlass,
+                    onRefraction = appearance::setRefraction)
             }
         }
         FoldRenderExperiment.attach(this)

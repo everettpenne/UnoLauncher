@@ -32,6 +32,7 @@ internal fun FolderPanel(
     onMoveOut: (String, DropTarget) -> Unit,
     glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
     glassTint: Color = Glass.copy(alpha = .97f),
+    refraction: Float = .55f,
 ) {
     var title by rememberSaveable(folder.id) { mutableStateOf(folder.title) }
     BackHandler { onDismiss() }
@@ -56,7 +57,7 @@ internal fun FolderPanel(
             )
             .testTag("folder-panel-content")
         if (glassBackdrop != null) {
-            Box(panelModifier.liquidGlass(glassBackdrop, RoundedCornerShape(30.dp), glassTint, blurRadius = 4f)) {
+            Box(panelModifier.liquidGlass(glassBackdrop, RoundedCornerShape(30.dp), glassTint, blurRadius = 4f, refraction = refraction)) {
                 FolderPanelBody(title, { title = it }, folder, apps, drag, page, homeDestinations,
                     dockVacancies, onRename, onLaunch, onMoveOut, onDismiss)
             }

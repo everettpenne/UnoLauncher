@@ -138,6 +138,7 @@ internal fun LauncherScreen(
     showFirstRun: Boolean = false,
     onFinishFirstRun: () -> Unit = {},
     onShadeSetup: () -> Unit = {},
+    extras: ExtrasActions? = null,
     feed: FeedState = FeedState(),
     feedSetupRequests: Int = 0,
     onFeedRefresh: () -> Unit = {},
@@ -186,9 +187,16 @@ internal fun LauncherScreen(
     var savedPage by rememberSaveable { mutableIntStateOf(0) }
     var lastHomePage by rememberSaveable { mutableIntStateOf(0) }
     var libraryQuery by rememberSaveable { mutableStateOf("") }
+    val contactsOn = extras?.store?.state?.contactSearch == true
+    var contactResults by remember { mutableStateOf(emptyList<ContactResult>()) }
     var pinQuery by rememberSaveable { mutableStateOf("") }
     val launcherActivity = androidx.activity.compose.LocalActivity.current as MainActivity
     val launcherRootView = LocalView.current.rootView
+    LaunchedEffect(libraryQuery, contactsOn) {
+        if (!contactsOn || libraryQuery.trim().length < ContactMatch.MIN_QUERY) { contactResults = emptyList(); return@LaunchedEffect }
+        delay(180)
+        contactResults = withContext(Dispatchers.IO) { ContactsSearch.search(launcherActivity, libraryQuery) }
+    }
     DisposableEffect(sheet == "widgets") {
         val active = sheet == "widgets"
         if (active) LiveDiscover.setExternalResultPending(launcherActivity, "main", "widget-picker", true)
@@ -337,6 +345,14 @@ internal fun LauncherScreen(
             sheet = ""; widgetPackage = null; widgetExactTarget = false; widgetPlacementMessage = null
         }
     }
+    var controlPanelOpen by remember { mutableStateOf(false) }
+    // Themed icons are baked into bitmaps, so a style change (or, while themed, a light/dark flip) rebuilds them.
+    val iconStyleNow = extras?.store?.state?.iconStyle ?: IconStyle.ORIGINAL
+    val themedDarkNow = iconStyleNow == IconStyle.THEMED && appearance.dark
+    var iconsSeeded by remember { mutableStateOf(false) }
+    LaunchedEffect(iconStyleNow, themedDarkNow) { if (iconsSeeded) model.refresh() else iconsSeeded = true }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { controlPanelOpen = false }
+    BackHandler(enabled = controlPanelOpen) { controlPanelOpen = false }
     BackHandler(enabled = sheet == "widgets") { widgetPickerBack() }
     BackHandler(enabled = sheet.isEmpty()) { if (resizeSlot != null) resizeSlot = null else if (drag.active) {
         val destination = if (drag.source?.target is DropTarget.Library) homePages else drag.originPage.coerceAtMost(homePages - 1)
@@ -540,7 +556,7 @@ internal fun LauncherScreen(
                 openFolderId == null && emptyCellIndex == null && createFolderFirstId == null &&
                 launcherActivity.backups.preview == null && !launcherActivity.backups.pickerPending &&
                 !launcherActivity.backgrounds.pickerPending && widgets.setupStatus == null &&
-                widgets.reconfigureWidgetId == null
+                widgets.reconfigureWidgetId == null && !controlPanelOpen
             Box(Modifier.fillMaxSize().onGloballyPositioned {
                 gestureOriginInRoot = it.boundsInRoot().topLeft
                 gestureOriginInWindow = it.boundsInWindow().topLeft
@@ -562,7 +578,11 @@ internal fun LauncherScreen(
                             !nativeWidgetConsumesVerticalGesture(launcherRootView, screenPoint)
                     }
                 },
-                onDownwardSwipe = launcherActivity::openSystemShade,
+                // The right-hand swipe opens the launcher's own control panel; Notifications still use the system shade.
+                onDownwardSwipe = { panel ->
+                    if (panel == ShadePanel.QUICK_SETTINGS && (extras?.store?.state?.rightSwipe ?: RightSwipe.PANEL) == RightSwipe.PANEL) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); controlPanelOpen = true }
+                    else launcherActivity.openSystemShade(panel)
+                },
                 onLeadingOverscroll = if (firstHome == 0) onDiscover else null,
                 ignorePress = { point -> pageStripBounds.contains(point + gestureOriginInRoot) },
             )) {
@@ -611,6 +631,7 @@ internal fun LauncherScreen(
                         glassTint = glassTint.copy(alpha = .55f),
                         settings = glassSettings,
                         libraryQuery = libraryQuery, onLibraryQuery = { libraryQuery = it },
+                        contacts = contactResults, onContact = { ContactsSearch.open(launcherActivity, it) },
                         onLaunch = onLaunch, onLaunchFrom = onLaunchFrom, onPinned = model::setPinned,
                         onTurnOnWork = { model.turnOnWork(it) },
                         onActions = { selectedId = it.id }, onWidget = { widgetSlot = it; sheet = "widgetActions" },
@@ -641,7 +662,8 @@ internal fun LauncherScreen(
                     } else if (page == visibleHomePages) {
                         AppLibrary(state, libraryQuery, { libraryQuery = it }, onLaunch, model::setPinned,
                             onActions = { selectedId = it.id }, modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace).testTag("library-page"),
-                            drag = drag, page = visibleHomePages, onLaunchFrom = onLaunchFrom, onTurnOnWork = { model.turnOnWork(it) })
+                            drag = drag, page = visibleHomePages, onLaunchFrom = onLaunchFrom, onTurnOnWork = { model.turnOnWork(it) },
+                            contacts = contactResults, onContact = { ContactsSearch.open(launcherActivity, it) })
                     } else {
                         Row(Modifier.fillMaxSize().testTag("home-surface")) {
                             HomePagePane(page, state, previewLayout.slots, previewLayout.leadingSlots, previewLayout.widgetPlacements, appsById, geometry, contentHeight,
@@ -732,7 +754,7 @@ internal fun LauncherScreen(
                     }
                 }
             }
-            if (appearance.island && sheet.isEmpty() && !showFirstRun && !drag.active) {
+            if (appearance.island && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen) {
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.entries.firstOrNull()?.title,
                     sizeScale = appearance.islandScale,
@@ -747,6 +769,18 @@ internal fun LauncherScreen(
                 LaunchedEffect(deviceStatus.charging) {
                     if (deviceStatus.charging == true) island.showCharging(deviceStatus.battery)
                 }
+            }
+            androidx.compose.animation.AnimatedVisibility(controlPanelOpen,
+                enter = androidx.compose.animation.slideInVertically { -it / 2 } + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.slideOutVertically { -it / 2 } + androidx.compose.animation.fadeOut()) {
+                ControlPanel(controlGlass, extras?.store?.state ?: ExtrasState(), state.apps,
+                    onToggleFocus = { extras?.toggleFocus?.invoke() },
+                    onLaunchApp = { app -> controlPanelOpen = false; onLaunch(app) },
+                    onCustomize = { controlPanelOpen = false; customizationPage = CustomizationPage.EXTRAS; sheet = "settings" },
+                    onDismiss = { controlPanelOpen = false }, onSystemSettings = {
+                    controlPanelOpen = false
+                    launcherActivity.openSystemShade(ShadePanel.QUICK_SETTINGS)
+                })
             }
             if (sheet.isNotEmpty() && sheet != "widgets") {
                 val activeCustomizationPage = if (sheet == "settings:wallpaper") CustomizationPage.WALLPAPER else customizationPage
@@ -798,6 +832,7 @@ internal fun LauncherScreen(
                             onAppearanceManual = onAppearanceManual, onAppearanceDeviceLocation = onAppearanceDeviceLocation,
                             onAppearanceClear = onAppearanceClear,
                             onShadeSetup = { sheet = ""; onShadeSetup() },
+                            extras = extras,
                             backgrounds = launcherActivity.backgrounds,
                             onWallpaperPreview = { sheet = ""; onWallpaperPreview() }, homePage = pager.currentPage.coerceIn(0, homePages - 1),
                             feed = feed, onFeedRefresh = onFeedRefresh,
@@ -1374,6 +1409,8 @@ private fun ExpandedWorkspace(
     settings: GlassSettings,
     libraryQuery: String,
     onLibraryQuery: (String) -> Unit,
+    contacts: List<ContactResult> = emptyList(),
+    onContact: (ContactResult) -> Unit = {},
     onLaunch: (AppEntry) -> Unit,
     onLaunchFrom: (AppEntry, android.graphics.Rect?) -> Unit,
     onPinned: (String, Boolean) -> Unit,
@@ -1488,7 +1525,8 @@ private fun ExpandedWorkspace(
                         onActions = onActions,
                         modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace)
                             .testTag("library-page"),
-                        drag = drag, page = visibleHomePages, onLaunchFrom = onLaunchFrom, onTurnOnWork = onTurnOnWork)
+                        drag = drag, page = visibleHomePages, onLaunchFrom = onLaunchFrom, onTurnOnWork = onTurnOnWork,
+                        contacts = contacts, onContact = onContact)
                 }
             }
         }
@@ -1808,6 +1846,7 @@ private fun DockAppColumn(
                             scaleX = 1f - .08f * p; scaleY = 1f - .08f * p
                         }
                         .pressGlow(slotProgress[renderIndex], Corner.icon))
+                    Box(Modifier.size(iconSize.dp)) { AppBadge(badgeCount(app.packageName), Modifier.align(Alignment.TopEnd)) }
                     // The press lens: clear glass that lifts and magnifies the icon under your finger.
                     // A plain rounded shape, not Corner.icon: the glass library rejects squircle outlines.
                     val press = slotProgress[renderIndex]
@@ -1863,9 +1902,12 @@ private fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modif
             role = Role.Button, onClick = { onClick(bounds) })
         .semantics { onLongClick("App options") { onLongClick(); true } }.padding(horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally) {
-        Image(app.icon.asImageBitmap(), null, Modifier.size(iconSize).onGloballyPositioned { bounds.set(it.boundsInWindow().toAndroidBounds()) }
-            .graphicsLayer { scaleX = 1f - .08f * progress; scaleY = 1f - .08f * progress }
-            .pressGlow(progress, Corner.icon))
+        Box {
+            Image(app.icon.asImageBitmap(), null, Modifier.size(iconSize).onGloballyPositioned { bounds.set(it.boundsInWindow().toAndroidBounds()) }
+                .graphicsLayer { scaleX = 1f - .08f * progress; scaleY = 1f - .08f * progress }
+                .pressGlow(progress, Corner.icon))
+            AppBadge(badgeCount(app.packageName), Modifier.align(Alignment.TopEnd))
+        }
         if (labels) Text(app.label, color = Color.White, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .55f), Offset(0f, 1f), 3f)), modifier = Modifier.padding(top = 4.dp))

@@ -16,6 +16,18 @@ The shade-gesture accessibility service opens notifications or Quick Settings in
 
 Coarse location is requested only when you tap the button for approximate location in sunrise/sunset appearance settings, as a single request; the launcher stores the resulting coordinates (and **Clear location** removes them). You can instead type coordinates, or leave the system theme on, and never grant it.
 
+### Features that ask Android for access
+
+Each of these is off by default, asks only when you turn on the feature that needs it, and can be revoked in Android's settings at any time. The launcher works fully without any of them.
+
+- **Notification access** (badges, track title and artwork, island peek). The launcher reads which apps have unread notifications and how many, the current media session's title, artist and artwork, and the name of the app that just posted. It never reads message text. Nothing is stored, logged or sent, and the listener is only bound after you enable it in Android's settings.
+- **Contacts** (search in All apps). Only contact names are read, on demand while you type; nothing is cached or sent. Tapping a result opens it in the system Contacts app.
+- **Modify system settings** (brightness slider in the control panel). Used only to set screen brightness when you move that slider; moving it turns automatic brightness off.
+- **Do Not Disturb access** (Silent in the ringer selector). Android ties Silent to Do Not Disturb; used only when you tap Silent.
+- **Exact alarms** (island timer). Lets the timer end to the second with Home closed. Without it the timer ends within about a minute.
+- **Vibrate** (island timer buzz), and a timer alarm that rings the default alarm sound.
+- **Flashlight, volume, ringer and media keys** use Android APIs that need no permission.
+
 Android controls widget-binding approval and Home-app selection. Providers can require separate setup or permissions.
 
 ## News feed and network use

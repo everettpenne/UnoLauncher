@@ -16,6 +16,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
 import androidx.activity.viewModels
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -50,6 +51,24 @@ class MainActivity : ComponentActivity() {
     internal lateinit var feeds: FeedStore
         private set
     internal val island = IslandState()
+    private val extrasStore by lazy { ExtrasStore(applicationContext) }
+    private val notificationAccess = mutableStateOf(false)
+    private val contactsPermission = activityResultRegistry.register("duo.extras.contacts", this,
+        ActivityResultContracts.RequestPermission()) { granted -> if (!granted) extrasStore.setContactSearch(false) }
+    private val extrasActions by lazy {
+        ExtrasActions(extrasStore,
+            requestContacts = { contactsPermission.launch(android.Manifest.permission.READ_CONTACTS) },
+            hasContactsPermission = { checkSelfPermission(android.Manifest.permission.READ_CONTACTS) == android.content.pm.PackageManager.PERMISSION_GRANTED },
+            openNotificationAccess = { startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+            hasNotificationAccess = { notificationAccess.value },
+            toggleFocus = ::toggleFocus)
+    }
+    private fun toggleFocus() {
+        val next = !extrasStore.state.focusOn
+        extrasStore.setFocusOn(next)
+        FocusMode.applyRinger(this, next, extrasStore.state.focusVibrate)
+        island.showEvent(IslandEvent(if (next) "Focus on" else "Focus off", IslandSymbol.FOCUS))
+    }
     internal lateinit var updates: UpdateStore
         private set
     private var appearanceLocationGeneration = 0
@@ -98,11 +117,18 @@ class MainActivity : ComponentActivity() {
             LiveDiscover.setExternalResultPending(this, "main", "launcher-background", active)
         }
         status = DeviceStatusMonitor(this).also { lifecycle.addObserver(it) }
+        IslandTools.load(this)
+        NotificationFeed.onPeek = { label -> island.showEvent(IslandEvent(label, IslandSymbol.NOTIFICATION)) }
         updateDefaultHome()
         if (savedInstanceState == null && intent.getStringExtra("duo_destination") == "search") searchRequests.intValue++
         intent.removeExtra("duo_destination")
         setContent {
-            val state = model.state.collectAsStateWithLifecycle().value
+            val rawState = model.state.collectAsStateWithLifecycle().value
+            val extrasState = extrasStore.state
+            // Focus hides apps at the last moment, so the saved layout and the model never change.
+            val state = remember(rawState, extrasState.focusOn, extrasState.focusHidden) {
+                rawState.copy(apps = Focus.filter(rawState.apps, { it.id }, extrasState.focusOn, extrasState.focusHidden))
+            }
             val deviceStatus = status.state.collectAsStateWithLifecycle().value
             DuoTheme(appearance.state.dark) {
                 androidx.compose.runtime.CompositionLocalProvider(LocalFeedFollow provides feeds::addFeed,
@@ -120,6 +146,7 @@ class MainActivity : ComponentActivity() {
                     showFirstRun = showFirstRun.value,
                     onFinishFirstRun = ::finishFirstRun,
                     onShadeSetup = ::showShadeSetup,
+                    extras = extrasActions,
                     feed = feeds.state.collectAsStateWithLifecycle().value,
                     feedSetupRequests = feedSetupRequests.intValue,
                     onFeedRefresh = feeds::refresh,
@@ -181,6 +208,7 @@ class MainActivity : ComponentActivity() {
         if (discover != null) window.decorView.doOnPreDraw {
             it.postOnAnimation { if (DiscoverSession.host.get() === discover) DiscoverSession.dismiss() }
         }
+        notificationAccess.value = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
         model.refresh(); appearance.refresh(systemDark()); updateDefaultHome(); feeds.refreshIfStale(); updates.checkIfStale()
         window.decorView.post {
             if (!isFinishing && !isDestroyed && !LiveDiscover.viewport.isEmpty)

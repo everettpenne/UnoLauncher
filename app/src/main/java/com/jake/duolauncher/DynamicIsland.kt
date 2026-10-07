@@ -13,6 +13,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -31,6 +32,13 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.FlashlightOff
+import androidx.compose.material.icons.rounded.FlashlightOn
+import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -121,8 +129,8 @@ internal class IslandState {
     }
 
     fun dismissFlash() { flashTitle = null; flashIcon = null; flashSymbol = null }
-    fun toggle() { expanded = !expanded; dismissFlash() }
-    fun collapse() { expanded = false }
+    fun toggle() { expanded = !expanded; dismissFlash(); IslandTools.toolsOpen = false }
+    fun collapse() { expanded = false; IslandTools.toolsOpen = false }
 }
 
 private fun IslandSymbol.icon(): ImageVector = when (this) {
@@ -132,6 +140,8 @@ private fun IslandSymbol.icon(): ImageVector = when (this) {
     IslandSymbol.VIBRATE -> Icons.Rounded.Vibration
     IslandSymbol.AIRPLANE -> Icons.Rounded.AirplanemodeActive
     IslandSymbol.FOCUS -> Icons.Rounded.Bedtime
+    IslandSymbol.TIMER -> Icons.Rounded.Timer
+    IslandSymbol.NOTIFICATION -> Icons.Rounded.NotificationsActive
 }
 
 /** The island's body: the lens-refracted glass rim the island is known for, around an interior of
@@ -203,9 +213,14 @@ internal fun DynamicIsland(
         while (true) { value = LocalDateTime.now(); delay(30_000L) }
     }
     // Wall clock for the resume window; coarse, since the window is 90 seconds long.
+    // Ticks faster only while something on the island is counting.
     val clockMs by produceState(System.currentTimeMillis()) {
-        while (true) { value = System.currentTimeMillis(); delay(5_000L) }
+        while (true) {
+            value = System.currentTimeMillis()
+            delay(if (IslandTools.swRunning) 100L else if (IslandTools.timerActive) 500L else 5_000L)
+        }
     }
+    val torch = rememberTorch(active = state.expanded && IslandTools.toolsOpen)
     IslandSystemEvents(state)
     val view = LocalView.current
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
@@ -244,8 +259,8 @@ internal fun DynamicIsland(
         if (state.flashTitle != null) { delay(2600); state.dismissFlash() }
     }
     // An idle expanded island tucks itself back in.
-    LaunchedEffect(state.expanded) {
-        if (state.expanded) { delay(5000); state.collapse() }
+    LaunchedEffect(state.expanded, IslandTools.toolsOpen, IslandTools.interactions) {
+        if (state.expanded) { delay(if (IslandTools.toolsOpen) 20_000L else 5000L); state.collapse() }
     }
 
     Box(modifier.fillMaxSize().onGloballyPositioned {
@@ -261,10 +276,16 @@ internal fun DynamicIsland(
             .size(width = (frame.width / d).dp, height = (frame.height / d).dp)
             .islandBody(glass?.backdrop, corner.dp, settings = glass?.settings ?: GlassSettings.Default)
             .clip(RoundedCornerShape(corner.dp))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                state.toggle()
-            }
+            .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
+                onLongClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    state.dismissFlash(); IslandTools.toolsOpen = true; state.expanded = true
+                },
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    // A ringing timer is silenced by a tap before anything else.
+                    if (IslandTools.ringing) IslandTools.stopRinging(context) else state.toggle()
+                })
             .testTag("dynamic-island")) {
             val hole = frame.hole
             val gap = 4.dp
@@ -280,6 +301,10 @@ internal fun DynamicIsland(
                         val bitmap = state.flashIcon
                         if (bitmap != null) Image(bitmap, null, Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)))
                         else if (symbol != null) Icon(symbol.icon(), null, tint = symbol.tint, modifier = Modifier.size(18.dp))
+                    } else if (IslandTools.ringing) {
+                        Icon(Icons.Rounded.Alarm, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(18.dp))
+                    } else if (IslandTools.timerActive) {
+                        Icon(Icons.Rounded.Timer, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(16.dp))
                     } else {
                         Text(now.format(DateTimeFormatter.ofPattern("HH:mm")), color = Color.White,
                             fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
@@ -290,6 +315,15 @@ internal fun DynamicIsland(
                         Text(state.flashTitle ?: "", color = Color.White, fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(end = 4.dp))
+                    } else if (IslandTools.ringing) {
+                        Text("Timer done", color = IslandSymbol.TIMER.tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, modifier = Modifier.testTag("island-timer-done"))
+                    } else if (IslandTools.timerActive) {
+                        Text(IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)), color = IslandSymbol.TIMER.tint,
+                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-timer"))
+                    } else if (IslandTools.swRunning) {
+                        Text(IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)), color = Color.White,
+                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
                     } else if (state.playing) {
                         EqualizerBars(PLAYBACK_PINK, Modifier.testTag("island-playing"))
                     } else if (deviceStatus.charging == true) {
@@ -310,8 +344,14 @@ internal fun DynamicIsland(
                     }
                 }
             }
+            // Tools face (long press): timer, stopwatch, flashlight.
+            if (progress >= .5f && IslandTools.toolsOpen) Column(Modifier.fillMaxSize()
+                .padding(start = 18.dp, end = 18.dp, bottom = 12.dp,
+                    top = if (hole != null) (hole.bottom / d).dp + 6.dp else 12.dp)) {
+                IslandToolsFace(clockMs, torch)
+            }
             // Expanded face: live panel, starting below the camera hole.
-            if (progress >= .5f) Column(Modifier.fillMaxSize()
+            if (progress >= .5f && !IslandTools.toolsOpen) Column(Modifier.fillMaxSize()
                 .padding(start = 18.dp, end = 18.dp, bottom = 12.dp,
                     top = if (hole != null) (hole.bottom / d).dp + 6.dp else 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -327,7 +367,7 @@ internal fun DynamicIsland(
                 }
                 if (mediaVisible) {
                     Spacer(Modifier.height(6.dp))
-                    PlaybackRow(playing = state.playing,
+                    PlaybackRow(playing = state.playing, title = NotificationFeed.nowPlaying?.title,
                         onPrevious = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
                         onPlayPause = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
                         onNext = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_NEXT) })
@@ -357,7 +397,7 @@ internal const val FOCUS_SIDE_EFFECT_MS = 1_500L
 
 /** Extra panel height, in dp, when the playback row is showing. */
 internal const val MEDIA_ROW_DP = 40f
-private val PLAYBACK_PINK = Color(0xFFFF375F)
+internal val PLAYBACK_PINK = Color(0xFFFF375F)
 
 /** Four bars that rise and fall out of step: the iOS "audio is playing" mark. The animation drives
  * a layer scale, so it never recomposes while it runs.
@@ -382,13 +422,13 @@ internal fun EqualizerBars(color: Color, modifier: Modifier = Modifier, barCount
 }
 
 @Composable
-private fun PlaybackRow(playing: Boolean, onPrevious: () -> Unit, onPlayPause: () -> Unit, onNext: () -> Unit) {
+private fun PlaybackRow(playing: Boolean, title: String?, onPrevious: () -> Unit, onPlayPause: () -> Unit, onNext: () -> Unit) {
     Row(Modifier.fillMaxWidth().height(34.dp).testTag("island-media"), verticalAlignment = Alignment.CenterVertically) {
         if (playing) EqualizerBars(PLAYBACK_PINK) else Icon(Icons.Rounded.Pause, null,
             tint = Color.White.copy(alpha = .6f), modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(8.dp))
-        Text(if (playing) "Playing" else "Paused", color = Color.White, fontSize = 13.sp,
-            fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+        Text(title ?: if (playing) "Playing" else "Paused", color = Color.White, fontSize = 13.sp,
+            fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         MediaButton(Icons.Rounded.SkipPrevious, "Previous", onPrevious)
         MediaButton(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
             if (playing) "Pause" else "Play", onPlayPause)
@@ -418,5 +458,44 @@ private fun IslandAction(icon: ImageVector, label: String, showLabel: Boolean, o
         horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         Icon(icon, label, tint = Color.White, modifier = Modifier.size(15.dp))
         Text(label, color = Color.White, fontSize = 12.sp)
+    }
+}
+
+/** Timer presets or the running countdown, the stopwatch, and the flashlight. */
+@Composable
+private fun IslandToolsFace(clockMs: Long, torch: TorchState) {
+    val context = LocalContext.current
+    Row(Modifier.fillMaxWidth().height(40.dp).testTag("island-tools-timer"), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Icon(Icons.Rounded.Timer, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(18.dp))
+        if (IslandTools.timerActive) {
+            Text(if (IslandTools.ringing) "Done" else IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)),
+                color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            ToolButton(Icons.Rounded.Close, "Cancel timer") { IslandTools.cancelTimer(context) }
+        } else listOf(1 to "1m", 5 to "5m", 10 to "10m", 30 to "30m").forEach { (minutes, label) ->
+            Box(Modifier.weight(1f).height(34.dp).clip(RoundedCornerShape(percent = 50)).background(Color.White.copy(alpha = .14f))
+                .clickable { IslandTools.startTimer(context, minutes * 60_000L) }
+                .semantics { contentDescription = "Start $minutes minute timer" }.testTag("island-timer-$minutes"),
+                contentAlignment = Alignment.Center) {
+                Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth().height(44.dp).testTag("island-tools-stopwatch"), verticalAlignment = Alignment.CenterVertically) {
+        Text(IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)), color = Color.White, fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1)
+        ToolButton(if (IslandTools.swRunning) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
+            if (IslandTools.swRunning) "Stop stopwatch" else "Start stopwatch") { IslandTools.toggleStopwatch(context) }
+        if (IslandTools.stopwatchStarted && !IslandTools.swRunning) ToolButton(Icons.Rounded.Refresh, "Reset stopwatch") { IslandTools.resetStopwatch(context) }
+        ToolButton(if (torch.on) Icons.Rounded.FlashlightOn else Icons.Rounded.FlashlightOff,
+            if (torch.on) "Flashlight, on" else "Flashlight", enabled = torch.available) { IslandTools.touch(); torch.toggle() }
+    }
+}
+
+@Composable
+private fun ToolButton(icon: ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
+    Box(Modifier.size(44.dp).clip(CircleShape).clickable(enabled = enabled, onClick = onClick)
+        .semantics { contentDescription = label }.testTag("island-tool-${label.lowercase().replace(' ', '-')}"), contentAlignment = Alignment.Center) {
+        Icon(icon, null, tint = Color.White.copy(alpha = if (enabled) 1f else .35f), modifier = Modifier.size(22.dp))
     }
 }

@@ -730,8 +730,7 @@ internal fun LauncherScreen(
                         island.collapse()
                         if (pager.currentPage != -1) scope.launch { pager.animateScrollToPage(-1) }
                     },
-                    onCustomize = { island.collapse(); customizationPage = CustomizationPage.WALLPAPER; sheet = "settings" },
-                    modifier = Modifier.align(Alignment.TopCenter))
+                    onCustomize = { island.collapse(); customizationPage = CustomizationPage.WALLPAPER; sheet = "settings" })
                 // Charging transitions flash through the island.
                 LaunchedEffect(deviceStatus.charging) {
                     if (deviceStatus.charging == true) island.showCharging(true)

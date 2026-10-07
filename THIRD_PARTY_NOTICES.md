@@ -11,6 +11,7 @@ Uno Launcher source uses the MIT license in LICENSE. Dependencies retain their o
 | JetBrains annotations | https://github.com/JetBrains/java-annotations | Apache 2.0 |
 | Guava ListenableFuture | https://github.com/google/guava | Apache 2.0 |
 | JSpecify annotations | https://github.com/jspecify/jspecify | Apache 2.0 |
+| Inter typeface (bundled as `res/font/inter_variable.ttf`, v4.001; copyright (c) 2016 The Inter Project Authors) | https://github.com/rsms/inter | SIL Open Font License 1.1; full text in `app/src/main/assets/licenses/Inter-OFL.txt` and shipped in the app |
 | Gradle wrapper and build tooling | https://github.com/gradle/gradle | Apache 2.0; build-tool distributions include their additional notices |
 
 The Gradle dependency graph records the resolved artifact versions. Test and build tools are not application features; their upstream distributions provide their respective notices.

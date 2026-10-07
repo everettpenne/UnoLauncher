@@ -27,7 +27,7 @@ Screenshots use sample data on an emulator sized to the reference Fold. [Fresh-i
 - App dragging, pages created during an edge drag, Home folders, and separate personal/work catalogs where device policy permits.
 - Alphabetical All apps, Google search with a local app-search fallback, and live Discover on compatible devices.
 - A news feed that fills the Discover slot without Google. It starts empty and connects to nothing until you tap a suggested GrapheneOS feed (announcements or releases) or add your own https feed.
-- iOS-inspired styling: liquid-glass dock, widgets, sheets and controls that blur and refract Home behind them (adjustable, with an off switch), continuous-corner app icons, and one consistent corner scale.
+- iOS-inspired styling, set in the Inter typeface: liquid-glass dock, widgets, sheets and controls that blur and refract Home behind them (adjustable, with an off switch), continuous-corner app icons, and one consistent corner scale.
 - Local photo wallpapers, light/dark/system or sunrise/sunset appearance, and layout export/import.
 
 Android still controls the lock screen, notification panels, recents, and system app transitions.

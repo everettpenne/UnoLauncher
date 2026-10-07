@@ -47,6 +47,15 @@ internal object IslandGeometry {
 
     private fun mix(a: Float, b: Float, t: Float) = a + (b - a) * t
 
+    /** Extra collapsed width, in dp, for an event title of [titleChars] characters to fit beside the
+     * hole: the text (about 6.4 dp a character at 12 sp semibold, plus padding) minus the slot the
+     * capsule already has on that side at this size setting. Never less than a small, readable grow.
+     */
+    fun eventExtraWidthDp(titleChars: Int, scale: Float): Float {
+        val slot = mix(44f, 80f, scale.coerceIn(0f, 1f))
+        return max(24f, 2f * (6.4f * titleChars + 8f - slot)).coerceAtMost(140f)
+    }
+
     /** The cutout that holds the front camera: a rectangle near the top of the screen, and the one
      * nearest the horizontal center when there are several (side waterfalls and rounded-corner
      * rectangles are ignored).
@@ -69,7 +78,11 @@ internal object IslandGeometry {
     }
 
     /** [progress] is 0 for the collapsed capsule and 1 for the expanded panel. */
-    fun frame(env: IslandEnvironment, density: Float, progress: Float, scale: Float = .5f): IslandFrame {
+    /** [extraBodyDp] adds height to the expanded panel for optional rows (the playback controls);
+     * [extraWidthDp] widens the collapsed capsule so an event's title fits, as iOS's island grows to show one.
+     */
+    fun frame(env: IslandEnvironment, density: Float, progress: Float, scale: Float = .5f,
+        extraBodyDp: Float = 0f, extraWidthDp: Float = 0f): IslandFrame {
         val d = density
         val p = progress.coerceIn(0f, 1f)
         val size = scale.coerceIn(0f, 1f)
@@ -91,16 +104,16 @@ internal object IslandGeometry {
             val half = holeHalf + ring
             top = cutout.centerY - half
             collapsedHeight = half * 2f
-            collapsedWidth = cutout.width + 2f * mix(44f, 80f, size) * d
+            collapsedWidth = cutout.width + (2f * mix(44f, 80f, size) + extraWidthDp) * d
         } else {
             centerX = env.screenWidth / 2f
             top = env.statusBarHeight + 8f * d
             collapsedHeight = mix(28f, 44f, size) * d
-            collapsedWidth = mix(96f, 152f, size) * d
+            collapsedWidth = (mix(96f, 152f, size) + extraWidthDp) * d
         }
         // The expanded panel hangs below the hole; its body starts under it.
         val holeBottom = cutout?.bottom ?: (top + collapsedHeight)
-        val expandedHeight = (holeBottom - top) + mix(96f, 128f, size) * d
+        val expandedHeight = (holeBottom - top) + (mix(96f, 128f, size) + extraBodyDp) * d
         // The expanded panel must clear the dock/rail strip: cap its width so it can never
         // reach the glass column on the right, whatever the dock-width preset.
         val dockClearance = env.dockWidthPx + 16f * d

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.1-uno01
+
+Maintenance release: identical app, built and published by the new automated CI release pipeline.
+
 ## 0.16.0-uno01
 
 First Uno Launcher release, rebranded from jakesgoodapps/DuoLauncher.

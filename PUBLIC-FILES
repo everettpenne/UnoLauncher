@@ -23,6 +23,7 @@ scripts/export-public-source.sh
 scripts/check-public-source.sh
 scripts/release-signed.sh
 .github/workflows/ci.yml
+.github/workflows/release.yml
 .github/ISSUE_TEMPLATE/bug_report.yml
 .github/ISSUE_TEMPLATE/feature_request.yml
 .github/ISSUE_TEMPLATE/config.yml
@@ -33,4 +34,5 @@ docs/troubleshooting.md
 docs/architecture.md
 docs/releases/0.15.0-beta01.md
 docs/releases/0.16.0-uno01.md
+docs/releases/0.16.1-uno01.md
 ?docs/images/

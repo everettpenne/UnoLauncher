@@ -1,0 +1,113 @@
+name: Release
+
+# Builds, signs, and publishes a GitHub release when a version tag is pushed.
+# Requires repository secrets:
+#   UNO_RELEASE_KEYSTORE_BASE64  base64 of the release keystore (outside the repo)
+#   DUO_RELEASE_STORE_PASSWORD   keystore password
+#   DUO_RELEASE_KEY_ALIAS        key alias (e.g. unolauncher)
+#   DUO_RELEASE_KEY_PASSWORD     key password
+#   UNO_EXPECTED_CERT_SHA256     (optional) expected signing-cert SHA-256; fails on key rotation
+#
+# The tag, app/build.gradle.kts versionName, and the version constant in
+# scripts/release-signed.sh must all agree. Release notes must exist at
+# docs/releases/<version>.md (relative links are resolved to the tag).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0 build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve and validate release version
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            V="${GITHUB_REF_NAME#v}"
+          else
+            V=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          fi
+          G=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          S=$(grep -oP '^version=\K.*' scripts/release-signed.sh)
+          [ -n "$V" ] || { echo "::error::could not resolve a release version"; exit 1; }
+          [ "$G" = "$V" ] || { echo "::error::versionName '$G' does not match requested version '$V'"; exit 1; }
+          [ "$S" = "$V" ] || { echo "::error::release-signed.sh version '$S' does not match '$V'"; exit 1; }
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+          echo "Releasing Uno Launcher $V"
+
+      - name: Export public source
+        run: ./scripts/export-public-source.sh "$RUNNER_TEMP/UnoLauncher-public"
+
+      - name: Build, test, and lint exported source
+        working-directory: ${{ runner.temp }}/UnoLauncher-public
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug
+
+      - name: Restore signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.UNO_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          [ -n "$KEYSTORE_B64" ] || { echo "::error::UNO_RELEASE_KEYSTORE_BASE64 secret is not configured"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/uno-release.jks"
+
+      - name: Package signed release
+        working-directory: ${{ runner.temp }}/UnoLauncher-public
+        env:
+          DUO_RELEASE_STORE_FILE: ${{ runner.temp }}/uno-release.jks
+          DUO_RELEASE_STORE_PASSWORD: ${{ secrets.DUO_RELEASE_STORE_PASSWORD }}
+          DUO_RELEASE_KEY_ALIAS: ${{ secrets.DUO_RELEASE_KEY_ALIAS }}
+          DUO_RELEASE_KEY_PASSWORD: ${{ secrets.DUO_RELEASE_KEY_PASSWORD }}
+        run: ./scripts/release-signed.sh
+
+      - name: Verify signing certificate
+        working-directory: ${{ runner.temp }}/UnoLauncher-public
+        env:
+          EXPECTED: ${{ secrets.UNO_EXPECTED_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          if [ -n "$EXPECTED" ]; then
+            DIGEST=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs \
+              "dist/UnoLauncher-$VERSION/UnoLauncher-$VERSION-release.apk" \
+              | grep 'Signer #1 certificate SHA-256 digest' | awk '{print $NF}')
+            if [ "$DIGEST" != "$EXPECTED" ]; then
+              echo "::error::signing certificate changed: expected $EXPECTED, got $DIGEST"
+              exit 1
+            fi
+            echo "Signing certificate verified: $DIGEST"
+          else
+            echo "UNO_EXPECTED_CERT_SHA256 not set; skipping certificate pin check."
+          fi
+
+      - name: Publish GitHub release
+        working-directory: ${{ runner.temp }}/UnoLauncher-public
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          NOTES="docs/releases/$VERSION.md"
+          [ -f "$NOTES" ] || { echo "::error::missing release notes at $NOTES"; exit 1; }
+          sed -E 's|\(\.\./|('"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"'/blob/v'"$VERSION"'/|g' \
+            "$NOTES" > "$RUNNER_TEMP/notes.md"
+          gh release create "v$VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --prerelease \
+            --title "Uno Launcher $VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            "dist/UnoLauncher-$VERSION/UnoLauncher-$VERSION-release.apk" \
+            "dist/UnoLauncher-$VERSION/UnoLauncher-$VERSION-source.tar.gz" \
+            "dist/UnoLauncher-$VERSION/SHA256SUMS.txt"

@@ -23,7 +23,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
-internal enum class CustomizationPage { OVERVIEW, WALLPAPER, HOME, GESTURES, FEED, BACKUP, HELP }
+internal enum class CustomizationPage { OVERVIEW, WALLPAPER, HOME, GESTURES, FEED, UPDATES, BACKUP, HELP }
 
 @Composable
 internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, model: LauncherModel,
@@ -46,6 +46,11 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onLiquidGlass: (Boolean) -> Unit = {},
     onRefractionHeight: (Float) -> Unit = {},
     onIsland: (Boolean) -> Unit = {},
+    onIslandScale: (Float) -> Unit = {},
+    updates: UpdateState = UpdateState(),
+    onCheckUpdates: () -> Unit = {},
+    onInstallRelease: (String) -> Unit = {},
+    onAutoUpdate: (Boolean) -> Unit = {},
     onRefractionAmount: (Float) -> Unit = {},
     onRefractionChroma: (Float) -> Unit = {},
 ) {
@@ -56,6 +61,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
         CustomizationPage.HOME -> "Home layout"
         CustomizationPage.GESTURES -> "Gestures & search"
         CustomizationPage.FEED -> "News feed"
+        CustomizationPage.UPDATES -> "Updates"
         CustomizationPage.BACKUP -> "Backup"
         CustomizationPage.HELP -> "Help & setup"
     }
@@ -89,6 +95,8 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         "Labels, status, and search behavior", "customization-gestures") { onPage(CustomizationPage.GESTURES) }
                     CustomizationDestination(Icons.Rounded.RssFeed, "News feed",
                         "Your own headlines in place of Discover", "customization-feed") { onPage(CustomizationPage.FEED) }
+                    CustomizationDestination(Icons.Rounded.SystemUpdateAlt, "Updates",
+                        "Check for releases, install any version, or update automatically", "customization-updates") { onPage(CustomizationPage.UPDATES) }
                     CustomizationDestination(Icons.Rounded.Save, "Backup",
                         "Save or restore this layout", "customization-backup") { onPage(CustomizationPage.BACKUP) }
                     CustomizationDestination(Icons.Rounded.HelpOutline, "Help & setup",
@@ -139,6 +147,9 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     SettingsSwitch("Dynamic island", appearance.island, onIsland, "island-switch")
+                    if (appearance.island) CustomizationSlider("Island size",
+                        "${(appearance.islandScale * 100).toInt()}%", appearance.islandScale, 0f..1f,
+                        tag = "island-scale-slider") { onIslandScale(it) }
                     Text("A liquid capsule at the camera cutout: the time, then a tap expands battery, the top feed headline, and quick actions. It flashes app launches and charging and never overlays other apps.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
@@ -156,6 +167,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         style = MaterialTheme.typography.bodyMedium)
                 }
                 CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onFeedPreferred)
+                CustomizationPage.UPDATES -> UpdatesPanel(updates, onCheckUpdates, onInstallRelease, onAutoUpdate)
                 CustomizationPage.BACKUP -> {
                     Text("Save the current Home layout, folders, widgets, and layout settings.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant)

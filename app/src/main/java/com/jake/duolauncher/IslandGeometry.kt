@@ -28,7 +28,10 @@ internal data class IslandEnvironment(
     val cutout: PxRect?, val screenWidth: Float, val statusBarHeight: Float,
 )
 
-/** Pure layout for the dynamic island: wraps the camera hole, whatever its position or size. */
+/** Pure layout for the dynamic island: wraps the camera hole, whatever its position or size.
+ * [scale] (0..1) sizes the collapsed capsule from compact to large; the midpoint matches
+ * the original fixed constants.
+ */
 internal object IslandGeometry {
     /** Room either side of the hole for the collapsed face's content, in dp. */
     private const val SLOT_DP = 58f
@@ -39,6 +42,8 @@ internal object IslandGeometry {
     private const val NO_CUTOUT_WIDTH_DP = 120f
     private const val NO_CUTOUT_HEIGHT_DP = 34f
 
+    private fun mix(a: Float, b: Float, t: Float) = a + (b - a) * t
+
     /** The cutout that holds the front camera: a rectangle near the top of the screen, and the one
      * nearest the horizontal center when there are several (side waterfalls and rounded-corner
      * rectangles are ignored).
@@ -48,9 +53,10 @@ internal object IslandGeometry {
             .minByOrNull { abs(it.centerX - screenWidth / 2f) }
 
     /** [progress] is 0 for the collapsed capsule and 1 for the expanded panel. */
-    fun frame(env: IslandEnvironment, density: Float, progress: Float): IslandFrame {
+    fun frame(env: IslandEnvironment, density: Float, progress: Float, scale: Float = .5f): IslandFrame {
         val d = density
         val p = progress.coerceIn(0f, 1f)
+        val size = scale.coerceIn(0f, 1f)
         val margin = EDGE_MARGIN_DP * d
         val cutout = env.cutout
         val centerX: Float
@@ -59,19 +65,21 @@ internal object IslandGeometry {
         val collapsedHeight: Float
         if (cutout != null) {
             centerX = cutout.centerX
-            // Symmetric about the hole, ideally 6 dp of island around it and never shorter than a
-            // 34 dp capsule. A hole that sits close to the top edge leaves less room above it, so
-            // the island shrinks to the margin that fits rather than crossing the screen edge.
-            val wanted = max(MIN_HALF_HEIGHT_DP * d, cutout.height / 2f + 6f * d)
+            // Symmetric about the hole, with 2-10 dp of island around it depending on the size
+            // setting and never shorter than a 30-42 dp capsule. A hole that sits close to the
+            // top edge leaves less room above it, so the island shrinks to the margin that fits
+            // rather than crossing the screen edge.
+            val surround = mix(2f, 10f, size) * d
+            val wanted = max(mix(15f, 21f, size) * d, cutout.height / 2f + surround)
             val half = wanted.coerceAtMost(cutout.centerY).coerceAtLeast(cutout.height / 2f)
             top = cutout.centerY - half
             collapsedHeight = half * 2f
-            collapsedWidth = cutout.width + 2f * SLOT_DP * d
+            collapsedWidth = cutout.width + 2f * mix(50f, 66f, size) * d
         } else {
             centerX = env.screenWidth / 2f
             top = env.statusBarHeight + 4f * d
-            collapsedHeight = NO_CUTOUT_HEIGHT_DP * d
-            collapsedWidth = NO_CUTOUT_WIDTH_DP * d
+            collapsedHeight = mix(30f, 38f, size) * d
+            collapsedWidth = mix(108f, 132f, size) * d
         }
         // The expanded panel hangs below the hole; its body starts under it.
         val holeBottom = cutout?.bottom ?: (top + collapsedHeight)

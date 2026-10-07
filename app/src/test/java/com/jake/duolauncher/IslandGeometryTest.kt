@@ -82,4 +82,22 @@ class IslandGeometryTest {
         assertNull(IslandGeometry.pickCutout(listOf(sideWaterfall), screenW, 2424f))
         assertNull(IslandGeometry.pickCutout(emptyList(), screenW, 2424f))
     }
+
+    @Test fun islandSizeScaleControlsTheCollapsedCapsule() {
+        val camera = PxRect(514f, 40f, 566f, 92f)
+        val small = IslandGeometry.frame(env(camera), d, 0f, scale = 0f)
+        val large = IslandGeometry.frame(env(camera), d, 0f, scale = 1f)
+        assertTrue(large.height > small.height)
+        assertTrue(large.width > small.width)
+        // The hole must stay fully wrapped at every size.
+        assertTrue(small.hole!!.top >= 0f && small.hole.bottom <= small.height)
+        assertTrue(large.hole!!.top >= 0f && large.hole.bottom <= large.height)
+    }
+
+    @Test fun islandSizeScaleShrinksTheNoCutoutCapsule() {
+        val small = IslandGeometry.frame(env(null), d, 0f, scale = 0f)
+        val large = IslandGeometry.frame(env(null), d, 0f, scale = 1f)
+        assertTrue(large.height > small.height)
+        assertTrue(large.width > small.width)
+    }
 }

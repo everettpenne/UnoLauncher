@@ -82,6 +82,7 @@ internal fun DynamicIsland(
     glass: PageGlass?,
     deviceStatus: DeviceStatus,
     feedHeadline: String?,
+    sizeScale: Float = .5f,
     onSearch: () -> Unit,
     onOpenFeed: () -> Unit,
     onCustomize: () -> Unit,
@@ -103,7 +104,7 @@ internal fun DynamicIsland(
     val progress by animateFloatAsState(if (state.expanded) 1f else 0f,
         spring(dampingRatio = 0.5f, stiffness = 300f), label = "island expand")
     val flashActive = state.flashTitle != null
-    val frame = IslandGeometry.frame(environment, d, progress)
+    val frame = IslandGeometry.frame(environment, d, progress, sizeScale)
     val corner = minOf(frame.height / 2f, 30f * d) / d
 
     // Flash returns to the collapsed clock after a beat.

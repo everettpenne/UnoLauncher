@@ -146,6 +146,11 @@ internal fun LauncherScreen(
     onLiquidGlass: (Boolean) -> Unit = {},
     island: IslandState = IslandState(),
     onIsland: (Boolean) -> Unit = {},
+    onIslandScale: (Float) -> Unit = {},
+    updates: UpdateState = UpdateState(),
+    onCheckUpdates: () -> Unit = {},
+    onInstallRelease: (String) -> Unit = {},
+    onAutoUpdate: (Boolean) -> Unit = {},
     onRefractionHeight: (Float) -> Unit = {},
     onRefractionAmount: (Float) -> Unit = {},
     onRefractionChroma: (Float) -> Unit = {},
@@ -725,6 +730,7 @@ internal fun LauncherScreen(
             if (appearance.island && sheet.isEmpty() && !showFirstRun && !drag.active) {
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.entries.firstOrNull()?.title,
+                    sizeScale = appearance.islandScale,
                     onSearch = { island.collapse(); openLibrary() },
                     onOpenFeed = {
                         island.collapse()
@@ -798,7 +804,12 @@ internal fun LauncherScreen(
                             onRefractionHeight = onRefractionHeight,
                             onRefractionAmount = onRefractionAmount,
                             onRefractionChroma = onRefractionChroma,
-                            onIsland = onIsland)
+                            onIsland = onIsland,
+                            onIslandScale = onIslandScale,
+                            updates = updates,
+                            onCheckUpdates = onCheckUpdates,
+                            onInstallRelease = onInstallRelease,
+                            onAutoUpdate = onAutoUpdate)
                         "widgetActions" -> model.placement(widgetSlot)?.let { placement ->
                             val topPitch = (geometry.widgetHeight + 18f) / 2f
                             val gridSizing = WidgetGridSizing(GRID_COLUMNS, GRID_ROWS, geometry.gridWidth / GRID_COLUMNS,

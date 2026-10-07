@@ -50,6 +50,8 @@ class MainActivity : ComponentActivity() {
     internal lateinit var feeds: FeedStore
         private set
     internal val island = IslandState()
+    internal lateinit var updates: UpdateStore
+        private set
     private var appearanceLocationGeneration = 0
     private var appearancePermissionGeneration = -1
     private var appearanceLocationCancellation: CancellationSignal? = null
@@ -83,6 +85,7 @@ class MainActivity : ComponentActivity() {
         val restoreShadeDialog = savedInstanceState?.getBoolean(SHADE_DIALOG_VISIBLE) == true
         appearance = AppearanceStore(this)
         feeds = FeedStore(this, lifecycleScope)
+        updates = UpdateStore(this, lifecycleScope) { release -> promptInstall(release) }
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         widgets = WidgetController(this, model) { active ->
@@ -127,6 +130,11 @@ class MainActivity : ComponentActivity() {
                     onLiquidGlass = appearance::setLiquidGlass,
                     island = island,
                     onIsland = appearance::setIsland,
+                    updates = updates.state.collectAsStateWithLifecycle().value,
+                    onCheckUpdates = updates::checkNow,
+                    onInstallRelease = updates::installRelease,
+                    onAutoUpdate = updates::setAutoUpdate,
+                    onIslandScale = appearance::setIslandScale,
                     onRefractionHeight = appearance::setRefractionHeight,
                     onRefractionAmount = appearance::setRefractionAmount,
                     onRefractionChroma = appearance::setRefractionChroma)
@@ -172,7 +180,7 @@ class MainActivity : ComponentActivity() {
         if (discover != null) window.decorView.doOnPreDraw {
             it.postOnAnimation { if (DiscoverSession.host.get() === discover) DiscoverSession.dismiss() }
         }
-        model.refresh(); appearance.refresh(systemDark()); updateDefaultHome(); feeds.refreshIfStale()
+        model.refresh(); appearance.refresh(systemDark()); updateDefaultHome(); feeds.refreshIfStale(); updates.checkIfStale()
         window.decorView.post {
             if (!isFinishing && !isDestroyed && !LiveDiscover.viewport.isEmpty)
                 LiveDiscover.prepare(this, LiveDiscover.viewport, LiveDiscover.pageWidth)
@@ -316,6 +324,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
             .show()
+    }
+
+    private fun promptInstall(release: UnoRelease) {
+        val file = updates.readyApk(release.tag) ?: return
+        val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+        }.onFailure {
+            Toast.makeText(this, "Android couldn't open the installer.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun openFeedEntry(link: String) {

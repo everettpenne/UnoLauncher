@@ -65,9 +65,9 @@ internal fun AppLibrary(
     // On Home the library is a liquid-glass panel over the wallpaper. Heavier blur than the
     // dock keeps the long list legible; the lens still bends the panel's rim.
     val liquid = LocalPageGlass.current?.takeIf { glass }
-    Surface(modifier.then(if (liquid != null) Modifier.liquidGlass(liquid.backdrop, RoundedCornerShape(24.dp),
+    Surface(modifier.then(if (liquid != null) Modifier.liquidGlass(liquid.backdrop, Corner.large,
             liquid.tint.copy(alpha = .40f), blurRadius = 6f, refraction = liquid.refraction) else Modifier),
-        shape = RoundedCornerShape(24.dp),
+        shape = Corner.large,
         color = if (liquid != null) Color.Transparent else if (glass) Glass.copy(alpha = .48f) else MaterialTheme.colorScheme.surface,
         contentColor = ink,
         border = if (glass && liquid == null) BorderStroke(1.dp, Color.White.copy(alpha = .38f)) else null) {
@@ -84,7 +84,7 @@ internal fun AppLibrary(
             }
             OutlinedTextField(query, onQuery, Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag(if (editing) "pin-search" else "library-search"),
                 placeholder = { Text("Search apps") }, singleLine = true,
-                shape = if (liquid != null) RoundedCornerShape(percent = 50) else RoundedCornerShape(16.dp),
+                shape = if (liquid != null) Corner.pill else Corner.medium,
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, "Clear search") } },
                 colors = if (glass) OutlinedTextFieldDefaults.colors(
@@ -112,7 +112,7 @@ internal fun AppLibrary(
                             Box(Modifier.size(width = 32.dp, height = 28.dp).background(
                                 if (glass) (if (palette.dark) Color(0xFF314852) else Color(0xFFB7CBD3))
                                 else MaterialTheme.colorScheme.surfaceContainer,
-                                RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                                Corner.small), contentAlignment = Alignment.Center) {
                                 Text(letter, color = ink, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                             }
                             if (glass) HorizontalDivider(Modifier.weight(1f).padding(start = 10.dp), color = Color.White.copy(alpha = .24f))
@@ -123,12 +123,12 @@ internal fun AppLibrary(
                         val launchBounds = remember { android.graphics.Rect() }
                         val dragModifier = if (drag != null) Modifier.dropRegion(drag, DropTarget.Library(app.id), app.id, page) else Modifier
                         val click = { if (editing) onPin(app.id, !isPinned) else onLaunchFrom(app, launchBounds) }
-                        Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).then(dragModifier).clip(RoundedCornerShape(14.dp)).testTag("library-app-${app.id}")
+                        Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).then(dragModifier).clip(Corner.small).testTag("library-app-${app.id}")
                             .then(if (drag == null) Modifier.combinedClickable(onClick = click, onLongClick = { onActions(app) })
                                 else Modifier.clickable(onClick = click).semantics { onLongClick("App options") { onActions(app); true } })
                             .padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Image(app.icon.asImageBitmap(), null, Modifier.size(40.dp)
-                                .onGloballyPositioned { launchBounds.set(it.boundsInWindow().toAndroidBounds()) }.clip(RoundedCornerShape(10.dp)))
+                                .onGloballyPositioned { launchBounds.set(it.boundsInWindow().toAndroidBounds()) }.clip(Corner.icon))
                             Text(app.label, Modifier.weight(1f).padding(start = 12.dp), maxLines = 2, fontSize = 14.sp)
                             if (editing) IconButton(onClick = { onPin(app.id, !isPinned) }, Modifier.testTag("pin-${app.id}")) {
                                 Icon(if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Uno connects only to https feed addresses the user adds. Cleartext is refused outright,
+     so a plain-http feed or redirect can never be contacted. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

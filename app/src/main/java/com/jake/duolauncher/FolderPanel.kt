@@ -57,12 +57,12 @@ internal fun FolderPanel(
             )
             .testTag("folder-panel-content")
         if (glassBackdrop != null) {
-            Box(panelModifier.liquidGlass(glassBackdrop, RoundedCornerShape(30.dp), glassTint, blurRadius = 4f, refraction = refraction)) {
+            Box(panelModifier.liquidGlass(glassBackdrop, Corner.xlarge, glassTint, blurRadius = 4f, refraction = refraction)) {
                 FolderPanelBody(title, { title = it }, folder, apps, drag, page, homeDestinations,
                     dockVacancies, onRename, onLaunch, onMoveOut, onDismiss)
             }
         } else {
-            Surface(panelModifier, color = glassTint, shape = RoundedCornerShape(30.dp),
+            Surface(panelModifier, color = glassTint, shape = Corner.xlarge,
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .6f))) {
                 FolderPanelBody(title, { title = it }, folder, apps, drag, page, homeDestinations,
                     dockVacancies, onRename, onLaunch, onMoveOut, onDismiss)
@@ -111,12 +111,12 @@ private fun FolderChild(
 ) {
     var menu by remember { mutableStateOf(false) }
     Surface(Modifier.fillMaxWidth().testTag("folder-child-${app.id}"), color = Color.White.copy(alpha = .34f),
-        shape = RoundedCornerShape(18.dp)) {
+        shape = Corner.medium) {
         Box {
             Column(Modifier.fillMaxWidth().dropRegion(drag, DropTarget.Library(app.id), app.id, page,
                 folderId = folderId, scope = folderId).clickable(enabled = app.available) { onLaunch(app, null) }
                 .padding(horizontal = 6.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(app.icon.asImageBitmap(), null, Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)))
+                Image(app.icon.asImageBitmap(), null, Modifier.size(46.dp).clip(Corner.icon))
                 Text(app.label, Modifier.padding(top = 6.dp), maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelMedium)
                 if (app.isWork || !app.available) Text(if (app.available) app.profileLabel else "${app.profileLabel} unavailable",

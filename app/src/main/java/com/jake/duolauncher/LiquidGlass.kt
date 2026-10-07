@@ -147,7 +147,7 @@ internal fun GlassModalSheet(
             properties = properties, content = content)
         return
     }
-    val shape = RoundedCornerShape(32.dp)
+    val shape = Corner.xlarge
     ModalBottomSheet(onDismissRequest, modifier, sheetState, shape = shape,
         containerColor = Color.Transparent, contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 0.dp, scrimColor = Color.Black.copy(alpha = .22f), dragHandle = null,

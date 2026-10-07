@@ -7,12 +7,29 @@ import java.net.SocketTimeoutException
 import java.net.URI
 import java.net.UnknownHostException
 
+/** Redirect rule for feed fetches: Uno connects only to the host the user added. A redirect
+ * is followed only when it stays on that exact host over https; anything else (another
+ * server, a downgrade to http, embedded credentials) is refused, never contacted.
+ */
+internal object FeedRedirectPolicy {
+    const val MAX_REDIRECTS = 3
+
+    fun target(current: URI, location: String?): URI? {
+        if (location.isNullOrBlank()) return null
+        val next = runCatching { current.resolve(location.trim()) }.getOrNull() ?: return null
+        if (next.scheme?.lowercase() != "https" || next.rawUserInfo != null) return null
+        val host = next.host ?: return null
+        return next.takeIf { host.equals(current.host, ignoreCase = true) }
+    }
+}
+
 internal sealed interface FeedFetchResult {
     data class Success(val feed: ParsedFeed) : FeedFetchResult
     data class Failure(val message: String) : FeedFetchResult
 }
 
-/** Direct, bounded fetch of one user-added feed. No cookies, no extra requests, no uploads.
+/** Direct, bounded fetch of one user-added feed over https. No cookies, no extra requests,
+ * no uploads, and no host other than the one the user added.
  * On GrapheneOS and other hardened systems the per-app network toggle surfaces as a
  * SecurityException, which is reported as an actionable message instead of a crash.
  */
@@ -20,16 +37,33 @@ internal object FeedFetcher {
     const val MAX_BYTES = 2 * 1024 * 1024
     private const val USER_AGENT = "UnoLauncher/0.16 (Android) personal-feed"
     private const val TIMEOUT_MS = 10_000
+    private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
 
     fun fetch(urlString: String): FeedFetchResult {
         try {
-            val connection = URI(urlString).toURL().openConnection() as HttpURLConnection
-            connection.connectTimeout = TIMEOUT_MS
-            connection.readTimeout = TIMEOUT_MS
-            connection.instanceFollowRedirects = true
-            connection.setRequestProperty("User-Agent", USER_AGENT)
-            connection.setRequestProperty("Accept",
-                "application/rss+xml, application/atom+xml, application/xml, text/xml, */*")
+            var uri = URI(urlString)
+            if (uri.scheme?.lowercase() != "https") return FeedFetchResult.Failure("Only https feeds are supported.")
+            var redirects = 0
+            var connection: HttpURLConnection
+            while (true) {
+                connection = uri.toURL().openConnection() as HttpURLConnection
+                connection.connectTimeout = TIMEOUT_MS
+                connection.readTimeout = TIMEOUT_MS
+                // Followed by hand so every hop is checked against FeedRedirectPolicy.
+                connection.instanceFollowRedirects = false
+                connection.setRequestProperty("User-Agent", USER_AGENT)
+                connection.setRequestProperty("Accept",
+                    "application/rss+xml, application/atom+xml, application/xml, text/xml, */*")
+                val code = connection.responseCode
+                if (code !in REDIRECT_CODES) break
+                val target = FeedRedirectPolicy.target(uri, connection.getHeaderField("Location"))
+                connection.disconnect()
+                if (target == null) return FeedFetchResult.Failure(
+                    "The feed moved to a different server. Add its new address instead.")
+                if (++redirects > FeedRedirectPolicy.MAX_REDIRECTS) return FeedFetchResult.Failure(
+                    "The feed redirected too many times.")
+                uri = target
+            }
             val code = connection.responseCode
             if (code !in 200..299) return FeedFetchResult.Failure("The server answered HTTP $code.")
             val bytes = connection.inputStream.use(InputStream::readBytes)

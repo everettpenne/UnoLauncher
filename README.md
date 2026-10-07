@@ -2,13 +2,13 @@
 
 A native Android launcher built around a right-side dock and a home screen that makes room when you unfold your phone.
 
-Uno Launcher is a personal fork of [jakesgoodapps/DuoLauncher](https://github.com/jakesgoodapps/DuoLauncher) (MIT), adding an optional private RSS/Atom news feed for the Discover slot.
+Uno Launcher is a personal fork of [jakesgoodapps/DuoLauncher](https://github.com/jakesgoodapps/DuoLauncher) (MIT). It is built for Google Pixel phones running [GrapheneOS](https://grapheneos.org), with an iOS-inspired look, and adds a private RSS/Atom news feed for the Discover slot that needs no Google account or app.
 
 ## Download
 
 **[⬇ Download the latest APK](https://github.com/everettpenne/UnoLauncher/releases/latest)** — on the release page, expand **Assets** and tap the `.apk` file. Direct file: `https://github.com/everettpenne/UnoLauncher/releases/download/v0.16.1-uno01/UnoLauncher-0.16.1-uno01-release.apk`. Browse [all releases](https://github.com/everettpenne/UnoLauncher/releases) for checksums and notes.
 
-**Experimental Fold beta · Android 12 or later.** The reference physical test device is a Galaxy Fold8 running Android 17, with emulator coverage on Android 36. Emulator results do not establish compatibility with every foldable. Google Discover depends on the installed Google app and device support for activity embedding. See the [release notes](docs/releases/0.16.0-uno01.md) for this version's tested scope.
+**Experimental beta for Pixel phones on GrapheneOS.** The primary design target is the Pixel Fold (2023); other Pixels use the same single-screen layout as its cover display. Development and testing so far use emulators at the Pixel Fold's cover (1080 × 2092) and inner (2208 × 1840) sizes. It has not yet been verified on a physical GrapheneOS device, and emulator results do not establish compatibility with real hardware. The code builds for Android 12 or later, but only current GrapheneOS releases are the target. Google Discover is optional and needs the Google app plus device support for activity embedding; on GrapheneOS the news feed fills that page. Release notes: [0.16.0-uno01](docs/releases/0.16.0-uno01.md).
 
 <p>
   <img src="docs/images/duo-launcher-cover-home.png" width="240" alt="Uno Home on a cover-sized emulator, with its right-side dock">
@@ -26,8 +26,8 @@ Screenshots use sample data on an emulator sized to the reference Fold. [Fresh-i
 - Android widgets, visual widget selection, resizing, native scrolling, and drag-and-drop between pages.
 - App dragging, pages created during an edge drag, Home folders, and separate personal/work catalogs where device policy permits.
 - Alphabetical All apps, Google search with a local app-search fallback, and live Discover on compatible devices.
-- An optional personal RSS/Atom news feed that fills the Discover slot where Google can't — no Google account or app required.
-- Experimental liquid glass: the dock, panels, and feed page blur and refract Home behind them, with an on/off switch.
+- A news feed that fills the Discover slot without Google. It starts empty and connects to nothing until you tap a suggested GrapheneOS feed (announcements or releases) or add your own https feed.
+- iOS-inspired styling: liquid-glass dock, widgets, sheets and controls that blur and refract Home behind them (adjustable, with an off switch), continuous-corner app icons, and one consistent corner scale.
 - Local photo wallpapers, light/dark/system or sunrise/sunset appearance, and layout export/import.
 
 Android still controls the lock screen, notification panels, recents, and system app transitions.
@@ -64,8 +64,9 @@ The surrounding status ring shows battery, the inner arcs show Wi-Fi strength, a
 No launcher account, server, advertising, analytics, or automatic crash-upload service is used. Layouts and selected backgrounds stay on the device unless explicitly exported or shared.
 
 - **Widgets:** Android asks to allow binding; providers may have their own setup.
-- **Shade gestures:** the optional accessibility service opens notifications and Quick Settings. It cannot read window contents or inject gestures.
-- **Sunrise/sunset:** manually enter coordinates or explicitly request approximate location. There is no background location request.
+- **Network:** the launcher contacts no server of its own. It connects only to the https feed addresses you choose, and redirects never leave that host. Revoking GrapheneOS's Network permission for the app leaves everything except fetching new feed entries working.
+- **Shade gestures:** off until you enable them. They need an accessibility service that can only open Notifications or Quick Settings; it cannot read window contents or inject gestures. One tap on **No thanks** stops the prompt for good, and the launcher works the same without it.
+- **Sunrise/sunset:** manually enter coordinates, or tap to request approximate (coarse) location once. There is no background location request.
 - **Photos:** the system picker grants access to chosen images, without whole-library access.
 - **Google features:** the installed Google app's account, network, and privacy settings apply.
 
@@ -73,6 +74,8 @@ Read [data and permissions](PRIVACY.md) before sharing backups or diagnostics.
 
 ## Known limits
 
+- Panels and widgets use circular-arc corners and only app icons get Apple-style continuous corners: the glass library accepts rounded rectangles only.
+- The GrapheneOS forum (Flarum) publishes no RSS or Atom feed, so the suggested feeds are the project's announcement account and release notes instead.
 - Discover can differ across Google, Android, and vendor updates. Its smooth embedding transition includes a version-scoped compatibility workaround; it is not a portable SystemUI API. Recovery controls let you return Home when unavailable. The news feed works without the Google app.
 - The news feed reads RSS 2.0 and Atom pages with plain summaries; it does not render web pages, media, or script, and needs a browser app to open stories.
 - Work apps/widgets remain subject to administrator policy. Private Space is not supported.
@@ -98,4 +101,4 @@ The [contributor code map](docs/architecture.md) explains the main components, d
 
 Use issue templates with version, phone model, Android version, folded/unfolded state, and reproduction steps. Review screenshots and logs for personal/work information. See [contributing](CONTRIBUTING.md) and [changes](CHANGELOG.md).
 
-Source is under the [MIT license](LICENSE); dependency notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). This independent project is unaffiliated with Apple, Google, or Samsung. The default wallpaper is drawn locally; app icons come from installed apps. Apple research media and Google application code are excluded from the public source and APK.
+Source is under the [MIT license](LICENSE); dependency notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). This independent project is unaffiliated with Apple, Google, Samsung, or GrapheneOS. The default wallpaper is drawn locally; app icons come from installed apps. Apple research media and Google application code are excluded from the public source and APK.

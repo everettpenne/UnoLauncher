@@ -84,7 +84,7 @@ internal fun FirstRunSetupSheet(
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Box(
-                Modifier.size(54.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp)),
+                Modifier.size(54.dp).background(MaterialTheme.colorScheme.primary, Corner.icon),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Rounded.Home, null, tint = MaterialTheme.colorScheme.onPrimary)
@@ -105,7 +105,7 @@ internal fun FirstRunSetupSheet(
 
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .52f),
-            shape = RoundedCornerShape(22.dp),
+            shape = Corner.large,
         ) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SetupGuideRow(

@@ -2,6 +2,8 @@ package com.jake.duolauncher
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,8 +17,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+
+/** Follows a suggested feed after the user taps it. Provided by the activity; the default does
+ * nothing, so previews and tests never reach the network.
+ */
+internal val LocalFeedFollow = staticCompositionLocalOf<(String, (FeedAddResult) -> Unit) -> Unit> { { _, _ -> } }
 
 /** The local news feed surface shown in the Discover slot. Fetches nothing on its own;
  * it renders the on-device cache and asks the owner to refresh or to add a source.
@@ -34,13 +42,17 @@ internal fun FeedPage(
 ) {
     if (glassBackdrop != null) {
         Box(modifier.fillMaxSize().testTag("feed-page")
-            .liquidGlass(glassBackdrop, RoundedCornerShape(30.dp), glassTint, blurRadius = 2f, refraction = refraction)) {
-            FeedPageBody(feed, onRefresh, onOpenEntry, onAddFeed, Modifier.fillMaxSize())
+            .liquidGlass(glassBackdrop, Corner.xlarge, glassTint, blurRadius = 2f, refraction = refraction)) {
+            // Glass over the wallpaper is dark in both themes, so text on it uses the light ink the
+            // other glass panels use; Material's default content color is dark in the light theme.
+            CompositionLocalProvider(LocalContentColor provides Ink) {
+                FeedPageBody(feed, onRefresh, onOpenEntry, onAddFeed, Modifier.fillMaxSize())
+            }
         }
         return
     }
     Surface(modifier.fillMaxSize().testTag("feed-page"),
-        shape = RoundedCornerShape(30.dp), color = Glass.copy(alpha = .92f),
+        shape = Corner.xlarge, color = Glass.copy(alpha = .92f),
         border = BorderStroke(1.dp, Color.White.copy(alpha = .5f))) {
         FeedPageBody(feed, onRefresh, onOpenEntry, onAddFeed, Modifier.fillMaxSize())
     }
@@ -109,20 +121,46 @@ private fun FeedPageBody(
 
 @Composable
 private fun EmptyFeedState(onAddFeed: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.Center,
+    val follow = LocalFeedFollow.current
+    var pendingUrl by remember { mutableStateOf<String?>(null) }
+    var failure by remember { mutableStateOf<String?>(null) }
+    Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Rounded.RssFeed, null, Modifier.size(40.dp),
             tint = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(12.dp))
-        Text("Add a feed to read your own headlines here.",
-            style = MaterialTheme.typography.titleMedium)
+        Text("Follow GrapheneOS", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(6.dp))
-        Text("Uno fetches only the addresses you add. Nothing is uploaded.",
-            style = MaterialTheme.typography.bodySmall,
+        Text("Nothing is contacted until you choose a feed, and each choice connects only to the server shown. Nothing is uploaded.",
+            style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
-        FilledTonalButton(onClick = onAddFeed, Modifier.testTag("feed-add")) {
-            Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Add a feed")
+        SUGGESTED_FEEDS.forEachIndexed { index, suggestion ->
+            val onClick = {
+                failure = null; pendingUrl = suggestion.url
+                follow(suggestion.url) { result ->
+                    pendingUrl = null
+                    if (result is FeedAddResult.Rejected) failure = "${suggestion.label}: ${result.message}"
+                }
+            }
+            val content: @Composable RowScope.() -> Unit = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(if (pendingUrl == suggestion.url) "Checking…" else suggestion.label)
+                    Text(suggestion.host, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            val modifier = Modifier.fillMaxWidth(.9f).heightIn(min = 56.dp).testTag("feed-suggested-$index")
+            if (index == 0) Button(onClick, modifier, enabled = pendingUrl == null, content = content)
+            else FilledTonalButton(onClick, modifier, enabled = pendingUrl == null, content = content)
+            Spacer(Modifier.height(10.dp))
+        }
+        failure?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center)
+            Spacer(Modifier.height(6.dp))
+        }
+        TextButton(onClick = onAddFeed, Modifier.heightIn(min = 48.dp).testTag("feed-add")) {
+            Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Add your own feed")
         }
     }
 }
@@ -131,7 +169,7 @@ private fun EmptyFeedState(onAddFeed: () -> Unit, modifier: Modifier = Modifier)
 private fun FeedEntryCard(entry: FeedEntry, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(onClick = onClick, modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .52f),
-        shape = RoundedCornerShape(20.dp)) {
+        shape = Corner.medium) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text(entry.title, style = MaterialTheme.typography.titleMedium,
                 maxLines = 2, overflow = TextOverflow.Ellipsis)

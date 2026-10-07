@@ -92,11 +92,18 @@ internal object FeedParser {
                         "item", "entry" -> {
                             if (inItem) {
                                 inItem = false
-                                val entryTitle = title?.trim()?.takeIf { it.isNotBlank() }
                                 val entryLink = link?.trim()?.takeIf { isWebLink(it) }
-                                if (entryTitle != null && entryLink != null) {
+                                val body = plainText(summary)
+                                val declared = title?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotBlank() }
+                                // Microblog feeds (Mastodon) publish items with no title at all; the
+                                // headline is then the start of the post, and the summary carries on
+                                // from where the headline stopped, without bare links.
+                                val derived = if (declared == null) splitHeadline(body) else null
+                                val entryTitle = declared ?: derived!!.first
+                                val entrySummary = if (derived == null) body else derived.second
+                                if (entryTitle.isNotBlank() && entryLink != null) {
                                     entries += ParsedFeedEntry(entryTitle, entryLink,
-                                        summary.trim().take(500), parseFeedDate(dateRaw))
+                                        entrySummary.take(500), parseFeedDate(dateRaw))
                                 }
                                 if (entries.size >= MAX_ENTRIES) return ParsedFeed(feedTitle?.trim(), entries)
                             }
@@ -109,14 +116,68 @@ internal object FeedParser {
         return ParsedFeed(feedTitle?.trim(), entries)
     }
 
-    /** Reads the complete text of the current element. Falls back to an empty string
-     * when the element contains nested markup instead of plain text.
+    /** Reads all text inside the current element, including nested markup (Atom
+     * `type="xhtml"` content nests real elements), and leaves the parser on the element's
+     * end tag like [XmlPullParser.nextText]. Block boundaries become spaces so words from
+     * adjacent paragraphs or list items don't run together. Returns an empty string if the
+     * element can't be read.
      */
-    private fun elementText(parser: XmlPullParser): String = try {
-        parser.nextText()
-    } catch (e: Exception) {
-        ""
+    private fun elementText(parser: XmlPullParser): String {
+        val text = StringBuilder()
+        var depth = 1
+        try {
+            while (depth > 0) {
+                when (parser.next()) {
+                    XmlPullParser.TEXT, XmlPullParser.CDSECT, XmlPullParser.ENTITY_REF -> text.append(parser.text)
+                    XmlPullParser.START_TAG -> { depth++; text.append(' ') }
+                    XmlPullParser.END_TAG -> { depth--; text.append(' ') }
+                    XmlPullParser.END_DOCUMENT -> return text.toString()
+                }
+            }
+        } catch (e: Exception) {
+            return ""
+        }
+        return text.toString()
     }
+
+    /** Plain text from a feed field that may carry HTML (escaped markup, as Mastodon and many
+     * blogs publish): tags removed, block breaks kept as spaces, entities decoded, whitespace
+     * collapsed.
+     */
+    internal fun plainText(raw: String): String {
+        if (raw.isBlank()) return ""
+        var text = raw
+        if ('<' in text) {
+            text = text.replace(Regex("<\\s*(br|/p|/div|/li|/h[1-6])\\b[^>]*>", RegexOption.IGNORE_CASE), " ")
+                .replace(Regex("<[^>]*>"), "")
+        }
+        text = text.replace(Regex("&#x([0-9a-fA-F]+);")) { m ->
+            m.groupValues[1].toIntOrNull(16)?.let { String(Character.toChars(it)) } ?: m.value
+        }.replace(Regex("&#(\\d+);")) { m ->
+            m.groupValues[1].toIntOrNull()?.let { String(Character.toChars(it)) } ?: m.value
+        }.replace("&nbsp;", " ").replace("&lt;", "<").replace("&gt;", ">")
+            .replace("&quot;", "\"").replace("&apos;", "'").replace("&amp;", "&")
+        return text.replace(Regex("\\s+"), " ").trim()
+    }
+
+    /** Splits an untitled post into a short headline (its opening words, cut before the first
+     * link and at a word boundary) and the rest of the text, with bare links removed.
+     */
+    internal fun splitHeadline(plain: String, limit: Int = 90): Pair<String, String> {
+        val linkAt = plain.indexOf("http")
+        val beforeLink = (if (linkAt > 0) plain.substring(0, linkAt) else plain)
+            .trim().trimEnd(':', '-', '–', '—').trim()
+        val start = beforeLink.ifBlank { plain }
+        val (headline, consumed) = if (start.length <= limit) start to start.length else {
+            val cut = start.take(limit).substringBeforeLast(' ', start.take(limit))
+            (cut.trimEnd(',', ';', ':', '.') + "…") to cut.length
+        }
+        val rest = plain.drop(consumed).replace(Regex("https?://\\S+"), " ")
+            .replace(Regex("\\s+"), " ").trim().trimStart(':', ',', ';', '-', '–', '—', ' ')
+        return headline to rest
+    }
+
+    internal fun headlineFrom(plain: String, limit: Int = 90): String = splitHeadline(plain, limit).first
 
     private fun localName(name: String?): String = name?.substringAfterLast(':')?.lowercase(Locale.US) ?: ""
 

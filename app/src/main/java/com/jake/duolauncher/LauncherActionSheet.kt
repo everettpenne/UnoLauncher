@@ -59,7 +59,7 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
         .padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
             if (moving) IconButton(onClick = { onMoving(false) }) { Icon(Icons.Rounded.ArrowBack, "Back") }
-            Image(app.icon.asImageBitmap(), null, Modifier.size(48.dp).clip(RoundedCornerShape(13.dp)))
+            Image(app.icon.asImageBitmap(), null, Modifier.size(48.dp).clip(Corner.icon))
             Spacer(Modifier.width(14.dp)); Column(Modifier.weight(1f)) {
                 Text(if (moving) "Move ${app.label}" else app.label, style = MaterialTheme.typography.titleLarge)
                 Text("${app.profileLabel} profile", style = MaterialTheme.typography.bodySmall,
@@ -111,9 +111,9 @@ internal fun EmptySpaceActionSheet(onWidgets: () -> Unit, onWallpaper: () -> Uni
 internal fun ActionRow(icon: ImageVector, label: String, onClick: () -> Unit,
     modifier: Modifier = Modifier, tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary) {
     Surface(onClick = onClick, modifier = modifier.fillMaxWidth().heightIn(min = 52.dp), color = androidx.compose.ui.graphics.Color.Transparent,
-        shape = RoundedCornerShape(16.dp)) {
+        shape = Corner.medium) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).background(tint.copy(alpha = .12f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(34.dp).background(tint.copy(alpha = .12f), Corner.icon), contentAlignment = Alignment.Center) {
                 Icon(icon, null, Modifier.size(20.dp), tint = tint)
             }
             Spacer(Modifier.width(14.dp)); Text(label, style = MaterialTheme.typography.bodyLarge, color = if (tint == MaterialTheme.colorScheme.error) tint else MaterialTheme.colorScheme.onSurface)

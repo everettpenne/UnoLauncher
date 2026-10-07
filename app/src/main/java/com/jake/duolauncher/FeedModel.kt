@@ -45,7 +45,26 @@ sealed interface FeedAddResult {
     data class Rejected(val message: String) : FeedAddResult
 }
 
-/** Normalizes a user-typed feed address. Returns null when it can't be a web address. */
+/** A feed offered one tap away on the empty feed page. Nothing here is contacted at install,
+ * on first run, or in the background: the host is reached only after the user follows it.
+ */
+internal data class SuggestedFeed(val url: String, val label: String, val detail: String) {
+    val host: String get() = java.net.URI(url).host
+}
+
+/** The GrapheneOS project's own feeds. The community forum (Flarum) publishes no RSS or Atom
+ * feed, so these are the official sources closest to it: release notes on grapheneos.org and
+ * the project's announcement account.
+ */
+internal val SUGGESTED_FEEDS = listOf(
+    SuggestedFeed("https://grapheneos.social/@GrapheneOS.rss", "GrapheneOS announcements", "News from the project's official account"),
+    SuggestedFeed("https://grapheneos.org/releases.atom", "GrapheneOS releases", "Every release and what changed"),
+)
+
+/** Normalizes a user-typed feed address. Returns null when it can't be a web address.
+ * Only https is accepted: a plain-http feed would expose what the user reads, and the app
+ * declares no cleartext traffic.
+ */
 internal fun normalizeFeedUrl(raw: String): String? {
     val trimmed = raw.trim()
     if (trimmed.isEmpty()) return null
@@ -54,7 +73,7 @@ internal fun normalizeFeedUrl(raw: String): String? {
     return runCatching {
         val uri = java.net.URI(candidate)
         val scheme = uri.scheme?.lowercase()
-        if (scheme !in setOf("http", "https")) return@runCatching null
+        if (scheme != "https") return@runCatching null
         if (uri.host.isNullOrBlank() || uri.rawUserInfo != null) return@runCatching null
         java.net.URI(scheme, null, uri.host, uri.port, uri.path, uri.query, null).toASCIIString()
     }.getOrNull()
@@ -98,7 +117,8 @@ internal fun describeFeedAge(nowMillis: Long, publishedAt: Long): String {
 }
 
 /** Owns feed sources and their on-device cache. Fetching is optional and direct:
- * Uno connects only to addresses the user added, and never uploads anything.
+ * Uno connects only to addresses the user added (redirects never leave that host), and
+ * never uploads anything.
  */
 class FeedStore(private val context: Context, private val scope: CoroutineScope) {
     private val prefs = context.getSharedPreferences("feed", Context.MODE_PRIVATE)
@@ -110,7 +130,8 @@ class FeedStore(private val context: Context, private val scope: CoroutineScope)
         sources = decodeSources(runCatching { prefs.getString("sources", "[]") }.getOrDefault("[]") ?: "[]"),
         entries = decodeEntries(runCatching { prefs.getString("entries", "[]") }.getOrDefault("[]") ?: "[]"),
         lastRefreshAt = runCatching { prefs.getLong("last_refresh", 0L) }.getOrDefault(0L),
-        feedPreferred = runCatching { prefs.getBoolean("preferred", false) }.getOrDefault(false),
+        // The feed is the main Discover surface; Google's own Discover is an extra where its app exists.
+        feedPreferred = runCatching { prefs.getBoolean("preferred", true) }.getOrDefault(true),
     )
 
     private fun save(state: FeedState) {
@@ -164,7 +185,7 @@ class FeedStore(private val context: Context, private val scope: CoroutineScope)
     fun addFeed(rawUrl: String, onResult: (FeedAddResult) -> Unit) {
         val url = normalizeFeedUrl(rawUrl)
         if (url == null) {
-            onResult(FeedAddResult.Rejected("Enter a web address that starts with http:// or https://"))
+            onResult(FeedAddResult.Rejected("Enter a web address that starts with https://"))
             return
         }
         if (_state.value.sources.any { it.url == url }) {

@@ -15,7 +15,8 @@
     </queries>
     <application android:label="Uno Launcher" android:icon="@drawable/ic_launcher"
         android:name=".DuoApplication"
-        android:theme="@style/Theme.Duo" android:allowBackup="false" android:supportsRtl="true">
+        android:theme="@style/Theme.Duo" android:allowBackup="false" android:supportsRtl="true"
+        android:networkSecurityConfig="@xml/network_security_config">
         <property android:name="android.window.PROPERTY_ACTIVITY_EMBEDDING_SPLITS_ENABLED" android:value="true" />
         <property android:name="android.window.PROPERTY_ACTIVITY_EMBEDDING_ALLOW_SYSTEM_OVERRIDE" android:value="false" />
         <activity android:name=".DiscoverActivity" android:exported="false"

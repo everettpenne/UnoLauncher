@@ -68,6 +68,10 @@ class MainActivity : ComponentActivity() {
     private var returningFromShadeSettings = false
     private var shadeSetupOwnsExternalUi = false
     private var recreatingShadeSetup = false
+    private var shadePromptDismissedThisRun = false
+    private val shadePrefs by lazy { getSharedPreferences("shade", MODE_PRIVATE) }
+    private fun shadePromptDeclined() = shadePromptDismissedThisRun ||
+        runCatching { shadePrefs.getBoolean("declined", false) }.getOrDefault(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -97,6 +101,7 @@ class MainActivity : ComponentActivity() {
             val state = model.state.collectAsStateWithLifecycle().value
             val deviceStatus = status.state.collectAsStateWithLifecycle().value
             DuoTheme(appearance.state.dark) {
+                androidx.compose.runtime.CompositionLocalProvider(LocalFeedFollow provides feeds::addFeed) {
                 LauncherScreen(state, model, widgets, homeRequests.intValue,
                     onLaunch = { launchApp(it) }, onMakeDefault = ::makeDefault, onAppInfo = ::appInfo,
                     isDefaultHome = defaultHome.value, deviceStatus = deviceStatus, onStatusMode = ::setStatusMode, onWallpaperPreview = ::previewWallpaper,
@@ -120,6 +125,7 @@ class MainActivity : ComponentActivity() {
                     onFeedPreferred = feeds::setPreferred,
                     onLiquidGlass = appearance::setLiquidGlass,
                     onRefraction = appearance::setRefraction)
+                }
             }
         }
         FoldRenderExperiment.attach(this)
@@ -171,7 +177,10 @@ class MainActivity : ComponentActivity() {
     internal fun openSystemShade(panel: ShadePanel) {
         when (SystemShadeAccessibilityService.open(this, panel)) {
             ShadeOpenResult.OPENED -> Unit
-            ShadeOpenResult.SERVICE_DISABLED -> showShadeSetup()
+            // The service is optional and denial must stick: a declined or dismissed prompt is
+            // never shown again by the gesture itself (Help & setup still offers it on request),
+            // so a swipe on Home is simply a no-op until the user opts in.
+            ShadeOpenResult.SERVICE_DISABLED -> if (!shadePromptDeclined()) showShadeSetup()
             ShadeOpenResult.SERVICE_STARTING -> Toast.makeText(this,
                 "Shade gestures are starting. Swipe down again.", Toast.LENGTH_SHORT).show()
             ShadeOpenResult.ACTION_REJECTED -> Toast.makeText(this,
@@ -183,9 +192,14 @@ class MainActivity : ComponentActivity() {
         if (shadeSetupDialog?.isShowing == true) return
         ownShadeSetupExternally()
         shadeSetupDialog = android.app.AlertDialog.Builder(this)
-            .setTitle("Turn on shade gestures")
-            .setMessage("Android requires you to enable Uno Launcher shade gestures in Accessibility settings. This service only opens Notifications or Quick Settings; it doesn’t read screen content or watch other apps.")
-            .setNegativeButton("Not now", null)
+            .setTitle("Shade gestures (optional)")
+            .setMessage("Swiping down on Home can open Notifications or Quick Settings. Android lets a launcher do that only through an accessibility service, so it stays off until you turn it on.\n\n" +
+                "It can: open those two panels when you swipe.\n" +
+                "It can’t: read your screen, see other apps, or tap or type for you.\n\n" +
+                "Turn it off any time in Settings → Accessibility. Uno Launcher works the same without it.")
+            .setNegativeButton("No thanks") { _, _ ->
+                runCatching { shadePrefs.edit().putBoolean("declined", true).apply() }
+            }
             .setPositiveButton("Open settings") { _, _ ->
                 try {
                     returningFromShadeSettings = true
@@ -196,6 +210,7 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(this, "Accessibility settings are unavailable.", Toast.LENGTH_LONG).show()
                 }
             }
+            .also { dialog -> dialog.setOnCancelListener { shadePromptDismissedThisRun = true } }
             .also { dialog -> dialog.setOnDismissListener {
                 shadeSetupDialog = null
                 if (!returningFromShadeSettings && !recreatingShadeSetup) releaseShadeSetupOwnership()

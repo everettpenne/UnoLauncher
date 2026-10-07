@@ -63,7 +63,7 @@ internal fun FeedSettings(
         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("feed-add")) {
         Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Add a feed")
     }
-    Text("Uno connects directly to the addresses you add and stores the entries on this device. Nothing is uploaded.",
+    Text("Uno connects directly to the https addresses you add, and only to those servers. Entries are stored on this device. Nothing is uploaded.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     if (showAddDialog) AddFeedDialog(onDismiss = { showAddDialog = false },
         onAdd = { url, result -> onAddFeed(url) { addResult -> showAddDialog = addResult !is FeedAddResult.Added; result(addResult) } })
@@ -82,6 +82,17 @@ private fun AddFeedDialog(onDismiss: () -> Unit, onAdd: (String, (FeedAddResult)
                     label = { Text("Feed address") }, singleLine = true, enabled = !pending,
                     placeholder = { Text("https://example.com/feed.xml") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
+                Text("Suggested", Modifier.padding(top = 10.dp), style = MaterialTheme.typography.labelMedium)
+                SUGGESTED_FEEDS.forEach { suggestion ->
+                    TextButton(onClick = { url = suggestion.url; status = null }, enabled = !pending,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Column(Modifier.fillMaxWidth()) {
+                            Text(suggestion.label)
+                            Text(suggestion.host, style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
                 if (status != null) { Spacer(Modifier.height(8.dp)); Text(status!!, style = MaterialTheme.typography.bodySmall) }
             }
         },

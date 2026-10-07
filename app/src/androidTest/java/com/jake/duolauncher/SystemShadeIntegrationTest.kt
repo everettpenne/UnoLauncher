@@ -17,6 +17,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -129,12 +130,14 @@ class SystemShadeIntegrationTest {
         val model = ViewModelProvider(compose.activity)[LauncherModel::class.java]
         compose.waitUntil(15_000) { !model.state.value.loading }
         val layout = model.state.value.layout
+        // An earlier decline is persisted by design; start from a user who has never been asked.
+        compose.activity.getSharedPreferences("shade", 0).edit().clear().commit()
         try {
             put("enabled_accessibility_services", withoutDuo(saved.services))
             put("accessibility_enabled", if (withoutDuo(saved.services) == null) "0" else "1")
             await { !SystemShadeAccessibilityService.isConnected() }
 
-            assertTrue("No setup prompt may appear at startup", findText("Turn on shade gestures") == null)
+            assertTrue("No setup prompt may appear at startup", findText("Shade gestures (optional)") == null)
             compose.onNodeWithTag("launcher-root").performTouchInput {
                 swipe(
                     start = Offset(width * .5f, height * .2f),
@@ -142,24 +145,36 @@ class SystemShadeIntegrationTest {
                     durationMillis = 300,
                 )
             }
-            await { findText("Turn on shade gestures") != null }
+            await { findText("Shade gestures (optional)") != null }
             assertEquals("Opening setup must not edit Home", layout, model.state.value.layout)
             assertTrue("The native setup dialog must own Discover before Settings is opened",
                 LiveDiscover.hasExternalResultPending("main", "shade-service-setup"))
 
             compose.activityRule.scenario.recreate()
-            await { findText("Turn on shade gestures") != null }
+            await { findText("Shade gestures (optional)") != null }
             assertTrue("Recreated setup must retain Discover ownership",
                 LiveDiscover.hasExternalResultPending("main", "shade-service-setup"))
 
-            clickSystemText("Not now")
-            await { findText("Turn on shade gestures") == null }
+            clickSystemText("No thanks")
+            await { findText("Shade gestures (optional)") == null }
             await { !LiveDiscover.hasExternalResultPending("main", "shade-service-setup") }
             val recreatedModel = ViewModelProvider(compose.activity)[LauncherModel::class.java]
             compose.waitUntil(5_000) { !recreatedModel.state.value.loading }
             assertEquals("Cancel must preserve every placement", layout, recreatedModel.state.value.layout)
             compose.onNodeWithTag("discover-page-link").assertIsDisplayed().assertHasClickAction()
+
+            // Denial must stick: another swipe on Home is a silent no-op, never a second prompt.
+            compose.onNodeWithTag("launcher-root").performTouchInput {
+                swipe(
+                    start = Offset(width * .5f, height * .2f),
+                    end = Offset(width * .5f, height * .55f),
+                    durationMillis = 300,
+                )
+            }
+            SystemClock.sleep(1_200)
+            assertNull("A declined prompt must not reappear", findText("Shade gestures (optional)"))
         } finally {
+            compose.activity.getSharedPreferences("shade", 0).edit().clear().commit()
             restore(saved)
         }
     }

@@ -626,14 +626,22 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() { launcherApps.unregisterCallback(callback) }
 }
 
-/** Render adaptive layers through our rounded-square mask, preserving original app artwork. */
+/** Render adaptive layers through the launcher's icon silhouette, preserving original app
+ * artwork. The silhouette is the iOS app-icon shape (22.37% continuous corners, [Corner.icon]).
+ * Layers are drawn in full and the outside is then cleared through an antialiased mask, rather
+ * than hard-clipping, so the curved edge is smooth at every size.
+ */
 private fun launcherIcon(drawable: Drawable): Bitmap {
     if (drawable !is AdaptiveIconDrawable) return drawable.toBitmap(144, 144)
     val bitmap = Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
-    canvas.clipPath(Path().apply { addRoundRect(0f, 0f, 144f, 144f, 34f, 34f, Path.Direction.CW) })
     drawable.setBounds(0, 0, 144, 144)
     drawable.background?.draw(canvas)
     drawable.foreground?.draw(canvas)
+    val outside = Path().also { Squircle.build(144f, 144f, 144f * Corner.ICON_FRACTION, AndroidPathSink(it)) }
+    outside.fillType = Path.FillType.INVERSE_WINDING
+    canvas.drawPath(outside, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR)
+    })
     return bitmap
 }

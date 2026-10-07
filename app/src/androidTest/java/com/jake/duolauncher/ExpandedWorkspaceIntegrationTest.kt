@@ -42,8 +42,20 @@ class ExpandedWorkspaceIntegrationTest {
 
     private fun waitForPage(expected: String) = compose.waitUntil(5000) { page() == expected }
 
+    /** The area pages occupy at rest. The pager node now spans the whole screen so Home can slide
+     * beneath the translucent dock and status rail; the viewport that panes are laid out in still
+     * ends 16 dp before the dock (the pager width is the screen minus dock width minus 28 dp, and
+     * the dock sits 12 dp from the edge). Measure against that, not the full-width pager.
+     */
+    private fun visibleViewport(): androidx.compose.ui.geometry.Rect {
+        val pager = pager().fetchSemanticsNode().boundsInRoot
+        val dock = compose.onNodeWithTag("dock").fetchSemanticsNode().boundsInRoot
+        val density = compose.activity.resources.displayMetrics.density
+        return pager.copy(right = minOf(pager.right, dock.left - 16f * density))
+    }
+
     private fun assertDisplayedCount(tag: String, expected: Int) {
-        val viewport = pager().fetchSemanticsNode().boundsInRoot
+        val viewport = visibleViewport()
         val visible = compose.onAllNodesWithTag(tag, useUnmergedTree = true)
             .fetchSemanticsNodes(atLeastOneRootRequired = false)
             .count { node ->
@@ -303,7 +315,7 @@ class ExpandedWorkspaceIntegrationTest {
             compose.onNodeWithTag("library-page-link").performClick()
             waitForPage("All apps")
             val library = compose.onNodeWithTag("library-page").fetchSemanticsNode().boundsInRoot
-            val viewport = pager().fetchSemanticsNode().boundsInRoot
+            val viewport = visibleViewport()
             assertEquals("All apps reaches the pager's trailing edge", viewport.right, library.right, 2f)
             assertTrue("All apps uses the full expanded pager apart from its content padding",
                 library.width > viewport.width * .9f)

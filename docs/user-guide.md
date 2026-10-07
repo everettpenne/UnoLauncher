@@ -11,7 +11,7 @@ To make Uno Launcher the launcher, choose **Set as home app** in customization, 
 ## Move around Home
 
 - Swipe horizontally across Home, the dock, or the right rail to move one page per gesture.
-- Swipe right from Home 1 for Discover — or for **My feed** where Google's feed isn't available. Swipe left, press Back, or use its right-pointing arrow to return.
+- Swipe right from Home 1 for **My feed** (or Google Discover where the Google app is installed and you haven't chosen the feed). On a fresh install the feed page is empty: it offers the GrapheneOS announcements and release feeds, and nothing is contacted until you tap one. Swipe left, press Back, or use its right-pointing arrow to return.
 - Swipe past the last Home page for **All apps**. Its **Search apps** field always searches installed apps locally.
 - The dock and its search control stay on the right. The page controls also open Discover or All apps.
 - Pressing the system Home control from an app returns to the Home page or unfolded pair you last had visible. From All apps, search, or Discover it returns to the last Home view.
@@ -23,7 +23,7 @@ Long press an empty Home cell to open **Add to Home**, then choose **Widgets**, 
 - **Wallpaper & appearance** for launcher photos, Android wallpaper, and color mode.
 - **Home layout** for icon size, row spacing, dock geometry, Home apps, and widgets on the visible page.
 - **Gestures & search** for app names, the upper-right status display, and Google search behavior.
-- **News feed** to add your own RSS/Atom feeds, refresh them, and choose whether the feed replaces Discover. On devices without Discover support the feed appears automatically once a feed is added.
+- **News feed** to add https RSS/Atom feeds (the GrapheneOS ones are one tap), refresh them, and choose whether the feed replaces Google Discover. Without the Google app the feed always owns this page. Feeds must be https, and a redirect to a different server is refused.
 - **Backup** to save or restore the layout.
 - **Help & setup** for Home selection, widgets, shade gestures, and Discover.
 
@@ -59,7 +59,7 @@ Appearance choices are **Light**, **Dark**, **Follow system**, and **Sunrise / s
 
 ## Optional shade gestures
 
-On Home, swipe down from the left 70% to open Notifications or from the right 30% to open Quick Settings. The first attempt offers **Turn on shade gestures** because Android requires you to enable Uno Launcher in Accessibility settings. This is optional and must be enabled by you; **Not now** leaves it off. The service only requests the system panel actions.
+On Home, swipe down from the left 70% to open Notifications or from the right 30% to open Quick Settings. This is off until you turn it on: Android only lets a launcher open those panels through an accessibility service. The first swipe explains exactly what the service can and can't do and offers **Open settings** or **No thanks**. **No thanks** is remembered, and the swipe then does nothing; pressing outside the prompt only hides it for now. You can enable the gestures later from **Help & setup**, and turn them off any time in Android Settings → Accessibility. The service only requests the system panel actions; it can't read your screen or see other apps.
 
 ## Layout backup
 

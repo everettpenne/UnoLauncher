@@ -12,13 +12,23 @@ Uno Launcher stores settings, Home layout, widget placement, and selected wallpa
 
 ## Optional access
 
-The shade-gesture accessibility service opens notifications or Quick Settings in response to your gesture. It cannot retrieve window contents or perform gesture injection and unsubscribes from accessibility events when connected. You can disable it in Android Accessibility settings and continue using the launcher.
+The shade-gesture accessibility service opens notifications or Quick Settings in response to your gesture. It is off until you enable it, and the launcher never enables it for you. It cannot retrieve window contents or perform gesture injection and unsubscribes from accessibility events when connected. The first swipe explains this and offers **No thanks**, which is remembered so you aren't asked again. You can disable the service any time in Android Accessibility settings and continue using the launcher.
+
+Coarse location is requested only when you tap the button for approximate location in sunrise/sunset appearance settings, as a single request; the launcher stores the resulting coordinates (and **Clear location** removes them). You can instead type coordinates, or leave the system theme on, and never grant it.
 
 Android controls widget-binding approval and Home-app selection. Providers can require separate setup or permissions.
 
-## News feed
+## News feed and network use
 
-The news feed is optional and off by default. When you add feed addresses, Uno fetches only those pages directly over the network — the Android internet permission exists solely for this feature. Entries are cached on this device and open in your browser. Uno Launcher does not proxy or upload feeds, share them with other apps, or fetch anything you did not add. With network access turned off (for example, a per-app network toggle), cached entries remain readable and new fetches report an error. Removing a feed removes its cached entries.
+The launcher contacts no server of its own and ships no default connection. The news feed page starts empty and nothing is fetched until you tap a suggested feed or add one. The suggestions are the GrapheneOS project's announcement feed (`grapheneos.social`) and release notes (`grapheneos.org`); each button shows its host and contacts only that host.
+
+- Feeds must be `https`; plain `http` is refused, and the app declares no cleartext traffic.
+- Redirects are followed only within the same host, over https, and at most three times. A feed that moves to a different server is refused, not contacted.
+- Requests carry no cookies, no account, and no identifiers beyond a generic user-agent; nothing is uploaded.
+- The Android internet permission exists solely for this feature. Entries are cached on this device and open in your browser, which then contacts the story's own site under its own settings.
+- With network access turned off (for example, GrapheneOS's per-app Network permission), cached entries remain readable and new fetches report an error. Removing a feed removes its cached entries.
+
+The GrapheneOS forum (`discuss.grapheneos.org`) publishes no RSS or Atom feed, so Uno cannot follow it; the project's announcements link to forum threads.
 
 ## Google and other apps
 

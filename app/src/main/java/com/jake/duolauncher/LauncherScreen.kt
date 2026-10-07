@@ -109,7 +109,7 @@ private fun findFreeWidgetIndex(layout: HomeLayout, page: Int, spanX: Int, spanY
 fun DuoTheme(dark: Boolean = false, content: @Composable () -> Unit) {
     val palette = if (dark) DarkDuoPalette else LightDuoPalette
     CompositionLocalProvider(LocalDuoPalette provides palette) {
-        MaterialTheme(colorScheme = if (dark) darkColorScheme(primary = Color(0xFF9BC5D7), onPrimary = Color(0xFF12303D),
+        MaterialTheme(shapes = DuoMaterialShapes, colorScheme = if (dark) darkColorScheme(primary = Color(0xFF9BC5D7), onPrimary = Color(0xFF12303D),
             surface = Color(0xFF17272E), onSurface = palette.ink, secondary = Color(0xFFD1BE98),
             secondaryContainer = Color(0xFF314852), onSecondaryContainer = palette.ink)
         else lightColorScheme(primary = Color(0xFF30596D), onPrimary = Color.White,
@@ -194,26 +194,25 @@ fun LauncherScreen(
     val pendingNewPage = widgets.pendingPlacement?.page == homePages
     val visibleHomePages = homePages + if (drag.active || widgetSession != null || pendingNewPage) 1 else 0
     var expandedWorkspace by remember { mutableStateOf(false) }
-    // The leading slot hosts Google Discover where Window extensions exist, and the
-    // local news feed wherever it doesn't — or whenever the user prefers the feed.
-    val discoverAvailable = DiscoverBounds.available
-    val feedVisible = feed.configured && (feed.feedPreferred || !discoverAvailable)
-    val firstHome = if (discoverAvailable || feed.configured) 1 else 0
+    // The leading slot always exists. It hosts Google Discover only where both Window
+    // extensions and the Google app are present (on GrapheneOS the latter usually isn't); the
+    // local news feed owns it everywhere else, and wherever a configured feed is preferred.
+    // With nothing configured the feed page is the one-tap, opt-in GrapheneOS suggestion page.
+    val context = LocalContext.current
+    val googleInstalled = remember(context) {
+        context.packageManager.getLaunchIntentForPackage(DiscoverClient.GOOGLE_PACKAGE) != null
+    }
+    val discoverAvailable = DiscoverBounds.available && googleInstalled
+    val feedVisible = !discoverAvailable || (feed.configured && feed.feedPreferred)
+    val firstHome = 1
     val pageCount = visibleHomePages + 1
     val nativePager = rememberPagerState(initialPage = savedPage.coerceIn(-firstHome, pageCount - 1) + firstHome, pageCount = { pageCount + firstHome })
     val pager = remember(nativePager, firstHome) { LauncherPager(nativePager, firstHome) }
     // The feed page and Google's window must never own the slot at the same time.
     LaunchedEffect(feedVisible) { LiveDiscover.setFeedOwnsSlot(feedVisible) }
-    var priorFeedConfigured by remember { mutableStateOf(feed.configured) }
     LaunchedEffect(feed.configured, feedVisible) {
-        if (feed.configured != priorFeedConfigured) {
-            // The first feed inserts the leading page on devices without Window Extensions:
-            // physical page 0 stops meaning Home 1, so keep the user on Home.
-            if (feed.configured && !discoverAvailable && nativePager.currentPage == 0) {
-                nativePager.animateScrollToPage(1)
-            }
-            priorFeedConfigured = feed.configured
-        }
+        // The leading page no longer appears when the first feed is added, so there is no page
+        // shift to compensate for: following a suggestion leaves the user on the feed page.
         if (feedVisible && pager.settledPage == -1) onFeedVisible()
     }
     LaunchedEffect(feedSetupRequests) {
@@ -644,7 +643,7 @@ fun LauncherScreen(
             if (state.verticalStatus) {
                 if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.contentTop.dp)
                     .width(preset.dockWidth.dp)
-                    .liquidGlass(homeBackdrop.combined, RoundedCornerShape(26.dp), glassTint.copy(alpha = .12f), blurRadius = .75f, refraction = glassRefraction)
+                    .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, refraction = glassRefraction)
                     .padding(vertical = 8.dp)) {
                     StatusRail(deviceStatus, Modifier.fillMaxWidth().onSizeChanged {
                         statusHeight = (with(density) { it.height.toDp().value } -
@@ -661,7 +660,7 @@ fun LauncherScreen(
             }
             if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
-                .liquidGlass(homeBackdrop.combined, RoundedCornerShape(30.dp), glassTint.copy(alpha = .12f), blurRadius = .75f, refraction = glassRefraction)
+                .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, refraction = glassRefraction)
                 .graphicsLayer {
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                 }.testTag("dock")) {
@@ -675,7 +674,7 @@ fun LauncherScreen(
                     // Composite the stationary dock independently of the shared pager layer.
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                 }.testTag("dock"),
-                shape = RoundedCornerShape(30.dp), color = Glass.copy(alpha = .32f),
+                shape = Corner.xlarge, color = Glass.copy(alpha = .32f),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .3f))) {
                 Column(Modifier.padding(vertical = 8.dp).verticalScroll(dockScroll)) {
                     DockAppColumn(state.dock, previewLayout.dock, appsById, geometry.dockRowHeight,
@@ -689,7 +688,7 @@ fun LauncherScreen(
                 }
                 // The page dots ride in a small glass capsule, like iOS's page indicator.
                 Row(Modifier.then(if (controlGlass != null) Modifier.liquidGlass(controlGlass.backdrop,
-                        RoundedCornerShape(percent = 50), controlGlass.tint.copy(alpha = .12f), blurRadius = .75f,
+                        Corner.pill, controlGlass.tint.copy(alpha = .12f), blurRadius = .75f,
                         refraction = controlGlass.refraction).padding(horizontal = 6.dp) else Modifier),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     if (!drag.active) IconButton(onClick = openDiscover, Modifier.size(32.dp).testTag("discover-page-link")) {
@@ -979,7 +978,7 @@ fun LauncherScreen(
                             }
                         } else Modifier)) {
                         Row(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp)
-                            .background(Glass.copy(alpha = .97f), RoundedCornerShape(22.dp))
+                            .background(Glass.copy(alpha = .97f), Corner.pill)
                             .testTag("widget-placement-toolbar"), verticalAlignment = Alignment.CenterVertically) {
                             TextButton(onClick = widgetPickerBack) { Text("Back to widgets") }
                             if (session.candidate != null) Text("Replace here", color = Ink,
@@ -1029,11 +1028,11 @@ fun LauncherScreen(
                                 .size(previewWidth, previewHeight).testTag("widget-placement-preview")
                                 .semantics { stateDescription = if (widgetDraft != null) "Ready to place" else "No room here" },
                                 color = if (widgetDraft != null) Glass.copy(alpha = .82f) else Color(0xFFE7B6B6).copy(alpha = .9f),
-                                shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(3.dp,
+                                shape = Corner.large, border = androidx.compose.foundation.BorderStroke(3.dp,
                                     if (widgetDraft != null) Color.White else Color(0xFFFF6B6B))) {
                                 Box(Modifier.fillMaxSize()) {
                                     if (sessionEntry != null) WidgetProviderPreview(sessionEntry, session.span,
-                                        Modifier.fillMaxSize().padding(5.dp).clip(RoundedCornerShape(18.dp)))
+                                        Modifier.fillMaxSize().padding(5.dp).clip(Corner.medium))
                                     else Column(Modifier.align(Alignment.Center).padding(12.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(session.provider?.loadLabel(launcherActivity.packageManager)?.toString()
@@ -1055,10 +1054,10 @@ fun LauncherScreen(
                             Surface(Modifier.offset { IntOffset((session.pointer.x - 90.dp.toPx()).roundToInt(),
                                 (session.pointer.y - 60.dp.toPx()).roundToInt()) }.size(180.dp, 120.dp)
                                 .testTag("widget-placement-preview").semantics { stateDescription = "No room here" },
-                                color = Color(0xFFE7B6B6).copy(alpha = .9f), shape = RoundedCornerShape(24.dp)) {
+                                color = Color(0xFFE7B6B6).copy(alpha = .9f), shape = Corner.large) {
                                 Box(contentAlignment = Alignment.Center) {
                                     if (sessionEntry != null) WidgetProviderPreview(sessionEntry, session.span,
-                                        Modifier.fillMaxSize().padding(5.dp).clip(RoundedCornerShape(18.dp)))
+                                        Modifier.fillMaxSize().padding(5.dp).clip(Corner.medium))
                                     Box(Modifier.matchParentSize().background(Color(0xFFB83B3B).copy(alpha = .34f)),
                                         contentAlignment = Alignment.Center) { Text("No room here", color = Color.White) }
                                 }
@@ -1068,29 +1067,29 @@ fun LauncherScreen(
                 }
                 widgetPlacementMessage?.let { message ->
                     Surface(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(20.dp),
-                        color = Glass, shape = RoundedCornerShape(18.dp)) { Text(message, Modifier.padding(16.dp), color = Ink) }
+                        color = Glass, shape = Corner.medium) { Text(message, Modifier.padding(16.dp), color = Ink) }
                 }
             }
         }
         if (drag.active) {
             if (drag.moved) {
                 if (pager.currentPage > 0) Box(Modifier.align(Alignment.CenterStart).width(6.dp).height(112.dp)
-                    .background(Color.White.copy(alpha = if (edge < 0) .9f else .3f), RoundedCornerShape(6.dp)).testTag("drag-edge-left"))
+                    .background(Color.White.copy(alpha = if (edge < 0) .9f else .3f), Corner.pill).testTag("drag-edge-left"))
                 if (pager.currentPage < homePages) Box(Modifier.align(Alignment.CenterEnd).width(6.dp).height(112.dp)
-                    .background(Color.White.copy(alpha = if (edge > 0) .9f else .3f), RoundedCornerShape(6.dp)).testTag("drag-edge-right"))
+                    .background(Color.White.copy(alpha = if (edge > 0) .9f else .3f), Corner.pill).testTag("drag-edge-right"))
             }
             appsById[drag.source?.appId]?.let { app ->
                 val size = 66.dp
                 val px = with(LocalDensity.current) { size.toPx() }
                 Image(app.icon.asImageBitmap(), "Moving ${app.label}", Modifier
                     .offset { IntOffset((drag.pointer.x - drag.rootOrigin.x - px / 2).roundToInt(), (drag.pointer.y - drag.rootOrigin.y - px * .65f).roundToInt()) }
-                    .size(size).shadow(16.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).testTag("drag-ghost"))
+                    .size(size).shadow(16.dp, Corner.icon).clip(Corner.icon).testTag("drag-ghost"))
             }
             drag.source?.appId?.let { state.layout.folder(it) }?.let { folder ->
                 Surface(Modifier.offset { IntOffset((drag.pointer.x - drag.rootOrigin.x - 42.dp.toPx()).roundToInt(),
                     (drag.pointer.y - drag.rootOrigin.y - 52.dp.toPx()).roundToInt()) }.size(84.dp)
-                    .shadow(16.dp, RoundedCornerShape(20.dp)).testTag("folder-drag-ghost"),
-                    color = Glass.copy(alpha = .96f), shape = RoundedCornerShape(20.dp)) {
+                    .shadow(16.dp, Corner.medium).testTag("folder-drag-ghost"),
+                    color = Glass.copy(alpha = .96f), shape = Corner.medium) {
                     Box(contentAlignment = Alignment.Center) { Text(folder.title, color = Ink, textAlign = TextAlign.Center) }
                 }
             }
@@ -1099,8 +1098,8 @@ fun LauncherScreen(
                 val x = with(LocalDensity.current) { width.toPx() }
                 val y = with(LocalDensity.current) { height.toPx() }
                 Surface(Modifier.offset { IntOffset((drag.pointer.x - x / 2).roundToInt(), (drag.pointer.y - y * .65f).roundToInt()) }
-                    .size(width, height).shadow(16.dp, RoundedCornerShape(24.dp)).testTag("drag-ghost"),
-                    color = Glass.copy(alpha = .95f), shape = RoundedCornerShape(24.dp)) {
+                    .size(width, height).shadow(16.dp, Corner.large).testTag("drag-ghost"),
+                    color = Glass.copy(alpha = .95f), shape = Corner.large) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Rounded.Widgets, null, tint = Ink)
                         Spacer(Modifier.height(8.dp))
@@ -1111,7 +1110,7 @@ fun LauncherScreen(
             if (blockedDock) Surface(
                 Modifier.align(Alignment.TopCenter).statusBarsPadding()
                     .padding(top = 10.dp, start = 20.dp, end = 100.dp),
-                color = Glass.copy(alpha = .96f), shape = RoundedCornerShape(18.dp)
+                color = Glass.copy(alpha = .96f), shape = Corner.medium
             ) {
                 Text("Dock full • Move an app out first",
                     Modifier.padding(horizontal = 16.dp, vertical = 12.dp), color = Ink, fontSize = 13.sp)
@@ -1123,7 +1122,7 @@ fun LauncherScreen(
                 Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 12.dp, bottom = 12.dp)
                     .width((if (expandedWorkspace) state.expanded else state.compact).dockWidth.dp).height(64.dp)
                     .dropRegion(drag, DropTarget.Remove).testTag("remove-drop-target"),
-                color = if (target == DropTarget.Remove) Color(0xFFB33B3B) else Glass.copy(alpha = .96f), shape = RoundedCornerShape(24.dp)) {
+                color = if (target == DropTarget.Remove) Color(0xFFB33B3B) else Glass.copy(alpha = .96f), shape = Corner.large) {
                 Column(Modifier.fillMaxSize().padding(vertical = 6.dp), verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Rounded.DeleteOutline, null)
@@ -1150,7 +1149,7 @@ fun LauncherScreen(
                     with(density) { 18.dp.toPx() }).coerceAtLeast(resizePitchY)
                 Box(Modifier.offset { IntOffset(bounds.left.roundToInt(), bounds.top.roundToInt()) }
                     .size(with(density) { widthPx.toDp() }, with(density) { heightPx.toDp() })
-                    .border(3.dp, if (valid) Color.White else Color(0xFFFF6B6B), RoundedCornerShape(24.dp))
+                    .border(3.dp, if (valid) Color.White else Color(0xFFFF6B6B), Corner.large)
                     .testTag("widget-resize-preview-$slot")) {
                     Box(Modifier.align(Alignment.BottomEnd).offset(12.dp, 12.dp).size(44.dp)
                         .background(if (valid) Color.White else Color(0xFFFF6B6B), CircleShape)
@@ -1170,7 +1169,7 @@ fun LauncherScreen(
                         Icon(Icons.Rounded.OpenInFull, "Drag to resize widget", tint = Ink, modifier = Modifier.size(22.dp))
                     }
                     Row(Modifier.align(Alignment.TopCenter).padding(top = 8.dp)
-                        .background(Glass.copy(alpha = .96f), RoundedCornerShape(20.dp))) {
+                        .background(Glass.copy(alpha = .96f), Corner.medium)) {
                         TextButton(onClick = { resizeSlot = null }) { Text("Cancel") }
                         TextButton(enabled = valid, onClick = {
                             model.resizeWidget(slot, resizeWidth, resizeHeight); resizeSlot = null
@@ -1614,14 +1613,14 @@ private fun SharedHomeGrid(
                 .dropRegion(drag, cell, savedApp?.id ?: savedFolder?.id, page)
                 .combinedClickable(onClick = { savedFolder?.let { onFolder(it.id) } },
                     onLongClick = { if (savedId == null && !drag.active) onEmptyWidget(globalIndex) })
-                .background(if (highlighted) Glass.copy(alpha = .25f) else Color.Transparent, RoundedCornerShape(16.dp))
+                .background(if (highlighted) Glass.copy(alpha = .25f) else Color.Transparent, Corner.medium)
                 .border(if (highlighted) 2.dp else 0.dp,
-                    if (highlighted) Color.White.copy(alpha = .8f) else Color.Transparent, RoundedCornerShape(16.dp)),
+                    if (highlighted) Color.White.copy(alpha = .8f) else Color.Transparent, Corner.medium),
                 contentAlignment = Alignment.TopCenter) {
                 if (drag.active && drag.source?.appId != null && (gap || previewId == null)) Box(
                     Modifier.size(iconSize.dp).testTag(if (gap) "drag-gap-home-$globalIndex" else "empty-home-slot-$globalIndex")
-                        .background(Glass.copy(alpha = if (gap) .16f else .08f), RoundedCornerShape(18.dp))
-                        .border(if (gap) 2.dp else 1.dp, Color.White.copy(alpha = if (gap) .55f else .3f), RoundedCornerShape(18.dp)))
+                        .background(Glass.copy(alpha = if (gap) .16f else .08f), Corner.medium)
+                        .border(if (gap) 2.dp else 1.dp, Color.White.copy(alpha = if (gap) .55f else .3f), Corner.medium))
             }
         }
 
@@ -1673,7 +1672,7 @@ private fun SharedHomeGrid(
                     .testTag("widget-pending-${placement.slot}").semantics(mergeDescendants = true) {
                         contentDescription = "Pending ${widgets.pendingProvider?.shortClassName ?: "widget"}"
                     }, color = Glass.copy(alpha = .72f),
-                    shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(2.dp, Color.White)) {
+                    shape = Corner.large, border = androidx.compose.foundation.BorderStroke(2.dp, Color.White)) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
@@ -1724,12 +1723,12 @@ private fun DockAppColumn(
             val highlighted = drag.active && target == cell
             val gap = hiddenIndex == index
             Box(Modifier.fillMaxWidth().height(rowHeight.dp).offset(y = (rowHeight * index).dp)
-                .background(if (highlighted) Color.White.copy(alpha = .3f) else Color.Transparent, RoundedCornerShape(16.dp)),
+                .background(if (highlighted) Color.White.copy(alpha = .3f) else Color.Transparent, Corner.medium),
                 contentAlignment = Alignment.Center) {
                 when {
                     gap -> Box(Modifier.size(iconSize.dp).testTag("drag-gap-dock-$index")
-                        .background(Glass.copy(alpha = .16f), RoundedCornerShape(14.dp))
-                        .border(2.dp, Color.White.copy(alpha = .55f), RoundedCornerShape(14.dp)))
+                        .background(Glass.copy(alpha = .16f), Corner.small)
+                        .border(2.dp, Color.White.copy(alpha = .55f), Corner.small))
                     previewId == null -> Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(24.dp))
                 }
             }
@@ -1764,7 +1763,7 @@ private fun DockAppColumn(
                             val p = slotProgress[renderIndex]
                             scaleX = 1f - .08f * p; scaleY = 1f - .08f * p
                         }
-                        .pressGlow(slotProgress[renderIndex], RoundedCornerShape(11.dp)))
+                        .pressGlow(slotProgress[renderIndex], Corner.icon))
                 }
             }
         }
@@ -1783,16 +1782,16 @@ private fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: F
         .semantics(mergeDescendants = true) { contentDescription = "Folder ${folder.title}, ${folder.appIds.size} apps" },
         horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(size.dp).graphicsLayer { scaleX = 1f - .05f * progress; scaleY = 1f - .05f * progress }
-            .clip(RoundedCornerShape((size * .24f).dp))
-            .background(Glass.copy(alpha = .72f)).border(1.dp, Color.White.copy(alpha = .55f), RoundedCornerShape((size * .24f).dp))
+            .clip(Corner.icon)
+            .background(Glass.copy(alpha = .72f)).border(1.dp, Color.White.copy(alpha = .55f), Corner.icon)
             .dropRegion(drag, DropTarget.Folder(folder.id), page = page, folderId = folder.id)
-            .pressGlow(progress, RoundedCornerShape((size * .24f).dp))
+            .pressGlow(progress, Corner.icon)
             .testTag("folder-drop-${folder.id}")) {
             folder.appIds.take(4).forEachIndexed { index, id ->
                 apps[id]?.let { app ->
                     Image(app.icon.asImageBitmap(), null, Modifier.align(when (index) {
                         0 -> Alignment.TopStart; 1 -> Alignment.TopEnd; 2 -> Alignment.BottomStart; else -> Alignment.BottomEnd
-                    }).padding(5.dp).size((size * .38f).dp).clip(RoundedCornerShape(6.dp)))
+                    }).padding(5.dp).size((size * .38f).dp).clip(Corner.icon))
                 }
             }
         }
@@ -1814,7 +1813,7 @@ private fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modif
         horizontalAlignment = Alignment.CenterHorizontally) {
         Image(app.icon.asImageBitmap(), null, Modifier.size(iconSize).onGloballyPositioned { bounds.set(it.boundsInWindow().toAndroidBounds()) }
             .graphicsLayer { scaleX = 1f - .08f * progress; scaleY = 1f - .08f * progress }
-            .pressGlow(progress, RoundedCornerShape((size * .24f).dp)))
+            .pressGlow(progress, Corner.icon))
         if (labels) Text(app.label, color = Color.White, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .55f), Offset(0f, 1f), 3f)), modifier = Modifier.padding(top = 4.dp))
@@ -1825,13 +1824,13 @@ private fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modif
 private fun GlassCard(modifier: Modifier = Modifier, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val glass = LocalPageGlass.current
     if (glass != null) {
-        Column(modifier.fillMaxSize().liquidGlass(glass.backdrop, RoundedCornerShape(24.dp), glass.tint.copy(alpha = .14f),
-            blurRadius = 1f, refraction = glass.refraction).clip(RoundedCornerShape(24.dp)).clickable(onClick = onClick)
+        Column(modifier.fillMaxSize().liquidGlass(glass.backdrop, Corner.large, glass.tint.copy(alpha = .14f),
+            blurRadius = 1f, refraction = glass.refraction).clip(Corner.large).clickable(onClick = onClick)
             .padding(14.dp), verticalArrangement = Arrangement.SpaceBetween, content = content)
         return
     }
-    Surface(modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).clickable(onClick = onClick),
-        color = Glass.copy(alpha = .24f), shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .18f))) {
+    Surface(modifier.fillMaxSize().clip(Corner.large).clickable(onClick = onClick),
+        color = Glass.copy(alpha = .24f), shape = Corner.large, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .18f))) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.SpaceBetween, content = content)
     }
 }
@@ -1889,14 +1888,14 @@ private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifie
     val glass = LocalPageGlass.current
     // Glass sits behind the provider's RemoteViews; it shows through transparent widgets
     // and is covered by widgets that paint their own opaque background.
-    BoxWithConstraints(modifier.then(if (glass != null) Modifier.liquidGlass(glass.backdrop, RoundedCornerShape(24.dp),
+    BoxWithConstraints(modifier.then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.large,
         glass.tint.copy(alpha = .14f), blurRadius = 1f, refraction = glass.refraction) else Modifier)
-        .clip(RoundedCornerShape(24.dp)).testTag("widget-slot-$slot")) {
+        .clip(Corner.large).testTag("widget-slot-$slot")) {
         val displayedContentSize = WidgetContentSize(maxWidth.value, maxHeight.value)
         if (id == NEEDS_BINDING_WIDGET) {
             val restore = controller.restoreDescriptor(slot)
             Surface(Modifier.fillMaxSize().testTag("widget-restore-$slot"), color = Glass.copy(alpha = .88f),
-                shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = .7f))) {
+                shape = Corner.large, border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = .7f))) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(restore?.title ?: "Saved widget", color = Ink, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
@@ -1942,7 +1941,7 @@ private fun MovableWidget(id: Int, slot: Int, controller: WidgetController, drag
     WidgetSlot(id, slot, controller, modifier.dropRegion(drag, cell, page = page, widgetId = id)
         .alpha(if (drag.source?.target == cell) .3f else 1f)
         .border(if (drag.active && target == cell) 2.dp else 0.dp,
-            if (drag.active && target == cell) Color.White else Color.Transparent, RoundedCornerShape(24.dp))
+            if (drag.active && target == cell) Color.White else Color.Transparent, Corner.large)
         .semantics { onLongClick("Move or replace widget") { onAdd(); true } }, onAdd) {
         when (id) {
             CLOCK_WIDGET -> ClockCard(onAdd)
@@ -1953,7 +1952,7 @@ private fun MovableWidget(id: Int, slot: Int, controller: WidgetController, drag
                 Text("Tap to choose", color = Color.White.copy(alpha = .8f), fontSize = 12.sp)
             }
             else -> Surface(Modifier.fillMaxSize().clickable(onClick = onAdd), color = Glass.copy(alpha = .18f),
-                shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .25f))) {
+                shape = Corner.large, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .25f))) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Rounded.Add, null, tint = Color.White)
                     Text(if (id >= 0) "Widget unavailable" else "Add widget", color = Color.White, fontSize = 12.sp)
@@ -1972,7 +1971,7 @@ private fun AppPicker(apps: List<AppEntry>, dockSlot: Int?, onSelect: (AppEntry)
         Text(if (dockSlot == null) "Your apps" else "Dock position ${dockSlot + 1}", style = MaterialTheme.typography.headlineSmall)
         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(vertical = 16.dp).testTag("search-field"),
             placeholder = { Text("Search apps") }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, singleLine = true,
-            trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search") } }, shape = RoundedCornerShape(20.dp))
+            trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search") } }, shape = Corner.medium)
         if (dockSlot != null) TextButton(onClick = onClear) { Text("Leave this position empty") }
         if (blockedHint != null) Text(blockedHint, color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp).testTag("dock-full-guidance"))
@@ -1984,7 +1983,7 @@ private fun AppPicker(apps: List<AppEntry>, dockSlot: Int?, onSelect: (AppEntry)
                     .combinedClickable(enabled = enabled, onClick = { onSelect(app) }, onLongClick = { onLongClick(app) })
                     .alpha(if (enabled) 1f else .45f)
                     .padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Image(app.icon.asImageBitmap(), null, Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)))
+                    Image(app.icon.asImageBitmap(), null, Modifier.size(44.dp).clip(Corner.icon))
                     Text(app.label, Modifier.padding(start = 16.dp).weight(1f), maxLines = 2)
                     if (dockSlot != null && enabled) Icon(Icons.Rounded.Add, "Choose ${app.label}")
                 }
@@ -2027,14 +2026,14 @@ private fun SettingsPanel(state: LauncherState, initiallyWide: Boolean, model: L
         SettingSlider("Dock width", "${p.dockWidth.toInt()} dp", p.dockWidth, 56f..84f) { model.setPreset(wide, p.copy(dockWidth = it)) }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Align dock with app rows", Modifier.weight(1f))
-            Switch(p.dockAlignToGrid, { model.setPreset(wide, p.copy(dockAlignToGrid = it)) })
+            Switch(p.dockAlignToGrid, { model.setPreset(wide, p.copy(dockAlignToGrid = it)) }, colors = IosSwitchColors)
         }
         if (!p.dockAlignToGrid) SettingSlider("Dock height on screen", "${(p.dockPosition * 100).toInt()}%", p.dockPosition, .25f.. .75f) { model.setPreset(wide, p.copy(dockPosition = it)) }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Show app names", Modifier.weight(1f)); Switch(state.labels, model::setLabels, Modifier.testTag("label-switch"))
+            Text("Show app names", Modifier.weight(1f)); Switch(state.labels, model::setLabels, Modifier.testTag("label-switch"), colors = IosSwitchColors)
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Status at upper right", Modifier.weight(1f)); Switch(state.verticalStatus, model::setVerticalStatus, Modifier.testTag("status-switch"))
+            Text("Status at upper right", Modifier.weight(1f)); Switch(state.verticalStatus, model::setVerticalStatus, Modifier.testTag("status-switch"), colors = IosSwitchColors)
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Search button opens Google", Modifier.weight(1f))

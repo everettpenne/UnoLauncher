@@ -59,7 +59,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     val bodyScroll = rememberScrollState()
     LaunchedEffect(page) { bodyScroll.scrollTo(0) }
     Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)
-        .then(if (glassBackdrop != null) Modifier.liquidGlass(glassBackdrop, RoundedCornerShape(30.dp),
+        .then(if (glassBackdrop != null) Modifier.liquidGlass(glassBackdrop, Corner.xlarge,
             glassTint, blurRadius = 4f, refraction = refraction) else Modifier)
         .padding(horizontal = 20.dp).padding(bottom = 12.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -187,7 +187,7 @@ private fun LauncherHelp(
     }
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
     HelpSection(Icons.Rounded.SwipeDown, "Notifications and quick settings",
-        "Swipe down on Home. The first time, Uno Launcher explains Android’s optional Accessibility setting. The service only opens the system panels.")
+        "Optional. Swiping down on Home can open the system panels, but Android only allows that through an Accessibility service you turn on yourself. It can’t read your screen or see other apps, it stays off until you enable it, and you can turn it off any time in Settings → Accessibility. If you decline, swiping down on Home just does nothing.")
     TextButton(onClick = onShadeSetup, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-shade-setup")) {
         Text("Set up shade gestures")
     }
@@ -210,7 +210,7 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
 
 @Composable private fun CustomizationDestination(icon: ImageVector, title: String, detail: String, tag: String, onClick: () -> Unit) {
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag(tag),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .52f), shape = RoundedCornerShape(20.dp)) {
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .52f), shape = Corner.medium) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.titleMedium); Text(detail,
@@ -241,14 +241,14 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
                 verticalArrangement = Arrangement.spacedBy(unit(10f))) {
                 Box(Modifier.fillMaxWidth().height(unit(42f)).background(MaterialTheme.colorScheme.surface.copy(alpha = .38f), RoundedCornerShape(unit(12f))))
                 homeIcons.chunked(4).forEach { row -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    row.forEach { app -> Image(app.icon.asImageBitmap(), null, Modifier.size(unit(24f)).clip(RoundedCornerShape(unit(7f)))) }
+                    row.forEach { app -> Image(app.icon.asImageBitmap(), null, Modifier.size(unit(24f)).clip(Corner.icon)) }
                 } }
             }
             Column(Modifier.align(Alignment.CenterEnd).padding(end = unit(10f)).width(unit(36f))
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = .42f), RoundedCornerShape(unit(18f)))
                 .padding(vertical = unit(8f)), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(unit(8f))) {
-                dockIcons.forEach { app -> Image(app.icon.asImageBitmap(), null, Modifier.size(unit(22f)).clip(RoundedCornerShape(unit(7f)))) }
+                dockIcons.forEach { app -> Image(app.icon.asImageBitmap(), null, Modifier.size(unit(22f)).clip(Corner.icon)) }
             }
         }
     }
@@ -283,7 +283,8 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
 
 @Composable internal fun SettingsSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit, tag: String? = null) {
     Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f)); Switch(checked, onChecked, Modifier.then(if (tag != null) Modifier.testTag(tag) else Modifier))
+        Text(label, Modifier.weight(1f)); Switch(checked, onChecked, Modifier.then(if (tag != null) Modifier.testTag(tag) else Modifier),
+            colors = IosSwitchColors)
     }
 }
 

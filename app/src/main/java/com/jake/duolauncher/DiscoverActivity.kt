@@ -373,7 +373,7 @@ private fun DiscoverDock(state: LauncherState, status: DeviceStatus, fullSize: S
                     onReady()
                 }) {
                 Surface(Modifier.fillMaxSize().graphicsLayer { translationX = -(1f - progress) * DiscoverMotion.pageWidth },
-                    shape = RoundedCornerShape(30.dp), color = Glass.copy(alpha = .92f), border = BorderStroke(1.dp, Color.White.copy(alpha = .5f))) {}
+                    shape = Corner.xlarge, color = Glass.copy(alpha = .92f), border = BorderStroke(1.dp, Color.White.copy(alpha = .5f))) {}
             }
             Canvas(Modifier.fillMaxSize()) {
                 val insets = androidx.core.view.ViewCompat.getRootWindowInsets((context as Activity).window.decorView)
@@ -397,7 +397,7 @@ private fun DiscoverDock(state: LauncherState, status: DeviceStatus, fullSize: S
                 compact = maxHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp)
             Surface(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp).testTag("discover-dock"),
-                shape = RoundedCornerShape(30.dp), color = Glass.copy(alpha = .32f), border = BorderStroke(1.dp, Color.White.copy(alpha = .3f))) {
+                shape = Corner.xlarge, color = Glass.copy(alpha = .32f), border = BorderStroke(1.dp, Color.White.copy(alpha = .3f))) {
                 Column(Modifier.padding(vertical = 8.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                     state.dock.forEachIndexed { index, id ->
                         val app = apps[id]
@@ -405,7 +405,7 @@ private fun DiscoverDock(state: LauncherState, status: DeviceStatus, fullSize: S
                             .semantics { contentDescription = app?.label ?: "Choose dock app on home" }
                             .clickable(role = Role.Button) { if (app != null) onLaunch(app) else onHome() }, contentAlignment = Alignment.Center) {
                             if (app != null) Image(app.icon.asImageBitmap(), null,
-                                Modifier.size(dockIconSize(geometry.iconSize).dp).clip(RoundedCornerShape(11.dp)))
+                                Modifier.size(dockIconSize(geometry.iconSize).dp).clip(Corner.icon))
                             else Icon(Icons.Rounded.Home, null, tint = Color.White)
                         }
                     }

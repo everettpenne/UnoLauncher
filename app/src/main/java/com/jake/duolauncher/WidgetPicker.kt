@@ -220,7 +220,7 @@ internal fun VisualWidgetPicker(
     Surface(Modifier.fillMaxSize().alpha(if (hiddenForDrag) 0f else 1f)
         .then(if (hiddenForDrag) Modifier.clearAndSetSemantics { }.focusProperties { canFocus = false } else Modifier)
         .then(if (glass != null) Modifier.statusBarsPadding().navigationBarsPadding().padding(8.dp)
-            .liquidGlass(glass.backdrop, RoundedCornerShape(32.dp), glass.tint.copy(alpha = .62f),
+            .liquidGlass(glass.backdrop, Corner.xlarge, glass.tint.copy(alpha = .62f),
                 blurRadius = 12f, refraction = glass.refraction.coerceAtMost(1f)) else Modifier)
         .testTag("visual-widget-picker"),
         color = if (glass != null) Color.Transparent else Glass.copy(alpha = .96f)) {
@@ -263,7 +263,7 @@ internal fun VisualWidgetPicker(
                         Surface(Modifier.fillMaxWidth().testTag("widget-builtin-$id")
                             .clickable { focusManager.clearFocus(); keyboard?.hide(); onBuiltin(id) },
                             color = Glass.copy(alpha = .55f), border = BorderStroke(1.dp, Color.White.copy(alpha = .55f)),
-                            shape = RoundedCornerShape(22.dp)) {
+                            shape = Corner.large) {
                             Column(Modifier.padding(16.dp)) {
                                 Text(label, style = MaterialTheme.typography.titleMedium)
                                 Text("2 × 2 · Tap to place", style = MaterialTheme.typography.labelMedium)
@@ -293,7 +293,7 @@ internal fun VisualWidgetPicker(
                             }),
                             color = Glass.copy(alpha = .55f),
                             border = BorderStroke(1.dp, Color.White.copy(alpha = .55f)),
-                            shape = RoundedCornerShape(22.dp)) {
+                            shape = Corner.large) {
                             Column(Modifier.fillMaxWidth().padding(14.dp)) {
                                 Column(Modifier.padding(bottom = 12.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -313,7 +313,7 @@ internal fun VisualWidgetPicker(
                                     val boundedWidth = minOf(maxWidth, 220.dp * ratio)
                                     val boundedHeight = boundedWidth / ratio
                                     val previewTag = "widget-preview-${entry.provider.provider.flattenToString()}${if (entry.isWork) "-profile-${entry.userSerial}" else ""}"
-                                    Box(Modifier.width(boundedWidth).height(boundedHeight).clip(RoundedCornerShape(16.dp))
+                                    Box(Modifier.width(boundedWidth).height(boundedHeight).clip(Corner.medium)
                                         .testTag(previewTag)) {
                                         WidgetProviderPreview(entry, span ?: WidgetSpan(2, 2), Modifier.fillMaxSize())
                                     }

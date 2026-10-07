@@ -11,8 +11,18 @@ class FeedModelTest {
         assertNull(normalizeFeedUrl(""))
         assertNull(normalizeFeedUrl("   "))
         assertNull(normalizeFeedUrl("ftp://example.com/feed"))
+        assertNull(normalizeFeedUrl("http://example.com/feed"))
         assertNull(normalizeFeedUrl("https://user:pass@example.com/feed"))
         assertNull(normalizeFeedUrl("not a url at all"))
+    }
+
+    @Test fun suggestedFeedsAreHttpsAndNormalizeToThemselves() {
+        assertTrue(SUGGESTED_FEEDS.isNotEmpty())
+        SUGGESTED_FEEDS.forEach { suggestion ->
+            assertEquals(suggestion.url, normalizeFeedUrl(suggestion.url))
+            assertTrue(suggestion.host.isNotBlank())
+        }
+        assertEquals(SUGGESTED_FEEDS.size, SUGGESTED_FEEDS.map { it.url }.toSet().size)
     }
 
     @Test fun mergeKeepsNewestFirstAndDeduplicatesBySourceAndLink() {

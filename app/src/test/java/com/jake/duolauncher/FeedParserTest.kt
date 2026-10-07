@@ -33,7 +33,8 @@ class FeedParserTest {
         val first = feed.entries[0]
         assertEquals("First & second", first.title)
         assertEquals("https://example.com/1", first.link)
-        assertEquals("<b>Hello</b> world", first.summary)
+        // The card shows the summary as plain text, so markup is stripped rather than displayed.
+        assertEquals("Hello world", first.summary)
         assertEquals(1535796000000L, first.publishedAt)
         val second = feed.entries[1]
         assertEquals("Second story", second.title)
@@ -86,6 +87,76 @@ class FeedParserTest {
         val feed = parse("<rss version=\"2.0\"><channel><title>Sparse</title></channel></rss>")
         assertEquals("Sparse", feed.title)
         assertTrue(feed.entries.isEmpty())
+    }
+
+    @Test fun untitledMicroblogItemsGetAHeadlineFromTheirText() {
+        val feed = parse("""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0"><channel><title>GrapheneOS</title>
+              <item>
+                <guid isPermaLink="true">https://grapheneos.social/@GrapheneOS/1</guid>
+                <link>https://grapheneos.social/@GrapheneOS/1</link>
+                <pubDate>Mon, 05 Oct 2026 03:53:58 +0000</pubDate>
+                <description>&lt;p&gt;GmsCompatConfig version 176 released:&lt;/p&gt;&lt;p&gt;&lt;a href="https://github.com/x/releases/tag/config-176"&gt;&lt;span class="invisible"&gt;https://&lt;/span&gt;&lt;span&gt;github.com/x&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;See the linked release notes &amp;amp; changelog.&lt;/p&gt;</description>
+              </item>
+              <item>
+                <link>https://grapheneos.social/@GrapheneOS/2</link>
+                <description>&lt;p&gt;Short note&lt;/p&gt;</description>
+              </item>
+            </channel></rss>
+        """.trimIndent())
+        assertEquals(2, feed.entries.size)
+        assertEquals("GmsCompatConfig version 176 released", feed.entries[0].title)
+        // The summary continues after the headline and drops the bare link.
+        assertEquals("See the linked release notes & changelog.", feed.entries[0].summary)
+        assertEquals("Short note", feed.entries[1].title)
+        assertEquals("", feed.entries[1].summary)
+    }
+
+    @Test fun atomXhtmlContentIsReadAsText() {
+        val feed = parse("""
+            <?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom"><title>GrapheneOS changelog</title>
+              <entry><id>x#2026100200</id><link href="https://grapheneos.org/releases#2026100200"/>
+                <title>2026100200</title><updated>2026-10-02T00:00:00Z</updated>
+                <content type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml"><p>Tags:</p>
+                  <ul><li><a href="https://github.com/y">2026100200</a> (Pixel Fold)</li></ul>
+                  <p>Changes since the 2026092500 release:</p><ul><li>kernel: fix</li><li>apps: update</li></ul>
+                </div></content></entry>
+            </feed>
+        """.trimIndent())
+        val entry = feed.entries.single()
+        assertEquals("2026100200", entry.title)
+        assertEquals("https://grapheneos.org/releases#2026100200", entry.link)
+        assertTrue(entry.summary.contains("Changes since the 2026092500 release:"))
+        assertTrue("List items must not run together: ${entry.summary}", entry.summary.contains("kernel: fix apps: update"))
+        assertFalse(entry.summary.contains("<"))
+    }
+
+    @Test fun longUntitledPostsContinueWhereTheHeadlineStopped() {
+        val post = "Google wants Android users to feel safe due to believing they have the latest privacy and security patches. Their announcement explains https://example.com/x the details."
+        val (headline, rest) = FeedParser.splitHeadline(post)
+        assertTrue(headline.endsWith("…"))
+        assertTrue(headline.length <= 91)
+        // Headline plus summary reproduces the post's words (minus the link), so nothing repeats.
+        val rejoined = headline.removeSuffix("…") + " " + rest
+        assertEquals(post.replace(" https://example.com/x", "").replace(Regex("\\s+"), " "), rejoined.replace(Regex("\\s+"), " ").trim())
+    }
+
+    @Test fun declaredTitlesAreKeptVerbatim() {
+        val feed = parse("""<rss version="2.0"><channel><item><title>Tom &amp; Jerry &lt;live&gt;</title>
+            <link>https://example.com/a</link></item></channel></rss>""")
+        assertEquals("Tom & Jerry <live>", feed.entries.single().title)
+    }
+
+    @Test fun plainTextStripsMarkupAndDecodesEntities() {
+        assertEquals("Fish & chips it’s", FeedParser.plainText("<p>Fish &amp; chips</p><p>it&#8217;s</p>"))
+        assertEquals("a b", FeedParser.plainText("a<br/>b"))
+        assertEquals("", FeedParser.plainText("   "))
+        assertEquals("x", FeedParser.headlineFrom("x"))
+        val long = "word ".repeat(40).trim()
+        assertTrue(FeedParser.headlineFrom(long).length <= 91)
+        assertTrue(FeedParser.headlineFrom(long).endsWith("…"))
     }
 
     @Test fun datesParseInCommonFormats() {

@@ -134,6 +134,21 @@ The collapsed face keeps the time and battery on opposite sides of the hole; the
 expanded panel hangs below it. The expanded width is capped at
 `screenWidth − 2 × (dockWidth + 16 dp)` so it can never reach the dock strip.
 
+## Adaptive ink (`AdaptiveInk.kt`)
+
+Glass content picks white or dark ink from what is behind it, as iOS does. The wallpaper is
+rendered once at 16 x 36 and its luminance kept as a grid; each glass surface measures where it
+sits and blends the wallpaper brightness with its own tint. Dark ink is used above the WCAG
+crossover where white and `GlassInk.Dark` have equal contrast (about 0.21), with a 0.04 dead band
+and a 220 ms fade so a surface never flickers while pages slide past. Applied to the built-in
+widgets, the status rail, the page-dots strip and the circle controls.
+
+## Scroll edge blur (`EdgeBlur.kt`)
+
+Three stacked blur bands (2, 6 and 14 dp over 100%, 70% and 40% of the strip) fade out away from
+the top and bottom screen edges. The top strip is the system inset plus 24 dp; the bottom strip is
+the page-dots reserve. They sit below the island, rail, dock and dots and never take touches.
+
 ## Motion
 
 - Springs for press (above) and island expand; `animateFloatAsState` for values.

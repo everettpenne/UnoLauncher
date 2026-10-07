@@ -105,7 +105,8 @@ class MainActivity : ComponentActivity() {
             val state = model.state.collectAsStateWithLifecycle().value
             val deviceStatus = status.state.collectAsStateWithLifecycle().value
             DuoTheme(appearance.state.dark) {
-                androidx.compose.runtime.CompositionLocalProvider(LocalFeedFollow provides feeds::addFeed) {
+                androidx.compose.runtime.CompositionLocalProvider(LocalFeedFollow provides feeds::addFeed,
+                    LocalWallpaperLuma provides rememberWallpaperLuma(appearance.state.dark)) {
                 LauncherScreen(state, model, widgets, homeRequests.intValue,
                     onLaunch = { launchApp(it) }, onMakeDefault = ::makeDefault, onAppInfo = ::appInfo,
                     isDefaultHome = defaultHome.value, deviceStatus = deviceStatus, onStatusMode = ::setStatusMode, onWallpaperPreview = ::previewWallpaper,

@@ -651,23 +651,35 @@ internal fun LauncherScreen(
                     }
                 }
             }
+            // Soft blur toward the top and bottom edges, beneath the island, rail, dock and page dots.
+            if (glassEnabled) {
+                val insets = WindowInsets.safeDrawing.asPaddingValues()
+                val topInset = insets.calculateTopPadding()
+                val bottomInset = insets.calculateBottomPadding()
+                ScrollEdgeBlur(homeBackdrop.combined, atTop = true, height = topInset + EdgeBlur.TOP_EXTRA,
+                    modifier = Modifier.align(Alignment.TopStart).offset(y = -topInset))
+                ScrollEdgeBlur(homeBackdrop.combined, atTop = false,
+                    height = bottomInset + PageIndicatorLayout.reserveDp(isDefaultHome).dp,
+                    modifier = Modifier.align(Alignment.BottomStart).offset(y = bottomInset))
+            }
             if (state.verticalStatus) {
+                val railInk = rememberAdaptiveInk(glassTint, if (glassEnabled) .12f else .0f)
                 if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.contentTop.dp)
-                    .width(preset.dockWidth.dp)
+                    .width(preset.dockWidth.dp).then(railInk.track)
                     .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
                     .padding(vertical = 8.dp)) {
                     StatusRail(deviceStatus, Modifier.fillMaxWidth().onSizeChanged {
                         statusHeight = (with(density) { it.height.toDp().value } -
                             if (contentHeight < 500.dp) 0f else 23f).coerceAtLeast(0f)
-                    }, compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp)
+                    }, compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp, ink = railInk.color)
                 } else StatusRail(deviceStatus,
                     Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.contentTop.dp)
-                        .width(preset.dockWidth.dp).onSizeChanged {
+                        .width(preset.dockWidth.dp).then(railInk.track).onSizeChanged {
                             // The normal rail's 20dp location slot and 3dp gap do not move the dock.
                             statusHeight = (with(density) { it.height.toDp().value } -
                                 if (contentHeight < 500.dp) 0f else 23f).coerceAtLeast(0f)
                         },
-                    compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp)
+                    compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp, ink = railInk.color)
             }
             if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
@@ -698,22 +710,23 @@ internal fun LauncherScreen(
                     Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Set as home app")
                 }
                 // The page dots ride in a small glass capsule, like iOS's page indicator.
-                Row(Modifier.then(if (controlGlass != null) Modifier.liquidGlass(controlGlass.backdrop,
+                val stripInk = rememberAdaptiveInk(controlGlass?.tint ?: Glass, if (controlGlass != null) .12f else .0f)
+                Row(Modifier.then(stripInk.track).then(if (controlGlass != null) Modifier.liquidGlass(controlGlass.backdrop,
                         Corner.pill, controlGlass.tint.copy(alpha = .12f), blurRadius = .75f,
                         settings = controlGlass.settings).padding(horizontal = 6.dp) else Modifier),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     if (!drag.active) IconButton(onClick = openDiscover, Modifier.size(32.dp).testTag("discover-page-link")) {
-                        Icon(Icons.Rounded.Explore, "Discover", tint = Color.White.copy(alpha = .65f), modifier = Modifier.size(17.dp))
+                        Icon(Icons.Rounded.Explore, "Discover", tint = stripInk.soft(.65f), modifier = Modifier.size(17.dp))
                     }
                     if (visibleHomePages <= 6) repeat(visibleHomePages) { index ->
                         Box(Modifier.size(28.dp).clip(CircleShape).clickable { scope.launch { pager.animateScrollToPage(index) } }
                             .semantics { contentDescription = if (index == homePages) "New home page" else "Home page ${index + 1}" }, contentAlignment = Alignment.Center) {
-                            if (index == homePages) Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                            else Box(Modifier.size(if (index == pager.currentPage) 6.dp else 4.dp).background(Color.White.copy(alpha = if (index == pager.currentPage) 1f else .4f), CircleShape))
+                            if (index == homePages) Icon(Icons.Rounded.Add, null, tint = stripInk.color, modifier = Modifier.size(14.dp))
+                            else Box(Modifier.size(if (index == pager.currentPage) 6.dp else 4.dp).background(stripInk.color.copy(alpha = if (index == pager.currentPage) 1f else .4f), CircleShape))
                         }
-                    } else Text("${minOf(pager.currentPage + 1, homePages)} / $homePages", color = Color.White, fontSize = 12.sp)
+                    } else Text("${minOf(pager.currentPage + 1, homePages)} / $homePages", color = stripInk.color, fontSize = 12.sp)
                     IconButton(onClick = openLibrary, Modifier.size(32.dp).testTag("library-page-link")) {
-                        Icon(Icons.AutoMirrored.Rounded.FormatListBulleted, "All apps page", tint = Color.White.copy(alpha = if (pager.currentPage == homePages) 1f else .6f), modifier = Modifier.size(17.dp))
+                        Icon(Icons.AutoMirrored.Rounded.FormatListBulleted, "All apps page", tint = stripInk.color.copy(alpha = if (pager.currentPage == homePages) 1f else .6f), modifier = Modifier.size(17.dp))
                     }
                 }
             }
@@ -1567,13 +1580,14 @@ private fun HomePagePane(
 
 @Composable
 private fun CircleControl(icon: ImageVector, label: String, tag: String, visualSize: Dp, glass: PageGlass? = null, action: () -> Unit) {
+    val ink = rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .12f else .22f)
     IconButton(onClick = action, modifier = Modifier.size(visualSize.coerceAtLeast(48.dp)).testTag(tag)) {
-        Box(Modifier.size(visualSize).testTag("$tag-visual").then(
+        Box(Modifier.size(visualSize).testTag("$tag-visual").then(ink.track).then(
             if (glass != null) Modifier.liquidGlass(glass.backdrop, CircleShape, glass.tint.copy(alpha = .12f),
                 blurRadius = .75f, settings = glass.settings)
             else Modifier.background(Glass.copy(alpha = .22f), CircleShape).border(1.dp, Color.White.copy(alpha = .25f), CircleShape)),
             contentAlignment = Alignment.Center) {
-            Icon(icon, label, tint = Color.White, modifier = Modifier.size(22.dp))
+            Icon(icon, label, tint = ink.color, modifier = Modifier.size(22.dp))
         }
     }
 }
@@ -1858,15 +1872,19 @@ private fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modif
 @Composable
 private fun GlassCard(modifier: Modifier = Modifier, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val glass = LocalPageGlass.current
-    if (glass != null) {
-        Column(modifier.fillMaxSize().liquidGlass(glass.backdrop, Corner.large, glass.tint.copy(alpha = .14f),
-            blurRadius = 1f, settings = glass.settings).clip(Corner.large).clickable(onClick = onClick)
-            .padding(14.dp), verticalArrangement = Arrangement.SpaceBetween, content = content)
-        return
-    }
-    Surface(modifier.fillMaxSize().clip(Corner.large).clickable(onClick = onClick),
-        color = Glass.copy(alpha = .24f), shape = Corner.large, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .18f))) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.SpaceBetween, content = content)
+    // Built-in widget text follows the wallpaper behind it: white on dark, dark ink on pale.
+    val ink = rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .14f else .24f)
+    CompositionLocalProvider(LocalGlassInk provides ink.glassInk) {
+        if (glass != null) {
+            Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.large, glass.tint.copy(alpha = .14f),
+                blurRadius = 1f, settings = glass.settings).clip(Corner.large).clickable(onClick = onClick)
+                .padding(14.dp), verticalArrangement = Arrangement.SpaceBetween, content = content)
+        } else {
+            Surface(modifier.fillMaxSize().then(ink.track).clip(Corner.large).clickable(onClick = onClick),
+                color = Glass.copy(alpha = .24f), shape = Corner.large, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .18f))) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.SpaceBetween, content = content)
+            }
+        }
     }
 }
 
@@ -1881,9 +1899,10 @@ private fun ClockCard(onClick: () -> Unit) {
     val time = currentTime()
     val format = if (android.text.format.DateFormat.is24HourFormat(LocalContext.current)) "HH:mm" else "h:mm"
     GlassCard(onClick = onClick) {
-        Icon(Icons.Rounded.Schedule, "Clock widget; tap to replace", tint = Color.White, modifier = Modifier.size(20.dp))
-        Text(time.format(DateTimeFormatter.ofPattern(format)), color = Color.White, fontWeight = FontWeight.Light, fontSize = 30.sp, maxLines = 1)
-        Text("Local time", color = Color.White.copy(alpha = .8f), fontSize = 11.sp)
+        val ink = LocalGlassInk.current
+        Icon(Icons.Rounded.Schedule, "Clock widget; tap to replace", tint = ink.primary, modifier = Modifier.size(20.dp))
+        Text(time.format(DateTimeFormatter.ofPattern(format)), color = ink.primary, fontWeight = FontWeight.Light, fontSize = 30.sp, maxLines = 1)
+        Text("Local time", color = ink.soft(), fontSize = 11.sp)
     }
 }
 
@@ -1891,9 +1910,10 @@ private fun ClockCard(onClick: () -> Unit) {
 private fun DateCard(onClick: () -> Unit) {
     val date = currentTime()
     GlassCard(onClick = onClick) {
-        Text(date.format(DateTimeFormatter.ofPattern("EEEE")), color = Color.White, fontSize = 12.sp, maxLines = 1)
-        Text(date.dayOfMonth.toString(), color = Color.White, fontWeight = FontWeight.Light, fontSize = 40.sp, lineHeight = 42.sp)
-        Text(date.format(DateTimeFormatter.ofPattern("MMMM")), color = Color.White.copy(alpha = .8f), fontSize = 12.sp)
+        val ink = LocalGlassInk.current
+        Text(date.format(DateTimeFormatter.ofPattern("EEEE")), color = ink.primary, fontSize = 12.sp, maxLines = 1)
+        Text(date.dayOfMonth.toString(), color = ink.primary, fontWeight = FontWeight.Light, fontSize = 40.sp, lineHeight = 42.sp)
+        Text(date.format(DateTimeFormatter.ofPattern("MMMM")), color = ink.soft(), fontSize = 12.sp)
     }
 }
 
@@ -1901,16 +1921,17 @@ private fun DateCard(onClick: () -> Unit) {
 private fun ExpandedCard(onClick: () -> Unit) {
     val date = currentTime()
     GlassCard(onClick = onClick) {
+        val ink = LocalGlassInk.current
         Column {
-            Text(date.format(DateTimeFormatter.ofPattern("EEEE")), color = Color.White, fontSize = 22.sp)
-            Text(date.format(DateTimeFormatter.ofPattern("MMMM d")), color = Color.White.copy(alpha = .8f), fontSize = 16.sp)
+            Text(date.format(DateTimeFormatter.ofPattern("EEEE")), color = ink.primary, fontSize = 22.sp)
+            Text(date.format(DateTimeFormatter.ofPattern("MMMM d")), color = ink.soft(), fontSize = 16.sp)
         }
         Column {
-            Icon(Icons.Rounded.Widgets, null, tint = Color.White, modifier = Modifier.size(32.dp))
+            Icon(Icons.Rounded.Widgets, null, tint = ink.primary, modifier = Modifier.size(32.dp))
             Spacer(Modifier.height(16.dp))
-            Text("A little more room.", color = Color.White, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Light)
+            Text("A little more room.", color = ink.primary, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Light)
             Spacer(Modifier.height(12.dp))
-            Text("Add a calendar, photos, or another widget.", color = Color.White.copy(alpha = .85f), fontSize = 14.sp)
+            Text("Add a calendar, photos, or another widget.", color = ink.soft(.85f), fontSize = 14.sp)
             Spacer(Modifier.height(20.dp))
             FilledTonalButton(onClick = onClick) { Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Add widget") }
         }
@@ -1982,9 +2003,10 @@ private fun MovableWidget(id: Int, slot: Int, controller: WidgetController, drag
             CLOCK_WIDGET -> ClockCard(onAdd)
             DATE_WIDGET -> DateCard(onAdd)
             INFO_WIDGET -> if (slot % 3 == 2) ExpandedCard(onAdd) else GlassCard(onClick = onAdd) {
-                Icon(Icons.Rounded.Widgets, null, tint = Color.White, modifier = Modifier.size(28.dp))
-                Text("Your widgets", color = Color.White, fontSize = 15.sp, maxLines = 1)
-                Text("Tap to choose", color = Color.White.copy(alpha = .8f), fontSize = 12.sp)
+                val ink = LocalGlassInk.current
+                Icon(Icons.Rounded.Widgets, null, tint = ink.primary, modifier = Modifier.size(28.dp))
+                Text("Your widgets", color = ink.primary, fontSize = 15.sp, maxLines = 1)
+                Text("Tap to choose", color = ink.soft(), fontSize = 12.sp)
             }
             else -> Surface(Modifier.fillMaxSize().clickable(onClick = onAdd), color = Glass.copy(alpha = .18f),
                 shape = Corner.large, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .25f))) {

@@ -39,6 +39,7 @@ fun StatusRail(
     compact: Boolean = false,
     iconSize: Dp = 40.dp,
     locationInUse: Boolean = false,
+    ink: Color = Color.White,
 ) {
     val now by produceState(LocalDateTime.now()) {
         while (true) {
@@ -70,12 +71,12 @@ fun StatusRail(
             // Compact windows omit the reserve so status stays clear of the fixed dock.
             if (!compact) Box(Modifier.fillMaxWidth().height(20.dp), contentAlignment = Alignment.Center) {
                 // Callers currently leave this false; the slot waits for a truthful activity signal.
-                if (locationInUse) Icon(Icons.Rounded.LocationOn, null, tint = Color.White,
+                if (locationInUse) Icon(Icons.Rounded.LocationOn, null, tint = ink,
                     modifier = Modifier.size(18.dp))
             }
-            Text(now.format(timeFormatter), color = Color.White, fontSize = timeSize, fontWeight = FontWeight.Bold,
+            Text(now.format(timeFormatter), color = ink, fontSize = timeSize, fontWeight = FontWeight.Bold,
                 maxLines = 1, softWrap = false, overflow = TextOverflow.Clip, style = labelStyle)
-            if (!compact) Text(now.format(dateFormatter), color = Color.White.copy(alpha = .94f), fontSize = detailSize,
+            if (!compact) Text(now.format(dateFormatter), color = ink.copy(alpha = .94f), fontSize = detailSize,
                 fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip, style = labelStyle)
             Canvas(Modifier.size(visualSize)) {
                 val w = size.width
@@ -87,8 +88,8 @@ fun StatusRail(
                 val topLeft = Offset(center.x - radius, center.y - radius)
                 drawArc(Color.Black.copy(alpha = .15f), 150f, 240f, false, topLeft, arcSize,
                     style = Stroke(width = ringWidth * 1.25f, cap = StrokeCap.Round))
-                drawArc(Color.White.copy(alpha = .32f), 150f, 240f, false, topLeft, arcSize, style = stroke)
-                status.battery?.let { drawArc(Color.White, 150f, 240f * it / 100, false, topLeft, arcSize, style = stroke) }
+                drawArc(ink.copy(alpha = .32f), 150f, 240f, false, topLeft, arcSize, style = stroke)
+                status.battery?.let { drawArc(ink, 150f, 240f * it / 100, false, topLeft, arcSize, style = stroke) }
                 // Wi-Fi glyph inside the battery arc; no fabricated bars for unknown readings.
                 if (wifiVisual is WifiSignalVisual.Connected) {
                     for (i in 1..3) {
@@ -98,16 +99,16 @@ fun StatusRail(
                         drawArc(Color.Black.copy(alpha = .16f), 230f, 80f, false, wifiTopLeft, wifiSize,
                             style = Stroke(w * .073f, cap = StrokeCap.Round))
                         val strengthAlpha = signalAlpha(wifiVisual.elements[i])
-                        drawArc(Color.White.copy(alpha = strengthAlpha),
+                        drawArc(ink.copy(alpha = strengthAlpha),
                             230f, 80f, false, wifiTopLeft, wifiSize, style = Stroke(w * .058f, cap = StrokeCap.Round))
                     }
                     drawCircle(Color.Black.copy(alpha = .16f), w * .052f, Offset(center.x, w * .60f))
-                    drawCircle(Color.White.copy(alpha = signalAlpha(wifiVisual.elements[0])),
+                    drawCircle(ink.copy(alpha = signalAlpha(wifiVisual.elements[0])),
                         w * .043f, Offset(center.x, w * .60f))
                 } else {
                     drawLine(Color.Black.copy(alpha = .16f), Offset(w * .39f, w * .42f), Offset(w * .61f, w * .58f),
                         w * .073f, StrokeCap.Round)
-                    drawLine(Color.White.copy(alpha = .75f), Offset(w * .39f, w * .42f), Offset(w * .61f, w * .58f),
+                    drawLine(ink.copy(alpha = .75f), Offset(w * .39f, w * .42f), Offset(w * .61f, w * .58f),
                         w * .058f, StrokeCap.Round)
                 }
                 val activeDots = (cellularVisual as? CellularSignalVisual.Available)?.activeDots ?: 0
@@ -116,11 +117,11 @@ fun StatusRail(
                     val lit = i < activeDots
                     val dotCenter = Offset(center.x + radius * cos(angle).toFloat(), center.y + radius * sin(angle).toFloat())
                     drawCircle(Color.Black.copy(alpha = .14f), w * .052f, dotCenter)
-                    drawCircle(Color.White.copy(alpha = if (lit) 1f else .3f), w * .043f, dotCenter)
+                    drawCircle(ink.copy(alpha = if (lit) 1f else .3f), w * .043f, dotCenter)
                 }
             }
             if (!compact) Text(if (status.airplane) "Airplane" else status.battery?.let { "$it%${if (status.charging) " +" else ""}" } ?: "—",
-                color = Color.White.copy(alpha = .94f), fontSize = detailSize, fontWeight = FontWeight.Medium,
+                color = ink.copy(alpha = .94f), fontSize = detailSize, fontWeight = FontWeight.Medium,
                 maxLines = 1, softWrap = false, overflow = TextOverflow.Clip, style = labelStyle)
         }
     }

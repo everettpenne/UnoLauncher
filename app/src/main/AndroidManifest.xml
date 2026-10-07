@@ -13,7 +13,7 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
     </queries>
-    <application android:label="Duo Launcher" android:icon="@drawable/ic_launcher"
+    <application android:label="Uno Launcher" android:icon="@drawable/ic_launcher"
         android:name=".DuoApplication"
         android:theme="@style/Theme.Duo" android:allowBackup="false" android:supportsRtl="true">
         <property android:name="android.window.PROPERTY_ACTIVITY_EMBEDDING_SPLITS_ENABLED" android:value="true" />
@@ -25,7 +25,7 @@
         <activity android:name=".DiscoverFeedActivity" android:theme="@style/Theme.Duo.Discover" android:exported="false" android:resizeableActivity="true" />
         <activity android:name=".LiveDiscoverActivity" android:theme="@style/Theme.Duo.LiveDiscover"
             android:exported="false" android:resizeableActivity="true" />
-        <service android:name=".DuneWallpaperService" android:label="Duo dunes"
+        <service android:name=".DuneWallpaperService" android:label="Uno dunes"
             android:permission="android.permission.BIND_WALLPAPER" android:exported="true">
             <intent-filter><action android:name="android.service.wallpaper.WallpaperService" /></intent-filter>
             <meta-data android:name="android.service.wallpaper" android:resource="@xml/dune_wallpaper" />

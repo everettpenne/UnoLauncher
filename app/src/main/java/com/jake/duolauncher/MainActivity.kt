@@ -182,7 +182,7 @@ class MainActivity : ComponentActivity() {
         ownShadeSetupExternally()
         shadeSetupDialog = android.app.AlertDialog.Builder(this)
             .setTitle("Turn on shade gestures")
-            .setMessage("Android requires you to enable Duo Launcher shade gestures in Accessibility settings. This service only opens Notifications or Quick Settings; it doesn’t read screen content or watch other apps.")
+            .setMessage("Android requires you to enable Uno Launcher shade gestures in Accessibility settings. This service only opens Notifications or Quick Settings; it doesn’t read screen content or watch other apps.")
             .setNegativeButton("Not now", null)
             .setPositiveButton("Open settings") { _, _ ->
                 try {
@@ -284,7 +284,7 @@ class MainActivity : ComponentActivity() {
         val google = packageManager.getLaunchIntentForPackage(DiscoverClient.GOOGLE_PACKAGE)
         android.app.AlertDialog.Builder(this)
             .setTitle("Discover isn’t available here")
-            .setMessage("Duo can’t place the Discover feed beside Home on this device. You can open the Google app, add your own news feeds for this slot, or stay on Home.")
+            .setMessage("Uno Launcher can’t place the Discover feed beside Home on this device. You can open the Google app, add your own news feeds for this slot, or stay on Home.")
             .setNegativeButton("Stay on Home", null)
             .setNeutralButton("Add a feed") { _, _ -> feedSetupRequests.intValue++ }
             .apply {

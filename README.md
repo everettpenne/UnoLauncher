@@ -1,17 +1,19 @@
-# Duo Launcher
+# Uno Launcher
 
 A native Android launcher built around a right-side dock and a home screen that makes room when you unfold your phone.
 
-**Experimental Fold beta · Android 12 or later.** The primary physical test device is a Galaxy Fold8 running Android 17. Emulator coverage supplements that device; it does not establish compatibility with every foldable. Google Discover depends on the installed Google app and device support for activity embedding. See the [tested environments and remaining checks](docs/public-release.md#beta-0150-beta01-validation).
+Uno Launcher is a personal fork of [jakesgoodapps/DuoLauncher](https://github.com/jakesgoodapps/DuoLauncher) (MIT), adding an optional private RSS/Atom news feed for the Discover slot.
+
+**Experimental Fold beta · Android 12 or later.** The reference physical test device is a Galaxy Fold8 running Android 17, with emulator coverage on Android 36. Emulator results do not establish compatibility with every foldable. Google Discover depends on the installed Google app and device support for activity embedding. See the [release notes](docs/releases/0.16.0-uno01.md) for this version's tested scope.
 
 <p>
-  <img src="docs/images/duo-launcher-cover-home.png" width="240" alt="Duo Home on a cover-sized emulator, with its right-side dock">
-  <img src="docs/images/duo-launcher-inner-home.png" width="500" alt="Duo Home unfolded, with an extra workspace on the left">
+  <img src="docs/images/duo-launcher-cover-home.png" width="240" alt="Uno Home on a cover-sized emulator, with its right-side dock">
+  <img src="docs/images/duo-launcher-inner-home.png" width="500" alt="Uno Home unfolded, with an extra workspace on the left">
 </p>
 
 Screenshots use sample data on an emulator sized to the reference Fold. [Fresh-install welcome](docs/images/duo-launcher-welcome.png).
 
-**Start here:** [User guide](docs/user-guide.md) · [Troubleshooting](docs/troubleshooting.md) · [Beta release notes](docs/releases/0.15.0-beta01.md)
+**Start here:** [User guide](docs/user-guide.md) · [Troubleshooting](docs/troubleshooting.md) · [Release notes](docs/releases/0.16.0-uno01.md)
 
 ## Features
 
@@ -28,11 +30,11 @@ Android still controls the lock screen, notification panels, recents, and system
 ## Install and try it
 
 1. Download the signed APK from this repository's Releases section. Read its tested-device notes and known issues.
-2. Open the APK, allow installation from that source if Android asks, and open **Duo Launcher**.
-3. Try the layout before choosing **Set as home app**. Select Duo Launcher in Android's Home app settings when ready.
+2. Open the APK, allow installation from that source if Android asks, and open **Uno Launcher**.
+3. Try the layout before choosing **Set as home app**. Select Uno Launcher in Android's Home app settings when ready.
 4. Long press an empty Home cell or the narrow wallpaper margin beside a full grid to add widgets or **Customize launcher**. Help is available from customization.
 
-To switch back, open Android **Settings → Apps → Default apps → Home app** and select your previous launcher. Vendor labels may differ. Installing Duo does not automatically select it as Home.
+To switch back, open Android **Settings → Apps → Default apps → Home app** and select your previous launcher. Vendor labels may differ. Installing Uno Launcher does not automatically select it as Home.
 
 Normal beta updates install over the existing beta with the same signing key. Uninstalling or clearing storage removes the saved layout and widget bindings. A differently signed developer/debug build cannot be updated directly by the public APK; see [release and update notes](docs/public-release.md).
 

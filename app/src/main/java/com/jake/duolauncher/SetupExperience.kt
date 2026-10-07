@@ -91,7 +91,7 @@ internal fun FirstRunSetupSheet(
             }
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text("Welcome to Duo", style = MaterialTheme.typography.headlineSmall)
+                Text("Welcome to Uno Launcher", style = MaterialTheme.typography.headlineSmall)
                 Text(
                     "A quiet Home screen built for both sides of your foldable.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -110,7 +110,7 @@ internal fun FirstRunSetupSheet(
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SetupGuideRow(
                     icon = if (isDefaultHome) Icons.Rounded.Check else Icons.Rounded.Home,
-                    title = if (isDefaultHome) "Duo is your Home app" else "Choose Duo as your Home app",
+                    title = if (isDefaultHome) "Uno Launcher is your Home app" else "Choose Uno Launcher as your Home app",
                     detail = if (isDefaultHome) "The Home button returns here."
                         else "Android will show the Home app chooser. You can switch back anytime.",
                 )

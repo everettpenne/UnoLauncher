@@ -96,7 +96,7 @@ private fun EmptyFeedState(onAddFeed: () -> Unit, modifier: Modifier = Modifier)
         Text("Add a feed to read your own headlines here.",
             style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(6.dp))
-        Text("Duo fetches only the addresses you add. Nothing is uploaded.",
+        Text("Uno fetches only the addresses you add. Nothing is uploaded.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))

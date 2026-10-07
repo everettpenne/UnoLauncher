@@ -249,7 +249,7 @@ internal fun VisualWidgetPicker(
                     }
                 }
                 if (words.isEmpty() && selectedProfile.isPersonal) {
-                    item("duo-widgets") { Text("Duo Launcher", style = MaterialTheme.typography.titleMedium,
+                    item("duo-widgets") { Text("Uno Launcher", style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 10.dp, start = 4.dp)) }
                     items(listOf(CLOCK_WIDGET to "Clock", DATE_WIDGET to "Date", INFO_WIDGET to "Widget panel"),
                         key = { "builtin-${it.first}" }) { (id, label) ->

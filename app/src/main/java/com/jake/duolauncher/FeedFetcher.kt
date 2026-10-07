@@ -18,7 +18,7 @@ internal sealed interface FeedFetchResult {
  */
 internal object FeedFetcher {
     const val MAX_BYTES = 2 * 1024 * 1024
-    private const val USER_AGENT = "DuoLauncher/0.16 (Android) personal-feed"
+    private const val USER_AGENT = "UnoLauncher/0.16 (Android) personal-feed"
     private const val TIMEOUT_MS = 10_000
 
     fun fetch(urlString: String): FeedFetchResult {
@@ -39,7 +39,7 @@ internal object FeedFetcher {
             return if (feed.entries.isEmpty()) FeedFetchResult.Failure("This feed has no readable entries.")
             else FeedFetchResult.Success(feed)
         } catch (e: SecurityException) {
-            return FeedFetchResult.Failure("Network access is turned off for Duo Launcher.")
+            return FeedFetchResult.Failure("Network access is turned off for Uno Launcher.")
         } catch (e: UnknownHostException) {
             return FeedFetchResult.Failure("The server couldn't be reached.")
         } catch (e: SocketTimeoutException) {

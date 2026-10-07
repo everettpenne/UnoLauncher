@@ -1,12 +1,12 @@
-# Duo Launcher user guide
+# Uno Launcher user guide
 
-Duo Launcher is an experimental Android launcher designed around a foldable phone, a four-column Home grid, and a four-position dock on the right. The cover shows one Home page at a time. Unfolding adds an editable workspace on the left: the first view pairs that workspace with Home 1, followed by Home 1 + Home 2, Home 2 + Home 3, and so on.
+Uno Launcher is an experimental Android launcher designed around a foldable phone, a four-column Home grid, and a four-position dock on the right. The cover shows one Home page at a time. Unfolding adds an editable workspace on the left: the first view pairs that workspace with Home 1, followed by Home 1 + Home 2, Home 2 + Home 3, and so on.
 
 ## Start and switch launchers
 
-On a fresh install, **Welcome to Duo** offers **Choose Home app**, **Add a widget**, **Explore Home**, and **Not now**. Choosing or skipping setup does not prevent later changes.
+On a fresh install, **Welcome to Uno Launcher** offers **Choose Home app**, **Add a widget**, **Explore Home**, and **Not now**. Choosing or skipping setup does not prevent later changes.
 
-To make Duo the launcher, choose **Set as home app** in customization, or open **Help & setup** and choose **Set Duo as Home**. Android owns the final Home-app chooser. To switch away later, choose **Change home app**, or use Android **Settings → Apps → Default apps → Home app**. The exact Android path may vary by device.
+To make Uno Launcher the launcher, choose **Set as home app** in customization, or open **Help & setup** and choose **Set Uno Launcher as Home**. Android owns the final Home-app chooser. To switch away later, choose **Change home app**, or use Android **Settings → Apps → Default apps → Home app**. The exact Android path may vary by device.
 
 ## Move around Home
 
@@ -33,7 +33,7 @@ After a layout edit, **Undo last layout change** appears in customization. It co
 
 Hold an app, then drag it to an empty cell, another page, or a vacant dock position. Neighboring Home icons move aside when possible. Pause at the left or right screen edge while holding to turn a page; dragging at the end can create another Home page.
 
-Dragging between Home and the dock moves the shortcut instead of duplicating it. The dock holds four apps. When it is full, Duo shows **Dock full • Move an app out first** and rejects a new arrival; it never evicts an app automatically. Existing dock apps can still be reordered. Drag a Home or dock shortcut to **Remove** to remove the shortcut without uninstalling the app.
+Dragging between Home and the dock moves the shortcut instead of duplicating it. The dock holds four apps. When it is full, Uno Launcher shows **Dock full • Move an app out first** and rejects a new arrival; it never evicts an app automatically. Existing dock apps can still be reordered. Drag a Home or dock shortcut to **Remove** to remove the shortcut without uninstalling the app.
 
 Long press and release an app for options such as **Move on Home**, **Create folder**, **App info**, or **Remove from Home**. **All apps** remains the complete installed-app catalog even when a shortcut is removed.
 
@@ -45,7 +45,7 @@ Open **Widgets** from an empty-space menu, **Add widget to this page** in custom
 
 Hold an existing widget to pick it up, then drag it across cells or pages. A small amount of held finger jitter is allowed. Move into the lower-right **Remove** target to delete it from Home. Long press and release without dragging to open **Widget options**, which can include **Widget settings**, **Resize on Home**, page moves, **Replace**, and **Remove**.
 
-For **Resize on Home**, drag the resize handle and choose **Apply**, or choose **Cancel**. The alternate size controls end with **Apply size**. Duo rejects sizes or moves that overlap another item, exceed the four-column by six-row grid, or violate the provider's allowed sizes.
+For **Resize on Home**, drag the resize handle and choose **Apply**, or choose **Cancel**. The alternate size controls end with **Apply size**. Uno rejects sizes or moves that overlap another item, exceed the four-column by six-row grid, or violate the provider's allowed sizes.
 
 Scrollable Android widgets keep their native vertical scrolling when the touch begins on scrollable provider content. A horizontal swipe can still change Home pages. Hold still before moving when you intend to pick up the widget.
 
@@ -53,13 +53,13 @@ Scrollable Android widgets keep their native vertical scrolling when the touch b
 
 In **Wallpaper & appearance**, **Choose a photo** creates a private preview. It does not replace the current launcher background until you choose **Apply**; **Cancel** keeps the committed background. If selection is interrupted, choose **Resume** or **Cancel**. Recovery has been checked for activity recreation and a completed private preview file, but an interruption during the earlier decode step may require selecting the photo again.
 
-**Preview Android wallpaper** opens Android's separate wallpaper preview. It does not change Duo's **Launcher background**. **Reset to Duo dunes** removes the selected launcher background.
+**Preview Android wallpaper** opens Android's separate wallpaper preview. It does not change Uno Launcher's **Launcher background**. **Reset to Uno dunes** removes the selected launcher background.
 
-Appearance choices are **Light**, **Dark**, **Follow system**, and **Sunrise / sunset**. Sunrise/sunset accepts coordinates through **Use this place**, or requests approximate location only when you choose **Use device location**. If location is unavailable, Duo visibly falls back to the system theme. **Clear location** removes saved coordinates; Duo does not request location in the background.
+Appearance choices are **Light**, **Dark**, **Follow system**, and **Sunrise / sunset**. Sunrise/sunset accepts coordinates through **Use this place**, or requests approximate location only when you choose **Use device location**. If location is unavailable, Uno visibly falls back to the system theme. **Clear location** removes saved coordinates; Uno Launcher does not request location in the background.
 
 ## Optional shade gestures
 
-On Home, swipe down from the left 70% to open Notifications or from the right 30% to open Quick Settings. The first attempt offers **Turn on shade gestures** because Android requires you to enable Duo Launcher in Accessibility settings. This is optional and must be enabled by you; **Not now** leaves it off. The service only requests the system panel actions.
+On Home, swipe down from the left 70% to open Notifications or from the right 30% to open Quick Settings. The first attempt offers **Turn on shade gestures** because Android requires you to enable Uno Launcher in Accessibility settings. This is optional and must be enabled by you; **Not now** leaves it off. The service only requests the system panel actions.
 
 ## Layout backup
 

@@ -27,7 +27,7 @@ internal fun FeedSettings(
 ) {
     SettingsSwitch("Use my feed instead of Discover", feed.feedPreferred, onFeedPreferred,
         "feed-preferred-switch")
-    Text("When this is off, Duo keeps Google Discover where it works and uses your feed automatically on devices without Discover support.",
+    Text("When this is off, Uno Launcher keeps Google Discover where it works and uses your feed automatically on devices without Discover support.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -63,7 +63,7 @@ internal fun FeedSettings(
         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("feed-add")) {
         Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Add a feed")
     }
-    Text("Duo connects directly to the addresses you add and stores the entries on this device. Nothing is uploaded.",
+    Text("Uno connects directly to the addresses you add and stores the entries on this device. Nothing is uploaded.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     if (showAddDialog) AddFeedDialog(onDismiss = { showAddDialog = false },
         onAdd = { url, result -> onAddFeed(url) { addResult -> showAddDialog = addResult !is FeedAddResult.Added; result(addResult) } })

@@ -1,10 +1,13 @@
 # Changelog
 
-## Next (unreleased)
+## 0.16.0-uno01
+
+First Uno Launcher release, rebranded from jakesgoodapps/DuoLauncher.
 
 - Add an optional personal news feed: RSS 2.0 and Atom pages fetched directly from the addresses you add, cached on the device, and shown in the Discover slot where Google's feed is unavailable or when you prefer it.
 - Open the Discover slot on devices without Window Extensions support when feeds are configured, so the feed works without the Google app.
 - Keep the feed private: the new internet permission is used only for fetching added feeds, nothing is uploaded, and removing a feed removes its cache.
+- Rebrand the app, wallpapers, shade service, documentation, and user-facing text to Uno Launcher. The package identifier remains `com.jake.duolauncher`, inherited from the upstream project.
 
 ## 0.15.0-beta01
 

@@ -1,6 +1,6 @@
 # Third-party notices
 
-Duo Launcher source uses the MIT license in LICENSE. Dependencies retain their own licenses. The app includes this notice and the Apache 2.0 license text under `assets/licenses/`.
+Uno Launcher source uses the MIT license in LICENSE. Dependencies retain their own licenses. The app includes this notice and the Apache 2.0 license text under `assets/licenses/`.
 
 | Component family | Source | License |
 | --- | --- | --- |

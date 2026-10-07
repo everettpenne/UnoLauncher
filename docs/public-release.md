@@ -1,6 +1,6 @@
 # Public release process
 
-Duo Launcher requires Android API 31 or newer and builds with Java 17. A fresh source export can
+Uno Launcher requires Android API 31 or newer and builds with Java 17. A fresh source export can
 build the debug APK, run local unit tests and lint, and assemble an unsigned optimized release:
 
 ```sh

@@ -1953,7 +1953,7 @@ private fun SettingsPanel(state: LauncherState, initiallyWide: Boolean, model: L
         Button(onClick = backgrounds::choosePhoto, enabled = !backgrounds.loading,
             modifier = Modifier.fillMaxWidth().testTag("background-choose")) { Text("Choose background photo") }
         if (backgrounds.photoSelected) OutlinedButton(onClick = backgrounds::reset,
-            modifier = Modifier.fillMaxWidth().testTag("background-reset")) { Text("Reset to Duo dunes") }
+            modifier = Modifier.fillMaxWidth().testTag("background-reset")) { Text("Reset to Uno dunes") }
         if (backgrounds.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("background-loading"))
         (backgrounds.errorMessage ?: backgrounds.successMessage)?.let { message ->
             TextButton(onClick = backgrounds::clearMessage, Modifier.fillMaxWidth().testTag("background-message")) { Text(message) }

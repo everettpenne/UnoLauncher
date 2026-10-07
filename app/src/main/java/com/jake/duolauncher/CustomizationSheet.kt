@@ -89,7 +89,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                 CustomizationPage.WALLPAPER -> {
                     MiniHomePreview(backgrounds.previewBitmap, state, 228.dp)
                     Text("Launcher background", style = MaterialTheme.typography.titleMedium)
-                    Text("Changes the image behind Duo’s Home screens.", style = MaterialTheme.typography.bodySmall,
+                    Text("Changes the image behind Uno Launcher’s Home screens.", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(onClick = backgrounds::choosePhoto, enabled = !backgrounds.loading,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-choose")) {
@@ -102,7 +102,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                             modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("background-preview-apply")) { Text("Apply") }
                     }
                     if (backgrounds.photoSelected && !backgrounds.previewPending) OutlinedButton(onClick = backgrounds::reset,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-reset")) { Text("Reset to Duo dunes") }
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-reset")) { Text("Reset to Uno dunes") }
                     if (backgrounds.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("background-loading"))
                     (backgrounds.errorMessage ?: backgrounds.successMessage)?.let { message ->
                         TextButton(onClick = backgrounds::clearMessage, Modifier.fillMaxWidth().testTag("background-message")) { Text(message) }
@@ -156,10 +156,10 @@ private fun LauncherHelp(
     onShadeSetup: () -> Unit,
 ) {
     HelpSection(Icons.Rounded.Home, "Home app",
-        if (isDefaultHome) "Duo is your Home app. You can switch launchers in Android’s Home settings."
-        else "Choose Duo in Android’s Home settings to use it when you press Home.")
+        if (isDefaultHome) "Uno Launcher is your Home app. You can switch launchers in Android’s Home settings."
+        else "Choose Uno Launcher in Android’s Home settings to use it when you press Home.")
     Button(onClick = onHomeSettings, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-home-settings")) {
-        Text(if (isDefaultHome) "Change home app" else "Set Duo as Home")
+        Text(if (isDefaultHome) "Change home app" else "Set Uno Launcher as Home")
     }
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
     HelpSection(Icons.Rounded.TouchApp, "Customize any page",
@@ -171,12 +171,12 @@ private fun LauncherHelp(
     }
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
     HelpSection(Icons.Rounded.SwipeDown, "Notifications and quick settings",
-        "Swipe down on Home. The first time, Duo explains Android’s optional Accessibility setting. The service only opens the system panels.")
+        "Swipe down on Home. The first time, Uno Launcher explains Android’s optional Accessibility setting. The service only opens the system panels.")
     TextButton(onClick = onShadeSetup, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-shade-setup")) {
         Text("Set up shade gestures")
     }
     HelpSection(Icons.Rounded.Explore, "Discover",
-        "Swipe right from the first Home page. If Google can't provide the feed, Duo keeps a Home return and recovery actions available. Add your own feeds in News feed customization to fill this slot without Google.")
+        "Swipe right from the first Home page. If Google can't provide the feed, Uno Launcher keeps a Home return and recovery actions available. Add your own feeds in News feed customization to fill this slot without Google.")
 }
 
 @Composable

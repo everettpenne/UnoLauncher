@@ -98,7 +98,7 @@ internal fun describeFeedAge(nowMillis: Long, publishedAt: Long): String {
 }
 
 /** Owns feed sources and their on-device cache. Fetching is optional and direct:
- * Duo connects only to addresses the user added, and never uploads anything.
+ * Uno connects only to addresses the user added, and never uploads anything.
  */
 class FeedStore(private val context: Context, private val scope: CoroutineScope) {
     private val prefs = context.getSharedPreferences("feed", Context.MODE_PRIVATE)

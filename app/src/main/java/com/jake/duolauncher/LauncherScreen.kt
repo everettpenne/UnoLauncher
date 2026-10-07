@@ -22,6 +22,9 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
@@ -109,7 +112,7 @@ private fun findFreeWidgetIndex(layout: HomeLayout, page: Int, spanX: Int, spanY
 fun DuoTheme(dark: Boolean = false, content: @Composable () -> Unit) {
     val palette = if (dark) DarkDuoPalette else LightDuoPalette
     CompositionLocalProvider(LocalDuoPalette provides palette) {
-        MaterialTheme(shapes = DuoMaterialShapes, colorScheme = if (dark) darkColorScheme(primary = Color(0xFF9BC5D7), onPrimary = Color(0xFF12303D),
+        MaterialTheme(shapes = DuoMaterialShapes, typography = DuoTypography, colorScheme = if (dark) darkColorScheme(primary = Color(0xFF9BC5D7), onPrimary = Color(0xFF12303D),
             surface = Color(0xFF17272E), onSurface = palette.ink, secondary = Color(0xFFD1BE98),
             secondaryContainer = Color(0xFF314852), onSecondaryContainer = palette.ink)
         else lightColorScheme(primary = Color(0xFF30596D), onPrimary = Color.White,
@@ -529,6 +532,8 @@ internal fun LauncherScreen(
             } else null
             val dockScroll = rememberScrollState()
             var gestureOriginInRoot by remember { mutableStateOf(Offset.Zero) }
+            // Where the page-dots strip sits, so a press on it scrubs pages instead of dragging the pager.
+            var pageStripBounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
             var gestureOriginInWindow by remember { mutableStateOf(Offset.Zero) }
             val pagerInputEnabled = pager.currentPage in -firstHome..visibleHomePages && !drag.active &&
                 widgetSession == null && resizeSlot == null && sheet.isEmpty() && !showFirstRun && selectedId == null &&
@@ -559,6 +564,7 @@ internal fun LauncherScreen(
                 },
                 onDownwardSwipe = launcherActivity::openSystemShade,
                 onLeadingOverscroll = if (firstHome == 0) onDiscover else null,
+                ignorePress = { point -> pageStripBounds.contains(point + gestureOriginInRoot) },
             )) {
             val pagerModifier = Modifier.fillMaxHeight().width(pagerWidth + pagerEndInset)
                 .drawWithContent {
@@ -690,7 +696,7 @@ internal fun LauncherScreen(
                 Column(Modifier.padding(vertical = 8.dp).verticalScroll(dockScroll)) {
                     DockAppColumn(state.dock, previewLayout.dock, appsById, geometry.dockRowHeight,
                         dockIconSize(geometry.iconSize), drag, insertionTarget,
-                        onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" })
+                        onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" }, glass = controlGlass)
                 }
             } else Surface(Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp).graphicsLayer {
@@ -709,26 +715,10 @@ internal fun LauncherScreen(
                 if (!isDefaultHome) FilledTonalButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
                     Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Set as home app")
                 }
-                // The page dots ride in a small glass capsule, like iOS's page indicator.
-                val stripInk = rememberAdaptiveInk(controlGlass?.tint ?: Glass, if (controlGlass != null) .12f else .0f)
-                Row(Modifier.then(stripInk.track).then(if (controlGlass != null) Modifier.liquidGlass(controlGlass.backdrop,
-                        Corner.pill, controlGlass.tint.copy(alpha = .12f), blurRadius = .75f,
-                        settings = controlGlass.settings).padding(horizontal = 6.dp) else Modifier),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                    if (!drag.active) IconButton(onClick = openDiscover, Modifier.size(32.dp).testTag("discover-page-link")) {
-                        Icon(Icons.Rounded.Explore, "Discover", tint = stripInk.soft(.65f), modifier = Modifier.size(17.dp))
-                    }
-                    if (visibleHomePages <= 6) repeat(visibleHomePages) { index ->
-                        Box(Modifier.size(28.dp).clip(CircleShape).clickable { scope.launch { pager.animateScrollToPage(index) } }
-                            .semantics { contentDescription = if (index == homePages) "New home page" else "Home page ${index + 1}" }, contentAlignment = Alignment.Center) {
-                            if (index == homePages) Icon(Icons.Rounded.Add, null, tint = stripInk.color, modifier = Modifier.size(14.dp))
-                            else Box(Modifier.size(if (index == pager.currentPage) 6.dp else 4.dp).background(stripInk.color.copy(alpha = if (index == pager.currentPage) 1f else .4f), CircleShape))
-                        }
-                    } else Text("${minOf(pager.currentPage + 1, homePages)} / $homePages", color = stripInk.color, fontSize = 12.sp)
-                    IconButton(onClick = openLibrary, Modifier.size(32.dp).testTag("library-page-link")) {
-                        Icon(Icons.AutoMirrored.Rounded.FormatListBulleted, "All apps page", tint = stripInk.color.copy(alpha = if (pager.currentPage == homePages) 1f else .6f), modifier = Modifier.size(17.dp))
-                    }
-                }
+                // The page dots ride in a small glass capsule, like iOS's page indicator, with a
+                // selection lens that follows the pager and the finger.
+                PageStrip(pager, homePages, visibleHomePages, showCompass = !drag.active, glass = controlGlass,
+                    onDiscover = openDiscover, onLibrary = openLibrary, onBounds = { pageStripBounds = it })
             }
             if (!inLibrary && !drag.active) Column(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 8.dp)
                 .width(preset.dockWidth.dp), horizontalAlignment = Alignment.CenterHorizontally,
@@ -755,7 +745,7 @@ internal fun LauncherScreen(
                     onCustomize = { island.collapse(); customizationPage = CustomizationPage.WALLPAPER; sheet = "settings" })
                 // Charging transitions flash through the island.
                 LaunchedEffect(deviceStatus.charging) {
-                    if (deviceStatus.charging == true) island.showCharging(true)
+                    if (deviceStatus.charging == true) island.showCharging(deviceStatus.battery)
                 }
             }
             if (sheet.isNotEmpty() && sheet != "widgets") {
@@ -1745,6 +1735,7 @@ private fun DockAppColumn(
     target: DropTarget?,
     onLaunch: (AppEntry, android.graphics.Rect?) -> Unit,
     onChoose: (Int) -> Unit,
+    glass: PageGlass? = null,
 ) {
     val draggedId = drag.source?.appId
     val dockTarget = (target as? DropTarget.Dock)?.index
@@ -1797,6 +1788,9 @@ private fun DockAppColumn(
             val renderIndex = previewIndex.takeIf { it >= 0 } ?: savedIndex.takeIf { it >= 0 } ?: return@forEach
             val app = appsById[id] ?: return@forEach
             key(id) {
+                // Each icon is recorded on its own so a press lens can magnify it (one layer backdrop holds one layer).
+                val iconBackdrop = rememberLayerBackdrop()
+                val lensBackdrop = if (glass != null) rememberCombinedBackdrop(glass.backdrop, iconBackdrop) else null
                 val animatedOffset by animateIntOffsetAsState(
                     IntOffset(0, (renderIndex * rowHeightPx).roundToInt()), label = "dock insertion $id")
                 val visible = previewIndex >= 0 && renderIndex != hiddenIndex
@@ -1807,12 +1801,21 @@ private fun DockAppColumn(
                 Box(Modifier.offset { animatedOffset }.fillMaxWidth().height(rowHeight.dp).alpha(opacity)
                     .testTag("dock-app-$id"), contentAlignment = Alignment.Center) {
                     Image(app.icon.asImageBitmap(), null, Modifier.size(iconSize.dp).testTag("dock-icon-$id")
+                        .then(if (lensBackdrop != null) Modifier.layerBackdrop(iconBackdrop) else Modifier)
                         .onGloballyPositioned { if (savedIndex >= 0) launchBounds[savedIndex].set(it.boundsInWindow().toAndroidBounds()) }
                         .graphicsLayer {
                             val p = slotProgress[renderIndex]
                             scaleX = 1f - .08f * p; scaleY = 1f - .08f * p
                         }
                         .pressGlow(slotProgress[renderIndex], Corner.icon))
+                    // The press lens: clear glass that lifts and magnifies the icon under your finger.
+                    // A plain rounded shape, not Corner.icon: the glass library rejects squircle outlines.
+                    val press = slotProgress[renderIndex]
+                    if (glass != null && lensBackdrop != null && press > .02f) Box(
+                        Modifier.size((iconSize + 14f).dp).graphicsLayer { alpha = press.coerceIn(0f, 1f) }
+                            .glassLens(lensBackdrop, RoundedCornerShape(percent = 24), magnification = 1.14f,
+                                lift = press, settings = glass.settings)
+                            .testTag("dock-lens-$id"))
                 }
             }
         }

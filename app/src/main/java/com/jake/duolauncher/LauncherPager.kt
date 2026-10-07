@@ -6,6 +6,8 @@ import androidx.compose.foundation.pager.PagerState
 internal class LauncherPager(val state: PagerState, private val firstHome: Int) {
     val currentPage get() = state.currentPage - firstHome
     val settledPage get() = state.settledPage - firstHome
+    /** The pager's position in logical pages, fractional while it scrolls (Discover is -1). */
+    val position: Float get() = state.currentPage + state.currentPageOffsetFraction - firstHome
     fun requestScrollToPage(page: Int) = state.requestScrollToPage(page + firstHome)
     suspend fun scrollToPage(page: Int) = state.scrollToPage(page + firstHome)
     suspend fun animateScrollToPage(page: Int) = state.animateScrollToPage(page + firstHome)

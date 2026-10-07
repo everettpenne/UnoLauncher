@@ -81,16 +81,22 @@ internal fun Modifier.onePageGestures(
     canStartDownwardSwipe: (Offset) -> Boolean = { true },
     onDownwardSwipe: ((ShadePanel) -> Unit)? = null,
     onLeadingOverscroll: (() -> Unit)? = null,
+    /** A press that starts where this returns true is left alone, so a control sitting over the
+     * pager (the page-dots strip) can run its own horizontal drag instead of turning pages.
+     */
+    ignorePress: ((Offset) -> Boolean)? = null,
 ) : Modifier {
     val currentEnabled by rememberUpdatedState(enabled)
     val currentCanStartDownwardSwipe by rememberUpdatedState(canStartDownwardSwipe)
     val currentDownwardSwipe by rememberUpdatedState(onDownwardSwipe)
     val currentLeadingOverscroll by rememberUpdatedState(onLeadingOverscroll)
+    val currentIgnorePress by rememberUpdatedState(ignorePress)
     return nestedScroll(limits).pointerInput(pager, limits, motion) {
         coroutineScope {
             var motionJob: Job? = null
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                if (currentIgnorePress?.invoke(down.position) == true) return@awaitEachGesture
                 val gestureEnabled = currentEnabled
                 val anchor = pager.currentPage
                 val trace = DuoMotionTrace.begin(anchor,

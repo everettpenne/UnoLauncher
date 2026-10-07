@@ -59,9 +59,13 @@ grey `IosGrey 0xFF787880`. Green = affirmative state; orange = adjustable value.
 
 ## Typography
 
-Material defaults (`MaterialTheme.typography`) everywhere; the status rail sets its own
-sizes: time up to 18 sp, detail up to 11 sp, both respecting the system font scale.
-All body text keeps ≥ 4.5:1 contrast against its glass tint.
+**Inter** (SIL OFL 1.1, bundled as one variable font, `res/font/inter_variable.ttf`) is the
+typeface everywhere, so the launcher reads the same on every Pixel and needs no font download.
+`DuoTypography` is Material's type scale with Inter as its family (`DuoTypography.kt`); weights
+300-700 come from the variable weight axis. Sizes stay Material's; the status rail sets its own:
+time up to 18 sp, detail up to 11 sp, both respecting the system font scale. Inter runs wider than
+the system font, so tight spots (the island's action buttons) drop to icon-only when a label
+doesn't fit. All body text keeps ≥ 4.5:1 contrast against its glass tint.
 
 ## Touch and interaction
 
@@ -143,11 +147,45 @@ crossover where white and `GlassInk.Dark` have equal contrast (about 0.21), with
 and a 220 ms fade so a surface never flickers while pages slide past. Applied to the built-in
 widgets, the status rail, the page-dots strip and the circle controls.
 
+## Selection lens (`GlassLens.kt`, `PageStrip.kt`)
+
+iOS 26's selection lens: a nearly clear glass capsule that refracts at its rim and magnifies
+(1.18x) whatever is under it. On the page-dots strip it rides the pager's fractional position, so
+it glides between Discover, the Home dots and All apps as pages scroll; pressing and dragging
+along the strip scrubs pages with the lens under the finger and lifts it (scale up to 1.14x).
+The strip's items are recorded into their own layer backdrop and combined with the Home
+backdrop, so the lens magnifies the icons and not just the wallpaper. Item geometry and the
+position-to-centre mapping live in `PageStripLayout`, which is unit-tested.
+
+The strip must be exempt from the pager's own drag handler (`onePageGestures(ignorePress = ...)`),
+which listens in the Initial pass and would consume the drag first. The scrub itself listens in the
+Initial pass too and consumes only after horizontal touch slop, so a plain tap still reaches its
+button. The lens shape must be a rounded rectangle: the glass lens throws on squircle outlines.
+Dock icons carry a press-only variant (alpha and lift follow the press spring).
+
 ## Scroll edge blur (`EdgeBlur.kt`)
 
 Three stacked blur bands (2, 6 and 14 dp over 100%, 70% and 40% of the strip) fade out away from
 the top and bottom screen edges. The top strip is the system inset plus 24 dp; the bottom strip is
 the page-dots reserve. They sit below the island, rail, dock and dots and never take touches.
+
+## Island activities (`IslandActivities.kt`)
+
+The pill body is **true black** (`#000000`, an OLED pixel that is off) so the camera hole disappears
+into it; only a 2.5 dp outer ring stays see-through, which keeps the lens refraction and rim highlight.
+Collapsed, the trailing slot shows, in priority order: an event, the playback equalizer, charging, the
+battery. Events flash for 2.6 s and widen the pill to fit their title: ringer (Silent / Vibrate /
+Ringer), airplane mode, Do Not Disturb (Focus), charging with its percentage, and app launches. A
+ringer change right after a Focus change is dropped (DND moves the ringer too). Each event gives the
+pill a small spring pulse. Playback is detected with `AudioManager` (no permission): an animated
+four-bar equalizer, and, in the expanded panel, previous / play-pause / next sent as media keys, kept
+for 90 s after audio stops so a paused track can be resumed. Titles and artwork would need notification
+access and are deliberately not used.
+
+All audio and notification service calls run on a private worker thread: they are binder round trips
+that can stall for seconds when those services are busy, and on the main thread that froze the UI.
+Only the visible face (collapsed or expanded) is composed: an invisible panel still owns its buttons'
+touch targets, which Compose pads to 48 dp, and they caught taps meant for the pill.
 
 ## Motion
 

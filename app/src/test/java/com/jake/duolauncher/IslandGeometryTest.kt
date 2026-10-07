@@ -170,4 +170,35 @@ class IslandGeometryTest {
         val heights = listOf(0f, .5f, 1f).map { IslandGeometry.frame(env(tallRect), d, 0f, it).height }
         assertEquals(1, heights.toSet().size)
     }
+
+    @Test fun anExtraBodyRowMakesTheExpandedPanelTallerAndLeavesTheCollapsedPillAlone() {
+        val plain = IslandGeometry.frame(env(centered), d, 1f, .5f)
+        val withRow = IslandGeometry.frame(env(centered), d, 1f, .5f, extraBodyDp = MEDIA_ROW_DP)
+        assertEquals(MEDIA_ROW_DP * d, withRow.height - plain.height, 0.5f)
+        assertEquals(plain.top, withRow.top, 0.01f)
+        assertEquals(IslandGeometry.frame(env(centered), d, 0f, .5f).height,
+            IslandGeometry.frame(env(centered), d, 0f, .5f, extraBodyDp = MEDIA_ROW_DP).height, 0.01f)
+    }
+
+    @Test fun anEventWidensTheCollapsedPillAroundTheHoleWithoutMovingIt() {
+        val plain = IslandGeometry.frame(env(centered), d, 0f, .5f)
+        val wide = IslandGeometry.frame(env(centered), d, 0f, .5f, extraWidthDp = 44f)
+        assertEquals(44f * d, wide.width - plain.width, 0.5f)
+        assertEquals("still centered on the hole", centered.centerX, wide.left + wide.width / 2f, 0.5f)
+        assertEquals(plain.height, wide.height, 0.01f)
+        assertEquals("the expanded panel is unaffected",
+            IslandGeometry.frame(env(centered), d, 1f, .5f).width,
+            IslandGeometry.frame(env(centered), d, 1f, .5f, extraWidthDp = 44f).width, 0.5f)
+    }
+
+    @Test fun longerEventTitlesGetMoreRoomAndShortOnesStillGrowAFixedAmount() {
+        val short = IslandGeometry.eventExtraWidthDp("Silent".length, .5f)
+        val long = IslandGeometry.eventExtraWidthDp("Do Not Disturb".length, .5f)
+        assertTrue("short titles grow a little: $short", short >= 24f)
+        assertTrue("longer titles grow more: $long vs $short", long > short)
+        assertTrue("a long title needs real room: $long", long >= 60f)
+        assertTrue("capped so the pill cannot swallow the screen", IslandGeometry.eventExtraWidthDp(80, 0f) <= 140f)
+        // A bigger size setting already has wider side slots, so it needs less extra.
+        assertTrue(IslandGeometry.eventExtraWidthDp(14, 1f) < IslandGeometry.eventExtraWidthDp(14, 0f))
+    }
 }

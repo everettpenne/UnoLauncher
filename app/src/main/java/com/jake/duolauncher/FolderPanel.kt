@@ -30,6 +30,8 @@ internal fun FolderPanel(
     homeDestinations: List<Int>, dockVacancies: List<Int>, onDismiss: () -> Unit,
     onRename: (String) -> Unit, onLaunch: (AppEntry, android.graphics.Rect?) -> Unit,
     onMoveOut: (String, DropTarget) -> Unit,
+    glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
+    glassTint: Color = Glass.copy(alpha = .97f),
 ) {
     var title by rememberSaveable(folder.id) { mutableStateOf(folder.title) }
     BackHandler { onDismiss() }
@@ -46,29 +48,55 @@ internal fun FolderPanel(
         )
         .imePadding().testTag("folder-panel"),
         contentAlignment = Alignment.Center) {
-        Surface(Modifier.fillMaxWidth(.9f).fillMaxHeight(.82f).heightIn(min = 260.dp, max = 620.dp)
+        val panelModifier = Modifier.fillMaxWidth(.9f).fillMaxHeight(.82f).heightIn(min = 260.dp, max = 620.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = {},
             )
-            .testTag("folder-panel-content"),
-            color = Glass.copy(alpha = .97f), shape = RoundedCornerShape(30.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .6f))) {
-            Column(Modifier.padding(18.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(title, { title = it }, Modifier.weight(1f).testTag("folder-name"),
-                        singleLine = true, label = { Text("Folder name") })
-                    TextButton(onClick = { if (title.isNotBlank()) onRename(title); onDismiss() }) { Text("Done") }
-                }
-                LazyVerticalGrid(GridCells.Adaptive(88.dp), Modifier.fillMaxWidth().weight(1f).padding(top = 12.dp),
-                    contentPadding = PaddingValues(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(folder.appIds, key = { it }) { appId ->
-                        apps[appId]?.let { app -> FolderChild(app, folder.id, drag, page, homeDestinations, dockVacancies,
-                            onLaunch = onLaunch, onMoveOut = onMoveOut) }
-                    }
-                }
+            .testTag("folder-panel-content")
+        if (glassBackdrop != null) {
+            Box(panelModifier.liquidGlass(glassBackdrop, RoundedCornerShape(30.dp), glassTint, blurRadius = 4f)) {
+                FolderPanelBody(title, { title = it }, folder, apps, drag, page, homeDestinations,
+                    dockVacancies, onRename, onLaunch, onMoveOut, onDismiss)
+            }
+        } else {
+            Surface(panelModifier, color = glassTint, shape = RoundedCornerShape(30.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .6f))) {
+                FolderPanelBody(title, { title = it }, folder, apps, drag, page, homeDestinations,
+                    dockVacancies, onRename, onLaunch, onMoveOut, onDismiss)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FolderPanelBody(
+    title: String,
+    onTitle: (String) -> Unit,
+    folder: FolderEntry,
+    apps: Map<String, AppEntry>,
+    drag: HomeDragState,
+    page: Int,
+    homeDestinations: List<Int>,
+    dockVacancies: List<Int>,
+    onRename: (String) -> Unit,
+    onLaunch: (AppEntry, android.graphics.Rect?) -> Unit,
+    onMoveOut: (String, DropTarget) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column(Modifier.padding(18.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(title, onTitle, Modifier.weight(1f).testTag("folder-name"),
+                singleLine = true, label = { Text("Folder name") })
+            TextButton(onClick = { if (title.isNotBlank()) onRename(title); onDismiss() }) { Text("Done") }
+        }
+        LazyVerticalGrid(GridCells.Adaptive(88.dp), Modifier.fillMaxWidth().weight(1f).padding(top = 12.dp),
+            contentPadding = PaddingValues(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(folder.appIds, key = { it }) { appId ->
+                apps[appId]?.let { app -> FolderChild(app, folder.id, drag, page, homeDestinations, dockVacancies,
+                    onLaunch = onLaunch, onMoveOut = onMoveOut) }
             }
         }
     }

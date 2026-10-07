@@ -15,6 +15,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -40,6 +41,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onRemoveFeed: (String) -> Unit = {},
     onFeedPreferred: (Boolean) -> Unit = {},
     glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
+    glassTint: Color = Glass.copy(alpha = .62f),
     onLiquidGlass: (Boolean) -> Unit = {},
 ) {
     var wide by rememberSaveable { mutableStateOf(initiallyWide) }
@@ -56,7 +58,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     LaunchedEffect(page) { bodyScroll.scrollTo(0) }
     Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)
         .then(if (glassBackdrop != null) Modifier.liquidGlass(glassBackdrop, RoundedCornerShape(30.dp),
-            Glass.copy(alpha = .62f), blurRadius = 4f) else Modifier)
+            glassTint, blurRadius = 4f) else Modifier)
         .padding(horizontal = 20.dp).padding(bottom = 12.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             if (page != CustomizationPage.OVERVIEW) IconButton(onClick = { onPage(CustomizationPage.OVERVIEW) },

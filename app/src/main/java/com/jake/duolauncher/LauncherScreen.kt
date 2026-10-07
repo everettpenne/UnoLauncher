@@ -451,6 +451,7 @@ fun LauncherScreen(
         onFinish = { cancelled -> finishDrag(cancelled) })) {
         val homeBackdrop = rememberHomeBackdrop()
         val glassEnabled = appearance.liquidGlass
+        val glassTint = if (glassEnabled) rememberGlassTint(Glass) else Glass
         Box(Modifier.matchParentSize().then(if (glassEnabled) Modifier.recordBackdrop(homeBackdrop) else Modifier)) {
             DuneWallpaper()
         }
@@ -573,6 +574,7 @@ fun LauncherScreen(
                         onFeedRefresh = onFeedRefresh, onFeedOpenEntry = onFeedOpenEntry,
                         onFeedAdd = { customizationPage = CustomizationPage.FEED; sheet = "settings" },
                         glassBackdrop = homeBackdrop.takeIf { glassEnabled },
+                        glassTint = glassTint.copy(alpha = .82f),
                         libraryQuery = libraryQuery, onLibraryQuery = { libraryQuery = it },
                         onLaunch = onLaunch, onLaunchFrom = onLaunchFrom, onPinned = model::setPinned,
                         onTurnOnWork = { model.turnOnWork(it) },
@@ -596,7 +598,8 @@ fun LauncherScreen(
                         DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp),
                             feed, feedVisible, onFeedRefresh, onFeedOpenEntry,
                             onAddFeed = { customizationPage = CustomizationPage.FEED; sheet = "settings" },
-                            glassBackdrop = homeBackdrop.takeIf { glassEnabled })
+                            glassBackdrop = homeBackdrop.takeIf { glassEnabled },
+                            glassTint = glassTint.copy(alpha = .82f))
                     } else if (page == visibleHomePages) {
                         AppLibrary(state, libraryQuery, { libraryQuery = it }, onLaunch, model::setPinned,
                             onActions = { selectedId = it.id }, modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace).testTag("library-page"),
@@ -614,17 +617,27 @@ fun LauncherScreen(
                     }
                 }
             }
-            if (state.verticalStatus) StatusRail(deviceStatus,
-                Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.contentTop.dp)
-                    .width(preset.dockWidth.dp).onSizeChanged {
-                        // The normal rail's 20dp location slot and 3dp gap do not move the dock.
+            if (state.verticalStatus) {
+                if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.contentTop.dp)
+                    .width(preset.dockWidth.dp)
+                    .liquidGlass(homeBackdrop, RoundedCornerShape(26.dp), glassTint.copy(alpha = .30f), blurRadius = 1.5f)
+                    .padding(vertical = 8.dp)) {
+                    StatusRail(deviceStatus, Modifier.fillMaxWidth().onSizeChanged {
                         statusHeight = (with(density) { it.height.toDp().value } -
                             if (contentHeight < 500.dp) 0f else 23f).coerceAtLeast(0f)
-                    },
-                compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp)
+                    }, compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp)
+                } else StatusRail(deviceStatus,
+                    Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.contentTop.dp)
+                        .width(preset.dockWidth.dp).onSizeChanged {
+                            // The normal rail's 20dp location slot and 3dp gap do not move the dock.
+                            statusHeight = (with(density) { it.height.toDp().value } -
+                                if (contentHeight < 500.dp) 0f else 23f).coerceAtLeast(0f)
+                        },
+                    compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp)
+            }
             if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
-                .liquidGlass(homeBackdrop, RoundedCornerShape(30.dp), Glass.copy(alpha = .30f))
+                .liquidGlass(homeBackdrop, RoundedCornerShape(30.dp), glassTint.copy(alpha = .30f))
                 .graphicsLayer {
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                 }.testTag("dock")) {
@@ -733,6 +746,7 @@ fun LauncherScreen(
                             feed = feed, onFeedRefresh = onFeedRefresh,
                             onAddFeed = onAddFeed, onRemoveFeed = onRemoveFeed, onFeedPreferred = onFeedPreferred,
                             glassBackdrop = homeBackdrop.takeIf { glassEnabled },
+                            glassTint = glassTint.copy(alpha = .62f),
                             onLiquidGlass = onLiquidGlass)
                         "widgetActions" -> model.placement(widgetSlot)?.let { placement ->
                             val topPitch = (geometry.widgetHeight + 18f) / 2f
@@ -1204,7 +1218,9 @@ fun LauncherScreen(
                     onLaunch = onLaunchFrom,
                     onMoveOut = { appId, destination ->
                         if (model.removeAppFromFolder(id, appId, destination)) openFolderId = model.folder(id)?.id
-                    })
+                    },
+                    glassBackdrop = homeBackdrop.takeIf { glassEnabled },
+                    glassTint = glassTint.copy(alpha = .90f))
             } ?: LaunchedEffect(id) { openFolderId = null }
         }
         launcherActivity.backups.preview?.let { preview ->
@@ -1281,6 +1297,7 @@ private fun ExpandedWorkspace(
     onFeedOpenEntry: (String) -> Unit,
     onFeedAdd: () -> Unit,
     glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop?,
+    glassTint: Color,
     libraryQuery: String,
     onLibraryQuery: (String) -> Unit,
     onLaunch: (AppEntry) -> Unit,
@@ -1348,7 +1365,7 @@ private fun ExpandedWorkspace(
             key("discover-pane") {
                 Box(Modifier.place(-viewportWidth).fillMaxSize()) {
                     DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp),
-                        feed, feedVisible, onFeedRefresh, onFeedOpenEntry, onFeedAdd, glassBackdrop)
+                        feed, feedVisible, onFeedRefresh, onFeedOpenEntry, onFeedAdd, glassBackdrop, glassTint)
                 }
             }
         }
@@ -1650,10 +1667,8 @@ private fun DockAppColumn(
     val dimDragged = drag.active && !drag.moved && source != null
     val launchBounds = remember(savedDock.size) { List(savedDock.size) { android.graphics.Rect() } }
     val interactions = remember(savedDock.size) { List(savedDock.size) { MutableInteractionSource() } }
-    val slotScales = savedDock.indices.map { index ->
-        val pressed by interactions[index].collectIsPressedAsState()
-        val scale by animateFloatAsState(if (pressed) .92f else 1f, label = "dock press $index")
-        scale
+    val slotProgress = savedDock.indices.map { index ->
+        rememberPressProgress(interactions[index]).value
     }
     val density = LocalDensity.current
     val rowHeightPx = with(density) { rowHeight.dp.toPx() }
@@ -1701,8 +1716,11 @@ private fun DockAppColumn(
                     .testTag("dock-app-$id"), contentAlignment = Alignment.Center) {
                     Image(app.icon.asImageBitmap(), null, Modifier.size(iconSize.dp).testTag("dock-icon-$id")
                         .onGloballyPositioned { if (savedIndex >= 0) launchBounds[savedIndex].set(it.boundsInWindow().toAndroidBounds()) }
-                        .graphicsLayer { scaleX = slotScales[renderIndex]; scaleY = slotScales[renderIndex] }
-                        .clip(RoundedCornerShape(11.dp)))
+                        .graphicsLayer {
+                            val p = slotProgress[renderIndex]
+                            scaleX = 1f - .08f * p; scaleY = 1f - .08f * p
+                        }
+                        .pressGlow(slotProgress[renderIndex], RoundedCornerShape(11.dp)))
                 }
             }
         }
@@ -1715,12 +1733,16 @@ private fun <T> List<T>.slicePage(range: IntRange): List<T> =
 @Composable
 private fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: Float, labels: Boolean,
     drag: HomeDragState, page: Int, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Column(modifier.clickable(onClick = onClick).semantics(mergeDescendants = true) {
-        contentDescription = "Folder ${folder.title}, ${folder.appIds.size} apps"
-    }, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(size.dp).clip(RoundedCornerShape((size * .24f).dp))
+    val interaction = remember { MutableInteractionSource() }
+    val progress by rememberPressProgress(interaction)
+    Column(modifier.clickable(interactionSource = interaction, indication = null, onClick = onClick)
+        .semantics(mergeDescendants = true) { contentDescription = "Folder ${folder.title}, ${folder.appIds.size} apps" },
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(size.dp).graphicsLayer { scaleX = 1f - .05f * progress; scaleY = 1f - .05f * progress }
+            .clip(RoundedCornerShape((size * .24f).dp))
             .background(Glass.copy(alpha = .72f)).border(1.dp, Color.White.copy(alpha = .55f), RoundedCornerShape((size * .24f).dp))
             .dropRegion(drag, DropTarget.Folder(folder.id), page = page, folderId = folder.id)
+            .pressGlow(progress, RoundedCornerShape((size * .24f).dp))
             .testTag("folder-drop-${folder.id}")) {
             folder.appIds.take(4).forEachIndexed { index, id ->
                 apps[id]?.let { app ->
@@ -1738,8 +1760,7 @@ private fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: F
 @Composable
 private fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modifier = Modifier, onClick: (android.graphics.Rect) -> Unit, onLongClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) .92f else 1f, label = "app press")
+    val progress by rememberPressProgress(interaction)
     val iconSize by animateDpAsState(size.dp, label = "icon size")
     val bounds = remember { android.graphics.Rect() }
     Column(modifier.fillMaxWidth().heightIn(min = 48.dp).semantics(mergeDescendants = true) { contentDescription = app.label }
@@ -1748,7 +1769,8 @@ private fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modif
         .semantics { onLongClick("App options") { onLongClick(); true } }.padding(horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally) {
         Image(app.icon.asImageBitmap(), null, Modifier.size(iconSize).onGloballyPositioned { bounds.set(it.boundsInWindow().toAndroidBounds()) }
-            .graphicsLayer { scaleX = scale; scaleY = scale }.clip(RoundedCornerShape((size * .24f).dp)))
+            .graphicsLayer { scaleX = 1f - .08f * progress; scaleY = 1f - .08f * progress }
+            .pressGlow(progress, RoundedCornerShape((size * .24f).dp)))
         if (labels) Text(app.label, color = Color.White, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .55f), Offset(0f, 1f), 3f)), modifier = Modifier.padding(top = 4.dp))

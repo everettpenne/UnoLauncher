@@ -29,10 +29,11 @@ internal fun FeedPage(
     onAddFeed: () -> Unit,
     modifier: Modifier = Modifier,
     glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
+    glassTint: Color = Glass.copy(alpha = .82f),
 ) {
     if (glassBackdrop != null) {
         Box(modifier.fillMaxSize().testTag("feed-page")
-            .liquidGlass(glassBackdrop, RoundedCornerShape(30.dp), Glass.copy(alpha = .82f), blurRadius = 2f)) {
+            .liquidGlass(glassBackdrop, RoundedCornerShape(30.dp), glassTint, blurRadius = 2f)) {
             FeedPageBody(feed, onRefresh, onOpenEntry, onAddFeed, Modifier.fillMaxSize())
         }
         return

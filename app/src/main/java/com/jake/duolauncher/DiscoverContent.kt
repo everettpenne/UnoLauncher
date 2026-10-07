@@ -16,9 +16,10 @@ import kotlinx.coroutines.delay
 internal fun DiscoverContent(modifier: Modifier = Modifier, feed: FeedState = FeedState(),
     feedVisible: Boolean = false, onFeedRefresh: () -> Unit = {},
     onFeedOpenEntry: (String) -> Unit = {}, onAddFeed: () -> Unit = {},
-    glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null) {
+    glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
+    glassTint: Color = Glass.copy(alpha = .82f)) {
     if (feedVisible) {
-        FeedPage(feed, onFeedRefresh, onFeedOpenEntry, onAddFeed, modifier, glassBackdrop)
+        FeedPage(feed, onFeedRefresh, onFeedOpenEntry, onAddFeed, modifier, glassBackdrop, glassTint)
         return
     }
     val context = androidx.compose.ui.platform.LocalContext.current

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.3-uno01
+
+- Extend liquid glass: the status rail and folder panel are now glass surfaces.
+- Springy press glows and scale on dock, Home, and folder icons.
+- Glass tint follows the wallpaper: the committed photo's muted palette color blends into the theme glass (drawn dunes keep the theme tint).
+
 ## 0.16.2-uno01
 
 - Experiment: liquid glass aesthetics. The dock, customization panel, and feed page now blur and refract Home behind them (vibrancy, blur, and lens effects).

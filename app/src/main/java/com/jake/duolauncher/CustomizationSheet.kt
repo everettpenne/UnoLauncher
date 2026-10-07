@@ -40,7 +40,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onAddFeed: (String, (FeedAddResult) -> Unit) -> Unit = { _, _ -> },
     onRemoveFeed: (String) -> Unit = {},
     onFeedPreferred: (Boolean) -> Unit = {},
-    glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
+    glassBackdrop: com.kyant.backdrop.Backdrop? = null,
     glassTint: Color = Glass.copy(alpha = .62f),
     refraction: Float = .55f,
     onLiquidGlass: (Boolean) -> Unit = {},
@@ -125,9 +125,9 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     SettingsSwitch("Liquid glass", appearance.liquidGlass, onLiquidGlass, "liquid-glass-switch")
                     if (appearance.liquidGlass) CustomizationSlider("Refraction intensity",
-                        "${(appearance.refraction * 100).toInt()}%", appearance.refraction, 0f..1f,
+                        "${(appearance.refraction * 100).toInt()}%", appearance.refraction, 0f..MAX_REFRACTION,
                         tag = "refraction-slider") { onRefraction(it) }
-                    Text("Blurs and refracts Home behind the dock and panels. Higher refraction bends the view behind the glass more, like the full liquid effect. Turn off for a flat look or to save battery.",
+                    Text("Blurs and refracts Home behind the dock, widgets, buttons, and panels. Higher refraction bends the view behind the glass more; above 100% the effect is exaggerated. Turn off for a flat look or to save battery.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear)

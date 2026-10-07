@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.5-uno01
+
+- Fix backdrop sampling: the wallpaper and pager now record into separate layers that glass surfaces combine, so the dock and rail refract real page content instead of empty pixels.
+- Run Home beneath the dock and status rail, iOS-style: pages slide under the glass during swipes while Discover and All apps stay clipped to the viewport.
+- Glass for everything inside the pager: feed, Discover recovery, All apps, the widget gallery, the first-run and app/empty-space sheets (inset glass cards), the page-dot capsule, and the search/back circle controls.
+- Refraction slider now spans 0-200% with a stronger lens curve and chromatic aberration from 50%.
+
 ## 0.16.4-uno01
 
 - Real liquid refraction: the lens effect now uses deeper displacement with depth weighting, and adds chromatic aberration at high intensities.

@@ -201,6 +201,7 @@ internal fun VisualWidgetPicker(
     onDrag: (Offset) -> Unit,
     onDrop: () -> Unit,
     onCancelDrag: () -> Unit,
+    glass: PageGlass? = null,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val latestDragStart by rememberUpdatedState(onDragStart)
@@ -214,11 +215,17 @@ internal fun VisualWidgetPicker(
         words.isEmpty() || listOf(entry.appLabel, entry.providerLabel, entry.description,
             entry.provider.provider.packageName).any { it.lowercase().contains(words) }
     } }
+    // With liquid glass the gallery floats as a frosted card over Home; heavy blur keeps the
+    // previews readable. Without it, the original near-opaque full-screen panel.
     Surface(Modifier.fillMaxSize().alpha(if (hiddenForDrag) 0f else 1f)
         .then(if (hiddenForDrag) Modifier.clearAndSetSemantics { }.focusProperties { canFocus = false } else Modifier)
+        .then(if (glass != null) Modifier.statusBarsPadding().navigationBarsPadding().padding(8.dp)
+            .liquidGlass(glass.backdrop, RoundedCornerShape(32.dp), glass.tint.copy(alpha = .62f),
+                blurRadius = 12f, refraction = glass.refraction.coerceAtMost(1f)) else Modifier)
         .testTag("visual-widget-picker"),
-        color = Glass.copy(alpha = .96f)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 18.dp)) {
+        color = if (glass != null) Color.Transparent else Glass.copy(alpha = .96f)) {
+        Column(Modifier.fillMaxSize().then(if (glass != null) Modifier.padding(top = 8.dp)
+            else Modifier.statusBarsPadding().navigationBarsPadding()).padding(horizontal = 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") }
                 Text("Widgets", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)

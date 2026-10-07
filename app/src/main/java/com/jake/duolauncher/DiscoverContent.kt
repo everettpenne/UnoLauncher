@@ -16,7 +16,7 @@ import kotlinx.coroutines.delay
 internal fun DiscoverContent(modifier: Modifier = Modifier, feed: FeedState = FeedState(),
     feedVisible: Boolean = false, onFeedRefresh: () -> Unit = {},
     onFeedOpenEntry: (String) -> Unit = {}, onAddFeed: () -> Unit = {},
-    glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
+    glassBackdrop: com.kyant.backdrop.Backdrop? = null,
     glassTint: Color = Glass.copy(alpha = .82f),
     refraction: Float = .55f) {
     if (feedVisible) {
@@ -36,9 +36,12 @@ internal fun DiscoverContent(modifier: Modifier = Modifier, feed: FeedState = Fe
     Box(modifier.testTag("discover-page")) {
         // The healthy native feed moves above this page. Keep its backing page transparent
         // so the retained Home layer is revealed during entry and exit, not an empty glass card.
-        if (showMessage && message != null) Surface(Modifier.fillMaxSize().testTag("discover-recovery-surface"),
-            shape = RoundedCornerShape(30.dp), color = Glass.copy(alpha = .92f),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = .5f))) {
+        val glass = LocalPageGlass.current
+        if (showMessage && message != null) Surface(Modifier.fillMaxSize().testTag("discover-recovery-surface")
+            .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, RoundedCornerShape(30.dp),
+                glass.tint.copy(alpha = .45f), blurRadius = 3f, refraction = glass.refraction) else Modifier),
+            shape = RoundedCornerShape(30.dp), color = if (glass != null) Color.Transparent else Glass.copy(alpha = .92f),
+            border = if (glass != null) null else BorderStroke(1.dp, Color.White.copy(alpha = .5f))) {
             Column(Modifier.fillMaxSize().padding(32.dp),
                 verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Discover", style = MaterialTheme.typography.headlineMedium)

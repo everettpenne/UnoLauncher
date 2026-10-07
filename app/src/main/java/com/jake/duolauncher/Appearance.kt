@@ -32,11 +32,11 @@ class AppearanceStore(private val context: Context) {
             runCatching { prefs.getLong("locationTime", 0) }.getOrDefault(0),
             runCatching { prefs.getBoolean("deviceLocation", false) }.getOrDefault(false),
             liquidGlass = runCatching { prefs.getBoolean("liquidGlass", true) }.getOrDefault(true),
-            refraction = runCatching { prefs.getFloat("refraction", .55f) }.getOrDefault(.55f).coerceIn(0f, 1f)), systemDark)
+            refraction = runCatching { prefs.getFloat("refraction", .55f) }.getOrDefault(.55f).coerceIn(0f, MAX_REFRACTION)), systemDark)
     }
     fun setMode(mode: AppearanceMode, systemDark: Boolean) { save(state.copy(mode = mode), systemDark) }
     fun setLiquidGlass(value: Boolean) { save(state.copy(liquidGlass = value), currentSystemDark()) }
-    fun setRefraction(value: Float) { save(state.copy(refraction = value.coerceIn(0f, 1f)), currentSystemDark()) }
+    fun setRefraction(value: Float) { save(state.copy(refraction = value.coerceIn(0f, MAX_REFRACTION)), currentSystemDark()) }
     fun setManual(place: String, latitude: Double, longitude: Double, systemDark: Boolean) {
         require(latitude in -90.0..90.0 && longitude in -180.0..180.0)
         save(state.copy(place = place.trim(), latitude = latitude, longitude = longitude,

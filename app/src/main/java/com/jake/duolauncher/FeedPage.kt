@@ -28,7 +28,7 @@ internal fun FeedPage(
     onOpenEntry: (String) -> Unit,
     onAddFeed: () -> Unit,
     modifier: Modifier = Modifier,
-    glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
+    glassBackdrop: com.kyant.backdrop.Backdrop? = null,
     glassTint: Color = Glass.copy(alpha = .82f),
     refraction: Float = .55f,
 ) {

@@ -30,7 +30,7 @@ internal fun FolderPanel(
     homeDestinations: List<Int>, dockVacancies: List<Int>, onDismiss: () -> Unit,
     onRename: (String) -> Unit, onLaunch: (AppEntry, android.graphics.Rect?) -> Unit,
     onMoveOut: (String, DropTarget) -> Unit,
-    glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop? = null,
+    glassBackdrop: com.kyant.backdrop.Backdrop? = null,
     glassTint: Color = Glass.copy(alpha = .97f),
     refraction: Float = .55f,
 ) {

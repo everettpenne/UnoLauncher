@@ -62,10 +62,15 @@ internal fun AppLibrary(
             it.label.firstOrNull()?.takeIf(Char::isLetter)?.uppercaseChar()?.toString() ?: "#"
         }
     }
-    Surface(modifier, shape = RoundedCornerShape(24.dp),
-        color = if (glass) Glass.copy(alpha = .48f) else MaterialTheme.colorScheme.surface,
+    // On Home the library is a liquid-glass panel over the wallpaper. Heavier blur than the
+    // dock keeps the long list legible; the lens still bends the panel's rim.
+    val liquid = LocalPageGlass.current?.takeIf { glass }
+    Surface(modifier.then(if (liquid != null) Modifier.liquidGlass(liquid.backdrop, RoundedCornerShape(24.dp),
+            liquid.tint.copy(alpha = .40f), blurRadius = 6f, refraction = liquid.refraction) else Modifier),
+        shape = RoundedCornerShape(24.dp),
+        color = if (liquid != null) Color.Transparent else if (glass) Glass.copy(alpha = .48f) else MaterialTheme.colorScheme.surface,
         contentColor = ink,
-        border = if (glass) BorderStroke(1.dp, Color.White.copy(alpha = .38f)) else null) {
+        border = if (glass && liquid == null) BorderStroke(1.dp, Color.White.copy(alpha = .38f)) else null) {
         Column(Modifier.background(Brush.verticalGradient(if (glass)
             listOf(Color.White.copy(alpha = .09f), Color.Transparent) else listOf(Color.Transparent, Color.Transparent)))
             .padding(horizontal = 16.dp).padding(top = 18.dp)) {
@@ -78,7 +83,8 @@ internal fun AppLibrary(
                 FilterChip(selected = showWork, onClick = { showWork = true }, label = { Text("Work") })
             }
             OutlinedTextField(query, onQuery, Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag(if (editing) "pin-search" else "library-search"),
-                placeholder = { Text("Search apps") }, singleLine = true, shape = RoundedCornerShape(16.dp),
+                placeholder = { Text("Search apps") }, singleLine = true,
+                shape = if (liquid != null) RoundedCornerShape(percent = 50) else RoundedCornerShape(16.dp),
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, "Clear search") } },
                 colors = if (glass) OutlinedTextFieldDefaults.colors(

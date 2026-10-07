@@ -454,7 +454,14 @@ fun LauncherScreen(
         val glassEnabled = appearance.liquidGlass
         val glassRefraction = appearance.refraction
         val glassTint = if (glassEnabled) rememberGlassTint(Glass) else Glass
-        Box(Modifier.matchParentSize().then(if (glassEnabled) Modifier.recordBackdrop(homeBackdrop) else Modifier)) {
+        val pageGlass = remember(glassEnabled, homeBackdrop, glassTint, glassRefraction) {
+            if (glassEnabled) PageGlass(homeBackdrop.wallpaper, glassTint, glassRefraction) else null
+        }
+        // Controls stacked over the pager (search, back to Home) refract the whole Home view.
+        val controlGlass = remember(glassEnabled, homeBackdrop, glassTint, glassRefraction) {
+            if (glassEnabled) PageGlass(homeBackdrop.combined, glassTint, glassRefraction) else null
+        }
+        Box(Modifier.matchParentSize().then(if (glassEnabled) Modifier.recordBackdrop(homeBackdrop.wallpaper) else Modifier)) {
             DuneWallpaper()
         }
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
@@ -500,6 +507,12 @@ fun LauncherScreen(
             val contentHeight = maxHeight
             val panelWidth = maxWidth - geometry.homeWidth.dp
             val pagerWidth = maxWidth - preset.dockWidth.dp - 28.dp
+            // Home runs the pager under the dock and status rail, iOS-style, so page content
+            // slides beneath the glass during swipes and the lens has edges to bend. Compact
+            // pages inset their content by this much, so the resting layout is unchanged.
+            // Expanded widens only the workspace's clip: its gesture pager and
+            // WorkspacePageMotion stay on pagerWidth, and panes keep their pagerWidth sizes.
+            val pagerEndInset = maxWidth - pagerWidth
             val leftColumnOrigin = (maxWidth / 2f - geometry.gridWidth.dp) / 2f - 16.dp
             val homeStride = panelWidth - leftColumnOrigin
             val bottomSpace = if (isDefaultHome) 44.dp else 88.dp
@@ -539,13 +552,13 @@ fun LauncherScreen(
                 onDownwardSwipe = launcherActivity::openSystemShade,
                 onLeadingOverscroll = if (firstHome == 0) onDiscover else null,
             )) {
-            val pagerModifier = Modifier.fillMaxHeight().width(pagerWidth)
+            val pagerModifier = Modifier.fillMaxHeight().width(pagerWidth + pagerEndInset)
                 .drawWithContent {
                     homeLayer.record { this@drawWithContent.drawContent() }
                     drawLayer(homeLayer)
                     LiveDiscover.host.get()?.invalidateFrame()
                 }.testTag("app-pager")
-                .then(if (glassEnabled) Modifier.recordBackdrop(homeBackdrop) else Modifier)
+                .then(if (glassEnabled) Modifier.recordBackdrop(homeBackdrop.pages) else Modifier)
                 .discoverSwipe(firstHome == 0 && pager.currentPage == 0 && !drag.active && sheet.isEmpty() &&
                     !showFirstRun && selectedId == null, onDiscover)
                 .onGloballyPositioned {
@@ -553,9 +566,11 @@ fun LauncherScreen(
                         val bounds = it.boundsInWindow()
                         LiveDiscover.pagerOrigin = bounds.topLeft
                         val padding = 32 * density.density
+                        // Discover's frame matches the visible page area, not the under-dock run.
+                        val inset = with(density) { pagerEndInset.toPx() }
                         LiveDiscover.prepare(launcherActivity,
                             android.graphics.Rect((bounds.left + padding).toInt(), (bounds.top + padding).toInt(),
-                                (bounds.right - 16 * density.density).toInt(), (bounds.bottom - padding).toInt()), bounds.width)
+                                (bounds.right - inset - 16 * density.density).toInt(), (bounds.bottom - padding).toInt()), bounds.width - inset)
                     }
                 }
                 .semantics { stateDescription = if (pager.currentPage == -1) if (feedVisible) "Feed" else "Discover" else if (pager.currentPage == visibleHomePages) "All apps" else "Home page ${pager.currentPage + 1} of $visibleHomePages" }
@@ -563,10 +578,11 @@ fun LauncherScreen(
                 Box(pagerModifier) {
                     // PagerState remains the source of truth for native Discover progress,
                     // snapping, accessibility state, and programmatic page requests.
-                    HorizontalPager(nativePager, Modifier.fillMaxSize(), userScrollEnabled = false,
+                    HorizontalPager(nativePager, Modifier.fillMaxHeight().width(pagerWidth), userScrollEnabled = false,
                         key = { if (it < firstHome) "discover" else if (it - firstHome == visibleHomePages) "library" else "home-${it - firstHome}" }) { }
-                    ExpandedWorkspace(
+                    CompositionLocalProvider(LocalPageGlass provides pageGlass) { ExpandedWorkspace(
                         nativePager = nativePager, motion = workspaceMotion!!, firstHome = firstHome,
+                        viewportWidth = pagerWidth, trailingOverscan = pagerEndInset,
                         visibleHomePages = visibleHomePages, panelWidth = panelWidth,
                         contentHeight = contentHeight, bottomSpace = bottomSpace, geometry = geometry,
                         state = state, previewSlots = previewLayout.slots, previewLeadingSlots = previewLayout.leadingSlots,
@@ -575,8 +591,8 @@ fun LauncherScreen(
                         feed = feed, feedVisible = feedVisible,
                         onFeedRefresh = onFeedRefresh, onFeedOpenEntry = onFeedOpenEntry,
                         onFeedAdd = { customizationPage = CustomizationPage.FEED; sheet = "settings" },
-                        glassBackdrop = homeBackdrop.takeIf { glassEnabled },
-                        glassTint = glassTint.copy(alpha = .82f),
+                        glassBackdrop = homeBackdrop.wallpaper.takeIf { glassEnabled },
+                        glassTint = glassTint.copy(alpha = .55f),
                         refraction = glassRefraction,
                         libraryQuery = libraryQuery, onLibraryQuery = { libraryQuery = it },
                         onLaunch = onLaunch, onLaunchFrom = onLaunchFrom, onPinned = model::setPinned,
@@ -585,7 +601,7 @@ fun LauncherScreen(
                         onFolder = { openFolderId = it },
                         onEmptyWidget = { emptyCellIndex = it },
                         onRefresh = model::refresh,
-                    )
+                    ) }
                 }
             } else {
                 HorizontalPager(nativePager, pagerModifier,
@@ -597,12 +613,14 @@ fun LauncherScreen(
                     userScrollEnabled = !drag.active && resizeSlot == null, flingBehavior = pageFling,
                     key = { if (it < firstHome) "discover" else if (it - firstHome == visibleHomePages) "library" else "home-${it - firstHome}" }) { physicalPage ->
                     val page = physicalPage - firstHome
+                    Box(Modifier.fillMaxSize().padding(end = pagerEndInset)) {
+                    CompositionLocalProvider(LocalPageGlass provides pageGlass) {
                     if (page == -1) {
                         DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp),
                             feed, feedVisible, onFeedRefresh, onFeedOpenEntry,
                             onAddFeed = { customizationPage = CustomizationPage.FEED; sheet = "settings" },
-                            glassBackdrop = homeBackdrop.takeIf { glassEnabled },
-                            glassTint = glassTint.copy(alpha = .82f),
+                            glassBackdrop = homeBackdrop.wallpaper.takeIf { glassEnabled },
+                            glassTint = glassTint.copy(alpha = .55f),
                             refraction = glassRefraction)
                     } else if (page == visibleHomePages) {
                         AppLibrary(state, libraryQuery, { libraryQuery = it }, onLaunch, model::setPinned,
@@ -619,12 +637,14 @@ fun LauncherScreen(
                                 onRefresh = model::refresh)
                         }
                     }
+                    }
+                    }
                 }
             }
             if (state.verticalStatus) {
                 if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.contentTop.dp)
                     .width(preset.dockWidth.dp)
-                    .liquidGlass(homeBackdrop, RoundedCornerShape(26.dp), glassTint.copy(alpha = .30f), blurRadius = 1.5f, refraction = glassRefraction)
+                    .liquidGlass(homeBackdrop.combined, RoundedCornerShape(26.dp), glassTint.copy(alpha = .12f), blurRadius = .75f, refraction = glassRefraction)
                     .padding(vertical = 8.dp)) {
                     StatusRail(deviceStatus, Modifier.fillMaxWidth().onSizeChanged {
                         statusHeight = (with(density) { it.height.toDp().value } -
@@ -641,7 +661,7 @@ fun LauncherScreen(
             }
             if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
-                .liquidGlass(homeBackdrop, RoundedCornerShape(30.dp), glassTint.copy(alpha = .30f), refraction = glassRefraction)
+                .liquidGlass(homeBackdrop.combined, RoundedCornerShape(30.dp), glassTint.copy(alpha = .12f), blurRadius = .75f, refraction = glassRefraction)
                 .graphicsLayer {
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                 }.testTag("dock")) {
@@ -667,7 +687,11 @@ fun LauncherScreen(
                 if (!isDefaultHome) FilledTonalButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
                     Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Set as home app")
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                // The page dots ride in a small glass capsule, like iOS's page indicator.
+                Row(Modifier.then(if (controlGlass != null) Modifier.liquidGlass(controlGlass.backdrop,
+                        RoundedCornerShape(percent = 50), controlGlass.tint.copy(alpha = .12f), blurRadius = .75f,
+                        refraction = controlGlass.refraction).padding(horizontal = 6.dp) else Modifier),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     if (!drag.active) IconButton(onClick = openDiscover, Modifier.size(32.dp).testTag("discover-page-link")) {
                         Icon(Icons.Rounded.Explore, "Discover", tint = Color.White.copy(alpha = .65f), modifier = Modifier.size(17.dp))
                     }
@@ -687,17 +711,17 @@ fun LauncherScreen(
                 .width(preset.dockWidth.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val controlSize = dockIconSize(geometry.iconSize).dp
-                if (pager.currentPage == -1) CircleControl(Icons.Rounded.ArrowForward, "Back to home", "discover-home", controlSize) { scope.launch { pager.animateScrollToPage(0) } }
+                if (pager.currentPage == -1) CircleControl(Icons.Rounded.ArrowForward, "Back to home", "discover-home", controlSize, controlGlass) { scope.launch { pager.animateScrollToPage(0) } }
                 val searchBounds = remember { android.graphics.Rect() }
                 Box(Modifier.onGloballyPositioned { searchBounds.set(it.boundsInWindow().toAndroidBounds()) }) {
-                    CircleControl(Icons.Rounded.Search, if (state.googleSearch) "Search Google" else "Search apps", "search", controlSize) {
+                    CircleControl(Icons.Rounded.Search, if (state.googleSearch) "Search Google" else "Search apps", "search", controlSize, controlGlass) {
                         if (!state.googleSearch || !onGoogleSearch(searchBounds)) openLibrary()
                     }
                 }
             }
             if (sheet.isNotEmpty() && sheet != "widgets") {
                 val activeCustomizationPage = if (sheet == "settings:wallpaper") CustomizationPage.WALLPAPER else customizationPage
-                ModalBottomSheet(onDismissRequest = {
+                GlassModalSheet(controlGlass, onDismissRequest = {
                     customizationPage = CustomizationPage.OVERVIEW
                     sheet = ""; widgetPackage = null; widgetExactTarget = false
                 }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -749,7 +773,8 @@ fun LauncherScreen(
                             onWallpaperPreview = { sheet = ""; onWallpaperPreview() }, homePage = pager.currentPage.coerceIn(0, homePages - 1),
                             feed = feed, onFeedRefresh = onFeedRefresh,
                             onAddFeed = onAddFeed, onRemoveFeed = onRemoveFeed, onFeedPreferred = onFeedPreferred,
-                            glassBackdrop = homeBackdrop.takeIf { glassEnabled },
+                            // The glass sheet already supplies the surface; no second glass layer.
+                            glassBackdrop = null,
                             glassTint = glassTint.copy(alpha = .62f),
                             refraction = glassRefraction,
                             onLiquidGlass = onLiquidGlass,
@@ -789,7 +814,7 @@ fun LauncherScreen(
                 }
             }
             if (showFirstRun) {
-                ModalBottomSheet(
+                GlassModalSheet(controlGlass,
                     onDismissRequest = onFinishFirstRun,
                     sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -837,7 +862,7 @@ fun LauncherScreen(
                 val footprint: (AppWidgetProviderInfo) -> WidgetSpan? = { provider ->
                     widgets.sizing(provider, pickerSizing)?.takeIf { it.minimumFitsGrid }?.preferred
                 }
-                VisualWidgetPicker(catalog, catalogProfiles.ifEmpty { listOf(selectedProfile) }, selectedProfile,
+                VisualWidgetPicker(catalog, catalogProfiles.ifEmpty { listOf(selectedProfile) }, selectedProfile, glass = controlGlass,
                     onSelectProfile = { widgetProfileSerial = it.userSerial; widgetPlacementMessage = null },
                     onTurnOnWork = { model.turnOnWork(it) }, hiddenForDrag = widgetSession != null,
                     footprint = footprint,
@@ -1162,7 +1187,7 @@ fun LauncherScreen(
             val hasWidgets = packageName.isNotEmpty() && runCatching {
                 widgets.providersForPackage(packageName, app.user)
             }.getOrDefault(emptyList()).isNotEmpty()
-            ModalBottomSheet(onDismissRequest = { appMoveMenu = false; selectedId = null },
+            GlassModalSheet(controlGlass, onDismissRequest = { appMoveMenu = false; selectedId = null },
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                 properties = ModalBottomSheetProperties(shouldDismissOnBackPress = false)) {
                 LauncherAppActionSheet(app, pinned, homePages, appMoveMenu, { appMoveMenu = it },
@@ -1183,7 +1208,7 @@ fun LauncherScreen(
             }
         }
         emptyCellIndex?.let { index ->
-            ModalBottomSheet(onDismissRequest = { emptyCellIndex = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            GlassModalSheet(controlGlass, onDismissRequest = { emptyCellIndex = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
                 EmptySpaceActionSheet(onWidgets = {
                         widgetTargetIndex = index; widgetExactTarget = true; widgetSlot = model.nextWidgetSlot(); widgetPackage = null; widgetProfileSerial = null
                         emptyCellIndex = null; sheet = "widgets"
@@ -1225,7 +1250,7 @@ fun LauncherScreen(
                     onMoveOut = { appId, destination ->
                         if (model.removeAppFromFolder(id, appId, destination)) openFolderId = model.folder(id)?.id
                     },
-                    glassBackdrop = homeBackdrop.takeIf { glassEnabled },
+                    glassBackdrop = homeBackdrop.combined.takeIf { glassEnabled },
                     glassTint = glassTint.copy(alpha = .90f),
                     refraction = glassRefraction)
             } ?: LaunchedEffect(id) { openFolderId = null }
@@ -1284,6 +1309,10 @@ private fun ExpandedWorkspace(
     nativePager: androidx.compose.foundation.pager.PagerState,
     motion: WorkspacePageMotion,
     firstHome: Int,
+    /** Width of the scrolling viewport that WorkspacePageMotion is built on. */
+    viewportWidth: Dp,
+    /** Extra clip width past the viewport (under the dock) where panes stay visible. */
+    trailingOverscan: Dp,
     visibleHomePages: Int,
     panelWidth: Dp,
     contentHeight: Dp,
@@ -1303,7 +1332,7 @@ private fun ExpandedWorkspace(
     onFeedRefresh: () -> Unit,
     onFeedOpenEntry: (String) -> Unit,
     onFeedAdd: () -> Unit,
-    glassBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop?,
+    glassBackdrop: com.kyant.backdrop.Backdrop?,
     glassTint: Color,
     refraction: Float,
     libraryQuery: String,
@@ -1319,18 +1348,19 @@ private fun ExpandedWorkspace(
     onRefresh: () -> Unit,
 ) {
     val density = LocalDensity.current
-    val viewportWidth = motion.pageWidth
+    val viewportPx = motion.pageWidth
+    val overscanPx = with(density) { trailingOverscan.toPx() }
     val stride = motion.homeStride
     val initialHomeOrigin = with(density) { panelWidth.toPx() }
     val homePaneWidth = with(density) { (geometry.gridWidth + 16f).dp.toPx() }
     val stateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
-    val visibleHomes by remember(nativePager, motion, firstHome, visibleHomePages, initialHomeOrigin, homePaneWidth) {
+    val visibleHomes by remember(nativePager, motion, firstHome, visibleHomePages, initialHomeOrigin, homePaneWidth, overscanPx) {
         derivedStateOf(structuralEqualityPolicy()) {
             val physicalPosition = nativePager.currentPage + nativePager.currentPageOffsetFraction
             val scroll = motion.offset(physicalPosition)
             val intersectingHomes = (0 until visibleHomePages).filter { page ->
                 val start = initialHomeOrigin + page * stride
-                start + homePaneWidth > scroll && start < scroll + viewportWidth
+                start + homePaneWidth > scroll && start < scroll + viewportPx + overscanPx
             }
             val nearestLogicalPage = nativePager.currentPage - firstHome
             // While Discover is current, keep the initial Home pair cached. Otherwise Home 2
@@ -1369,9 +1399,12 @@ private fun ExpandedWorkspace(
     }
 
     Box(Modifier.fillMaxSize().clipToBounds().testTag("expanded-workspace")) {
-        if (showDiscover) {
+        // Discover and the library abut the viewport edge, so in the overscan run under the
+        // dock they would peek out at rest. They stay clipped to the original viewport;
+        // only Home panes slide beneath the glass.
+        if (showDiscover) Box(Modifier.width(viewportWidth).fillMaxHeight().clipToBounds()) {
             key("discover-pane") {
-                Box(Modifier.place(-viewportWidth).fillMaxSize()) {
+                Box(Modifier.place(-viewportPx).width(viewportWidth).fillMaxHeight()) {
                     DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = 16.dp),
                         feed, feedVisible, onFeedRefresh, onFeedOpenEntry, onFeedAdd, glassBackdrop, glassTint, refraction)
                 }
@@ -1411,9 +1444,9 @@ private fun ExpandedWorkspace(
             }
         }
 
-        if (showLibrary) {
+        if (showLibrary) Box(Modifier.width(viewportWidth).fillMaxHeight().clipToBounds()) {
             key("library-pane") {
-                Box(Modifier.place((visibleHomePages - 1) * stride + viewportWidth).fillMaxSize()) {
+                Box(Modifier.place((visibleHomePages - 1) * stride + viewportPx).width(viewportWidth).fillMaxHeight()) {
                     AppLibrary(state, libraryQuery, onLibraryQuery, onLaunch, onPinned,
                         onActions = onActions,
                         modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace)
@@ -1499,10 +1532,13 @@ private fun HomePagePane(
 }
 
 @Composable
-private fun CircleControl(icon: ImageVector, label: String, tag: String, visualSize: Dp, action: () -> Unit) {
+private fun CircleControl(icon: ImageVector, label: String, tag: String, visualSize: Dp, glass: PageGlass? = null, action: () -> Unit) {
     IconButton(onClick = action, modifier = Modifier.size(visualSize.coerceAtLeast(48.dp)).testTag(tag)) {
-        Box(Modifier.size(visualSize).testTag("$tag-visual").background(Glass.copy(alpha = .22f), CircleShape)
-            .border(1.dp, Color.White.copy(alpha = .25f), CircleShape), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(visualSize).testTag("$tag-visual").then(
+            if (glass != null) Modifier.liquidGlass(glass.backdrop, CircleShape, glass.tint.copy(alpha = .12f),
+                blurRadius = .75f, refraction = glass.refraction)
+            else Modifier.background(Glass.copy(alpha = .22f), CircleShape).border(1.dp, Color.White.copy(alpha = .25f), CircleShape)),
+            contentAlignment = Alignment.Center) {
             Icon(icon, label, tint = Color.White, modifier = Modifier.size(22.dp))
         }
     }
@@ -1787,6 +1823,13 @@ private fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modif
 
 @Composable
 private fun GlassCard(modifier: Modifier = Modifier, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    val glass = LocalPageGlass.current
+    if (glass != null) {
+        Column(modifier.fillMaxSize().liquidGlass(glass.backdrop, RoundedCornerShape(24.dp), glass.tint.copy(alpha = .14f),
+            blurRadius = 1f, refraction = glass.refraction).clip(RoundedCornerShape(24.dp)).clickable(onClick = onClick)
+            .padding(14.dp), verticalArrangement = Arrangement.SpaceBetween, content = content)
+        return
+    }
     Surface(modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).clickable(onClick = onClick),
         color = Glass.copy(alpha = .24f), shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .18f))) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.SpaceBetween, content = content)
@@ -1843,7 +1886,12 @@ private fun ExpandedCard(onClick: () -> Unit) {
 @Composable
 private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifier: Modifier, onAdd: () -> Unit, fallback: @Composable () -> Unit) {
     var restoreMessage by remember(slot) { mutableStateOf<String?>(null) }
-    BoxWithConstraints(modifier.clip(RoundedCornerShape(24.dp)).testTag("widget-slot-$slot")) {
+    val glass = LocalPageGlass.current
+    // Glass sits behind the provider's RemoteViews; it shows through transparent widgets
+    // and is covered by widgets that paint their own opaque background.
+    BoxWithConstraints(modifier.then(if (glass != null) Modifier.liquidGlass(glass.backdrop, RoundedCornerShape(24.dp),
+        glass.tint.copy(alpha = .14f), blurRadius = 1f, refraction = glass.refraction) else Modifier)
+        .clip(RoundedCornerShape(24.dp)).testTag("widget-slot-$slot")) {
         val displayedContentSize = WidgetContentSize(maxWidth.value, maxHeight.value)
         if (id == NEEDS_BINDING_WIDGET) {
             val restore = controller.restoreDescriptor(slot)

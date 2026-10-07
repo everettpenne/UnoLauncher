@@ -71,6 +71,13 @@ All body text keeps ≥ 4.5:1 contrast against its glass tint.
   `alpha 0.18` (`PressGlow.kt`). Drag gestures must never fight press feedback.
 - Island springs: damping 0.5, stiffness 300; auto-collapse after 5 s.
 
+## Bottom strip (`PageIndicatorLayout.kt`)
+
+The page dots (and, until Uno is the Home app, the "Set as home app" button above them) occupy
+a fixed strip. Content pages reserve exactly that space instead of guessing: 8 dp margin +
+32 dp capsule + 8 dp gap = **48 dp**, or **96 dp** with the setup button. Home pages, All apps,
+the feed page and the native Google Discover window all use `PageIndicatorLayout.reserveDp`.
+
 ## Home geometry
 
 - Grid: 4 columns × 6 rows; dock: 4 slots.
@@ -107,7 +114,13 @@ Per-surface tint and blur (alpha over the theme/derived tint):
 ## Island geometry (`IslandGeometry.kt`)
 
 Window-pixel pure layout, re-read from live insets on every layout (rotation/fold safe).
-Cutout = the camera hole nearest the top-center.
+Cutout = the camera hole nearest the top-center, **tightened to the visible hole** using
+`DisplayCutout.cutoutPath`. Android reports a bounding *rectangle* that is often much taller
+than the hole and starts at y = 0; sizing from it made the pill run to the top of the screen
+and left the Island size slider with nothing to change. Collapsed height is the hole plus a
+ring that the slider sweeps from 3 dp up to the most that fits while keeping 6 dp clear above
+the island (`TOP_MARGIN_DP`), so the slider always has an effect and the pill never touches
+the top edge.
 
 | Constant | Value |
 | --- | --- |
@@ -142,7 +155,7 @@ Audited against: 16 dp edge margins, ≥ 8 dp sibling gaps, 8 dp grid.
 | Location | Current | Verdict |
 | --- | --- | --- |
 | Dock & rail right margin | `padding(end = 12.dp)` | off-grid; use 16 dp |
-| Bottom strips bottom margin | `bottom = 6.dp` | off-grid; use 8 dp |
+| Bottom strips bottom margin | `bottom = 8.dp` | fixed (`PageIndicatorLayout`) |
 | Bottom-right controls right margin | `padding(end = 12.dp)` | off-grid; use 16 dp |
 | Page-dots capsule | `padding(horizontal = 6.dp)` | off-grid; use 8 dp |
 | Feed page | `22 / 18 / 14 / 10 dp` | mixed; use 16 / 16 / 16 / 12 |

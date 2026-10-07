@@ -36,7 +36,10 @@ internal data class IslandEnvironment(
 internal object IslandGeometry {
     /** Room either side of the hole for the collapsed face's content, in dp. */
     private const val SLOT_DP = 58f
-    private const val MIN_HALF_HEIGHT_DP = 17f
+    /** Clear space kept above the island, so a pill never runs to the very top of the screen. */
+    private const val TOP_MARGIN_DP = 6f
+    /** Island left around the hole at the smallest size setting, in dp. */
+    private const val MIN_RING_DP = 3f
     private const val EXPANDED_WIDTH_DP = 336f
     private const val EDGE_MARGIN_DP = 8f
     private const val NO_CUTOUT_WIDTH_DP = 120f
@@ -52,6 +55,19 @@ internal object IslandGeometry {
         rects.filter { it.width > 1f && it.height > 1f && it.centerY < screenHeight * .15f }
             .minByOrNull { abs(it.centerX - screenWidth / 2f) }
 
+    /** The visible hole inside the cutout's bounding [rect]. Android reports the bounding
+     * rectangle, which on many phones is much taller than the hole (often starting at y = 0);
+     * the cutout *path* hugs the hole itself. Sizing the island from the rectangle made it run
+     * to the top of the screen and made the size setting a no-op, so use the path's bounds when
+     * they are a sensible part of the rectangle.
+     */
+    fun refine(rect: PxRect, pathBounds: PxRect?): PxRect {
+        if (pathBounds == null) return rect
+        val inside = PxRect(max(rect.left, pathBounds.left), max(rect.top, pathBounds.top),
+            min(rect.right, pathBounds.right), min(rect.bottom, pathBounds.bottom))
+        return if (inside.width >= 4f && inside.height >= 4f) inside else rect
+    }
+
     /** [progress] is 0 for the collapsed capsule and 1 for the expanded panel. */
     fun frame(env: IslandEnvironment, density: Float, progress: Float, scale: Float = .5f): IslandFrame {
         val d = density
@@ -65,13 +81,14 @@ internal object IslandGeometry {
         val collapsedHeight: Float
         if (cutout != null) {
             centerX = cutout.centerX
-            // Symmetric about the hole, with 2-10 dp of island around it depending on the size
-            // setting and never shorter than a 30-42 dp capsule. A hole that sits close to the
-            // top edge leaves less room above it, so the island shrinks to the margin that fits
-            // rather than crossing the screen edge.
-            val surround = mix(0f, 16f, size) * d
-            val wanted = max(mix(12f, 24f, size) * d, cutout.height / 2f + surround)
-            val half = wanted.coerceAtMost(cutout.centerY).coerceAtLeast(cutout.height / 2f)
+            // Symmetric about the hole. The size setting spans the whole range that fits: from a
+            // few dp of island around the hole up to the most the screen allows while keeping
+            // TOP_MARGIN_DP clear above it, so the slider always has an effect and the pill never
+            // runs to the top edge. A hole already close to the top simply gets the least ring.
+            val holeHalf = cutout.height / 2f
+            val room = max(0f, (cutout.centerY - TOP_MARGIN_DP * d) - holeHalf)
+            val ring = mix(min(MIN_RING_DP * d, room), room, size)
+            val half = holeHalf + ring
             top = cutout.centerY - half
             collapsedHeight = half * 2f
             collapsedWidth = cutout.width + 2f * mix(44f, 80f, size) * d
@@ -110,10 +127,21 @@ internal fun readIslandEnvironment(view: View, dockWidthPx: Float = 0f): IslandE
     val insets = view.rootWindowInsets
     val width = root.width.toFloat()
     val height = root.height.toFloat()
-    val rects = insets?.displayCutout?.boundingRects.orEmpty()
+    val displayCutout = insets?.displayCutout
+    val rects = displayCutout?.boundingRects.orEmpty()
         .map { PxRect(it.left.toFloat(), it.top.toFloat(), it.right.toFloat(), it.bottom.toFloat()) }
+    val picked = IslandGeometry.pickCutout(rects, width, height)
+    // Tighten the reported rectangle to the visible hole using the cutout's own outline.
+    val hole = picked?.let { rect ->
+        val bounds = android.graphics.RectF()
+        val path = displayCutout?.cutoutPath
+        if (path == null) rect else {
+            path.computeBounds(bounds, true)
+            IslandGeometry.refine(rect, PxRect(bounds.left, bounds.top, bounds.right, bounds.bottom))
+        }
+    }
     return IslandEnvironment(
-        cutout = IslandGeometry.pickCutout(rects, width, height),
+        cutout = hole,
         screenWidth = width,
         statusBarHeight = (insets?.getInsets(WindowInsets.Type.statusBars())?.top ?: 0).toFloat(),
         dockWidthPx = dockWidthPx,

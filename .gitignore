@@ -16,6 +16,7 @@ docs/*
 !docs/user-guide.md
 !docs/troubleshooting.md
 !docs/architecture.md
+!docs/design.md
 !docs/releases/
 docs/releases/*
 !docs/releases/0.15.0-beta01.md

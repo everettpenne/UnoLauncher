@@ -82,9 +82,10 @@ jobs:
           if [ -n "$EXPECTED" ]; then
             DIGEST=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs \
               "dist/UnoLauncher-$VERSION/UnoLauncher-$VERSION-release.apk" \
-              | grep 'Signer #1 certificate SHA-256 digest' | awk '{print $NF}')
-            if [ "$DIGEST" != "$EXPECTED" ]; then
-              echo "::error::signing certificate changed: expected $EXPECTED, got $DIGEST"
+              | grep 'Signer #1 certificate SHA-256 digest' | awk '{print tolower($NF)}')
+            EXPECTED_LOWER=$(printf '%s' "$EXPECTED" | tr 'A-F' 'a-f')
+            if [ "$DIGEST" != "$EXPECTED_LOWER" ]; then
+              echo "::error::signing certificate changed: expected $EXPECTED_LOWER, got $DIGEST"
               exit 1
             fi
             echo "Signing certificate verified: $DIGEST"

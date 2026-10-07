@@ -4,6 +4,10 @@ A native Android launcher built around a right-side dock and a home screen that 
 
 Uno Launcher is a personal fork of [jakesgoodapps/DuoLauncher](https://github.com/jakesgoodapps/DuoLauncher) (MIT), adding an optional private RSS/Atom news feed for the Discover slot.
 
+## Download
+
+**[⬇ Download the latest APK](https://github.com/everettpenne/UnoLauncher/releases/latest)** — on the release page, expand **Assets** and tap the `.apk` file. Direct file: `https://github.com/everettpenne/UnoLauncher/releases/download/v0.16.1-uno01/UnoLauncher-0.16.1-uno01-release.apk`. Browse [all releases](https://github.com/everettpenne/UnoLauncher/releases) for checksums and notes.
+
 **Experimental Fold beta · Android 12 or later.** The reference physical test device is a Galaxy Fold8 running Android 17, with emulator coverage on Android 36. Emulator results do not establish compatibility with every foldable. Google Discover depends on the installed Google app and device support for activity embedding. See the [release notes](docs/releases/0.16.0-uno01.md) for this version's tested scope.
 
 <p>

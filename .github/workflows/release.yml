@@ -114,7 +114,6 @@ jobs:
           gh release create "v$VERSION" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
-            --prerelease \
             --title "Uno Launcher $VERSION" \
             --notes-file "$RUNNER_TEMP/notes.md" \
             "dist/UnoLauncher-$VERSION/UnoLauncher-$VERSION-release.apk" \

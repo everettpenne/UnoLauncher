@@ -119,7 +119,7 @@ Pushing a `v<version>` tag runs `.github/workflows/release.yml`: it verifies tha
 all agree, builds and tests the exported public source, restores the signing keystore from
 repository secrets, packages the signed APK with its source archive and checksums, optionally
 pins the signing certificate against `UNO_EXPECTED_CERT_SHA256`, and publishes the release with
-the notes from `docs/releases/<version>.md`. Releases are marked prerelease; flip that with
-`gh release edit` when a version is considered stable. Required secrets:
+the notes from `docs/releases/<version>.md`. Releases are published as the latest release; mark one
+as a prerelease with `gh release edit --prerelease` when that is preferred. Required secrets:
 `UNO_RELEASE_KEYSTORE_BASE64`, `DUO_RELEASE_STORE_PASSWORD`, `DUO_RELEASE_KEY_ALIAS`,
 `DUO_RELEASE_KEY_PASSWORD`, and optionally `UNO_EXPECTED_CERT_SHA256`.

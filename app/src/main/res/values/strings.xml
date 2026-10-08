@@ -1,5 +1,7 @@
 <resources>
     <string name="dune_wallpaper_description">Uno dunes — the launcher’s landscape, sized for your display.</string>
+    <string name="keyboard_label">Uno Keyboard</string>
+    <string name="keyboard_subtype">English (US)</string>
     <string name="shade_service_label">Uno Launcher shade gestures</string>
     <string name="shade_service_description">Allows Uno Launcher’s Home screen gestures to open the system notifications and Quick Settings panels. It does not read screen content or observe activity in other apps.</string>
 </resources>

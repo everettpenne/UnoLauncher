@@ -24,17 +24,36 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val note = MaterialTheme.typography.bodySmall
 
+    Text("Uno Keyboard", style = MaterialTheme.typography.titleMedium)
+    val keyboardContext = androidx.compose.ui.platform.LocalContext.current
+    val keyboardId = "${keyboardContext.packageName}/${keyboardContext.packageName}.keyboard.UnoKeyboardService"
+    val enabledKeyboards = android.provider.Settings.Secure.getString(keyboardContext.contentResolver, android.provider.Settings.Secure.ENABLED_INPUT_METHODS).orEmpty()
+    val keyboardEnabled = enabledKeyboards.split(':').any { it.startsWith(keyboardContext.packageName + "/") }
+    val keyboardSelected = android.provider.Settings.Secure.getString(keyboardContext.contentResolver, android.provider.Settings.Secure.DEFAULT_INPUT_METHOD)
+        ?.startsWith(keyboardContext.packageName + "/") == true
+    Text(when { keyboardSelected -> "Uno Keyboard is your keyboard."; keyboardEnabled -> "Enabled, but another keyboard is selected."; else -> "Off. Android asks you to turn a keyboard on before it can be used." },
+        style = note, color = muted, modifier = Modifier.testTag("keyboard-status"))
+    if (!keyboardEnabled) OutlinedButton(onClick = { keyboardContext.startActivity(android.content.Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS)
+        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("keyboard-enable")) { Text("Turn on Uno Keyboard") }
+    else if (!keyboardSelected) OutlinedButton(onClick = { keyboardContext.getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.showInputMethodPicker() },
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("keyboard-switch")) { Text("Switch to Uno Keyboard") }
+    Text("A glass-styled keyboard with key previews, accents on long-press, caps lock, a numbers page and a field-aware Return key. It is strictly local: nothing you type is stored, learned, logged or sent, and its code contains no network access (a test enforces that). It has no autocorrect, prediction or swipe typing yet, so it types exactly what you press.",
+        style = note, color = muted)
+    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+
     Text("Feel and sound", style = MaterialTheme.typography.titleMedium)
     SettingsSwitch("Haptics", s.haptics, store::setHaptics, "haptics-switch")
     SettingsSwitch("Sounds", s.sounds, store::setSounds, "sounds-switch")
     Text("Haptics tick on page changes, sliders, the stack rail and the control panel. Sounds are Android's own touch sounds: no audio files are bundled, they follow your system Touch sounds setting and volume, and they stay silent in silent mode. Sounds are off by default.",
         style = note, color = muted)
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    Text("Left-hand swipe down", style = MaterialTheme.typography.titleMedium)
-    ChoiceRow("Notifications", "Android's notification shade (needs the optional shade accessibility service)",
-        s.leftSwipe == LeftSwipe.NOTIFICATIONS, "left-swipe-notifications") { store.setLeftSwipe(LeftSwipe.NOTIFICATIONS) }
-    ChoiceRow("Search", "Spotlight search over Home: apps, contacts, answers and your feeds",
-        s.leftSwipe == LeftSwipe.SEARCH, "left-swipe-search") { store.setLeftSwipe(LeftSwipe.SEARCH) }
+    Text("Pulling down on Home", style = MaterialTheme.typography.titleMedium)
+    ChoiceRow("Like iOS (recommended)", "From the top edge: notifications on the left, the control panel on the right. From anywhere lower: search",
+        s.pullDown == PullDown.SMART, "pull-smart") { store.setPullDown(PullDown.SMART) }
+    ChoiceRow("Notifications on the left", "The left side always opens notifications; search is on the island's button",
+        s.pullDown == PullDown.NOTIFICATIONS, "pull-notifications") { store.setPullDown(PullDown.NOTIFICATIONS) }
+    ChoiceRow("Search on the left", "The left side always opens search, even from the top",
+        s.pullDown == PullDown.SEARCH, "pull-search") { store.setPullDown(PullDown.SEARCH) }
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
     Text("Right-hand swipe down", style = MaterialTheme.typography.titleMedium)
     ChoiceRow("Control panel", "The launcher's own panel; needs no accessibility service",

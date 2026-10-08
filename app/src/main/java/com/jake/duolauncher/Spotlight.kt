@@ -129,7 +129,7 @@ internal fun Spotlight(
             else Modifier.background(MaterialTheme.colorScheme.surface, shape))
             .padding(14.dp).testTag("spotlight")) {
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().focusRequester(focus).testTag("spotlight-field"),
-                placeholder = { Text("Search apps, contacts, answers, feeds") }, singleLine = true, shape = Corner.pill,
+                placeholder = { Text("Search apps, answers, feeds", maxLines = 1) }, singleLine = true, shape = Corner.pill,
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search") } })
             val nothing = smart == null && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()

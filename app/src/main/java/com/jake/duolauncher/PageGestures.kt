@@ -80,6 +80,10 @@ internal fun Modifier.onePageGestures(
     enabled: Boolean = true,
     canStartDownwardSwipe: (Offset) -> Boolean = { true },
     onDownwardSwipe: ((ShadePanel) -> Unit)? = null,
+    /** Like [onDownwardSwipe] but also says how far down the gesture area the swipe started (0 at the top, 1 at the
+     * bottom), so Home can tell a pull from the top edge from one that starts lower. Takes precedence when set.
+     */
+    onDownwardSwipeAt: ((ShadePanel, Float) -> Unit)? = null,
     onLeadingOverscroll: (() -> Unit)? = null,
     /** A press that starts where this returns true is left alone, so a control sitting over the
      * pager (the page-dots strip) can run its own horizontal drag instead of turning pages.
@@ -89,6 +93,7 @@ internal fun Modifier.onePageGestures(
     val currentEnabled by rememberUpdatedState(enabled)
     val currentCanStartDownwardSwipe by rememberUpdatedState(canStartDownwardSwipe)
     val currentDownwardSwipe by rememberUpdatedState(onDownwardSwipe)
+    val currentDownwardSwipeAt by rememberUpdatedState(onDownwardSwipeAt)
     val currentLeadingOverscroll by rememberUpdatedState(onLeadingOverscroll)
     val currentIgnorePress by rememberUpdatedState(ignorePress)
     return nestedScroll(limits).pointerInput(pager, limits, motion) {
@@ -142,12 +147,15 @@ internal fun Modifier.onePageGestures(
                                     // A terminal release can preserve meaningful travel after a
                                     // blocked frame dropped every MOVE. It can page horizontally,
                                     // but must not trigger a vertical system action on finger-up.
-                                    val openDownward = change.pressed && distance.y > 0f && currentDownwardSwipe != null &&
+                                    val openDownward = change.pressed && distance.y > 0f && (currentDownwardSwipe != null || currentDownwardSwipeAt != null) &&
                                         currentCanStartDownwardSwipe(down.position)
                                     cancelReason = if (openDownward) "downward_action" else "vertical_axis"
                                     if (openDownward) {
                                         change.consume()
-                                        currentDownwardSwipe?.invoke(shadePanelForStart(down.position.x, size.width.toFloat()))
+                                        val panel = shadePanelForStart(down.position.x, size.width.toFloat())
+                                        val at = currentDownwardSwipeAt
+                                        if (at != null) at(panel, (down.position.y / size.height.toFloat()).coerceIn(0f, 1f))
+                                        else currentDownwardSwipe?.invoke(panel)
                                     }
                                     break
                                 }

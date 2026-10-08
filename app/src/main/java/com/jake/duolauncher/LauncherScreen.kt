@@ -155,6 +155,8 @@ internal fun LauncherScreen(
     island: IslandState = IslandState(),
     onIsland: (Boolean) -> Unit = {},
     onIslandScale: (Float) -> Unit = {},
+    islandEverywhere: Boolean = false,
+    onIslandEverywhere: (Boolean) -> Unit = {},
     updates: UpdateState = UpdateState(),
     onCheckUpdates: () -> Unit = {},
     onInstallRelease: (String) -> Unit = {},
@@ -777,7 +779,7 @@ internal fun LauncherScreen(
                     }
                 }
             }
-            if (appearance.island && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen && !spotlightOpen) {
+            if (appearance.island && !islandEverywhere && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen && !spotlightOpen) {
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.shownEntries.firstOrNull()?.title,
                     sizeScale = appearance.islandScale,
@@ -869,6 +871,8 @@ internal fun LauncherScreen(
                             onRefractionChroma = onRefractionChroma,
                             onIsland = onIsland,
                             onIslandScale = onIslandScale,
+                            islandEverywhere = islandEverywhere,
+                            onIslandEverywhere = onIslandEverywhere,
                             updates = updates,
                             onCheckUpdates = onCheckUpdates,
                             onInstallRelease = onInstallRelease,

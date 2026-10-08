@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.23.0-uno01
+
+- Island everywhere (Phase 2): an opt-in overlay that shows the island above other apps. The window is exactly the island's size, NOT_FOCUSABLE and NOT_TOUCH_MODAL so touches outside it pass through, and it never draws on the lock screen or when the screen is off; the permission is requested through an explainer, revoked permission stops it immediately, and Home's own island steps aside so there is never two islands.
+
 ## 0.22.2-uno01
 
 - Calls in the island: while a call is active and notification access is on, the island shows the caller's name and a ticking elapsed time from the phone app's own call notification; tapping the card opens the call screen. The name is held in memory only, cleared when the call ends, and never stored; message text is never read. A Show calls in the island switch lives under Notifications, on by default and off without notification access.

@@ -20,6 +20,7 @@ internal data class ExtrasState(
     val badges: Boolean = false,
     val mediaDetails: Boolean = false,
     val callDetails: Boolean = true,
+    val islandEverywhere: Boolean = false,
     val notificationPeek: Boolean = false,
     val contactSearch: Boolean = false,
     val kbAutocorrect: Boolean = true,
@@ -52,6 +53,7 @@ internal class ExtrasStore(context: Context) {
         badges = prefs.getBoolean("badges", false),
         mediaDetails = prefs.getBoolean("mediaDetails", false),
         callDetails = prefs.getBoolean("callDetails", true),
+        islandEverywhere = prefs.getBoolean("islandEverywhere", false),
         notificationPeek = prefs.getBoolean("notificationPeek", false),
         contactSearch = prefs.getBoolean("contactSearch", false),
         kbAutocorrect = prefs.getBoolean("kbAutocorrect", true),
@@ -80,6 +82,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("badges", next.badges)
             .putBoolean("mediaDetails", next.mediaDetails)
             .putBoolean("callDetails", next.callDetails)
+            .putBoolean("islandEverywhere", next.islandEverywhere)
             .putBoolean("notificationPeek", next.notificationPeek)
             .putBoolean("contactSearch", next.contactSearch)
             .putBoolean("kbAutocorrect", next.kbAutocorrect)
@@ -110,6 +113,7 @@ internal class ExtrasStore(context: Context) {
     fun setBadges(value: Boolean) = save(state.copy(badges = value))
     fun setMediaDetails(value: Boolean) = save(state.copy(mediaDetails = value))
     fun setCallDetails(value: Boolean) = save(state.copy(callDetails = value))
+    fun setIslandEverywhere(value: Boolean) = save(state.copy(islandEverywhere = value))
     fun setNotificationPeek(value: Boolean) = save(state.copy(notificationPeek = value))
     fun setContactSearch(value: Boolean) = save(state.copy(contactSearch = value))
     fun setKbAutocorrect(value: Boolean) = save(state.copy(kbAutocorrect = value))

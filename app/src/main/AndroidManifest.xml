@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- The updates page downloads APKs and hands them to Android's installer. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Opt-in island-everywhere overlay; the window is the island's own size only. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -71,6 +73,7 @@
             <intent-filter><action android:name="android.service.wallpaper.WallpaperService" /></intent-filter>
             <meta-data android:name="android.service.wallpaper" android:resource="@xml/dune_wallpaper" />
         </service>
+        <service android:name=".IslandOverlayService" android:exported="false" />
         <service android:name=".SystemShadeAccessibilityService"
             android:label="@string/shade_service_label"
             android:description="@string/shade_service_description"

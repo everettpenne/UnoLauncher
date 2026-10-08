@@ -51,6 +51,8 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onRefractionHeight: (Float) -> Unit = {},
     onIsland: (Boolean) -> Unit = {},
     onIslandScale: (Float) -> Unit = {},
+    islandEverywhere: Boolean = false,
+    onIslandEverywhere: (Boolean) -> Unit = {},
     updates: UpdateState = UpdateState(),
     onCheckUpdates: () -> Unit = {},
     onInstallRelease: (String) -> Unit = {},
@@ -174,6 +176,9 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     SettingsSwitch("Dynamic island", appearance.island, onIsland, "island-switch")
+                    SettingsSwitch("Island everywhere", islandEverywhere, onIslandEverywhere, "island-everywhere-switch")
+                    Text("Shows the island above other apps with Android's \"display over other apps\" permission. The overlay window is exactly the island's size, never draws on the lock screen or when the screen is off, and touches outside it pass through.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (appearance.island) CustomizationSlider("Island size",
                         "${(appearance.islandScale * 100).toInt()}%", appearance.islandScale, 0f..1f,
                         tag = "island-scale-slider") { onIslandScale(it) }

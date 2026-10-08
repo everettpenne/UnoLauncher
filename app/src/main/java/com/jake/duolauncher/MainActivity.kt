@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var appearance: AppearanceStore
     internal lateinit var feeds: FeedStore
         private set
-    internal val island = IslandState()
+    internal val island get() = IslandRuntime.state
     private val extrasStore by lazy { ExtrasStore(applicationContext) }
     private val notificationAccess = mutableStateOf(false)
     private val contactsPermission = activityResultRegistry.register("duo.extras.contacts", this,
@@ -172,6 +172,8 @@ class MainActivity : ComponentActivity() {
                     onTiltStrength = appearance::setTiltStrength,
                     island = island,
                     onIsland = appearance::setIsland,
+                    islandEverywhere = extrasStore.state.islandEverywhere,
+                    onIslandEverywhere = ::setIslandEverywhere,
                     updates = updates.state.collectAsStateWithLifecycle().value,
                     onCheckUpdates = updates::checkNow,
                     onInstallRelease = updates::installRelease,
@@ -230,7 +232,7 @@ class MainActivity : ComponentActivity() {
             it.postOnAnimation { if (DiscoverSession.host.get() === discover) DiscoverSession.dismiss() }
         }
         notificationAccess.value = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
-        model.refresh(); appearance.refresh(systemDark()); updateDefaultHome(); feeds.refreshIfStale(); updates.checkIfStale()
+        model.refresh(); appearance.refresh(systemDark()); updateDefaultHome(); feeds.refreshIfStale(); updates.checkIfStale(); syncIslandOverlay()
         window.decorView.post {
             if (!isFinishing && !isDestroyed && !LiveDiscover.viewport.isEmpty)
                 LiveDiscover.prepare(this, LiveDiscover.viewport, LiveDiscover.pageWidth)
@@ -422,6 +424,52 @@ class MainActivity : ComponentActivity() {
                 }
             }
             .show()
+    }
+
+    private var overlaySettingsReturned = false
+
+    /** Opt-in overlay: never starts without the permission, and explains itself first. */
+    private fun setIslandEverywhere(value: Boolean) {
+        if (!value) {
+            extrasStore.setIslandEverywhere(false)
+            stopService(Intent(this, IslandOverlayService::class.java))
+            IslandRuntime.updateOverlay(false)
+            return
+        }
+        if (Settings.canDrawOverlays(this)) {
+            extrasStore.setIslandEverywhere(true)
+            startService(Intent(this, IslandOverlayService::class.java))
+            return
+        }
+        extrasStore.setIslandEverywhere(true)
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Island everywhere")
+            .setMessage("This shows the island above other apps using Android's \"display over other apps\" permission. The island window is exactly the island's size, never draws on the lock screen or when the screen is off, and touches outside it pass through to the app beneath. Nothing is read, stored, or sent that the island doesn't already show on Home.")
+            .setNegativeButton("Not now") { _, _ -> extrasStore.setIslandEverywhere(false) }
+            .setPositiveButton("Open settings") { _, _ ->
+                overlaySettingsReturned = true
+                runCatching {
+                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")))
+                }
+            }
+            .show()
+    }
+
+    /** After the overlay settings trip: start the overlay if granted, or explain restricted settings. */
+    private fun syncIslandOverlay() {
+        val wanted = extrasStore.state.islandEverywhere
+        if (!wanted) return
+        if (Settings.canDrawOverlays(this)) {
+            startService(Intent(this, IslandOverlayService::class.java))
+            return
+        }
+        if (overlaySettingsReturned) {
+            overlaySettingsReturned = false
+            Toast.makeText(this,
+                "If the \"display over other apps\" switch didn't appear, open Uno Launcher's app info and allow restricted settings, then try again.",
+                Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun promptInstall(release: UnoRelease) {

@@ -212,6 +212,11 @@ internal fun DynamicIsland(
     feedHeadline: String?,
     sizeScale: Float = .5f,
     dockWidthPx: Float = 0f,
+    screenWidthPx: Int = 0,
+    screenHeightPx: Int = 0,
+    anchoredToWindow: Boolean = false,
+    showActions: Boolean = true,
+    onFrameChanged: ((IslandFrame) -> Unit)? = null,
     onSearch: () -> Unit,
     onOpenFeed: () -> Unit,
     onCustomize: () -> Unit,
@@ -243,9 +248,11 @@ internal fun DynamicIsland(
     val d = density.density
     // The cutout is read from the live window and refreshed on every layout, so it is correct once
     // the view attaches and again after rotation, folding, or a display-size change.
-    var environment by remember { mutableStateOf(IslandEnvironment(null, view.rootView.width.toFloat(), 0f)) }
+    val initialWidth = if (screenWidthPx > 0) screenWidthPx else view.rootView.width
+    val initialHeight = if (screenHeightPx > 0) screenHeightPx else view.rootView.height
+    var environment by remember { mutableStateOf(IslandEnvironment(null, initialWidth.toFloat(), 0f)) }
     var origin by remember { mutableStateOf(Offset.Zero) }
-    LaunchedEffect(configuration) { environment = readIslandEnvironment(view, dockWidthPx) }
+    LaunchedEffect(configuration) { environment = readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight) }
 
     val progress by animateFloatAsState(if (state.expanded) 1f else 0f,
         spring(dampingRatio = 0.5f, stiffness = 300f), label = "island expand")
@@ -286,12 +293,14 @@ internal fun DynamicIsland(
 
     Box(modifier.fillMaxSize().onGloballyPositioned {
         origin = it.positionInWindow()
-        val read = readIslandEnvironment(view, dockWidthPx)
+        val read = readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight)
         if (read != environment) environment = read
     }) {
-        // The island's window-pixel position, translated into this parent's own frame.
+        LaunchedEffect(frame) { onFrameChanged?.invoke(frame) }
+        // The island's window-pixel position, translated into this parent's own frame. The
+        // everywhere-overlay positions its window itself and renders the island at the origin.
         Box(Modifier
-            .offset { androidx.compose.ui.unit.IntOffset(
+            .offset { if (anchoredToWindow) androidx.compose.ui.unit.IntOffset.Zero else androidx.compose.ui.unit.IntOffset(
                 (frame.left - origin.x).roundToInt(), (frame.top - origin.y).roundToInt()) }
             .graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }
             .size(width = (frame.width / d).dp, height = (frame.height / d).dp)
@@ -419,7 +428,7 @@ internal fun DynamicIsland(
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(6.dp))
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
+                if (showActions) Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     IslandAction(Icons.Rounded.Search, "Search", actionLabelsFit, onSearch)
                     IslandAction(Icons.Rounded.RssFeed, "Feed", actionLabelsFit, onOpenFeed)

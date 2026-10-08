@@ -281,4 +281,19 @@ class IslandGeometryTest {
         assertEquals("with the raw rectangle it did nothing, which is the bug", height(tallRect, 1f), height(tallRect, 0f), 0.5f)
         assertEquals(tallRect, IslandGeometry.holeFor(listOf(tallRect), null, 1080f, 2424f))
     }
+
+    // ---- the overlay is compact when idle so it does not cover the status bar's icons ----
+    @Test fun aCompactIslandHugsTheCameraAndFullWidthIsUnchanged() {
+        val c = PxRect(514f, 40f, 566f, 92f)
+        val e = IslandEnvironment(c, 1080f, 80f, screenHeight = 2424f)
+        val full = IslandGeometry.frame(e, 2.625f, 0f, .5f)
+        val compact = IslandGeometry.frame(e, 2.625f, 0f, .5f, compactness = 1f)
+        assertEquals("default is the old full width", full.width, IslandGeometry.frame(e, 2.625f, 0f, .5f, compactness = 0f).width, .01f)
+        assertTrue("much narrower", compact.width < full.width / 1.8f)
+        assertTrue("still wraps the hole", compact.left <= c.left && compact.left + compact.width >= c.right)
+        assertEquals("still centred on the camera", c.centerX, compact.left + compact.width / 2f, 1f)
+        assertEquals("same height, so the size setting still works", full.height, compact.height, .01f)
+        val half = IslandGeometry.frame(e, 2.625f, 0f, .5f, compactness = .5f).width
+        assertTrue(half > compact.width && half < full.width)
+    }
 }

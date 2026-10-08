@@ -72,9 +72,42 @@ internal fun sendMediaKey(context: Context, keyCode: Int) {
     val audio = context.getSystemService(AudioManager::class.java) ?: return
     // A binder call, so not on the main thread.
     Thread {
-        audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
-        audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+        // Real timestamps: a key event stamped 0 reads as stale and the media session service can drop it, which is why the
+        // pause button did nothing.
+        val now = android.os.SystemClock.uptimeMillis()
+        audio.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0))
+        audio.dispatchMediaKeyEvent(KeyEvent(now, now + 20, KeyEvent.ACTION_UP, keyCode, 0))
     }.start()
+}
+
+/** Plays, pauses or skips. With notification access the island knows the playing session, and the session's own
+ * transport controls are exact (pause really pauses, play after a pause really plays); without it, or if the session
+ * refuses, it falls back to the media key.
+ */
+internal fun mediaCommand(context: Context, keyCode: Int) {
+    val controller = NotificationFeed.nowPlaying?.controller
+    if (controller != null) {
+        val ok = runCatching {
+            val controls = controller.transportControls
+            when (keyCode) {
+                KeyEvent.KEYCODE_MEDIA_PREVIOUS -> controls.skipToPrevious()
+                KeyEvent.KEYCODE_MEDIA_NEXT -> controls.skipToNext()
+                else -> if (controller.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING) controls.pause()
+                    else controls.play()
+            }
+        }.isSuccess
+        if (ok) return
+    }
+    sendMediaKey(context, keyCode)
+}
+
+/** Opens [component]'s app from the island. A background start can be refused; that is simply a no-op. */
+internal fun launchIslandApp(context: Context, component: android.content.ComponentName) {
+    runCatching {
+        context.startActivity(android.content.Intent(android.content.Intent.ACTION_MAIN)
+            .addCategory(android.content.Intent.CATEGORY_LAUNCHER).setComponent(component)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED))
+    }
 }
 
 /** Feeds the island with what the system reports while it is on screen: whether audio is playing, and

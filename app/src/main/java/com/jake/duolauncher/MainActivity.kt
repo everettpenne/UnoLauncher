@@ -436,6 +436,11 @@ class MainActivity : ComponentActivity() {
             IslandRuntime.updateOverlay(false)
             return
         }
+        if (SystemShadeAccessibilityService.hostsIsland()) {
+            // The accessibility overlay draws the island above the status bar and needs no overlay permission.
+            extrasStore.setIslandEverywhere(true)
+            return
+        }
         if (Settings.canDrawOverlays(this)) {
             extrasStore.setIslandEverywhere(true)
             startService(Intent(this, IslandOverlayService::class.java))
@@ -444,7 +449,11 @@ class MainActivity : ComponentActivity() {
         extrasStore.setIslandEverywhere(true)
         android.app.AlertDialog.Builder(this)
             .setTitle("Island everywhere")
-            .setMessage("This shows the island above other apps using Android's \"display over other apps\" permission. The island window is exactly the island's size, never draws on the lock screen or when the screen is off, and touches outside it pass through to the app beneath. Nothing is read, stored, or sent that the island doesn't already show on Home.")
+            .setMessage("This shows the island above other apps using Android's \"display over other apps\" permission. The island window is exactly the island's size, never draws on the lock screen or when the screen is off, and touches outside it pass through to the app beneath. Android draws this kind of window beneath the status bar, so over other apps the island can be seen but not tapped. For a tappable island, choose \"Tappable island\" and turn on Uno Launcher shade gestures in Accessibility; it draws only the island and reads nothing from other apps. Nothing is read, stored, or sent that the island doesn't already show on Home.")
+            .setNeutralButton("Tappable island") { _, _ ->
+                // The accessibility overlay sits above the status bar, so the island can be tapped there.
+                runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+            }
             .setNegativeButton("Not now") { _, _ -> extrasStore.setIslandEverywhere(false) }
             .setPositiveButton("Open settings") { _, _ ->
                 overlaySettingsReturned = true
@@ -460,6 +469,7 @@ class MainActivity : ComponentActivity() {
     private fun syncIslandOverlay() {
         val wanted = extrasStore.state.islandEverywhere
         if (!wanted) return
+        if (SystemShadeAccessibilityService.hostsIsland()) return
         if (Settings.canDrawOverlays(this)) {
             startService(Intent(this, IslandOverlayService::class.java))
             return

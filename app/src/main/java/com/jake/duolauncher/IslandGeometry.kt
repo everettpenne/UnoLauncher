@@ -108,8 +108,12 @@ internal object IslandGeometry {
     /** [extraBodyDp] adds height to the expanded panel for optional rows (the playback controls);
      * [extraWidthDp] widens the collapsed capsule so an event's title fits, as iOS's island grows to show one.
      */
+    /** [compactness] (0..1) narrows the collapsed capsule from its full width, with room beside the hole for content, to just a
+     * ring around the hole. The overlay over other apps is compact while it has nothing to say, so it does not cover the system
+     * status bar's own icons; it is 0 (full width) on Home and whenever there is content to show.
+     */
     fun frame(env: IslandEnvironment, density: Float, progress: Float, scale: Float = .5f,
-        extraBodyDp: Float = 0f, extraWidthDp: Float = 0f): IslandFrame {
+        extraBodyDp: Float = 0f, extraWidthDp: Float = 0f, compactness: Float = 0f): IslandFrame {
         val d = density
         val p = progress.coerceIn(0f, 1f)
         val size = scale.coerceIn(0f, 1f)
@@ -134,7 +138,9 @@ internal object IslandGeometry {
             val half = holeHalf + ring
             top = cutout.centerY - half
             collapsedHeight = half * 2f
-            collapsedWidth = cutout.width + (2f * mix(44f, 80f, size) + extraWidthDp) * d
+            val c = compactness.coerceIn(0f, 1f)
+            val sideRoom = (1f - c) * 2f * mix(44f, 80f, size) * d
+            collapsedWidth = cutout.width + sideRoom + c * 2f * max(ring, MIN_RING_DP * d) + extraWidthDp * d
         } else {
             centerX = env.screenWidth / 2f
             top = env.statusBarHeight + 8f * d

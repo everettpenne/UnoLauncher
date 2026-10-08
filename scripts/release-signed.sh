@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repository_root=$(cd "$(dirname "$0")/.." && pwd -P)
-version=0.23.3-uno01
+version=0.23.4-uno01
 output_dir=${1:-"$repository_root/dist/UnoLauncher-$version"}
 
 for variable_name in DUO_RELEASE_STORE_FILE DUO_RELEASE_STORE_PASSWORD DUO_RELEASE_KEY_ALIAS DUO_RELEASE_KEY_PASSWORD; do

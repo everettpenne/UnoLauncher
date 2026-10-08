@@ -35,11 +35,14 @@ internal object OverlayPolicy {
      * them the window's parent frame starts below the status bar, so the island (positioned from Display.getCutout, which is in
      * screen pixels) landed a status-bar height below the camera. It stays NOT_FOCUSABLE and NOT_TOUCH_MODAL so touches
      * outside the island's own bounds pass through, and is never FLAG_FULLSCREEN or touchable beyond its size.
+     * WATCH_OUTSIDE_TOUCH tells the window (without a position) that a touch landed elsewhere, so an expanded island can
+     * tuck itself away when the user taps outside it.
      */
     const val WINDOW_FLAGS: Int = android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
         android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
         android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-        android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+        android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+        android.view.WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
 
     fun shouldShow(islandEverywhere: Boolean, canDrawOverlays: Boolean, keyguardLocked: Boolean,
         interactive: Boolean): Boolean = islandEverywhere && canDrawOverlays && !keyguardLocked && interactive

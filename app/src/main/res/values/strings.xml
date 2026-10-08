@@ -3,5 +3,5 @@
     <string name="keyboard_label">Uno Keyboard</string>
     <string name="keyboard_subtype">English (US)</string>
     <string name="shade_service_label">Uno Launcher shade gestures</string>
-    <string name="shade_service_description">Allows Uno Launcher’s Home screen gestures to open the system notifications and Quick Settings panels. It does not read screen content or observe activity in other apps.</string>
+    <string name="shade_service_description">Allows Uno Launcher’s Home screen gestures to open the system notifications and Quick Settings panels. It also draws the island above other apps so it can be tapped. It does not read screen content or observe activity in other apps.</string>
 </resources>

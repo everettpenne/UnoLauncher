@@ -21,6 +21,7 @@ class OverlayPolicyTest {
         fun has(name: String) = flags and wm.getField(name).getInt(null) != 0
         assertTrue("positions are screen pixels, not relative to below the status bar", has("FLAG_LAYOUT_IN_SCREEN") && has("FLAG_LAYOUT_NO_LIMITS"))
         assertTrue("never takes focus or the touches outside its own bounds", has("FLAG_NOT_FOCUSABLE") && has("FLAG_NOT_TOUCH_MODAL"))
-        assertFalse(has("FLAG_FULLSCREEN")); assertFalse(has("FLAG_WATCH_OUTSIDE_TOUCH"))
+        assertFalse(has("FLAG_FULLSCREEN"))
+        assertTrue("hears of touches elsewhere so an expanded island can tuck away", has("FLAG_WATCH_OUTSIDE_TOUCH"))
     }
 }

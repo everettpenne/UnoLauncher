@@ -13,6 +13,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -88,6 +90,9 @@ internal class IslandState {
     var flashTitle by mutableStateOf<String?>(null)
     var flashIcon by mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
         private set
+    /** The app a peek came from, so tapping its icon on the island opens that app. */
+    var flashComponent by mutableStateOf<android.content.ComponentName?>(null)
+        private set
     var flashSymbol by mutableStateOf<IslandSymbol?>(null)
         private set
     /** Bumped on every flash, so the same event twice in a row still pulses and times out afresh. */
@@ -116,6 +121,7 @@ internal class IslandState {
         else if (event.symbol.isRinger() && nowMs - lastFocusAt in 0..FOCUS_SIDE_EFFECT_MS) return
         flashTitle = event.title
         flashIcon = null
+        flashComponent = null
         flashSymbol = event.symbol
         flashKey++
     }
@@ -124,6 +130,7 @@ internal class IslandState {
     fun showPeek(app: AppEntry, label: String) {
         flashTitle = label
         flashIcon = app.icon.asImageBitmap()
+        flashComponent = app.component.takeIf { app.user == android.os.Process.myUserHandle() && it.packageName.isNotEmpty() }
         flashSymbol = IslandSymbol.APP
         flashKey++
     }
@@ -138,7 +145,7 @@ internal class IslandState {
         playing = value
     }
 
-    fun dismissFlash() { flashTitle = null; flashIcon = null; flashSymbol = null }
+    fun dismissFlash() { flashTitle = null; flashIcon = null; flashSymbol = null; flashComponent = null }
     fun toggle() { expanded = !expanded; dismissFlash(); IslandTools.toolsOpen = false }
     fun collapse() { expanded = false; IslandTools.toolsOpen = false }
 }
@@ -267,9 +274,16 @@ internal fun DynamicIsland(
         if (flashActive) IslandGeometry.eventExtraWidthDp((state.flashTitle ?: "").length, sizeScale) else 0f,
         spring(dampingRatio = .6f, stiffness = 420f), label = "island event width")
     val callActive = NotificationFeed.ongoingCall != null
+    // Over other apps the system status bar already shows the time and battery right beside the camera, so while the island has
+    // nothing to say it shrinks to a ring around the camera instead of covering those icons. Anything live (an event, a timer,
+    // a call, playback) widens it again.
+    val hasLiveContent = flashActive || IslandTools.ringing || IslandTools.timerActive || IslandTools.swRunning ||
+        state.playing || callActive
+    val compactTarget = if (anchoredToWindow && !hasLiveContent) 1f else 0f
+    val compactness by animateFloatAsState(compactTarget, spring(dampingRatio = .8f, stiffness = 380f), label = "island compact")
     val frame = IslandGeometry.frame(environment, d, progress, sizeScale,
         extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f),
-        extraWidthDp = eventWidth)
+        extraWidthDp = eventWidth, compactness = compactness)
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
     val corner = minOf(minOf(frame.width, frame.height) / 2f, 30f * d) / d
     val sideways = frame.side != IslandSide.TOP
@@ -309,6 +323,11 @@ internal fun DynamicIsland(
         }
     Box(modifier.then(wrapperModifier)) {
         LaunchedEffect(frame) { onFrameChanged?.invoke(frame) }
+        // On Home, a tap anywhere off the expanded island tucks it away. (The overlay window cannot cover the screen, so it
+        // hears of outside touches from the window manager instead; see IslandOverlayHost.)
+        if (state.expanded && !anchoredToWindow) Box(Modifier.fillMaxSize().pointerInput(Unit) {
+            detectTapGestures { state.collapse() }
+        }.testTag("island-scrim"))
         // The island's window-pixel position, translated into this parent's own frame. The
         // everywhere-overlay positions its window itself and renders the island at the origin.
         Box(Modifier
@@ -341,22 +360,28 @@ internal fun DynamicIsland(
             // Only the face that is showing is composed. An invisible panel would still own its buttons'
             // touch targets, and Compose pads small targets to 48 dp, so the hidden Search button caught
             // taps meant for the pill itself.
-            if (progress < .5f) Row(Modifier.fillMaxSize(),
+            if (progress < .5f && !(compactTarget == 1f && !sideways)) Row(Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically) {
                 val leading: @Composable () -> Unit = {
                     if (flashActive) {
                         val symbol = state.flashSymbol
                         val bitmap = state.flashIcon
-                        if (bitmap != null) Image(bitmap, null, Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)))
+                        val component = state.flashComponent
+                        // The app's icon opens the app (a child click, so it wins over the pill's own expand tap).
+                        if (bitmap != null) Box(Modifier.size(36.dp).clip(CircleShape)
+                            .then(if (component != null) Modifier.clickable {
+                                UnoFeedback.play(Cue.OPEN, haptic)
+                                state.dismissFlash(); state.collapse(); launchIslandApp(context, component)
+                            }.testTag("island-peek-app") else Modifier), contentAlignment = Alignment.Center) {
+                            Image(bitmap, null, Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)))
+                        }
                         else if (symbol != null) Icon(symbol.icon(), null, tint = symbol.tint, modifier = Modifier.size(18.dp))
                     } else if (IslandTools.ringing) {
                         Icon(Icons.Rounded.Alarm, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(18.dp))
                     } else if (IslandTools.timerActive) {
                         Icon(Icons.Rounded.Timer, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(16.dp))
-                    } else {
-                        Text(now.format(DateTimeFormatter.ofPattern("HH:mm")), color = Color.White,
-                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                     }
+                    // Idle: nothing here. The time is in the status bar and on the expanded panel.
                 }
                 val trailing: @Composable () -> Unit = {
                     if (flashActive) {
@@ -441,9 +466,9 @@ internal fun DynamicIsland(
                     PlaybackRow(playing = state.playing, title = NotificationFeed.nowPlaying?.title,
                         artist = NotificationFeed.nowPlaying?.artist,
                         art = NotificationFeed.nowPlaying?.art?.asImageBitmap(),
-                        onPrevious = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
-                        onPlayPause = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
-                        onNext = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_NEXT) },
+                        onPrevious = { mediaCommand(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
+                        onPlayPause = { mediaCommand(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
+                        onNext = { mediaCommand(context, KeyEvent.KEYCODE_MEDIA_NEXT) },
                         onOpenPlayer = NotificationFeed.nowPlaying?.controller?.sessionActivity?.let { intent ->
                             { runCatching { intent.send() }; state.collapse() }
                         })

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.1-uno01
+
+- Fix a crash opening Control panel & extras on Android 14+ (targetSdk > 33): the page read the restricted `enabled_input_methods` and `default_input_method` secure settings and Android threw a SecurityException. The enabled list now comes from the public InputMethodManager API, and the selected state degrades to "unknown" where Android no longer lets apps read it; the switcher button stays available so you can still check. The hard-keyboard setting read in the keyboard service is guarded the same way.
+
 ## 0.22.0-uno01
 
 - Keyboard speed. Letters now type the moment the finger lands instead of on release (holding a letter that has accents still opens the strip, and choosing one swaps the letter just typed). Each key keeps its own touch handler across shift changes, which used to restart every key's handler on the first keystroke after shift and could drop an overlapping tap, so two fingers rolling over keys no longer lose presses. The key preview is drawn inside the keyboard instead of as a pop-up window created and destroyed on every press. The keyboard keeps its own copy of the text before the cursor, updated from what it types and deletes, and only re-reads the field when the app changes the text or moves the cursor, so a letter costs one call into the app (the commit) instead of two, and a space or backspace about one instead of four to five (capitalisation is also worked out locally now). Suggestions are computed on a background thread and only the newest result is shown, so a keystroke never waits for a dictionary scan. Typing "teh quick" with taps ten milliseconds apart produced "the quick", and the text stayed correct after backspaces. I have not measured milliseconds on a real phone.

@@ -101,7 +101,8 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         val config = resources.configuration
         if (config.keyboard == android.content.res.Configuration.KEYBOARD_NOKEYS ||
             config.hardKeyboardHidden == android.content.res.Configuration.HARDKEYBOARDHIDDEN_YES) return true
-        return android.provider.Settings.Secure.getInt(contentResolver, "show_ime_with_hard_keyboard", 0) != 0
+        return runCatching { android.provider.Settings.Secure.getInt(contentResolver, "show_ime_with_hard_keyboard", 0) != 0 }
+            .getOrDefault(false)
     }
 
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {

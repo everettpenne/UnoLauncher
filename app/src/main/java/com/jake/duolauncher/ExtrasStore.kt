@@ -21,6 +21,11 @@ internal data class ExtrasState(
     val mediaDetails: Boolean = false,
     val notificationPeek: Boolean = false,
     val contactSearch: Boolean = false,
+    val kbAutocorrect: Boolean = true,
+    val kbSuggestions: Boolean = true,
+    val kbNumberRow: Boolean = false,
+    val kbSpaceCursor: Boolean = true,
+    val kbHapticStrength: Float = com.jake.duolauncher.keyboard.HapticProfile.DEFAULT_STRENGTH,
     val handoff: Boolean = true,
     val webPackage: String? = null,
     val handoffStores: Set<String> = HandoffLogic.DEFAULT_STORES,
@@ -47,6 +52,11 @@ internal class ExtrasStore(context: Context) {
         mediaDetails = prefs.getBoolean("mediaDetails", false),
         notificationPeek = prefs.getBoolean("notificationPeek", false),
         contactSearch = prefs.getBoolean("contactSearch", false),
+        kbAutocorrect = prefs.getBoolean("kbAutocorrect", true),
+        kbSuggestions = prefs.getBoolean("kbSuggestions", true),
+        kbNumberRow = prefs.getBoolean("kbNumberRow", false),
+        kbSpaceCursor = prefs.getBoolean("kbSpaceCursor", true),
+        kbHapticStrength = prefs.getFloat("kbHapticStrength", com.jake.duolauncher.keyboard.HapticProfile.DEFAULT_STRENGTH).coerceIn(0f, 1f),
         handoff = prefs.getBoolean("handoff", true),
         webPackage = prefs.getString("webPackage", null)?.takeIf { it.isNotBlank() },
         handoffStores = prefs.getString("handoffStores", null)?.split(',')?.filter { it.isNotBlank() }?.toSet() ?: HandoffLogic.DEFAULT_STORES,
@@ -69,6 +79,11 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("mediaDetails", next.mediaDetails)
             .putBoolean("notificationPeek", next.notificationPeek)
             .putBoolean("contactSearch", next.contactSearch)
+            .putBoolean("kbAutocorrect", next.kbAutocorrect)
+            .putBoolean("kbSuggestions", next.kbSuggestions)
+            .putBoolean("kbNumberRow", next.kbNumberRow)
+            .putBoolean("kbSpaceCursor", next.kbSpaceCursor)
+            .putFloat("kbHapticStrength", next.kbHapticStrength)
             .putBoolean("handoff", next.handoff)
             .putString("webPackage", next.webPackage ?: "")
             .putString("handoffStores", next.handoffStores.joinToString(","))
@@ -93,6 +108,11 @@ internal class ExtrasStore(context: Context) {
     fun setMediaDetails(value: Boolean) = save(state.copy(mediaDetails = value))
     fun setNotificationPeek(value: Boolean) = save(state.copy(notificationPeek = value))
     fun setContactSearch(value: Boolean) = save(state.copy(contactSearch = value))
+    fun setKbAutocorrect(value: Boolean) = save(state.copy(kbAutocorrect = value))
+    fun setKbSuggestions(value: Boolean) = save(state.copy(kbSuggestions = value))
+    fun setKbNumberRow(value: Boolean) = save(state.copy(kbNumberRow = value))
+    fun setKbSpaceCursor(value: Boolean) = save(state.copy(kbSpaceCursor = value))
+    fun setKbHapticStrength(value: Float) = save(state.copy(kbHapticStrength = value.coerceIn(0f, 1f)))
     fun setHandoff(value: Boolean) = save(state.copy(handoff = value))
     fun setWebPackage(value: String?) = save(state.copy(webPackage = value))
     fun toggleHandoffStore(id: String) =

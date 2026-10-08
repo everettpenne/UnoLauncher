@@ -19,3 +19,8 @@ The Gradle dependency graph records the resolved artifact versions. Test and bui
 The default wallpaper and launcher icon are generated locally from project drawing code/resources. Installed application icons and widget content belong to their respective providers. Google Discover and Google search run in the installed Google application; that application and its content are not redistributed here.
 
 Private design-study images, copied reference files, device captures, and probe research are excluded from the public source package. Apple, Google, Android, Samsung, and other referenced names are trademarks of their respective owners; this project is unaffiliated with those companies.
+
+
+SymSpell word-frequency lists (keyboard suggestions)
+Copyright (c) 2018 Wolf Garbe. MIT License (see SymSpell-MIT.txt). Frequencies derived from Google Books Ngram data
+and hunspell dictionaries. Bundled as keyboard/en_words.txt and keyboard/en_next.txt.

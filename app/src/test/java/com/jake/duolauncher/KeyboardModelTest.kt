@@ -25,6 +25,36 @@ class KeyboardModelTest {
         assertTrue(KeyboardModel.rows(KeyPage.NUMBERS, ShiftState.OFF).last().first().let { it is Key.Page && it.target == KeyPage.LETTERS })
     }
 
+    @Test fun theOptionalNumberRowSitsAboveTheLettersOnly() {
+        val rows = KeyboardModel.rows(KeyPage.LETTERS, ShiftState.OFF, numberRow = true)
+        assertEquals(5, rows.size); assertEquals("1234567890".map { it.toString() }, labels(rows[0]))
+        assertEquals(4, KeyboardModel.rows(KeyPage.NUMBERS, ShiftState.OFF, numberRow = true).size)
+        assertEquals(4, KeyboardModel.rows(KeyPage.LETTERS, ShiftState.OFF).size)
+    }
+
+    @Test fun suggestionsAndAutocorrectStayOutOfAddressesNamesAndSecrets() {
+        val text = 1
+        assertTrue(KeyboardModel.allowsSuggestions(text)); assertTrue(KeyboardModel.allowsAutocorrect(text))
+        assertTrue(KeyboardModel.allowsAutocorrect(text or 0x40))                 // short message
+        assertFalse(KeyboardModel.allowsSuggestions(text or 0x20))                // email address
+        assertFalse(KeyboardModel.allowsSuggestions(text or 0x10))                // web address
+        assertFalse(KeyboardModel.allowsSuggestions(text or 0x80))                // password
+        assertFalse(KeyboardModel.allowsSuggestions(text or 0x80000))             // the app asked for none
+        assertTrue(KeyboardModel.allowsSuggestions(text or 0x60)); assertFalse(KeyboardModel.allowsAutocorrect(text or 0x60)) // a name
+        assertFalse(KeyboardModel.allowsSuggestions(2)); assertFalse(KeyboardModel.allowsSuggestions(3)) // numbers, phones
+    }
+
+    @Test fun capitalisationFromTextFollowsSentencesWordsAndCharacters() {
+        val sentences = 1 or 0x4000
+        assertTrue(KeyboardModel.capsFromText("", sentences)); assertTrue(KeyboardModel.capsFromText("Hello. ", sentences))
+        assertTrue(KeyboardModel.capsFromText("Really? ", sentences)); assertTrue(KeyboardModel.capsFromText("one\n", sentences))
+        assertFalse(KeyboardModel.capsFromText("Hello", sentences)); assertFalse(KeyboardModel.capsFromText("Hello. ok", sentences))
+        assertFalse(KeyboardModel.capsFromText("Hello, ", sentences)); assertFalse(KeyboardModel.capsFromText("", 1))
+        assertFalse(KeyboardModel.capsFromText("Hello. ", 1))
+        assertTrue(KeyboardModel.capsFromText("big ", 1 or 0x2000)); assertFalse(KeyboardModel.capsFromText("big", 1 or 0x2000))
+        assertTrue(KeyboardModel.capsFromText("abc", 1 or 0x1000)); assertFalse(KeyboardModel.capsFromText("", 2 or 0x4000))
+    }
+
     @Test fun shiftCyclesAndDoubleTapLocks() {
         assertEquals(ShiftState.ONCE, KeyboardModel.tapShift(ShiftState.OFF, false))
         assertEquals(ShiftState.OFF, KeyboardModel.tapShift(ShiftState.ONCE, false))

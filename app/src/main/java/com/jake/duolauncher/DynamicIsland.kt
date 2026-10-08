@@ -270,7 +270,9 @@ internal fun DynamicIsland(
     val frame = IslandGeometry.frame(environment, d, progress, sizeScale,
         extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f),
         extraWidthDp = eventWidth)
-    val corner = minOf(frame.height / 2f, 30f * d) / d
+    // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
+    val corner = minOf(minOf(frame.width, frame.height) / 2f, 30f * d) / d
+    val sideways = frame.side != IslandSide.TOP
     // A progress ring around the collapsed pill: a running timer, or the battery level while charging.
     val ring = IslandRingLogic.choose(flashActive, progress >= .5f || state.expanded, IslandTools.ringing,
         IslandTools.timerActive, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
@@ -330,6 +332,11 @@ internal fun DynamicIsland(
             .testTag("dynamic-island")) {
             val hole = frame.hole
             val gap = 4.dp
+            // Where the expanded content starts. Camera on top: below the hole. Camera on a side edge: beside it, on the
+            // inward side, so the panel opens away from the edge the camera is on.
+            val faceTop = if (hole != null && !sideways) (hole.bottom / d).dp + 6.dp else 12.dp
+            val faceStart = if (hole != null && frame.side == IslandSide.LEFT) (hole.right / d).dp + 10.dp else 18.dp
+            val faceEnd = if (hole != null && frame.side == IslandSide.RIGHT) ((frame.width - hole.left) / d).dp + 10.dp else 18.dp
             // Collapsed face. With a hole the content is split around it; without one it is centered.
             // Only the face that is showing is composed. An invisible panel would still own its buttons'
             // touch targets, and Compose pads small targets to 48 dp, so the hidden Search button caught
@@ -382,7 +389,18 @@ internal fun DynamicIsland(
                             maxLines = 1)
                     }
                 }
-                if (hole != null) {
+                if (hole != null && sideways) {
+                    // Camera on a side edge: everything sits on the inward side of the hole, and only when there is room
+                    // (an event has widened the pill). The idle pill is just the black capsule and its ring.
+                    val inwardDp = (if (frame.side == IslandSide.LEFT) frame.width - hole.right else hole.left) / d
+                    if (frame.side == IslandSide.LEFT) Spacer(Modifier.width((hole.right / d).dp + gap))
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        if (inwardDp >= 56f) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            leading(); trailing()
+                        }
+                    }
+                    if (frame.side == IslandSide.RIGHT) Spacer(Modifier.width(((frame.width - hole.left) / d).dp + gap))
+                } else if (hole != null) {
                     Box(Modifier.width(((hole.left / d).dp - gap).coerceAtLeast(0.dp)), contentAlignment = Alignment.Center) { leading() }
                     Spacer(Modifier.width((hole.width / d).dp + gap * 2))
                     Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { trailing() }
@@ -395,14 +413,12 @@ internal fun DynamicIsland(
             }
             // Tools face (long press): timer, stopwatch, flashlight.
             if (progress >= .5f && IslandTools.toolsOpen) Column(Modifier.fillMaxSize()
-                .padding(start = 18.dp, end = 18.dp, bottom = 12.dp,
-                    top = if (hole != null) (hole.bottom / d).dp + 6.dp else 12.dp)) {
+                .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 IslandToolsFace(clockMs, torch)
             }
             // Expanded face: live panel, starting below the camera hole.
             if (progress >= .5f && !IslandTools.toolsOpen) Column(Modifier.fillMaxSize()
-                .padding(start = 18.dp, end = 18.dp, bottom = 12.dp,
-                    top = if (hole != null) (hole.bottom / d).dp + 6.dp else 12.dp)) {
+                .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(now.format(DateTimeFormatter.ofPattern("HH:mm")), color = Color.White,

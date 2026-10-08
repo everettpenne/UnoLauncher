@@ -21,12 +21,19 @@ internal data class PxRect(val left: Float, val top: Float, val right: Float, va
  */
 internal data class IslandFrame(
     val left: Float, val top: Float, val width: Float, val height: Float, val hole: PxRect?,
+    /** Which screen edge the camera is on. TOP is the usual portrait case; LEFT and RIGHT mean the phone is turned sideways. */
+    val side: IslandSide = IslandSide.TOP,
 )
+
+/** The screen edge the front camera sits on. */
+internal enum class IslandSide { TOP, LEFT, RIGHT }
 
 /** What the window reports about the camera and system bars. */
 internal data class IslandEnvironment(
     val cutout: PxRect?, val screenWidth: Float, val statusBarHeight: Float,
     val dockWidthPx: Float = 0f,
+    /** 0 when unknown, in which case a cutout is always treated as being on the top edge. */
+    val screenHeight: Float = 0f,
 )
 
 /** Pure layout for the dynamic island: wraps the camera hole, whatever its position or size.
@@ -60,9 +67,29 @@ internal object IslandGeometry {
      * nearest the horizontal center when there are several (side waterfalls and rounded-corner
      * rectangles are ignored).
      */
-    fun pickCutout(rects: List<PxRect>, screenWidth: Float, screenHeight: Float): PxRect? =
-        rects.filter { it.width > 1f && it.height > 1f && it.centerY < screenHeight * .15f }
-            .minByOrNull { abs(it.centerX - screenWidth / 2f) }
+    fun pickCutout(rects: List<PxRect>, screenWidth: Float, screenHeight: Float): PxRect? {
+        val real = rects.filter { it.width > 1f && it.height > 1f }
+        real.filter { it.centerY < screenHeight * .15f }.minByOrNull { abs(it.centerX - screenWidth / 2f) }?.let { return it }
+        // Turned sideways the camera is on the left or right edge. Only a small rectangle counts: a waterfall edge or a
+        // rounded-corner strip runs most of the way down the screen and is not the camera.
+        return real.filter { (it.centerX < screenWidth * .15f || it.centerX > screenWidth * .85f) &&
+                it.height < screenHeight * .35f && it.width < screenWidth * .35f }
+            .minByOrNull { abs(it.centerY - screenHeight / 2f) }
+    }
+
+    /** Which edge [cutout] is on, given the screen. */
+    fun sideOf(cutout: PxRect?, screenWidth: Float, screenHeight: Float): IslandSide = when {
+        cutout == null || screenHeight <= 0f || cutout.centerY < screenHeight * .15f -> IslandSide.TOP
+        cutout.centerX < screenWidth / 2f -> IslandSide.LEFT
+        else -> IslandSide.RIGHT
+    }
+
+    /** The camera hole from every cutout rectangle the display reports plus the bounds of the cutout path: the picked camera
+     * rectangle, tightened to the visible hole. Both readers (Home's window insets and the overlay's display) must go through
+     * this: the raw rectangle is often tall and starts at the very top, which leaves no room for the island's size setting.
+     */
+    fun holeFor(rects: List<PxRect>, pathBounds: PxRect?, screenWidth: Float, screenHeight: Float): PxRect? =
+        pickCutout(rects, screenWidth, screenHeight)?.let { refine(it, pathBounds) }
 
     /** The visible hole inside the cutout's bounding [rect]. Android reports the bounding
      * rectangle, which on many phones is much taller than the hole (often starting at y = 0);
@@ -88,6 +115,9 @@ internal object IslandGeometry {
         val size = scale.coerceIn(0f, 1f)
         val margin = EDGE_MARGIN_DP * d
         val cutout = env.cutout
+        val side = sideOf(cutout, env.screenWidth, env.screenHeight)
+        if (cutout != null && side != IslandSide.TOP)
+            return sideFrame(env, cutout, side, d, p, size, extraBodyDp, extraWidthDp)
         val centerX: Float
         val top: Float
         val collapsedWidth: Float
@@ -132,15 +162,46 @@ internal object IslandGeometry {
         return IslandFrame(left, top, width, height,
             cutout?.let { PxRect(it.left - left, it.top - top, it.right - left, it.bottom - top) })
     }
+
+    /** The island when the camera is on the left or right edge (phone turned sideways). It stays where the camera is: a vertical
+     * pill hugging the hole, growing inward from the edge for an event or the full panel, centred on the camera.
+     */
+    private fun sideFrame(env: IslandEnvironment, cutout: PxRect, side: IslandSide, d: Float, p: Float, size: Float,
+        extraBodyDp: Float, extraWidthDp: Float): IslandFrame {
+        val ring = mix(MIN_RING_DP * d, 10f * d, size)
+        val collapsedHeight = cutout.height + 2f * ring
+        // The pill reaches from the screen edge (or just past the hole's outer side) to just past its inner side.
+        val outerEdge = if (side == IslandSide.LEFT) max(0f, cutout.left - ring) else min(env.screenWidth, cutout.right + ring)
+        val innerEdge = if (side == IslandSide.LEFT) cutout.right + ring else cutout.left - ring
+        // An event widens it inward; the extra is eased in so it does not jump when the animation starts.
+        val inward = (extraWidthDp + mix(44f, 80f, size) * min(1f, extraWidthDp / 24f)) * d
+        val collapsedWidth = abs(innerEdge - outerEdge) + inward
+        val dockClearance = env.dockWidthPx + 16f * d
+        val expandedWidth = min(EXPANDED_WIDTH_DP * d, max(collapsedWidth, env.screenWidth - 2f * dockClearance))
+        val expandedHeight = max(collapsedHeight, (mix(96f, 128f, size) + extraBodyDp + 24f) * d)
+        val width = collapsedWidth + (expandedWidth - collapsedWidth) * p
+        val height = collapsedHeight + (expandedHeight - collapsedHeight) * p
+        val left = if (side == IslandSide.LEFT) outerEdge else outerEdge - width
+        var top = cutout.centerY - height / 2f
+        if (env.screenHeight > 0f) top = top.coerceIn(0f, max(0f, env.screenHeight - height))
+        val clampedLeft = left.coerceIn(0f, max(0f, env.screenWidth - width))
+        return IslandFrame(clampedLeft, top, width, height,
+            PxRect(cutout.left - clampedLeft, cutout.top - top, cutout.right - clampedLeft, cutout.bottom - top), side)
+    }
 }
 
 /** Reads the camera cutout from a display directly: authoritative for overlay windows, which
  * do not reliably receive the cutout in their own window insets.
  */
 internal fun readDisplayCutout(display: android.view.Display, screenWidth: Float, screenHeight: Float): PxRect? {
-    val rects = runCatching { display.cutout?.boundingRects.orEmpty() }.getOrDefault(emptyList())
+    val cutout = runCatching { display.cutout }.getOrNull()
+    val rects = cutout?.boundingRects.orEmpty()
         .map { PxRect(it.left.toFloat(), it.top.toFloat(), it.right.toFloat(), it.bottom.toFloat()) }
-    return IslandGeometry.pickCutout(rects, screenWidth, screenHeight)
+    // The path hugs the hole itself; without it the island is sized from the (often much taller) bounding rectangle.
+    val pathBounds = runCatching {
+        cutout?.cutoutPath?.let { path -> android.graphics.RectF().also { path.computeBounds(it, true) } }
+    }.getOrNull()?.let { PxRect(it.left, it.top, it.right, it.bottom) }
+    return IslandGeometry.holeFor(rects, pathBounds, screenWidth, screenHeight)
 }
 
 /** Reads the camera cutout and bars from the live window. Cheap enough to call on layout. */
@@ -169,5 +230,6 @@ internal fun readIslandEnvironment(view: View, dockWidthPx: Float = 0f,
         statusBarHeight = (if (statusBarHeightPx >= 0) statusBarHeightPx
             else insets?.getInsets(WindowInsets.Type.statusBars())?.top ?: 0).toFloat(),
         dockWidthPx = dockWidthPx,
+        screenHeight = height,
     )
 }

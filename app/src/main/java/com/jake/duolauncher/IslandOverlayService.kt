@@ -86,7 +86,7 @@ class IslandOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            OverlayPolicy.WINDOW_FLAGS,
             PixelFormat.TRANSLUCENT).apply {
             gravity = Gravity.TOP or Gravity.START
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
@@ -104,17 +104,24 @@ class IslandOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner,
         // Overlay windows receive neither status-bar nor cutout insets reliably, so the
         // island's environment is built from the display itself: real metrics for the size,
         // Display.getCutout for the camera, and the system status-bar height for the fallback.
-        val realMetrics = android.util.DisplayMetrics()
-        @Suppress("DEPRECATION")
-        manager.defaultDisplay.getRealMetrics(realMetrics)
+        // The display is read again each time, not once: turning the phone sideways swaps its width and height, and
+        // the camera moves to a side edge, so a size captured at start would leave the island where it was.
+        fun realMetrics() = android.util.DisplayMetrics().also {
+            @Suppress("DEPRECATION")
+            manager.defaultDisplay.getRealMetrics(it)
+        }
         val statusBarPx = runCatching {
             resources.getDimensionPixelSize(resources.getIdentifier("status_bar_height", "dimen", "android"))
         }.getOrDefault(0)
-        fun buildEnvironment(): IslandEnvironment = IslandEnvironment(
-            cutout = readDisplayCutout(manager.defaultDisplay, realMetrics.widthPixels.toFloat(), realMetrics.heightPixels.toFloat()),
-            screenWidth = realMetrics.widthPixels.toFloat(),
-            statusBarHeight = statusBarPx.toFloat(),
-            dockWidthPx = 0f)
+        fun buildEnvironment(): IslandEnvironment {
+            val m = realMetrics()
+            return IslandEnvironment(
+                cutout = readDisplayCutout(manager.defaultDisplay, m.widthPixels.toFloat(), m.heightPixels.toFloat()),
+                screenWidth = m.widthPixels.toFloat(),
+                statusBarHeight = statusBarPx.toFloat(),
+                dockWidthPx = 0f,
+                screenHeight = m.heightPixels.toFloat())
+        }
 
         var environment by androidx.compose.runtime.mutableStateOf(buildEnvironment())
         val keyguard = getSystemService(KeyguardManager::class.java)

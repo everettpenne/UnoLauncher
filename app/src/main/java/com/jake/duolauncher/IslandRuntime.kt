@@ -29,6 +29,18 @@ internal object IslandRuntime {
  * unlocked. The overlay never draws on the lock screen or while the display is off.
  */
 internal object OverlayPolicy {
+    /** Window flags for the island overlay.
+     *
+     * FLAG_LAYOUT_IN_SCREEN and FLAG_LAYOUT_NO_LIMITS are what make the window's x and y absolute screen pixels. Without
+     * them the window's parent frame starts below the status bar, so the island (positioned from Display.getCutout, which is in
+     * screen pixels) landed a status-bar height below the camera. It stays NOT_FOCUSABLE and NOT_TOUCH_MODAL so touches
+     * outside the island's own bounds pass through, and is never FLAG_FULLSCREEN or touchable beyond its size.
+     */
+    const val WINDOW_FLAGS: Int = android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+        android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+        android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+
     fun shouldShow(islandEverywhere: Boolean, canDrawOverlays: Boolean, keyguardLocked: Boolean,
         interactive: Boolean): Boolean = islandEverywhere && canDrawOverlays && !keyguardLocked && interactive
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.23.3-uno01
+
+- Fix the everywhere-island sitting a status-bar height below the camera. The overlay window was laid out inside the area below the status bar, so the island's y (measured in true screen pixels from Display.getCutout) was applied from there; its parent frame started at the bottom of the status bar. The window now sets FLAG_LAYOUT_IN_SCREEN and FLAG_LAYOUT_NO_LIMITS (kept in OverlayPolicy.WINDOW_FLAGS, with a unit test), so its x and y are absolute screen pixels and it stays unfocusable and passes touches outside its own bounds.
+- The island now stays on the camera when the phone is turned sideways, instead of jumping to the top-centre of the rotated screen. Turned on its side the camera is on the left or right edge, and the old cutout picker only accepted a cutout near the top, so nothing matched and the island fell back to a no-camera layout. A small side-edge rectangle now counts as the camera (a tall waterfall strip does not), and the island becomes a vertical pill hugging it: events and the panel grow inward from the edge, centred on the camera, with the content beside the hole. The overlay also re-reads the display size each time, where it used to read it once, so rotating (and folding) updates it.
+
+- Fix the island size setting doing nothing. The overlay read the camera from `Display.getCutout()` and used the raw bounding rectangle, which on many phones is tall and starts at the very top edge; the step that tightens it to the visible hole (using the cutout path) existed only on Home's path. With the tall rectangle there is no room above the island, so the size slider had nothing to change. Both paths now share `IslandGeometry.holeFor`, and a test shows the slider has a range with the refined hole and none with the raw rectangle. I could not reproduce it on the emulator, whose notch touches the top edge, so this one is verified by test only.
+
 ## 0.23.2-uno01
 
 - Fix the everywhere-island sitting below the camera cutout: overlay windows do not reliably receive the cutout in their own insets, so the overlay now builds the island environment from the display itself — real display metrics, Display.getCutout for the camera hole, and the system status-bar height for the no-cutout fallback. Verified on-device with an emulated punch hole: the window wraps the hole exactly.

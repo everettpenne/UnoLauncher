@@ -201,4 +201,84 @@ class IslandGeometryTest {
         // A bigger size setting already has wider side slots, so it needs less extra.
         assertTrue(IslandGeometry.eventExtraWidthDp(14, 1f) < IslandGeometry.eventExtraWidthDp(14, 0f))
     }
+
+    // ---- phone turned sideways: the camera is on a left or right edge ----
+    private val landscapeW = 2424f; private val landscapeH = 1080f
+    private fun sideEnv(cutout: PxRect?, dock: Float = 0f) = IslandEnvironment(cutout, landscapeW, 63f, dock, landscapeH)
+
+    @Test fun aSmallRectangleOnASideEdgeIsTheCameraButAWaterfallStripIsNot() {
+        val camera = PxRect(0f, 472f, 136f, 608f)
+        assertEquals(camera, IslandGeometry.pickCutout(listOf(camera), landscapeW, landscapeH))
+        val rightCamera = PxRect(landscapeW - 136f, 472f, landscapeW, 608f)
+        assertEquals(rightCamera, IslandGeometry.pickCutout(listOf(rightCamera), landscapeW, landscapeH))
+        val waterfall = PxRect(0f, 0f, 60f, landscapeH)
+        assertNull(IslandGeometry.pickCutout(listOf(waterfall), landscapeW, landscapeH))
+        assertEquals(camera, IslandGeometry.pickCutout(listOf(waterfall, camera), landscapeW, landscapeH))
+    }
+
+    @Test fun aCutoutNearTheTopStillWinsAndPortraitIsUnchanged() {
+        val top = PxRect(414f, 0f, 666f, 126f); val side = PxRect(0f, 1000f, 100f, 1100f)
+        assertEquals(top, IslandGeometry.pickCutout(listOf(side, top), 1080f, 2424f))
+        assertEquals(IslandSide.TOP, IslandGeometry.sideOf(top, 1080f, 2424f))
+        assertEquals(IslandSide.TOP, IslandGeometry.sideOf(top, 1080f, 0f))
+        assertEquals(IslandSide.LEFT, IslandGeometry.sideOf(PxRect(0f, 472f, 136f, 608f), landscapeW, landscapeH))
+        assertEquals(IslandSide.RIGHT, IslandGeometry.sideOf(PxRect(landscapeW - 136f, 472f, landscapeW, 608f), landscapeW, landscapeH))
+    }
+
+    @Test fun onTheLeftEdgeTheIslandStaysOnTheCameraAsAVerticalPill() {
+        val cutout = PxRect(0f, 472f, 136f, 608f)
+        val f = IslandGeometry.frame(sideEnv(cutout), 2.6f, 0f)
+        assertEquals(IslandSide.LEFT, f.side)
+        assertEquals(0f, f.left, 0.5f)
+        assertTrue("taller than wide", f.height > f.width)
+        assertEquals("centred on the camera", cutout.centerY, f.top + f.height / 2f, 1f)
+        assertTrue("wraps the hole", f.left <= cutout.left && f.left + f.width >= cutout.right && f.top <= cutout.top && f.top + f.height >= cutout.bottom)
+        assertNotNull(f.hole); assertEquals(cutout.left - f.left, f.hole!!.left, .5f)
+    }
+
+    @Test fun onTheRightEdgeItIsMirroredAndStaysOnScreen() {
+        val cutout = PxRect(landscapeW - 136f, 472f, landscapeW, 608f)
+        val f = IslandGeometry.frame(sideEnv(cutout), 2.6f, 0f)
+        assertEquals(IslandSide.RIGHT, f.side)
+        assertEquals(landscapeW, f.left + f.width, 0.5f)
+        assertTrue(f.height > f.width); assertEquals(cutout.centerY, f.top + f.height / 2f, 1f)
+        val open = IslandGeometry.frame(sideEnv(cutout), 2.6f, 1f)
+        assertEquals("the panel stays pinned to the edge as it opens", landscapeW, open.left + open.width, 0.5f)
+        assertTrue(open.left >= 0f)
+    }
+
+    @Test fun theExpandedPanelOpensInwardWithinTheScreenAndKeepsTheCameraInsideIt() {
+        val cutout = PxRect(0f, 472f, 136f, 608f)
+        val open = IslandGeometry.frame(sideEnv(cutout), 2.6f, 1f, extraBodyDp = 40f)
+        assertEquals(0f, open.left, 0.5f); assertTrue(open.width > 600f)
+        assertTrue(open.top >= 0f && open.top + open.height <= landscapeH)
+        assertTrue(open.top <= cutout.top && open.top + open.height >= cutout.bottom)
+    }
+
+    @Test fun anEventWidensTheSidePillInwardOnly() {
+        val cutout = PxRect(0f, 472f, 136f, 608f)
+        val idle = IslandGeometry.frame(sideEnv(cutout), 2.6f, 0f)
+        val event = IslandGeometry.frame(sideEnv(cutout), 2.6f, 0f, extraWidthDp = 60f)
+        assertEquals(0f, event.left, 0.5f); assertTrue(event.width > idle.width + 100f)
+        assertEquals(idle.top + idle.height / 2f, event.top + event.height / 2f, 1f)
+    }
+
+    @Test fun withoutAScreenHeightTheOldPortraitBehaviourIsUsed() {
+        val cutout = PxRect(414f, 0f, 666f, 126f)
+        val f = IslandGeometry.frame(IslandEnvironment(cutout, 1080f, 63f), 2.6f, 0f)
+        assertEquals(IslandSide.TOP, f.side); assertTrue(f.width > f.height)
+    }
+
+    // ---- the size setting needs room, which only the refined hole leaves ----
+    @Test fun theSizeSettingChangesTheIslandWhenTheHoleIsRefinedButNotWhenItIsTheTallRectangle() {
+        val tallRect = PxRect(484f, 0f, 596f, 130f)        // what the display reports: starts at the top edge
+        val hole = PxRect(514f, 40f, 566f, 92f)             // the actual punch hole, from the cutout path
+        val refined = IslandGeometry.holeFor(listOf(tallRect), hole, 1080f, 2424f)!!
+        assertEquals(hole, refined)
+        fun height(cutout: PxRect, size: Float) =
+            IslandGeometry.frame(IslandEnvironment(cutout, 1080f, 80f, screenHeight = 2424f), 2.625f, 0f, size).height
+        assertTrue("with the refined hole the slider has a range", height(refined, 1f) > height(refined, 0f) + 20f)
+        assertEquals("with the raw rectangle it did nothing, which is the bug", height(tallRect, 1f), height(tallRect, 0f), 0.5f)
+        assertEquals(tallRect, IslandGeometry.holeFor(listOf(tallRect), null, 1080f, 2424f))
+    }
 }

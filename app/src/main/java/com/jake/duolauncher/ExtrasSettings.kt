@@ -182,6 +182,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     }
     SettingsSwitch("Badges on app icons", s.badges, store::setBadges, "badges-switch")
     SettingsSwitch("Track title and artwork in media", s.mediaDetails, store::setMediaDetails, "media-details-switch")
+    SettingsSwitch("Show calls in the island", s.callDetails, store::setCallDetails, "call-details-switch")
+    Text("While a call is active, the island shows the caller name and elapsed time from the phone app's own call notification, and tapping it opens the call screen. The name is read only while the call is running and never stored; message text is never read.",
+        style = note, color = muted)
     SettingsSwitch("Show new notifications in the island", s.notificationPeek, store::setNotificationPeek, "peek-switch")
     Text("Everything stays on this device. Badges count unread notifications per app; the island shows the app's name only, never the message.",
         style = note, color = muted)

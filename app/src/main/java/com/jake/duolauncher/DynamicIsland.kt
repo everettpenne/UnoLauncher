@@ -22,6 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AirplanemodeActive
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.BatteryChargingFull
+import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Pause
@@ -255,8 +257,10 @@ internal fun DynamicIsland(
     val eventWidth by animateFloatAsState(
         if (flashActive) IslandGeometry.eventExtraWidthDp((state.flashTitle ?: "").length, sizeScale) else 0f,
         spring(dampingRatio = .6f, stiffness = 420f), label = "island event width")
+    val callActive = NotificationFeed.ongoingCall != null
     val frame = IslandGeometry.frame(environment, d, progress, sizeScale,
-        extraBodyDp = if (mediaVisible) MEDIA_ROW_DP else 0f, extraWidthDp = eventWidth)
+        extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f),
+        extraWidthDp = eventWidth)
     val corner = minOf(frame.height / 2f, 30f * d) / d
     // A progress ring around the collapsed pill: a running timer, or the battery level while charging.
     val ring = IslandRingLogic.choose(flashActive, progress >= .5f || state.expanded, IslandTools.ringing,
@@ -344,6 +348,14 @@ internal fun DynamicIsland(
                             fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
                     } else if (state.playing) {
                         EqualizerBars(PLAYBACK_PINK, Modifier.testTag("island-playing"))
+                    } else if (callActive) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(14.dp))
+                            Text(NotificationFeed.ongoingCall?.caller ?: "", color = Color.White, fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.testTag("island-call"))
+                        }
                     } else if (deviceStatus.charging == true) {
                         Icon(Icons.Rounded.BatteryChargingFull, null, tint = IosGreen, modifier = Modifier.size(16.dp))
                     } else if (deviceStatus.battery != null) {
@@ -383,9 +395,17 @@ internal fun DynamicIsland(
                         color = if (deviceStatus.charging == true) IosGreen else Color.White,
                         fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
+                NotificationFeed.ongoingCall?.let { call ->
+                    Spacer(Modifier.height(6.dp))
+                    CallRow(call, clockMs, onClick = {
+                        runCatching { call.openIntent?.send() }; state.collapse()
+                    })
+                }
                 if (mediaVisible) {
                     Spacer(Modifier.height(6.dp))
                     PlaybackRow(playing = state.playing, title = NotificationFeed.nowPlaying?.title,
+                        artist = NotificationFeed.nowPlaying?.artist,
+                        art = NotificationFeed.nowPlaying?.art?.asImageBitmap(),
                         onPrevious = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
                         onPlayPause = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
                         onNext = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_NEXT) },
@@ -418,6 +438,8 @@ internal const val FOCUS_SIDE_EFFECT_MS = 1_500L
 
 /** Extra panel height, in dp, when the playback row is showing. */
 internal const val MEDIA_ROW_DP = 40f
+/** Extra panel height, in dp, when the call card is showing. */
+internal const val CALL_ROW_DP = 40f
 internal val PLAYBACK_PINK = Color(0xFFFF375F)
 
 /** Four bars that rise and fall out of step: the iOS "audio is playing" mark. The animation drives
@@ -443,20 +465,46 @@ internal fun EqualizerBars(color: Color, modifier: Modifier = Modifier, barCount
 }
 
 @Composable
-private fun PlaybackRow(playing: Boolean, title: String?, onPrevious: () -> Unit, onPlayPause: () -> Unit, onNext: () -> Unit,
-    onOpenPlayer: (() -> Unit)? = null) {
+private fun PlaybackRow(playing: Boolean, title: String?, artist: String? = null,
+    art: androidx.compose.ui.graphics.ImageBitmap? = null, onPrevious: () -> Unit, onPlayPause: () -> Unit,
+    onNext: () -> Unit, onOpenPlayer: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().height(34.dp).testTag("island-media"), verticalAlignment = Alignment.CenterVertically) {
         if (playing) EqualizerBars(PLAYBACK_PINK) else Icon(Icons.Rounded.Pause, null,
             tint = Color.White.copy(alpha = .6f), modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(8.dp))
+        art?.let {
+            Image(it, null, Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).testTag("island-art"))
+            Spacer(Modifier.width(8.dp))
+        }
         // With notification access the session knows its own app, so tapping the title opens the player.
-        Text(title ?: if (playing) "Playing" else "Paused", color = Color.White, fontSize = 13.sp,
-            fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f).then(if (onOpenPlayer != null) Modifier.clickable(onClick = onOpenPlayer).testTag("island-open-player") else Modifier))
+        Column(Modifier.weight(1f).then(if (onOpenPlayer != null) Modifier.clickable(onClick = onOpenPlayer).testTag("island-open-player") else Modifier)) {
+            Text(title ?: if (playing) "Playing" else "Paused", color = Color.White, fontSize = 13.sp,
+                fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            artist?.let { Text(it, color = Color.White.copy(alpha = .72f), fontSize = 11.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
         MediaButton(Icons.Rounded.SkipPrevious, "Previous", onPrevious)
         MediaButton(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
             if (playing) "Pause" else "Play", onPlayPause)
         MediaButton(Icons.Rounded.SkipNext, "Next", onNext)
+    }
+}
+
+/** The live call card: caller and elapsed time; tapping opens the phone app's call screen. */
+@Composable
+private fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(12.dp))
+        .clickable(onClick = onClick).testTag("island-call-row"), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(call.caller, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("On call · ${IslandClock.countdown((nowMs - call.startedAt).coerceAtLeast(0L))}",
+                color = IosGreen, fontSize = 11.sp, maxLines = 1)
+        }
+        Icon(Icons.Rounded.OpenInNew, "Open call", tint = Color.White.copy(alpha = .7f),
+            modifier = Modifier.size(14.dp).padding(end = 4.dp))
     }
 }
 

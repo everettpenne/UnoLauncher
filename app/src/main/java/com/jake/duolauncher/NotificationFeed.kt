@@ -21,6 +21,26 @@ import androidx.compose.runtime.setValue
 /** What is playing, as far as media sessions say (only while the user has allowed notification access
  * and turned on media details).
  */
+/** A live call as the phone app's call notification presents it. Displayed in the island while it
+ * lasts; the caller text and start time are held in memory only and never stored.
+ */
+internal data class OngoingCall(val caller: String, val packageName: String, val startedAt: Long,
+    val openIntent: android.app.PendingIntent?)
+
+/** Pure rules for recognising a live call from a notification's public fields. */
+internal object CallLogic {
+    /** The caller when [category]/[title] describe a live call notification, else null.
+     * Ongoing only, from another app, in the call category, with a short caller string.
+     */
+    fun callerFrom(category: String?, title: CharSequence?, ongoing: Boolean, packageName: String,
+        ownPackage: String): String? {
+        if (!ongoing || packageName == ownPackage || category != Notification.CATEGORY_CALL) return null
+        val text = title?.toString()?.trim().orEmpty()
+        if (text.isBlank() || text.length > 80) return null
+        return text
+    }
+}
+
 internal data class NowPlaying(
     val title: String?,
     val artist: String?,
@@ -33,6 +53,7 @@ internal data class NowPlaying(
 internal object NotificationFeed {
     var badges by mutableStateOf<Map<String, Int>>(emptyMap())
     var nowPlaying by mutableStateOf<NowPlaying?>(null)
+    var ongoingCall by mutableStateOf<OngoingCall?>(null)
     var connected by mutableStateOf(false)
     /** Set by the activity; called with an app's name when a new notification should peek in the island. */
     @Volatile var onPeek: ((packageName: String, label: String) -> Unit)? = null
@@ -81,6 +102,7 @@ class UnoNotificationListener : NotificationListenerService() {
         NotificationFeed.connected = false
         NotificationFeed.badges = emptyMap()
         NotificationFeed.nowPlaying = null
+        NotificationFeed.ongoingCall = null
         runCatching { prefs.unregisterOnSharedPreferenceChangeListener(prefListener) }
         runCatching { sessions?.removeOnActiveSessionsChangedListener(sessionsListener) }
         untrack()
@@ -88,10 +110,27 @@ class UnoNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        handler?.post { recount(); peek(sbn) }
+        handler?.post { recount(); peek(sbn); trackCall(sbn) }
     }
 
-    override fun onNotificationRemoved(sbn: StatusBarNotification) { handler?.post { recount() } }
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        handler?.post { recount(); untrackCall(sbn) }
+    }
+
+    private fun trackCall(sbn: StatusBarNotification) {
+        if (!prefs.getBoolean("callDetails", true)) { NotificationFeed.ongoingCall = null; return }
+        val caller = CallLogic.callerFrom(sbn.notification.category, sbn.notification.extras.getCharSequence(Notification.EXTRA_TITLE),
+            sbn.isOngoing, sbn.packageName, packageName)
+        if (caller != null) {
+            NotificationFeed.ongoingCall = OngoingCall(caller, sbn.packageName, sbn.postTime, sbn.notification.contentIntent)
+        }
+    }
+
+    private fun untrackCall(sbn: StatusBarNotification) {
+        if (NotificationFeed.ongoingCall?.packageName == sbn.packageName) {
+            NotificationFeed.ongoingCall = null
+        }
+    }
 
     private fun recount() {
         if (!prefs.getBoolean("badges", false)) { NotificationFeed.badges = emptyMap(); return }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.22.2-uno01
+
+- Calls in the island: while a call is active and notification access is on, the island shows the caller's name and a ticking elapsed time from the phone app's own call notification; tapping the card opens the call screen. The name is held in memory only, cleared when the call ends, and never stored; message text is never read. A Show calls in the island switch lives under Notifications, on by default and off without notification access.
+- Media card gains artwork and artist: the expanded island shows the album art thumbnail and the artist line under the track title, alongside the existing controls.
+
 ## 0.22.1-uno01
 
 - Fix a crash opening Control panel & extras on Android 14+ (targetSdk > 33): the page read the restricted `enabled_input_methods` and `default_input_method` secure settings and Android threw a SecurityException. The enabled list now comes from the public InputMethodManager API, and the selected state degrades to "unknown" where Android no longer lets apps read it; the switcher button stays available so you can still check. The hard-keyboard setting read in the keyboard service is guarded the same way.

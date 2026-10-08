@@ -59,6 +59,11 @@ internal object UnoFeedback {
         if (sounds) cue.sound?.let { fx -> worker?.post { runCatching { audio?.playSoundEffect(fx, .6f) } } }
     }
 
+    /** Only the sound half of a cue; the keyboard plays its own haptics. */
+    fun sound(cue: Cue) {
+        if (soundsOn) cue.sound?.let { fx -> worker?.post { runCatching { audio?.playSoundEffect(fx, .6f) } } }
+    }
+
     fun play(cue: Cue, haptic: HapticFeedback?) {
         val (feels, sounds) = plays(cue, hapticsOn, soundsOn)
         if (feels && haptic != null) cue.haptic?.let { haptic.performHapticFeedback(it) }

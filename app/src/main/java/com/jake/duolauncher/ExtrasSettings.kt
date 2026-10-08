@@ -37,7 +37,29 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("keyboard-enable")) { Text("Turn on Uno Keyboard") }
     else if (!keyboardSelected) OutlinedButton(onClick = { keyboardContext.getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.showInputMethodPicker() },
         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("keyboard-switch")) { Text("Switch to Uno Keyboard") }
-    Text("A glass-styled keyboard with key previews, accents on long-press, caps lock, a numbers page and a field-aware Return key. It is strictly local: nothing you type is stored, learned, logged or sent, and its code contains no network access (a test enforces that). It has no autocorrect, prediction or swipe typing yet, so it types exactly what you press.",
+    SettingsSwitch("Suggestions", s.kbSuggestions, store::setKbSuggestions, "kb-suggestions-switch")
+    SettingsSwitch("Autocorrect", s.kbAutocorrect, store::setKbAutocorrect, "kb-autocorrect-switch")
+    SettingsSwitch("Number row", s.kbNumberRow, store::setKbNumberRow, "kb-number-row-switch")
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text("Key haptics", Modifier.weight(1f))
+        Text(if (s.kbHapticStrength <= .01f) "Off" else "${(s.kbHapticStrength * 100).toInt()}%", color = muted)
+    }
+    LiquidSliderControl(s.kbHapticStrength, 0f..1f, { value ->
+        store.setKbHapticStrength(value)
+        com.jake.duolauncher.keyboard.KeyHaptics.configure(keyboardContext, if (s.haptics) value else 0f)
+    }, LocalPageGlass.current, Modifier.testTag("kb-haptic-slider"))
+    OutlinedButton(onClick = {
+        // A short run of what typing feels like, so you can set the strength without opening a text field.
+        com.jake.duolauncher.keyboard.KeyHaptics.configure(keyboardContext, if (s.haptics) s.kbHapticStrength else 0f)
+        val kinds = listOf(com.jake.duolauncher.keyboard.HapticKind.LETTER, com.jake.duolauncher.keyboard.HapticKind.LETTER,
+            com.jake.duolauncher.keyboard.HapticKind.SPACE, com.jake.duolauncher.keyboard.HapticKind.DELETE, com.jake.duolauncher.keyboard.HapticKind.RETURN)
+        val h = android.os.Handler(android.os.Looper.getMainLooper())
+        kinds.forEachIndexed { i, k -> h.postDelayed({ com.jake.duolauncher.keyboard.KeyHaptics.fire(k) }, i * 140L) }
+    }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("kb-haptic-try")) { Text("Feel it") }
+    Text("A light tick on touch-down, firmer for the space bar and Return, lighter again for held delete and cursor sliding. It follows Android's touch-feedback setting and the Haptics switch below.",
+        style = note, color = muted)
+    SettingsSwitch("Slide on space bar to move the cursor", s.kbSpaceCursor, store::setKbSpaceCursor, "kb-space-cursor-switch")
+    Text("A glass-styled keyboard with key previews, accents on long-press, caps lock, a numbers page and a field-aware Return key. It is strictly local: nothing you type is stored, learned, logged or sent, and its code contains no network access (a test enforces that). Suggestions and autocorrect use a word list bundled in the app (English only); they never learn from what you type, never save a word, and switch themselves off in password, email, web address, name and number fields. Backspace right after a correction undoes it, and that word is left alone for the session. There is no swipe typing yet.",
         style = note, color = muted)
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
 

@@ -60,6 +60,21 @@ internal object KeyboardModel {
         return (cls == TYPE_CLASS_TEXT && variation in PASSWORD_VARIATIONS) || (cls == TYPE_CLASS_NUMBER && variation == NUMBER_PASSWORD)
     }
 
+    private const val FLAG_NO_SUGGESTIONS = 0x80000
+    private const val TYPE_MASK_FLAGS = 0xfff000
+    // Variations (android.text.InputType): uri, email, person name, postal address, web edit text, web email, and passwords.
+    private val NO_SUGGESTION_VARIATIONS = setOf(0x10, 0x20, 0xd0, 0x80, 0x90, 0xe0)
+    private val NO_AUTOCORRECT_VARIATIONS = NO_SUGGESTION_VARIATIONS + setOf(0x60, 0x70, 0xa0)
+
+    /** Suggestions appear in ordinary text fields, never where the text is an address, a name or a secret. */
+    fun allowsSuggestions(inputType: Int): Boolean =
+        inputType and TYPE_MASK_CLASS == TYPE_CLASS_TEXT && inputType and FLAG_NO_SUGGESTIONS == 0 &&
+            (inputType and TYPE_MASK_VARIATION) !in NO_SUGGESTION_VARIATIONS
+
+    /** Autocorrect is stricter: also off in name, postal address and web form fields. */
+    fun allowsAutocorrect(inputType: Int): Boolean =
+        allowsSuggestions(inputType) && (inputType and TYPE_MASK_VARIATION) !in NO_AUTOCORRECT_VARIATIONS
+
     private val letterRows = listOf("qwertyuiop", "asdfghjkl", "zxcvbnm")
     private val numberRows = listOf("1234567890", "-/:;()$&@\"", ".,?!'")
     private val symbolRows = listOf("[]{}#%^*+=", "_\\|~<>€£¥•", ".,?!'")
@@ -67,7 +82,7 @@ internal object KeyboardModel {
     private fun chars(s: String, upper: Boolean = false) = s.map { Key.Char(if (upper) it.uppercase() else it.toString()) }
 
     /** The four rows for [page]. Letters uppercase while shift is on. */
-    fun rows(page: KeyPage, shift: ShiftState): List<List<Key>> = when (page) {
+    fun rows(page: KeyPage, shift: ShiftState, numberRow: Boolean = false): List<List<Key>> = (if (numberRow && page == KeyPage.LETTERS) listOf(chars("1234567890")) else emptyList()) + when (page) {
         KeyPage.LETTERS -> {
             val up = shift != ShiftState.OFF
             listOf(chars(letterRows[0], up), chars(letterRows[1], up),
@@ -97,6 +112,23 @@ internal object KeyboardModel {
     /** Shift for a new sentence or field. [capsMode] is the editor's `getCursorCapsMode` answer (non-zero means capitalise). */
     fun shiftFor(capsMode: Int, current: ShiftState): ShiftState =
         if (current == ShiftState.LOCKED) current else if (capsMode != 0) ShiftState.ONCE else ShiftState.OFF
+
+    private const val CAP_CHARACTERS = 0x1000; private const val CAP_WORDS = 0x2000; private const val CAP_SENTENCES = 0x4000
+
+    /** Whether the next letter should be capital, worked out from the text before the cursor so no call to the app is
+     * needed. Mirrors Android's own rules for sentence, word and all-characters capitalisation.
+     */
+    fun capsFromText(before: CharSequence, inputType: Int): Boolean {
+        if (inputType and TYPE_MASK_CLASS != TYPE_CLASS_TEXT) return false
+        if (inputType and CAP_CHARACTERS != 0) return true
+        val t = before.toString()
+        if (inputType and CAP_WORDS != 0) return t.isEmpty() || t.last().isWhitespace()
+        if (inputType and CAP_SENTENCES == 0) return false
+        if (t.isEmpty() || t.last() == '\n') return true
+        if (!t.last().isWhitespace()) return false
+        val trimmed = t.trimEnd()
+        return trimmed.isEmpty() || trimmed.last() in ".!?" || t.contains('\n') && t.substringAfterLast('\n').isBlank()
+    }
 
     /** Two spaces after a word become ". ", as on iOS. Returns how many characters to delete first and what to type, or
      * null to type a normal space.

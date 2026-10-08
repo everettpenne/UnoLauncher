@@ -22,6 +22,7 @@ scripts/gradle.sh
 scripts/export-public-source.sh
 scripts/check-public-source.sh
 scripts/release-signed.sh
+scripts/git-hooks/commit-msg
 scripts/size-matrix.sh
 .github/workflows/ci.yml
 .github/workflows/release.yml

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Strips assistant co-author trailers (Co-Authored-By: ... Claude ...) from every commit
+# message, so the launcher's contributor list stays human. Non-blocking: if anything is
+# unusual, the commit proceeds with its original message.
+set -euo pipefail
+
+message_file="${1:-}"
+if [[ -z "$message_file" || ! -f "$message_file" ]]; then
+    exit 0
+fi
+
+if grep -qiE '^Co-Authored-By: .*claude' "$message_file"; then
+    tmp="$(mktemp)"
+    grep -viE '^Co-Authored-By: .*claude' "$message_file" > "$tmp"
+    mv "$tmp" "$message_file"
+fi
+
+exit 0

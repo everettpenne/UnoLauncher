@@ -4,7 +4,15 @@ Keep changes focused. Describe the user-visible problem, resulting behavior, and
 
 Read the [code map](docs/architecture.md) for ownership, persistence and gesture constraints. The [user guide](docs/user-guide.md) and [troubleshooting guide](docs/troubleshooting.md) describe the behavior changes should preserve.
 
-Run `./scripts/gradle.sh :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`. Use disposable emulators for instrumentation. Fixtures that alter Home selection, profiles, widgets, or settings must restore them; never use a personal phone as an instrumentation fixture.
+Run `./scripts/gradle.sh :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`. Use disposable emulators for instrumentation.
+
+Enable the repository's commit hook once per clone so assistant co-author trailers never enter the history:
+
+```sh
+git config core.hooksPath scripts/git-hooks
+```
+
+The `commit-msg` hook silently strips `Co-Authored-By:` lines naming Claude; all other trailers and the rest of the message are untouched. Fixtures that alter Home selection, profiles, widgets, or settings must restore them; never use a personal phone as an instrumentation fixture.
 
 Preserve one-page-per-swipe behavior, native widget scrolling and long-press pickup, placements, widget bindings, and Home-page retention. Keep access optional and explain it at the point of use. Tests should reproduce failures or protect meaningful behavior.
 

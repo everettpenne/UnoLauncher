@@ -69,7 +69,7 @@ internal fun LiquidSliderControl(
         Slider(value, reportChange, modifier, valueRange = valueRange,
             colors = SliderDefaults.colors(
                 thumbColor = Color.White,
-                activeTrackColor = IosOrange,
+                activeTrackColor = LocalWallpaperAccent.current?.accent ?: IosOrange,
                 inactiveTrackColor = IosGrey.copy(alpha = .28f),
                 activeTickColor = Color.Transparent,
                 inactiveTickColor = Color.Transparent))
@@ -115,7 +115,7 @@ internal fun LiquidSliderControl(
         Box(Modifier.fillMaxWidth().height(trackHeight).clip(RoundedCornerShape(percent = 50))
             .background(IosGrey.copy(alpha = .28f)))
         Box(Modifier.fillMaxWidth(progress).height(trackHeight).clip(RoundedCornerShape(percent = 50))
-            .background(IosOrange.copy(alpha = .9f)))
+            .background((LocalWallpaperAccent.current?.accent ?: IosOrange).copy(alpha = .9f)))
         // Thumb: a glass circle over the recorded backdrop.
         Box(Modifier.graphicsLayer {
                 translationX = progress * width - thumbPx / 2f + stretch
@@ -151,7 +151,7 @@ internal fun LiquidSwitchControl(
     val fraction by animateFloatAsState(if (checked) 1f else 0f, label = "switch fraction")
     val interaction = remember { MutableInteractionSource() }
     val pressed by rememberPressProgress(interaction)
-    val trackColor = lerp(IosGrey.copy(alpha = .38f), IosGreen, fraction)
+    val trackColor = lerp(IosGrey.copy(alpha = .38f), LocalWallpaperAccent.current?.accent ?: IosGreen, fraction)
 
     Box(modifier.size(width = trackWidth, height = 31.dp)
         .clickableToggle(interaction, checked, onCheckedChange)

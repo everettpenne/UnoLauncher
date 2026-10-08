@@ -128,10 +128,13 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         val resources = getApplication<Application>().resources
         val iconStyle = IconStyle.fromPreference(getApplication<Application>().getSharedPreferences("extras", 0).getString("iconStyle", null))
         val themedDark = DuoAppearanceRuntime.dark
+        val themedAccent = if (iconStyle == IconStyle.THEMED &&
+            getApplication<Application>().getSharedPreferences("appearance", 0).getBoolean("wallpaperColor", false))
+            runCatching { WallpaperAccents.compute(getApplication(), themedDark) }.getOrNull() else null
         // The icon style and, only while themed, the light/dark palette are part of what an icon looks
         // like, so changing either rebuilds every cached icon.
         val configuration = resources.configuration.let {
-            "${it.densityDpi}|${it.locales.toLanguageTags()}|${it.uiMode}|$iconStyle|${if (iconStyle == IconStyle.THEMED) themedDark else ""}"
+            "${it.densityDpi}|${it.locales.toLanguageTags()}|${it.uiMode}|$iconStyle|${if (iconStyle == IconStyle.THEMED) themedDark else ""}|${themedAccent?.accent?.toArgb() ?: ""}"
         }
         viewModelScope.launch {
             try {
@@ -177,7 +180,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
                             val label = info.label.toString()
                             iconCache[id]?.takeIf { it.label == label && it.available } ?: run {
                                 val icon = runCatching { info.getBadgedIcon(0) }.getOrElse { application.packageManager.defaultActivityIcon }
-                                AppEntry(id, label, launcherIcon(icon, iconStyle, themedDark), component, profile, serial, descriptor.label,
+                                AppEntry(id, label, launcherIcon(icon, iconStyle, themedDark, themedAccent), component, profile, serial, descriptor.label,
                                     descriptor.isWork, available = true).also { iconCache[id] = it }
                             }
                         }
@@ -638,12 +641,13 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
  * Layers are drawn in full and the outside is then cleared through an antialiased mask, rather
  * than hard-clipping, so the curved edge is smooth at every size.
  */
-private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGINAL, dark: Boolean = false): Bitmap {
+private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGINAL, dark: Boolean = false,
+    accent: WallpaperAccent? = null): Bitmap {
     if (drawable !is AdaptiveIconDrawable) return drawable.toBitmap(144, 144)
     val bitmap = Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     drawable.setBounds(0, 0, 144, 144)
-    if (style == IconStyle.THEMED) drawThemed(canvas, drawable, dark)
+    if (style == IconStyle.THEMED) drawThemed(canvas, drawable, dark, accent)
     else {
         drawable.background?.draw(canvas)
         drawable.foreground?.draw(canvas)
@@ -660,12 +664,14 @@ private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGIN
  * ink on its glass colour. Apps without a monochrome layer keep their artwork, turned greyscale and
  * washed with the ink so they sit in the same family instead of staying the one saturated icon.
  */
-private fun drawThemed(canvas: Canvas, drawable: AdaptiveIconDrawable, dark: Boolean) {
+private fun drawThemed(canvas: Canvas, drawable: AdaptiveIconDrawable, dark: Boolean, accent: WallpaperAccent? = null) {
     val palette = if (dark) DarkDuoPalette else LightDuoPalette
-    val ink = palette.ink.toArgb()
+    // With "Color from wallpaper" on, icons take the wallpaper's hue; the colors are chosen for contrast.
+    val ink = (accent?.ink ?: palette.ink).toArgb()
+    val glassArgb = (accent?.glass ?: palette.glass).toArgb()
     val monochrome = if (android.os.Build.VERSION.SDK_INT >= 33) drawable.monochrome else null
     if (monochrome != null) {
-        canvas.drawColor(palette.glass.toArgb())
+        canvas.drawColor(glassArgb)
         monochrome.mutate().apply { setBounds(0, 0, 144, 144); setTint(ink) }.draw(canvas)
         return
     }
@@ -676,7 +682,7 @@ private fun drawThemed(canvas: Canvas, drawable: AdaptiveIconDrawable, dark: Boo
     // Greyscale, then pulled toward the palette's glass colour: most of the artwork's contrast survives, but
     // it sits on a tile of the same family as the monochrome icons rather than a dark-grey slab.
     val keep = .45f
-    val glass = palette.glass.toArgb()
+    val glass = glassArgb
     val lift = 1f - keep
     val grey = android.graphics.ColorMatrix().apply { setSaturation(0f) }
     grey.postConcat(android.graphics.ColorMatrix(floatArrayOf(

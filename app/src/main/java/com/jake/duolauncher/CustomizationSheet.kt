@@ -45,6 +45,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     glassTint: Color = Glass.copy(alpha = .62f),
     settings: GlassSettings = GlassSettings.Default,
     onLiquidGlass: (Boolean) -> Unit = {},
+    onWallpaperColor: (Boolean) -> Unit = {},
     onRefractionHeight: (Float) -> Unit = {},
     onIsland: (Boolean) -> Unit = {},
     onIslandScale: (Float) -> Unit = {},
@@ -147,6 +148,9 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         CustomizationSlider("Chromatic aberration", "${(appearance.refractionChroma * 100).toInt()}%",
                             appearance.refractionChroma, 0f..1f, tag = "chromatic-slider") { onRefractionChroma(it) }
                     }
+                    SettingsSwitch("Color from wallpaper", appearance.wallpaperColor, onWallpaperColor, "wallpaper-color-switch")
+                    Text("Takes one color from your wallpaper and uses it to tint the glass, and for sliders, switches and themed icons. It adapts to light and dark, and keeps text readable. Works with liquid glass on or off.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("Height widens the glass rim the lens bends; amount sets how far the view behind is displaced; chromatic adds the color fringe at the edges. Turn off liquid glass for a flat look or to save battery.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
@@ -322,7 +326,7 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     range: ClosedFloatingPointRange<Float>, tag: String? = null, onChange: (Float) -> Unit) {
     val glass = LocalPageGlass.current
     Column(Modifier.then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
-        Row { Text(label, Modifier.weight(1f)); Text(valueLabel, color = if (glass != null) IosOrange else MaterialTheme.colorScheme.primary) }
+        Row { Text(label, Modifier.weight(1f)); Text(valueLabel, color = if (glass != null) (LocalWallpaperAccent.current?.accent ?: IosOrange) else MaterialTheme.colorScheme.primary) }
         LiquidSliderControl(value, range, onChange, glass, Modifier.semantics { contentDescription = label })
     }
 }

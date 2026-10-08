@@ -243,3 +243,11 @@ Everything below is opt-in or user-arranged, kept in one preference file (`extra
 - **Themed icons** (`drawThemed`): the app's monochrome layer in the palette's ink on its glass colour; apps without one are greyscaled and pulled toward the glass colour. Icons are baked into bitmaps, so a style or light/dark change rebuilds the cache.
 - **Notification access** (`NotificationFeed.kt`): a `NotificationListenerService` that is only bound after the user enables it. All system calls run on a private worker thread. It publishes badge counts (ongoing notifications and group summaries are not counted), the current media session, and a throttled app-name peek. Apps without a launcher icon are invisible to the launcher under Android's package visibility, so they never peek.
 - **Contact search** (`ContactsSearch.kt`): names only, on demand, word-prefix matching (`ContactMatch`), at most five results.
+
+## Color from wallpaper
+
+`WallpaperAccent.kt`: the wallpaper is rendered small exactly as Home draws it (photo or dunes) and Palette picks its vibrant swatch. `AccentMath.derive` then produces three colors of one hue (accent, glass tint, ink), walking lightness until the accent has 3.2:1 contrast and the ink 7.5:1 on the glass, because equal HSL lightness is wildly different in perceived brightness across hues (yellow is the failure case a fixed lightness hits). It is provided as `LocalWallpaperAccent`; glass tint, sliders, switches and themed icons read it, and the icon cache key includes it so icons rebuild when the wallpaper or theme changes.
+
+## Rim light
+
+All glass surfaces take their edge highlight from `GlassRim.Light` (`Highlight.Default` from the glass library): a directional specular rim, brightest where the edge faces an upper-left light and fading opposite, rather than the uniform `Highlight.Plain` outline we used before. Changing the light (angle, intensity, falloff) is a one-line edit there. A tilt-driven angle is possible later because the style takes the angle as a parameter.

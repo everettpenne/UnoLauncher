@@ -79,6 +79,15 @@ internal class PageGlass(val backdrop: Backdrop, val tint: Color, val settings: 
 
 internal val LocalPageGlass = compositionLocalOf<PageGlass?> { null }
 
+/** The rim light every glass surface shares. A uniform rim ([Highlight.Plain]) reads as an outline; this one is a
+ * directional specular highlight, brightest where the edge faces the light (upper left) and fading to a faint
+ * rim opposite, which is what makes the glass read as having thickness. One definition, so the dock, widgets,
+ * panels, sheets, lens and island always agree on where the light is.
+ */
+internal object GlassRim {
+    val Light: Highlight get() = Highlight.Default
+}
+
 /** Liquid-glass surface: vibrancy, blur, and lens refraction over the recorded backdrop,
  * tuned by the three [GlassSettings] knobs so every surface reads as one family.
  */
@@ -102,7 +111,7 @@ internal fun Modifier.liquidGlass(
             chromaticAberration = settings.chromatic > 0.05f,
         )
     },
-    highlight = { Highlight.Plain },
+    highlight = { GlassRim.Light },
     onDrawSurface = { drawRect(tint) },
 )
 
@@ -154,7 +163,10 @@ internal fun GlassModalSheet(
     }
     val shape = Corner.xlarge
     val sheetBackdrop = rememberLayerBackdrop()
-    val sheetSurface = MaterialTheme.colorScheme.surface.copy(alpha = .58f)
+    val accent = LocalWallpaperAccent.current
+    val sheetSurface = MaterialTheme.colorScheme.surface.let { base ->
+        if (accent != null) androidx.compose.ui.graphics.lerp(base, accent.glass, .5f) else base
+    }.copy(alpha = .58f)
     val sheetGlass = PageGlass(sheetBackdrop, sheetSurface, glass.settings)
     ModalBottomSheet(onDismissRequest, modifier, sheetState, shape = shape,
         containerColor = Color.Transparent, contentColor = MaterialTheme.colorScheme.onSurface,
@@ -172,7 +184,7 @@ internal fun GlassModalSheet(
                         depthEffect = true,
                         chromaticAberration = glass.settings.chromatic > 0.05f)
                 },
-                highlight = { Highlight.Plain },
+                highlight = { GlassRim.Light },
                 exportedBackdrop = sheetBackdrop,
                 onDrawSurface = { drawRect(sheetSurface) })
             ) {

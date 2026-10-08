@@ -23,13 +23,8 @@ internal fun FeedSettings(
     onRefresh: () -> Unit,
     onAddFeed: (String, (FeedAddResult) -> Unit) -> Unit,
     onRemoveFeed: (String) -> Unit,
-    onFeedPreferred: (Boolean) -> Unit,
+    onSourceEnabled: (String, Boolean) -> Unit,
 ) {
-    SettingsSwitch("Use my feed instead of Discover", feed.feedPreferred, onFeedPreferred,
-        "feed-preferred-switch")
-    Text("When this is off, Uno Launcher keeps Google Discover where it works and uses your feed automatically on devices without Discover support.",
-        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(if (feed.sources.isEmpty()) "No feeds yet" else "Feeds (${feed.sources.size})",
             Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
@@ -51,6 +46,8 @@ internal fun FeedSettings(
                 Text(source.url, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             }
+            Switch(source.enabled, { onSourceEnabled(source.id, it) }, Modifier.testTag("feed-enabled-${source.id}")
+                .semantics { contentDescription = "Show ${source.label} in the feed" }, colors = IosSwitchColors)
             IconButton(onClick = { onRemoveFeed(source.id) },
                 modifier = Modifier.testTag("feed-remove-${source.id}")
                     .semantics { contentDescription = "Remove ${source.label}" }) {

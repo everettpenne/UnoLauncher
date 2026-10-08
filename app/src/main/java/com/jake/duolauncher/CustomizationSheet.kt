@@ -40,7 +40,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onFeedRefresh: () -> Unit = {},
     onAddFeed: (String, (FeedAddResult) -> Unit) -> Unit = { _, _ -> },
     onRemoveFeed: (String) -> Unit = {},
-    onFeedPreferred: (Boolean) -> Unit = {},
+    onSourceEnabled: (String, Boolean) -> Unit = { _, _ -> },
     glassBackdrop: com.kyant.backdrop.Backdrop? = null,
     glassTint: Color = Glass.copy(alpha = .62f),
     settings: GlassSettings = GlassSettings.Default,
@@ -194,7 +194,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         style = MaterialTheme.typography.bodyMedium)
                 }
                 CustomizationPage.EXTRAS -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps)
-                CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onFeedPreferred)
+                CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onSourceEnabled)
                 CustomizationPage.UPDATES -> UpdatesPanel(updates, onCheckUpdates, onInstallRelease, onAutoUpdate)
                 CustomizationPage.BACKUP -> {
                     Text("Save the current Home layout, folders, widgets, and layout settings.",

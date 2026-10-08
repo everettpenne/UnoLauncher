@@ -660,39 +660,81 @@ private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGIN
     return bitmap
 }
 
-/** Themed icons: the app's own monochrome layer (Android 13+, when the app ships one) in the palette's
- * ink on its glass colour. Apps without a monochrome layer keep their artwork, turned greyscale and
- * washed with the ink so they sit in the same family instead of staying the one saturated icon.
+/** Themed icons, painted as liquid glass. The icon is a translucent tinted tile (lighter at the top, so the
+ * wallpaper reads through it), with a soft glow under the glyph for depth, a specular sheen over the upper
+ * left, and a rim that is bright at the lit corner and fades to the opposite one, matching the directional rim
+ * light on every live glass surface. The glyph is the app's own monochrome layer (Android 13+) in the palette's
+ * ink; apps without one are greyscaled and washed toward the glass color instead.
+ *
+ * It all happens in a bitmap, because icons are drawn as images: there is no per-icon backdrop sampling here,
+ * so this is the look of glass, not live refraction.
  */
 private fun drawThemed(canvas: Canvas, drawable: AdaptiveIconDrawable, dark: Boolean, accent: WallpaperAccent? = null) {
+    val size = 144f
     val palette = if (dark) DarkDuoPalette else LightDuoPalette
     // With "Color from wallpaper" on, icons take the wallpaper's hue; the colors are chosen for contrast.
     val ink = (accent?.ink ?: palette.ink).toArgb()
-    val glassArgb = (accent?.glass ?: palette.glass).toArgb()
+    val glass = (accent?.glass ?: palette.glass).toArgb()
+    fun mix(a: Int, b: Int, t: Float) = android.graphics.Color.argb(255,
+        (android.graphics.Color.red(a) + (android.graphics.Color.red(b) - android.graphics.Color.red(a)) * t).toInt(),
+        (android.graphics.Color.green(a) + (android.graphics.Color.green(b) - android.graphics.Color.green(a)) * t).toInt(),
+        (android.graphics.Color.blue(a) + (android.graphics.Color.blue(b) - android.graphics.Color.blue(a)) * t).toInt())
+    val lit = mix(glass, android.graphics.Color.WHITE, if (dark) .16f else .55f)
+    val deep = mix(glass, android.graphics.Color.BLACK, if (dark) .22f else .10f)
+    val shape = Path().also { Squircle.build(size, size, size * Corner.ICON_FRACTION, AndroidPathSink(it)) }
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+
+    // 1. The tile: translucent glass, brighter toward the light.
+    paint.shader = android.graphics.LinearGradient(0f, 0f, size * .35f, size,
+        withAlpha(lit, 232), withAlpha(deep, 196), android.graphics.Shader.TileMode.CLAMP)
+    canvas.drawPath(shape, paint)
+    paint.shader = null
+
+    // 2. The glyph, on its own layer so it can cast a soft shadow.
+    val glyph = Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888)
+    val glyphCanvas = Canvas(glyph)
     val monochrome = if (android.os.Build.VERSION.SDK_INT >= 33) drawable.monochrome else null
     if (monochrome != null) {
-        canvas.drawColor(glassArgb)
-        monochrome.mutate().apply { setBounds(0, 0, 144, 144); setTint(ink) }.draw(canvas)
-        return
+        monochrome.mutate().apply { setBounds(0, 0, 144, 144); setTint(ink) }.draw(glyphCanvas)
+    } else {
+        // No monochrome layer: the foreground is almost always the glyph on a transparent field, so its
+        // silhouette in the ink color gives the same look as a real monochrome layer.
+        val layer = Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888)
+        drawable.foreground?.draw(Canvas(layer))
+        glyphCanvas.drawBitmap(layer, 0f, 0f, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            colorFilter = android.graphics.PorterDuffColorFilter(ink, android.graphics.PorterDuff.Mode.SRC_IN) })
     }
-    val layer = Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888)
-    val layerCanvas = Canvas(layer)
-    drawable.background?.draw(layerCanvas)
-    drawable.foreground?.draw(layerCanvas)
-    // Greyscale, then pulled toward the palette's glass colour: most of the artwork's contrast survives, but
-    // it sits on a tile of the same family as the monochrome icons rather than a dark-grey slab.
-    val keep = .45f
-    val glass = glassArgb
-    val lift = 1f - keep
-    val grey = android.graphics.ColorMatrix().apply { setSaturation(0f) }
-    grey.postConcat(android.graphics.ColorMatrix(floatArrayOf(
-        keep, 0f, 0f, 0f, android.graphics.Color.red(glass) * lift,
-        0f, keep, 0f, 0f, android.graphics.Color.green(glass) * lift,
-        0f, 0f, keep, 0f, android.graphics.Color.blue(glass) * lift,
-        0f, 0f, 0f, 1f, 0f)))
-    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        colorFilter = android.graphics.ColorMatrixColorFilter(grey)
+    // A blurred, darkened copy offset downward is the shadow (a tiny scale-down and back up is a cheap blur).
+    val soft = Bitmap.createScaledBitmap(Bitmap.createScaledBitmap(glyph, 36, 36, true), 144, 144, true)
+    val shadowPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        colorFilter = android.graphics.PorterDuffColorFilter(withAlpha(deep, 255), android.graphics.PorterDuff.Mode.SRC_IN)
+        alpha = if (dark) 150 else 110
     }
-    canvas.drawColor(glass)
-    canvas.drawBitmap(layer, 0f, 0f, paint)
+    canvas.save(); canvas.clipPath(shape)
+    canvas.drawBitmap(soft, 0f, 4f, shadowPaint)
+    canvas.drawBitmap(glyph, 0f, 0f, null)
+
+    // 3. The sheen: a white wash over the upper left that fades out toward the middle.
+    paint.shader = android.graphics.RadialGradient(size * .2f, size * .1f, size * .85f,
+        intArrayOf(withAlpha(android.graphics.Color.WHITE, if (dark) 70 else 150), withAlpha(android.graphics.Color.WHITE, 0)),
+        floatArrayOf(0f, 1f), android.graphics.Shader.TileMode.CLAMP)
+    canvas.drawRect(0f, 0f, size, size, paint)
+    paint.shader = null
+    canvas.restore()
+
+    // 4. The rim: bright where the light hits, nearly gone on the far side, plus a faint dark inner edge there.
+    paint.style = android.graphics.Paint.Style.STROKE
+    paint.strokeWidth = 3.2f
+    canvas.save(); canvas.translate(0f, 0f)
+    paint.shader = android.graphics.LinearGradient(0f, 0f, size, size,
+        intArrayOf(withAlpha(android.graphics.Color.WHITE, 245), withAlpha(android.graphics.Color.WHITE, 60),
+            withAlpha(android.graphics.Color.WHITE, 120)),
+        floatArrayOf(0f, .55f, 1f), android.graphics.Shader.TileMode.CLAMP)
+    val rim = Path(); val m = android.graphics.Matrix()
+    m.setScale((size - 3.2f) / size, (size - 3.2f) / size, size / 2f, size / 2f)
+    shape.transform(m, rim)
+    canvas.drawPath(rim, paint)
+    canvas.restore()
 }
+
+private fun withAlpha(color: Int, alpha: Int) = (color and 0x00FFFFFF) or (alpha.coerceIn(0, 255) shl 24)

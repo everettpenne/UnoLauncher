@@ -146,7 +146,7 @@ internal fun LauncherScreen(
     onFeedVisible: () -> Unit = {},
     onAddFeed: (String, (FeedAddResult) -> Unit) -> Unit = { _, _ -> },
     onRemoveFeed: (String) -> Unit = {},
-    onFeedPreferred: (Boolean) -> Unit = {},
+    onSourceEnabled: (String, Boolean) -> Unit = { _, _ -> },
     onLiquidGlass: (Boolean) -> Unit = {},
     onWallpaperColor: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
@@ -228,7 +228,8 @@ internal fun LauncherScreen(
         context.packageManager.getLaunchIntentForPackage(DiscoverClient.GOOGLE_PACKAGE) != null
     }
     val discoverAvailable = DiscoverBounds.available && googleInstalled
-    val feedVisible = !discoverAvailable || (feed.configured && feed.feedPreferred)
+    // Google Discover is no longer a default or an option: the feed page always owns the leading slot.
+    val feedVisible = true
     val firstHome = 1
     val pageCount = visibleHomePages + 1
     val nativePager = rememberPagerState(initialPage = savedPage.coerceIn(-firstHome, pageCount - 1) + firstHome, pageCount = { pageCount + firstHome })
@@ -766,7 +767,7 @@ internal fun LauncherScreen(
             }
             if (appearance.island && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen) {
                 DynamicIsland(island, controlGlass, deviceStatus,
-                    feedHeadline = feed.entries.firstOrNull()?.title,
+                    feedHeadline = feed.shownEntries.firstOrNull()?.title,
                     sizeScale = appearance.islandScale,
                     dockWidthPx = with(density) { preset.dockWidth.dp.toPx() },
                     onSearch = { island.collapse(); openLibrary() },
@@ -845,7 +846,7 @@ internal fun LauncherScreen(
                             backgrounds = launcherActivity.backgrounds,
                             onWallpaperPreview = { sheet = ""; onWallpaperPreview() }, homePage = pager.currentPage.coerceIn(0, homePages - 1),
                             feed = feed, onFeedRefresh = onFeedRefresh,
-                            onAddFeed = onAddFeed, onRemoveFeed = onRemoveFeed, onFeedPreferred = onFeedPreferred,
+                            onAddFeed = onAddFeed, onRemoveFeed = onRemoveFeed, onSourceEnabled = onSourceEnabled,
                             // The glass sheet already supplies the surface; no second glass layer.
                             glassBackdrop = null,
                             glassTint = glassTint.copy(alpha = .62f),
@@ -1286,6 +1287,8 @@ internal fun LauncherScreen(
             GlassModalSheet(controlGlass, onDismissRequest = { appMoveMenu = false; selectedId = null },
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                 properties = ModalBottomSheetProperties(shouldDismissOnBackPress = false)) {
+                // The app's own shortcuts load in the background; the sheet is usable immediately and they fill in.
+                val shortcuts by produceState(emptyList<AppShortcut>(), app.id) { value = AppShortcuts.load(launcherActivity, app) }
                 LauncherAppActionSheet(app, pinned, homePages, appMoveMenu, { appMoveMenu = it },
                     onAddOrRemove = { model.setPinned(app.id, !pinned); selectedId = null },
                     onMoveFirst = { model.move(app.id, -maxOf(HOME_CELLS, state.homeSlots.size)); selectedId = null },
@@ -1301,7 +1304,8 @@ internal fun LauncherScreen(
                     }} else null,
                     onCreateFolder = { createFolderFirstId = app.id; selectedId = null },
                     onClose = { appMoveMenu = false; selectedId = null },
-                    onSplit = { splitFirstId = app.id; selectedId = null; sheet = "split" })
+                    onSplit = { splitFirstId = app.id; selectedId = null; sheet = "split" },
+                    shortcuts = shortcuts, onShortcut = { AppShortcuts.start(launcherActivity, it); selectedId = null })
             }
         }
         emptyCellIndex?.let { index ->

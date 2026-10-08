@@ -597,11 +597,14 @@ internal fun LauncherScreen(
                     }
                 },
                 // The right-hand swipe opens the launcher's own control panel; Notifications still use the system shade.
-                onDownwardSwipe = { panel ->
-                    if (panel == ShadePanel.QUICK_SETTINGS && (extras?.store?.state?.rightSwipe ?: RightSwipe.PANEL) == RightSwipe.PANEL) { UnoFeedback.play(Cue.OPEN, haptic); controlPanelOpen = true }
-                    else if (panel == ShadePanel.NOTIFICATIONS && extras?.store?.state?.leftSwipe == LeftSwipe.SEARCH) {
-                        UnoFeedback.play(Cue.OPEN, haptic); spotlightOpen = true
-                    } else launcherActivity.openSystemShade(panel)
+                onDownwardSwipeAt = { panel, startFraction ->
+                    when (PullDownRouting.route(extras?.store?.state?.pullDown ?: PullDown.SMART, panel, startFraction)) {
+                        PullRoute.SEARCH -> { UnoFeedback.play(Cue.OPEN, haptic); spotlightOpen = true }
+                        PullRoute.QUICK_SETTINGS ->
+                            if ((extras?.store?.state?.rightSwipe ?: RightSwipe.PANEL) == RightSwipe.PANEL) { UnoFeedback.play(Cue.OPEN, haptic); controlPanelOpen = true }
+                            else launcherActivity.openSystemShade(ShadePanel.QUICK_SETTINGS)
+                        PullRoute.NOTIFICATIONS -> launcherActivity.openSystemShade(ShadePanel.NOTIFICATIONS)
+                    }
                 },
                 onLeadingOverscroll = if (firstHome == 0) onDiscover else null,
                 ignorePress = { point -> pageStripBounds.contains(point + gestureOriginInRoot) },

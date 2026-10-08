@@ -9,7 +9,7 @@ import androidx.compose.runtime.*
  */
 internal data class ExtrasState(
     val rightSwipe: RightSwipe = RightSwipe.PANEL,
-    val leftSwipe: LeftSwipe = LeftSwipe.NOTIFICATIONS,
+    val pullDown: PullDown = PullDown.SMART,
     val tileOrder: List<PanelTile> = PanelLayout.DEFAULT_ORDER,
     val hiddenTiles: Set<PanelTile> = emptySet(),
     val shortcuts: List<String> = emptyList(),
@@ -33,7 +33,8 @@ internal class ExtrasStore(context: Context) {
     var state by mutableStateOf(load()); private set
 
     private fun load() = ExtrasState(
-        leftSwipe = runCatching { LeftSwipe.valueOf(prefs.getString("leftSwipe", null)!!) }.getOrDefault(LeftSwipe.NOTIFICATIONS),
+        // A new key, so everyone gets the new default rather than a value saved by an earlier version.
+        pullDown = PullDownRouting.migrate(prefs.getString("pullDown", null), prefs.getString("leftSwipe", null)),
         rightSwipe = runCatching { RightSwipe.valueOf(prefs.getString("rightSwipe", null)!!) }.getOrDefault(RightSwipe.PANEL),
         tileOrder = PanelLayout.parseOrder(prefs.getString("tileOrder", null)),
         hiddenTiles = PanelLayout.parseSet(prefs.getString("hiddenTiles", null)),
@@ -56,7 +57,7 @@ internal class ExtrasStore(context: Context) {
     private fun save(next: ExtrasState) {
         prefs.edit()
             .putString("rightSwipe", next.rightSwipe.name)
-            .putString("leftSwipe", next.leftSwipe.name)
+            .putString("pullDown", next.pullDown.name)
             .putString("tileOrder", PanelLayout.serialize(next.tileOrder))
             .putString("hiddenTiles", PanelLayout.serialize(next.hiddenTiles))
             .putString("shortcuts", PanelLayout.serializeIds(next.shortcuts))
@@ -78,7 +79,7 @@ internal class ExtrasStore(context: Context) {
     }
 
     fun setRightSwipe(value: RightSwipe) = save(state.copy(rightSwipe = value))
-    fun setLeftSwipe(value: LeftSwipe) = save(state.copy(leftSwipe = value))
+    fun setPullDown(value: PullDown) = save(state.copy(pullDown = value))
     fun moveTile(tile: PanelTile, delta: Int) = save(state.copy(tileOrder = PanelLayout.move(state.tileOrder, tile, delta)))
     fun setTileHidden(tile: PanelTile, hidden: Boolean) =
         save(state.copy(hiddenTiles = if (hidden) state.hiddenTiles + tile else state.hiddenTiles - tile))

@@ -3,8 +3,32 @@ package com.jake.duolauncher
 /** What the right-hand downward swipe opens. */
 internal enum class RightSwipe { PANEL, SYSTEM }
 
-/** What a pull-down on the left side of Home does. */
-internal enum class LeftSwipe { NOTIFICATIONS, SEARCH }
+/** What pulling down on Home does. SMART is the default and works like iOS: a pull that starts at the top edge opens
+ * notifications (left) or the control panel (right), and a pull that starts anywhere lower opens search.
+ */
+internal enum class PullDown { SMART, NOTIFICATIONS, SEARCH }
+
+/** Where a pull-down on Home should go. */
+internal enum class PullRoute { NOTIFICATIONS, QUICK_SETTINGS, SEARCH }
+
+internal object PullDownRouting {
+    /** A pull that begins in the top part of the gesture area counts as "from the top edge". */
+    const val TOP_ZONE = .22f
+
+    fun route(mode: PullDown, panel: ShadePanel, startFraction: Float): PullRoute {
+        val byColumn = if (panel == ShadePanel.QUICK_SETTINGS) PullRoute.QUICK_SETTINGS else PullRoute.NOTIFICATIONS
+        return when (mode) {
+            PullDown.NOTIFICATIONS -> byColumn
+            // Search replaces the notifications side only; the right-hand panel stays reachable.
+            PullDown.SEARCH -> if (byColumn == PullRoute.NOTIFICATIONS) PullRoute.SEARCH else byColumn
+            PullDown.SMART -> if (startFraction <= TOP_ZONE) byColumn else PullRoute.SEARCH
+        }
+    }
+
+    /** Old installs stored LeftSwipe; keep a choice of Search, otherwise start on the new default. */
+    fun migrate(newValue: String?, oldValue: String?): PullDown =
+        runCatching { PullDown.valueOf(newValue!!) }.getOrNull() ?: if (oldValue == "SEARCH") PullDown.SEARCH else PullDown.SMART
+}
 
 /** How app icons are drawn: as shipped, or recoloured to the launcher's palette where the app allows. */
 internal enum class IconStyle {

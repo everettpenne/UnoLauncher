@@ -19,6 +19,8 @@ internal enum class Cue(val haptic: HapticFeedbackType?, val sound: Int?) {
     TOGGLE(HapticFeedbackType.ContextClick, AudioManager.FX_KEYPRESS_RETURN),
     /** An app is launching. */
     LAUNCH(HapticFeedbackType.ContextClick, null),
+    /** A keyboard key. */
+    KEY(HapticFeedbackType.TextHandleMove, AudioManager.FX_KEYPRESS_STANDARD),
     /** A finished timer, a confirmation. */
     CONFIRM(HapticFeedbackType.Confirm, AudioManager.FX_KEYPRESS_RETURN),
 }
@@ -49,6 +51,7 @@ internal object UnoFeedback {
     fun play(cue: Cue, view: android.view.View) {
         val (feels, sounds) = plays(cue, hapticsOn, soundsOn)
         if (feels) view.performHapticFeedback(when (cue) {
+            Cue.KEY -> android.view.HapticFeedbackConstants.KEYBOARD_TAP
             Cue.TICK, Cue.PAGE, Cue.OPEN -> android.view.HapticFeedbackConstants.CLOCK_TICK
             Cue.TOGGLE, Cue.LAUNCH -> android.view.HapticFeedbackConstants.CONTEXT_CLICK
             Cue.CONFIRM -> android.view.HapticFeedbackConstants.CONFIRM

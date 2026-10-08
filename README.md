@@ -55,11 +55,11 @@ Normal beta updates install over the existing beta with the same signing key. Un
 | Add to the dock | Drag into a vacancy; move an app out first when the dock is full |
 | Scroll a widget | Swipe vertically inside its content; hold still to pick it up |
 | Customize | Long press empty Home space or the wallpaper margin beside the grid |
-| Notifications | Swipe down from Home's left 70%, after enabling optional shade gestures |
-| Search | Island > Search, no installed match? it suggests F-Droid, Aurora and a web search in the app you pick; or or choose the left-hand pull-down in Customize: apps, contacts, answers and feeds in one box |
+| Notifications | Pull down from the top edge of Home, on the left (needs the optional shade gestures) |
+| Search | Pull down from anywhere below the top edge of Home, or Island > Search: apps, contacts, answers and feeds in one box. No installed match? It suggests F-Droid, Aurora and a web search in the app you pick |
 | Widget stacks | Long-press a widget > **Stack another widget here** |
 | Split screen | Long-press an app, **Open in split screen**, then pick the second app |
-| Control panel | Swipe down from Home's right 30%: media, volume, brightness, ringer, flashlight, and a hand-off to Android's Quick Settings. Needs no accessibility service |
+| Control panel | Pull down from the top edge of Home, on the right 30%: media, volume, brightness, ringer, flashlight, and a hand-off to Android's Quick Settings. Needs no accessibility service |
 
 The surrounding status ring shows battery, the inner arcs show Wi-Fi strength, and the lower dots show cellular strength. Unknown readings are not displayed as full signal. This rail applies to Home only.
 
@@ -74,6 +74,7 @@ No launcher account, server, advertising, analytics, or automatic crash-upload s
 - **Photos:** the system picker grants access to chosen images, without whole-library access.
 - **Google features:** the installed Google app's account, network, and privacy settings apply.
 
+- **Keyboard:** Uno Keyboard is optional and local (no network code, nothing stored or learned); it has no autocorrect or prediction yet.
 - **Optional grants, all off until you use the feature:** notification access (badges, track titles, island peek), contacts (search), "Modify system settings" (brightness slider), Do Not Disturb access (Silent), and exact alarms (to-the-second timer). Declining any of them only turns off the one feature.
 
 Read [data and permissions](PRIVACY.md) before sharing backups or diagnostics.

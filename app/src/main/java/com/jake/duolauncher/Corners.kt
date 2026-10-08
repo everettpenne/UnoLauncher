@@ -147,7 +147,7 @@ internal object Corner {
 internal val IosSwitchColors: androidx.compose.material3.SwitchColors
     @androidx.compose.runtime.Composable get() = androidx.compose.material3.SwitchDefaults.colors(
         checkedThumbColor = androidx.compose.ui.graphics.Color.White,
-        checkedTrackColor = androidx.compose.ui.graphics.Color(0xFF34C759),
+        checkedTrackColor = LocalWallpaperAccent.current?.accent ?: androidx.compose.ui.graphics.Color(0xFF34C759),
         checkedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
         uncheckedThumbColor = androidx.compose.ui.graphics.Color.White,
         uncheckedTrackColor = androidx.compose.ui.graphics.Color(0xFF787880).copy(alpha = .4f),

@@ -42,7 +42,7 @@ internal fun Modifier.glassLens(
             chromaticAberration = settings.chromatic > 0.05f,
         )
     },
-    highlight = { Highlight.Plain },
+    highlight = { GlassRim.Light },
     layerBlock = {
         val grown = 1f + .14f * lift.coerceIn(0f, 1f)
         scaleX = grown

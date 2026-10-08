@@ -148,6 +148,7 @@ internal fun LauncherScreen(
     onRemoveFeed: (String) -> Unit = {},
     onFeedPreferred: (Boolean) -> Unit = {},
     onLiquidGlass: (Boolean) -> Unit = {},
+    onWallpaperColor: (Boolean) -> Unit = {},
     island: IslandState = IslandState(),
     onIsland: (Boolean) -> Unit = {},
     onIslandScale: (Float) -> Unit = {},
@@ -350,7 +351,8 @@ internal fun LauncherScreen(
     val iconStyleNow = extras?.store?.state?.iconStyle ?: IconStyle.ORIGINAL
     val themedDarkNow = iconStyleNow == IconStyle.THEMED && appearance.dark
     var iconsSeeded by remember { mutableStateOf(false) }
-    LaunchedEffect(iconStyleNow, themedDarkNow) { if (iconsSeeded) model.refresh() else iconsSeeded = true }
+    val accentKey = if (iconStyleNow == IconStyle.THEMED && appearance.wallpaperColor) LauncherBackgroundCache.revision.intValue else -1
+    LaunchedEffect(iconStyleNow, themedDarkNow, accentKey) { if (iconsSeeded) model.refresh() else iconsSeeded = true }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { controlPanelOpen = false }
     BackHandler(enabled = controlPanelOpen) { controlPanelOpen = false }
     BackHandler(enabled = sheet == "widgets") { widgetPickerBack() }
@@ -480,7 +482,11 @@ internal fun LauncherScreen(
         val homeBackdrop = rememberHomeBackdrop()
         val glassEnabled = appearance.liquidGlass
         val glassSettings = GlassSettings(appearance.refractionHeight, appearance.refractionAmount, appearance.refractionChroma)
-        val glassTint = if (glassEnabled) rememberGlassTint(Glass) else Glass
+        // With "Color from wallpaper" on, the glass takes the wallpaper's hue as well as the muted palette tint.
+        val wallpaperAccent = LocalWallpaperAccent.current
+        val glassTint = (if (glassEnabled) rememberGlassTint(Glass) else Glass).let { base ->
+            if (wallpaperAccent != null) androidx.compose.ui.graphics.lerp(base, wallpaperAccent.glass, .6f) else base
+        }
         val pageGlass = remember(glassEnabled, homeBackdrop, glassTint, glassSettings) {
             if (glassEnabled) PageGlass(homeBackdrop.wallpaper, glassTint, glassSettings) else null
         }
@@ -770,18 +776,6 @@ internal fun LauncherScreen(
                     if (deviceStatus.charging == true) island.showCharging(deviceStatus.battery)
                 }
             }
-            androidx.compose.animation.AnimatedVisibility(controlPanelOpen,
-                enter = androidx.compose.animation.slideInVertically { -it / 2 } + androidx.compose.animation.fadeIn(),
-                exit = androidx.compose.animation.slideOutVertically { -it / 2 } + androidx.compose.animation.fadeOut()) {
-                ControlPanel(controlGlass, extras?.store?.state ?: ExtrasState(), state.apps,
-                    onToggleFocus = { extras?.toggleFocus?.invoke() },
-                    onLaunchApp = { app -> controlPanelOpen = false; onLaunch(app) },
-                    onCustomize = { controlPanelOpen = false; customizationPage = CustomizationPage.EXTRAS; sheet = "settings" },
-                    onDismiss = { controlPanelOpen = false }, onSystemSettings = {
-                    controlPanelOpen = false
-                    launcherActivity.openSystemShade(ShadePanel.QUICK_SETTINGS)
-                })
-            }
             if (sheet.isNotEmpty() && sheet != "widgets") {
                 val activeCustomizationPage = if (sheet == "settings:wallpaper") CustomizationPage.WALLPAPER else customizationPage
                 GlassModalSheet(controlGlass, onDismissRequest = {
@@ -833,6 +827,7 @@ internal fun LauncherScreen(
                             onAppearanceClear = onAppearanceClear,
                             onShadeSetup = { sheet = ""; onShadeSetup() },
                             extras = extras,
+                            onWallpaperColor = onWallpaperColor,
                             backgrounds = launcherActivity.backgrounds,
                             onWallpaperPreview = { sheet = ""; onWallpaperPreview() }, homePage = pager.currentPage.coerceIn(0, homePages - 1),
                             feed = feed, onFeedRefresh = onFeedRefresh,
@@ -1143,6 +1138,21 @@ internal fun LauncherScreen(
                         color = Glass, shape = Corner.medium) { Text(message, Modifier.padding(16.dp), color = Ink) }
                 }
             }
+        }
+        // The control panel lives out here, beside the inset-padded Home content, so its dimming layer covers the whole
+        // window. Inside that content it stopped at the status and navigation bars, leaving two undimmed strips that
+        // read as the edges of a panel behind the glass; the panel itself applies the safe-area padding.
+        androidx.compose.animation.AnimatedVisibility(controlPanelOpen,
+            enter = androidx.compose.animation.slideInVertically { -it / 2 } + androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.slideOutVertically { -it / 2 } + androidx.compose.animation.fadeOut()) {
+            ControlPanel(controlGlass, extras?.store?.state ?: ExtrasState(), state.apps,
+                onToggleFocus = { extras?.toggleFocus?.invoke() },
+                onLaunchApp = { app -> controlPanelOpen = false; onLaunch(app) },
+                onCustomize = { controlPanelOpen = false; customizationPage = CustomizationPage.EXTRAS; sheet = "settings" },
+                onDismiss = { controlPanelOpen = false }, onSystemSettings = {
+                controlPanelOpen = false
+                launcherActivity.openSystemShade(ShadePanel.QUICK_SETTINGS)
+            })
         }
         if (drag.active) {
             if (drag.moved) {

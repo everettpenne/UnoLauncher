@@ -68,7 +68,11 @@ internal fun ControlPanel(
     val haptic = LocalHapticFeedback.current
     val tick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
     val shape = Corner.xlarge
-    val surface = MaterialTheme.colorScheme.surface.copy(alpha = .58f)
+    // The panel's surface takes the wallpaper hue too when "Color from wallpaper" is on, like every other glass surface.
+    val accent = LocalWallpaperAccent.current
+    val surface = MaterialTheme.colorScheme.surface.let { base ->
+        if (accent != null) androidx.compose.ui.graphics.lerp(base, accent.glass, .5f) else base
+    }.copy(alpha = .58f)
     val ink = MaterialTheme.colorScheme.onSurface
     val panelBackdrop = rememberLayerBackdrop()
     val panelGlass = glass?.let { PageGlass(panelBackdrop, surface, it.settings) }
@@ -146,7 +150,7 @@ internal fun ControlPanel(
                 onDragEnd = { if (travelled < -48.dp.toPx()) onDismiss() }) { _, amount -> travelled += amount }
         }.testTag("control-panel-scrim"),
         contentAlignment = Alignment.TopCenter) {
-        Column(Modifier.padding(horizontal = 12.dp).padding(top = 8.dp).widthIn(max = 460.dp).fillMaxWidth()
+        Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 12.dp).padding(top = 8.dp).widthIn(max = 460.dp).fillMaxWidth()
             .clickable(interactionSource = noRipple, indication = null) {} // taps on the panel don't dismiss it
             .then(if (glass != null) Modifier.drawBackdrop(
                 backdrop = glass.backdrop,
@@ -158,7 +162,7 @@ internal fun ControlPanel(
                         lerp(16f, 132f, glass.settings.amount).dp.toPx(),
                         depthEffect = true, chromaticAberration = glass.settings.chromatic > 0.05f)
                 },
-                highlight = { Highlight.Plain },
+                highlight = { GlassRim.Light },
                 exportedBackdrop = panelBackdrop,
                 onDrawSurface = { drawRect(surface) })
             else Modifier.background(MaterialTheme.colorScheme.surface, shape))

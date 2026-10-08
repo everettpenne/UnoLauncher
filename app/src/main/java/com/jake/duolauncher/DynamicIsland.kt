@@ -171,7 +171,7 @@ private fun Modifier.islandBody(
                 chromaticAberration = settings.chromatic > 0.05f,
             )
         },
-        highlight = { Highlight.Plain },
+        highlight = { GlassRim.Light },
         onDrawSurface = {
             drawRect(Color.Black.copy(alpha = .55f))
             val rim = rimWidth.toPx()

@@ -123,7 +123,8 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null && intent.getStringExtra("duo_destination") == "search") searchRequests.intValue++
         intent.removeExtra("duo_destination")
         setContent {
-            TiltHighlight(enabled = appearance.state.tiltHighlight && appearance.state.liquidGlass)
+            TiltHighlight(enabled = appearance.state.tiltHighlight && appearance.state.liquidGlass,
+                strength = appearance.state.tiltStrength)
             val rawState = model.state.collectAsStateWithLifecycle().value
             val extrasState = extrasStore.state
             // Focus hides apps at the last moment, so the saved layout and the model never change.
@@ -160,6 +161,7 @@ class MainActivity : ComponentActivity() {
                     onLiquidGlass = appearance::setLiquidGlass,
                     onWallpaperColor = appearance::setWallpaperColor,
                     onTiltHighlight = appearance::setTiltHighlight,
+                    onTiltStrength = appearance::setTiltStrength,
                     island = island,
                     onIsland = appearance::setIsland,
                     updates = updates.state.collectAsStateWithLifecycle().value,

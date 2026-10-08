@@ -19,7 +19,8 @@ data class AppearanceState(val mode: AppearanceMode = AppearanceMode.LIGHT, val 
     val locationStatus: String? = null, val liquidGlass: Boolean = true, val island: Boolean = true,
     val islandScale: Float = .5f,
     val refractionHeight: Float = .55f, val refractionAmount: Float = .55f, val refractionChroma: Float = 0f,
-    val wallpaperColor: Boolean = false, val tiltHighlight: Boolean = false)
+    val wallpaperColor: Boolean = false, val tiltHighlight: Boolean = false,
+    val tiltStrength: Float = DEFAULT_STRENGTH)
 
 class AppearanceStore(private val context: Context) {
     private val prefs = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
@@ -43,6 +44,7 @@ class AppearanceStore(private val context: Context) {
                 .getOrDefault(if (legacyRefraction >= .5f) legacyRefraction else 0f).coerceIn(0f, 1f),
             wallpaperColor = runCatching { prefs.getBoolean("wallpaperColor", false) }.getOrDefault(false),
             tiltHighlight = runCatching { prefs.getBoolean("tiltHighlight", false) }.getOrDefault(false),
+            tiltStrength = runCatching { prefs.getFloat("tiltStrength", DEFAULT_STRENGTH) }.getOrDefault(DEFAULT_STRENGTH).coerceIn(0f, 1f),
             island = runCatching { prefs.getBoolean("island", true) }.getOrDefault(true),
             islandScale = runCatching { prefs.getFloat("islandScale", .5f) }.getOrDefault(.5f).coerceIn(0f, 1f)), systemDark)
     }
@@ -50,6 +52,7 @@ class AppearanceStore(private val context: Context) {
     fun setLiquidGlass(value: Boolean) { save(state.copy(liquidGlass = value), currentSystemDark()) }
     fun setWallpaperColor(value: Boolean) { save(state.copy(wallpaperColor = value), currentSystemDark()) }
     fun setTiltHighlight(value: Boolean) { save(state.copy(tiltHighlight = value), currentSystemDark()) }
+    fun setTiltStrength(value: Float) { save(state.copy(tiltStrength = value.coerceIn(0f, 1f)), currentSystemDark()) }
     fun setIsland(value: Boolean) { save(state.copy(island = value), currentSystemDark()) }
     fun setIslandScale(value: Float) { save(state.copy(islandScale = value.coerceIn(0f, 1f)), currentSystemDark()) }
     fun setRefractionHeight(value: Float) { save(state.copy(refractionHeight = value.coerceIn(0f, 1f)), currentSystemDark()) }
@@ -80,7 +83,7 @@ class AppearanceStore(private val context: Context) {
             .putFloat("refractionHeight", value.refractionHeight)
             .putFloat("refractionAmount", value.refractionAmount)
             .putFloat("refractionChroma", value.refractionChroma).putBoolean("island", value.island)
-            .putBoolean("wallpaperColor", value.wallpaperColor).putBoolean("tiltHighlight", value.tiltHighlight)
+            .putBoolean("wallpaperColor", value.wallpaperColor).putBoolean("tiltHighlight", value.tiltHighlight).putFloat("tiltStrength", value.tiltStrength)
             .putFloat("islandScale", value.islandScale).apply()
         state = resolve(value, systemDark)
         DuoAppearanceRuntime.dark = state.dark

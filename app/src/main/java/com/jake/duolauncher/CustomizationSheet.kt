@@ -47,6 +47,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onLiquidGlass: (Boolean) -> Unit = {},
     onWallpaperColor: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
+    onTiltStrength: (Float) -> Unit = {},
     onRefractionHeight: (Float) -> Unit = {},
     onIsland: (Boolean) -> Unit = {},
     onIslandScale: (Float) -> Unit = {},
@@ -153,6 +154,18 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         SettingsSwitch("Tilt-following highlight", appearance.tiltHighlight, onTiltHighlight, "tilt-highlight-switch")
                         Text("The glass edge light stays put in the room as you tilt the phone, so the shine moves across the glass. It reads the motion sensor only while Home is on screen. Off by default.",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (appearance.tiltHighlight) {
+                            CustomizationSlider("Tilt strength", "${(appearance.tiltStrength * 100).toInt()}%",
+                                appearance.tiltStrength, 0f..1f, tag = "tilt-strength-slider") { onTiltStrength(it) }
+                            Text("Higher swings the light further for each degree you tilt and makes the rim brighter and thicker.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            // Live readout, so you can tell whether the sensor reaches the launcher at all.
+                            val samples = GlassRim.samples.intValue
+                            Text(if (samples == 0) "No motion readings yet. If you use GrapheneOS, allow Sensors for Uno Launcher in its app settings."
+                                else "Motion sensor working. Light angle ${GlassRim.angle.toInt()}\u00B0 (45\u00B0 when upright).",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("tilt-readout"))
+                        }
                     }
                     SettingsSwitch("Color from wallpaper", appearance.wallpaperColor, onWallpaperColor, "wallpaper-color-switch")
                     Text("Takes one color from your wallpaper and uses it to tint the glass, and for sliders, switches and themed icons. It adapts to light and dark, and keeps text readable. Works with liquid glass on or off.",

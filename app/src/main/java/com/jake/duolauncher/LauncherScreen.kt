@@ -149,6 +149,7 @@ internal fun LauncherScreen(
     onFeedPreferred: (Boolean) -> Unit = {},
     onLiquidGlass: (Boolean) -> Unit = {},
     onWallpaperColor: (Boolean) -> Unit = {},
+    onTiltHighlight: (Boolean) -> Unit = {},
     island: IslandState = IslandState(),
     onIsland: (Boolean) -> Unit = {},
     onIslandScale: (Float) -> Unit = {},
@@ -184,6 +185,8 @@ internal fun LauncherScreen(
     LaunchedEffect(selectedId) { if (selectedId == null) appMoveMenu = false }
     LaunchedEffect(sheet) { if (sheet.isEmpty()) customizationPage = CustomizationPage.OVERVIEW }
     var openFolderId by rememberSaveable { mutableStateOf<String?>(null) }
+    // The app a split screen is being set up for; the picker then chooses the one beside it.
+    var splitFirstId by rememberSaveable { mutableStateOf<String?>(null) }
     var createFolderFirstId by rememberSaveable { mutableStateOf<String?>(null) }
     var savedPage by rememberSaveable { mutableIntStateOf(0) }
     var lastHomePage by rememberSaveable { mutableIntStateOf(0) }
@@ -805,6 +808,14 @@ internal fun LauncherScreen(
                             onLongClick = { selectedId = it.id; sheet = "" },
                             canSelect = { canPlaceInDock(state.layout, it.id) },
                             blockedHint = if (state.dock.none { it == null }) "Dock full • Move an app out first" else null)
+                        "split" -> {
+                            val first = splitFirstId?.let(appsById::get)
+                            if (first == null) LaunchedEffect(Unit) { sheet = "" }
+                            else AppPicker(state.apps.filter { it.id != first.id }, null,
+                                onSelect = { second -> sheet = ""; splitFirstId = null; launcherActivity.launchSplit(first, second) },
+                                onClear = {}, onLongClick = {},
+                                title = "Open ${first.label} with…")
+                        }
                         "pins" -> Column(Modifier.fillMaxHeight(.9f).imePadding()) {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.End) {
                                 TextButton(onClick = { sheet = "" }) { Text("Done") }
@@ -828,6 +839,7 @@ internal fun LauncherScreen(
                             onShadeSetup = { sheet = ""; onShadeSetup() },
                             extras = extras,
                             onWallpaperColor = onWallpaperColor,
+                            onTiltHighlight = onTiltHighlight,
                             backgrounds = launcherActivity.backgrounds,
                             onWallpaperPreview = { sheet = ""; onWallpaperPreview() }, homePage = pager.currentPage.coerceIn(0, homePages - 1),
                             feed = feed, onFeedRefresh = onFeedRefresh,
@@ -1286,7 +1298,8 @@ internal fun LauncherScreen(
                         widgetProfileSerial = app.userSerial; selectedId = null; sheet = "widgets"
                     }} else null,
                     onCreateFolder = { createFolderFirstId = app.id; selectedId = null },
-                    onClose = { appMoveMenu = false; selectedId = null })
+                    onClose = { appMoveMenu = false; selectedId = null },
+                    onSplit = { splitFirstId = app.id; selectedId = null; sheet = "split" })
             }
         }
         emptyCellIndex?.let { index ->
@@ -2076,11 +2089,12 @@ private fun MovableWidget(id: Int, slot: Int, controller: WidgetController, drag
 
 @Composable
 private fun AppPicker(apps: List<AppEntry>, dockSlot: Int?, onSelect: (AppEntry) -> Unit, onClear: () -> Unit,
-    onLongClick: (AppEntry) -> Unit, canSelect: (AppEntry) -> Boolean = { true }, blockedHint: String? = null) {
+    onLongClick: (AppEntry) -> Unit, canSelect: (AppEntry) -> Boolean = { true }, blockedHint: String? = null,
+    title: String? = null) {
     var query by rememberSaveable { mutableStateOf("") }
     val filtered = remember(apps, query) { apps.filter { it.label.contains(query.trim(), ignoreCase = true) } }
     Column(Modifier.fillMaxWidth().fillMaxHeight(.88f).padding(horizontal = 20.dp).imePadding()) {
-        Text(if (dockSlot == null) "Your apps" else "Dock position ${dockSlot + 1}", style = MaterialTheme.typography.headlineSmall)
+        Text(title ?: if (dockSlot == null) "Your apps" else "Dock position ${dockSlot + 1}", style = MaterialTheme.typography.headlineSmall)
         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(vertical = 16.dp).testTag("search-field"),
             placeholder = { Text("Search apps") }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, singleLine = true,
             trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search") } }, shape = Corner.medium)

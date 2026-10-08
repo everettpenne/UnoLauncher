@@ -52,7 +52,7 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
     moving: Boolean, onMoving: (Boolean) -> Unit,
     onAddOrRemove: () -> Unit, onMoveFirst: () -> Unit, onMoveEarlier: () -> Unit, onMoveLater: () -> Unit,
     onMovePage: (Int) -> Unit, onInfo: () -> Unit, onWidgets: (() -> Unit)?, onCreateFolder: () -> Unit,
-    onClose: () -> Unit) {
+    onClose: () -> Unit, onSplit: (() -> Unit)? = null) {
     ModalDialogBackHandler { if (moving) onMoving(false) else onClose() }
     val maxHeight = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * .88f).toDp() }
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
@@ -78,6 +78,7 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
             if (placed) ActionRow(Icons.Rounded.DragIndicator, "Move on Home", { onMoving(true) })
             else ActionRow(Icons.Rounded.Home, "Add to Home", onAddOrRemove)
             onWidgets?.let { ActionRow(Icons.Rounded.Widgets, "Widgets", it) }
+            onSplit?.let { ActionRow(Icons.Rounded.VerticalSplit, "Open in split screen", it, Modifier.testTag("app-split-${app.id}")) }
             ActionRow(Icons.Rounded.CreateNewFolder, "Create folder", onCreateFolder)
             ActionRow(Icons.Rounded.Info, "App info", onInfo)
             if (placed) {

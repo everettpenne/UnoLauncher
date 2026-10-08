@@ -26,6 +26,7 @@ Each of these is off by default, asks only when you turn on the feature that nee
 - **Do Not Disturb access** (Silent in the ringer selector). Android ties Silent to Do Not Disturb; used only when you tap Silent.
 - **Exact alarms** (island timer). Lets the timer end to the second with Home closed. Without it the timer ends within about a minute.
 - **Vibrate** (island timer buzz), and a timer alarm that rings the default alarm sound.
+- **Motion sensor** (tilt-following highlight, off by default). Gravity or the accelerometer is read at a low rate, only while Home is on screen and only when you turn the setting on; readings are never stored or sent. GrapheneOS's per-app Sensors toggle applies.
 - **Flashlight, volume, ringer and media keys** use Android APIs that need no permission.
 
 Android controls widget-binding approval and Home-app selection. Providers can require separate setup or permissions.

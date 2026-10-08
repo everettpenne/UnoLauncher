@@ -56,6 +56,7 @@ Normal beta updates install over the existing beta with the same signing key. Un
 | Scroll a widget | Swipe vertically inside its content; hold still to pick it up |
 | Customize | Long press empty Home space or the wallpaper margin beside the grid |
 | Notifications | Swipe down from Home's left 70%, after enabling optional shade gestures |
+| Split screen | Long-press an app, **Open in split screen**, then pick the second app |
 | Control panel | Swipe down from Home's right 30%: media, volume, brightness, ringer, flashlight, and a hand-off to Android's Quick Settings. Needs no accessibility service |
 
 The surrounding status ring shows battery, the inner arcs show Wi-Fi strength, and the lower dots show cellular strength. Unknown readings are not displayed as full signal. This rail applies to Home only.

@@ -46,6 +46,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     settings: GlassSettings = GlassSettings.Default,
     onLiquidGlass: (Boolean) -> Unit = {},
     onWallpaperColor: (Boolean) -> Unit = {},
+    onTiltHighlight: (Boolean) -> Unit = {},
     onRefractionHeight: (Float) -> Unit = {},
     onIsland: (Boolean) -> Unit = {},
     onIslandScale: (Float) -> Unit = {},
@@ -147,6 +148,11 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                             appearance.refractionAmount, 0f..1f, tag = "refraction-amount-slider") { onRefractionAmount(it) }
                         CustomizationSlider("Chromatic aberration", "${(appearance.refractionChroma * 100).toInt()}%",
                             appearance.refractionChroma, 0f..1f, tag = "chromatic-slider") { onRefractionChroma(it) }
+                    }
+                    if (appearance.liquidGlass) {
+                        SettingsSwitch("Tilt-following highlight", appearance.tiltHighlight, onTiltHighlight, "tilt-highlight-switch")
+                        Text("The glass edge light stays put in the room as you tilt the phone, so the shine moves across the glass. It reads the motion sensor only while Home is on screen. Off by default.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     SettingsSwitch("Color from wallpaper", appearance.wallpaperColor, onWallpaperColor, "wallpaper-color-switch")
                     Text("Takes one color from your wallpaper and uses it to tint the glass, and for sliders, switches and themed icons. It adapts to light and dark, and keeps text readable. Works with liquid glass on or off.",

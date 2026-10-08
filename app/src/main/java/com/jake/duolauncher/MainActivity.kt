@@ -123,6 +123,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null && intent.getStringExtra("duo_destination") == "search") searchRequests.intValue++
         intent.removeExtra("duo_destination")
         setContent {
+            TiltHighlight(enabled = appearance.state.tiltHighlight && appearance.state.liquidGlass)
             val rawState = model.state.collectAsStateWithLifecycle().value
             val extrasState = extrasStore.state
             // Focus hides apps at the last moment, so the saved layout and the model never change.
@@ -158,6 +159,7 @@ class MainActivity : ComponentActivity() {
                     onFeedPreferred = feeds::setPreferred,
                     onLiquidGlass = appearance::setLiquidGlass,
                     onWallpaperColor = appearance::setWallpaperColor,
+                    onTiltHighlight = appearance::setTiltHighlight,
                     island = island,
                     onIsland = appearance::setIsland,
                     updates = updates.state.collectAsStateWithLifecycle().value,
@@ -190,6 +192,8 @@ class MainActivity : ComponentActivity() {
         appearance.refresh(systemDark())
     }
     override fun onStop() {
+        // The first app of a split is now in front; give it a beat to settle, then open the second beside it.
+        if (pendingSplitSecond != null) { splitHandler.removeCallbacks(openSplitSecond); splitHandler.postDelayed(openSplitSecond, SPLIT_SETTLE_MS) }
         if (timeReceiverRegistered) { unregisterReceiver(timeReceiver); timeReceiverRegistered = false }
         widgets.host.stopListening(); super.onStop()
     }
@@ -309,6 +313,44 @@ class MainActivity : ComponentActivity() {
                 ?: throw IllegalStateException("Profile is unavailable")
             getSystemService(LauncherApps::class.java).startMainActivity(app.component, user, screenBounds(bounds), launchOptions(bounds))
         } catch (_: Exception) { Toast.makeText(this, "${app.label} is unavailable.", Toast.LENGTH_SHORT).show(); model.refresh() }
+    }
+
+    private var pendingSplitSecond: AppEntry? = null
+    private val splitHandler by lazy { android.os.Handler(mainLooper) }
+    private val openSplitSecond = Runnable { openPendingSplitSecond() }
+
+    /** Opens [first], then [second] beside it, stacked top and bottom on a phone (Android picks the arrangement).
+     * No accessibility service is involved: the second launch carries `FLAG_ACTIVITY_LAUNCH_ADJACENT`, which asks
+     * the system to place it next to the app already in front. That only works once [first] is actually in
+     * front, and launching both in one call does not (the first lands hidden behind), so the second waits
+     * until this launcher has left the screen, with a timeout in case it never does.
+     *
+     * Work-profile apps cannot be the second app: only the launcher-apps service can start them, and it cannot
+     * set launch flags. They can still be the first.
+     */
+    internal fun launchSplit(first: AppEntry, second: AppEntry) {
+        if (second.userSerial != personalUserSerial()) {
+            Toast.makeText(this, "${second.label} is a work app, which can't be the second app in split screen yet.",
+                Toast.LENGTH_LONG).show()
+            return
+        }
+        pendingSplitSecond = second
+        launchApp(first)
+        splitHandler.removeCallbacks(openSplitSecond)
+        splitHandler.postDelayed(openSplitSecond, SPLIT_FALLBACK_MS)
+    }
+
+    private fun personalUserSerial() = getSystemService(UserManager::class.java).getSerialNumberForUser(android.os.Process.myUserHandle())
+
+    private fun openPendingSplitSecond() {
+        val second = pendingSplitSecond ?: return
+        pendingSplitSecond = null
+        splitHandler.removeCallbacks(openSplitSecond)
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(second.component)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT)
+        runCatching { startActivity(intent) }.onFailure {
+            Toast.makeText(this, "${second.label} couldn't open beside it.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun screenBounds(bounds: android.graphics.Rect?): android.graphics.Rect? = bounds?.takeUnless { it.isEmpty }?.let {
@@ -485,5 +527,7 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val SHADE_DIALOG_VISIBLE = "duo.shade.dialog_visible"
         const val SHADE_SETTINGS_PENDING = "duo.shade.settings_pending"
+        const val SPLIT_FALLBACK_MS = 2_500L
+        const val SPLIT_SETTLE_MS = 250L
     }
 }

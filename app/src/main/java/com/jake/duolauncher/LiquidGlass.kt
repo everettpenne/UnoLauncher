@@ -85,7 +85,16 @@ internal val LocalPageGlass = compositionLocalOf<PageGlass?> { null }
  * panels, sheets, lens and island always agree on where the light is.
  */
 internal object GlassRim {
-    val Light: Highlight get() = Highlight.Default
+    /** Light direction in degrees (45 is the upper left). Moved by [TiltHighlight] when tilt-following is on; it is
+     * snapshot state, so only the drawing of glass surfaces re-runs when it changes, not their composition.
+     */
+    private val angleState = androidx.compose.runtime.mutableFloatStateOf(TiltMath.BASE_ANGLE)
+    var angle: Float
+        get() = angleState.floatValue
+        set(value) { angleState.floatValue = value }
+
+    val Light: Highlight
+        get() = Highlight.Default.copy(style = com.kyant.backdrop.highlight.HighlightStyle.Default(angle = angle))
 }
 
 /** Liquid-glass surface: vibrancy, blur, and lens refraction over the recorded backdrop,

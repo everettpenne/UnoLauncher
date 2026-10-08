@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
  */
 internal data class ExtrasState(
     val rightSwipe: RightSwipe = RightSwipe.PANEL,
+    val leftSwipe: LeftSwipe = LeftSwipe.NOTIFICATIONS,
     val tileOrder: List<PanelTile> = PanelLayout.DEFAULT_ORDER,
     val hiddenTiles: Set<PanelTile> = emptySet(),
     val shortcuts: List<String> = emptyList(),
@@ -20,6 +21,11 @@ internal data class ExtrasState(
     val mediaDetails: Boolean = false,
     val notificationPeek: Boolean = false,
     val contactSearch: Boolean = false,
+    val handoff: Boolean = true,
+    val webPackage: String? = null,
+    val handoffStores: Set<String> = HandoffLogic.DEFAULT_STORES,
+    val haptics: Boolean = true,
+    val sounds: Boolean = false,
 )
 
 internal class ExtrasStore(context: Context) {
@@ -27,6 +33,7 @@ internal class ExtrasStore(context: Context) {
     var state by mutableStateOf(load()); private set
 
     private fun load() = ExtrasState(
+        leftSwipe = runCatching { LeftSwipe.valueOf(prefs.getString("leftSwipe", null)!!) }.getOrDefault(LeftSwipe.NOTIFICATIONS),
         rightSwipe = runCatching { RightSwipe.valueOf(prefs.getString("rightSwipe", null)!!) }.getOrDefault(RightSwipe.PANEL),
         tileOrder = PanelLayout.parseOrder(prefs.getString("tileOrder", null)),
         hiddenTiles = PanelLayout.parseSet(prefs.getString("hiddenTiles", null)),
@@ -39,11 +46,17 @@ internal class ExtrasStore(context: Context) {
         mediaDetails = prefs.getBoolean("mediaDetails", false),
         notificationPeek = prefs.getBoolean("notificationPeek", false),
         contactSearch = prefs.getBoolean("contactSearch", false),
+        handoff = prefs.getBoolean("handoff", true),
+        webPackage = prefs.getString("webPackage", null)?.takeIf { it.isNotBlank() },
+        handoffStores = prefs.getString("handoffStores", null)?.split(',')?.filter { it.isNotBlank() }?.toSet() ?: HandoffLogic.DEFAULT_STORES,
+        haptics = prefs.getBoolean("haptics", true),
+        sounds = prefs.getBoolean("sounds", false),
     )
 
     private fun save(next: ExtrasState) {
         prefs.edit()
             .putString("rightSwipe", next.rightSwipe.name)
+            .putString("leftSwipe", next.leftSwipe.name)
             .putString("tileOrder", PanelLayout.serialize(next.tileOrder))
             .putString("hiddenTiles", PanelLayout.serialize(next.hiddenTiles))
             .putString("shortcuts", PanelLayout.serializeIds(next.shortcuts))
@@ -55,11 +68,17 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("mediaDetails", next.mediaDetails)
             .putBoolean("notificationPeek", next.notificationPeek)
             .putBoolean("contactSearch", next.contactSearch)
+            .putBoolean("handoff", next.handoff)
+            .putString("webPackage", next.webPackage ?: "")
+            .putString("handoffStores", next.handoffStores.joinToString(","))
+            .putBoolean("haptics", next.haptics)
+            .putBoolean("sounds", next.sounds)
             .apply()
         state = next
     }
 
     fun setRightSwipe(value: RightSwipe) = save(state.copy(rightSwipe = value))
+    fun setLeftSwipe(value: LeftSwipe) = save(state.copy(leftSwipe = value))
     fun moveTile(tile: PanelTile, delta: Int) = save(state.copy(tileOrder = PanelLayout.move(state.tileOrder, tile, delta)))
     fun setTileHidden(tile: PanelTile, hidden: Boolean) =
         save(state.copy(hiddenTiles = if (hidden) state.hiddenTiles + tile else state.hiddenTiles - tile))
@@ -73,6 +92,12 @@ internal class ExtrasStore(context: Context) {
     fun setMediaDetails(value: Boolean) = save(state.copy(mediaDetails = value))
     fun setNotificationPeek(value: Boolean) = save(state.copy(notificationPeek = value))
     fun setContactSearch(value: Boolean) = save(state.copy(contactSearch = value))
+    fun setHandoff(value: Boolean) = save(state.copy(handoff = value))
+    fun setWebPackage(value: String?) = save(state.copy(webPackage = value))
+    fun toggleHandoffStore(id: String) =
+        save(state.copy(handoffStores = if (id in state.handoffStores) state.handoffStores - id else state.handoffStores + id))
+    fun setHaptics(value: Boolean) = save(state.copy(haptics = value))
+    fun setSounds(value: Boolean) = save(state.copy(sounds = value))
 }
 
 /** What the extras settings page and the control panel need from the activity: the store, plus the

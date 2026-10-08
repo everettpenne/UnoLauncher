@@ -118,6 +118,14 @@ internal class IslandState {
         flashKey++
     }
 
+    /** A notification peek: the app's icon and name, but never the message. */
+    fun showPeek(app: AppEntry, label: String) {
+        flashTitle = label
+        flashIcon = app.icon.asImageBitmap()
+        flashSymbol = IslandSymbol.APP
+        flashKey++
+    }
+
     fun showCharging(percent: Int?) {
         if (flashTitle == null) showEvent(IslandEvents.charging(percent))
     }
@@ -221,6 +229,11 @@ internal fun DynamicIsland(
         }
     }
     val torch = rememberTorch(active = state.expanded && IslandTools.toolsOpen)
+    // A timer whose alarm never reached us (the process was stopped, or Android delayed it) must still finish: once the
+    // clock passes its end it rings from here. onAlarm ignores a second trigger, so this cannot double up.
+    LaunchedEffect(clockMs) {
+        if (IslandTools.timerActive && !IslandTools.ringing && clockMs >= IslandTools.timerEndAt) IslandTools.onAlarm(context)
+    }
     IslandSystemEvents(state)
     val view = LocalView.current
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
@@ -245,6 +258,10 @@ internal fun DynamicIsland(
     val frame = IslandGeometry.frame(environment, d, progress, sizeScale,
         extraBodyDp = if (mediaVisible) MEDIA_ROW_DP else 0f, extraWidthDp = eventWidth)
     val corner = minOf(frame.height / 2f, 30f * d) / d
+    // A progress ring around the collapsed pill: a running timer, or the battery level while charging.
+    val ring = IslandRingLogic.choose(flashActive, progress >= .5f || state.expanded, IslandTools.ringing,
+        IslandTools.timerActive, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
+        deviceStatus.charging == true, deviceStatus.battery, IslandSymbol.TIMER.tint, IosGreen)
     // A new event gives the island a small spring pulse, like iOS's.
     val pulse = remember { Animatable(1f) }
     LaunchedEffect(state.flashKey) {
@@ -275,6 +292,7 @@ internal fun DynamicIsland(
             .graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }
             .size(width = (frame.width / d).dp, height = (frame.height / d).dp)
             .islandBody(glass?.backdrop, corner.dp, settings = glass?.settings ?: GlassSettings.Default)
+            .islandRing(ring, corner * d, 2.5f * d)
             .clip(RoundedCornerShape(corner.dp))
             .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
                 onLongClick = {
@@ -282,7 +300,7 @@ internal fun DynamicIsland(
                     state.dismissFlash(); IslandTools.toolsOpen = true; state.expanded = true
                 },
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    UnoFeedback.play(Cue.OPEN, haptic)
                     // A ringing timer is silenced by a tap before anything else.
                     if (IslandTools.ringing) IslandTools.stopRinging(context) else state.toggle()
                 })
@@ -370,7 +388,10 @@ internal fun DynamicIsland(
                     PlaybackRow(playing = state.playing, title = NotificationFeed.nowPlaying?.title,
                         onPrevious = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
                         onPlayPause = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
-                        onNext = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_NEXT) })
+                        onNext = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_NEXT) },
+                        onOpenPlayer = NotificationFeed.nowPlaying?.controller?.sessionActivity?.let { intent ->
+                            { runCatching { intent.send() }; state.collapse() }
+                        })
                 }
                 Spacer(Modifier.height(8.dp))
                 feedHeadline?.let { headline ->
@@ -422,13 +443,16 @@ internal fun EqualizerBars(color: Color, modifier: Modifier = Modifier, barCount
 }
 
 @Composable
-private fun PlaybackRow(playing: Boolean, title: String?, onPrevious: () -> Unit, onPlayPause: () -> Unit, onNext: () -> Unit) {
+private fun PlaybackRow(playing: Boolean, title: String?, onPrevious: () -> Unit, onPlayPause: () -> Unit, onNext: () -> Unit,
+    onOpenPlayer: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().height(34.dp).testTag("island-media"), verticalAlignment = Alignment.CenterVertically) {
         if (playing) EqualizerBars(PLAYBACK_PINK) else Icon(Icons.Rounded.Pause, null,
             tint = Color.White.copy(alpha = .6f), modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(8.dp))
+        // With notification access the session knows its own app, so tapping the title opens the player.
         Text(title ?: if (playing) "Playing" else "Paused", color = Color.White, fontSize = 13.sp,
-            fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).then(if (onOpenPlayer != null) Modifier.clickable(onClick = onOpenPlayer).testTag("island-open-player") else Modifier))
         MediaButton(Icons.Rounded.SkipPrevious, "Previous", onPrevious)
         MediaButton(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
             if (playing) "Pause" else "Play", onPlayPause)

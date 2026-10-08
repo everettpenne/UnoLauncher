@@ -255,6 +255,9 @@ class WidgetController(
         reconcileHostIds()
     }
 
+    /** Lets callers outside this class re-run the prune after the set of kept widgets changed. */
+    fun pruneUnusedIds() = reconcileHostIds()
+
     private fun reconcileHostIds() {
         if (!model.canPruneWidgetIds) return
         val retained = model.retainedWidgetIds + pendingId + listOfNotNull(reconfigureWidgetId)

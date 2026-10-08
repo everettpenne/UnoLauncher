@@ -61,7 +61,7 @@ internal fun LiquidSliderControl(
     val reportChange = { v: Float ->
         val f = ((v - valueRange.start) / (valueRange.endInclusive - valueRange.start)).coerceIn(0f, 1f)
         val detent = if (detents > 1) (f * detents).roundToInt() else if (f <= 0f) 0 else if (f >= 1f) 1 else -1
-        if (detent != lastDetent && (detents > 1 || detent >= 0)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        if (detent != lastDetent && (detents > 1 || detent >= 0)) UnoFeedback.play(Cue.TICK, haptic)
         lastDetent = detent
         onValueChange(v)
     }

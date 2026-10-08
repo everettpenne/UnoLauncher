@@ -66,7 +66,7 @@ internal fun ControlPanel(
     val controls = rememberSystemControls()
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    val tick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+    val tick = { UnoFeedback.play(Cue.TICK, haptic) }
     val shape = Corner.xlarge
     // The panel's surface takes the wallpaper hue too when "Color from wallpaper" is on, like every other glass surface.
     val accent = LocalWallpaperAccent.current
@@ -106,7 +106,7 @@ internal fun ControlPanel(
             onDismiss()
         })
         PanelTile.FLASHLIGHT -> TorchTile(controls, ink, modifier, tick)
-        PanelTile.FOCUS -> TileRow(ink, modifier.clickable { tick(); onToggleFocus() }.testTag("cp-focus")) {
+        PanelTile.FOCUS -> TileRow(ink, modifier.clickable { UnoFeedback.play(Cue.TOGGLE, haptic); onToggleFocus() }.testTag("cp-focus")) {
             Icon(Icons.Rounded.Bedtime, null, tint = if (extras.focusOn) IslandSymbol.FOCUS.tint else ink.copy(alpha = .8f),
                 modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(12.dp))
@@ -116,7 +116,7 @@ internal fun ControlPanel(
                     else if (extras.focusOn) "${extras.focusHidden.size} apps hidden" else "Hides ${extras.focusHidden.size} apps",
                     color = ink.copy(alpha = .6f), fontSize = 12.sp)
             }
-            LiquidSwitchControl(extras.focusOn, { tick(); onToggleFocus() }, panelGlass)
+            LiquidSwitchControl(extras.focusOn, { UnoFeedback.play(Cue.TOGGLE, haptic); onToggleFocus() }, panelGlass)
         }
         PanelTile.SHORTCUTS -> {
             val chosen = extras.shortcuts.mapNotNull { id -> apps.firstOrNull { it.id == id } }

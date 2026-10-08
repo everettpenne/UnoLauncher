@@ -27,6 +27,7 @@ Each of these is off by default, asks only when you turn on the feature that nee
 - **Exact alarms** (island timer). Lets the timer end to the second with Home closed. Without it the timer ends within about a minute.
 - **Vibrate** (island timer buzz), and a timer alarm that rings the default alarm sound.
 - **Motion sensor** (tilt-following highlight, off by default). Gravity or the accelerometer is read at a low rate, only while Home is on screen and only when you turn the setting on; readings are never stored or sent. GrapheneOS's per-app Sensors toggle applies.
+- **Search suggestions** (on by default, can be switched off). When no installed app matches a search, Uno can open an app store or a browser with your search words. This is a normal app launch: Uno itself sends nothing anywhere, and the web search goes through the browser you choose and its search engine, under that app's own privacy settings. Uno can only see whether those apps are installed.
 - **Flashlight, volume, ringer and media keys** use Android APIs that need no permission.
 
 Android controls widget-binding approval and Home-app selection. Providers can require separate setup or permissions.

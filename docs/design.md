@@ -271,3 +271,23 @@ The strength setting (`TiltMath.gainFor`, 1x to 6x) multiplies the roll, and `Gl
 `drawThemed` paints a themed icon in layers: a translucent gradient tile, the glyph (the monochrome layer, or the foreground's silhouette in ink for apps without one) over a blurred offset copy as a shadow, a radial white sheen, and a diagonal-gradient rim stroke. Icons are bitmaps, so this is a painted look, not backdrop refraction; the colors come from the palette or `WallpaperAccent`, so the icon cache key already rebuilds them with the theme.
 
 `AppShortcuts` reads manifest and dynamic shortcuts for the icon's activity through `LauncherApps.getShortcuts` (IO dispatcher; the sheet is usable at once and the entries fill in) and starts one with `startShortcut` on its own thread. `hasShortcutHostPermission` is false unless Uno is the default Home app, in which case the list is simply empty.
+
+## Widget stacks
+
+`WidgetStacks`/`StackRules` keep, per base widget slot, a list of extra provider widget ids in their own preferences file. Merging a widget removes its grid placement but registers its id first, and `LauncherModel.retainedWidgetIds` includes members of stacks whose base is still placed, so the existing id pruning never unbinds them; a stack whose base disappears is no longer retained and its members are pruned with it. `WidgetSlot` renders the base or the selected member. The switcher is a dot rail rather than a vertical swipe because Home's downward swipe is already the shade/panel/search gesture. The layout model, its schema, undo and backup are deliberately untouched.
+
+## Spotlight
+
+`Spotlight.kt` is an overlay at the same level as the control panel, so it covers the whole window. `SpotlightRank` orders app matches (name prefix, then a word prefix, then contains, alphabetical) and feed matches (every word must appear), and it reuses `SearchSmarts` and `ContactsSearch`. The left pull-down is a setting (`LeftSwipe`) so notifications remain the default.
+
+## Feedback
+
+`UnoFeedback` maps a `Cue` (tick, page, open, toggle, launch, confirm) to a haptic and an optional system sound effect. The switches live in one place; the sound path plays `AudioManager.playSoundEffect` on its own thread, which follows the system touch-sounds setting.
+
+## Island ring
+
+`IslandRingLogic.choose` picks the ring (timer over charging; none while an event flashes, while expanded, or while a timer rings). The outline is built by hand from the top centre because a library round-rect starts elsewhere, and the arc is a `PathMeasure` segment starting at 0.
+
+## Search suggestions (hand-off)
+
+Showing results from F-Droid, Aurora or the web inside Uno would mean Uno contacting those servers (F-Droid by scraping search.f-droid.org or downloading its whole index; Aurora has no public API since it fronts Google Play; a web search needs an engine), which conflicts with the launcher's rule that it contacts only feed addresses the user adds. So `SearchHandoff.kt` hands the search to the user's own apps: `HandoffLogic` decides when to offer (nothing else matched or answered; stores need 3+ characters), which browser (the user's pick, else Vanadium, else any) and which installed stores, and builds the intents (`market://search?q=...`, and `ACTION_WEB_SEARCH` carrying only the words so the browser's own engine decides). `HandoffResolver.open` resolves the intent first and says so if nothing can handle it, falling back to any web-search handler for browsers. Stores always show their well-known name because some devices label the Play Store package oddly. Package visibility comes from `<queries>` in the manifest.

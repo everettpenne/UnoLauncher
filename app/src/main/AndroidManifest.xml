@@ -21,6 +21,16 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <queries>
         <package android:name="com.google.android.googlequicksearchbox" />
+        <!-- Search suggestions hand a query to these apps if they are installed; Uno never contacts anything itself. -->
+        <package android:name="org.fdroid.fdroid" />
+        <package android:name="com.aurora.store" />
+        <package android:name="com.android.vending" />
+        <package android:name="app.vanadium.browser" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />

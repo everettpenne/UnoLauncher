@@ -251,3 +251,15 @@ Everything below is opt-in or user-arranged, kept in one preference file (`extra
 ## Rim light
 
 All glass surfaces take their edge highlight from `GlassRim.Light` (`Highlight.Default` from the glass library): a directional specular rim, brightest where the edge faces an upper-left light and fading opposite, rather than the uniform `Highlight.Plain` outline we used before. Changing the light (angle, intensity, falloff) is a one-line edit there. A tilt-driven angle is possible later because the style takes the angle as a parameter.
+
+## Search that answers
+
+`SearchSmarts.kt` is pure: a small recursive-descent parser (precedence, right-associative ^, unary signs, postfix percent where "50+10%" means ten percent of 50) and a unit table with a base unit per kind, so any pair of units of one kind converts through it; temperature goes through kelvin because it needs offsets, not ratios. A result is only offered when the query contains a real operator, function or percent (so a bare number or an app name never turns into an "answer"), and division by zero, negative square roots and unbalanced parentheses give nothing.
+
+## Split screen
+
+Android gives a launcher exactly one supported route to split screen: launch the second app with `FLAG_ACTIVITY_LAUNCH_ADJACENT` while the first is in front. Two findings shaped `MainActivity.launchSplit`: starting both apps in a single `startActivities` call leaves the first hidden behind (its task is created but not made visible), so the first app is launched on its own; and the second must wait until it is actually in front, so it is opened from `onStop` (this launcher leaving the screen) after a short settle, with a 2.5 s timeout if that never happens. No accessibility global action is used, so the feature adds no grant. The arrangement (stacked on a phone, side by side on a wide inner screen) is Android's choice and cannot be forced.
+
+## Tilt-following highlight
+
+`GlassRim.angle` is snapshot state read inside the glass modifiers' highlight lambda, so a change re-runs only their drawing, never composition. `TiltHighlight` feeds it from gravity: the rim rotates against the phone's roll so the light stays fixed in the room, clamped to 75 degrees either way and faded out when the phone is flat (no meaningful roll). Samples are smoothed and only applied when the light has moved 1.5 degrees, because every glass surface redraws on a change.

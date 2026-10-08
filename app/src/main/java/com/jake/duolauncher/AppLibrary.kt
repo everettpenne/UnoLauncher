@@ -50,6 +50,10 @@ internal fun AppLibrary(
         (state.homeSlots.asSequence() + state.leadingSlots.asSequence()).filterNotNull().toSet()
     }
     val hasWork = state.profiles.any { it.isWork } || state.apps.any { it.isWork }
+    // A sum or a unit conversion typed into search is answered on the spot (nothing leaves the device).
+    val smart = remember(query, editing) { if (editing) null else SearchSmarts.answer(query) }
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val toastContext = androidx.compose.ui.platform.LocalContext.current
     var showWork by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val selectedProfile = if (showWork) state.profiles.firstOrNull { it.isWork } else state.profiles.firstOrNull { it.isPersonal }
@@ -99,6 +103,17 @@ internal fun AppLibrary(
                 ) else OutlinedTextFieldDefaults.colors())
             LazyColumn(Modifier.weight(1f).testTag("all-apps-list"), state = listState,
                 contentPadding = PaddingValues(bottom = 12.dp)) {
+                if (smart != null) item("smart-answer") {
+                    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(Corner.medium).background(ink.copy(alpha = .10f))
+                        .clickable {
+                            clipboard.setText(androidx.compose.ui.text.AnnotatedString(smart.text))
+                            android.widget.Toast.makeText(toastContext, "Copied ${smart.text}", android.widget.Toast.LENGTH_SHORT).show()
+                        }.padding(horizontal = 16.dp, vertical = 12.dp).testTag("smart-answer")) {
+                        Text(smart.detail, color = ink.copy(alpha = .7f), fontSize = 12.sp)
+                        Text(smart.text, color = ink, fontSize = 26.sp, fontWeight = FontWeight.Medium)
+                        Text("Tap to copy", color = ink.copy(alpha = .55f), fontSize = 11.sp)
+                    }
+                }
                 if (showWork && selectedProfile?.available == false) item("work-paused") {
                     Column(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(if (selectedProfile.quiet) "Work apps are paused" else "Work profile is unavailable")
@@ -106,7 +121,7 @@ internal fun AppLibrary(
                             Modifier.padding(top = 10.dp).testTag("turn-on-work")) { Text("Turn on work apps") }
                     }
                 }
-                if (groups.isEmpty() && contacts.isEmpty()) item { Text(if (state.loading) "Loading apps…" else "No apps found", Modifier.padding(vertical = 20.dp)) }
+                if (groups.isEmpty() && contacts.isEmpty() && smart == null) item { Text(if (state.loading) "Loading apps…" else "No apps found", Modifier.padding(vertical = 20.dp)) }
                 groups.forEach { (letter, entries) ->
                     stickyHeader(key = "heading-$letter") {
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {

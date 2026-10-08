@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.0-uno01
+
+- Split screen: long-press an app, choose **Open in split screen**, then pick the second app. The two open stacked top and bottom on a phone (Android chooses the arrangement for the screen). No accessibility service is involved: the second app is launched with Android's "open beside" flag once the first is in front. Work-profile apps can be the first app but not the second yet, because only the launcher-apps service can start them and it cannot set launch flags.
+- Tilt-following highlight (Customize > Wallpaper & appearance, with Liquid glass; off by default): the glass edge light stays put in the room as you tilt the phone, so the shine slides across the glass. It reads gravity (or the accelerometer) at a low rate only while Home is on screen, redraws only when the light has moved a visible amount, and fades out when the phone lies flat. It needs no permission; if GrapheneOS's per-app Sensors toggle is off the light simply stays put.
+- Search that answers: type a sum or a conversion into All apps search and the answer appears above the app results, with a tap to copy. Arithmetic supports + - * / ^, parentheses, percent ("15% of 80", "50+10%" is 55), pi, and sqrt, abs, ln, log, sin, cos, tan (degrees). Conversions cover length, mass, volume, speed, data, time and temperature ("5 km in mi", "212 f to c", "90 min in hours"). Everything is computed on the device, and anything that isn't clearly a sum or a conversion is left to ordinary app search ("7-zip" and "2048" stay app names).
+
 ## 0.17.1-uno01
 
 - Directional rim light: every glass surface (widgets, dock, panels, sheets, the selection lens and the island) now has a specular highlight lit from the upper left, brightest on the edges facing the light and fading opposite, instead of an even outline. It is defined once (`GlassRim`) so all surfaces agree on where the light is.

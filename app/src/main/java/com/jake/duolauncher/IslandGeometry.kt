@@ -47,6 +47,8 @@ internal object IslandGeometry {
     private const val TOP_MARGIN_DP = 6f
     /** Island left around the hole at the smallest size setting, in dp. */
     private const val MIN_RING_DP = 3f
+    /** Clearance between the hole and the island's edge that the island must keep at all times. */
+    private const val WRAP_DP = 4f
     private const val EXPANDED_WIDTH_DP = 336f
     private const val EDGE_MARGIN_DP = 8f
     private const val NO_CUTOUT_WIDTH_DP = 120f
@@ -140,7 +142,9 @@ internal object IslandGeometry {
             collapsedHeight = half * 2f
             val c = compactness.coerceIn(0f, 1f)
             val sideRoom = (1f - c) * 2f * mix(44f, 80f, size) * d
-            collapsedWidth = cutout.width + sideRoom + c * 2f * max(ring, MIN_RING_DP * d) + extraWidthDp * d
+            // The compact width is the hole plus a ring each side, never less than the wrap clearance used below: a pill
+            // narrower than hole + 2 * wrap makes that clamp's range empty (min above max) and throws.
+            collapsedWidth = cutout.width + sideRoom + c * 2f * max(ring, WRAP_DP * d) + extraWidthDp * d
         } else {
             centerX = env.screenWidth / 2f
             top = env.statusBarHeight + 8f * d
@@ -161,8 +165,11 @@ internal object IslandGeometry {
         // wrap the camera, so a hole near (or touching) an edge pulls the island over it.
         var left = (centerX - width / 2f).coerceIn(margin, max(margin, env.screenWidth - width - margin))
         if (cutout != null) {
-            val wrap = 4f * d
-            left = left.coerceIn(cutout.right + wrap - width, cutout.left - wrap)
+            val wrap = WRAP_DP * d
+            // The range is empty if the island is narrower than the hole plus its clearance; then keep it over the hole.
+            val hi = cutout.left - wrap
+            val lo = min(cutout.right + wrap - width, hi)
+            left = left.coerceIn(lo, hi)
         }
         left = left.coerceIn(0f, max(0f, env.screenWidth - width))
         return IslandFrame(left, top, width, height,

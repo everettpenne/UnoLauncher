@@ -296,4 +296,29 @@ class IslandGeometryTest {
         val half = IslandGeometry.frame(e, 2.625f, 0f, .5f, compactness = .5f).width
         assertTrue(half > compact.width && half < full.width)
     }
+
+    // ---- regression: 0.23.4 crashed on launch with "Cannot coerce value to an empty range" ----
+    @Test fun noCombinationOfCameraDensitySizeAndCompactnessMakesTheFrameThrow() {
+        val densities = listOf(1.5f, 2f, 2.625f, 2.75f, 3f, 3.5f)
+        val sizes = listOf(0f, .25f, .5f, .75f, 1f)
+        val compactness = listOf(0f, .5f, 1f)
+        val progress = listOf(0f, .5f, 1f)
+        for (d in densities) for (w in listOf(30f, 52f, 61.4f, 70f, 90f, 130f)) for (h in listOf(30f, 52f, 61.4f, 90f))
+            for (top in listOf(0f, 12f, 25f, 40f, 66f)) for (x in listOf(w / 2f + 2f, 300f, 540f, 1080f - w / 2f - 2f))
+                for (size in sizes) for (c in compactness) for (p in progress) {
+                    val cutout = PxRect(x - w / 2f, top, x + w / 2f, top + h)
+                    val e = IslandEnvironment(cutout, 1080f, 80f, screenHeight = 2424f)
+                    val f = IslandGeometry.frame(e, d, p, size, compactness = c)   // must not throw
+                    assertTrue("wraps the hole: d=$d w=$w h=$h size=$size c=$c p=$p",
+                        f.left <= cutout.left + .01f && f.left + f.width >= cutout.right - .01f)
+                }
+    }
+
+    @Test fun theReportedCrashCaseDoesNotThrow() {
+        // Roughly the report: a hole near x=488 on a 1080 px wide screen with the compact idle width.
+        val d = 2.75f
+        val cutout = PxRect(488.29358f - 2f, 40f, 488.29358f + 56f, 98f)
+        val e = IslandEnvironment(cutout, 1080f, 120f, screenHeight = 2424f)
+        for (size in listOf(0f, .5f, 1f)) IslandGeometry.frame(e, d, 0f, size, compactness = 1f)
+    }
 }

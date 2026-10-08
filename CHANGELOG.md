@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.23.5-uno01
+
+- Fix a crash a few seconds after launch on 0.23.4 ("Cannot coerce value to an empty range"). The idle overlay island's compact width (hole plus a ring each side, with the ring as small as 3 dp) could be narrower than the hole plus the 4 dp clearance that IslandGeometry.frame then clamps the island's left edge to, so that clamp's range had its minimum above its maximum and threw. The compact width now always includes the clearance, and the clamp can no longer be given an empty range. Two new tests (a sweep over densities, camera sizes and positions, size settings, compactness and progress, plus the reported case) fail on 0.23.4's geometry and pass now.
+
 ## 0.23.4-uno01
 
 - Make the everywhere-island tappable and stop it covering the status icons. Android layers a plain application overlay beneath the status bar, and the status bar window owns every touch in its strip (confirmed in the input dispatcher's window stack: StatusBar above the overlay, touchable region y 0-136), so an island on the camera was drawn under the status icons and never received a tap. The overlay window is now hosted by the existing accessibility service (SystemShadeAccessibilityService) as TYPE_ACCESSIBILITY_OVERLAY, which is layered above the status bar. It needs no "display over other apps" permission and the service still observes no events and reads nothing; the window code moved out of IslandOverlayService into IslandOverlayHost, which both services use. Without the accessibility service enabled the old application overlay is the fallback (visible, but not tappable in the strip), and the "Island everywhere" dialog gains a "Tappable island" button that opens Accessibility settings. Verified on an emulator: the island window sits above the StatusBar window and a tap over Chrome expands it.

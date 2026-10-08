@@ -101,15 +101,27 @@ class IslandOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner,
         layoutParams = params
         IslandRuntime.updateOverlay(true)
 
-        val metrics = resources.displayMetrics
-        // Overlay windows receive no status-bar insets, so the island's anchor is measured
-        // from the system's own status-bar height instead.
+        // Overlay windows receive neither status-bar nor cutout insets reliably, so the
+        // island's environment is built from the display itself: real metrics for the size,
+        // Display.getCutout for the camera, and the system status-bar height for the fallback.
+        val realMetrics = android.util.DisplayMetrics()
+        @Suppress("DEPRECATION")
+        manager.defaultDisplay.getRealMetrics(realMetrics)
         val statusBarPx = runCatching {
             resources.getDimensionPixelSize(resources.getIdentifier("status_bar_height", "dimen", "android"))
         }.getOrDefault(0)
+        fun buildEnvironment(): IslandEnvironment = IslandEnvironment(
+            cutout = readDisplayCutout(manager.defaultDisplay, realMetrics.widthPixels.toFloat(), realMetrics.heightPixels.toFloat()),
+            screenWidth = realMetrics.widthPixels.toFloat(),
+            statusBarHeight = statusBarPx.toFloat(),
+            dockWidthPx = 0f)
+
+        var environment by androidx.compose.runtime.mutableStateOf(buildEnvironment())
         val keyguard = getSystemService(KeyguardManager::class.java)
         val power = getSystemService(PowerManager::class.java)
         view.setContent {
+            val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+            androidx.compose.runtime.LaunchedEffect(configuration) { environment = buildEnvironment() }
             var visible by androidx.compose.runtime.remember { mutableStateOf(true) }
             var islandScale by androidx.compose.runtime.remember {
                 mutableStateOf(getSharedPreferences("appearance", MODE_PRIVATE).getFloat("islandScale", .5f).coerceIn(0f, 1f))
@@ -145,9 +157,7 @@ class IslandOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner,
                     feedHeadline = null,
                     sizeScale = islandScale,
                     dockWidthPx = 0f,
-                    screenWidthPx = metrics.widthPixels,
-                    screenHeightPx = metrics.heightPixels,
-                    statusBarHeightPx = statusBarPx,
+                    environmentOverride = environment,
                     anchoredToWindow = true,
                     showActions = false,
                     onFrameChanged = { frame ->

@@ -212,9 +212,7 @@ internal fun DynamicIsland(
     feedHeadline: String?,
     sizeScale: Float = .5f,
     dockWidthPx: Float = 0f,
-    screenWidthPx: Int = 0,
-    screenHeightPx: Int = 0,
-    statusBarHeightPx: Int = -1,
+    environmentOverride: IslandEnvironment? = null,
     anchoredToWindow: Boolean = false,
     showActions: Boolean = true,
     onFrameChanged: ((IslandFrame) -> Unit)? = null,
@@ -249,14 +247,14 @@ internal fun DynamicIsland(
     val d = density.density
     // The cutout is read from the live window and refreshed on every layout, so it is correct once
     // the view attaches and again after rotation, folding, or a display-size change.
-    val initialWidth = if (screenWidthPx > 0) screenWidthPx else view.rootView.width
-    val initialHeight = if (screenHeightPx > 0) screenHeightPx else view.rootView.height
-    val initialStatusBar = if (statusBarHeightPx >= 0) statusBarHeightPx
-        else -1
-    var environment by remember { mutableStateOf(IslandEnvironment(null, initialWidth.toFloat(),
-        (if (initialStatusBar >= 0) initialStatusBar else 0).toFloat())) }
+    val initialWidth = view.rootView.width
+    val initialHeight = view.rootView.height
+    var environment by remember { mutableStateOf(environmentOverride
+        ?: IslandEnvironment(null, initialWidth.toFloat(), 0f)) }
     var origin by remember { mutableStateOf(Offset.Zero) }
-    LaunchedEffect(configuration) { environment = readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight, initialStatusBar) }
+    LaunchedEffect(configuration, environmentOverride) {
+        environment = environmentOverride ?: readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight)
+    }
 
     val progress by animateFloatAsState(if (state.expanded) 1f else 0f,
         spring(dampingRatio = 0.5f, stiffness = 300f), label = "island expand")
@@ -302,8 +300,10 @@ internal fun DynamicIsland(
     val wrapperModifier = if (anchoredToWindow) Modifier
         else Modifier.fillMaxSize().onGloballyPositioned {
             origin = it.positionInWindow()
-            val read = readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight, initialStatusBar)
-            if (read != environment) environment = read
+            if (environmentOverride == null) {
+                val read = readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight)
+                if (read != environment) environment = read
+            }
         }
     Box(modifier.then(wrapperModifier)) {
         LaunchedEffect(frame) { onFrameChanged?.invoke(frame) }

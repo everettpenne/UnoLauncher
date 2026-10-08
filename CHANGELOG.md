@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.23.2-uno01
+
+- Fix the everywhere-island sitting below the camera cutout: overlay windows do not reliably receive the cutout in their own insets, so the overlay now builds the island environment from the display itself — real display metrics, Display.getCutout for the camera hole, and the system status-bar height for the no-cutout fallback. Verified on-device with an emulated punch hole: the window wraps the hole exactly.
+
 ## 0.23.1-uno01
 
 - Fix the everywhere-overlay breaking touch: the island composable's fill-size wrapper inside the wrap-content overlay window made the window cover the whole screen and swallow input, pushed the island off-center, and fed a relayout loop. The overlay now renders only the island itself, window updates are deduplicated, and the island is anchored from the system status-bar height (overlay windows receive no status-bar insets). Verified on-device: the window measures exactly 326x95 px collapsed and 840x389 px expanded, centered, below the status bar, with taps expanding and collapsing it in place.

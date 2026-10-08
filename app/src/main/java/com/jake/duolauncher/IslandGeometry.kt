@@ -134,6 +134,15 @@ internal object IslandGeometry {
     }
 }
 
+/** Reads the camera cutout from a display directly: authoritative for overlay windows, which
+ * do not reliably receive the cutout in their own window insets.
+ */
+internal fun readDisplayCutout(display: android.view.Display, screenWidth: Float, screenHeight: Float): PxRect? {
+    val rects = runCatching { display.cutout?.boundingRects.orEmpty() }.getOrDefault(emptyList())
+        .map { PxRect(it.left.toFloat(), it.top.toFloat(), it.right.toFloat(), it.bottom.toFloat()) }
+    return IslandGeometry.pickCutout(rects, screenWidth, screenHeight)
+}
+
 /** Reads the camera cutout and bars from the live window. Cheap enough to call on layout. */
 internal fun readIslandEnvironment(view: View, dockWidthPx: Float = 0f,
     screenWidth: Int = view.rootView.width, screenHeight: Int = view.rootView.height,

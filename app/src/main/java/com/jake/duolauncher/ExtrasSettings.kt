@@ -26,16 +26,28 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
 
     Text("Uno Keyboard", style = MaterialTheme.typography.titleMedium)
     val keyboardContext = androidx.compose.ui.platform.LocalContext.current
-    val keyboardId = "${keyboardContext.packageName}/${keyboardContext.packageName}.keyboard.UnoKeyboardService"
-    val enabledKeyboards = android.provider.Settings.Secure.getString(keyboardContext.contentResolver, android.provider.Settings.Secure.ENABLED_INPUT_METHODS).orEmpty()
-    val keyboardEnabled = enabledKeyboards.split(':').any { it.startsWith(keyboardContext.packageName + "/") }
-    val keyboardSelected = android.provider.Settings.Secure.getString(keyboardContext.contentResolver, android.provider.Settings.Secure.DEFAULT_INPUT_METHOD)
-        ?.startsWith(keyboardContext.packageName + "/") == true
-    Text(when { keyboardSelected -> "Uno Keyboard is your keyboard."; keyboardEnabled -> "Enabled, but another keyboard is selected."; else -> "Off. Android asks you to turn a keyboard on before it can be used." },
+    // Android 14+ forbids reading the enabled/selected IME settings for targetSdk > 33, so the
+    // enabled list comes from the public InputMethodManager API and the selected state degrades
+    // to "unknown" where the secure setting can't be read.
+    val enabledKeyboards = runCatching {
+        keyboardContext.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+            ?.enabledInputMethodList.orEmpty()
+    }.getOrDefault(emptyList())
+    val keyboardEnabled = enabledKeyboards.any { it.packageName == keyboardContext.packageName }
+    val keyboardSelected = runCatching {
+        android.provider.Settings.Secure.getString(keyboardContext.contentResolver,
+            android.provider.Settings.Secure.DEFAULT_INPUT_METHOD)
+    }.getOrNull()?.startsWith(keyboardContext.packageName + "/")
+    Text(when {
+        keyboardSelected == true -> "Uno Keyboard is your keyboard."
+        keyboardEnabled && keyboardSelected == null -> "Enabled. Android no longer tells apps which keyboard is selected, so check with the switcher below."
+        keyboardEnabled -> "Enabled, but another keyboard is selected."
+        else -> "Off. Android asks you to turn a keyboard on before it can be used."
+    },
         style = note, color = muted, modifier = Modifier.testTag("keyboard-status"))
     if (!keyboardEnabled) OutlinedButton(onClick = { keyboardContext.startActivity(android.content.Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS)
         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("keyboard-enable")) { Text("Turn on Uno Keyboard") }
-    else if (!keyboardSelected) OutlinedButton(onClick = { keyboardContext.getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.showInputMethodPicker() },
+    else if (keyboardSelected != true) OutlinedButton(onClick = { keyboardContext.getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.showInputMethodPicker() },
         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("keyboard-switch")) { Text("Switch to Uno Keyboard") }
     SettingsSwitch("Suggestions", s.kbSuggestions, store::setKbSuggestions, "kb-suggestions-switch")
     SettingsSwitch("Autocorrect", s.kbAutocorrect, store::setKbAutocorrect, "kb-autocorrect-switch")

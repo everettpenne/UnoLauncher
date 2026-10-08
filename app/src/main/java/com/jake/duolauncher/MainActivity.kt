@@ -157,7 +157,7 @@ class MainActivity : ComponentActivity() {
                     onFeedVisible = { feeds.refreshIfStale() },
                     onAddFeed = feeds::addFeed,
                     onRemoveFeed = feeds::removeFeed,
-                    onFeedPreferred = feeds::setPreferred,
+                    onSourceEnabled = feeds::setSourceEnabled,
                     onLiquidGlass = appearance::setLiquidGlass,
                     onWallpaperColor = appearance::setWallpaperColor,
                     onTiltHighlight = appearance::setTiltHighlight,
@@ -195,7 +195,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onStop() {
         // The first app of a split is now in front; give it a beat to settle, then open the second beside it.
-        if (pendingSplitSecond != null) { splitHandler.removeCallbacks(openSplitSecond); splitHandler.postDelayed(openSplitSecond, SPLIT_SETTLE_MS) }
+        if (pendingSplitSecond != null) { splitLauncherStopped = true; splitHandler.removeCallbacks(openSplitSecond); splitHandler.postDelayed(openSplitSecond, SPLIT_SETTLE_MS) }
         if (timeReceiverRegistered) { unregisterReceiver(timeReceiver); timeReceiverRegistered = false }
         widgets.host.stopListening(); super.onStop()
     }
@@ -208,6 +208,11 @@ class MainActivity : ComponentActivity() {
     }
     override fun onResume() {
         super.onResume()
+        // Back on Home before the second app opened: the user left the first app, so don't open anything now.
+        if (splitLauncherStopped && pendingSplitSecond != null) {
+            pendingSplitSecond = null; splitLauncherStopped = false
+            splitHandler.removeCallbacks(openSplitSecond); splitHandler.removeCallbacks(abandonSplit)
+        }
         if (returningFromShadeSettings) {
             returningFromShadeSettings = false
             releaseShadeSetupOwnership()
@@ -320,6 +325,12 @@ class MainActivity : ComponentActivity() {
     private var pendingSplitSecond: AppEntry? = null
     private val splitHandler by lazy { android.os.Handler(mainLooper) }
     private val openSplitSecond = Runnable { openPendingSplitSecond() }
+    private var splitLauncherStopped = false
+    private val abandonSplit = Runnable {
+        val waiting = pendingSplitSecond
+        pendingSplitSecond = null
+        if (waiting != null) Toast.makeText(this, "The first app didn't open in time, so split screen was cancelled.", Toast.LENGTH_LONG).show()
+    }
 
     /** Opens [first], then [second] beside it, stacked top and bottom on a phone (Android picks the arrangement).
      * No accessibility service is involved: the second launch carries `FLAG_ACTIVITY_LAUNCH_ADJACENT`, which asks
@@ -337,9 +348,12 @@ class MainActivity : ComponentActivity() {
             return
         }
         pendingSplitSecond = second
+        splitLauncherStopped = false
         launchApp(first)
-        splitHandler.removeCallbacks(openSplitSecond)
-        splitHandler.postDelayed(openSplitSecond, SPLIT_FALLBACK_MS)
+        // If the first app never comes to the front (a slow cold start, or it failed), give up instead of launching the
+        // second one beside whatever Android was last showing, which is what pairs it with an unrelated app.
+        splitHandler.removeCallbacks(openSplitSecond); splitHandler.removeCallbacks(abandonSplit)
+        splitHandler.postDelayed(abandonSplit, SPLIT_GIVE_UP_MS)
     }
 
     private fun personalUserSerial() = getSystemService(UserManager::class.java).getSerialNumberForUser(android.os.Process.myUserHandle())
@@ -347,7 +361,7 @@ class MainActivity : ComponentActivity() {
     private fun openPendingSplitSecond() {
         val second = pendingSplitSecond ?: return
         pendingSplitSecond = null
-        splitHandler.removeCallbacks(openSplitSecond)
+        splitHandler.removeCallbacks(openSplitSecond); splitHandler.removeCallbacks(abandonSplit)
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(second.component)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT)
         runCatching { startActivity(intent) }.onFailure {
@@ -529,7 +543,7 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val SHADE_DIALOG_VISIBLE = "duo.shade.dialog_visible"
         const val SHADE_SETTINGS_PENDING = "duo.shade.settings_pending"
-        const val SPLIT_FALLBACK_MS = 2_500L
-        const val SPLIT_SETTLE_MS = 250L
+        const val SPLIT_GIVE_UP_MS = 12_000L
+        const val SPLIT_SETTLE_MS = 700L
     }
 }

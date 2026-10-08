@@ -16,7 +16,7 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 /** A user-added feed address, kept entirely on the device. */
-data class FeedSource(val id: String, val url: String, val label: String)
+data class FeedSource(val id: String, val url: String, val label: String, val enabled: Boolean = true)
 
 /** A cached feed entry shown on the feed page. */
 data class FeedEntry(
@@ -38,6 +38,12 @@ data class FeedState(
     val feedPreferred: Boolean = false,
 ) {
     val configured: Boolean get() = sources.isNotEmpty()
+    /** Entries from the feeds that are switched on; switched-off feeds stay saved but never reach the page. */
+    val shownEntries: List<FeedEntry> get() {
+        val on = sources.filter { it.enabled }.mapTo(mutableSetOf()) { it.id }
+        return entries.filter { it.sourceId in on }
+    }
+    val anyEnabled: Boolean get() = sources.any { it.enabled }
 }
 
 sealed interface FeedAddResult {
@@ -145,7 +151,7 @@ class FeedStore(private val context: Context, private val scope: CoroutineScope)
 
     /** Refreshes every source once; no-ops while a refresh is already running. */
     fun refresh() {
-        val sources = _state.value.sources
+        val sources = _state.value.sources.filter { it.enabled }
         if (sources.isEmpty() || fetching) return
         fetching = true
         _state.update { it.copy(refreshing = true, message = null) }
@@ -177,7 +183,7 @@ class FeedStore(private val context: Context, private val scope: CoroutineScope)
 
     fun refreshIfStale(maxAgeMillis: Long = 15L * 60L * 1000L) {
         val state = _state.value
-        if (state.sources.isNotEmpty() &&
+        if (state.anyEnabled &&
             System.currentTimeMillis() - state.lastRefreshAt > maxAgeMillis) refresh()
     }
 
@@ -220,6 +226,13 @@ class FeedStore(private val context: Context, private val scope: CoroutineScope)
         save(_state.value)
     }
 
+    /** Turns a saved feed on or off. Turning one on fetches it straight away so it isn't empty or stale. */
+    fun setSourceEnabled(id: String, enabled: Boolean) {
+        _state.update { it.copy(sources = it.sources.map { s -> if (s.id == id) s.copy(enabled = enabled) else s }) }
+        save(_state.value)
+        if (enabled) refresh()
+    }
+
     fun setPreferred(preferred: Boolean) {
         _state.update { it.copy(feedPreferred = preferred) }
         save(_state.value)
@@ -234,7 +247,7 @@ class FeedStore(private val context: Context, private val scope: CoroutineScope)
 
     private fun encodeSources(sources: List<FeedSource>) = JSONArray().also { array ->
         sources.forEach { source -> array.put(JSONObject()
-            .put("id", source.id).put("url", source.url).put("label", source.label)) }
+            .put("id", source.id).put("url", source.url).put("label", source.label).put("enabled", source.enabled)) }
     }.toString()
 
     private fun decodeSources(raw: String): List<FeedSource> = runCatching {
@@ -244,7 +257,7 @@ class FeedStore(private val context: Context, private val scope: CoroutineScope)
                 val item = array.getJSONObject(index)
                 val url = item.optString("url", "")
                 val id = item.optString("id", "").ifBlank { url.hashCode().toString(36) }
-                add(FeedSource(id, url, item.optString("label", url)))
+                add(FeedSource(id, url, item.optString("label", url), item.optBoolean("enabled", true)))
             }
         }.filter { it.url.isNotBlank() }
     }.getOrDefault(emptyList())

@@ -52,7 +52,8 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
     moving: Boolean, onMoving: (Boolean) -> Unit,
     onAddOrRemove: () -> Unit, onMoveFirst: () -> Unit, onMoveEarlier: () -> Unit, onMoveLater: () -> Unit,
     onMovePage: (Int) -> Unit, onInfo: () -> Unit, onWidgets: (() -> Unit)?, onCreateFolder: () -> Unit,
-    onClose: () -> Unit, onSplit: (() -> Unit)? = null) {
+    onClose: () -> Unit, onSplit: (() -> Unit)? = null,
+    shortcuts: List<AppShortcut> = emptyList(), onShortcut: (AppShortcut) -> Unit = {}) {
     ModalDialogBackHandler { if (moving) onMoving(false) else onClose() }
     val maxHeight = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * .88f).toDp() }
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
@@ -75,6 +76,23 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
             repeat(homePages) { page -> ActionRow(Icons.Rounded.GridView, "Move to page ${page + 1}",
                 { onMovePage(page) }, Modifier.testTag("app-move-${app.id}-page-$page")) }
         } else {
+            // The app's own quick actions come first, as on every other launcher.
+            if (shortcuts.isNotEmpty()) {
+                shortcuts.forEach { shortcut ->
+                    Surface(onClick = { onShortcut(shortcut) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        .testTag("app-shortcut-${shortcut.info.id}"), color = androidx.compose.ui.graphics.Color.Transparent, shape = Corner.medium) {
+                        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            val bitmap = shortcut.icon
+                            if (bitmap != null) Image(bitmap.asImageBitmap(), null, Modifier.size(34.dp).clip(Corner.icon))
+                            else Box(Modifier.size(34.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = .12f), Corner.icon))
+                            Spacer(Modifier.width(14.dp))
+                            Text(shortcut.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+                HorizontalDivider(Modifier.padding(vertical = 6.dp))
+            }
             if (placed) ActionRow(Icons.Rounded.DragIndicator, "Move on Home", { onMoving(true) })
             else ActionRow(Icons.Rounded.Home, "Add to Home", onAddOrRemove)
             onWidgets?.let { ActionRow(Icons.Rounded.Widgets, "Widgets", it) }

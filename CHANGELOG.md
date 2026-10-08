@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.19.0-uno01
+
+- Themed icons are now liquid glass: a translucent tinted tile (lighter toward the light, so the wallpaper reads through), a soft shadow under the glyph, a white sheen over the upper left, and a rim that is bright at the lit corner and fades to the far side, matching the live rim light. Apps without a monochrome icon layer now get an ink silhouette of their own glyph instead of a washed-out grey slab. It is the look of glass painted into the icon, not live refraction, because icons are drawn as images.
+- App shortcuts: long-press an app and its own quick actions (Camera's selfie, Chrome's incognito tab, Maps' Home and Work) appear at the top of the options sheet, up to four, in the app's own order. They are read through the launcher-apps service, which only answers a default Home app, so they show once Uno is your Home app.
+
+- Fix: split screen could open an unrelated app as the first one. The second app was launched after a fixed 2.5 s even if the first app (a slow cold start) was not yet in front, so Android paired it with whatever it had been showing. It now waits until the first app is actually in front, and if that doesn't happen within 12 s, or you return Home first, it cancels instead of guessing. I could not reproduce the wrong pairing on the emulator (apps start too fast there), so this is the fix for the timing cause I identified, not a confirmed match for what you saw.
+- Google Discover is gone as a default and as an option: the feed page always owns the leading page, and the "Use my feed instead of Discover" switch is removed.
+- Each saved feed now has a switch (Customize > News feed) to show or hide it on the feed page, so you can keep several links without seeing them all. Switched-off feeds stay saved, aren't fetched, and their entries are hidden (also from the island headline); turning one back on fetches it right away. If every feed is off, the page says so. New feeds start on.
+
 ## 0.18.1-uno01
 
 - Tilt strength slider (Customize > Wallpaper & appearance, under Tilt-following highlight). The default effect was too gentle to notice on a real phone: a hand tilt of 10 to 20 degrees moved a thin rim only a few degrees. Strength now multiplies the roll the light follows (1x to 6x, 4x at the default 60%), sharpens the rim's falloff so the lit edge stays bright while the other edges fade out (making the direction obvious), and thickens the rim slightly. Brightening the whole rim instead was tried first and made things worse: at full strength every edge was a white outline and the movement vanished, so strength acts on contrast, not brightness.

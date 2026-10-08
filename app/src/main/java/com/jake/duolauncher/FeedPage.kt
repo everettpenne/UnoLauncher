@@ -82,7 +82,14 @@ private fun FeedPageBody(
             }
             when {
                 !feed.configured -> EmptyFeedState(onAddFeed, Modifier.weight(1f))
-                feed.refreshing && feed.entries.isEmpty() -> {
+                !feed.anyEnabled -> Column(Modifier.weight(1f).testTag("feed-all-off"), verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("All your feeds are switched off.", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Turn one on under Customize > News feed.", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                feed.refreshing && feed.shownEntries.isEmpty() -> {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         LinearProgressIndicator(Modifier.fillMaxWidth(.6f))
@@ -90,7 +97,7 @@ private fun FeedPageBody(
                         Text("Checking feeds…", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                feed.entries.isEmpty() && feed.message != null -> {
+                feed.shownEntries.isEmpty() && feed.message != null -> {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Feeds couldn't be read.", style = MaterialTheme.typography.titleMedium)
@@ -110,7 +117,7 @@ private fun FeedPageBody(
                     LazyColumn(Modifier.weight(1f).padding(top = 10.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(end = 8.dp, bottom = 8.dp)) {
-                        itemsIndexed(feed.entries, key = { _, entry -> entry.link }) { index, entry ->
+                        itemsIndexed(feed.shownEntries, key = { _, entry -> entry.link }) { index, entry ->
                             FeedEntryCard(entry, Modifier.testTag("feed-entry-$index")) { onOpenEntry(entry.link) }
                         }
                     }

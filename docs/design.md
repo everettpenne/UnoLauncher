@@ -265,3 +265,9 @@ Android gives a launcher exactly one supported route to split screen: launch the
 `GlassRim.angle` is snapshot state read inside the glass modifiers' highlight lambda, so a change re-runs only their drawing, never composition. `TiltHighlight` feeds it from gravity: the rim rotates against the phone's roll so the light stays fixed in the room, clamped to 75 degrees either way and faded out when the phone is flat (no meaningful roll). Samples are smoothed and only applied when the light has moved 2 degrees, because every glass surface redraws on a change.
 
 The strength setting (`TiltMath.gainFor`, 1x to 6x) multiplies the roll, and `GlassRim.boost` (0..1) shapes the rim: a sharper falloff (`1 + 8b`), a little more intensity and a thicker line. The first version simply made the rim brighter and thicker, and at full strength every edge became a uniform white outline, which hides the direction of the light; contrast between the lit and unlit edges is what makes movement readable, so strength raises falloff, not overall brightness.
+
+## Glass icons and app shortcuts
+
+`drawThemed` paints a themed icon in layers: a translucent gradient tile, the glyph (the monochrome layer, or the foreground's silhouette in ink for apps without one) over a blurred offset copy as a shadow, a radial white sheen, and a diagonal-gradient rim stroke. Icons are bitmaps, so this is a painted look, not backdrop refraction; the colors come from the palette or `WallpaperAccent`, so the icon cache key already rebuilds them with the theme.
+
+`AppShortcuts` reads manifest and dynamic shortcuts for the icon's activity through `LauncherApps.getShortcuts` (IO dispatcher; the sheet is usable at once and the entries fill in) and starts one with `startShortcut` on its own thread. `hasShortcutHostPermission` is false unless Uno is the default Home app, in which case the list is simply empty.

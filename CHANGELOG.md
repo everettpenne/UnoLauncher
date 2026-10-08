@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.23.1-uno01
+
+- Fix the everywhere-overlay breaking touch: the island composable's fill-size wrapper inside the wrap-content overlay window made the window cover the whole screen and swallow input, pushed the island off-center, and fed a relayout loop. The overlay now renders only the island itself, window updates are deduplicated, and the island is anchored from the system status-bar height (overlay windows receive no status-bar insets). Verified on-device: the window measures exactly 326x95 px collapsed and 840x389 px expanded, centered, below the status bar, with taps expanding and collapsing it in place.
+
 ## 0.23.0-uno01
 
 - Island everywhere (Phase 2): an opt-in overlay that shows the island above other apps. The window is exactly the island's size, NOT_FOCUSABLE and NOT_TOUCH_MODAL so touches outside it pass through, and it never draws on the lock screen or when the screen is off; the permission is requested through an explainer, revoked permission stops it immediately, and Home's own island steps aside so there is never two islands.

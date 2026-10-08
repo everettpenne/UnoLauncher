@@ -136,7 +136,8 @@ internal object IslandGeometry {
 
 /** Reads the camera cutout and bars from the live window. Cheap enough to call on layout. */
 internal fun readIslandEnvironment(view: View, dockWidthPx: Float = 0f,
-    screenWidth: Int = view.rootView.width, screenHeight: Int = view.rootView.height): IslandEnvironment {
+    screenWidth: Int = view.rootView.width, screenHeight: Int = view.rootView.height,
+    statusBarHeightPx: Int = -1): IslandEnvironment {
     val insets = view.rootWindowInsets
     val width = screenWidth.toFloat()
     val height = screenHeight.toFloat()
@@ -156,7 +157,8 @@ internal fun readIslandEnvironment(view: View, dockWidthPx: Float = 0f,
     return IslandEnvironment(
         cutout = hole,
         screenWidth = width,
-        statusBarHeight = (insets?.getInsets(WindowInsets.Type.statusBars())?.top ?: 0).toFloat(),
+        statusBarHeight = (if (statusBarHeightPx >= 0) statusBarHeightPx
+            else insets?.getInsets(WindowInsets.Type.statusBars())?.top ?: 0).toFloat(),
         dockWidthPx = dockWidthPx,
     )
 }

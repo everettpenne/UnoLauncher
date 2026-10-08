@@ -102,6 +102,11 @@ class IslandOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner,
         IslandRuntime.updateOverlay(true)
 
         val metrics = resources.displayMetrics
+        // Overlay windows receive no status-bar insets, so the island's anchor is measured
+        // from the system's own status-bar height instead.
+        val statusBarPx = runCatching {
+            resources.getDimensionPixelSize(resources.getIdentifier("status_bar_height", "dimen", "android"))
+        }.getOrDefault(0)
         val keyguard = getSystemService(KeyguardManager::class.java)
         val power = getSystemService(PowerManager::class.java)
         view.setContent {
@@ -110,6 +115,8 @@ class IslandOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner,
                 mutableStateOf(getSharedPreferences("appearance", MODE_PRIVATE).getFloat("islandScale", .5f).coerceIn(0f, 1f))
             }
             LaunchedEffect(Unit) {
+                var lastVisible = true
+                var lastWidth = -1
                 while (true) {
                     val enabled = getSharedPreferences("extras", MODE_PRIVATE).getBoolean("islandEverywhere", false)
                     visible = OverlayPolicy.shouldShow(enabled, Settings.canDrawOverlays(this@IslandOverlayService),
@@ -117,12 +124,15 @@ class IslandOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner,
                     islandScale = getSharedPreferences("appearance", MODE_PRIVATE)
                         .getFloat("islandScale", .5f).coerceIn(0f, 1f)
                     // Keep the window 1x1 when hidden: present but untouchable and invisible.
+                    // Only touch the layout when something actually changed, so an update can
+                    // never feed a relayout loop.
                     val p = layoutParams ?: break
-                    runCatching {
-                        manager.updateViewLayout(view, p.apply {
-                            width = if (visible) WindowManager.LayoutParams.WRAP_CONTENT else 1
-                            height = if (visible) WindowManager.LayoutParams.WRAP_CONTENT else 1
-                        })
+                    val wanted = if (visible) WindowManager.LayoutParams.WRAP_CONTENT else 1
+                    if (visible != lastVisible || wanted != lastWidth) {
+                        runCatching {
+                            manager.updateViewLayout(view, p.apply { width = wanted; height = wanted })
+                        }
+                        lastVisible = visible; lastWidth = wanted
                     }
                     delay(2_000L)
                 }
@@ -137,14 +147,17 @@ class IslandOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner,
                     dockWidthPx = 0f,
                     screenWidthPx = metrics.widthPixels,
                     screenHeightPx = metrics.heightPixels,
+                    statusBarHeightPx = statusBarPx,
                     anchoredToWindow = true,
                     showActions = false,
                     onFrameChanged = { frame ->
                         val p = layoutParams ?: return@DynamicIsland
-                        runCatching {
-                            manager.updateViewLayout(view, p.apply {
-                                x = frame.left.toInt(); y = frame.top.toInt()
-                            })
+                        if (p.x != frame.left.toInt() || p.y != frame.top.toInt()) {
+                            runCatching {
+                                manager.updateViewLayout(view, p.apply {
+                                    x = frame.left.toInt(); y = frame.top.toInt()
+                                })
+                            }
                         }
                     },
                     onSearch = {},

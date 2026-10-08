@@ -214,6 +214,7 @@ internal fun DynamicIsland(
     dockWidthPx: Float = 0f,
     screenWidthPx: Int = 0,
     screenHeightPx: Int = 0,
+    statusBarHeightPx: Int = -1,
     anchoredToWindow: Boolean = false,
     showActions: Boolean = true,
     onFrameChanged: ((IslandFrame) -> Unit)? = null,
@@ -250,9 +251,12 @@ internal fun DynamicIsland(
     // the view attaches and again after rotation, folding, or a display-size change.
     val initialWidth = if (screenWidthPx > 0) screenWidthPx else view.rootView.width
     val initialHeight = if (screenHeightPx > 0) screenHeightPx else view.rootView.height
-    var environment by remember { mutableStateOf(IslandEnvironment(null, initialWidth.toFloat(), 0f)) }
+    val initialStatusBar = if (statusBarHeightPx >= 0) statusBarHeightPx
+        else -1
+    var environment by remember { mutableStateOf(IslandEnvironment(null, initialWidth.toFloat(),
+        (if (initialStatusBar >= 0) initialStatusBar else 0).toFloat())) }
     var origin by remember { mutableStateOf(Offset.Zero) }
-    LaunchedEffect(configuration) { environment = readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight) }
+    LaunchedEffect(configuration) { environment = readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight, initialStatusBar) }
 
     val progress by animateFloatAsState(if (state.expanded) 1f else 0f,
         spring(dampingRatio = 0.5f, stiffness = 300f), label = "island expand")
@@ -291,11 +295,17 @@ internal fun DynamicIsland(
         if (state.expanded) { delay(if (IslandTools.toolsOpen) 20_000L else 5000L); state.collapse() }
     }
 
-    Box(modifier.fillMaxSize().onGloballyPositioned {
-        origin = it.positionInWindow()
-        val read = readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight)
-        if (read != environment) environment = read
-    }) {
+    // Anchored (overlay) mode renders only the island itself: the service positions a
+    // WRAP_CONTENT window at the frame, so a fillMaxSize wrapper here would expand the window
+    // to cover the screen and swallow every touch. Home mode keeps the full-size wrapper so
+    // the island can offset itself to the cutout inside the launcher's window.
+    val wrapperModifier = if (anchoredToWindow) Modifier
+        else Modifier.fillMaxSize().onGloballyPositioned {
+            origin = it.positionInWindow()
+            val read = readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight, initialStatusBar)
+            if (read != environment) environment = read
+        }
+    Box(modifier.then(wrapperModifier)) {
         LaunchedEffect(frame) { onFrameChanged?.invoke(frame) }
         // The island's window-pixel position, translated into this parent's own frame. The
         // everywhere-overlay positions its window itself and renders the island at the origin.

@@ -262,4 +262,6 @@ Android gives a launcher exactly one supported route to split screen: launch the
 
 ## Tilt-following highlight
 
-`GlassRim.angle` is snapshot state read inside the glass modifiers' highlight lambda, so a change re-runs only their drawing, never composition. `TiltHighlight` feeds it from gravity: the rim rotates against the phone's roll so the light stays fixed in the room, clamped to 75 degrees either way and faded out when the phone is flat (no meaningful roll). Samples are smoothed and only applied when the light has moved 1.5 degrees, because every glass surface redraws on a change.
+`GlassRim.angle` is snapshot state read inside the glass modifiers' highlight lambda, so a change re-runs only their drawing, never composition. `TiltHighlight` feeds it from gravity: the rim rotates against the phone's roll so the light stays fixed in the room, clamped to 75 degrees either way and faded out when the phone is flat (no meaningful roll). Samples are smoothed and only applied when the light has moved 2 degrees, because every glass surface redraws on a change.
+
+The strength setting (`TiltMath.gainFor`, 1x to 6x) multiplies the roll, and `GlassRim.boost` (0..1) shapes the rim: a sharper falloff (`1 + 8b`), a little more intensity and a thicker line. The first version simply made the rim brighter and thicker, and at full strength every edge became a uniform white outline, which hides the direction of the light; contrast between the lit and unlit edges is what makes movement readable, so strength raises falloff, not overall brightness.

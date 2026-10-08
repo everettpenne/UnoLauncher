@@ -21,9 +21,21 @@ class TiltMathTest {
     }
 
     @Test fun theSwingIsClampedSoLandscapeDoesNotSpinTheRim() {
-        assertEquals(TiltMath.BASE_ANGLE + TiltMath.MAX_SWING, TiltMath.angle(9.81f, 0f, 0f), .001f)
-        assertEquals(TiltMath.BASE_ANGLE - TiltMath.MAX_SWING, TiltMath.angle(-9.81f, 0f, 0f), .001f)
-        assertEquals(TiltMath.BASE_ANGLE + TiltMath.MAX_SWING, TiltMath.angle(1f, -9.8f, 0f), .001f)
+        assertEquals(TiltMath.BASE_ANGLE + 90f, TiltMath.angle(9.81f, 0f, 0f), .5f)
+        assertEquals(TiltMath.BASE_ANGLE - 90f, TiltMath.angle(-9.81f, 0f, 0f), .5f)
+        assertEquals(TiltMath.BASE_ANGLE + TiltMath.MAX_SWING, TiltMath.angle(1f, -9.8f, 0f, gain = 3f), .001f)
+        assertEquals(TiltMath.BASE_ANGLE - TiltMath.MAX_SWING, TiltMath.angle(-9f, 0f, 0f, gain = 6f), .001f)
+    }
+
+    @Test fun gainMakesAGentleTiltMoveTheLightFurther() {
+        // A 20 degree hand tilt: 1x moves the light 20 degrees, 4x moves it 80.
+        val gx = (9.81 * Math.sin(Math.toRadians(20.0))).toFloat(); val gy = (9.81 * Math.cos(Math.toRadians(20.0))).toFloat()
+        assertEquals(TiltMath.BASE_ANGLE + 20f, TiltMath.angle(gx, gy, 0f, gain = 1f), .5f)
+        assertEquals(TiltMath.BASE_ANGLE + 80f, TiltMath.angle(gx, gy, 0f, gain = 4f), .5f)
+        assertEquals(1f, TiltMath.gainFor(0f), 0f)
+        assertEquals(6f, TiltMath.gainFor(1f), 0f)
+        assertEquals(6f, TiltMath.gainFor(5f), 0f)
+        assertEquals(4f, TiltMath.gainFor(.6f), .001f)
     }
 
     @Test fun smoothingMovesPartWayAndSmallChangesAreNotWorthARedraw() {

@@ -93,8 +93,29 @@ internal object GlassRim {
         get() = angleState.floatValue
         set(value) { angleState.floatValue = value }
 
+    /** 0..1: how much stronger and thicker the rim is made while tilt-following is on, so the movement is easy to
+     * see. 0 leaves the stock rim. Set from the tilt strength setting.
+     */
+    private val boostState = androidx.compose.runtime.mutableFloatStateOf(0f)
+    var boost: Float
+        get() = boostState.floatValue
+        set(value) { boostState.floatValue = value }
+
+    /** Motion readings received since tilt-following started; the settings page uses it to say whether the sensor
+     * is reaching the launcher at all. Kept apart from [angle] so counting never redraws the glass.
+     */
+    val samples = androidx.compose.runtime.mutableIntStateOf(0)
+
     val Light: Highlight
-        get() = Highlight.Default.copy(style = com.kyant.backdrop.highlight.HighlightStyle.Default(angle = angle))
+        get() {
+            val b = boost
+            // More tilt strength sharpens the falloff rather than brightening the whole rim: a rim that is bright on
+            // every edge hides which way the light is, so the lit edge gets brighter while the others fade out.
+            return Highlight.Default.copy(
+                width = (0.5f + 0.6f * b).dp,
+                style = com.kyant.backdrop.highlight.HighlightStyle.Default(
+                    intensity = 0.5f + 0.4f * b, angle = angle, falloff = 1f + 8f * b))
+        }
 }
 
 /** Liquid-glass surface: vibrancy, blur, and lens refraction over the recorded backdrop,

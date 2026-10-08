@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.1-uno01
+
+- Tilt strength slider (Customize > Wallpaper & appearance, under Tilt-following highlight). The default effect was too gentle to notice on a real phone: a hand tilt of 10 to 20 degrees moved a thin rim only a few degrees. Strength now multiplies the roll the light follows (1x to 6x, 4x at the default 60%), sharpens the rim's falloff so the lit edge stays bright while the other edges fade out (making the direction obvious), and thickens the rim slightly. Brightening the whole rim instead was tried first and made things worse: at full strength every edge was a white outline and the movement vanished, so strength acts on contrast, not brightness.
+- A live readout under the slider says whether motion readings are arriving ("Motion sensor working. Light angle 43 degrees (45 degrees when upright)") or, if none are, points at GrapheneOS's per-app Sensors toggle.
+- The light's swing limit rose from 75 to 135 degrees so the higher gains can move it around the shape, sampling is faster (20 Hz) and smoothing quicker, with the redraw threshold at 2 degrees.
+
 ## 0.18.0-uno01
 
 - Split screen: long-press an app, choose **Open in split screen**, then pick the second app. The two open stacked top and bottom on a phone (Android chooses the arrangement for the screen). No accessibility service is involved: the second app is launched with Android's "open beside" flag once the first is in front. Work-profile apps can be the first app but not the second yet, because only the launcher-apps service can start them and it cannot set launch flags.

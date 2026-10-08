@@ -437,7 +437,9 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         persist()
     }
     val retainedWidgetIds get() = (mutable.value.widgetPlacements.map { it.id } +
-        (if (mutable.value.canUndoEdit) undoLayout?.first?.widgetPlacements.orEmpty().map { it.id } else emptyList())).filter { it >= 0 }.toSet()
+        (if (mutable.value.canUndoEdit) undoLayout?.first?.widgetPlacements.orEmpty().map { it.id } else emptyList())).filter { it >= 0 }.toSet() +
+        // Widgets merged into a stack are no longer placed on the grid but must stay bound.
+        WidgetStacks.retainedIds(mutable.value.widgetPlacements.map { it.slot }.toSet())
     val canPruneWidgetIds get() = !statePayloadInvalid
     fun setWidget(slot: Int, id: Int) {
         if (statePayloadInvalid) return

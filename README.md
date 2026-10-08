@@ -56,6 +56,8 @@ Normal beta updates install over the existing beta with the same signing key. Un
 | Scroll a widget | Swipe vertically inside its content; hold still to pick it up |
 | Customize | Long press empty Home space or the wallpaper margin beside the grid |
 | Notifications | Swipe down from Home's left 70%, after enabling optional shade gestures |
+| Search | Island > Search, no installed match? it suggests F-Droid, Aurora and a web search in the app you pick; or or choose the left-hand pull-down in Customize: apps, contacts, answers and feeds in one box |
+| Widget stacks | Long-press a widget > **Stack another widget here** |
 | Split screen | Long-press an app, **Open in split screen**, then pick the second app |
 | Control panel | Swipe down from Home's right 30%: media, volume, brightness, ringer, flashlight, and a hand-off to Android's Quick Settings. Needs no accessibility service |
 

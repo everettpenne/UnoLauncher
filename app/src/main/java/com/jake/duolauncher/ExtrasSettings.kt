@@ -24,6 +24,18 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val note = MaterialTheme.typography.bodySmall
 
+    Text("Feel and sound", style = MaterialTheme.typography.titleMedium)
+    SettingsSwitch("Haptics", s.haptics, store::setHaptics, "haptics-switch")
+    SettingsSwitch("Sounds", s.sounds, store::setSounds, "sounds-switch")
+    Text("Haptics tick on page changes, sliders, the stack rail and the control panel. Sounds are Android's own touch sounds: no audio files are bundled, they follow your system Touch sounds setting and volume, and they stay silent in silent mode. Sounds are off by default.",
+        style = note, color = muted)
+    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    Text("Left-hand swipe down", style = MaterialTheme.typography.titleMedium)
+    ChoiceRow("Notifications", "Android's notification shade (needs the optional shade accessibility service)",
+        s.leftSwipe == LeftSwipe.NOTIFICATIONS, "left-swipe-notifications") { store.setLeftSwipe(LeftSwipe.NOTIFICATIONS) }
+    ChoiceRow("Search", "Spotlight search over Home: apps, contacts, answers and your feeds",
+        s.leftSwipe == LeftSwipe.SEARCH, "left-swipe-search") { store.setLeftSwipe(LeftSwipe.SEARCH) }
+    HorizontalDivider(Modifier.padding(vertical = 6.dp))
     Text("Right-hand swipe down", style = MaterialTheme.typography.titleMedium)
     ChoiceRow("Control panel", "The launcher's own panel; needs no accessibility service",
         s.rightSwipe == RightSwipe.PANEL, "swipe-panel") { store.setRightSwipe(RightSwipe.PANEL) }
@@ -79,6 +91,33 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
         context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
             android.net.Uri.parse("package:${context.packageName}")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
     }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("exact-alarm")) { Text("Allow exact alarms") }
+    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+
+    Text("Search suggestions", style = MaterialTheme.typography.titleMedium)
+    val resolver = rememberHandoffResolver(s)
+    SettingsSwitch("Suggest other apps and the web", s.handoff, store::setHandoff, "handoff-switch")
+    Text("When no installed app matches a search, offer to search an app store or the web. Uno only opens the app you choose with your words in it; it never contacts anything itself, and the web search uses that browser's own search engine.",
+        style = note, color = muted)
+    if (s.handoff) {
+        Text("App stores", style = MaterialTheme.typography.titleSmall)
+        HandoffLogic.KNOWN_STORES.forEach { storeInfo ->
+            val present = resolver.isStoreInstalled(storeInfo)
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
+                .clickable(enabled = present) { store.toggleHandoffStore(storeInfo.id) }.testTag("handoff-store-${storeInfo.id}"),
+                verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(storeInfo.id in s.handoffStores, { store.toggleHandoffStore(storeInfo.id) }, enabled = present)
+                Column(Modifier.padding(start = 8.dp)) {
+                    Text(storeInfo.label)
+                    if (!present) Text("Not installed", style = note, color = muted)
+                }
+            }
+        }
+        Text("Web search app", style = MaterialTheme.typography.titleSmall)
+        ChoiceRow("Automatic", "Vanadium if installed, otherwise any browser", s.webPackage == null, "web-auto") { store.setWebPackage(null) }
+        resolver.installedBrowsers().forEach { (pkg, label) ->
+            ChoiceRow(label, pkg, s.webPackage == pkg, "web-$pkg") { store.setWebPackage(pkg) }
+        }
+    }
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
 
     Text("Notifications (optional)", style = MaterialTheme.typography.titleMedium)

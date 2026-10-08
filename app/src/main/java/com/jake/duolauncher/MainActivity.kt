@@ -16,6 +16,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
 import androidx.activity.viewModels
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.view.WindowCompat
@@ -96,6 +97,8 @@ class MainActivity : ComponentActivity() {
         runCatching { shadePrefs.getBoolean("declined", false) }.getOrDefault(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Before anything can prune widget ids: stacked widgets are not on the grid but must stay bound.
+        WidgetStacks.init(this)
         super.onCreate(savedInstanceState)
         setupExperience = SetupExperience(this)
         showFirstRun.value = setupExperience.entryDecision(SetupExperience.hadLauncherState(this)) ==
@@ -118,11 +121,16 @@ class MainActivity : ComponentActivity() {
         }
         status = DeviceStatusMonitor(this).also { lifecycle.addObserver(it) }
         IslandTools.load(this)
-        NotificationFeed.onPeek = { label -> island.showEvent(IslandEvent(label, IslandSymbol.NOTIFICATION)) }
+        NotificationFeed.onPeek = { pkg, label ->
+            // The posting app's own icon when it is a launchable app here; otherwise a plain bell.
+            val app = model.state.value.apps.firstOrNull { it.packageName == pkg }
+            runOnUiThread { if (app != null) island.showPeek(app, label) else island.showEvent(IslandEvent(label, IslandSymbol.NOTIFICATION)) }
+        }
         updateDefaultHome()
         if (savedInstanceState == null && intent.getStringExtra("duo_destination") == "search") searchRequests.intValue++
         intent.removeExtra("duo_destination")
         setContent {
+            SideEffect { UnoFeedback.configure(this@MainActivity, extrasStore.state.haptics, extrasStore.state.sounds) }
             TiltHighlight(enabled = appearance.state.tiltHighlight && appearance.state.liquidGlass,
                 strength = appearance.state.tiltStrength)
             val rawState = model.state.collectAsStateWithLifecycle().value
@@ -314,6 +322,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun launchApp(app: AppEntry, bounds: android.graphics.Rect? = null) {
+        UnoFeedback.play(Cue.LAUNCH, window.decorView)
         island.showLaunch(app)
         try {
             val user = getSystemService(UserManager::class.java).getUserForSerialNumber(app.userSerial)

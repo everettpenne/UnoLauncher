@@ -35,7 +35,7 @@ internal object NotificationFeed {
     var nowPlaying by mutableStateOf<NowPlaying?>(null)
     var connected by mutableStateOf(false)
     /** Set by the activity; called with an app's name when a new notification should peek in the island. */
-    @Volatile var onPeek: ((String) -> Unit)? = null
+    @Volatile var onPeek: ((packageName: String, label: String) -> Unit)? = null
 }
 
 /** Opt-in notification access, used for three things and nothing else: unread counts for icon badges,
@@ -114,7 +114,7 @@ class UnoNotificationListener : NotificationListenerService() {
         val label = runCatching {
             packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString()
         }.getOrNull() ?: return
-        NotificationFeed.onPeek?.invoke(label)
+        NotificationFeed.onPeek?.invoke(sbn.packageName, label)
     }
 
     private fun syncMedia(list: List<MediaController>? = null) {

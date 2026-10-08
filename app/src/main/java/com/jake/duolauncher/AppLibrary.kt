@@ -42,6 +42,7 @@ internal fun AppLibrary(
     onTurnOnWork: (Long) -> Unit = {},
     contacts: List<ContactResult> = emptyList(),
     onContact: (ContactResult) -> Unit = {},
+    handoff: HandoffResolver? = null,
 ) {
     val glass = !editing
     val palette = LocalDuoPalette.current
@@ -154,6 +155,15 @@ internal fun AppLibrary(
                                     modifier = Modifier.size(20.dp))
                             }
                         }
+                    }
+                }
+                val suggestions = if (editing || handoff == null) emptyList() else handoff.targets(query, visibleApps.size, smart != null)
+                if (suggestions.isNotEmpty()) {
+                    item("handoff-header") {
+                        Text("Look elsewhere", Modifier.padding(top = 14.dp, bottom = 6.dp), fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = ink)
+                    }
+                    items(suggestions, key = { "handoff-${it.kind}-${it.packageName}" }) { target ->
+                        HandoffRow(target, ink, Modifier.clickable { handoff?.open(target, query) })
                     }
                 }
                 if (contacts.isNotEmpty()) {

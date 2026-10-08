@@ -3,6 +3,9 @@ package com.jake.duolauncher
 /** What the right-hand downward swipe opens. */
 internal enum class RightSwipe { PANEL, SYSTEM }
 
+/** What a pull-down on the left side of Home does. */
+internal enum class LeftSwipe { NOTIFICATIONS, SEARCH }
+
 /** How app icons are drawn: as shipped, or recoloured to the launcher's palette where the app allows. */
 internal enum class IconStyle {
     ORIGINAL, THEMED;

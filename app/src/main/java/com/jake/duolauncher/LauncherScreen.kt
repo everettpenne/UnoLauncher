@@ -86,6 +86,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -194,6 +195,7 @@ internal fun LauncherScreen(
     var libraryQuery by rememberSaveable { mutableStateOf("") }
     val contactsOn = extras?.store?.state?.contactSearch == true
     var contactResults by remember { mutableStateOf(emptyList<ContactResult>()) }
+    val handoffResolver = rememberHandoffResolver(extras?.store?.state ?: ExtrasState())
     var pinQuery by rememberSaveable { mutableStateOf("") }
     val launcherActivity = androidx.activity.compose.LocalActivity.current as MainActivity
     val launcherRootView = LocalView.current.rootView
@@ -352,6 +354,11 @@ internal fun LauncherScreen(
         }
     }
     var controlPanelOpen by remember { mutableStateOf(false) }
+    var spotlightOpen by remember { mutableStateOf(false) }
+    BackHandler(enabled = spotlightOpen) { spotlightOpen = false }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { spotlightOpen = false }
+    // A soft tick as each page settles (not on the first composition).
+    LaunchedEffect(Unit) { snapshotFlow { pager.settledPage }.drop(1).collect { UnoFeedback.play(Cue.PAGE, haptic) } }
     // Themed icons are baked into bitmaps, so a style change (or, while themed, a light/dark flip) rebuilds them.
     val iconStyleNow = extras?.store?.state?.iconStyle ?: IconStyle.ORIGINAL
     val themedDarkNow = iconStyleNow == IconStyle.THEMED && appearance.dark
@@ -567,7 +574,7 @@ internal fun LauncherScreen(
                 openFolderId == null && emptyCellIndex == null && createFolderFirstId == null &&
                 launcherActivity.backups.preview == null && !launcherActivity.backups.pickerPending &&
                 !launcherActivity.backgrounds.pickerPending && widgets.setupStatus == null &&
-                widgets.reconfigureWidgetId == null && !controlPanelOpen
+                widgets.reconfigureWidgetId == null && !controlPanelOpen && !spotlightOpen
             Box(Modifier.fillMaxSize().onGloballyPositioned {
                 gestureOriginInRoot = it.boundsInRoot().topLeft
                 gestureOriginInWindow = it.boundsInWindow().topLeft
@@ -591,8 +598,10 @@ internal fun LauncherScreen(
                 },
                 // The right-hand swipe opens the launcher's own control panel; Notifications still use the system shade.
                 onDownwardSwipe = { panel ->
-                    if (panel == ShadePanel.QUICK_SETTINGS && (extras?.store?.state?.rightSwipe ?: RightSwipe.PANEL) == RightSwipe.PANEL) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); controlPanelOpen = true }
-                    else launcherActivity.openSystemShade(panel)
+                    if (panel == ShadePanel.QUICK_SETTINGS && (extras?.store?.state?.rightSwipe ?: RightSwipe.PANEL) == RightSwipe.PANEL) { UnoFeedback.play(Cue.OPEN, haptic); controlPanelOpen = true }
+                    else if (panel == ShadePanel.NOTIFICATIONS && extras?.store?.state?.leftSwipe == LeftSwipe.SEARCH) {
+                        UnoFeedback.play(Cue.OPEN, haptic); spotlightOpen = true
+                    } else launcherActivity.openSystemShade(panel)
                 },
                 onLeadingOverscroll = if (firstHome == 0) onDiscover else null,
                 ignorePress = { point -> pageStripBounds.contains(point + gestureOriginInRoot) },
@@ -642,7 +651,7 @@ internal fun LauncherScreen(
                         glassTint = glassTint.copy(alpha = .55f),
                         settings = glassSettings,
                         libraryQuery = libraryQuery, onLibraryQuery = { libraryQuery = it },
-                        contacts = contactResults, onContact = { ContactsSearch.open(launcherActivity, it) },
+                        contacts = contactResults, onContact = { ContactsSearch.open(launcherActivity, it) }, handoff = handoffResolver,
                         onLaunch = onLaunch, onLaunchFrom = onLaunchFrom, onPinned = model::setPinned,
                         onTurnOnWork = { model.turnOnWork(it) },
                         onActions = { selectedId = it.id }, onWidget = { widgetSlot = it; sheet = "widgetActions" },
@@ -674,7 +683,7 @@ internal fun LauncherScreen(
                         AppLibrary(state, libraryQuery, { libraryQuery = it }, onLaunch, model::setPinned,
                             onActions = { selectedId = it.id }, modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace).testTag("library-page"),
                             drag = drag, page = visibleHomePages, onLaunchFrom = onLaunchFrom, onTurnOnWork = { model.turnOnWork(it) },
-                            contacts = contactResults, onContact = { ContactsSearch.open(launcherActivity, it) })
+                            contacts = contactResults, onContact = { ContactsSearch.open(launcherActivity, it) }, handoff = handoffResolver)
                     } else {
                         Row(Modifier.fillMaxSize().testTag("home-surface")) {
                             HomePagePane(page, state, previewLayout.slots, previewLayout.leadingSlots, previewLayout.widgetPlacements, appsById, geometry, contentHeight,
@@ -765,12 +774,12 @@ internal fun LauncherScreen(
                     }
                 }
             }
-            if (appearance.island && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen) {
+            if (appearance.island && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen && !spotlightOpen) {
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.shownEntries.firstOrNull()?.title,
                     sizeScale = appearance.islandScale,
                     dockWidthPx = with(density) { preset.dockWidth.dp.toPx() },
-                    onSearch = { island.collapse(); openLibrary() },
+                    onSearch = { island.collapse(); spotlightOpen = true },
                     onOpenFeed = {
                         island.collapse()
                         if (pager.currentPage != -1) scope.launch { pager.animateScrollToPage(-1) }
@@ -890,7 +899,31 @@ internal fun LauncherScreen(
                                     widgetExactTarget = false; sheet = "widgets"
                                 },
                                 onRemove = { widgets.remove(widgetSlot); sheet = "" },
-                                onClose = { sheet = "" })
+                                onClose = { sheet = "" },
+                                stackMembers = WidgetStacks.members(widgetSlot).map { it to widgets.label(it) },
+                                onStackWith = if (state.widgetPlacements.any { it.slot != widgetSlot && it.id >= 0 && widgets.manager.getAppWidgetInfo(it.id) != null }
+                                    && WidgetStacks.members(widgetSlot).size < StackRules.MAX_MEMBERS) {{ sheet = "stackPick" }} else null,
+                                onRemoveFromStack = { memberId ->
+                                    WidgetStacks.remove(widgetSlot, memberId); widgets.pruneUnusedIds()
+                                })
+                        }
+                        "stackPick" -> Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)
+                            .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("Stack which widget?", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+                                IconButton(onClick = { sheet = "widgetActions" }) { Icon(Icons.Rounded.Close, "Cancel") }
+                            }
+                            Text("It moves into this widget's stack and leaves its spot on Home free.",
+                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            state.widgetPlacements.filter { it.slot != widgetSlot && it.id >= 0 && widgets.manager.getAppWidgetInfo(it.id) != null }
+                                .forEach { other ->
+                                    ActionRow(Icons.Rounded.Widgets, "${widgets.label(other.id)}  ·  page ${other.page + 1}", {
+                                        // Remember it as a stack member first, so removing its grid spot doesn't unbind it.
+                                        if (WidgetStacks.add(widgetSlot, other.id)) { widgets.remove(other.slot) }
+                                        sheet = ""
+                                    }, Modifier.testTag("stack-pick-${other.slot}"))
+                                }
+                            Spacer(Modifier.height(16.dp))
                         }
                     }
                 }
@@ -1157,6 +1190,15 @@ internal fun LauncherScreen(
         // The control panel lives out here, beside the inset-padded Home content, so its dimming layer covers the whole
         // window. Inside that content it stopped at the status and navigation bars, leaving two undimmed strips that
         // read as the edges of a panel behind the glass; the panel itself applies the safe-area padding.
+        androidx.compose.animation.AnimatedVisibility(spotlightOpen,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { -it / 4 },
+            exit = androidx.compose.animation.fadeOut()) {
+            Spotlight(controlGlass, state.apps, feed.shownEntries, extras?.store?.state?.contactSearch == true, handoffResolver,
+                onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },
+                onOpenFeedLink = { link -> spotlightOpen = false; onFeedOpenEntry(link) },
+                onOpenContact = { contact -> spotlightOpen = false; ContactsSearch.open(launcherActivity, contact) },
+                onDismiss = { spotlightOpen = false })
+        }
         androidx.compose.animation.AnimatedVisibility(controlPanelOpen,
             enter = androidx.compose.animation.slideInVertically { -it / 2 } + androidx.compose.animation.fadeIn(),
             exit = androidx.compose.animation.slideOutVertically { -it / 2 } + androidx.compose.animation.fadeOut()) {
@@ -1440,6 +1482,7 @@ private fun ExpandedWorkspace(
     onLibraryQuery: (String) -> Unit,
     contacts: List<ContactResult> = emptyList(),
     onContact: (ContactResult) -> Unit = {},
+    handoff: HandoffResolver? = null,
     onLaunch: (AppEntry) -> Unit,
     onLaunchFrom: (AppEntry, android.graphics.Rect?) -> Unit,
     onPinned: (String, Boolean) -> Unit,
@@ -1555,7 +1598,7 @@ private fun ExpandedWorkspace(
                         modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace)
                             .testTag("library-page"),
                         drag = drag, page = visibleHomePages, onLaunchFrom = onLaunchFrom, onTurnOnWork = onTurnOnWork,
-                        contacts = contacts, onContact = onContact)
+                        contacts = contacts, onContact = onContact, handoff = handoff)
                 }
             }
         }
@@ -2045,13 +2088,47 @@ private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifie
             }
             return@BoxWithConstraints
         }
-        val info = remember(id) { if (id >= 0) controller.manager.getAppWidgetInfo(id) else null }
-        if (info == null) fallback()
+        // A stack shows one widget at a time: the base widget, then each widget merged into it.
+        val members = WidgetStacks.stacks[slot].orEmpty()
+        var stackPage by rememberSaveable(slot) { mutableIntStateOf(0) }
+        val shown = StackRules.clampPage(stackPage, members.size)
+        val shownId = if (shown == 0) id else members[shown - 1]
+        val info = remember(shownId) { if (shownId >= 0) controller.manager.getAppWidgetInfo(shownId) else null }
+        if (info == null) { if (shown == 0) fallback() }
         else {
-            key(id) {
-                AndroidView(factory = { context -> controller.host.createView(context, id, info) },
+            key(shownId) {
+                AndroidView(factory = { context -> controller.host.createView(context, shownId, info) },
                     modifier = Modifier.fillMaxSize())
             }
+        }
+        if (members.isNotEmpty()) StackRail(shown, members.size + 1, { stackPage = it },
+            Modifier.align(Alignment.CenterEnd).padding(end = 4.dp))
+    }
+}
+
+/** The dots down the right edge of a widget stack. Tapping a dot, or dragging along the rail, switches widgets. It is a
+ * rail and not a swipe on the widget itself because vertical swipes on Home already open the panel and notifications.
+ */
+@Composable
+private fun StackRail(selected: Int, count: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val haptic = LocalHapticFeedback.current
+    var heightPx by remember { mutableIntStateOf(1) }
+    fun pick(y: Float) {
+        val index = ((y / heightPx.coerceAtLeast(1)) * count).toInt().coerceIn(0, count - 1)
+        if (index != selected) { UnoFeedback.play(Cue.TICK, haptic); onSelect(index) }
+    }
+    Column(modifier.width(28.dp).background(Color.Black.copy(alpha = .22f), Corner.pill).padding(vertical = 8.dp)
+        .onSizeChanged { heightPx = it.height }
+        .pointerInput(count, selected) {
+            detectTapGestures { pick(it.y) }
+        }.pointerInput(count, selected) {
+            detectDragGestures { change, _ -> change.consume(); pick(change.position.y) }
+        }.testTag("stack-rail"),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        repeat(count) { index ->
+            Box(Modifier.size(if (index == selected) 8.dp else 6.dp)
+                .background(Color.White.copy(alpha = if (index == selected) .95f else .5f), CircleShape)
+                .testTag("stack-dot-$index"))
         }
     }
 }
@@ -2251,6 +2328,9 @@ private fun WidgetActions(
     onReplace: () -> Unit,
     onRemove: () -> Unit,
     onClose: () -> Unit,
+    stackMembers: List<Pair<Int, String>> = emptyList(),
+    onStackWith: (() -> Unit)? = null,
+    onRemoveFromStack: (Int) -> Unit = {},
 ) {
     val sheetMaxHeight = with(LocalDensity.current) {
         (LocalWindowInfo.current.containerSize.height * .88f).toDp()
@@ -2270,6 +2350,11 @@ private fun WidgetActions(
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Widget options", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close widget options") }
+        }
+        onStackWith?.let { ActionRow(Icons.Rounded.Layers, "Stack another widget here", it, Modifier.testTag("widget-stack-${placement.slot}")) }
+        stackMembers.forEach { (memberId, label) ->
+            ActionRow(Icons.Rounded.RemoveCircleOutline, "Remove $label from this stack", { onRemoveFromStack(memberId) },
+                Modifier.testTag("widget-unstack-$memberId"), tint = MaterialTheme.colorScheme.error)
         }
         if (canConfigure) ActionRow(Icons.Rounded.Settings, "Widget settings", onConfigure,
             Modifier.testTag("widget-settings-${placement.slot}"))

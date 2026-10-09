@@ -185,12 +185,18 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     SettingsSwitch("Camera and microphone indicators", s.privacyIndicators, store::setPrivacyIndicators, "privacy-indicators-switch")
     Text("The island shows a green camera or orange microphone mark while any app is using that hardware, like Android's own privacy dots. It needs no permission: Android tells every app when the camera or microphone becomes busy, without saying which app is using it. Nothing is recorded or stored.",
         style = note, color = muted)
+    SettingsSwitch("VPN and USB data alerts", s.securityAlerts, store::setSecurityAlerts, "security-alerts-switch")
+    Text("The island flashes when a VPN connects or drops and when a USB data connection starts or ends (plain charging is not announced here). It needs no extra permission and keeps nothing.",
+        style = note, color = muted)
     SettingsSwitch("Show calls in the island", s.callDetails, store::setCallDetails, "call-details-switch")
     Text("While a call is active, the island shows the caller name and elapsed time from the phone app's own call notification, and tapping it opens the call screen. The name is read only while the call is running and never stored; message text is never read.",
         style = note, color = muted)
     SettingsSwitch("Show new notifications in the island", s.notificationPeek, store::setNotificationPeek, "peek-switch")
     Text("Everything stays on this device. Badges count unread notifications per app; the island shows the app's name only, never the message.",
         style = note, color = muted)
+    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+
+    PermissionLedgerSection(actions)
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
 
     Text("Contacts in search (optional)", style = MaterialTheme.typography.titleMedium)

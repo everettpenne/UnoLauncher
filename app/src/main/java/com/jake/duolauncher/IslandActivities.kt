@@ -27,6 +27,8 @@ internal enum class IslandSymbol(val tint: Color) {
     FOCUS(Color(0xFF7D7AFF)),
     TIMER(Color(0xFFFF9F0A)),
     NOTIFICATION(Color.White),
+    VPN(Color(0xFF30D158)),
+    USB(Color(0xFFFF9F0A)),
 }
 
 /** A brief event shown in the collapsed island, like iOS's ringer, charging and Focus flashes. */
@@ -48,6 +50,11 @@ internal object IslandEvents {
             IslandEvent("Focus off", IslandSymbol.FOCUS)
         else IslandEvent("Do Not Disturb", IslandSymbol.FOCUS)
 
+    fun vpn(on: Boolean) = IslandEvent(if (on) "VPN on" else "VPN off", IslandSymbol.VPN)
+
+    /** A USB data connection starting or ending. Plain charging has its own event; this is the link that carries data. */
+    fun usbData(on: Boolean) = IslandEvent(if (on) "USB data connected" else "USB data off", IslandSymbol.USB)
+
     fun charging(percent: Int?) = IslandEvent(if (percent != null) "Charging $percent%" else "Charging", IslandSymbol.CHARGING)
 }
 
@@ -60,8 +67,12 @@ internal fun IslandSymbol.isRinger() = this == IslandSymbol.RINGER || this == Is
 internal object IslandPlayback {
     const val RESUME_WINDOW_MS = 90_000L
 
+    /** [nowMs] comes from a clock that ticks every few seconds, so right after a pause it can be older than [lastPlayingAtMs]. That
+     * used to count as "outside the window" and hid the controls until the next tick, with the island still open and empty; anything
+     * not yet past the window, however recent, is inside it.
+     */
     fun controlsVisible(nowMs: Long, playing: Boolean, lastPlayingAtMs: Long): Boolean =
-        playing || (lastPlayingAtMs > 0L && nowMs - lastPlayingAtMs in 0..RESUME_WINDOW_MS)
+        playing || (lastPlayingAtMs > 0L && nowMs - lastPlayingAtMs <= RESUME_WINDOW_MS)
 }
 
 /** Sends a media key to whichever player is active. [AudioManager.dispatchMediaKeyEvent] needs no
@@ -215,6 +226,44 @@ internal fun IslandSystemEvents(state: IslandState) {
                 state.micActive = configs.orEmpty().any { !it.isClientSilenced }
             }
         }
+        // VPN and USB-data alerts, from public callbacks that need no extra permission. Android replays the current state to a new
+        // listener, so the first answer after registering is the state the phone is already in and is not shown as a change.
+        val alerts = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("securityAlerts", true)
+        val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
+        val registeredAt = android.os.SystemClock.elapsedRealtime()
+        val vpnNetworks = mutableSetOf<android.net.Network>()
+        val vpnCallback = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) {
+                val wasUp = vpnNetworks.isNotEmpty()
+                vpnNetworks += network
+                if (!wasUp && android.os.SystemClock.elapsedRealtime() - registeredAt > 1_500L) state.showEvent(IslandEvents.vpn(true))
+            }
+            override fun onLost(network: android.net.Network) {
+                if (vpnNetworks.remove(network) && vpnNetworks.isEmpty()) state.showEvent(IslandEvents.vpn(false))
+            }
+        }
+        var usbDataWas = false
+        val usbReceiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) {
+                val extras = intent?.extras ?: return
+                val functions = extras.keySet().filter { it != "connected" && it != "configured" && extras.get(it) == true }.toSet()
+                val data = UsbState.dataActive(extras.getBoolean("connected"), extras.getBoolean("configured"), functions)
+                val changed = data != usbDataWas
+                usbDataWas = data
+                if (changed && !isInitialStickyBroadcast) state.showEvent(IslandEvents.usbData(data))
+            }
+        }
+        if (alerts) {
+            runCatching {
+                connectivity?.registerNetworkCallback(android.net.NetworkRequest.Builder()
+                    .addTransportType(android.net.NetworkCapabilities.TRANSPORT_VPN)
+                    .removeCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN).build(), vpnCallback, handler)
+            }
+            runCatching {
+                ContextCompat.registerReceiver(context, usbReceiver, IntentFilter("android.hardware.usb.action.USB_STATE"), null,
+                    handler, ContextCompat.RECEIVER_NOT_EXPORTED)
+            }
+        }
         handler.post {
             audio.registerAudioPlaybackCallback(playback, handler)
             state.setPlaying(System.currentTimeMillis(), audio.isMusicActive)
@@ -235,6 +284,8 @@ internal fun IslandSystemEvents(state: IslandState) {
         onDispose {
             state.recheckPlayback = null
             context.unregisterReceiver(receiver)
+            runCatching { context.unregisterReceiver(usbReceiver) }
+            runCatching { connectivity?.unregisterNetworkCallback(vpnCallback) }
             handler.removeCallbacksAndMessages(null)
             handler.post {
                 audio.unregisterAudioPlaybackCallback(playback)

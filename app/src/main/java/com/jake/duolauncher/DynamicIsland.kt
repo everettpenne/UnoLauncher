@@ -13,6 +13,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.rounded.Usb
+import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -206,6 +208,8 @@ private fun IslandSymbol.icon(): ImageVector = when (this) {
     IslandSymbol.AIRPLANE -> Icons.Rounded.AirplanemodeActive
     IslandSymbol.FOCUS -> Icons.Rounded.Bedtime
     IslandSymbol.TIMER -> Icons.Rounded.Timer
+    IslandSymbol.VPN -> Icons.Rounded.VpnKey
+    IslandSymbol.USB -> Icons.Rounded.Usb
     IslandSymbol.NOTIFICATION -> Icons.Rounded.NotificationsActive
 }
 
@@ -321,6 +325,8 @@ internal fun DynamicIsland(
     val flashActive = state.flashTitle != null
     // Playing means audio is active and, when the session is known, that it is not paused (the session answers a pause at once).
     val isPlaying = state.playing && (NotificationFeed.nowPlaying?.playing ?: true)
+    // The panel reserves room for the Search / Feed / Customize buttons; over other apps they are not shown, so that room goes.
+    val actionsTrimDp = if (showActions) 0f else ACTIONS_ROW_DP
     val mediaVisible = IslandPlayback.controlsVisible(clockMs, state.playing, state.lastPlayingAt)
     val art = NotificationFeed.nowPlaying?.art
     val artImage = remember(art) { art?.asImageBitmap() }
@@ -353,7 +359,7 @@ internal fun DynamicIsland(
     val compactTarget = if (anchoredToWindow && !hasLiveContent) 1f else 0f
     val compactness by animateFloatAsState(compactTarget, spring(dampingRatio = .8f, stiffness = 380f), label = "island compact")
     val frame = IslandGeometry.frame(environment, d, progress, sizeScale,
-        extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f),
+        extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) - actionsTrimDp,
         extraWidthDp = eventWidth, compactness = compactness)
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
     val corner = minOf(minOf(frame.width, frame.height) / 2f, 30f * d) / d
@@ -395,7 +401,7 @@ internal fun DynamicIsland(
     // the island opened from the wrong corner and collapsed through the wrong place. Touches are taken by a separate small window
     // that follows the island (see IslandOverlayHost), so the empty part of this one never blocks the app underneath.
     val windowRect: PxRect? = if (anchoredToWindow && frame.side == IslandSide.TOP) {
-        val open = IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP)
+        val open = IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP - actionsTrimDp)
         val wide = IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = MAX_EVENT_EXTRA_DP)
         val pad = 10f * d
         PxRect(
@@ -584,7 +590,7 @@ internal fun DynamicIsland(
                     Spacer(Modifier.height(6.dp))
                     PlaybackRow(playing = shownPlaying, tint = artTint, title = NotificationFeed.nowPlaying?.title,
                         artist = NotificationFeed.nowPlaying?.artist,
-                        art = NotificationFeed.nowPlaying?.art?.asImageBitmap(),
+                        art = artImage,
                         onPrevious = { IslandTools.touch(); mediaCommand(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
                         onPlayPause = {
                             IslandTools.touch()
@@ -625,8 +631,12 @@ internal const val MAX_EVENT_EXTRA_DP = 140f
 /** How many flashes can wait behind the one on screen; beyond that the oldest waiting one is dropped. */
 internal const val MAX_QUEUED_FLASHES = 3
 
-/** Extra panel height, in dp, when the playback row is showing. */
-internal const val MEDIA_ROW_DP = 40f
+/** Extra panel height, in dp, when the music card is showing: artwork and track above, the controls below. */
+internal const val MEDIA_ROW_DP = 112f
+/** The height the open panel reserves for its action buttons, in dp; taken back where they are not shown. */
+internal const val ACTIONS_ROW_DP = 44f
+/** The artwork tile in the music card, in dp. */
+internal const val MEDIA_ART_DP = 56f
 /** Extra panel height, in dp, when the call card is showing. */
 internal const val CALL_ROW_DP = 40f
 internal val PLAYBACK_PINK = Color(0xFFFF375F)
@@ -665,28 +675,38 @@ internal fun EqualizerBars(color: Color, modifier: Modifier = Modifier, barCount
     }
 }
 
+/** The music card in the open island: artwork and track above, the three controls below. */
 @Composable
 private fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: String? = null,
     art: androidx.compose.ui.graphics.ImageBitmap? = null, onPrevious: () -> Unit, onPlayPause: () -> Unit,
     onNext: () -> Unit, onOpenPlayer: (() -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().height(34.dp).testTag("island-media"), verticalAlignment = Alignment.CenterVertically) {
-        EqualizerBars(if (playing) tint else tint.copy(alpha = .55f), animate = playing)
-        Spacer(Modifier.width(8.dp))
-        art?.let {
-            Image(it, null, Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).testTag("island-art"))
-            Spacer(Modifier.width(8.dp))
+    Column(Modifier.fillMaxWidth().testTag("island-media")) {
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+            .then(if (onOpenPlayer != null) Modifier.clickable(onClick = onOpenPlayer).testTag("island-open-player") else Modifier),
+            verticalAlignment = Alignment.CenterVertically) {
+            // The cover when the player gives one; otherwise the bars, which are still while paused and move while playing.
+            Box(Modifier.size(MEDIA_ART_DP.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = .1f)),
+                contentAlignment = Alignment.Center) {
+                if (art != null) Image(art, null, Modifier.fillMaxSize().testTag("island-art"),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                else EqualizerBars(if (playing) tint else tint.copy(alpha = .55f), animate = playing)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title ?: if (playing) "Playing" else "Paused", color = Color.White, fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag("island-track"))
+                artist?.let { Text(it, color = Color.White.copy(alpha = .72f), fontSize = 13.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
         }
-        // With notification access the session knows its own app, so tapping the title opens the player.
-        Column(Modifier.weight(1f).then(if (onOpenPlayer != null) Modifier.clickable(onClick = onOpenPlayer).testTag("island-open-player") else Modifier)) {
-            Text(title ?: if (playing) "Playing" else "Paused", color = Color.White, fontSize = 13.sp,
-                fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            artist?.let { Text(it, color = Color.White.copy(alpha = .72f), fontSize = 11.sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        Spacer(Modifier.height(4.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            MediaButton(Icons.Rounded.SkipPrevious, "Previous", onPrevious)
+            MediaButton(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                if (playing) "Pause" else "Play", onPlayPause, tint = tint, size = 48.dp, iconSize = 30.dp)
+            MediaButton(Icons.Rounded.SkipNext, "Next", onNext)
         }
-        MediaButton(Icons.Rounded.SkipPrevious, "Previous", onPrevious)
-        MediaButton(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-            if (playing) "Pause" else "Play", onPlayPause, tint = tint)
-        MediaButton(Icons.Rounded.SkipNext, "Next", onNext)
     }
 }
 
@@ -709,17 +729,18 @@ private fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
 }
 
 @Composable
-private fun MediaButton(icon: ImageVector, label: String, onClick: () -> Unit, tint: Color = Color.White) {
+private fun MediaButton(icon: ImageVector, label: String, onClick: () -> Unit, tint: Color = Color.White,
+    size: androidx.compose.ui.unit.Dp = 44.dp, iconSize: androidx.compose.ui.unit.Dp = 24.dp) {
     val haptic = LocalHapticFeedback.current
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) .84f else 1f, spring(dampingRatio = .55f, stiffness = 700f), label = "media press")
-    Box(Modifier.size(40.dp).graphicsLayer { scaleX = scale; scaleY = scale }.clip(CircleShape)
+    Box(Modifier.size(size).graphicsLayer { scaleX = scale; scaleY = scale }.clip(CircleShape)
         .clickable(interactionSource = source, indication = null) {
             UnoFeedback.play(Cue.TICK, haptic)
             onClick()
         }, contentAlignment = Alignment.Center) {
-        Icon(icon, label, tint = tint, modifier = Modifier.size(22.dp))
+        Icon(icon, label, tint = tint, modifier = Modifier.size(iconSize))
     }
 }
 

@@ -182,6 +182,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     }
     SettingsSwitch("Badges on app icons", s.badges, store::setBadges, "badges-switch")
     SettingsSwitch("Track title and artwork in media", s.mediaDetails, store::setMediaDetails, "media-details-switch")
+    SettingsSwitch("Camera and microphone indicators", s.privacyIndicators, store::setPrivacyIndicators, "privacy-indicators-switch")
+    Text("The island shows a green camera or orange microphone mark while any app is using that hardware, like Android's own privacy dots. It needs no permission: Android tells every app when the camera or microphone becomes busy, without saying which app is using it. Nothing is recorded or stored.",
+        style = note, color = muted)
     SettingsSwitch("Show calls in the island", s.callDetails, store::setCallDetails, "call-details-switch")
     Text("While a call is active, the island shows the caller name and elapsed time from the phone app's own call notification, and tapping it opens the call screen. The name is read only while the call is running and never stored; message text is never read.",
         style = note, color = muted)

@@ -86,4 +86,48 @@ class IslandActivitiesTest {
         state.showEvent(IslandEvents.doNotDisturb(NotificationManager.INTERRUPTION_FILTER_NONE), nowMs = 5_100L)
         assertEquals("Do Not Disturb", state.flashTitle)
     }
+
+    // ---- the flash queue ----
+    @Test fun aSecondDifferentEventWaitsForTheFirstInsteadOfErasingIt() {
+        val state = IslandState()
+        state.showEvent(IslandEvents.airplane(true))
+        state.showEvent(IslandEvents.charging(80))
+        assertEquals("Airplane", state.flashTitle)
+        assertEquals(1, state.queuedFlashCount)
+        state.advanceFlash()
+        assertEquals("Charging 80%", state.flashTitle)
+        state.advanceFlash()
+        assertNull(state.flashTitle)
+    }
+
+    @Test fun theSameEventAgainRefreshesInsteadOfQueuing() {
+        val state = IslandState()
+        state.showEvent(IslandEvents.airplane(true))
+        val key = state.flashKey
+        state.showEvent(IslandEvents.airplane(true))
+        assertEquals(0, state.queuedFlashCount)
+        assertTrue("it pulses and times out afresh", state.flashKey > key)
+    }
+
+    @Test fun aNewerRingerOrFocusChangeReplacesTheOneOnScreen() {
+        val state = IslandState()
+        state.showEvent(IslandEvents.ringer(AudioManager.RINGER_MODE_SILENT), nowMs = 1_000L)
+        state.showEvent(IslandEvents.ringer(AudioManager.RINGER_MODE_VIBRATE), nowMs = 9_000L)
+        assertEquals("Vibrate", state.flashTitle); assertEquals(0, state.queuedFlashCount)
+    }
+
+    @Test fun onlyAFewWaitAndTheOldestIsDropped() {
+        val state = IslandState()
+        state.showEvent(IslandEvents.airplane(true))
+        listOf("A", "B", "C", "D").forEach { state.showEvent(IslandEvent(it, IslandSymbol.NOTIFICATION)) }
+        assertEquals(MAX_QUEUED_FLASHES, state.queuedFlashCount)
+        state.advanceFlash(); assertEquals("B", state.flashTitle)
+    }
+
+    @Test fun dismissingClearsTheWholeQueue() {
+        val state = IslandState()
+        state.showEvent(IslandEvents.airplane(true)); state.showEvent(IslandEvents.charging(50))
+        state.dismissFlash()
+        assertNull(state.flashTitle); assertEquals(0, state.queuedFlashCount)
+    }
 }

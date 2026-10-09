@@ -87,6 +87,10 @@ internal class IslandOverlayHost(
             OverlayPolicy.WINDOW_FLAGS,
             PixelFormat.TRANSLUCENT).apply {
             gravity = Gravity.TOP or Gravity.START
+            // Parked off-screen until the island reports where it belongs: a new window sits at the screen's top-left corner,
+            // and showing it there first was a visible flash on every start. (Not alpha 0: a fully transparent window is not
+            // treated as visible, and the island then never gets composed to report its position.)
+            x = -OFFSCREEN_PX
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
         }
         try {
@@ -203,3 +207,5 @@ internal class IslandOverlayHost(
         IslandRuntime.updateOverlay(false)
     }
 }
+
+private const val OFFSCREEN_PX = 10_000

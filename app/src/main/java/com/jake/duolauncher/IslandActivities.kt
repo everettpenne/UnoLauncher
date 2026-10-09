@@ -85,6 +85,12 @@ internal fun sendMediaKey(context: Context, keyCode: Int) {
  * refuses, it falls back to the media key.
  */
 internal fun mediaCommand(context: Context, keyCode: Int) {
+    issueMediaCommand(context, keyCode)
+    // Whatever was done, look at what the audio is doing a moment later so the play/pause icon follows it.
+    IslandRuntime.state.recheckPlayback?.invoke()
+}
+
+private fun issueMediaCommand(context: Context, keyCode: Int) {
     val controller = NotificationFeed.nowPlaying?.controller
     if (controller != null) {
         val ok = runCatching {
@@ -153,10 +159,20 @@ internal fun IslandSystemEvents(state: IslandState) {
         val handler = Handler(worker.looper)
         val audio = context.getSystemService(AudioManager::class.java)
         val notifications = context.getSystemService(NotificationManager::class.java)
+        // isMusicActive is read when Android reports a playback change, and at that instant it can still say "active" for a
+        // player that has only just paused; no further callback follows, so the island kept showing "playing" (pause icon,
+        // wiggling bars) until something else changed. Read it again a moment later, so the settled answer is what sticks.
+        fun syncPlaying() = state.setPlaying(System.currentTimeMillis(), audio.isMusicActive)
+        val recheck = Runnable { syncPlaying() }
+        fun syncSoonAndLater() {
+            syncPlaying()
+            handler.removeCallbacks(recheck)
+            handler.postDelayed(recheck, 350L)
+            handler.postDelayed(recheck, 1_200L)
+        }
+        state.recheckPlayback = { handler.post { syncSoonAndLater() } }
         val playback = object : AudioManager.AudioPlaybackCallback() {
-            override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
-                state.setPlaying(System.currentTimeMillis(), audio.isMusicActive)
-            }
+            override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) = syncSoonAndLater()
         }
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context?, intent: Intent?) {
@@ -175,9 +191,41 @@ internal fun IslandSystemEvents(state: IslandState) {
                 }
             }
         }
+        // Camera and microphone indicators. Both are public callbacks that need no permission: Android tells any app when a
+        // camera device becomes busy or an app starts recording, without saying which app or what was captured. Nothing is
+        // kept. Registered only while the island is on screen and only if the user has not turned the indicators off.
+        val indicators = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("privacyIndicators", true)
+        val cameras = context.getSystemService(android.hardware.camera2.CameraManager::class.java)
+        val busyCameras = mutableSetOf<String>()
+        val torchOn = mutableSetOf<String>()
+        // The island's own flashlight is not "an app using the camera".
+        fun syncCamera() { state.cameraActive = busyCameras.isNotEmpty() && torchOn.isEmpty() }
+        val cameraCallback = object : android.hardware.camera2.CameraManager.AvailabilityCallback() {
+            override fun onCameraUnavailable(cameraId: String) { busyCameras += cameraId; syncCamera() }
+            override fun onCameraAvailable(cameraId: String) { busyCameras -= cameraId; syncCamera() }
+        }
+        val torchCallback = object : android.hardware.camera2.CameraManager.TorchCallback() {
+            override fun onTorchModeChanged(cameraId: String, enabled: Boolean) {
+                if (enabled) torchOn += cameraId else torchOn -= cameraId
+                syncCamera()
+            }
+        }
+        val recordingCallback = object : AudioManager.AudioRecordingCallback() {
+            override fun onRecordingConfigChanged(configs: MutableList<android.media.AudioRecordingConfiguration>?) {
+                state.micActive = configs.orEmpty().any { !it.isClientSilenced }
+            }
+        }
         handler.post {
             audio.registerAudioPlaybackCallback(playback, handler)
             state.setPlaying(System.currentTimeMillis(), audio.isMusicActive)
+            if (indicators) {
+                runCatching { cameras?.registerTorchCallback(torchCallback, handler) }
+                runCatching { cameras?.registerAvailabilityCallback(cameraCallback, handler) }
+                runCatching {
+                    audio.registerAudioRecordingCallback(recordingCallback, handler)
+                    state.micActive = audio.activeRecordingConfigurations.any { !it.isClientSilenced }
+                }
+            }
         }
         ContextCompat.registerReceiver(context, receiver, IntentFilter().apply {
             addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
@@ -185,8 +233,17 @@ internal fun IslandSystemEvents(state: IslandState) {
             addAction(NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED)
         }, null, handler, ContextCompat.RECEIVER_NOT_EXPORTED)
         onDispose {
+            state.recheckPlayback = null
             context.unregisterReceiver(receiver)
-            handler.post { audio.unregisterAudioPlaybackCallback(playback); worker.quitSafely() }
+            handler.removeCallbacksAndMessages(null)
+            handler.post {
+                audio.unregisterAudioPlaybackCallback(playback)
+                runCatching { cameras?.unregisterAvailabilityCallback(cameraCallback) }
+                runCatching { cameras?.unregisterTorchCallback(torchCallback) }
+                runCatching { audio.unregisterAudioRecordingCallback(recordingCallback) }
+                state.micActive = false; state.cameraActive = false
+                worker.quitSafely()
+            }
         }
     }
 }

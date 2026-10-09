@@ -35,6 +35,7 @@ docs/user-guide.md
 docs/troubleshooting.md
 docs/architecture.md
 docs/design.md
+docs/island-roadmap.md
 docs/releases/0.15.0-beta01.md
 docs/releases/0.16.0-uno01.md
 docs/releases/0.16.1-uno01.md
@@ -68,4 +69,5 @@ docs/releases/0.23.3-uno01.md
 docs/releases/0.23.4-uno01.md
 docs/releases/0.23.5-uno01.md
 docs/releases/0.23.6-uno01.md
+docs/releases/0.23.7-uno01.md
 ?docs/images/

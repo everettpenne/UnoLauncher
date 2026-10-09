@@ -13,6 +13,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
+import kotlin.math.abs
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.combinedClickable
@@ -102,12 +109,59 @@ internal class IslandState {
         private set
     var lastPlayingAt by mutableLongStateOf(0L)
         private set
+    /** Set by [IslandSystemEvents] while it listens: asks it to read the audio state again shortly (after a media command). */
+    @Volatile var recheckPlayback: (() -> Unit)? = null
+
+    /** The microphone or camera is in use by some app (an Android privacy indicator, shown in the island). */
+    var micActive by mutableStateOf(false)
+    var cameraActive by mutableStateOf(false)
+    /** How far a flick has turned the order of the live activities, so a different one can be put in front. */
+    var activityShift by mutableIntStateOf(0)
+        private set
+    fun rotateActivities() { activityShift++ }
+
+    private class Flash(val title: String, val icon: androidx.compose.ui.graphics.ImageBitmap?,
+        val component: android.content.ComponentName?, val symbol: IslandSymbol)
+    private val queued = ArrayDeque<Flash>()
+
+    private fun present(flash: Flash) {
+        flashTitle = flash.title
+        flashIcon = flash.icon
+        flashComponent = flash.component
+        flashSymbol = flash.symbol
+        flashKey++
+    }
+
+    /** A ringer or Focus change replaces another one: only the latest mode matters. Everything else waits its turn. */
+    private fun IslandSymbol.isMode() = isRinger() || this == IslandSymbol.FOCUS
+
+    /** Shows [flash] now if the pill is free (or it is the same thing again, or a newer mode change); otherwise it queues
+     * behind the one on screen, so two quick events are both seen instead of the second erasing the first.
+     */
+    private fun offer(flash: Flash) {
+        val current = flashSymbol
+        when {
+            flashTitle == null -> present(flash)
+            flashTitle == flash.title && current == flash.symbol -> present(flash)
+            current != null && current.isMode() && flash.symbol.isMode() -> { queued.clear(); present(flash) }
+            else -> { if (queued.size >= MAX_QUEUED_FLASHES) queued.removeFirst(); queued.addLast(flash) }
+        }
+    }
+
+    /** Called when the one on screen has had its time: shows the next one waiting, or clears the pill. */
+    fun advanceFlash() {
+        val next = queued.removeFirstOrNull()
+        if (next != null) present(next) else clearFlash()
+    }
+
+    private fun clearFlash() { flashTitle = null; flashIcon = null; flashSymbol = null; flashComponent = null }
+
+    val queuedFlashCount: Int get() = queued.size
 
     fun showLaunch(app: AppEntry) {
-        flashTitle = app.label
-        flashIcon = app.icon.asImageBitmap()
-        flashSymbol = IslandSymbol.APP
-        flashKey++
+        // The user just launched this: it replaces whatever is showing or waiting.
+        queued.clear()
+        present(Flash(app.label, app.icon.asImageBitmap(), null, IslandSymbol.APP))
     }
 
     private var lastFocusAt = 0L
@@ -119,20 +173,14 @@ internal class IslandState {
     fun showEvent(event: IslandEvent, nowMs: Long = System.currentTimeMillis()) {
         if (event.symbol == IslandSymbol.FOCUS) lastFocusAt = nowMs
         else if (event.symbol.isRinger() && nowMs - lastFocusAt in 0..FOCUS_SIDE_EFFECT_MS) return
-        flashTitle = event.title
-        flashIcon = null
-        flashComponent = null
-        flashSymbol = event.symbol
-        flashKey++
+        offer(Flash(event.title, null, null, event.symbol))
     }
 
     /** A notification peek: the app's icon and name, but never the message. */
     fun showPeek(app: AppEntry, label: String) {
-        flashTitle = label
-        flashIcon = app.icon.asImageBitmap()
-        flashComponent = app.component.takeIf { app.user == android.os.Process.myUserHandle() && it.packageName.isNotEmpty() }
-        flashSymbol = IslandSymbol.APP
-        flashKey++
+        offer(Flash(label, app.icon.asImageBitmap(),
+            app.component.takeIf { app.user == android.os.Process.myUserHandle() && it.packageName.isNotEmpty() },
+            IslandSymbol.APP))
     }
 
     fun showCharging(percent: Int?) {
@@ -145,7 +193,7 @@ internal class IslandState {
         playing = value
     }
 
-    fun dismissFlash() { flashTitle = null; flashIcon = null; flashSymbol = null; flashComponent = null }
+    fun dismissFlash() { queued.clear(); clearFlash() }
     fun toggle() { expanded = !expanded; dismissFlash(); IslandTools.toolsOpen = false }
     fun collapse() { expanded = false; IslandTools.toolsOpen = false }
 }
@@ -263,22 +311,44 @@ internal fun DynamicIsland(
         environment = environmentOverride ?: readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight)
     }
 
+    // Opening is lively; closing is critically damped, so the island settles onto the camera without overshooting it.
     val progress by animateFloatAsState(if (state.expanded) 1f else 0f,
-        spring(dampingRatio = 0.5f, stiffness = 300f), label = "island expand")
+        if (state.expanded) spring(dampingRatio = 0.62f, stiffness = 300f) else spring(dampingRatio = 1f, stiffness = 420f),
+        label = "island expand")
+    val collapsedAlpha = (1f - progress / .5f).coerceIn(0f, 1f)
+    val expandedAlpha = ((progress - .5f) / .5f).coerceIn(0f, 1f)
     val flashActive = state.flashTitle != null
+    // Playing means audio is active and, when the session is known, that it is not paused (the session answers a pause at once).
+    val isPlaying = state.playing && (NotificationFeed.nowPlaying?.playing ?: true)
     val mediaVisible = IslandPlayback.controlsVisible(clockMs, state.playing, state.lastPlayingAt)
+    val art = NotificationFeed.nowPlaying?.art
+    val artImage = remember(art) { art?.asImageBitmap() }
+    // The island borrows a colour from the album artwork for the bars and the play button.
+    val artTint = remember(art) { art?.let { it.artTintArgb() }?.let { Color(it) } } ?: PLAYBACK_PINK
+    // The play/pause icon flips the moment it is tapped; the real state takes over when it arrives (or after a moment).
+    var pendingPlaying by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(isPlaying) { pendingPlaying = null }
+    LaunchedEffect(pendingPlaying) { if (pendingPlaying != null) { delay(1_500L); pendingPlaying = null } }
+    val shownPlaying = pendingPlaying ?: isPlaying
     // Whether the actions have room for their text labels at this panel width (Inter runs wider than the
     // system font); narrower panels get icon-only buttons, with the label kept for accessibility.
     val actionLabelsFit = IslandGeometry.frame(environment, d, 1f, sizeScale).width / d - 36f >= ACTION_LABELS_MIN_DP
-    val eventWidth by animateFloatAsState(
-        if (flashActive) IslandGeometry.eventExtraWidthDp((state.flashTitle ?: "").length, sizeScale) else 0f,
-        spring(dampingRatio = .6f, stiffness = 420f), label = "island event width")
     val callActive = NotificationFeed.ongoingCall != null
+    // Everything live on the collapsed pill, most important first, and which goes in which slot (see IslandLive).
+    val liveKinds = IslandLive.rotated(IslandLive.active(camera = state.cameraActive, mic = state.micActive, call = callActive,
+        timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaVisible), state.activityShift)
+    val plan = IslandLive.plan(liveKinds)
+    // A camera on a side edge has no room beside it unless the pill widens, so live content asks for some.
+    val cameraOnSide = environment.cutout?.let {
+        IslandGeometry.sideOf(it, environment.screenWidth, environment.screenHeight) != IslandSide.TOP } == true
+    val eventTargetDp = if (flashActive) IslandGeometry.eventExtraWidthDp((state.flashTitle ?: "").length, sizeScale)
+        else if (cameraOnSide && liveKinds.isNotEmpty()) 60f else 0f
+    val eventWidth by animateFloatAsState(eventTargetDp,
+        spring(dampingRatio = .6f, stiffness = 420f), label = "island event width")
     // Over other apps the system status bar already shows the time and battery right beside the camera, so while the island has
     // nothing to say it shrinks to a ring around the camera instead of covering those icons. Anything live (an event, a timer,
     // a call, playback) widens it again.
-    val hasLiveContent = flashActive || IslandTools.ringing || IslandTools.timerActive || IslandTools.swRunning ||
-        state.playing || callActive
+    val hasLiveContent = flashActive || IslandTools.ringing || liveKinds.isNotEmpty()
     val compactTarget = if (anchoredToWindow && !hasLiveContent) 1f else 0f
     val compactness by animateFloatAsState(compactTarget, spring(dampingRatio = .8f, stiffness = 380f), label = "island compact")
     val frame = IslandGeometry.frame(environment, d, progress, sizeScale,
@@ -302,27 +372,57 @@ internal fun DynamicIsland(
     }
     // Flash returns to the collapsed clock after a beat.
     LaunchedEffect(state.flashKey) {
-        if (state.flashTitle != null) { delay(2600); state.dismissFlash() }
+        if (state.flashTitle != null) { delay(2600); state.advanceFlash() }
     }
     // An idle expanded island tucks itself back in.
-    LaunchedEffect(state.expanded, IslandTools.toolsOpen, IslandTools.interactions) {
-        if (state.expanded) { delay(if (IslandTools.toolsOpen) 20_000L else 5000L); state.collapse() }
+    LaunchedEffect(state.expanded, IslandTools.toolsOpen, IslandTools.interactions, isPlaying) {
+        // Longer while music plays, since that is when the buttons are being used; any button press restarts the wait.
+        if (state.expanded) { delay(if (IslandTools.toolsOpen) 20_000L else if (isPlaying) 12_000L else 5000L); state.collapse() }
     }
 
     // Anchored (overlay) mode renders only the island itself: the service positions a
     // WRAP_CONTENT window at the frame, so a fillMaxSize wrapper here would expand the window
     // to cover the screen and swallow every touch. Home mode keeps the full-size wrapper so
     // the island can offset itself to the cutout inside the launcher's window.
-    val wrapperModifier = if (anchoredToWindow) Modifier
-        else Modifier.fillMaxSize().onGloballyPositioned {
+    //
+    // While the island is open or moving (camera on top), the overlay window is held at the open island's size and the island is
+    // drawn at its top centre. The window then does not resize on every animation frame, which made the collapse stutter and
+    // lag the content; it is the tight collapsed size again once the island has settled.
+    // While the island is moving (opening, closing, or widening for an event) the overlay window is held at the union of every
+    // size the island is passing through, plus a small pad, and the island is drawn inside it at its offset. The window then does
+    // not resize on every animation frame; a resize one frame behind the content clipped the pill's corners and made collapse
+    // stutter. Once the island has settled the window is the tight size again. Camera on top only; a side camera keeps wrap.
+    val heldFrame = remember { arrayOfNulls<IslandFrame>(1) }
+    val openFrame: IslandFrame? = if (anchoredToWindow && frame.side == IslandSide.TOP) {
+        val target = IslandGeometry.frame(environment, d, if (state.expanded) 1f else 0f, sizeScale,
+            extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f),
+            extraWidthDp = eventTargetDp, compactness = compactTarget)
+        val settled = abs(frame.width - target.width) < 1f && abs(frame.height - target.height) < 1f
+        if (settled) { heldFrame[0] = null; null } else {
+            val held = heldFrame[0]
+            val pad = 8f * d
+            val left = minOf(held?.left ?: frame.left, frame.left, target.left)
+            val top = minOf(held?.top ?: frame.top, frame.top, target.top)
+            val right = maxOf((held?.let { it.left + it.width } ?: 0f), frame.left + frame.width, target.left + target.width)
+            val bottom = maxOf((held?.let { it.top + it.height } ?: 0f), frame.top + frame.height, target.top + target.height)
+            frame.copy(left = left - pad, top = top, width = right - left + 2f * pad, height = bottom - top + pad)
+                .also { heldFrame[0] = it }
+        }
+    } else null
+    val wrapperModifier = if (anchoredToWindow) {
+        if (openFrame != null) Modifier.size((openFrame.width / d).dp, (openFrame.height / d).dp) else Modifier
+    } else Modifier.fillMaxSize().onGloballyPositioned {
             origin = it.positionInWindow()
             if (environmentOverride == null) {
                 val read = readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight)
                 if (read != environment) environment = read
             }
         }
-    Box(modifier.then(wrapperModifier)) {
-        LaunchedEffect(frame) { onFrameChanged?.invoke(frame) }
+    Box(modifier.then(wrapperModifier), contentAlignment = Alignment.TopStart) {
+        // The window itself is placed at the open island's frame while the island is open or moving, and at the island's own
+        // frame once it has settled; the island is drawn inside it at its offset from the window.
+        val windowFrame = openFrame ?: frame
+        LaunchedEffect(windowFrame) { onFrameChanged?.invoke(windowFrame) }
         // On Home, a tap anywhere off the expanded island tucks it away. (The overlay window cannot cover the screen, so it
         // hears of outside touches from the window manager instead; see IslandOverlayHost.)
         if (state.expanded && !anchoredToWindow) Box(Modifier.fillMaxSize().pointerInput(Unit) {
@@ -331,13 +431,54 @@ internal fun DynamicIsland(
         // The island's window-pixel position, translated into this parent's own frame. The
         // everywhere-overlay positions its window itself and renders the island at the origin.
         Box(Modifier
-            .offset { if (anchoredToWindow) androidx.compose.ui.unit.IntOffset.Zero else androidx.compose.ui.unit.IntOffset(
+            .offset { if (anchoredToWindow) {
+                androidx.compose.ui.unit.IntOffset(
+                    openFrame?.let { (frame.left - it.left).roundToInt() } ?: 0,
+                    openFrame?.let { (frame.top - it.top).roundToInt() } ?: 0)
+            } else androidx.compose.ui.unit.IntOffset(
                 (frame.left - origin.x).roundToInt(), (frame.top - origin.y).roundToInt()) }
             .graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }
             .size(width = (frame.width / d).dp, height = (frame.height / d).dp)
             .islandBody(glass?.backdrop, corner.dp, settings = glass?.settings ?: GlassSettings.Default)
             .islandRing(ring, corner * d, 2.5f * d)
             .clip(RoundedCornerShape(corner.dp))
+            .pointerInput(state.expanded, liveKinds.size, flashActive) {
+                // Swipe up closes (or dismisses a flash), and a sideways flick turns the live activities so another is in front,
+                // or sends a flash away. There is no swipe down to open: Android takes a downward drag that starts at the top of
+                // the screen for the notification shade and cancels it for us (seen on the emulator: the touch is cancelled
+                // exactly where the status bar strip ends), so the island opens with a tap or a long-press instead. Watched in the Initial pass and consumed once the finger has
+                // moved past the touch slop, so the click below is cancelled instead of firing at the end of a swipe; a
+                // plain tap or long-press never gets past the slop and is left alone. The decision uses the whole movement
+                // from touch-down, so a quick flick with few move events still counts.
+                val slop = viewConfiguration.touchSlop
+                val threshold = 26.dp.toPx()
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    var moved = false
+                    var last = down.position
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        last = change.position
+                        val delta = last - down.position
+                        if (!moved && (abs(delta.x) > slop || abs(delta.y) > slop)) moved = true
+                        if (moved) change.consume()
+                        if (!change.pressed) break
+                    }
+                    if (!moved) return@awaitEachGesture
+                    val dx = last.x - down.position.x; val dy = last.y - down.position.y
+                    when {
+                        abs(dy) >= abs(dx) && dy <= -threshold -> {
+                            if (state.expanded) { UnoFeedback.play(Cue.TICK, haptic); state.collapse() }
+                            else if (flashActive) { UnoFeedback.play(Cue.TICK, haptic); state.advanceFlash() }
+                        }
+                        abs(dx) > abs(dy) && abs(dx) >= threshold && !state.expanded -> {
+                            if (flashActive) { UnoFeedback.play(Cue.TICK, haptic); state.advanceFlash() }
+                            else if (liveKinds.size >= 2) { UnoFeedback.play(Cue.TICK, haptic); state.rotateActivities() }
+                        }
+                    }
+                }
+            }
             .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
                 onLongClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -360,7 +501,7 @@ internal fun DynamicIsland(
             // Only the face that is showing is composed. An invisible panel would still own its buttons'
             // touch targets, and Compose pads small targets to 48 dp, so the hidden Search button caught
             // taps meant for the pill itself.
-            if (progress < .5f && !(compactTarget == 1f && !sideways)) Row(Modifier.fillMaxSize(),
+            if (progress < .6f && !(compactTarget == 1f && !sideways)) Row(Modifier.fillMaxSize().graphicsLayer { alpha = collapsedAlpha },
                 verticalAlignment = Alignment.CenterVertically) {
                 val leading: @Composable () -> Unit = {
                     if (flashActive) {
@@ -378,8 +519,8 @@ internal fun DynamicIsland(
                         else if (symbol != null) Icon(symbol.icon(), null, tint = symbol.tint, modifier = Modifier.size(18.dp))
                     } else if (IslandTools.ringing) {
                         Icon(Icons.Rounded.Alarm, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(18.dp))
-                    } else if (IslandTools.timerActive) {
-                        Icon(Icons.Rounded.Timer, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(16.dp))
+                    } else plan.leading?.let { (kind, show) ->
+                        LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2)
                     }
                     // Idle: nothing here. The time is in the status bar and on the expanded panel.
                 }
@@ -391,22 +532,9 @@ internal fun DynamicIsland(
                     } else if (IslandTools.ringing) {
                         Text("Timer done", color = IslandSymbol.TIMER.tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, modifier = Modifier.testTag("island-timer-done"))
-                    } else if (IslandTools.timerActive) {
-                        Text(IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)), color = IslandSymbol.TIMER.tint,
-                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-timer"))
-                    } else if (IslandTools.swRunning) {
-                        Text(IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)), color = Color.White,
-                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
-                    } else if (state.playing) {
-                        EqualizerBars(PLAYBACK_PINK, Modifier.testTag("island-playing"))
-                    } else if (callActive) {
-                        Row(verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(14.dp))
-                            Text(NotificationFeed.ongoingCall?.caller ?: "", color = Color.White, fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.testTag("island-call"))
-                        }
+                    } else if (plan.trailing != null) {
+                        val (kind, show) = plan.trailing
+                        LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2)
                     } else if (deviceStatus.charging == true) {
                         Icon(Icons.Rounded.BatteryChargingFull, null, tint = IosGreen, modifier = Modifier.size(16.dp))
                     } else if (deviceStatus.battery != null) {
@@ -437,12 +565,12 @@ internal fun DynamicIsland(
                 }
             }
             // Tools face (long press): timer, stopwatch, flashlight.
-            if (progress >= .5f && IslandTools.toolsOpen) Column(Modifier.fillMaxSize()
+            if (progress > .4f && IslandTools.toolsOpen) Column(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 IslandToolsFace(clockMs, torch)
             }
             // Expanded face: live panel, starting below the camera hole.
-            if (progress >= .5f && !IslandTools.toolsOpen) Column(Modifier.fillMaxSize()
+            if (progress > .4f && !IslandTools.toolsOpen) Column(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -463,12 +591,16 @@ internal fun DynamicIsland(
                 }
                 if (mediaVisible) {
                     Spacer(Modifier.height(6.dp))
-                    PlaybackRow(playing = state.playing, title = NotificationFeed.nowPlaying?.title,
+                    PlaybackRow(playing = shownPlaying, tint = artTint, title = NotificationFeed.nowPlaying?.title,
                         artist = NotificationFeed.nowPlaying?.artist,
                         art = NotificationFeed.nowPlaying?.art?.asImageBitmap(),
-                        onPrevious = { mediaCommand(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
-                        onPlayPause = { mediaCommand(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
-                        onNext = { mediaCommand(context, KeyEvent.KEYCODE_MEDIA_NEXT) },
+                        onPrevious = { IslandTools.touch(); mediaCommand(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
+                        onPlayPause = {
+                            IslandTools.touch()
+                            pendingPlaying = !shownPlaying
+                            mediaCommand(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+                        },
+                        onNext = { IslandTools.touch(); mediaCommand(context, KeyEvent.KEYCODE_MEDIA_NEXT) },
                         onOpenPlayer = NotificationFeed.nowPlaying?.controller?.sessionActivity?.let { intent ->
                             { runCatching { intent.send() }; state.collapse() }
                         })
@@ -496,6 +628,9 @@ private const val ACTION_LABELS_MIN_DP = 270f
 /** How long after a Focus change a ringer change is treated as its side effect. */
 internal const val FOCUS_SIDE_EFFECT_MS = 1_500L
 
+/** How many flashes can wait behind the one on screen; beyond that the oldest waiting one is dropped. */
+internal const val MAX_QUEUED_FLASHES = 3
+
 /** Extra panel height, in dp, when the playback row is showing. */
 internal const val MEDIA_ROW_DP = 40f
 /** Extra panel height, in dp, when the call card is showing. */
@@ -506,7 +641,19 @@ internal val PLAYBACK_PINK = Color(0xFFFF375F)
  * a layer scale, so it never recomposes while it runs.
  */
 @Composable
-internal fun EqualizerBars(color: Color, modifier: Modifier = Modifier, barCount: Int = 4) {
+internal fun EqualizerBars(color: Color, modifier: Modifier = Modifier, barCount: Int = 4, animate: Boolean = true) {
+    if (!animate) {
+        // Paused: the bars sit at rest, with no animation running at all.
+        val rest = listOf(.45f, .85f, .6f, .75f)
+        Row(modifier.height(14.dp), horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            repeat(barCount) { index ->
+                Box(Modifier.width(2.5.dp).fillMaxHeight().graphicsLayer { scaleY = rest[index % rest.size] }
+                    .background(color, RoundedCornerShape(percent = 50)))
+            }
+        }
+        return
+    }
     val transition = rememberInfiniteTransition(label = "equalizer")
     val periods = listOf(520, 380, 610, 450)
     val scales = (0 until barCount).map { index ->
@@ -525,12 +672,11 @@ internal fun EqualizerBars(color: Color, modifier: Modifier = Modifier, barCount
 }
 
 @Composable
-private fun PlaybackRow(playing: Boolean, title: String?, artist: String? = null,
+private fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: String? = null,
     art: androidx.compose.ui.graphics.ImageBitmap? = null, onPrevious: () -> Unit, onPlayPause: () -> Unit,
     onNext: () -> Unit, onOpenPlayer: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().height(34.dp).testTag("island-media"), verticalAlignment = Alignment.CenterVertically) {
-        if (playing) EqualizerBars(PLAYBACK_PINK) else Icon(Icons.Rounded.Pause, null,
-            tint = Color.White.copy(alpha = .6f), modifier = Modifier.size(14.dp))
+        EqualizerBars(if (playing) tint else tint.copy(alpha = .55f), animate = playing)
         Spacer(Modifier.width(8.dp))
         art?.let {
             Image(it, null, Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).testTag("island-art"))
@@ -545,7 +691,7 @@ private fun PlaybackRow(playing: Boolean, title: String?, artist: String? = null
         }
         MediaButton(Icons.Rounded.SkipPrevious, "Previous", onPrevious)
         MediaButton(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-            if (playing) "Pause" else "Play", onPlayPause)
+            if (playing) "Pause" else "Play", onPlayPause, tint = tint)
         MediaButton(Icons.Rounded.SkipNext, "Next", onNext)
     }
 }
@@ -569,9 +715,17 @@ private fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
 }
 
 @Composable
-private fun MediaButton(icon: ImageVector, label: String, onClick: () -> Unit) {
-    Box(Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Icon(icon, label, tint = Color.White, modifier = Modifier.size(22.dp))
+private fun MediaButton(icon: ImageVector, label: String, onClick: () -> Unit, tint: Color = Color.White) {
+    val haptic = LocalHapticFeedback.current
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) .84f else 1f, spring(dampingRatio = .55f, stiffness = 700f), label = "media press")
+    Box(Modifier.size(40.dp).graphicsLayer { scaleX = scale; scaleY = scale }.clip(CircleShape)
+        .clickable(interactionSource = source, indication = null) {
+            UnoFeedback.play(Cue.TICK, haptic)
+            onClick()
+        }, contentAlignment = Alignment.Center) {
+        Icon(icon, label, tint = tint, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -631,3 +785,49 @@ private fun ToolButton(icon: ImageVector, label: String, enabled: Boolean = true
         Icon(icon, null, tint = Color.White.copy(alpha = if (enabled) 1f else .35f), modifier = Modifier.size(22.dp))
     }
 }
+
+
+private val PRIVACY_MIC = Color(0xFFFF9F0A)
+
+/** One live activity as it appears in a side of the collapsed pill: its small glyph, or its detail (text or bars). */
+@Composable
+private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boolean, tint: Color,
+    art: androidx.compose.ui.graphics.ImageBitmap?, multi: Boolean) {
+    val glyph = show == SlotShow.GLYPH
+    when (kind) {
+        LiveKind.CAMERA -> if (glyph) Icon(Icons.Rounded.Videocam, "Camera in use", tint = IosGreen,
+            modifier = Modifier.size(16.dp).testTag("island-camera"))
+            else Text("Camera", color = IosGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        LiveKind.MIC -> if (glyph) Icon(Icons.Rounded.Mic, "Microphone in use", tint = PRIVACY_MIC,
+            modifier = Modifier.size(16.dp).testTag("island-mic"))
+            else Text("Mic", color = PRIVACY_MIC, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        LiveKind.CALL -> if (glyph) Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(14.dp))
+            else Text(NotificationFeed.ongoingCall?.caller ?: "", color = Color.White, fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(end = 4.dp).testTag("island-call"))
+        LiveKind.TIMER -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(16.dp))
+            else Text(IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)), color = IslandSymbol.TIMER.tint,
+                fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-timer"))
+        LiveKind.STOPWATCH -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = Color.White, modifier = Modifier.size(16.dp))
+            else Text(IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)), color = Color.White,
+                fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
+        LiveKind.MEDIA -> if (glyph) {
+            // The artwork when there is any; otherwise the bars stand in on the left when something else holds the right.
+            if (art != null) Image(art, null, Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)))
+            else if (multi) EqualizerBars(if (playing) tint else tint.copy(alpha = .55f), animate = playing)
+        } else {
+            // Stays while a paused player can still be resumed, but only moves while audio is playing.
+            EqualizerBars(if (playing) tint else tint.copy(alpha = .55f),
+                Modifier.testTag(if (playing) "island-playing" else "island-paused"), animate = playing)
+        }
+    }
+}
+
+/** [ArtTint] on a small copy of the artwork, so it costs next to nothing. */
+private fun android.graphics.Bitmap.artTintArgb(): Int? = runCatching {
+    val small = android.graphics.Bitmap.createScaledBitmap(this, 24, 24, true)
+    val pixels = IntArray(24 * 24)
+    small.getPixels(pixels, 0, 24, 0, 0, 24, 24)
+    if (small !== this) small.recycle()
+    ArtTint.fromPixels(pixels)
+}.getOrNull()

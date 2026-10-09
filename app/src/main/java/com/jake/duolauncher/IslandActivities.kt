@@ -98,7 +98,33 @@ internal fun mediaCommand(context: Context, keyCode: Int) {
         }.isSuccess
         if (ok) return
     }
+    val audio = context.getSystemService(AudioManager::class.java)
+    // Without the session (no notification access) the media key is the only handle, and newer Android versions can ignore
+    // it from an app. A playing app does listen to audio focus, so pausing is done by taking focus away from it.
+    if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE && audio != null && audio.isMusicActive) {
+        pauseByAudioFocus(context, audio)
+        return
+    }
     sendMediaKey(context, keyCode)
+}
+
+/** Pauses whatever is playing by requesting permanent audio focus and giving it straight back. A player that honours focus
+ * (almost all do) pauses on the loss and, because the loss is permanent, does not resume when the focus is abandoned. If it is
+ * still playing afterwards, the focus request was refused or ignored, and the media key is tried instead.
+ */
+private fun pauseByAudioFocus(context: Context, audio: AudioManager) {
+    Thread {
+        val request = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build())
+            .setOnAudioFocusChangeListener { }
+            .build()
+        runCatching { audio.requestAudioFocus(request) }
+        Thread.sleep(700)
+        runCatching { audio.abandonAudioFocusRequest(request) }
+        if (audio.isMusicActive) sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+    }.start()
 }
 
 /** Opens [component]'s app from the island. A background start can be refused; that is simply a no-op. */
@@ -134,6 +160,10 @@ internal fun IslandSystemEvents(state: IslandState) {
         }
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context?, intent: Intent?) {
+                // The ringer-mode and airplane-mode broadcasts are sticky: registering a receiver is handed the current value at
+                // once. That is the state the phone is already in, not a change, and it was shown as an event every time the
+                // island appeared (each unlock), so a phone left on vibrate announced "vibrate" on every unlock.
+                if (isInitialStickyBroadcast) return
                 when (intent?.action) {
                     // The ringer mode rides along in the broadcast, so no service call is needed for it.
                     AudioManager.RINGER_MODE_CHANGED_ACTION -> state.showEvent(IslandEvents.ringer(

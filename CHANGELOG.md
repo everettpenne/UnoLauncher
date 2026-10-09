@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.6-uno01
+
+- Stop the island announcing the ringer mode every time the phone is unlocked. RINGER_MODE_CHANGED_ACTION and the airplane-mode broadcast are sticky, so registering the receiver is handed the current value immediately; IslandSystemEvents treated that as a change and flashed it each time the island came into composition, so a phone on vibrate said "vibrate" on every unlock. The receiver now ignores the initial sticky delivery (isInitialStickyBroadcast); real changes still show.
+- Fix the island jumping sideways as it collapses over other apps. The overlay window was anchored top-left and moved with updateViewLayout every frame, which lagged the content (it shrinks immediately), so the island sat left of the camera until the window caught up. With the camera on top the window is now anchored at its horizontal centre, which is the camera, so it resizes around a fixed point and needs no per-frame moves. A camera on a side edge keeps top-left placement. Checked on an emulator by sampling the window frame: its centre stays fixed through a collapse.
+- Make pause work without notification access. Playing is detected through AudioManager.isMusicActive, but the session controls need notification access, and the media-key fallback can be ignored from an app on newer Android. When there is no session and audio is playing, play/pause now requests permanent audio focus and abandons it, which makes a focus-respecting player pause and stay paused, and falls back to the media key if audio is still playing afterwards. Play after a pause and skip still use the media key. Not verified against a real player.
+
 ## 0.23.5-uno01
 
 - Fix a crash a few seconds after launch on 0.23.4 ("Cannot coerce value to an empty range"). The idle overlay island's compact width (hole plus a ring each side, with the ring as small as 3 dp) could be narrower than the hole plus the 4 dp clearance that IslandGeometry.frame then clamps the island's left edge to, so that clamp's range had its minimum above its maximum and threw. The compact width now always includes the clearance, and the clamp can no longer be given an empty range. Two new tests (a sweep over densities, camera sizes and positions, size settings, compactness and progress, plus the reported case) fail on 0.23.4's geometry and pass now.

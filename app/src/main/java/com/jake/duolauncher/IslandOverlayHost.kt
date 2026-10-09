@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 /** The everywhere-overlay window: the island above other apps. Hosted by [IslandOverlayService] (a plain
@@ -167,11 +168,19 @@ internal class IslandOverlayHost(
                     showActions = false,
                     onFrameChanged = { frame ->
                         val p = layoutParams ?: return@DynamicIsland
-                        if (p.x != frame.left.toInt() || p.y != frame.top.toInt()) {
+                        // The window is anchored at the point that stays put while the island grows and shrinks: its
+                        // horizontal centre when the camera is on top (the island is symmetric about the camera). The window
+                        // then resizes around that anchor in the same layout pass as the content, where moving it with
+                        // updateViewLayout each frame lagged the shrinking content and made the island jump sideways as it
+                        // collapsed. A camera on a side edge keeps top-left placement.
+                        val centred = frame.side == IslandSide.TOP
+                        val gravity = if (centred) Gravity.TOP or Gravity.CENTER_HORIZONTAL else Gravity.TOP or Gravity.START
+                        val x = if (centred) (frame.left + frame.width / 2f - environment.screenWidth / 2f).roundToInt()
+                            else frame.left.toInt()
+                        val y = frame.top.toInt()
+                        if (p.gravity != gravity || p.x != x || p.y != y) {
                             runCatching {
-                                manager.updateViewLayout(view, p.apply {
-                                    x = frame.left.toInt(); y = frame.top.toInt()
-                                })
+                                manager.updateViewLayout(view, p.apply { this.gravity = gravity; this.x = x; this.y = y })
                             }
                         }
                     },

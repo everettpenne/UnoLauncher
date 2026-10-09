@@ -270,7 +270,8 @@ internal fun DynamicIsland(
     environmentOverride: IslandEnvironment? = null,
     anchoredToWindow: Boolean = false,
     showActions: Boolean = true,
-    onFrameChanged: ((IslandFrame) -> Unit)? = null,
+    /** Over other apps: the island's frame, and the fixed window rectangle it is drawn in (null when the window wraps it). */
+    onFrameChanged: ((IslandFrame, PxRect?) -> Unit)? = null,
     onSearch: () -> Unit,
     onOpenFeed: () -> Unit,
     onCustomize: () -> Unit,
@@ -388,29 +389,22 @@ internal fun DynamicIsland(
     // While the island is open or moving (camera on top), the overlay window is held at the open island's size and the island is
     // drawn at its top centre. The window then does not resize on every animation frame, which made the collapse stutter and
     // lag the content; it is the tight collapsed size again once the island has settled.
-    // While the island is moving (opening, closing, or widening for an event) the overlay window is held at the union of every
-    // size the island is passing through, plus a small pad, and the island is drawn inside it at its offset. The window then does
-    // not resize on every animation frame; a resize one frame behind the content clipped the pill's corners and made collapse
-    // stutter. Once the island has settled the window is the tight size again. Camera on top only; a side camera keeps wrap.
-    val heldFrame = remember { arrayOfNulls<IslandFrame>(1) }
-    val openFrame: IslandFrame? = if (anchoredToWindow && frame.side == IslandSide.TOP) {
-        val target = IslandGeometry.frame(environment, d, if (state.expanded) 1f else 0f, sizeScale,
-            extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f),
-            extraWidthDp = eventTargetDp, compactness = compactTarget)
-        val settled = abs(frame.width - target.width) < 1f && abs(frame.height - target.height) < 1f
-        if (settled) { heldFrame[0] = null; null } else {
-            val held = heldFrame[0]
-            val pad = 8f * d
-            val left = minOf(held?.left ?: frame.left, frame.left, target.left)
-            val top = minOf(held?.top ?: frame.top, frame.top, target.top)
-            val right = maxOf((held?.let { it.left + it.width } ?: 0f), frame.left + frame.width, target.left + target.width)
-            val bottom = maxOf((held?.let { it.top + it.height } ?: 0f), frame.top + frame.height, target.top + target.height)
-            frame.copy(left = left - pad, top = top, width = right - left + 2f * pad, height = bottom - top + pad)
-                .also { heldFrame[0] = it }
-        }
+    // Over other apps with the camera on top, the island is drawn in a window of one fixed size that covers everywhere the island
+    // can be (open, and widened by the longest event), and is placed inside it by offset. The window never resizes while the island
+    // moves: a window that changes size shows its old, smaller picture at the new window's corner until the new one arrives, and
+    // the island opened from the wrong corner and collapsed through the wrong place. Touches are taken by a separate small window
+    // that follows the island (see IslandOverlayHost), so the empty part of this one never blocks the app underneath.
+    val windowRect: PxRect? = if (anchoredToWindow && frame.side == IslandSide.TOP) {
+        val open = IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP)
+        val wide = IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = MAX_EVENT_EXTRA_DP)
+        val pad = 10f * d
+        PxRect(
+            minOf(open.left, wide.left, frame.left) - pad, minOf(open.top, wide.top, frame.top),
+            maxOf(open.left + open.width, wide.left + wide.width, frame.left + frame.width) + pad,
+            maxOf(open.top + open.height, wide.top + wide.height, frame.top + frame.height) + pad)
     } else null
     val wrapperModifier = if (anchoredToWindow) {
-        if (openFrame != null) Modifier.size((openFrame.width / d).dp, (openFrame.height / d).dp) else Modifier
+        if (windowRect != null) Modifier.size((windowRect.width / d).dp, (windowRect.height / d).dp) else Modifier
     } else Modifier.fillMaxSize().onGloballyPositioned {
             origin = it.positionInWindow()
             if (environmentOverride == null) {
@@ -419,10 +413,7 @@ internal fun DynamicIsland(
             }
         }
     Box(modifier.then(wrapperModifier), contentAlignment = Alignment.TopStart) {
-        // The window itself is placed at the open island's frame while the island is open or moving, and at the island's own
-        // frame once it has settled; the island is drawn inside it at its offset from the window.
-        val windowFrame = openFrame ?: frame
-        LaunchedEffect(windowFrame) { onFrameChanged?.invoke(windowFrame) }
+        LaunchedEffect(frame, windowRect) { onFrameChanged?.invoke(frame, windowRect) }
         // On Home, a tap anywhere off the expanded island tucks it away. (The overlay window cannot cover the screen, so it
         // hears of outside touches from the window manager instead; see IslandOverlayHost.)
         if (state.expanded && !anchoredToWindow) Box(Modifier.fillMaxSize().pointerInput(Unit) {
@@ -433,8 +424,8 @@ internal fun DynamicIsland(
         Box(Modifier
             .offset { if (anchoredToWindow) {
                 androidx.compose.ui.unit.IntOffset(
-                    openFrame?.let { (frame.left - it.left).roundToInt() } ?: 0,
-                    openFrame?.let { (frame.top - it.top).roundToInt() } ?: 0)
+                    windowRect?.let { (frame.left - it.left).roundToInt() } ?: 0,
+                    windowRect?.let { (frame.top - it.top).roundToInt() } ?: 0)
             } else androidx.compose.ui.unit.IntOffset(
                 (frame.left - origin.x).roundToInt(), (frame.top - origin.y).roundToInt()) }
             .graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }
@@ -627,6 +618,9 @@ private const val ACTION_LABELS_MIN_DP = 270f
 
 /** How long after a Focus change a ringer change is treated as its side effect. */
 internal const val FOCUS_SIDE_EFFECT_MS = 1_500L
+
+/** The most an event can widen the collapsed pill by, in dp (see IslandGeometry.eventExtraWidthDp). */
+internal const val MAX_EVENT_EXTRA_DP = 140f
 
 /** How many flashes can wait behind the one on screen; beyond that the oldest waiting one is dropped. */
 internal const val MAX_QUEUED_FLASHES = 3

@@ -56,6 +56,7 @@ docs/releases/*
 !docs/releases/0.23.7-uno01.md
 !docs/releases/0.23.8-uno01.md
 !docs/releases/0.23.9-uno01.md
+!docs/releases/0.23.10-uno01.md
 !docs/images/
 docs/images/*
 !docs/images/*.png

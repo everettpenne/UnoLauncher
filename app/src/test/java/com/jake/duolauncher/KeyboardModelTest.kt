@@ -17,9 +17,11 @@ class KeyboardModelTest {
     }
 
     @Test fun everyPageEndsWithTheSameControlRowAndCanReachTheOthers() {
-        KeyPage.entries.forEach { page ->
+        // The emoji page draws its own panel (and its own ABC key), so it has no key rows here.
+        KeyPage.entries.filter { it != KeyPage.EMOJI }.forEach { page ->
             val bottom = KeyboardModel.rows(page, ShiftState.OFF).last()
             assertTrue(bottom.any { it is Key.Space }); assertTrue(bottom.any { it is Key.Enter }); assertTrue(bottom.any { it is Key.Globe })
+            assertTrue("every page can reach the emoji panel", bottom.any { it is Key.Emoji })
         }
         assertTrue(KeyboardModel.rows(KeyPage.LETTERS, ShiftState.OFF).last().first().let { it is Key.Page && it.target == KeyPage.NUMBERS })
         assertTrue(KeyboardModel.rows(KeyPage.NUMBERS, ShiftState.OFF).last().first().let { it is Key.Page && it.target == KeyPage.LETTERS })

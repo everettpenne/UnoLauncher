@@ -1,5 +1,6 @@
 package com.jake.duolauncher.keyboard
 
+import android.content.ClipboardManager
 import android.content.Context
 import android.inputmethodservice.InputMethodService
 import android.os.Build
@@ -9,6 +10,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
@@ -57,21 +59,35 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
     private var cursor = 0
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
     // Suggestions are computed off the main thread so a keystroke never waits for a dictionary scan; only the newest request is shown.
-    private val suggestWorker = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "uno-keyboard-suggest").apply { isDaemon = true } }
+    private val suggestWorker = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "uno-keyboard-suggest").apply { isDaemon = true; priority = Thread.NORM_PRIORITY - 1 } }
     private val suggestSeq = java.util.concurrent.atomic.AtomicInteger()
     private var autocorrectOn = true
     private var suggestionsOn = true
     private var allowSuggestions = false
     private var allowAutocorrect = false
+    private val recents = EmojiRecents()
+    /** True while text is selected, known from the selection updates, so a backspace need not ask the app. */
+    private var hasSelection = false
+    /** The correction for the word being typed, worked out on the worker with the suggestions so the space bar can use it at once. */
+    @Volatile private var fixCache: Pair<String, String?>? = null
+    private var clipboard: ClipboardManager? = null
+    private val clipListener = ClipboardManager.OnPrimaryClipChangedListener { updatePasteAvailable() }
 
     override fun onCreate() {
         super.onCreate()
         savedState.performAttach(); savedState.performRestore(null)
         registry.currentState = Lifecycle.State.CREATED
         val prefs = getSharedPreferences("extras", Context.MODE_PRIVATE)
+        clipboard = getSystemService(ClipboardManager::class.java)
+        runCatching { clipboard?.addPrimaryClipChangedListener(clipListener) }
         UnoFeedback.configure(this, prefs.getBoolean("haptics", true), prefs.getBoolean("sounds", false))
         KeyHaptics.configure(this, if (prefs.getBoolean("haptics", true)) prefs.getFloat("kbHapticStrength", HapticProfile.DEFAULT_STRENGTH) else 0f)
         Thread {
+            // Loading the word lists is background work: it must never take the processor from the keyboard's first draw.
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            runCatching {
+                ui.emoji = assets.open("keyboard/emoji.txt").bufferedReader().useLines { EmojiData.parse(it) }
+            }
             runCatching {
                 val words = assets.open("keyboard/en_words.txt").bufferedReader().useLines { WordEngine.parseWords(it) }
                 val next = assets.open("keyboard/en_next.txt").bufferedReader().useLines { WordEngine.parseFollowers(it) }
@@ -95,6 +111,15 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         }
     }
 
+    /** Landscape never switches to the fullscreen editor: the keyboard stays a keyboard and the app stays visible above it. */
+    override fun onEvaluateFullscreenMode(): Boolean = false
+
+    /** Whether the clipboard holds text, from its description alone: the text itself is read only when Paste is tapped. */
+    private fun updatePasteAvailable() {
+        val cm = clipboard ?: return
+        ui.pasteAvailable = runCatching { cm.hasPrimaryClip() && cm.primaryClipDescription?.hasMimeType("text/*") == true }.getOrDefault(false)
+    }
+
     /** Shown unless a physical keyboard is attached and Android's "Show on-screen keyboard" setting for it is off. */
     override fun onEvaluateInputViewShown(): Boolean {
         super.onEvaluateInputViewShown() // keeps the base class's bookkeeping; its answer is replaced by the rule below
@@ -116,11 +141,16 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         autocorrectOn = prefs.getBoolean("kbAutocorrect", true)
         suggestionsOn = prefs.getBoolean("kbSuggestions", true)
         ui.numberRow = prefs.getBoolean("kbNumberRow", false)
+        ui.oneHanded = prefs.getInt("kbOneHanded", 0).coerceIn(0, 2)
+        // The switcher key is only worth having when Android has another keyboard to go to.
+        ui.globe = if (Build.VERSION.SDK_INT >= 28) runCatching { shouldOfferSwitchingToNextInputMethod() }.getOrDefault(true) else true
+        hasSelection = info.initialSelStart != info.initialSelEnd
+        updatePasteAvailable()
         ui.spaceCursor = prefs.getBoolean("kbSpaceCursor", true)
         allowSuggestions = KeyboardModel.allowsSuggestions(info.inputType)
         allowAutocorrect = KeyboardModel.allowsAutocorrect(info.inputType)
         ui.showStrip = suggestionsOn && allowSuggestions
-        ignored.clear(); lastFix = null
+        ignored.clear(); lastFix = null; fixCache = null
         KeyHaptics.configure(this, if (prefs.getBoolean("haptics", true)) prefs.getFloat("kbHapticStrength", HapticProfile.DEFAULT_STRENGTH) else 0f)
         // One read of the field now; after this the mirror follows our own edits and only external changes are re-read.
         expectedCursor.clear(); cursor = info.initialSelStart
@@ -131,6 +161,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
 
     override fun onUpdateSelection(oldSelStart: Int, oldSelEnd: Int, newSelStart: Int, newSelEnd: Int, candStart: Int, candEnd: Int) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candStart, candEnd)
+        hasSelection = newSelStart != newSelEnd
         if (newSelStart == newSelEnd && expectedCursor.isOurs(newSelStart)) return   // the echo of something we typed
         // The cursor moved or the text changed from outside (a tap in the field, a paste, the app editing it).
         cursor = newSelStart
@@ -170,7 +201,10 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         val seq = suggestSeq.incrementAndGet()
         suggestWorker.execute {
             val ctx = Suggest.parse(before)
-            val result = Suggest.suggestions(e, ctx, skip, capitalise = shift || (ctx.atSentenceStart && ctx.current.isEmpty()))
+            // The correction is worked out here, once, and kept for the space bar to use without scanning the dictionary itself.
+            val fix = if (ctx.current.isEmpty()) null else Suggest.autocorrect(e, ctx, skip)
+            fixCache = ctx.current to fix
+            val result = Suggest.suggestions(e, ctx, skip, capitalise = shift || (ctx.atSentenceStart && ctx.current.isEmpty()), fix = fix)
             main.post { if (seq == suggestSeq.get()) ui.suggestions = result }
         }
     }
@@ -181,7 +215,10 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         if (!autocorrectOn || !allowAutocorrect) return false
         val ic = currentInputConnection ?: return false
         val ctx = Suggest.parse(textBefore())
-        val fix = Suggest.autocorrect(e, ctx, ignored) ?: return false
+        if (ctx.current.isEmpty()) return false
+        // Use what the worker already found for this word; only if it has not caught up is the dictionary scanned here.
+        val cached = fixCache
+        val fix = (if (cached != null && cached.first == ctx.current) cached.second else Suggest.autocorrect(e, ctx, ignored)) ?: return false
         ic.deleteSurroundingText(ctx.current.length, 0)
         ic.commitText(fix, 1)
         editedText(fix, removed = ctx.current.length)
@@ -207,10 +244,10 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
             ic.deleteSurroundingText(1, 0); ic.commitText(text, 1)
             editedText(text, removed = 1); lastFix = null; refreshSuggestions()
         }
-        override fun backspace() {
+        override fun backspace(held: Int) {
             val ic = currentInputConnection ?: return
             val fix = lastFix
-            if (fix != null) {
+            if (fix != null && held == 0) {
                 // Backspace straight after an autocorrection undoes it, and that word is left alone from then on.
                 val before = textBefore()
                 val spaced = before.endsWith(fix.second + " ")
@@ -218,13 +255,18 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                     val n = fix.second.length + if (spaced) 1 else 0
                     ic.deleteSurroundingText(n, 0); ic.commitText(fix.first, 1)
                     editedText(fix.first, removed = n)
-                    ignored += fix.first.lowercase(); lastFix = null
+                    ignored += fix.first.lowercase(); lastFix = null; fixCache = null
                     refreshShift(); refreshSuggestions(); return
                 }
-                lastFix = null
             }
-            if (!ic.getSelectedText(0).isNullOrEmpty()) { ic.commitText("", 1); mirror.invalidate(); resyncMirror(); cursor = -1 }
-            else { ic.deleteSurroundingText(1, 0); mirror.delete(1); cursor -= 1; expectedCursor.expect(cursor) }
+            lastFix = null
+            if (hasSelection) { ic.commitText("", 1); hasSelection = false; mirror.invalidate(); resyncMirror(); cursor = -1 }
+            else {
+                // One character at a time (a whole emoji or flag counts as one), then whole words once held a while. The text is
+                // needed to know how many units that is, so when the mirror has lost it a single unit is deleted without asking.
+                val n = if (mirror.valid || held >= KeyboardModel.WORD_DELETE_AFTER) KeyboardModel.deleteStep(textBefore(), held).coerceAtLeast(1) else 1
+                ic.deleteSurroundingText(n, 0); mirror.delete(n); cursor -= n; expectedCursor.expect(cursor)
+            }
             refreshShift(); refreshSuggestions()
         }
         override fun space() {
@@ -249,7 +291,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
             val ctx = Suggest.parse(textBefore())
             when (suggestion.kind) {
                 SuggestionKind.NEXT -> { ic.commitText(suggestion.text + " ", 1); editedText(suggestion.text + " ") }
-                SuggestionKind.TYPED -> { ignored += ctx.current.lowercase(); ic.commitText(" ", 1); editedText(" ") }
+                SuggestionKind.TYPED -> { ignored += ctx.current.lowercase(); fixCache = null; ic.commitText(" ", 1); editedText(" ") }
                 SuggestionKind.CORRECTION, SuggestionKind.COMPLETION -> {
                     ic.deleteSurroundingText(ctx.current.length, 0); ic.commitText(suggestion.text + " ", 1)
                     editedText(suggestion.text + " ", removed = ctx.current.length)
@@ -275,10 +317,31 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
             lastShiftTapAt = now
         }
         override fun page(target: KeyPage) { ui.page = target }
+        override fun emoji(text: String) {
+            val ic = currentInputConnection ?: return
+            lastFix = null
+            ic.commitText(text, 1); editedText(text)
+            recents.add(text); ui.recents = recents.list()
+            refreshSuggestions()
+        }
+        override fun paste() {
+            val ic = currentInputConnection ?: return
+            // The clipboard is read here, on the tap, and nowhere else.
+            val text = runCatching { clipboard?.primaryClip?.getItemAt(0)?.coerceToText(this@UnoKeyboardService)?.toString() }.getOrNull()
+            if (text.isNullOrEmpty()) return
+            lastFix = null
+            ic.commitText(text, 1); mirror.invalidate(); expectedCursor.clear()
+            main.post { resyncMirror(); refreshShift(); refreshSuggestions() }
+        }
+        override fun setOneHanded(mode: Int) {
+            ui.oneHanded = mode
+            getSharedPreferences("extras", Context.MODE_PRIVATE).edit().putInt("kbOneHanded", mode).apply()
+        }
         override fun haptic(kind: HapticKind) { KeyHaptics.fire(kind); UnoFeedback.sound(Cue.KEY) }
     }
 
     override fun onDestroy() {
+        runCatching { clipboard?.removePrimaryClipChangedListener(clipListener) }
         suggestWorker.shutdown()
         registry.currentState = Lifecycle.State.DESTROYED
         store.clear()
@@ -286,27 +349,47 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
     }
 }
 
-/** What the keys can do. The service implements it; the UI only calls it. */
+/** What the keys can do. The service implements it; the UI only calls it. Marked stable so a key whose own inputs did not change
+ * is not redrawn when something else does.
+ */
+@androidx.compose.runtime.Stable
 internal interface KeyboardActions {
-    fun type(text: String); fun replaceLast(text: String); fun backspace(); fun space(); fun enter(); fun globe(); fun shift(); fun page(target: KeyPage); fun haptic(kind: HapticKind)
+    fun type(text: String); fun replaceLast(text: String); fun backspace(held: Int); fun space(); fun enter(); fun globe(); fun shift(); fun page(target: KeyPage); fun haptic(kind: HapticKind)
     fun pick(suggestion: Suggestion); fun moveCursor(delta: Int)
+    fun emoji(text: String); fun paste(); fun setOneHanded(mode: Int)
 }
+
+/** The alternatives strip shown while a key with accents or symbol variants is held: the choices, the one under the finger (-1 for
+ * none yet) and where the key is in the window. Drawn in the keyboard's own window, never as a popup window of its own.
+ */
+internal data class AccentState(val options: List<String>, val index: Int, val bounds: androidx.compose.ui.geometry.Rect)
 
 /** The key being held, for the magnified preview: its label and where it is in the window. */
 internal data class KeyPreview(val label: String, val bounds: androidx.compose.ui.geometry.Rect)
 
-/** The keyboard's observable state. */
+/** The keyboard's observable state. Marked stable (every field that changes is observable state) so the keys are skipped, not
+ * recomposed, when it is passed down and an unrelated field changes.
+ */
+@androidx.compose.runtime.Stable
 internal class KeyboardUiState {
     var page by mutableStateOf(KeyPage.LETTERS)
     var shift by mutableStateOf(ShiftState.OFF)
     var enter by mutableStateOf(EnterKind.RETURN)
     var password by mutableStateOf(false)
     var preview by mutableStateOf<KeyPreview?>(null)
+    var accents by mutableStateOf<AccentState?>(null)
     var width = 0f
     var suggestions by mutableStateOf<List<Suggestion>>(emptyList())
     var showStrip by mutableStateOf(false)
     var numberRow by mutableStateOf(false)
     var spaceCursor by mutableStateOf(true)
+    /** Another keyboard exists to switch to, so the globe key is shown. */
+    var globe by mutableStateOf(true)
+    /** 0 full width, 1 pushed to the left, 2 to the right. */
+    var oneHanded by mutableIntStateOf(0)
+    var pasteAvailable by mutableStateOf(false)
+    var recents by mutableStateOf<List<String>>(emptyList())
+    var emoji by mutableStateOf<List<EmojiCategory>>(emptyList())
     /** The wallpaper accent as ARGB, when "Color from wallpaper" is on. */
     var accent by mutableStateOf<Int?>(null)
 

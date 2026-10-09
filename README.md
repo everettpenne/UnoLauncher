@@ -74,7 +74,7 @@ No launcher account, server, advertising, analytics, or automatic crash-upload s
 - **Photos:** the system picker grants access to chosen images, without whole-library access.
 - **Google features:** the installed Google app's account, network, and privacy settings apply.
 
-- **Keyboard:** Uno Keyboard is optional and local (no network code, nothing stored or learned); it has no autocorrect or prediction yet.
+- **Keyboard:** Uno Keyboard is optional and local (no network code, nothing stored or learned); it has autocorrect, suggestions, an emoji panel, a Paste button, one-handed mode and an iOS-style look.
 - **Optional grants, all off until you use the feature:** notification access (badges, track titles, island peek), contacts (search), "Modify system settings" (brightness slider), Do Not Disturb access (Silent), and exact alarms (to-the-second timer). Declining any of them only turns off the one feature.
 
 Read [data and permissions](PRIVACY.md) before sharing backups or diagnostics.

@@ -4,7 +4,7 @@ package com.jake.duolauncher.keyboard
  * package never touches the network: a test (`KeyboardPrivacyTest`) fails the build if it ever imports anything that
  * could.
  */
-internal enum class KeyPage { LETTERS, NUMBERS, SYMBOLS }
+internal enum class KeyPage { LETTERS, NUMBERS, SYMBOLS, EMOJI }
 
 internal enum class ShiftState { OFF, ONCE, LOCKED }
 
@@ -17,6 +17,7 @@ internal sealed interface Key {
     data object Space : Key
     data object Enter : Key
     data object Globe : Key
+    data object Emoji : Key
 }
 
 /** What the Enter key should do and say, from the field's IME action. */
@@ -82,7 +83,8 @@ internal object KeyboardModel {
     private fun chars(s: String, upper: Boolean = false) = s.map { Key.Char(if (upper) it.uppercase() else it.toString()) }
 
     /** The four rows for [page]. Letters uppercase while shift is on. */
-    fun rows(page: KeyPage, shift: ShiftState, numberRow: Boolean = false): List<List<Key>> = (if (numberRow && page == KeyPage.LETTERS) listOf(chars("1234567890")) else emptyList()) + when (page) {
+    fun rows(page: KeyPage, shift: ShiftState, numberRow: Boolean = false, globe: Boolean = true): List<List<Key>> =
+        if (page == KeyPage.EMOJI) emptyList() else (if (numberRow && page == KeyPage.LETTERS) listOf(chars("1234567890")) else emptyList()) + when (page) {
         KeyPage.LETTERS -> {
             val up = shift != ShiftState.OFF
             listOf(chars(letterRows[0], up), chars(letterRows[1], up),
@@ -92,11 +94,15 @@ internal object KeyboardModel {
             listOf<Key>(Key.Page(KeyPage.SYMBOLS, "#+=")) + chars(numberRows[2]) + Key.Backspace)
         KeyPage.SYMBOLS -> listOf(chars(symbolRows[0]), chars(symbolRows[1]),
             listOf<Key>(Key.Page(KeyPage.NUMBERS, "123")) + chars(symbolRows[2]) + Key.Backspace)
-    } + listOf(bottomRow(page))
+        KeyPage.EMOJI -> emptyList()
+    } + listOf(bottomRow(page, globe))
 
-    private fun bottomRow(page: KeyPage): List<Key> = listOf(
+    /** The bottom row: the page key, the emoji key, the keyboard switcher only when Android says there is another keyboard to
+     * switch to (a globe that goes nowhere is just a dead key), the space bar and Return.
+     */
+    fun bottomRow(page: KeyPage, globe: Boolean): List<Key> = listOfNotNull(
         if (page == KeyPage.LETTERS) Key.Page(KeyPage.NUMBERS, "123") else Key.Page(KeyPage.LETTERS, "ABC"),
-        Key.Globe, Key.Space, Key.Enter)
+        Key.Emoji, if (globe) Key.Globe else null, Key.Space, Key.Enter)
 
     /** Shift after tapping the shift key: off to once to locked and back. A quick second tap locks caps. */
     fun tapShift(state: ShiftState, doubleTap: Boolean): ShiftState = when {
@@ -140,7 +146,40 @@ internal object KeyboardModel {
         return if (before.isLetterOrDigit() || before == ')' || before == '"') 1 to ". " else null
     }
 
-    /** Accent choices for a long-press on a letter; none for letters that have none. */
+    /** How many characters a held backspace deletes in one step: one at first, and a whole word once it has been held a while,
+     * as on iOS. [text] is what is before the cursor; it never deletes more than there is, and never reaches past a line break.
+     */
+    fun deleteStep(text: CharSequence, held: Int): Int {
+        if (text.isEmpty()) return 0
+        if (held < WORD_DELETE_AFTER) return lastClusterLength(text)
+        var i = text.length
+        while (i > 0 && text[i - 1] == ' ') i--                              // spaces right before the cursor
+        if (i == 0 || text[i - 1] == '\n') return (text.length - i).coerceAtLeast(1)
+        while (i > 0 && !text[i - 1].isWhitespace()) i--                    // then the word itself
+        return (text.length - i).coerceAtLeast(1)
+    }
+
+    /** How many UTF-16 units the last character on screen takes. Deleting one unit of an emoji leaves half a surrogate pair, which
+     * shows as a broken box, so a pair goes whole; so does a flag (two regional indicators) and a symbol with its variation selector.
+     */
+    fun lastClusterLength(text: CharSequence): Int {
+        var end = text.length
+        if (end == 0) return 0
+        fun cpStart(e: Int): Int = if (e >= 2 && Character.isLowSurrogate(text[e - 1]) && Character.isHighSurrogate(text[e - 2])) e - 2 else e - 1
+        if (text[end - 1] == '\uFE0F' && end >= 2) end -= 1
+        var start = cpStart(end)
+        val cp = Character.codePointAt(text, start)
+        if (cp in 0x1F1E6..0x1F1FF && start >= 2) {
+            val prev = cpStart(start)
+            if (Character.codePointAt(text, prev) in 0x1F1E6..0x1F1FF) start = prev
+        }
+        return (text.length - start).coerceAtLeast(1)
+    }
+
+    /** The hold count (repeats) after which backspace starts taking whole words. */
+    const val WORD_DELETE_AFTER = 14
+
+    /** Accent choices for a long-press on a letter, symbol or digit; none where there are none. */
     fun alternates(letter: String): List<String> = ALTERNATES[letter.lowercase()]?.let { alts ->
         if (letter.first().isUpperCase()) alts.map { it.uppercase() } else alts
     } ?: emptyList()
@@ -150,5 +189,11 @@ internal object KeyboardModel {
         "i" to listOf("ì", "í", "î", "ï"), "o" to listOf("ò", "ó", "ô", "ö", "õ", "ø", "œ"),
         "u" to listOf("ù", "ú", "û", "ü"), "c" to listOf("ç", "ć", "č"), "n" to listOf("ñ", "ń"),
         "s" to listOf("ß", "ś", "š"), "y" to listOf("ý", "ÿ"), "z" to listOf("ž", "ź", "ż"),
-        "l" to listOf("ł"), "d" to listOf("ð"), "t" to listOf("þ"))
+        "l" to listOf("ł"), "d" to listOf("ð"), "t" to listOf("þ"),
+        // Symbols and digits, as on iOS.
+        "-" to listOf("–", "—", "•"), "/" to listOf("\\"), "." to listOf("…"), "?" to listOf("¿"), "!" to listOf("¡"),
+        "'" to listOf("‘", "’", "`"), "\"" to listOf("“", "”", "„", "«", "»"), "$" to listOf("¢", "€", "£", "¥", "₹"),
+        "&" to listOf("§"), "%" to listOf("‰"), "0" to listOf("°"), "=" to listOf("≠", "≈"), "+" to listOf("±"),
+        "<" to listOf("≤", "«"), ">" to listOf("≥", "»"), "(" to listOf("[", "{"), ")" to listOf("]", "}"),
+        "#" to listOf("№"), "*" to listOf("†", "‡", "★"))
 }

@@ -16,12 +16,27 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
     /** Words by first letter, for the correction scan. */
     private val byFirst: Map<Char, List<String>> = sorted.groupBy { it[0] }
 
-    fun contains(word: String) = word in score || word in CONTRACTIONS.values.map { it.lowercase() }
+    fun contains(word: String) = word in score || word in CONTRACTION_WORDS
     fun scoreOf(word: String) = score[word] ?: 0
 
     /** The most common words that start with [prefix] (not including [prefix] itself), best first. */
     fun completions(prefix: String, limit: Int = 3): List<String> {
         if (prefix.isEmpty()) return emptyList()
+        // A short prefix matches thousands of words and is typed over and over, so its best few are kept: the next keystroke that
+        // reaches the same prefix answers from memory instead of scanning and sorting them all again.
+        if (prefix.length > CACHED_PREFIX || limit > CACHED_LIMIT) return scan(prefix, limit)
+        val best = synchronized(cache) { cache.getOrPut(prefix) { scan(prefix, CACHED_LIMIT) } }
+        return if (best.size <= limit) best else best.take(limit)
+    }
+
+    private val cache = object : LinkedHashMap<String, List<String>>(256, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<String>>?) = size > 600
+    }
+
+    /** The same answer without the cache, for tests that check the cache changes nothing. */
+    internal fun completionsUncached(prefix: String, limit: Int): List<String> = scan(prefix, limit)
+
+    private fun scan(prefix: String, limit: Int): List<String> {
         var i = sorted.binarySearch(prefix).let { if (it < 0) -it - 1 else it }
         val found = ArrayList<String>()
         while (i < sorted.size && sorted[i].startsWith(prefix)) { if (sorted[i] != prefix) found += sorted[i]; i++ }
@@ -82,6 +97,8 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
 
     companion object {
         private const val COST_WEIGHT = 4.0
+        private const val CACHED_PREFIX = 3
+        private const val CACHED_LIMIT = 4
         /** Swapping a letter for one far away on the keyboard is a less likely slip than leaving a letter out, so it costs more. */
         private const val FAR_SUBSTITUTION = 1.3
 
@@ -93,6 +110,8 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
             "im" to "I'm", "ive" to "I've", "youre" to "you're", "theyre" to "they're", "thats" to "that's", "whats" to "what's",
             "youve" to "you've", "weve" to "we've", "theyve" to "they've", "hes" to "he's", "shes" to "she's", "i" to "I",
             "id" to "I'd")
+
+        private val CONTRACTION_WORDS: Set<String> = CONTRACTIONS.values.mapTo(HashSet()) { it.lowercase() }
 
         private val STARTERS = listOf("I", "The", "It", "You", "We", "What", "Thanks", "Hey")
 

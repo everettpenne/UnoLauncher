@@ -63,13 +63,13 @@ internal object Suggest {
     /** Up to three suggestions: the word as typed, the best correction or completion, and an alternative. Between words,
      * likely next words. Capitalised if [capitalise] (a sentence start or shift).
      */
-    fun suggestions(engine: WordEngine, ctx: WordContext, ignored: Set<String>, capitalise: Boolean): List<Suggestion> {
+    fun suggestions(engine: WordEngine, ctx: WordContext, ignored: Set<String>, capitalise: Boolean,
+        fix: String? = if (ctx.current.isEmpty()) null else autocorrect(engine, ctx, ignored)): List<Suggestion> {
         if (!ctx.plainWord) return emptyList()
         val cap = { w: String -> if (capitalise) w.replaceFirstChar { it.uppercase() } else w }
         if (ctx.current.isEmpty()) return engine.nextWords(ctx.previous, 3).map { Suggestion(cap(it), SuggestionKind.NEXT) }
         val typed = ctx.current
         val out = ArrayList<Suggestion>(3)
-        val fix = autocorrect(engine, ctx, ignored)
         out += Suggestion(typed, SuggestionKind.TYPED)
         if (fix != null) out += Suggestion(fix, SuggestionKind.CORRECTION)
         for (c in engine.completions(typed.lowercase(), 4)) {

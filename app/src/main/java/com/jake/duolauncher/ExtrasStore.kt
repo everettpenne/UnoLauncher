@@ -28,6 +28,7 @@ internal data class ExtrasState(
     val kbAutocorrect: Boolean = true,
     val kbSuggestions: Boolean = true,
     val kbNumberRow: Boolean = false,
+    val kbOneHanded: Int = 0,
     val kbSpaceCursor: Boolean = true,
     val kbHapticStrength: Float = com.jake.duolauncher.keyboard.HapticProfile.DEFAULT_STRENGTH,
     val handoff: Boolean = true,
@@ -40,6 +41,16 @@ internal data class ExtrasState(
 internal class ExtrasStore(context: Context) {
     private val prefs = context.getSharedPreferences("extras", Context.MODE_PRIVATE)
     var state by mutableStateOf(load()); private set
+
+    // The keyboard can change one-handed mode itself (its button to give the keys their full width back), so the store follows the
+    // preference; otherwise the next save of anything else would write the old value back over it.
+    private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "kbOneHanded") {
+            val now = prefs.getInt("kbOneHanded", 0).coerceIn(0, 2)
+            if (now != state.kbOneHanded) state = state.copy(kbOneHanded = now)
+        }
+    }
+    init { prefs.registerOnSharedPreferenceChangeListener(prefListener) }
 
     private fun load() = ExtrasState(
         // A new key, so everyone gets the new default rather than a value saved by an earlier version.
@@ -63,6 +74,7 @@ internal class ExtrasStore(context: Context) {
         kbAutocorrect = prefs.getBoolean("kbAutocorrect", true),
         kbSuggestions = prefs.getBoolean("kbSuggestions", true),
         kbNumberRow = prefs.getBoolean("kbNumberRow", false),
+        kbOneHanded = prefs.getInt("kbOneHanded", 0).coerceIn(0, 2),
         kbSpaceCursor = prefs.getBoolean("kbSpaceCursor", true),
         kbHapticStrength = prefs.getFloat("kbHapticStrength", com.jake.duolauncher.keyboard.HapticProfile.DEFAULT_STRENGTH).coerceIn(0f, 1f),
         handoff = prefs.getBoolean("handoff", true),
@@ -94,6 +106,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("kbAutocorrect", next.kbAutocorrect)
             .putBoolean("kbSuggestions", next.kbSuggestions)
             .putBoolean("kbNumberRow", next.kbNumberRow)
+            .putInt("kbOneHanded", next.kbOneHanded)
             .putBoolean("kbSpaceCursor", next.kbSpaceCursor)
             .putFloat("kbHapticStrength", next.kbHapticStrength)
             .putBoolean("handoff", next.handoff)
@@ -127,6 +140,7 @@ internal class ExtrasStore(context: Context) {
     fun setKbAutocorrect(value: Boolean) = save(state.copy(kbAutocorrect = value))
     fun setKbSuggestions(value: Boolean) = save(state.copy(kbSuggestions = value))
     fun setKbNumberRow(value: Boolean) = save(state.copy(kbNumberRow = value))
+    fun setKbOneHanded(value: Int) = save(state.copy(kbOneHanded = value.coerceIn(0, 2)))
     fun setKbSpaceCursor(value: Boolean) = save(state.copy(kbSpaceCursor = value))
     fun setKbHapticStrength(value: Float) = save(state.copy(kbHapticStrength = value.coerceIn(0f, 1f)))
     fun setHandoff(value: Boolean) = save(state.copy(handoff = value))

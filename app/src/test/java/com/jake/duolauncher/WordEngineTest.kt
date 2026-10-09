@@ -97,4 +97,32 @@ class WordEngineTest {
         val perWordMs = (System.nanoTime() - start) / 1e6 / 150
         assertTrue("took ${perWordMs}ms per word", perWordMs < 30)
     }
+
+    // ---- the speed-ups must not change the answers ----
+    private fun slowCompletions(prefix: String, limit: Int): List<String> {
+        // The straightforward version: every word that starts with the prefix, best first.
+        val all = engine.completionsUncached(prefix, limit)
+        return all
+    }
+
+    @Test fun cachedCompletionsAreTheSameAsScanningEveryTime() {
+        listOf("s", "th", "wha", "pre", "inter", "a").forEach { prefix ->
+            val first = engine.completions(prefix, 3)
+            assertEquals(prefix, slowCompletions(prefix, 3), first)
+            assertEquals("a repeat answers the same", first, engine.completions(prefix, 3))
+            assertEquals("a smaller limit is the start of a bigger one", engine.completions(prefix, 4).take(2), engine.completions(prefix, 2))
+        }
+    }
+
+    @Test fun aContractionIsAKnownWordWithoutBuildingAListEachTime() {
+        assertTrue(engine.contains("don't")); assertTrue(engine.contains("i'm")); assertTrue(engine.contains("hello"))
+        assertFalse(engine.contains("zzxqj"))
+    }
+
+    @Test fun theLaneStillShowsTheSameSuggestionsWhenTheCorrectionIsHandedIn() {
+        val ctx = Suggest.parse("teh")
+        val fix = Suggest.autocorrect(engine, ctx, emptySet())
+        assertEquals(Suggest.suggestions(engine, ctx, emptySet(), false), Suggest.suggestions(engine, ctx, emptySet(), false, fix))
+        assertEquals("the", fix)
+    }
 }

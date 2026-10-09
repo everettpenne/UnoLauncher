@@ -71,6 +71,10 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     Text("A light tick on touch-down, firmer for the space bar and Return, lighter again for held delete and cursor sliding. It follows Android's touch-feedback setting and the Haptics switch below.",
         style = note, color = muted)
     SettingsSwitch("Slide on space bar to move the cursor", s.kbSpaceCursor, store::setKbSpaceCursor, "kb-space-cursor-switch")
+    Text("One-handed keyboard", style = MaterialTheme.typography.bodyLarge)
+    ChoiceRow("Off", "The keys use the full width", s.kbOneHanded == 0, "kb-one-handed-off") { store.setKbOneHanded(0) }
+    ChoiceRow("Left", "The keys sit against the left edge, a little narrower", s.kbOneHanded == 1, "kb-one-handed-left") { store.setKbOneHanded(1) }
+    ChoiceRow("Right", "The keys sit against the right edge, a little narrower", s.kbOneHanded == 2, "kb-one-handed-right") { store.setKbOneHanded(2) }
     Text("A glass-styled keyboard with key previews, accents on long-press, caps lock, a numbers page and a field-aware Return key. It is strictly local: nothing you type is stored, learned, logged or sent, and its code contains no network access (a test enforces that). Suggestions and autocorrect use a word list bundled in the app (English only); they never learn from what you type, never save a word, and switch themselves off in password, email, web address, name and number fields. Backspace right after a correction undoes it, and that word is left alone for the session. There is no swipe typing yet.",
         style = note, color = muted)
     HorizontalDivider(Modifier.padding(vertical = 6.dp))

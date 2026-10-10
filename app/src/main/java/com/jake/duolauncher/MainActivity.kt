@@ -100,6 +100,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Before anything can prune widget ids: stacked widgets are not on the grid but must stay bound.
+        UpdateSecurity.appVersion = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "unknown"
         WidgetStacks.init(this)
         LargeFolders.init(this)
         super.onCreate(savedInstanceState)
@@ -262,9 +263,9 @@ class MainActivity : ComponentActivity() {
         shadeSetupDialog = android.app.AlertDialog.Builder(this)
             .setTitle("Shade gestures (optional)")
             .setMessage("Swiping down on Home can open Notifications or Quick Settings. Android lets a launcher do that only through an accessibility service, so it stays off until you turn it on.\n\n" +
-                "It can: open those two panels when you swipe.\n" +
+                "It can: open those two panels when you swipe, and draw the dynamic island above other apps and the status bar (an accessibility service is the only window Android lets sit there).\n" +
                 "It can’t: read your screen, see other apps, or tap or type for you.\n\n" +
-                "Turn it off any time in Settings → Accessibility. Uno Launcher works the same without it.")
+                "Without it, the island can still show above other apps through “Display over other apps”, under the status bar. Turn the service off any time in Settings → Accessibility. Uno Launcher works the same without it.")
             .setNegativeButton("No thanks") { _, _ ->
                 runCatching { shadePrefs.edit().putBoolean("declined", true).apply() }
             }
@@ -278,7 +279,12 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(this, "Accessibility settings are unavailable.", Toast.LENGTH_LONG).show()
                 }
             }
-            .also { dialog -> dialog.setOnCancelListener { shadePromptDismissedThisRun = true } }
+            // Tapping outside or going Back is also a "no": remembered, so the prompt does not return on every swipe. "Set up shade
+            // gestures" in Help and setup still offers it.
+            .also { dialog -> dialog.setOnCancelListener {
+                shadePromptDismissedThisRun = true
+                runCatching { shadePrefs.edit().putBoolean("declined", true).apply() }
+            } }
             .also { dialog -> dialog.setOnDismissListener {
                 shadeSetupDialog = null
                 if (!returningFromShadeSettings && !recreatingShadeSetup) releaseShadeSetupOwnership()

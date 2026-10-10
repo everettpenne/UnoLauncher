@@ -121,8 +121,9 @@ class UnoNotificationListener : NotificationListenerService() {
         handler?.post { recount(); untrackCall(sbn); syncLiveUpdates() }
     }
 
-    /** Reads the Live Updates (notifications Android has promoted) out of the active ones. Only the title, short text, progress, clock
-     * and small icon are taken, never message content, and only while the Live Updates switch is on.
+    /** Reads the Live Updates (notifications Android has promoted) out of the active ones. Only the title, body text, short status,
+     * progress, clock and small icon of those promoted ongoing notifications are taken (a ride's "Driver is 4 minutes away"), and
+     * only while the Live Updates switch is on. Ordinary notifications, including chat and message ones, are not read for their text.
      */
     private fun syncLiveUpdates() {
         if (!prefs.getBoolean("liveUpdates", true)) { NotificationFeed.liveUpdates = emptyList(); return }

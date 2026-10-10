@@ -44,7 +44,7 @@ internal object PermissionLedger {
         return listOf(
             LedgerRow("overlay", "Display over other apps",
                 if (i.overlayAllowed) "Allowed" else "Not allowed", i.overlayAllowed,
-                "Drawing the island above other apps when the accessibility service below is off. It is visible, but Android puts it under the status bar, so it cannot be tapped over the camera.",
+                "Drawing the island above other apps when the accessibility service below is off. It is visible, but Android puts it under the status bar, so it cannot be tapped over the camera. It is drawn over every app, including banking and password apps: Android gives a launcher no way to tell which apps are secure, so turn Island everywhere off if you do not want that.",
                 "Nothing. It only draws the island's own pixels.",
                 LedgerAction.OVERLAY_SETTINGS),
             LedgerRow("accessibility", "Accessibility service (shade gestures)",
@@ -54,7 +54,7 @@ internal object PermissionLedger {
                     else -> "Off"
                 },
                 i.accessibilityRunning,
-                "Opening the notifications and Quick Settings panels from Home gestures, and drawing the island above the status bar so it can be tapped over other apps." +
+                "Opening the notifications and Quick Settings panels from Home gestures, and drawing the island above the status bar (as an accessibility overlay window) so it can be tapped over other apps." +
                     if (blocked) " Android is not running it. Advanced Protection or a restricted-settings block can do this; the plain overlay is used instead." else "",
                 "Nothing. It subscribes to no events and cannot read the screen or other apps.",
                 LedgerAction.ACCESSIBILITY_SETTINGS),

@@ -12,7 +12,7 @@ Uno Launcher stores settings, Home layout, widget placement, and selected wallpa
 
 ## Optional access
 
-The shade-gesture accessibility service opens notifications or Quick Settings in response to your gesture. It is off until you enable it, and the launcher never enables it for you. It cannot retrieve window contents or perform gesture injection and unsubscribes from accessibility events when connected. The first swipe explains this and offers **No thanks**, which is remembered so you aren't asked again. You can disable the service any time in Android Accessibility settings and continue using the launcher.
+The shade-gesture accessibility service opens notifications or Quick Settings in response to your gesture. It is off until you enable it, and the launcher never enables it for you. It cannot retrieve window contents or perform gesture injection and unsubscribes from accessibility events when connected. When it is on, the same service also draws the dynamic island above other apps and the status bar, which Android only allows for an accessibility window; without it the island is drawn under the status bar with the "Display over other apps" permission instead. The first swipe explains this and offers **No thanks**, which is remembered (so is dismissing the explanation by tapping outside it) so you aren't asked again; Help and setup still offers it. You can disable the service any time in Android Accessibility settings and continue using the launcher.
 
 Coarse location is requested only when you tap the button for approximate location in sunrise/sunset appearance settings, as a single request; the launcher stores the resulting coordinates (and **Clear location** removes them). You can instead type coordinates, or leave the system theme on, and never grant it.
 
@@ -20,7 +20,7 @@ Coarse location is requested only when you tap the button for approximate locati
 
 Each of these is off by default, asks only when you turn on the feature that needs it, and can be revoked in Android's settings at any time. The launcher works fully without any of them.
 
-- **Notification access** (badges, track title and artwork, island peek). The launcher reads which apps have unread notifications and how many, the current media session's title, artist and artwork, and the name of the app that just posted. It never reads message text. Nothing is stored, logged or sent, and the listener is only bound after you enable it in Android's settings.
+- **Notification access** (badges, track title and artwork, island peek). The launcher reads which apps have unread notifications and how many, the current media session's title, artist and artwork, and the name of the app that just posted. It never reads message text, with one exception you control: for a Live Update (an ongoing notification Android 16 has promoted, such as a ride or delivery) it also reads the title, body text and short status the app chose to show, only while the Live Updates switch is on. Chat and message notifications are not promoted and are not read. Nothing is stored, logged or sent, and the listener is only bound after you enable it in Android's settings.
 - **Contacts** (search in All apps). Only contact names are read, on demand while you type; nothing is cached or sent. Tapping a result opens it in the system Contacts app.
 - **Modify system settings** (brightness slider in the control panel). Used only to set screen brightness when you move that slider; moving it turns automatic brightness off.
 - **Do Not Disturb access** (Silent in the ringer selector). Android ties Silent to Do Not Disturb; used only when you tap Silent.
@@ -56,3 +56,10 @@ A layout export is created only when you choose Save in Backup and select a dest
 There is no automatic diagnostic upload. Screenshots and logs you manually attach to issues may contain personal information, widget content, account names, or work data. Review them first.
 
 Uninstalling or clearing storage removes Uno Launcher's local settings, photos, and widget bindings. Exported files remain where you saved them. Android and device vendors may provide their own diagnostics independently of Uno Launcher.
+
+## Updates, feeds and what stays on the device
+
+- **The updater fails closed.** It downloads only from GitHub (https, and redirects only to GitHub's own hosts), refuses a release that publishes no SHA-256 checksum for its APK, checks the checksum, and then checks that the APK is signed by exactly the same certificates as the app already installed, all before handing it to Android's installer, which asks you to confirm. Downloads are cut off as soon as they exceed their size limit, not after.
+- **Feeds** are fetched over https only, from the host you added, with the same running size limit.
+- **Location** (if you choose it for sunrise-sunset appearance) and the news-feed cache are kept in the app's private storage only, are never sent anywhere, and the location is excluded from layout backups.
+- **The island and secure screens.** The everywhere-island is drawn over other apps, including banking and password apps, because Android gives a launcher no way to tell which apps are secure. It cannot be tapped through (its drawing window ignores touches), but if you do not want it there, turn "Island everywhere" off.

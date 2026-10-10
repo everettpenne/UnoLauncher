@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.29.1-uno01
+
+A security release, answering an October 2026 audit of 0.27.0 (no policy violations; two Medium and several Low findings):
+
+- Updater fails closed (Medium): a release that publishes no SHA-256 checksum for its APK is no longer downloaded or installed unchecked, and the APK's signing certificates must now equal those of the installed app before it is handed to Android's installer (Android's own same-signer rule stays as the backstop). The key check reads the certificates out of the downloaded file with the platform's own APK parser; an emulator test proves it gives the installed app's certificates for its own APK. Pinning to the installed key, rather than a copy of the key in the source, means a rotated release key needs a manual reinstall, which is the safe direction.
+- Size limits now bound the transfer, not just the result: the update check, checksum file, APK and every feed are read with a running byte count and cut off as soon as they exceed the cap (and a declared Content-Length over the cap is refused up front); the APK is streamed to disk while it is hashed instead of held in memory. Unit tested, including a stream that never ends.
+- Updater redirects are followed by hand and only to https on github.com, api.github.com and *.githubusercontent.com (unit tested, including look-alike hosts such as github.com.evil.example); every hop is checked.
+- The User-Agent now carries the real version (it said 0.16).
+- Claims made accurate: Live Updates do read the body text and short status of the promoted ongoing notification (ride, delivery), and the code comment, PRIVACY.md and the ledger now say so, while chat and message notifications are still never read for their text. The accessibility consent text, PRIVACY.md and the ledger now disclose that the shade service also draws the island above other apps; the plain overlay is the documented alternative. Dismissing the shade prompt by tapping outside is now remembered like "No thanks" (Help and setup still offers it). The keyboard's stale comment that it has no suggestions or autocorrect is corrected.
+- Secure screens (Medium, documented): the everywhere-island is drawn over banking and password apps because Android gives a launcher no way to tell which apps are secure without accessibility or usage access, which Uno refuses. It cannot be tapped through. PRIVACY.md and the overlay's ledger row now say so and point to "Island everywhere" as the switch. A per-app hide list is not built: it would need to know the foreground app.
+- Not changed: encrypting the local location preference (it stays in the app's private storage, is never sent, and is excluded from backups; documented in PRIVACY.md); tightening the overlay's ~6 dp touch margin and its 2 s visibility poll. The audit's layout_backup_pending item was already done: the staging is cleared after every use.
+
 ## 0.29.0-uno01
 
 - Large folders in 2 x 1 and 1 x 2: the widget picker offers "Large folder, wide" and "Large folder, tall" next to the 2 x 2 one, and any large folder can be resized down to 2 x 1 or 1 x 2 (never 1 x 1) or up to the whole grid. Thin faces use compact icons (32 dp in 40 dp cells) and drop the title so a few apps still fit: about three icons in a 2 x 1 and four in a 1 x 2. Metrics and capacity are unit tested; an emulator test places both shapes.

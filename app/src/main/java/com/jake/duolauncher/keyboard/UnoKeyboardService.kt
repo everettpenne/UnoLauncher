@@ -32,9 +32,10 @@ import com.jake.duolauncher.UnoFeedback
 
 /** Uno Keyboard: a liquid-glass-styled on-screen keyboard.
  *
- * It is strictly local. Nothing typed is stored, logged, learned or sent anywhere: there is no dictionary, no
- * prediction and no network code in this package (enforced by a test). Everything goes straight to the app you are
- * typing in through [InputConnection]. Because it has no suggestions or autocorrect, it types exactly what you press.
+ * It is strictly local. Nothing typed is stored, logged, learned or sent anywhere. Suggestions and autocorrect come from a
+ * read-only word list bundled in the app: they never learn from what you type, and they switch themselves off in password
+ * and similar fields. There is no network code in this package (enforced by a test). Everything goes straight to the app you
+ * are typing in through [InputConnection].
  */
 class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegistryOwner, ViewModelStoreOwner {
     private val registry = LifecycleRegistry(this)

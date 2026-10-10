@@ -190,32 +190,54 @@ internal class UpdateStore(
         return file.takeIf { it.isFile && it.canRead() }
     }
 
-    private fun download(release: UnoRelease): DownloadResult = try {
+    private fun download(release: UnoRelease): DownloadResult { return try {
         val apkName = release.apkUrl.substringAfterLast('/')
-        val expected = release.sumsUrl?.let { url -> (fetchText(url) as? UpdateResult.Success)?.value }
+        val expected = release.sumsUrl?.let { url -> (fetchText(url, MAX_SUMS_BYTES) as? UpdateResult.Success)?.value }
             ?.let { expectedShaFor(it, apkName) }
+        // Fail closed: a release that publishes no checksum for its APK is not installed unchecked.
+        if (expected == null) return DownloadResult.Failure("This release has no published checksum for its APK, so it was not downloaded.")
         val dir = File(context.cacheDir, "updates").apply { mkdirs() }
         val file = File(dir, "${release.tag}.apk")
-        val bytes = fetchBytes(release.apkUrl, MAX_APK_BYTES)
+        val actual = downloadTo(release.apkUrl, file, MAX_APK_BYTES.toLong())
             ?: return DownloadResult.Failure("The download failed.")
-        file.writeBytes(bytes)
-        val actual = sha256(file)
-        if (expected != null && actual != expected) {
+        when (UpdateSecurity.checksum(expected, actual)) {
+            UpdateSecurity.Checksum.OK -> Unit
+            else -> { file.delete(); return DownloadResult.Failure("The download didn't match its published checksum.") }
+        }
+        // The same key: the APK must carry exactly the signing certificates of the app already installed, checked here as well
+        // as by Android, so a wrongly signed file is refused before it is ever handed to the installer.
+        if (!UpdateSecurity.sameSigners(signerHashes(installedInfo()), signerHashes(archiveInfo(file)))) {
             file.delete()
-            DownloadResult.Failure("The download didn't match its published checksum.")
-        } else DownloadResult.Success(file)
+            return DownloadResult.Failure("The update isn't signed by the same key as this app, so it was not installed.")
+        }
+        DownloadResult.Success(file)
     } catch (e: SecurityException) {
         DownloadResult.Failure("Network access is turned off for Uno Launcher.")
     } catch (e: IOException) {
         DownloadResult.Failure("The download failed.")
-    }
+    } }
 
-    private fun fetchText(url: String): UpdateResult {
+    @Suppress("DEPRECATION")
+    private fun installedInfo(): android.content.pm.PackageInfo? = runCatching {
+        context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+    }.getOrNull()
+
+    @Suppress("DEPRECATION")
+    private fun archiveInfo(file: File): android.content.pm.PackageInfo? = runCatching {
+        context.packageManager.getPackageArchiveInfo(file.path, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+    }.getOrNull()
+
+    private fun signerHashes(info: android.content.pm.PackageInfo?): Set<String> =
+        info?.signingInfo?.apkContentsSigners?.mapTo(mutableSetOf()) { UpdateSecurity.sha256Hex(it.toByteArray()) }.orEmpty()
+
+    private fun fetchText(url: String, maxBytes: Int = MAX_TEXT_BYTES): UpdateResult {
         try {
             val connection = open(url)
             val code = connection.responseCode
             if (code !in 200..299) return UpdateResult.Failure("The server answered HTTP $code.")
-            return UpdateResult.Success(connection.inputStream.use { it.readBytes().toString(Charsets.UTF_8) })
+            val bytes = connection.inputStream.use { BoundedRead.readCapped(it, maxBytes) }
+                ?: return UpdateResult.Failure("The answer was too large to read.")
+            return UpdateResult.Success(bytes.toString(Charsets.UTF_8))
         } catch (e: SecurityException) {
             return UpdateResult.Failure("Network access is turned off for Uno Launcher.")
         } catch (e: UnknownHostException) {
@@ -227,28 +249,43 @@ internal class UpdateStore(
         }
     }
 
-    private fun fetchBytes(url: String, maxBytes: Int): ByteArray? {
+    /** Streams the APK to [file] with a running size cap and returns its SHA-256, or null on any failure. */
+    private fun downloadTo(url: String, file: File, maxBytes: Long): String? {
         try {
             val connection = open(url)
             val code = connection.responseCode
             if (code !in 200..299) return null
-            val bytes = connection.inputStream.use { it.readBytes() }
-            return if (bytes.size > maxBytes) null else bytes
+            val declared = connection.contentLengthLong
+            if (declared > maxBytes) return null
+            val sha = file.outputStream().use { out -> connection.inputStream.use { BoundedRead.copyCapped(it, out, maxBytes) } }
+            if (sha == null) file.delete()
+            return sha
         } catch (e: IOException) {
-            return null
+            file.delete(); return null
         } catch (e: SecurityException) {
             return null
         }
     }
 
+    /** Opens [url], following redirects by hand so each hop must be https on GitHub or its asset hosts. */
     private fun open(url: String): HttpURLConnection {
-        val connection = URI(url).toURL().openConnection() as HttpURLConnection
-        connection.connectTimeout = 15_000
-        connection.readTimeout = 30_000
-        connection.instanceFollowRedirects = true
-        connection.setRequestProperty("User-Agent", "UnoLauncher/0.16 (Android) updater")
-        connection.setRequestProperty("Accept", "application/vnd.github+json")
-        return connection
+        var uri = URI(url)
+        var hops = 0
+        while (true) {
+            if (!UpdateSecurity.redirectAllowed(uri)) throw IOException("The update server moved somewhere that isn't GitHub.")
+            val connection = uri.toURL().openConnection() as HttpURLConnection
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 30_000
+            connection.instanceFollowRedirects = false
+            connection.setRequestProperty("User-Agent", UpdateSecurity.userAgent("updater"))
+            connection.setRequestProperty("Accept", "application/vnd.github+json")
+            val code = connection.responseCode
+            if (code !in setOf(301, 302, 303, 307, 308)) return connection
+            val location = connection.getHeaderField("Location")
+            connection.disconnect()
+            if (location == null || ++hops > 5) throw IOException("Too many redirects.")
+            uri = uri.resolve(location)
+        }
     }
 
     private fun sha256(file: File): String {
@@ -267,6 +304,8 @@ internal class UpdateStore(
     private companion object {
         const val RELEASES_URL = "https://api.github.com/repos/everettpenne/UnoLauncher/releases?per_page=20"
         const val MAX_APK_BYTES = 64 * 1024 * 1024
+        const val MAX_TEXT_BYTES = 2 * 1024 * 1024
+        const val MAX_SUMS_BYTES = 64 * 1024
     }
 }
 

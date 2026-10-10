@@ -35,7 +35,6 @@ internal sealed interface FeedFetchResult {
  */
 internal object FeedFetcher {
     const val MAX_BYTES = 2 * 1024 * 1024
-    private const val USER_AGENT = "UnoLauncher/0.16 (Android) personal-feed"
     private const val TIMEOUT_MS = 10_000
     private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
 
@@ -51,7 +50,7 @@ internal object FeedFetcher {
                 connection.readTimeout = TIMEOUT_MS
                 // Followed by hand so every hop is checked against FeedRedirectPolicy.
                 connection.instanceFollowRedirects = false
-                connection.setRequestProperty("User-Agent", USER_AGENT)
+                connection.setRequestProperty("User-Agent", UpdateSecurity.userAgent("personal-feed"))
                 connection.setRequestProperty("Accept",
                     "application/rss+xml, application/atom+xml, application/xml, text/xml, */*")
                 val code = connection.responseCode
@@ -66,8 +65,10 @@ internal object FeedFetcher {
             }
             val code = connection.responseCode
             if (code !in 200..299) return FeedFetchResult.Failure("The server answered HTTP $code.")
-            val bytes = connection.inputStream.use(InputStream::readBytes)
-            if (bytes.size > MAX_BYTES) return FeedFetchResult.Failure("The feed is too large to read.")
+            if (connection.contentLengthLong > MAX_BYTES) return FeedFetchResult.Failure("The feed is too large to read.")
+            // Counted as it arrives, so a server that sends more than the cap is cut off rather than held in memory.
+            val bytes = connection.inputStream.use { BoundedRead.readCapped(it, MAX_BYTES) }
+                ?: return FeedFetchResult.Failure("The feed is too large to read.")
             val text = decodeBody(bytes, connection.contentType)
             val feed = FeedParser.parse(text.byteInputStream(Charsets.UTF_8))
             return if (feed.entries.isEmpty()) FeedFetchResult.Failure("This feed has no readable entries.")

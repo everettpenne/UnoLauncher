@@ -108,6 +108,21 @@ internal class HandoffResolver(private val context: Context, private val extras:
         }
     }
 
+    /** Runs [query] as a web search in the chosen browser (Vanadium if it is installed), with the words already in the search box of the
+     * results page. This is what pressing Enter in a search field does, whether or not the "suggest other apps and the web" rows are on.
+     */
+    fun searchWeb(query: String): Boolean {
+        val words = HandoffLogic.clean(query)
+        if (words.isEmpty()) return false
+        val pkg = HandoffLogic.pickBrowser(extras.webPackage, browsers())
+        if (pkg == null) {
+            android.widget.Toast.makeText(context, "No browser is installed to search with.", android.widget.Toast.LENGTH_SHORT).show()
+            return false
+        }
+        open(target(HandoffKind.WEB, pkg, null, "your browser"), words)
+        return true
+    }
+
     fun installedBrowsers(): List<Pair<String, String>> = browsers().map { pkg ->
         pkg to runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
     }

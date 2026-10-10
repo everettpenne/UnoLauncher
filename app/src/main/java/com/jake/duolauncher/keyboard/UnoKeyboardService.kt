@@ -237,6 +237,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
             ic.commitText(text, 1)
             editedText(text)
             ui.shift = KeyboardModel.afterLetter(ui.shift)
+            ui.page = KeyboardModel.pageAfterTyping(ui.page, text)
             if (text.firstOrNull()?.isLetter() != true) refreshShift()
             refreshSuggestions()
         }

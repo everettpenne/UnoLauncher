@@ -286,6 +286,8 @@ internal fun DynamicIsland(
     /** Over other apps: the island's frame, and the fixed window rectangle it is drawn in (null when the window wraps it). */
     onFrameChanged: ((IslandFrame, PxRect?) -> Unit)? = null,
     onSearch: () -> Unit,
+    /** When set, the open island has a search field: Enter sends what was typed here (a web search in the browser). */
+    onWebSearch: ((String) -> Unit)? = null,
     onOpenFeed: () -> Unit,
     onCustomize: () -> Unit,
     modifier: Modifier = Modifier,
@@ -665,11 +667,42 @@ internal fun DynamicIsland(
                 }
                 if (showActions) Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    IslandAction(Icons.Rounded.Search, "Search", actionLabelsFit, onSearch)
-                    IslandAction(Icons.Rounded.RssFeed, "Feed", actionLabelsFit, onOpenFeed)
-                    IslandAction(Icons.Rounded.Tune, "Customize", actionLabelsFit, onCustomize)
+                    if (onWebSearch != null) {
+                        IslandSearchField(onWebSearch, onSearch, Modifier.weight(1f))
+                        IslandAction(Icons.Rounded.RssFeed, "Feed", false, onOpenFeed)
+                        IslandAction(Icons.Rounded.Tune, "Customize", false, onCustomize)
+                    } else {
+                        IslandAction(Icons.Rounded.Search, "Search", actionLabelsFit, onSearch)
+                        IslandAction(Icons.Rounded.RssFeed, "Feed", actionLabelsFit, onOpenFeed)
+                        IslandAction(Icons.Rounded.Tune, "Customize", actionLabelsFit, onCustomize)
+                    }
                 }
             }
+        }
+    }
+}
+
+/** A search field in the open island: type, press Enter, and the words go to the browser's search results. The magnifier opens the
+ * full search (apps, contacts, answers) instead.
+ */
+@Composable
+private fun IslandSearchField(onSubmit: (String) -> Unit, onFullSearch: () -> Unit, modifier: Modifier = Modifier) {
+    var text by remember { mutableStateOf("") }
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    Row(modifier.height(44.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = .14f)).padding(start = 4.dp, end = 12.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onFullSearch).semantics { contentDescription = "Search apps and more" },
+            contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Search, null, tint = Color.White.copy(alpha = .85f), modifier = Modifier.size(18.dp)) }
+        Box(Modifier.weight(1f).padding(start = 2.dp), contentAlignment = Alignment.CenterStart) {
+            if (text.isEmpty()) Text("Search the web", color = Color.White.copy(alpha = .55f), fontSize = 14.sp, maxLines = 1)
+            androidx.compose.foundation.text.BasicTextField(text, { text = it.take(200) }, Modifier.fillMaxWidth().testTag("island-search-field"),
+                singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 14.sp),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
+                    val query = text.trim()
+                    if (query.isNotEmpty()) { onSubmit(query); text = ""; keyboard?.hide() }
+                }))
         }
     }
 }

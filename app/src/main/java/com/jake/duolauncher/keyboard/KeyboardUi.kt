@@ -74,6 +74,9 @@ private val LocalKeyHeight = androidx.compose.runtime.staticCompositionLocalOf {
 private val KeyRadius = 6.dp
 private val KeyGap = 6.dp
 private val RowGap = 10.dp
+/** Room under the bottom row. Android's own keyboard-switcher button sits in the navigation bar just below the Return key on phones that
+ * show it, and a thumb aiming at the bottom edge of Return landed on it; the extra room keeps the two apart. */
+private val BottomGap = 20.dp
 private val LaneHeight = 40.dp
 /** The widest the keys are allowed to spread: on an unfolded or tablet screen they stay thumb-sized instead of stretching. */
 private val MaxKeyboardWidth = 640.dp
@@ -97,7 +100,7 @@ internal fun KeyboardScreen(ui: KeyboardUiState, actions: KeyboardActions) {
                 val full = minOf(maxWidth, MaxKeyboardWidth)
                 val contentWidth = if (oneHanded != 0) full * .8f else full
                 val align = when (oneHanded) { 1 -> Alignment.TopStart; 2 -> Alignment.TopEnd; else -> Alignment.TopCenter }
-                Column(Modifier.align(align).width(contentWidth).padding(horizontal = 3.dp).padding(top = 6.dp, bottom = 10.dp)
+                Column(Modifier.align(align).width(contentWidth).padding(horizontal = 3.dp).padding(top = 6.dp, bottom = BottomGap)
                     .navigationBarsPadding().testTag("uno-keyboard"), verticalArrangement = Arrangement.spacedBy(RowGap)) {
                     // The lane above the keys holds the suggestions and the Paste button. It is always there (except in password
                     // fields, which never preview keys), so the magnified key always has room above the top row.

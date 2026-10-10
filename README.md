@@ -42,7 +42,8 @@ Screenshots show sample data on an emulator sized to the reference Fold, and som
 | Change Home pages | Swipe sideways across Home, the dock or the right rail (one page per swipe) |
 | See all apps | Swipe past the last Home page, or tap the page control. Search is built in |
 | Open launcher settings | **Swipe up anywhere on Home** (not from a scrolling widget), or long-press empty space and tap **Customize launcher** |
-| Search everything | Pull down on Home away from the top edge, or tap Search on the island. Apps, contacts, answers and feeds in one box; with no match it offers F-Droid, Aurora or a web search in the app you pick |
+| Search everything | Pull down on Home away from the top edge, or tap the magnifier in the island's search field. Apps, contacts, answers and feeds in one box; **Enter** opens the top app, or, with no app to open, runs a web search in your browser with your words already in it. With no match it also offers F-Droid, Aurora or a web search in the app you pick |
+| Search the web from the island | Open the island, type in its **Search the web** field and press Enter: your browser (Vanadium if installed) opens on the results page |
 | See notifications | Pull down from the top-left of Home (needs the optional shade service, see below) |
 | Open the control panel | Pull down from the top-right of Home: media, volume, brightness, ringer, flashlight, Focus, shortcuts and a hand-off to Android's Quick Settings |
 | Move an app or widget | Long-press, then drag. Hold at a screen edge to change or create a page |
@@ -76,7 +77,7 @@ Long-press empty space, choose **Widgets**, and pick one.
 
 The pill around your camera shows what is happening, and opens into a small panel.
 
-- **Tap** it to open the panel (time, battery with time-to-full while charging, music, a call, a Live Update, your widget, and shortcuts to search, the feed and settings). **Swipe up** or tap outside to close it. **Long-press** it for tools: a flashlight, a timer and a stopwatch.
+- **Tap** it to open the panel (time, battery with time-to-full while charging, music, a call, a Live Update, your widget, a web-search field, and shortcuts to the feed and settings). **Swipe up** or tap outside to close it. **Long-press** it for tools: a flashlight, a timer and a stopwatch.
 - **Several things at once:** the pill carries two; a third and fourth pop out as round **bubbles** beside it. Tap a bubble to bring it to the front, or flick across the pill to turn the order.
 - **What it shows:** music (title, artwork, controls and a seek bar you can tap or drag), calls (caller and time), timers and the stopwatch, **Android 16 Live Updates** (a ride, a delivery, a timer), camera and microphone marks, a red mark while the screen is recorded, VPN and USB-data alerts, headphone and Bluetooth audio connecting, ringer, airplane and Do Not Disturb changes, charging, and optionally a peek when a notification arrives.
 - **Over other apps:** turn on **Island everywhere** and grant "Display over other apps". If you also enable the optional shade service, the island is drawn above the status bar so it can be tapped. It steps aside in landscape (video and games).
@@ -115,7 +116,7 @@ Android still controls the lock screen, recents and system app transitions.
 No launcher account, server, advertising, analytics or automatic crash upload is used. Layouts, notes and backgrounds stay on the device unless you export or share them. Read [PRIVACY.md](PRIVACY.md) for the full list.
 
 - **Network:** the launcher contacts only the https feed addresses you choose (redirects never leave that host) and GitHub for updates and the release page. Revoking GrapheneOS's Network permission leaves everything except those two working.
-- **Everything optional is off until you use it,** and declining any one only turns off that feature: notification access (badges, track titles, Live Updates, island peek; message text is never read, only a promoted Live Update's own title and status), contacts (search), "Modify system settings" (the brightness slider), Do Not Disturb access (Silent), exact alarms (to-the-second timers), approximate location once (sunrise, sunset), "Display over other apps" (the island above other apps) and the accessibility service above.
+- **Everything optional is off until you use it,** and declining any one only turns off that feature: notification access (badges, track titles, Live Updates, island peek; message text is never read, only a promoted Live Update's own title and status), contacts (search), "Modify system settings" (the brightness slider), Do Not Disturb access (Silent), exact alarms (to-the-second timers), location once (sunrise, sunset; approximate or precise, kept rounded to about 11 km), "Display over other apps" (the island above other apps) and the accessibility service above.
 - **The island is drawn over banking and password apps** when Island everywhere is on, because Android gives a launcher no way to tell which apps are secure. It cannot be tapped through; turn Island everywhere off if you do not want it there.
 - **Photos:** the system picker grants access to chosen images only. **Google features:** the installed Google app's own settings apply.
 

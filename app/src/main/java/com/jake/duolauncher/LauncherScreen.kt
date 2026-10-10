@@ -802,6 +802,7 @@ internal fun LauncherScreen(
                     sizeScale = appearance.islandScale,
                     dockWidthPx = with(density) { preset.dockWidth.dp.toPx() },
                     onSearch = { island.collapse(); spotlightOpen = true },
+                    onWebSearch = { query -> island.collapse(); handoffResolver.searchWeb(query) },
                     onOpenFeed = {
                         island.collapse()
                         if (pager.currentPage != -1) scope.launch { pager.animateScrollToPage(-1) }
@@ -1172,7 +1173,9 @@ internal fun LauncherScreen(
                                     pickerRowTop(candidateRow) - 18.dp.toPx()).coerceAtLeast(48.dp.toPx()).toDp() }
                             val previewX = if (specialAnchor != null) anchor.left
                                 else anchor.left + with(density) { 5.dp.toPx() }
-                            Surface(Modifier.offset { IntOffset(previewX.roundToInt(), anchor.top.roundToInt()) }
+                            // Cell bounds are in root coordinates and this layer is drawn inside the launcher root, so its origin is taken off (as the
+                            // drag ghost does); without that the preview sits off from where the widget lands whenever the root is not at the origin.
+                            Surface(Modifier.offset { IntOffset((previewX - drag.rootOrigin.x).roundToInt(), (anchor.top - drag.rootOrigin.y).roundToInt()) }
                                 .size(previewWidth, previewHeight).testTag("widget-placement-preview")
                                 .semantics { stateDescription = if (widgetDraft != null) "Ready to place" else "No room here" },
                                 color = if (widgetDraft != null) Glass.copy(alpha = .82f) else Color(0xFFE7B6B6).copy(alpha = .9f),
@@ -1200,8 +1203,8 @@ internal fun LauncherScreen(
                                 }
                             }
                         } else if (session.dragging) {
-                            Surface(Modifier.offset { IntOffset((session.pointer.x - 90.dp.toPx()).roundToInt(),
-                                (session.pointer.y - 60.dp.toPx()).roundToInt()) }.size(180.dp, 120.dp)
+                            Surface(Modifier.offset { IntOffset((session.pointer.x - drag.rootOrigin.x - 90.dp.toPx()).roundToInt(),
+                                (session.pointer.y - drag.rootOrigin.y - 60.dp.toPx()).roundToInt()) }.size(180.dp, 120.dp)
                                 .testTag("widget-placement-preview").semantics { stateDescription = "No room here" },
                                 color = Color(0xFFE7B6B6).copy(alpha = .9f), shape = Corner.large) {
                                 Box(contentAlignment = Alignment.Center) {
@@ -1969,9 +1972,18 @@ private fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: F
     Column(modifier.clickable(interactionSource = interaction, indication = null, onClick = onClick)
         .semantics(mergeDescendants = true) { contentDescription = "Folder ${folder.title}, ${folder.appIds.size} apps" },
         horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(size.dp).graphicsLayer { scaleX = 1f - .05f * progress; scaleY = 1f - .05f * progress }
-            .clip(Corner.icon)
-            .background(Glass.copy(alpha = .72f)).border(1.dp, Color.White.copy(alpha = .55f), Corner.icon)
+        val folderGlass = LocalPageGlass.current
+        // The dock's glass look: a see-through tint with a bright, fading rim (white at the top-left, soft at the bottom-right) when
+        // glass is on; the flat tile otherwise. It is drawn with plain fills, not the backdrop lens: a folder tile sits straight over the
+        // wallpaper, where the lens has almost nothing to bend, and the lens on every tile crashed the view tree when it was torn down.
+        Box(Modifier.size(size.dp)
+            .then(if (folderGlass != null) Modifier.clip(Corner.icon)
+                    .background(folderGlass.tint.copy(alpha = .34f))
+                    .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.White.copy(alpha = .26f), Color.White.copy(alpha = .05f))))
+                    .border(1.2.dp, androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(alpha = .85f), Color.White.copy(alpha = .14f),
+                        Color.White.copy(alpha = .5f))), Corner.icon)
+                else Modifier.clip(Corner.icon).background(Glass.copy(alpha = .72f)).border(1.dp, Color.White.copy(alpha = .55f), Corner.icon))
+            .graphicsLayer { scaleX = 1f - .05f * progress; scaleY = 1f - .05f * progress }
             .dropRegion(drag, DropTarget.Folder(folder.id), page = page, folderId = folder.id)
             .pressGlow(progress, Corner.icon)
             .testTag("folder-drop-${folder.id}")) {

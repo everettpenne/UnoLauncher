@@ -8,13 +8,13 @@ Uno Launcher stores settings, Home layout, widget placement, and selected wallpa
 - Widget providers control their content, accounts, and network activity; Android hosts their widgets.
 - Battery, Wi-Fi, cellular signal, and airplane-mode readings populate the Home status rail while visible. Signal display does not require location access.
 - Selecting a photo creates a local preview. Apply commits it; cancel preserves the previous background. Android's picker grants access to chosen images only.
-- Sunrise/sunset appearance stores coordinates you enter or explicitly request through approximate location. Times are calculated locally. There is no background location tracking, and Clear location removes the stored coordinates.
+- Sunrise/sunset appearance stores coordinates you enter or explicitly request from the device; a requested place is rounded to a tenth of a degree (about 11 km) before it is kept. Times are calculated locally. There is no background location tracking, and Clear location removes the stored coordinates.
 
 ## Optional access
 
 The shade-gesture accessibility service opens notifications or Quick Settings in response to your gesture. It is off until you enable it, and the launcher never enables it for you. It cannot retrieve window contents or perform gesture injection and unsubscribes from accessibility events when connected. When it is on, the same service also draws the dynamic island above other apps and the status bar, which Android only allows for an accessibility window; without it the island is drawn under the status bar with the "Display over other apps" permission instead. The first swipe explains this and offers **No thanks**, which is remembered (so is dismissing the explanation by tapping outside it) so you aren't asked again; Help and setup still offers it. You can disable the service any time in Android Accessibility settings and continue using the launcher.
 
-Coarse location is requested only when you tap the button for approximate location in sunrise/sunset appearance settings, as a single request; the launcher stores the resulting coordinates (and **Clear location** removes them). You can instead type coordinates, or leave the system theme on, and never grant it.
+Location is requested only when you tap **Use device location** in sunrise/sunset appearance settings, as a single request. Android may offer approximate or precise: either works. A phone with a network or fused location provider answers approximately; a phone without one (GrapheneOS without a network location service) can only answer from its GPS, which needs the precise permission, used once, and the place is rounded to a tenth of a degree before it is saved. The launcher stores only that rounded place (**Clear location** removes it), and never asks again in the background. You can instead type a place by hand and grant nothing.
 
 ### Features that ask Android for access
 

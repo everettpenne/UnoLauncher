@@ -103,4 +103,22 @@ class KeyboardModelTest {
         assertTrue("é" in KeyboardModel.alternates("e")); assertTrue("É" in KeyboardModel.alternates("E"))
         assertTrue(KeyboardModel.alternates("q").isEmpty())
     }
+
+    @Test fun aSymbolTypedFromTheNumbersPageReturnsToLetters() {
+        assertEquals(KeyPage.LETTERS, KeyboardModel.pageAfterTyping(KeyPage.NUMBERS, "'"))
+        assertEquals(KeyPage.LETTERS, KeyboardModel.pageAfterTyping(KeyPage.NUMBERS, "@"))
+        assertEquals(KeyPage.LETTERS, KeyboardModel.pageAfterTyping(KeyPage.SYMBOLS, "."))
+    }
+
+    @Test fun digitsAndSpaceStayOnTheNumbersPage() {
+        assertEquals(KeyPage.NUMBERS, KeyboardModel.pageAfterTyping(KeyPage.NUMBERS, "7"))
+        assertEquals(KeyPage.NUMBERS, KeyboardModel.pageAfterTyping(KeyPage.NUMBERS, " "))
+        assertEquals(KeyPage.SYMBOLS, KeyboardModel.pageAfterTyping(KeyPage.SYMBOLS, "4"))
+    }
+
+    @Test fun lettersAndEmojiPagesAreUnchanged() {
+        assertEquals(KeyPage.LETTERS, KeyboardModel.pageAfterTyping(KeyPage.LETTERS, "a"))
+        assertEquals(KeyPage.EMOJI, KeyboardModel.pageAfterTyping(KeyPage.EMOJI, "😀"))
+        assertEquals(KeyPage.NUMBERS, KeyboardModel.pageAfterTyping(KeyPage.NUMBERS, ""))
+    }
 }

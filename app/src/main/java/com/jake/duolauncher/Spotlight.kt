@@ -130,6 +130,14 @@ internal fun Spotlight(
             .padding(14.dp).testTag("spotlight")) {
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().focusRequester(focus).testTag("spotlight-field"),
                 placeholder = { Text("Search apps, answers, feeds", maxLines = 1) }, singleLine = true, shape = Corner.pill,
+                // Enter opens the top app, as on iOS; with no app to open it searches the web in your browser with the words typed.
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
+                    when {
+                        appResults.isNotEmpty() -> onLaunch(appResults.first())
+                        query.isNotBlank() -> if (handoff.searchWeb(query)) onDismiss()
+                    }
+                }),
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search") } })
             val nothing = smart == null && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()

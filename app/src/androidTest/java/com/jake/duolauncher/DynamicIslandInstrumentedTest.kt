@@ -3,8 +3,11 @@ package com.jake.duolauncher
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performImeAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
+import androidx.compose.ui.semantics.getOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -124,5 +127,24 @@ class DynamicIslandInstrumentedTest {
         compose.runOnIdle { IslandTools.toolsOpen = true; state.expanded = true }
         compose.waitForIdle()
         assertPresent("island-tools-timer")
+    }
+
+    @Test fun typingInTheIslandSearchFieldAndPressingEnterSendsTheQuery() {
+        val sent = mutableListOf<String>()
+        compose.setContent {
+            DuoTheme(false) {
+                DynamicIsland(state, glass = null, deviceStatus = DeviceStatus(), feedHeadline = null,
+                    environmentOverride = IslandEnvironment(PxRect(509f, 40f, 571f, 102f), 1080f, 80f, screenHeight = 2400f),
+                    onSearch = {}, onWebSearch = { sent += it }, onOpenFeed = {}, onCustomize = {})
+            }
+        }
+        compose.runOnIdle { state.toggle() }
+        compose.waitForIdle()
+        compose.onAllNodesWithTag("island-search-field", useUnmergedTree = true)[0].performTextInput("graphene os release")
+        compose.onAllNodesWithTag("island-search-field", useUnmergedTree = true)[0].performImeAction()
+        compose.waitForIdle()
+        assertEquals(listOf("graphene os release"), sent)
+        assertEquals("the field empties after sending", "", compose.onAllNodesWithTag("island-search-field", useUnmergedTree = true)[0]
+            .fetchSemanticsNode().config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.EditableText)?.text ?: "")
     }
 }

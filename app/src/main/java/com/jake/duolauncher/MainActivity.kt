@@ -82,10 +82,12 @@ class MainActivity : ComponentActivity() {
         override fun onReceive(context: Context?, intent: Intent?) { appearance.refresh(systemDark()) }
     }
     private val locationPermission = activityResultRegistry.register("duo.appearance.location", this,
-        ActivityResultContracts.RequestPermission(), permissionResult@{ granted ->
+        ActivityResultContracts.RequestMultiplePermissions(), permissionResult@{ grants ->
         if (appearancePermissionGeneration != appearanceLocationGeneration || isDestroyed) return@permissionResult
         appearancePermissionGeneration = -1
-        if (granted) requestAppearanceLocation(keepPending = true)
+        // Either grant will do: approximate answers from the network or fused provider where there is one, precise lets the phone's
+        // own GPS answer where there is not (Google-free systems), and the place kept is rounded in both cases.
+        if (grants.values.any { it }) requestAppearanceLocation(keepPending = true)
         else finishAppearanceLocation("Location permission wasn’t granted. Using the system theme until you set a place.")
     })
     private var openingDiscover = false
@@ -529,49 +531,70 @@ class MainActivity : ComponentActivity() {
     private fun systemDark() = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
         android.content.res.Configuration.UI_MODE_NIGHT_YES
 
+    private fun hasCoarseLocation() = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    private fun hasFineLocation() = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
     private fun useAppearanceLocation() {
         cancelAppearanceLocation()
-        appearance.locationStatus("Waiting for approximate device location…")
+        appearance.locationStatus("Waiting for device location…")
         LiveDiscover.setExternalResultPending(this, "main", "appearance-location", true)
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+        if (hasCoarseLocation() || hasFineLocation())
             requestAppearanceLocation(keepPending = true)
         else {
             appearancePermissionGeneration = appearanceLocationGeneration
-            runCatching { locationPermission.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION) }
+            runCatching { locationPermission.launch(arrayOf(android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCESS_FINE_LOCATION)) }
                 .onFailure { finishAppearanceLocation("Location permission couldn’t be requested. Using the system theme.") }
         }
     }
 
+    // Permission is checked at the top and every call is inside runCatching, which absorbs a revoked grant.
+    @android.annotation.SuppressLint("MissingPermission")
     private fun requestAppearanceLocation(keepPending: Boolean = false) {
         if (!keepPending) LiveDiscover.setExternalResultPending(this, "main", "appearance-location", true)
         val generation = ++appearanceLocationGeneration
         val manager = getSystemService(LocationManager::class.java)
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (!hasCoarseLocation() && !hasFineLocation()) {
             finishAppearanceLocation("Location permission isn’t available. Using the system theme."); return
         }
-        val cached = runCatching { manager.getProviders(true).mapNotNull { manager.getLastKnownLocation(it) }
-            .maxByOrNull { it.time }?.takeIf { System.currentTimeMillis() - it.time <= 15 * 60_000 } }.getOrNull()
+        val precise = hasFineLocation()
+        fun keep(latitude: Double, longitude: Double) {
+            // Rounded to a tenth of a degree before it is kept: sunrise and sunset need no more, and nothing more exact is stored.
+            appearance.setDeviceLocation(LocationChoice.coarsen(latitude), LocationChoice.coarsen(longitude), systemDark())
+        }
+        val enabled = runCatching { manager.getProviders(true).toSet() }.getOrDefault(emptySet())
+        // A recent fix from any provider that is on, passive included, answers at once.
+        val cached = runCatching { enabled.mapNotNull { manager.getLastKnownLocation(it) }
+            .maxByOrNull { it.time }?.takeIf { System.currentTimeMillis() - it.time <= LocationChoice.CACHE_MAX_AGE_MS } }.getOrNull()
         if (cached != null) {
-            if (generation == appearanceLocationGeneration) appearance.setDeviceLocation(cached.latitude, cached.longitude, systemDark())
+            if (generation == appearanceLocationGeneration) keep(cached.latitude, cached.longitude)
             finishAppearanceLocation(null); return
         }
-        val provider = runCatching { when {
-            manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
-            manager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER) -> LocationManager.PASSIVE_PROVIDER
-            else -> null
-        } }.getOrNull() ?: run { finishAppearanceLocation("No approximate location provider is available. Using the system theme."); return }
+        val providers = LocationChoice.providers(enabled, precise)
+        if (providers.isEmpty()) {
+            finishAppearanceLocation(if (!precise) "This phone has no approximate location source. Allow precise location, or enter a place by hand."
+                else "Location is switched off. Turn it on in Android’s settings, or enter a place by hand.")
+            return
+        }
+        tryAppearanceProvider(manager, providers, 0, generation, ::keep)
+    }
+
+    /** Asks one provider and, if it gives no answer in time, the next. */
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun tryAppearanceProvider(manager: LocationManager, providers: List<String>, index: Int, generation: Int, keep: (Double, Double) -> Unit) {
+        if (index >= providers.size) { if (generation == appearanceLocationGeneration) finishAppearanceLocation("No location answer arrived. Try outdoors, or enter a place by hand."); return }
+        val provider = providers[index]
         val cancellation = CancellationSignal()
         appearanceLocationCancellation = cancellation
         window.decorView.postDelayed({
             if (generation == appearanceLocationGeneration && appearanceLocationCancellation === cancellation) {
-                cancellation.cancel(); finishAppearanceLocation("Location timed out. Using the system theme until you try again or enter a place.")
+                cancellation.cancel(); tryAppearanceProvider(manager, providers, index + 1, generation, keep)
             }
-        }, 10_000)
+        }, LocationChoice.timeoutMs(provider))
         runCatching { manager.getCurrentLocation(provider, cancellation, ContextCompat.getMainExecutor(this)) { location ->
-            if (generation != appearanceLocationGeneration || isDestroyed) return@getCurrentLocation
-            if (location != null) appearance.setDeviceLocation(location.latitude, location.longitude, systemDark())
-            finishAppearanceLocation(if (location == null) "Location is unavailable. Using the system theme." else null)
-        } }.onFailure { finishAppearanceLocation("Location is unavailable. Using the system theme.") }
+            if (generation != appearanceLocationGeneration || isDestroyed || appearanceLocationCancellation !== cancellation) return@getCurrentLocation
+            if (location != null) { keep(location.latitude, location.longitude); finishAppearanceLocation(null) }
+            else tryAppearanceProvider(manager, providers, index + 1, generation, keep)
+        } }.onFailure { if (generation == appearanceLocationGeneration) tryAppearanceProvider(manager, providers, index + 1, generation, keep) }
     }
 
     private fun cancelAppearanceLocation() {

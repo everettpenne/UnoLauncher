@@ -112,6 +112,13 @@ internal object KeyboardModel {
         else -> ShiftState.OFF
     }
 
+    /** As on iOS, typing a symbol from the numbers or symbols page (an apostrophe, a full stop, an at sign) takes you straight back to
+     * the letters, so the next word is not typed as gibberish; digits and the space bar stay put so a number can be finished.
+     */
+    fun pageAfterTyping(page: KeyPage, text: String): KeyPage =
+        if ((page == KeyPage.NUMBERS || page == KeyPage.SYMBOLS) && text.isNotEmpty() && text.none { it.isDigit() || it.isWhitespace() }) KeyPage.LETTERS
+        else page
+
     /** After typing a letter a one-shot shift ends; caps lock stays. */
     fun afterLetter(state: ShiftState) = if (state == ShiftState.ONCE) ShiftState.OFF else state
 

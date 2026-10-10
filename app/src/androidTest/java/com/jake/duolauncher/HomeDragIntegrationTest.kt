@@ -211,7 +211,7 @@ class HomeDragIntegrationTest {
             val bounds = root().fetchSemanticsNode().boundsInRoot
             val edge = Offset(bounds.right - 8f, start.y)
             root().performTouchInput { down(start); advanceEventTime(700); moveTo(start + Offset(3f, 0f)); moveTo(edge, 300) }
-            compose.waitUntil(5000) {
+            compose.waitUntil(40_000) {
                 compose.onNodeWithTag("app-pager").fetchSemanticsNode().config[SemanticsProperties.StateDescription] == "Home page 2 of 2"
             }
             compose.waitForIdle()

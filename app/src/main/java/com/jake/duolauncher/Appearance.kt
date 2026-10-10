@@ -64,7 +64,7 @@ class AppearanceStore(private val context: Context) {
             locationTime = System.currentTimeMillis(), deviceLocation = false), systemDark)
     }
     fun setDeviceLocation(latitude: Double, longitude: Double, systemDark: Boolean) = save(state.copy(
-        place = "Approximate device location", latitude = latitude, longitude = longitude,
+        place = "Device location (rounded)", latitude = latitude, longitude = longitude,
         locationTime = System.currentTimeMillis(), deviceLocation = true, locationStatus = null), systemDark)
     fun locationStatus(message: String?) { state = state.copy(locationStatus = message) }
     fun clearLocation(systemDark: Boolean) = save(state.copy(place = "", latitude = null, longitude = null,

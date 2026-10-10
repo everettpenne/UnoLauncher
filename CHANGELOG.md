@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.26.1-uno01
+
+- Fix the tap shadow that 0.26.0 meant to remove: MaterialTheme installs its own ripple as LocalIndication inside the theme, which overrode the no-op provided outside it. The no-op is now provided inside MaterialTheme.
+- Fix the rectangles while moving an icon: the dragged icon and folder carried a 16 dp shadow (drawn as a rectangle around a rounded icon), and the cell under the finger and the vacated cell were drawn as framed boxes. All gone. While a drop would make a folder, a soft square shows behind the app below, and nothing reflows out of the way.
+- Widget stacks: the page gestures now step aside for a touch that starts on the stack's dot rail (StackRailRegistry). 0.26.0's swipe up (and the older swipe down) could take a drag along the rail. The fade between stacked widgets added in 0.24 is reverted to the plain switch. Not confirmed on a device that either was the fault.
+- Drag to make a folder: a scripted drag onto the middle of another app makes a folder (new instrumented test); the middle zone is a little wider (35% of the cell's width, 42% of its height). If it still fails for you, the failing kind of drag is what is needed.
+- Instrumented tests updated: plain moves and hover previews now end near a cell's lower edge, since the middle makes a folder, and the removed gap rectangle is no longer asserted.
+
 ## 0.26.0-uno01
 
 - No more shadow on tap: every press on Home drew either Material's grey ripple or a white bloom over the icon (pressGlow). Both are gone launcher-wide (LocalIndication is now a no-op); pressing is shown by the springy scale alone, which now settles faster (damping 0.6, stiffness 520 instead of 0.45 / 260).

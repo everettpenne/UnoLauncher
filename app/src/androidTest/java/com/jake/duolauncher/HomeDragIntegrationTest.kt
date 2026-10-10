@@ -29,8 +29,12 @@ class HomeDragIntegrationTest {
             }
         }
     }
-    private fun drag(from: String, to: String) {
-        val start = center(from); val end = center(to)
+    /** Drags one cell onto another. The default ends near the target's lower edge (a plain move); [middle] ends at its
+     * centre, where dropping on another app makes a folder. */
+    private fun drag(from: String, to: String, middle: Boolean = false) {
+        val start = center(from)
+        val bounds = compose.onNodeWithTag(to).fetchSemanticsNode().boundsInRoot
+        val end = if (middle) bounds.center else bounds.center + Offset(0f, bounds.height * .45f)
         root().performTouchInput {
             down(start); advanceEventTime(700)
             moveTo(start + Offset(3f, 0f)); moveTo(end, 300); up()
@@ -45,6 +49,20 @@ class HomeDragIntegrationTest {
     }
     private fun restore(before: HomeLayout) {
         compose.runOnIdle { model().restoreLayout(before) }
+    }
+
+    @Test fun droppingOnTheMiddleOfAnotherAppMakesAFolder() {
+        ready()
+        val before = model().state.value.layout
+        try {
+            val occupied = before.slots.indices.filter { before.slots[it] != null && !isFolderId(before.slots[it]!!) }
+            assertTrue("Fixture needs three Home apps", occupied.size >= 3)
+            val from = occupied[0]; val to = occupied[2]
+            val a = before.slots[from]!!; val b = before.slots[to]!!
+            drag("home-cell-$from", "home-cell-$to", middle = true)
+            val folder = model().state.value.layout.folders.singleOrNull { a in it.appIds && b in it.appIds }
+            assertNotNull("Dropping $a on $b should make a folder; layout=${model().state.value.layout}", folder)
+        } finally { restore(before) }
     }
 
     @Test fun homeDragInsertsAtOccupiedCellAndUndoRestoresBothSurfaces() {
@@ -114,11 +132,13 @@ class HomeDragIntegrationTest {
             val nudged = arranged.slots[target]!!
             val start = center("home-cell-$source")
             root().performTouchInput { down(start); advanceEventTime(700); moveTo(start + Offset(3f, 0f)) }
-            root().performTouchInput { moveTo(center("home-cell-$target"), 300) }
+            // Near the cell's lower edge: the middle of an app is where dropping makes a folder, which holds the preview still.
+            val targetBounds = compose.onNodeWithTag("home-cell-$target").fetchSemanticsNode().boundsInRoot
+            root().performTouchInput { moveTo(targetBounds.center + Offset(0f, targetBounds.height * .45f), 300) }
             compose.waitForIdle()
 
             assertEquals("Hover must not persist", arranged, model().state.value.layout)
-            compose.onNodeWithTag("drag-gap-home-$target", useUnmergedTree = true).assertIsDisplayed()
+            // The vacated cell is deliberately left unframed now (no gap rectangle), so the preview is checked by the layout below.
             val preview = center("home-app-$nudged")
             val expected = center("home-cell-${occupied[2]}")
             assertEquals(expected.x, preview.x, 2f)

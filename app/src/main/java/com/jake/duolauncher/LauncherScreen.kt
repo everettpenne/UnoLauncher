@@ -112,13 +112,15 @@ private fun findFreeWidgetIndex(layout: HomeLayout, page: Int, spanX: Int, spanY
 @Composable
 fun DuoTheme(dark: Boolean = false, content: @Composable () -> Unit) {
     val palette = if (dark) DarkDuoPalette else LightDuoPalette
-    CompositionLocalProvider(LocalDuoPalette provides palette, LocalIndication provides NoIndication) {
+    CompositionLocalProvider(LocalDuoPalette provides palette) {
         MaterialTheme(shapes = DuoMaterialShapes, typography = DuoTypography, colorScheme = if (dark) darkColorScheme(primary = Color(0xFF9BC5D7), onPrimary = Color(0xFF12303D),
             surface = Color(0xFF17272E), onSurface = palette.ink, secondary = Color(0xFFD1BE98),
             secondaryContainer = Color(0xFF314852), onSecondaryContainer = palette.ink)
         else lightColorScheme(primary = Color(0xFF30596D), onPrimary = Color.White,
             surface = Color(0xFFF4F7F8), onSurface = palette.ink, secondary = Color(0xFF84775F),
-            secondaryContainer = Color(0xFFDCE8ED), onSecondaryContainer = palette.ink), content = content)
+            secondaryContainer = Color(0xFFDCE8ED), onSecondaryContainer = palette.ink),
+            // MaterialTheme installs its own ripple as LocalIndication, so the no-op has to be provided inside it.
+            content = { CompositionLocalProvider(LocalIndication provides NoIndication, content = content) })
     }
 }
 
@@ -395,6 +397,7 @@ internal fun LauncherScreen(
         else drag.source?.appId?.let { !canPlaceInDock(state.layout, it) } == true
     // Held over the middle of another app: the drop makes a folder, so nothing reflows out of the way.
     val folderTargetApp = if (drag.active && drag.moved) folderDropTarget(drag.destination(drag.pointer, eligibleDragPages), drag.pointer, drag.source, ::isFolderId) else null
+    SideEffect { drag.folderIntentApp = folderTargetApp }
     val insertionTarget = target.takeIf { drag.moved && !blockedDock && folderTargetApp == null }
     val widgetRawTarget = widgetSession?.let { session -> drag.regions.values.firstOrNull {
         it.target is DropTarget.Home && it.page in eligibleDragPages && it.bounds.contains(session.pointer)
@@ -616,7 +619,8 @@ internal fun LauncherScreen(
                 },
                 onUpwardSwipe = { UnoFeedback.play(Cue.OPEN, haptic); island.collapse(); customizationPage = CustomizationPage.OVERVIEW; sheet = "settings" },
                 onLeadingOverscroll = if (firstHome == 0) onDiscover else null,
-                ignorePress = { point -> pageStripBounds.contains(point + gestureOriginInRoot) },
+                ignorePress = { point -> pageStripBounds.contains(point + gestureOriginInRoot) ||
+                    StackRailRegistry.bounds.values.any { it.contains(point + gestureOriginInRoot) } },
             )) {
             val pagerModifier = Modifier.fillMaxHeight().width(pagerWidth + pagerEndInset)
                 .drawWithContent {
@@ -1237,12 +1241,12 @@ internal fun LauncherScreen(
                 val px = with(LocalDensity.current) { size.toPx() }
                 Image(app.icon.asImageBitmap(), "Moving ${app.label}", Modifier
                     .offset { IntOffset((drag.pointer.x - drag.rootOrigin.x - px / 2).roundToInt(), (drag.pointer.y - drag.rootOrigin.y - px * .65f).roundToInt()) }
-                    .size(size).shadow(16.dp, Corner.icon).clip(Corner.icon).testTag("drag-ghost"))
+                    .size(size).clip(Corner.icon).testTag("drag-ghost"))
             }
             drag.source?.appId?.let { state.layout.folder(it) }?.let { folder ->
                 Surface(Modifier.offset { IntOffset((drag.pointer.x - drag.rootOrigin.x - 42.dp.toPx()).roundToInt(),
                     (drag.pointer.y - drag.rootOrigin.y - 52.dp.toPx()).roundToInt()) }.size(84.dp)
-                    .shadow(16.dp, Corner.medium).testTag("folder-drag-ghost"),
+                    .testTag("folder-drag-ghost"),
                     color = Glass.copy(alpha = .96f), shape = Corner.medium) {
                     Box(contentAlignment = Alignment.Center) { Text(folder.title, color = Ink, textAlign = TextAlign.Center) }
                 }
@@ -1776,14 +1780,9 @@ private fun SharedHomeGrid(
                 .dropRegion(drag, cell, savedApp?.id ?: savedFolder?.id, page)
                 .combinedClickable(onClick = { savedFolder?.let { onFolder(it.id) } },
                     onLongClick = { if (savedId == null && !drag.active) onEmptyWidget(globalIndex) })
-                .background(if (highlighted) Glass.copy(alpha = .25f) else Color.Transparent, Corner.medium)
-                .border(if (highlighted) 2.dp else 0.dp,
-                    if (highlighted) Color.White.copy(alpha = .8f) else Color.Transparent, Corner.medium),
+                // No frame around the cell being dragged over: only, while a drop would make a folder, a soft square behind the app below.
+                .background(if (drag.folderIntentApp != null && drag.folderIntentApp == savedApp?.id) Color.White.copy(alpha = .16f) else Color.Transparent, Corner.medium),
                 contentAlignment = Alignment.TopCenter) {
-                if (drag.active && drag.source?.appId != null && (gap || previewId == null)) Box(
-                    Modifier.size(iconSize.dp).testTag(if (gap) "drag-gap-home-$globalIndex" else "empty-home-slot-$globalIndex")
-                        .background(Glass.copy(alpha = if (gap) .16f else .08f), Corner.medium)
-                        .border(if (gap) 2.dp else 1.dp, Color.White.copy(alpha = if (gap) .55f else .3f), Corner.medium))
             }
         }
 
@@ -1886,13 +1885,9 @@ private fun DockAppColumn(
             val previewId = previewDock.getOrNull(index)
             val highlighted = drag.active && target == cell
             val gap = hiddenIndex == index
-            Box(Modifier.fillMaxWidth().height(rowHeight.dp).offset(y = (rowHeight * index).dp)
-                .background(if (highlighted) Color.White.copy(alpha = .3f) else Color.Transparent, Corner.medium),
+            Box(Modifier.fillMaxWidth().height(rowHeight.dp).offset(y = (rowHeight * index).dp),
                 contentAlignment = Alignment.Center) {
                 when {
-                    gap -> Box(Modifier.size(iconSize.dp).testTag("drag-gap-dock-$index")
-                        .background(Glass.copy(alpha = .16f), Corner.small)
-                        .border(2.dp, Color.White.copy(alpha = .55f), Corner.small))
                     previewId == null -> Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(24.dp))
                 }
             }
@@ -2119,11 +2114,8 @@ private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifie
         val info = remember(shownId) { if (shownId >= 0) controller.manager.getAppWidgetInfo(shownId) else null }
         if (info == null) { if (shown == 0) fallback() }
         else {
-            // Switching widgets fades one into the next rather than snapping, and names the new one for a moment.
-            androidx.compose.animation.Crossfade(targetState = shownId, animationSpec = androidx.compose.animation.core.tween(180),
-                label = "stack widget") { id ->
-                val view = remember(id) { if (id >= 0) controller.manager.getAppWidgetInfo(id) else null }
-                if (view != null) AndroidView(factory = { context -> controller.host.createView(context, id, view) },
+            key(shownId) {
+                AndroidView(factory = { context -> controller.host.createView(context, shownId, info) },
                     modifier = Modifier.fillMaxSize())
             }
         }
@@ -2140,6 +2132,9 @@ private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifie
     }
 }
 
+/** Where each visible stack rail is, in root coordinates, so the page gestures can step aside for a touch that starts on one. */
+internal object StackRailRegistry { val bounds = mutableMapOf<Any, androidx.compose.ui.geometry.Rect>() }
+
 /** The dots down the right edge of a widget stack. Tapping a dot, or dragging along the rail, switches widgets. It is a
  * rail and not a swipe on the widget itself because vertical swipes on Home already open the panel and notifications.
  */
@@ -2151,8 +2146,13 @@ private fun StackRail(selected: Int, count: Int, onSelect: (Int) -> Unit, modifi
         val index = ((y / heightPx.coerceAtLeast(1)) * count).toInt().coerceIn(0, count - 1)
         if (index != selected) { UnoFeedback.play(Cue.TICK, haptic); onSelect(index) }
     }
+    val registryKey = remember { Any() }
+    DisposableEffect(Unit) { onDispose { StackRailRegistry.bounds.remove(registryKey) } }
     Column(modifier.width(28.dp).background(Color.Black.copy(alpha = .22f), Corner.pill).padding(vertical = 8.dp)
         .onSizeChanged { heightPx = it.height }
+        // The pager above must leave a touch that starts on the rail alone, or its swipe-up (settings) and swipe-down (panels)
+        // take the rail's own vertical drag.
+        .onGloballyPositioned { StackRailRegistry.bounds[registryKey] = it.boundsInRoot() }
         .pointerInput(count, selected) {
             detectTapGestures { pick(it.y) }
         }.pointerInput(count, selected) {

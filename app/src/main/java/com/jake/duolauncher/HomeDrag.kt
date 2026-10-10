@@ -31,6 +31,8 @@ internal class HomeDragState {
     var originPage = 0
     var moved by mutableStateOf(false)
     var activeSourceScope by mutableStateOf<String?>(null)
+    /** The app a drop would make a folder with right now, for a soft highlight behind it. */
+    var folderIntentApp by mutableStateOf<String?>(null)
     val active get() = source != null
     fun hit(point: Offset, pages: Set<Int>) = regions.values
         .filter { (it.page == null || it.page in pages) && it.bounds.contains(point) &&
@@ -204,7 +206,7 @@ internal fun Modifier.homeDragInput(
  * moves the app there. Returns the app being dropped onto, or null when the drop is an ordinary move.
  *
  * Only a plain app (not a folder, not a widget) dropped on a Home cell holding a different plain app qualifies, and only
- * when the pointer is in the middle of the cell: within 30% of its width and 35% of its height of the centre.
+ * when the pointer is in the middle of the cell: within 35% of its width and 42% of its height of the centre.
  */
 internal fun folderDropTarget(region: DragRegion?, point: Offset, source: DragRegion?, isFolder: (String) -> Boolean): String? {
     if (region == null || source == null || region.target !is DropTarget.Home) return null
@@ -216,5 +218,5 @@ internal fun folderDropTarget(region: DragRegion?, point: Offset, source: DragRe
     if (b.isEmpty) return null
     val dx = kotlin.math.abs(point.x - b.center.x) / b.width
     val dy = kotlin.math.abs(point.y - b.center.y) / b.height
-    return occupant.takeIf { dx <= .30f && dy <= .35f }
+    return occupant.takeIf { dx <= .35f && dy <= .42f }
 }

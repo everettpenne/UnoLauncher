@@ -291,7 +291,7 @@ internal fun DynamicIsland(
     val clockMs by produceState(System.currentTimeMillis()) {
         while (true) {
             value = System.currentTimeMillis()
-            delay(if (IslandTools.swRunning) 100L else if (IslandTools.timerActive) 500L else 5_000L)
+            delay(if (IslandTools.swRunning) 100L else if (IslandTools.timerActive) 500L else if (LiveUpdateLogic.needsSecondTick(NotificationFeed.liveUpdates)) 1_000L else 5_000L)
         }
     }
     val torch = rememberTorch(active = state.expanded && IslandTools.toolsOpen)
@@ -341,9 +341,10 @@ internal fun DynamicIsland(
     // system font); narrower panels get icon-only buttons, with the label kept for accessibility.
     val actionLabelsFit = IslandGeometry.frame(environment, d, 1f, sizeScale).width / d - 36f >= ACTION_LABELS_MIN_DP
     val callActive = NotificationFeed.ongoingCall != null
+    val updates = NotificationFeed.liveUpdates
     // Everything live on the collapsed pill, most important first, and which goes in which slot (see IslandLive).
     val liveKinds = IslandLive.rotated(IslandLive.active(camera = state.cameraActive, mic = state.micActive, call = callActive,
-        timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaVisible), state.activityShift)
+        timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaVisible, update = updates.isNotEmpty()), state.activityShift)
     val plan = IslandLive.plan(liveKinds)
     // A camera on a side edge has no room beside it unless the pill widens, so live content asks for some.
     val cameraOnSide = environment.cutout?.let {
@@ -359,7 +360,7 @@ internal fun DynamicIsland(
     val compactTarget = if (anchoredToWindow && !hasLiveContent) 1f else 0f
     val compactness by animateFloatAsState(compactTarget, spring(dampingRatio = .8f, stiffness = 380f), label = "island compact")
     val frame = IslandGeometry.frame(environment, d, progress, sizeScale,
-        extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) - actionsTrimDp,
+        extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) - actionsTrimDp,
         extraWidthDp = eventWidth, compactness = compactness)
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
     val corner = minOf(minOf(frame.width, frame.height) / 2f, 30f * d) / d
@@ -401,7 +402,7 @@ internal fun DynamicIsland(
     // the island opened from the wrong corner and collapsed through the wrong place. Touches are taken by a separate small window
     // that follows the island (see IslandOverlayHost), so the empty part of this one never blocks the app underneath.
     val windowRect: PxRect? = if (anchoredToWindow && frame.side == IslandSide.TOP) {
-        val open = IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP - actionsTrimDp)
+        val open = IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + UPDATE_ROW_DP - actionsTrimDp)
         val wide = IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = MAX_EVENT_EXTRA_DP)
         val pad = 10f * d
         PxRect(
@@ -517,7 +518,7 @@ internal fun DynamicIsland(
                     } else if (IslandTools.ringing) {
                         Icon(Icons.Rounded.Alarm, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(18.dp))
                     } else plan.leading?.let { (kind, show) ->
-                        LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2)
+                        LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, update = updates.firstOrNull())
                     }
                     // Idle: nothing here. The time is in the status bar and on the expanded panel.
                 }
@@ -531,7 +532,7 @@ internal fun DynamicIsland(
                             maxLines = 1, modifier = Modifier.testTag("island-timer-done"))
                     } else if (plan.trailing != null) {
                         val (kind, show) = plan.trailing
-                        LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2)
+                        LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, update = updates.firstOrNull())
                     } else if (deviceStatus.charging == true) {
                         Icon(Icons.Rounded.BatteryChargingFull, null, tint = IosGreen, modifier = Modifier.size(16.dp))
                     } else if (deviceStatus.battery != null) {
@@ -586,6 +587,10 @@ internal fun DynamicIsland(
                         runCatching { call.openIntent?.send() }; state.collapse()
                     })
                 }
+                updates.firstOrNull()?.let { u ->
+                    Spacer(Modifier.height(6.dp))
+                    UpdateCard(u, clockMs, onOpen = { runCatching { u.openIntent?.send() }; state.collapse() })
+                }
                 if (mediaVisible) {
                     Spacer(Modifier.height(6.dp))
                     PlaybackRow(playing = shownPlaying, tint = artTint, title = NotificationFeed.nowPlaying?.title,
@@ -635,6 +640,8 @@ internal const val MAX_QUEUED_FLASHES = 3
 internal const val MEDIA_ROW_DP = 112f
 /** The height the open panel reserves for its action buttons, in dp; taken back where they are not shown. */
 internal const val ACTIONS_ROW_DP = 44f
+/** Extra panel height, in dp, when a Live Update card is showing. */
+internal const val UPDATE_ROW_DP = 76f
 /** The artwork tile in the music card, in dp. */
 internal const val MEDIA_ART_DP = 56f
 /** Extra panel height, in dp, when the call card is showing. */
@@ -807,7 +814,7 @@ private val PRIVACY_MIC = Color(0xFFFF9F0A)
 /** One live activity as it appears in a side of the collapsed pill: its small glyph, or its detail (text or bars). */
 @Composable
 private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boolean, tint: Color,
-    art: androidx.compose.ui.graphics.ImageBitmap?, multi: Boolean) {
+    art: androidx.compose.ui.graphics.ImageBitmap?, multi: Boolean, update: LiveUpdate? = null) {
     val glyph = show == SlotShow.GLYPH
     when (kind) {
         LiveKind.CAMERA -> if (glyph) Icon(Icons.Rounded.Videocam, "Camera in use", tint = IosGreen,
@@ -826,6 +833,11 @@ private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boo
         LiveKind.STOPWATCH -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = Color.White, modifier = Modifier.size(16.dp))
             else Text(IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)), color = Color.White,
                 fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
+        LiveKind.UPDATE -> if (update != null) {
+            if (glyph) UpdateGlyph(update, 22.dp)
+            else Text(LiveUpdateLogic.glance(update, clockMs), color = updateTint(update), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, modifier = Modifier.padding(end = 4.dp).testTag("island-live-update"))
+        }
         LiveKind.MEDIA -> if (glyph) {
             // The artwork when there is any; otherwise the bars stand in on the left when something else holds the right.
             if (art != null) Image(art, null, Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)))
@@ -846,3 +858,45 @@ private fun android.graphics.Bitmap.artTintArgb(): Int? = runCatching {
     if (small !== this) small.recycle()
     ArtTint.fromPixels(pixels)
 }.getOrNull()
+
+
+/** The colour a Live Update asks for, or the island's green when it asks for none or one too dark to read on black. */
+private fun updateTint(update: LiveUpdate): Color {
+    val c = Color(update.color)
+    return if (update.color == 0 || c.alpha < .5f || (c.red * .299f + c.green * .587f + c.blue * .114f) < .35f) IosGreen else c.copy(alpha = 1f)
+}
+
+/** The app's small icon in a soft circle of its colour: what stands in for the app on the pill and the card. */
+@Composable
+private fun UpdateGlyph(update: LiveUpdate, size: androidx.compose.ui.unit.Dp) {
+    val tint = updateTint(update)
+    Box(Modifier.size(size).clip(CircleShape).background(tint.copy(alpha = .28f)), contentAlignment = Alignment.Center) {
+        val icon = remember(update.icon) { update.icon?.asImageBitmap() }
+        if (icon != null) Image(icon, null, Modifier.size(size * .66f), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(tint))
+        else Icon(Icons.Rounded.RssFeed, null, tint = tint, modifier = Modifier.size(size * .6f))
+    }
+}
+
+/** The open island's card for a Live Update: the app's icon, its title and text, its short status or clock, and a progress bar. */
+@Composable
+private fun UpdateCard(update: LiveUpdate, clockMs: Long, onOpen: () -> Unit) {
+    val tint = updateTint(update)
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onOpen).testTag("island-update")) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            UpdateGlyph(update, 34.dp)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(update.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(update.text ?: update.appLabel, color = Color.White.copy(alpha = .72f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(LiveUpdateLogic.glance(update, clockMs), color = tint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                modifier = Modifier.padding(start = 8.dp))
+        }
+        LiveUpdateLogic.fraction(update.progress, update.progressMax, update.indeterminate)?.let { f ->
+            Spacer(Modifier.height(6.dp))
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = .18f)).testTag("island-update-progress")) {
+                Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(tint))
+            }
+        }
+    }
+}

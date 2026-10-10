@@ -64,6 +64,9 @@ internal class IslandOverlayHost(
     private var touchView: TouchProxy? = null
     private var touchParams: WindowManager.LayoutParams? = null
     private var started = false
+    private var hud: IslandDebugHud? = null
+    private var hudEnvironment: IslandEnvironment? = null
+    private var hiddenForFullScreen = false
 
     // What the island last asked for, and whether it may be shown at all.
     private var shown = true
@@ -155,10 +158,27 @@ internal class IslandOverlayHost(
         val power = context.getSystemService(PowerManager::class.java)
         view.setContent {
             val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-            androidx.compose.runtime.LaunchedEffect(configuration) { environment = buildEnvironment() }
+            androidx.compose.runtime.LaunchedEffect(configuration) {
+                environment = buildEnvironment()
+                // Full screen, as far as an overlay can tell without reading other apps' windows: a landscape display is video or
+                // a game. (An accessibility overlay is never given system-bar insets, so the status bar's state cannot be seen;
+                // measured on the emulator: no inset events at all, and a probe window reported the bar hidden even when it showed.)
+                IslandRuntime.statusBarVisible = configuration.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            }
             var visible by androidx.compose.runtime.remember { mutableStateOf(true) }
             var islandScale by androidx.compose.runtime.remember {
                 mutableStateOf(context.getSharedPreferences("appearance", Context.MODE_PRIVATE).getFloat("islandScale", .5f).coerceIn(0f, 1f))
+            }
+            // Out of the way of a full-screen app (see FullScreenPolicy): hidden once the status bar has been gone half a second.
+            var fullScreen by androidx.compose.runtime.remember { mutableStateOf(false) }
+            val barVisible = IslandRuntime.statusBarVisible
+            LaunchedEffect(barVisible) {
+                if (barVisible) fullScreen = false else { delay(FullScreenPolicy.HIDE_AFTER_MS); fullScreen = FullScreenPolicy.shouldHide(false, FullScreenPolicy.HIDE_AFTER_MS) }
+            }
+            LaunchedEffect(visible, fullScreen) {
+                val show = visible && !fullScreen
+                hiddenForFullScreen = fullScreen
+                if (shown != show) { shown = show; applyLayout() } else updateHud()
             }
             LaunchedEffect(Unit) {
                 while (true) {
@@ -167,13 +187,15 @@ internal class IslandOverlayHost(
                         keyguard.isKeyguardLocked, power.isInteractive)
                     islandScale = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
                         .getFloat("islandScale", .5f).coerceIn(0f, 1f)
-                    // Keep the windows 1x1 and untouchable when hidden. applyLayout only touches a window whose layout actually
-                    // changed, so this can never feed a relayout loop.
-                    if (shown != visible) { shown = visible; applyLayout() }
+                    // The debug HUD (debug builds only) follows its switch while the overlay runs.
+                    if (IslandDebugHud.enabled(context)) {
+                        if (hud == null) hud = IslandDebugHud(context, windowType).also { it.start() }
+                        hudEnvironment = environment; updateHud()
+                    } else { hud?.stop(); hud = null }
                     delay(2_000L)
                 }
             }
-            if (visible) {
+            if (visible && !fullScreen) {
                 DynamicIsland(
                     state = IslandRuntime.state,
                     glass = null,
@@ -200,7 +222,24 @@ internal class IslandOverlayHost(
     private val untouchable = WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
 
     /** Brings both windows to what the island last asked for. Each is only updated if something about it changed. */
+    private fun updateHud() {
+        val h = hud ?: return
+        val frame = lastFrame; val win = lastWindow; val env = hudEnvironment
+        val touch = touchParams
+        fun box(w: Int, hgt: Int, x: Int, y: Int) = "${w}x$hgt @$x,$y"
+        h.update(HudSnapshot(
+            env?.screenWidth?.toInt() ?: 0, env?.screenHeight?.toInt() ?: 0,
+            env?.cutout?.let { "${it.left.toInt()},${it.top.toInt()}-${it.right.toInt()},${it.bottom.toInt()}" } ?: "none",
+            frame?.let { box(it.width.toInt(), it.height.toInt(), it.left.toInt(), it.top.toInt()) } ?: "-",
+            win?.let { box(it.width.toInt(), it.height.toInt(), it.left.toInt(), it.top.toInt()) } ?: layoutParams?.let { box(it.width, it.height, it.x, it.y) } ?: "-",
+            touch?.let { box(it.width, it.height, it.x, it.y) } ?: "-",
+            IslandRuntime.state.expanded, IslandRuntime.statusBarVisible, hiddenForFullScreen, shown,
+            NotificationFeed.liveUpdates.size + (if (NotificationFeed.nowPlaying != null) 1 else 0), IslandRuntime.state.queuedFlashCount,
+            ""))
+    }
+
     private fun applyLayout() {
+        updateHud()
         val manager = windowManager ?: return
         val view = composeView ?: return
         val params = layoutParams ?: return
@@ -278,6 +317,7 @@ internal class IslandOverlayHost(
 
     fun stop() {
         started = false
+        hud?.stop(); hud = null
         val view = composeView
         composeView = null
         layoutParams = null

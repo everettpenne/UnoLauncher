@@ -68,3 +68,4 @@ docs/images/*
 *.p12
 *.pem
 *.key
+!docs/releases/0.24.0-uno01.md

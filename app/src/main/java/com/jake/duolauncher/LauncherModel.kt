@@ -128,13 +128,12 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         val resources = getApplication<Application>().resources
         val iconStyle = IconStyle.fromPreference(getApplication<Application>().getSharedPreferences("extras", 0).getString("iconStyle", null))
         val themedDark = DuoAppearanceRuntime.dark
-        val themedAccent = if (iconStyle == IconStyle.THEMED &&
-            getApplication<Application>().getSharedPreferences("appearance", 0).getBoolean("wallpaperColor", false))
+        val themedAccent = if (iconStyle.usesWallpaper(getApplication<Application>().getSharedPreferences("appearance", 0).getBoolean("wallpaperColor", false)))
             runCatching { WallpaperAccents.compute(getApplication(), themedDark) }.getOrNull() else null
         // The icon style and, only while themed, the light/dark palette are part of what an icon looks
         // like, so changing either rebuilds every cached icon.
         val configuration = resources.configuration.let {
-            "${it.densityDpi}|${it.locales.toLanguageTags()}|${it.uiMode}|$iconStyle|${if (iconStyle == IconStyle.THEMED) themedDark else ""}|${themedAccent?.accent?.toArgb() ?: ""}"
+            "${it.densityDpi}|${it.locales.toLanguageTags()}|${it.uiMode}|$iconStyle|${if (iconStyle.recolours) themedDark else ""}|${themedAccent?.accent?.toArgb() ?: ""}"
         }
         viewModelScope.launch {
             try {
@@ -649,7 +648,7 @@ private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGIN
     val bitmap = Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     drawable.setBounds(0, 0, 144, 144)
-    if (style == IconStyle.THEMED) drawThemed(canvas, drawable, dark, accent)
+    if (style.recolours) drawThemed(canvas, drawable, dark, accent)
     else {
         drawable.background?.draw(canvas)
         drawable.foreground?.draw(canvas)

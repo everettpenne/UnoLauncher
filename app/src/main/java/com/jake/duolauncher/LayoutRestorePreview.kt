@@ -18,6 +18,8 @@ internal fun LayoutRestorePreview(preview: LayoutImportPreview, onRestore: () ->
                 if (preview.layout.leadingSlots.any { it != null } || preview.layout.widgetPlacements.any { it.page == -1 })
                     Text("Includes your unfolded-only page.", style = MaterialTheme.typography.bodySmall)
                 Text("This also restores icon layout, labels, search, and status settings.")
+                preview.settings?.let { Text("Also restores ${it.count} Uno settings (island, keyboard, appearance, and panel choices). Location and debug options are never included.") }
+                Text("Widget stacks are not included; their widgets are tied to this phone.", style = MaterialTheme.typography.bodySmall)
                 Text("Your selected launcher background photo is not included in layout backups.",
                     style = MaterialTheme.typography.bodySmall)
                 if (preview.missingApps.isNotEmpty()) {

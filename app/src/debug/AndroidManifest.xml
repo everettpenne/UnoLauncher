@@ -1,16 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Debug builds only: lets the test poster ask for a Live Update. Release builds carry neither this permission nor the receiver. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <application>
-        <activity
-            android:name=".FoldMotionActivity"
-            android:excludeFromRecents="true"
-            android:exported="true"
-            android:label="Duo Fold Motion Lab"
-            android:resizeableActivity="true" />
-        <activity
-            android:name=".FoldProbeActivity"
-            android:excludeFromRecents="true"
-            android:exported="true"
-            android:label="Duo Fold Probe"
-            android:resizeableActivity="true" />
+        <receiver android:name=".debug.DebugLiveUpdateReceiver" android:exported="true" />
     </application>
 </manifest>

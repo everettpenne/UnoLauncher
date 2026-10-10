@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.24.0-uno01
+
+- Android 16 Live Updates in the island: a notification flagged as promoted ongoing (a ride, delivery, timer, navigation) appears as the app's icon and short status beside the camera, and as a card with its title and progress bar when the island is open. Only the title, short status, progress and small icon are read, never message text. Needs notification access; a switch turns it off. Pure logic (LiveUpdateLogic) is unit tested; verified on an emulator with a debug-only broadcast that posts a promoted notification.
+- Full screen: the island hides while the display is landscape (full-screen video and most games) and returns in portrait. Reading another app's status-bar state is not possible from an accessibility overlay (it is never given system-bar insets; measured on an emulator, no inset events arrived and a probe window reported the bar hidden even when shown), and the alternative needs window-reading accessibility access, which Uno deliberately does not request. A full-screen app in portrait therefore still shows the island.
+- Backup: layout backups (version 3) now also carry Uno's settings (island, keyboard, panel and appearance choices). The preview says how many settings will be restored. Location, the web browser choice and debug options are never included; older backups still restore. Widget stacks are not included, because their widgets are tied to the phone. Unit tested.
+- Icons: a Tinted style takes its colour from the wallpaper without recolouring the rest of the launcher (Themed still follows the Color from wallpaper switch).
+- Folders show up to nine apps in a 3x3 preview (2x2 for small folders) and one badge with everything unread inside. Widget stacks fade between widgets and name the new one briefly.
+- Developer HUD (debug builds only, Customize, Control panel & extras): frame time, jank, the island's window sizes and positions, and why it is hidden. Never present in a release build.
+- Instrumented tests for the island (open and close, camera and mic marks, Live Update glyph, card and removal, tools panel) and for the keyboard (key actions, emoji page, password lane, one-handed, no overlapping keys, touch-target height).
+
 ## 0.23.10-uno01
 
 - Keyboard: an iOS-style look. The glassy gradient keys are replaced by flat ones: white letter keys and grey special keys on a pale panel in light mode (dark equivalents at night), a thin darker line under each key, a hollow shift arrow that fills when on, a lowercase "return" (a blue key for Go, Search, Send, Next and Done), outlined delete that fills when pressed, and the pressed key hidden under a balloon-shaped magnified preview as on iOS.

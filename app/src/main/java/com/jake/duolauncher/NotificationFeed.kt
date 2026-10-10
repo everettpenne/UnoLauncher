@@ -17,6 +17,7 @@ import android.service.notification.StatusBarNotification
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.graphics.drawable.toBitmap
 
 /** What is playing, as far as media sessions say (only while the user has allowed notification access
  * and turned on media details).
@@ -54,6 +55,8 @@ internal object NotificationFeed {
     var badges by mutableStateOf<Map<String, Int>>(emptyMap())
     var nowPlaying by mutableStateOf<NowPlaying?>(null)
     var ongoingCall by mutableStateOf<OngoingCall?>(null)
+    /** Android 16 Live Updates currently posted, newest first. */
+    var liveUpdates by mutableStateOf<List<LiveUpdate>>(emptyList())
     var connected by mutableStateOf(false)
     /** Set by the activity; called with an app's name when a new notification should peek in the island. */
     @Volatile var onPeek: ((packageName: String, label: String) -> Unit)? = null
@@ -76,7 +79,7 @@ class UnoNotificationListener : NotificationListenerService() {
     private val lastPeek = mutableMapOf<String, Long>()
     private val prefs by lazy { getSharedPreferences("extras", Context.MODE_PRIVATE) }
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-        handler?.post { recount(); syncMedia() }
+        handler?.post { recount(); syncMedia(); syncLiveUpdates() }
     }
     private val sessionsListener = MediaSessionManager.OnActiveSessionsChangedListener { syncMedia(it) }
 
@@ -89,7 +92,7 @@ class UnoNotificationListener : NotificationListenerService() {
         NotificationFeed.connected = true
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
         handler?.post {
-            recount()
+            recount(); syncLiveUpdates()
             runCatching { sessions?.addOnActiveSessionsChangedListener(sessionsListener, component, handler) }
             syncMedia()
         }
@@ -103,6 +106,7 @@ class UnoNotificationListener : NotificationListenerService() {
         NotificationFeed.badges = emptyMap()
         NotificationFeed.nowPlaying = null
         NotificationFeed.ongoingCall = null
+        NotificationFeed.liveUpdates = emptyList()
         runCatching { prefs.unregisterOnSharedPreferenceChangeListener(prefListener) }
         runCatching { sessions?.removeOnActiveSessionsChangedListener(sessionsListener) }
         untrack()
@@ -110,12 +114,44 @@ class UnoNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        handler?.post { recount(); peek(sbn); trackCall(sbn) }
+        handler?.post { recount(); peek(sbn); trackCall(sbn); syncLiveUpdates() }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        handler?.post { recount(); untrackCall(sbn) }
+        handler?.post { recount(); untrackCall(sbn); syncLiveUpdates() }
     }
+
+    /** Reads the Live Updates (notifications Android has promoted) out of the active ones. Only the title, short text, progress, clock
+     * and small icon are taken, never message content, and only while the Live Updates switch is on.
+     */
+    private fun syncLiveUpdates() {
+        if (!prefs.getBoolean("liveUpdates", true)) { NotificationFeed.liveUpdates = emptyList(); return }
+        val active = runCatching { activeNotifications }.getOrNull() ?: return
+        // Debug builds also show their own (the test poster); a release build never lists its own notifications.
+        val debuggable = applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+        val found = active.filter { LiveUpdateLogic.isLiveUpdate(it.notification.flags) && (debuggable || it.packageName != packageName) }
+            .mapNotNull { sbn -> runCatching {
+                val n = sbn.notification; val e = n.extras
+                val title = e.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+                if (title.isEmpty()) return@runCatching null
+                val label = runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString() }
+                    .getOrDefault(sbn.packageName)
+                val chrono = if (e.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false)) n.`when` else null
+                LiveUpdate(sbn.key, sbn.packageName, label, title, e.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
+                    if (android.os.Build.VERSION.SDK_INT >= 36) n.shortCriticalText else null, e.getInt(Notification.EXTRA_PROGRESS, 0), e.getInt(Notification.EXTRA_PROGRESS_MAX, 0),
+                    e.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false), chrono,
+                    e.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN, false),
+                    smallIconOf(n),
+                    n.color, sbn.postTime, n.contentIntent)
+            }.getOrNull() }
+        NotificationFeed.liveUpdates = LiveUpdateLogic.ordered(found)
+    }
+
+    /** The notification's small icon (a white glyph on transparent) as a small bitmap, or null. */
+    private fun smallIconOf(n: Notification): Bitmap? = runCatching {
+        val drawable = n.smallIcon?.loadDrawable(this) ?: return@runCatching null
+        drawable.toBitmap(48, 48)
+    }.getOrNull()
 
     private fun trackCall(sbn: StatusBarNotification) {
         if (!prefs.getBoolean("callDetails", true)) { NotificationFeed.ongoingCall = null; return }

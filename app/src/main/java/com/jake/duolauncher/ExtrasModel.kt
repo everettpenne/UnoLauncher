@@ -30,9 +30,19 @@ internal object PullDownRouting {
         runCatching { PullDown.valueOf(newValue!!) }.getOrNull() ?: if (oldValue == "SEARCH") PullDown.SEARCH else PullDown.SMART
 }
 
-/** How app icons are drawn: as shipped, or recoloured to the launcher's palette where the app allows. */
+/**
+ * How app icons are drawn: as shipped, recoloured to the launcher's palette where the app allows (THEMED), or the same
+ * recolouring always taken from the wallpaper's own colour (TINTED), whether or not "Color from wallpaper" recolours the rest
+ * of the interface.
+ */
 internal enum class IconStyle {
-    ORIGINAL, THEMED;
+    ORIGINAL, THEMED, TINTED;
+
+    /** Whether icons are redrawn at all (so the light/dark palette matters). */
+    val recolours: Boolean get() = this != ORIGINAL
+    /** Whether the wallpaper's colours go into the icons, given the "Color from wallpaper" switch. */
+    fun usesWallpaper(wallpaperColor: Boolean): Boolean = this == TINTED || (this == THEMED && wallpaperColor)
+
     companion object { fun fromPreference(raw: String?): IconStyle = entries.firstOrNull { it.name == raw } ?: ORIGINAL }
 }
 

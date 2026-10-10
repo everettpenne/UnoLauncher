@@ -19,10 +19,25 @@ internal object IslandRuntime {
     var overlayActive by mutableStateOf(false)
         private set
 
+    /** Whether the system status bar is showing, approximated: false while the display is landscape (see FullScreenPolicy). */
+    var statusBarVisible by mutableStateOf(true)
+    
     fun updateOverlay(active: Boolean) {
         overlayActive = active
         if (!active) { state.collapse(); state.dismissFlash() }
     }
+}
+
+/** When to get out of the way of an app that has taken the whole screen (a full-screen video, a game). The island cannot see other
+ * apps' windows, but it can see whether the status bar is showing: an app that goes full screen hides it. The island waits a
+ * moment after the bar disappears before hiding, so a bar that is only briefly away (an app swapping screens, the keyboard
+ * opening, a swipe that reveals it) does not make it flicker, and comes back at once when the bar returns.
+ */
+internal object FullScreenPolicy {
+    const val HIDE_AFTER_MS = 500L
+
+    /** True once the status bar has been gone for [HIDE_AFTER_MS]; false whenever it is showing. */
+    fun shouldHide(statusBarVisible: Boolean, goneForMs: Long): Boolean = !statusBarVisible && goneForMs >= HIDE_AFTER_MS
 }
 
 /** Pure gate for the everywhere-overlay: enabled, permission held, screen awake, and keyguard

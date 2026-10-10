@@ -113,9 +113,9 @@ class MainActivity : ComponentActivity() {
         widgets = WidgetController(this, model) { active ->
             LiveDiscover.setExternalResultPending(this, "main", "widget-setup", active)
         }.also { it.restore(savedInstanceState) }
-        backups = BackupController(this, model, widgets) { active ->
+        backups = BackupController(this, model, widgets, onExternalResultChanged = { active ->
             LiveDiscover.setExternalResultPending(this, "main", "layout-backup", active)
-        }.also { it.restore() }
+        }, onSettingsApplied = { extrasStore.reload(); appearance.reloadFromPreferences() }).also { it.restore() }
         backgrounds = LauncherBackgroundController(this) { active ->
             LiveDiscover.setExternalResultPending(this, "main", "launcher-background", active)
         }

@@ -5,7 +5,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
-const val LAYOUT_BACKUP_VERSION = 2
+const val LAYOUT_BACKUP_VERSION = 3
 const val MAX_LAYOUT_BACKUP_BYTES = 2 * 1024 * 1024
 private const val MAX_BACKUP_HOME_CELLS = HOME_CELLS * 100
 
@@ -31,6 +31,7 @@ data class LayoutImportPreview(
     val labels: Boolean,
     val googleSearch: Boolean,
     val verticalStatus: Boolean,
+    val settings: SettingsSnapshot? = null,
 )
 
 fun layoutBackupScope(context: Context): String {
@@ -38,7 +39,8 @@ fun layoutBackupScope(context: Context): String {
     return prefs.getString("scope", null) ?: java.util.UUID.randomUUID().toString().also { prefs.edit().putString("scope", it).apply() }
 }
 
-fun encodeLayoutBackup(state: LauncherState, widgetDescriptors: List<BackupWidgetDescriptor>, sourceScope: String): String {
+internal fun encodeLayoutBackup(state: LauncherState, widgetDescriptors: List<BackupWidgetDescriptor>, sourceScope: String,
+    settings: SettingsSnapshot? = null): String {
     require(sourceScope.isNotBlank())
     require(state.leadingSlots.size == HOME_CELLS) { "Unfolded-only page must contain exactly $HOME_CELLS cells" }
     val descriptorBySlot = widgetDescriptors.associateBy(BackupWidgetDescriptor::slot)
@@ -70,12 +72,13 @@ fun encodeLayoutBackup(state: LauncherState, widgetDescriptors: List<BackupWidge
         .put("homeSlots", JSONArray(state.homeSlots)).put("leadingSlots", JSONArray(state.leadingSlots))
         .put("dock", JSONArray(state.dock)).put("folders", folders).put("widgets", widgets)
         .put("labels", state.labels).put("googleSearch", state.googleSearch).put("verticalStatus", state.verticalStatus)
-        .put("compact", preset(state.compact)).put("expanded", preset(state.expanded)).toString(2)
+        .put("compact", preset(state.compact)).put("expanded", preset(state.expanded))
+        .also { root -> settings?.let { root.put("settings", SettingsBackup.encode(it)) } }.toString(2)
 }
 
 internal fun exportedWidgetScope(restore: WidgetRestore, currentScope: String) = restore.sourceScope ?: currentScope
 
-fun decodeLayoutBackup(raw: String, currentApps: List<AppEntry>, currentProfiles: List<AppProfile>, currentScope: String): LayoutImportPreview {
+internal fun decodeLayoutBackup(raw: String, currentApps: List<AppEntry>, currentProfiles: List<AppProfile>, currentScope: String): LayoutImportPreview {
     require(raw.toByteArray(Charsets.UTF_8).size <= MAX_LAYOUT_BACKUP_BYTES) { "Layout backup is larger than 2 MB" }
     val root = JSONObject(raw)
     val version = root.strictInt("version")
@@ -186,11 +189,13 @@ fun decodeLayoutBackup(raw: String, currentApps: List<AppEntry>, currentProfiles
     val compact = preset("compact"); val expanded = preset("expanded")
     val labels = root.strictBoolean("labels"); val googleSearch = root.strictBoolean("googleSearch")
     val verticalStatus = root.strictBoolean("verticalStatus")
+    val settings = if (version >= 3) root.optJSONObject("settings")?.let(SettingsBackup::decode) else null
     return LayoutImportPreview(layout, missing.toList(), profileIssues.toList(),
         appCount = (slots + leadingSlots).count { it != null && !isReservedFolderId(it) } +
             dock.count { it != null } + folders.sumOf { it.appIds.size },
         folderCount = folders.size, widgetCount = layout.widgetPlacements.size,
-        compact = compact, expanded = expanded, labels = labels, googleSearch = googleSearch, verticalStatus = verticalStatus)
+        compact = compact, expanded = expanded, labels = labels, googleSearch = googleSearch, verticalStatus = verticalStatus,
+        settings = settings)
 }
 
 internal fun validBackupPlacement(value: WidgetPlacement): Boolean {

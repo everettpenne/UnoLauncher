@@ -133,7 +133,11 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
             Modifier.testTag("icons-original"))
         FilterChip(s.iconStyle == IconStyle.THEMED, { store.setIconStyle(IconStyle.THEMED) }, { Text("Themed") },
             Modifier.testTag("icons-themed"))
+        FilterChip(s.iconStyle == IconStyle.TINTED, { store.setIconStyle(IconStyle.TINTED) }, { Text("Tinted") },
+            Modifier.testTag("icons-tinted"))
     }
+    Text("Tinted takes its colour from your wallpaper (change the wallpaper and the icons follow), without recolouring the rest of the launcher.",
+        style = note, color = muted)
     Text("Themed uses each app's own single-colour icon layer where it ships one (Android 13+), in the launcher's colours; other apps are washed to match.",
         style = note, color = muted)
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
@@ -192,6 +196,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     SettingsSwitch("VPN and USB data alerts", s.securityAlerts, store::setSecurityAlerts, "security-alerts-switch")
     Text("The island flashes when a VPN connects or drops and when a USB data connection starts or ends (plain charging is not announced here). It needs no extra permission and keeps nothing.",
         style = note, color = muted)
+    SettingsSwitch("Live Updates in the island", s.liveUpdates, store::setLiveUpdates, "live-updates-switch")
+    Text("Android 16 apps can post a Live Update for a ride, delivery, timer or navigation. The island shows the app's icon and status beside the camera and a card with its progress when open. Only the title, short status, progress and icon are read, never message text; it needs notification access.",
+        style = note, color = muted)
     SettingsSwitch("Show calls in the island", s.callDetails, store::setCallDetails, "call-details-switch")
     Text("While a call is active, the island shows the caller name and elapsed time from the phone app's own call notification, and tapping it opens the call screen. The name is read only while the call is running and never stored; message text is never read.",
         style = note, color = muted)
@@ -199,6 +206,17 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     Text("Everything stays on this device. Badges count unread notifications per app; the island shows the app's name only, never the message.",
         style = note, color = muted)
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
+
+    // Developer HUD: only offered by debuggable builds, so a release build has neither the switch nor the overlay.
+    val hudContext = androidx.compose.ui.platform.LocalContext.current
+    if (hudContext.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+        val hudPrefs = remember { hudContext.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE) }
+        var hudOn by remember { mutableStateOf(hudPrefs.getBoolean("debugHud", false)) }
+        SettingsSwitch("Developer HUD (debug build)", hudOn, { hudOn = it; hudPrefs.edit().putBoolean("debugHud", it).apply() }, "debug-hud-switch")
+        Text("Shows frame times, jank, the island's window sizes and positions, and what hides it. Debug builds only; it never appears in a release.",
+            style = note, color = muted)
+        HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    }
 
     PermissionLedgerSection(actions)
     HorizontalDivider(Modifier.padding(vertical = 6.dp))

@@ -21,6 +21,7 @@ class BackupController(
     private val model: LauncherModel,
     private val widgets: WidgetController,
     private val onExternalResultChanged: (Boolean) -> Unit,
+    private val onSettingsApplied: () -> Unit = {},
 ) {
     var preview by mutableStateOf<LayoutImportPreview?>(null)
         private set
@@ -74,7 +75,7 @@ class BackupController(
 
     fun startExport(fileName: String = "duo-launcher-layout.json") {
         val state = model.state.value
-        val raw = runCatching { encodeLayoutBackup(state, widgetDescriptors(state), scope) }.getOrElse {
+        val raw = runCatching { encodeLayoutBackup(state, widgetDescriptors(state), scope, SettingsBackup.capture(activity)) }.getOrElse {
             errorMessage = it.message ?: "Layout backup could not be prepared."; return
         }
         begin(OP_EXPORT, raw)
@@ -100,7 +101,8 @@ class BackupController(
             if (token != generation || operation != OP_PREVIEW) return@launch
             result.onSuccess {
                 val changed = model.applyImportedLayout(it)
-                successMessage = if (changed) "Layout restored. Widgets are ready to reconnect." else "This layout is already active."
+                val restoredSettings = it.settings?.also { settings -> SettingsBackup.apply(activity, settings); onSettingsApplied() } != null
+                successMessage = if (changed || restoredSettings) "Layout restored. Widgets are ready to reconnect." else "This layout is already active."
                 clearTransaction(clearMessages = false)
             }.onFailure { errorMessage = it.message ?: "This layout backup is no longer valid." }
         }

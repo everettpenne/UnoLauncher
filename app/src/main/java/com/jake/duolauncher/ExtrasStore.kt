@@ -22,6 +22,7 @@ internal data class ExtrasState(
     val callDetails: Boolean = true,
     val privacyIndicators: Boolean = true,
     val securityAlerts: Boolean = true,
+    val liveUpdates: Boolean = true,
     val islandEverywhere: Boolean = false,
     val notificationPeek: Boolean = false,
     val contactSearch: Boolean = false,
@@ -52,6 +53,9 @@ internal class ExtrasStore(context: Context) {
     }
     init { prefs.registerOnSharedPreferenceChangeListener(prefListener) }
 
+    /** Re-reads everything from the preferences (after a settings restore). */
+    fun reload() { state = load() }
+
     private fun load() = ExtrasState(
         // A new key, so everyone gets the new default rather than a value saved by an earlier version.
         pullDown = PullDownRouting.migrate(prefs.getString("pullDown", null), prefs.getString("leftSwipe", null)),
@@ -68,6 +72,7 @@ internal class ExtrasStore(context: Context) {
         callDetails = prefs.getBoolean("callDetails", true),
         privacyIndicators = prefs.getBoolean("privacyIndicators", true),
         securityAlerts = prefs.getBoolean("securityAlerts", true),
+        liveUpdates = prefs.getBoolean("liveUpdates", true),
         islandEverywhere = prefs.getBoolean("islandEverywhere", false),
         notificationPeek = prefs.getBoolean("notificationPeek", false),
         contactSearch = prefs.getBoolean("contactSearch", false),
@@ -100,6 +105,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("callDetails", next.callDetails)
             .putBoolean("privacyIndicators", next.privacyIndicators)
             .putBoolean("securityAlerts", next.securityAlerts)
+            .putBoolean("liveUpdates", next.liveUpdates)
             .putBoolean("islandEverywhere", next.islandEverywhere)
             .putBoolean("notificationPeek", next.notificationPeek)
             .putBoolean("contactSearch", next.contactSearch)
@@ -134,6 +140,7 @@ internal class ExtrasStore(context: Context) {
     fun setCallDetails(value: Boolean) = save(state.copy(callDetails = value))
     fun setPrivacyIndicators(value: Boolean) = save(state.copy(privacyIndicators = value))
     fun setSecurityAlerts(value: Boolean) = save(state.copy(securityAlerts = value))
+    fun setLiveUpdates(value: Boolean) = save(state.copy(liveUpdates = value))
     fun setIslandEverywhere(value: Boolean) = save(state.copy(islandEverywhere = value))
     fun setNotificationPeek(value: Boolean) = save(state.copy(notificationPeek = value))
     fun setContactSearch(value: Boolean) = save(state.copy(contactSearch = value))

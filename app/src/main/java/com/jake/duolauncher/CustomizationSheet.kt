@@ -202,7 +202,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                 CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onSourceEnabled)
                 CustomizationPage.UPDATES -> UpdatesPanel(updates, onCheckUpdates, onInstallRelease, onAutoUpdate)
                 CustomizationPage.BACKUP -> {
-                    Text("Save the current Home layout, folders, widgets, and layout settings.",
+                    Text("Save the current Home layout, folders, widgets, layout settings, and your Uno settings.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = onExportLayout, Modifier.weight(1f).heightIn(min = 48.dp).testTag("layout-export")) { Text("Save") }

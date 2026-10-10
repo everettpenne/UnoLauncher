@@ -363,9 +363,9 @@ internal fun LauncherScreen(
     LaunchedEffect(Unit) { snapshotFlow { pager.settledPage }.drop(1).collect { UnoFeedback.play(Cue.PAGE, haptic) } }
     // Themed icons are baked into bitmaps, so a style change (or, while themed, a light/dark flip) rebuilds them.
     val iconStyleNow = extras?.store?.state?.iconStyle ?: IconStyle.ORIGINAL
-    val themedDarkNow = iconStyleNow == IconStyle.THEMED && appearance.dark
+    val themedDarkNow = iconStyleNow.recolours && appearance.dark
     var iconsSeeded by remember { mutableStateOf(false) }
-    val accentKey = if (iconStyleNow == IconStyle.THEMED && appearance.wallpaperColor) LauncherBackgroundCache.revision.intValue else -1
+    val accentKey = if (iconStyleNow.usesWallpaper(appearance.wallpaperColor)) LauncherBackgroundCache.revision.intValue else -1
     LaunchedEffect(iconStyleNow, themedDarkNow, accentKey) { if (iconsSeeded) model.refresh() else iconsSeeded = true }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { controlPanelOpen = false }
     BackHandler(enabled = controlPanelOpen) { controlPanelOpen = false }
@@ -1957,13 +1957,22 @@ private fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: F
             .dropRegion(drag, DropTarget.Folder(folder.id), page = page, folderId = folder.id)
             .pressGlow(progress, Corner.icon)
             .testTag("folder-drop-${folder.id}")) {
-            folder.appIds.take(4).forEachIndexed { index, id ->
-                apps[id]?.let { app ->
-                    Image(app.icon.asImageBitmap(), null, Modifier.align(when (index) {
-                        0 -> Alignment.TopStart; 1 -> Alignment.TopEnd; 2 -> Alignment.BottomStart; else -> Alignment.BottomEnd
-                    }).padding(5.dp).size((size * .38f).dp).clip(Corner.icon))
+            // Up to nine apps in a 3x3 grid, like iOS; two to four apps get the roomier 2x2 so a small folder stays readable.
+            val shown = folder.appIds.take(FolderPreview.capacity(folder.appIds.size))
+            val columns = FolderPreview.columns(shown.size)
+            Column(Modifier.fillMaxSize().padding((size * .08f).dp), verticalArrangement = Arrangement.SpaceEvenly) {
+                shown.chunked(columns).forEach { rowIds ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        rowIds.forEach { id ->
+                            val app = apps[id]
+                            if (app != null) Image(app.icon.asImageBitmap(), null, Modifier.size((size * FolderPreview.iconFraction(columns)).dp).clip(Corner.icon))
+                            else Spacer(Modifier.size((size * FolderPreview.iconFraction(columns)).dp))
+                        }
+                    }
                 }
             }
+            // One badge for the whole folder: everything unread inside it.
+            AppBadge(FolderPreview.unread(folder.appIds.mapNotNull { apps[it]?.packageName }.map(::badgeCount)), Modifier.align(Alignment.TopEnd))
         }
         if (labels) Text(folder.title, color = Color.White, fontSize = 11.sp, maxLines = 1,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
@@ -2103,10 +2112,21 @@ private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifie
         val info = remember(shownId) { if (shownId >= 0) controller.manager.getAppWidgetInfo(shownId) else null }
         if (info == null) { if (shown == 0) fallback() }
         else {
-            key(shownId) {
-                AndroidView(factory = { context -> controller.host.createView(context, shownId, info) },
+            // Switching widgets fades one into the next rather than snapping, and names the new one for a moment.
+            androidx.compose.animation.Crossfade(targetState = shownId, animationSpec = androidx.compose.animation.core.tween(180),
+                label = "stack widget") { id ->
+                val view = remember(id) { if (id >= 0) controller.manager.getAppWidgetInfo(id) else null }
+                if (view != null) AndroidView(factory = { context -> controller.host.createView(context, id, view) },
                     modifier = Modifier.fillMaxSize())
             }
+        }
+        var nameVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(shown) { if (members.isNotEmpty()) { nameVisible = true; delay(1100); nameVisible = false } }
+        androidx.compose.animation.AnimatedVisibility(nameVisible && members.isNotEmpty(), Modifier.align(Alignment.TopCenter).padding(top = 6.dp),
+            enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
+            Text(widgetLabel(shownId, controller), color = Color.White, fontSize = 11.sp, maxLines = 1,
+                modifier = Modifier.background(Color.Black.copy(alpha = .45f), Corner.pill).padding(horizontal = 10.dp, vertical = 3.dp)
+                    .testTag("stack-widget-name"))
         }
         if (members.isNotEmpty()) StackRail(shown, members.size + 1, { stackPage = it },
             Modifier.align(Alignment.CenterEnd).padding(end = 4.dp))

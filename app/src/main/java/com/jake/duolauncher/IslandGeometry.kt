@@ -25,6 +25,17 @@ internal data class IslandFrame(
     val side: IslandSide = IslandSide.TOP,
 )
 
+/** Both frames are within a pixel or so of each other (the animation has settled). */
+internal fun IslandFrame.nearly(other: IslandFrame): Boolean =
+    kotlin.math.abs(left - other.left) < .75f && kotlin.math.abs(top - other.top) < .75f &&
+        kotlin.math.abs(width - other.width) < .75f && kotlin.math.abs(height - other.height) < .75f
+
+/** The smallest frame holding both. */
+internal fun IslandFrame.union(other: IslandFrame): IslandFrame {
+    val l = minOf(left, other.left); val t = minOf(top, other.top)
+    return copy(left = l, top = t, width = maxOf(left + width, other.left + other.width) - l, height = maxOf(top + height, other.top + other.height) - t)
+}
+
 /** The screen edge the front camera sits on. */
 internal enum class IslandSide { TOP, LEFT, RIGHT }
 

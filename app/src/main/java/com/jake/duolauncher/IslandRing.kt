@@ -24,7 +24,10 @@ internal object IslandRingLogic {
         timerActive: Boolean, timerFraction: Float,
         charging: Boolean, battery: Int?,
         timerColor: Color, chargeColor: Color,
+        /** The colour of the app behind an event flash, which rings the pill for as long as the flash is up. */
+        flashTint: Color? = null,
     ): RingState? = when {
+        flashActive && flashTint != null && !expanded && !ringing -> RingState(1f, flashTint)
         flashActive || expanded || ringing -> null
         timerActive -> RingState(timerFraction.coerceIn(0f, 1f), timerColor)
         charging && battery != null -> RingState((battery / 100f).coerceIn(0f, 1f), chargeColor)

@@ -61,7 +61,7 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
         .padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
             if (moving) IconButton(onClick = { onMoving(false) }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-            Image(app.icon.asImageBitmap(), null, Modifier.size(48.dp).clip(Corner.icon))
+            Image(app.image, null, Modifier.size(48.dp).clip(Corner.icon))
             Spacer(Modifier.width(14.dp)); Column(Modifier.weight(1f)) {
                 Text(if (moving) "Move ${app.label}" else app.label, style = MaterialTheme.typography.titleLarge)
                 Text("${app.profileLabel} profile", style = MaterialTheme.typography.bodySmall,

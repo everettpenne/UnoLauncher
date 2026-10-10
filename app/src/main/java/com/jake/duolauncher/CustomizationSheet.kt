@@ -334,14 +334,14 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
                 verticalArrangement = Arrangement.spacedBy(unit(10f))) {
                 Box(Modifier.fillMaxWidth().height(unit(42f)).background(MaterialTheme.colorScheme.surface.copy(alpha = .38f), RoundedCornerShape(unit(12f))))
                 homeIcons.chunked(4).forEach { row -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    row.forEach { app -> Image(app.icon.asImageBitmap(), null, Modifier.size(unit(24f)).clip(Corner.icon)) }
+                    row.forEach { app -> Image(app.image, null, Modifier.size(unit(24f)).clip(Corner.icon)) }
                 } }
             }
             Column(Modifier.align(Alignment.CenterEnd).padding(end = unit(10f)).width(unit(36f))
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = .42f), RoundedCornerShape(unit(18f)))
                 .padding(vertical = unit(8f)), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(unit(8f))) {
-                dockIcons.forEach { app -> Image(app.icon.asImageBitmap(), null, Modifier.size(unit(22f)).clip(Corner.icon)) }
+                dockIcons.forEach { app -> Image(app.image, null, Modifier.size(unit(22f)).clip(Corner.icon)) }
             }
         }
     }

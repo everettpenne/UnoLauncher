@@ -208,6 +208,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     SettingsSwitch("VPN and USB data alerts", s.securityAlerts, store::setSecurityAlerts, "security-alerts-switch")
     Text("The island flashes when a VPN connects or drops and when a USB data connection starts or ends (plain charging is not announced here). It needs no extra permission and keeps nothing.",
         style = note, color = muted)
+    SettingsSwitch("Permanent wide island", s.islandWide, store::setIslandWide, "island-wide-switch")
+    Text("Over other apps the island normally shrinks to a ring round the camera when it has nothing to show, so it does not cover your status bar. With this on it stays as the wide pill, with the battery level on one side. It covers the status bar icons beside the camera.",
+        style = note, color = muted)
     SettingsSwitch("App shortcuts in the island", s.islandShortcuts, store::setIslandShortcuts, "island-shortcuts-switch")
     Text("The open island shows the apps you picked under Control panel & Focus, Shortcuts in the panel (up to five), one tap each, like the app shortcuts in HyperOS's island. Long-press the island for tools: timer, stopwatch, flashlight, and Android's internet and volume panels. During a call the card has an End button.",
         style = note, color = muted)
@@ -291,7 +294,7 @@ private fun AppChecklist(apps: List<AppEntry>, selected: Set<String>, tag: Strin
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).clickable { onToggle(app.id) }
             .testTag("$tag-app-${app.id}"), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(app.id in selected, { onToggle(app.id) })
-            Image(app.icon.asImageBitmap(), null, Modifier.size(32.dp).clip(Corner.icon))
+            Image(app.image, null, Modifier.size(32.dp).clip(Corner.icon))
             Text(app.label, Modifier.padding(start = 12.dp), maxLines = 1)
         }
     }
@@ -348,7 +351,7 @@ private fun IslandLinksSetting(actions: ExtrasActions, apps: List<AppEntry>, not
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).clickable { actions.store.toggleIslandLink(app.packageName) }
             .testTag("island-link-app-${app.id}"), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(IslandLinks.allowed(app.packageName, s.islandMuted), { actions.store.toggleIslandLink(app.packageName) })
-            Image(app.icon.asImageBitmap(), null, Modifier.size(32.dp).clip(Corner.icon))
+            Image(app.image, null, Modifier.size(32.dp).clip(Corner.icon))
             Text(app.label, Modifier.padding(start = 12.dp).weight(1f), maxLines = 1)
             TextButton(onClick = { actions.store.cyclePeekTimeout(app.packageName) }, modifier = Modifier.testTag("island-timeout-${app.id}")) {
                 Text(PeekTimeouts.label(timeouts, app.packageName))

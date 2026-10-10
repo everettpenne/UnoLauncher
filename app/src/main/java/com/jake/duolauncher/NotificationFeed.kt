@@ -115,12 +115,17 @@ class UnoNotificationListener : NotificationListenerService() {
         worker?.quitSafely(); worker = null; handler = null
     }
 
+    // A download posts a fresh notification every second and a busy phone posts bursts: each one used to recount badges and re-read every
+    // active notification. The reads now wait a moment and run once for the whole burst; the peek and the call check stay immediate.
+    private val syncAll = Runnable { recount(); syncLiveUpdates() }
+    private fun scheduleSync() { handler?.let { it.removeCallbacks(syncAll); it.postDelayed(syncAll, SYNC_DELAY_MS) } }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        handler?.post { recount(); peek(sbn); trackCall(sbn); syncLiveUpdates() }
+        handler?.post { peek(sbn); trackCall(sbn); scheduleSync() }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        handler?.post { recount(); untrackCall(sbn); syncLiveUpdates() }
+        handler?.post { untrackCall(sbn); scheduleSync() }
     }
 
     /** Reads what the island shows as activities out of the active notifications: Live Updates (the ones Android 16 has promoted),
@@ -156,7 +161,9 @@ class UnoNotificationListener : NotificationListenerService() {
                     e.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false), chrono,
                     e.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN, false),
                     smallIconOf(n),
-                    n.color, sbn.postTime, n.contentIntent)
+                    // The app's own colour if it gave one, else the colour of its icon.
+                    n.color.takeIf { it != 0 } ?: AppTints.of(sbn.packageName) { runCatching { packageManager.getApplicationIcon(sbn.packageName).toBitmap(48, 48) }.getOrNull() } ?: 0,
+                    sbn.postTime, n.contentIntent)
             }.getOrNull() }
         NotificationFeed.liveUpdates = LiveUpdateLogic.ordered(found)
     }
@@ -218,8 +225,9 @@ class UnoNotificationListener : NotificationListenerService() {
         }
         val seconds = PeekTimeouts.seconds(PeekTimeouts.parse(prefs.getString("peekTimeouts", null)), sbn.packageName)
         val icon = runCatching { packageManager.getApplicationIcon(sbn.packageName).toBitmap(96, 96) }.getOrNull()
+        val tint = AppTints.of(sbn.packageName) { icon }
         NotificationFeed.onPeek?.invoke(PeekNotification(sbn.packageName, label, shown?.first, shown?.second, icon,
-            sbn.notification.contentIntent, seconds))
+            sbn.notification.contentIntent, seconds, tint))
     }
 
     private fun syncMedia(list: List<MediaController>? = null) {
@@ -255,5 +263,5 @@ class UnoNotificationListener : NotificationListenerService() {
         tracked = null; trackedCallback = null
     }
 
-    private companion object { const val PEEK_GAP_MS = 4_000L }
+    private companion object { const val PEEK_GAP_MS = 4_000L; const val SYNC_DELAY_MS = 150L }
 }

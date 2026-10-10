@@ -14,6 +14,8 @@ internal enum class PeekLevel { NAME, TITLE, TEXT;
 internal data class PeekNotification(
     val packageName: String, val appLabel: String, val title: String?, val text: String?,
     val icon: Bitmap?, val open: PendingIntent?, val seconds: Int,
+    /** The app icon's colour (ARGB), used to wash the card and ring the pill; null for a grey icon. */
+    val tint: Int? = null,
 )
 
 /** Pure rules for what the drop-down card shows, kept apart so they are unit-tested. */
@@ -70,3 +72,12 @@ internal object PeekTimeouts {
 
     fun label(map: Map<String, Int>, pkg: String) = map[pkg]?.let { "${it}s" } ?: "Auto"
 }
+
+/** [ArtTint] on a small copy of the artwork, so it costs next to nothing. */
+internal fun android.graphics.Bitmap.artTintArgb(): Int? = runCatching {
+    val small = android.graphics.Bitmap.createScaledBitmap(this, 24, 24, true)
+    val pixels = IntArray(24 * 24)
+    small.getPixels(pixels, 0, 24, 0, 0, 24, 24)
+    if (small !== this) small.recycle()
+    ArtTint.fromPixels(pixels)
+}.getOrNull()

@@ -122,7 +122,7 @@ private fun FolderChild(
                 folderId = folderId, scope = folderId).clickable(enabled = app.available) { onLaunch(app, null) }
                 .padding(horizontal = 6.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box {
-                    Image(app.icon.asImageBitmap(), null, Modifier.size(46.dp).clip(Corner.icon))
+                    Image(app.image, null, Modifier.size(46.dp).clip(Corner.icon))
                     AppBadge(badgeCount(app.packageName), Modifier.align(Alignment.TopEnd))
                 }
                 Text(app.label, Modifier.padding(top = 6.dp), maxLines = 2, overflow = TextOverflow.Ellipsis,

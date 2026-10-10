@@ -109,6 +109,9 @@ internal class IslandState {
         private set
     var flashSymbol by mutableStateOf<IslandSymbol?>(null)
         private set
+    /** The colour of the app icon behind a notification flash, which rings the pill while it shows. */
+    var flashTint by mutableStateOf<Color?>(null)
+        private set
     /** Bumped on every flash, so the same event twice in a row still pulses and times out afresh. */
     var flashKey by mutableIntStateOf(0)
         private set
@@ -131,7 +134,7 @@ internal class IslandState {
     fun rotateBy(places: Int) { activityShift += places }
 
     private class Flash(val title: String, val icon: androidx.compose.ui.graphics.ImageBitmap?,
-        val component: android.content.ComponentName?, val symbol: IslandSymbol)
+        val component: android.content.ComponentName?, val symbol: IslandSymbol, val tint: Color? = null)
     private val queued = ArrayDeque<Flash>()
 
     private fun present(flash: Flash) {
@@ -139,6 +142,7 @@ internal class IslandState {
         flashIcon = flash.icon
         flashComponent = flash.component
         flashSymbol = flash.symbol
+        flashTint = flash.tint
         flashKey++
     }
 
@@ -164,14 +168,14 @@ internal class IslandState {
         if (next != null) present(next) else clearFlash()
     }
 
-    private fun clearFlash() { flashTitle = null; flashIcon = null; flashSymbol = null; flashComponent = null }
+    private fun clearFlash() { flashTitle = null; flashIcon = null; flashSymbol = null; flashComponent = null; flashTint = null }
 
     val queuedFlashCount: Int get() = queued.size
 
     fun showLaunch(app: AppEntry) {
         // The user just launched this: it replaces whatever is showing or waiting.
         queued.clear()
-        present(Flash(app.label, app.icon.asImageBitmap(), null, IslandSymbol.APP))
+        present(Flash(app.label, app.image, null, IslandSymbol.APP))
     }
 
     private var lastFocusAt = 0L
@@ -188,9 +192,9 @@ internal class IslandState {
 
     /** A notification peek: the app's icon and name, but never the message. */
     fun showPeek(app: AppEntry, label: String) {
-        offer(Flash(label, app.icon.asImageBitmap(),
+        offer(Flash(label, app.image,
             app.component.takeIf { app.user == android.os.Process.myUserHandle() && it.packageName.isNotEmpty() },
-            IslandSymbol.APP))
+            IslandSymbol.APP, AppTints.of(app.packageName) { app.icon }?.let { Color(it) }))
     }
 
     fun showCharging(percent: Int?) {
@@ -303,6 +307,8 @@ internal fun DynamicIsland(
     onSearch: () -> Unit,
     /** When set, the open island has a search field: Enter sends what was typed here (a web search in the browser). */
     onWebSearch: ((String) -> Unit)? = null,
+    /** Keep the pill wide when idle, instead of shrinking to a ring round the camera over other apps. */
+    alwaysWide: Boolean = false,
     onOpenFeed: () -> Unit,
     onCustomize: () -> Unit,
     modifier: Modifier = Modifier,
@@ -331,10 +337,13 @@ internal fun DynamicIsland(
             }
         }
     }
-    // The apps picked for the control panel's shortcuts, one tap from the open island (looked up off the main thread, and only while open).
-    val quickApps by produceState(emptyList<QuickApp>(), state.expanded) {
-        value = if (state.expanded && IslandQuick.enabled(context)) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { IslandQuick.resolve(context) } else emptyList()
+    // The apps picked for the control panel's shortcuts, one tap from the open island. Looked up ahead of time (at start and whenever the
+    // island is closed), never while it is opening: loading icons mid-animation made opening stutter and changed the island's height half way.
+    LaunchedEffect(Unit) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { IslandQuick.refreshIfChanged(context) } }
+    LaunchedEffect(state.expanded) {
+        if (!state.expanded) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { IslandQuick.refreshIfChanged(context) }
     }
+    val quickApps = IslandQuick.cached
     val torch = rememberTorch(active = state.expanded && IslandTools.toolsOpen)
     // A timer whose alarm never reached us (the process was stopped, or Android delayed it) must still finish: once the
     // clock passes its end it rings from here. onAlarm ignores a second trigger, so this cannot double up.
@@ -398,19 +407,26 @@ internal fun DynamicIsland(
     // nothing to say it shrinks to a ring around the camera instead of covering those icons. Anything live (an event, a timer,
     // a call, playback) widens it again.
     val hasLiveContent = flashActive || IslandTools.ringing || liveKinds.isNotEmpty()
-    val compactTarget = if (anchoredToWindow && !hasLiveContent) 1f else 0f
+    val compactTarget = if (anchoredToWindow && !hasLiveContent && !alwaysWide) 1f else 0f
     val compactness by animateFloatAsState(compactTarget, spring(dampingRatio = .8f, stiffness = 380f), label = "island compact")
-    val frame = IslandGeometry.frame(environment, d, progress, sizeScale,
-        extraBodyDp = if (state.peekCard != null) 0f else (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(IslandTools.toolsOpen) +
-            (if (IslandTools.toolsOpen) TOOLS_PANELS_ROW_DP else if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) - actionsTrimDp,
-        extraWidthDp = eventWidth, compactness = compactness)
+    val extraBody = if (state.peekCard != null) 0f else (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(IslandTools.toolsOpen) +
+        (if (IslandTools.toolsOpen) TOOLS_PANELS_ROW_DP else if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) - actionsTrimDp
+    val frame = IslandGeometry.frame(environment, d, progress, sizeScale, extraBodyDp = extraBody, extraWidthDp = eventWidth, compactness = compactness)
+    // What the touch window is told. It used to follow the island's size on every animation frame, which is a call to the window
+    // manager per frame while the island opens and closes. Now it is told the size the island is heading for as soon as a change
+    // starts, and kept at the largest size seen until the animation has settled, then snapped to the settled size.
+    val headingFor = IslandGeometry.frame(environment, d, if (state.expanded) 1f else 0f, sizeScale, extraBodyDp = extraBody,
+        extraWidthDp = eventTargetDp, compactness = compactTarget)
+    val reported = remember { arrayOfNulls<IslandFrame>(1) }
+    reported[0] = if (frame.nearly(headingFor)) headingFor else (reported[0] ?: frame).union(frame).union(headingFor)
+    val touchFrame = reported[0] ?: headingFor
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
     val corner = minOf(minOf(frame.width, frame.height) / 2f, 30f * d) / d
     val sideways = frame.side != IslandSide.TOP
     // A progress ring around the collapsed pill: a running timer, or the battery level while charging.
     val ring = IslandRingLogic.choose(flashActive, progress >= .5f || state.expanded, IslandTools.ringing,
         IslandTools.timerActive, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
-        deviceStatus.charging == true, deviceStatus.battery, IslandSymbol.TIMER.tint, IosGreen)
+        deviceStatus.charging == true, deviceStatus.battery, IslandSymbol.TIMER.tint, IosGreen, state.flashTint)
     // A new event gives the island a small spring pulse, like iOS's.
     val pulse = remember { Animatable(1f) }
     LaunchedEffect(state.flashKey) {
@@ -449,8 +465,10 @@ internal fun DynamicIsland(
     // the island opened from the wrong corner and collapsed through the wrong place. Touches are taken by a separate small window
     // that follows the island (see IslandOverlayHost), so the empty part of this one never blocks the app underneath.
     val windowRect: PxRect? = if (anchoredToWindow && frame.side == IslandSide.TOP) {
-        val open = IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + UPDATE_ROW_DP + IslandWidgetState.ROW_DP + 6f + maxOf(QUICK_ROW_DP, TOOLS_PANELS_ROW_DP) - actionsTrimDp)
-        val wide = IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = MAX_EVENT_EXTRA_DP)
+        // The biggest the island gets, in both directions: worked out once for the environment, not on every animation frame.
+        val open = remember(environment, d, sizeScale, actionsTrimDp) { IslandGeometry.frame(environment, d, 1f, sizeScale,
+            extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + UPDATE_ROW_DP + IslandWidgetState.ROW_DP + 6f + maxOf(QUICK_ROW_DP, TOOLS_PANELS_ROW_DP) - actionsTrimDp) }
+        val wide = remember(environment, d, sizeScale) { IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = MAX_EVENT_EXTRA_DP) }
         val pad = 10f * d
         PxRect(
             minOf(open.left, wide.left, frame.left) - pad, minOf(open.top, wide.top, frame.top),
@@ -467,7 +485,7 @@ internal fun DynamicIsland(
             }
         }
     Box(modifier.then(wrapperModifier), contentAlignment = Alignment.TopStart) {
-        LaunchedEffect(frame, windowRect) { onFrameChanged?.invoke(frame, windowRect) }
+        LaunchedEffect(touchFrame, windowRect) { onFrameChanged?.invoke(touchFrame, windowRect) }
         // On Home, a tap anywhere off the expanded island tucks it away. (The overlay window cannot cover the screen, so it
         // hears of outside touches from the window manager instead; see IslandOverlayHost.)
         if (state.expanded && !anchoredToWindow) Box(Modifier.fillMaxSize().pointerInput(Unit) {
@@ -478,7 +496,7 @@ internal fun DynamicIsland(
         // Pop-out bubbles beside the collapsed pill for the live activities that do not fit in it.
         val bubbleKinds = if (state.expanded || flashActive || IslandTools.ringing) emptyList() else IslandBubbles.extras(liveKinds)
         IslandRuntime.bubbleExtraPx = (IslandBubbles.reserveDp(bubbleKinds.size) * d).roundToInt()
-        LaunchedEffect(bubbleKinds.size) { onFrameChanged?.invoke(frame, windowRect) }
+        LaunchedEffect(bubbleKinds.size) { onFrameChanged?.invoke(touchFrame, windowRect) }
         bubbleKinds.forEachIndexed { index, kind ->
             Box(Modifier
                 .offset {
@@ -638,10 +656,13 @@ internal fun DynamicIsland(
             state.peekCard?.let { peek ->
                 if (progress > .4f) Row(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
                     .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)
-                    .clip(RoundedCornerShape(14.dp)).clickable {
+                    .clip(RoundedCornerShape(14.dp))
+                    // A wash of the app icon's colour behind the card, fading to the island's black.
+                    .then(peek.tint?.let { c -> Modifier.background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color(c).copy(alpha = .38f), Color.Transparent))) } ?: Modifier)
+                    .clickable {
                         runCatching { peek.open?.send() }; state.collapse()
                     }.testTag("island-peek-card"), verticalAlignment = Alignment.CenterVertically) {
-                    peek.icon?.let { Image(it.asImageBitmap(), null, Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) }
+                    peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) }
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(peek.appLabel, color = Color.White.copy(alpha = .65f), fontSize = 11.sp, maxLines = 1)
@@ -1049,14 +1070,7 @@ private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boo
     }
 }
 
-/** [ArtTint] on a small copy of the artwork, so it costs next to nothing. */
-private fun android.graphics.Bitmap.artTintArgb(): Int? = runCatching {
-    val small = android.graphics.Bitmap.createScaledBitmap(this, 24, 24, true)
-    val pixels = IntArray(24 * 24)
-    small.getPixels(pixels, 0, 24, 0, 0, 24, 24)
-    if (small !== this) small.recycle()
-    ArtTint.fromPixels(pixels)
-}.getOrNull()
+
 
 
 /** The colour a Live Update asks for, or the island's green when it asks for none or one too dark to read on black. */

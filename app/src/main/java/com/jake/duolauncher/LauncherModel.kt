@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.ComponentName
 import android.content.pm.LauncherApps
 import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.Canvas
 import android.graphics.Path
 import android.graphics.drawable.AdaptiveIconDrawable
@@ -37,6 +38,11 @@ data class AppEntry(
     val isWork: Boolean = false,
     val available: Boolean = true,
 ) {
+    /** The icon as a Compose image, wrapped once. Wrapping it at every use made a new image object each recomposition, which defeats
+     * skipping and makes Compose rebuild each icon's painter. Not part of the entry's equality. */
+    val image: androidx.compose.ui.graphics.ImageBitmap by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        icon.asImageBitmap()
+    }
     val packageName: String get() = component.packageName
 }
 

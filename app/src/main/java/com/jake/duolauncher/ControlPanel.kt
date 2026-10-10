@@ -128,7 +128,7 @@ internal fun ControlPanel(
             } else Row(modifier.fillMaxWidth().clip(TileShape).background(ink.copy(alpha = .08f)).padding(vertical = 8.dp)
                 .testTag("cp-shortcuts"), horizontalArrangement = Arrangement.SpaceEvenly) {
                 chosen.forEach { app ->
-                    Image(app.icon.asImageBitmap(), app.label, Modifier.size(48.dp).clip(Corner.icon)
+                    Image(app.image, app.label, Modifier.size(48.dp).clip(Corner.icon)
                         .clickable { onLaunchApp(app) }.testTag("cp-shortcut-${app.id}"))
                 }
             }

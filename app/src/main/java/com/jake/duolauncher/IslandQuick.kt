@@ -2,6 +2,8 @@ package com.jake.duolauncher
 
 import android.content.ComponentName
 import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
@@ -21,6 +23,23 @@ internal object IslandQuick {
     fun components(ids: List<String>): List<String> = ids.mapNotNull { id ->
         parseProfileAppId(id)?.takeIf { it.userSerial == null }?.component?.takeIf { '/' in it && !it.startsWith('/') && !it.endsWith('/') }
     }.distinct().take(MAX)
+
+    /** The strip's apps, looked up ahead of time and kept, so opening the island never waits on the package manager (loading five icons
+     * while the island was growing made it stutter, and the strip's arrival changed the island's height half way through the animation).
+     */
+    var cached by androidx.compose.runtime.mutableStateOf(emptyList<QuickApp>())
+        private set
+    private var loadedFor: String? = null
+
+    /** Looks the apps up again only if the chosen shortcuts or the switch changed; cheap otherwise. Call off the main thread. */
+    fun refreshIfChanged(context: Context) {
+        val prefs = context.getSharedPreferences("extras", Context.MODE_PRIVATE)
+        val signature = (if (enabled(context)) "on:" else "off:") + prefs.getString("shortcuts", null).orEmpty()
+        if (signature == loadedFor) return
+        val apps = if (enabled(context)) resolve(context) else emptyList()
+        loadedFor = signature
+        cached = apps
+    }
 
     fun enabled(context: Context) = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("islandShortcuts", true)
 
@@ -47,4 +66,14 @@ internal object CallActions {
      * app adds. Null for an incoming or screening call, where the actions are answer and decline in an order that is not defined.
      */
     fun hangUpIndex(callType: Int, actionCount: Int): Int? = if (callType == CALL_TYPE_ONGOING && actionCount >= 1) 0 else null
+}
+
+/** The colour of an app's icon, for tinting what the island shows about it. Worked out once per app and kept. */
+internal object AppTints {
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    private const val NONE = 0
+
+    /** The icon's dominant vivid colour as ARGB, or null for a grey, black or white icon. [icon] is only called the first time. */
+    fun of(packageName: String, icon: () -> android.graphics.Bitmap?): Int? =
+        cache.getOrPut(packageName) { runCatching { icon()?.artTintArgb() }.getOrNull() ?: NONE }.takeIf { it != NONE }
 }

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.34.0-uno01
+
+- The island takes the colour of an app's icon. A new notification's card has a wash of the icon's colour fading into the island's black, an event flash for an app rings the pill in that colour while it shows, and a Live Update or download whose app gives no colour of its own uses the icon's (a progress ring and glyph in that colour). The colour is the icon's dominant vivid hue (the same picker used for album art), worked out once per app and kept; grey, black and white icons give none.
+- "Permanent wide island" (Dynamic island settings): over other apps the island normally shrinks to a ring round the camera when it has nothing to show, so that it does not cover the status bar. With the switch on it stays the wide pill (with the battery level on one side) all the time. Inside the launcher it was always wide.
+- Smoother island, found by reading how it opens:
+  - The quick-launch strip's icons were looked up from the package manager at the moment the island opened, and the strip then arrived half way through the animation, changing the island's height. That was the stutter you saw with app icons showing. The strip is now looked up ahead of time (at start, and whenever the island is closed and the shortcuts changed) and the island's height already includes it when it opens.
+  - Over other apps, the touch window followed the island's size on every animation frame, which is a call to the window manager per frame. It is now told the size the island is heading for as soon as a change starts, held there while it animates, and snapped to the settled size afterwards.
+  - The island's biggest sizes (for the fixed drawing window) are worked out once per environment rather than on every frame; a notification card's icon is wrapped once.
+- Smoother dragging: while an app was being dragged, the pointer position was read directly while composing the whole launcher screen, so every touch event recomposed all of it. The "what is under my finger" answers (the drop target, whether a drop makes a folder, which screen edge the finger is on) are now derived, so the screen recomposes only when an answer changes. App icons are wrapped as Compose images once per app instead of at every use, which also lets Compose skip icons that did not change. The search suggestions in All apps (which ask the package manager which browsers and stores are installed) are worked out when the search changes, not whenever the list is rebuilt.
+- Less idle work: the clock and date cards tick once a minute instead of every second; the Timers widget ticks only while a timer runs; and a burst of notifications (a download posts one every second) is read once per burst rather than once per notification.
+- A baseline profile for the app's own code is bundled, so Android compiles it ahead of time when the app is installed instead of discovering what to compile while you use it (faster start and fewer first-use hitches). The release build was checked to turn it into a profile. Effects are not measured: I have no phone to measure on, so none of the smoothness work has been timed; it removes work I found by reading the code.
+- Tests: unit tests for the frame helpers and the ring colour; the emulator suites for the island, dragging, folders, widgets and settings were re-run on the final code.
+
 ## 0.33.0-uno01
 
 Ideas taken from HyperBridge (an Apache-2.0 app that feeds notifications to HyperOS's island; read for ideas only, no code used).

@@ -102,6 +102,11 @@ internal fun AppLibrary(
                     focusedLeadingIconColor = ink, unfocusedLeadingIconColor = ink,
                     focusedTrailingIconColor = ink, unfocusedTrailingIconColor = ink,
                 ) else OutlinedTextFieldDefaults.colors())
+            // Asking which browsers and stores are installed (and loading their icons) is a trip to the package manager, so it is done when
+            // the search changes, not each time the list's content is rebuilt.
+            val suggestions = remember(editing, handoff, query, visibleApps.size, smart != null) {
+                if (editing || handoff == null) emptyList() else handoff.targets(query, visibleApps.size, smart != null)
+            }
             LazyColumn(Modifier.weight(1f).testTag("all-apps-list"), state = listState,
                 contentPadding = PaddingValues(bottom = 12.dp)) {
                 if (smart != null) item("smart-answer") {
@@ -145,7 +150,7 @@ internal fun AppLibrary(
                             .then(if (drag == null) Modifier.combinedClickable(onClick = click, onLongClick = { onActions(app) })
                                 else Modifier.clickable(onClick = click).semantics { onLongClick("App options") { onActions(app); true } })
                             .padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Image(app.icon.asImageBitmap(), null, Modifier.size(40.dp)
+                            Image(app.image, null, Modifier.size(40.dp)
                                 .onGloballyPositioned { launchBounds.set(it.boundsInWindow().toAndroidBounds()) }.clip(Corner.icon))
                             Text(app.label, Modifier.weight(1f).padding(start = 12.dp), maxLines = 2, fontSize = 14.sp)
                             if (editing) IconButton(onClick = { onPin(app.id, !isPinned) }, Modifier.testTag("pin-${app.id}")) {
@@ -157,7 +162,6 @@ internal fun AppLibrary(
                         }
                     }
                 }
-                val suggestions = if (editing || handoff == null) emptyList() else handoff.targets(query, visibleApps.size, smart != null)
                 if (suggestions.isNotEmpty()) {
                     item("handoff-header") {
                         Text("Look elsewhere", Modifier.padding(top = 14.dp, bottom = 6.dp), fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = ink)

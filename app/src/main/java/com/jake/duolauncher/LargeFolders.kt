@@ -147,7 +147,7 @@ internal fun LargeFolderFace(slot: Int, onOpenOptions: () -> Unit) {
                     Row(Modifier.fillMaxWidth()) {
                         row.forEach { app ->
                             Box(Modifier.width(m.cellW.dp).height(m.cellH.dp), contentAlignment = Alignment.TopCenter) {
-                                Image(app.icon.asImageBitmap(), null, Modifier.size(m.icon.dp).clip(Corner.icon)
+                                Image(app.image, null, Modifier.size(m.icon.dp).clip(Corner.icon)
                                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                         HomeAppsBridge.launch(app, null)
                                     }.semantics { contentDescription = app.label }.testTag("large-folder-app-${app.id}"))
@@ -180,7 +180,7 @@ internal fun LargeFolderEditor(slot: Int, apps: List<AppEntry>, onClose: () -> U
                     .clickable { LargeFolders.toggle(slot, app.id) }.testTag("large-folder-pick-${app.id}"),
                     verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(app.id in folder.appIds, { LargeFolders.toggle(slot, app.id) })
-                    Image(app.icon.asImageBitmap(), null, Modifier.size(32.dp).clip(Corner.icon))
+                    Image(app.image, null, Modifier.size(32.dp).clip(Corner.icon))
                     Text(app.label, Modifier.padding(start = 12.dp), maxLines = 1)
                 }
             }

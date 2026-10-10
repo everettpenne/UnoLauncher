@@ -392,18 +392,30 @@ internal fun LauncherScreen(
             setOfNotNull((dragWindowPage - 1).takeIf { it >= -1 }, dragWindowPage)
         } else setOf(dragWindowPage)
     }
-    val rawTarget = if (drag.active) drag.destination(drag.pointer, eligibleDragPages)?.target else null
-    val target = if (rawTarget is DropTarget.Home && drag.source?.target is DropTarget.Widget) {
-        val slot = (drag.source!!.target as DropTarget.Widget).index
-        model.placement(slot)?.let {
-            DropTarget.Home(adjustedWidgetDropIndex(rawTarget.index, it, drag.source!!.bounds, drag.origin))
-        } ?: rawTarget
-    } else rawTarget
+    // Everything that follows the finger. The pointer moves on every touch event, and reading it directly here made this whole screen
+    // recompose for each one while an app was being dragged. Reading it inside derivedStateOf means the screen is recomposed only when
+    // the answer (what is under the finger, and whether a drop would make a folder) changes.
+    val eligiblePagesNow = rememberUpdatedState(eligibleDragPages)
+    val dragTargets by remember { derivedStateOf {
+        val active = drag.active
+        val region = if (active) drag.destination(drag.pointer, eligiblePagesNow.value) else null
+        val raw = region?.target
+        val adjusted = if (raw is DropTarget.Home && drag.source?.target is DropTarget.Widget) {
+            val slot = (drag.source!!.target as DropTarget.Widget).index
+            model.placement(slot)?.let {
+                DropTarget.Home(adjustedWidgetDropIndex(raw.index, it, drag.source!!.bounds, drag.origin))
+            } ?: raw
+        } else raw
+        val folderApp = if (active && drag.moved) folderDropTarget(region, drag.pointer, drag.source, ::isFolderId) else null
+        DragTargets(raw, adjusted, folderApp)
+    } }
+    val rawTarget = dragTargets.raw
+    val target = dragTargets.target
     val blockedDock = drag.moved && target is DropTarget.Dock &&
         if (drag.source?.folderId != null) state.dock.none { it == null }
         else drag.source?.appId?.let { !canPlaceInDock(state.layout, it) } == true
     // Held over the middle of another app: the drop makes a folder, so nothing reflows out of the way.
-    val folderTargetApp = if (drag.active && drag.moved) folderDropTarget(drag.destination(drag.pointer, eligibleDragPages), drag.pointer, drag.source, ::isFolderId) else null
+    val folderTargetApp = dragTargets.folderApp
     SideEffect { drag.folderIntentApp = folderTargetApp }
     val insertionTarget = target.takeIf { drag.moved && !blockedDock && folderTargetApp == null }
     val widgetRawTarget = widgetSession?.let { session -> drag.regions.values.firstOrNull {
@@ -424,10 +436,15 @@ internal fun LauncherScreen(
             else -> state.layout
         }
     }
-    val edgeWidth = with(LocalDensity.current) { 30.dp.toPx() }
-    val edgePointer = widgetSession?.takeIf { it.dragging }?.pointer ?: drag.pointer
+    val edgeWidthNow = rememberUpdatedState(with(LocalDensity.current) { 30.dp.toPx() })
     val edgeActive = (drag.active && drag.moved) || widgetSession?.dragging == true
-    val edge = if (!edgeActive) 0 else dragEdgeDirection(edgePointer, drag.rootBounds, edgeWidth)
+    // Which screen edge the finger is on (turns the page after a hold); derived for the same reason as dragTargets above.
+    val edgeNow by remember { derivedStateOf {
+        val session = widgetSession
+        val active = (drag.active && drag.moved) || session?.dragging == true
+        if (!active) 0 else dragEdgeDirection(session?.takeIf { it.dragging }?.pointer ?: drag.pointer, drag.rootBounds, edgeWidthNow.value)
+    } }
+    val edge = edgeNow
     LaunchedEffect(edgeActive, edge) {
         if (edge != 0) while (drag.active || widgetSession?.dragging == true) {
             delay(650)
@@ -1267,7 +1284,7 @@ internal fun LauncherScreen(
             appsById[drag.source?.appId]?.let { app ->
                 val size = 66.dp
                 val px = with(LocalDensity.current) { size.toPx() }
-                Image(app.icon.asImageBitmap(), "Moving ${app.label}", Modifier
+                Image(app.image, "Moving ${app.label}", Modifier
                     .offset { IntOffset((drag.pointer.x - drag.rootOrigin.x - px / 2).roundToInt(), (drag.pointer.y - drag.rootOrigin.y - px * .65f).roundToInt()) }
                     .size(size).clip(Corner.icon).testTag("drag-ghost"))
             }
@@ -1948,7 +1965,7 @@ private fun DockAppColumn(
                 )
                 Box(Modifier.offset { animatedOffset }.fillMaxWidth().height(rowHeight.dp).alpha(opacity)
                     .testTag("dock-app-$id"), contentAlignment = Alignment.Center) {
-                    Image(app.icon.asImageBitmap(), null, Modifier.size(iconSize.dp).testTag("dock-icon-$id")
+                    Image(app.image, null, Modifier.size(iconSize.dp).testTag("dock-icon-$id")
                         .then(if (lensBackdrop != null) Modifier.layerBackdrop(iconBackdrop) else Modifier)
                         .onGloballyPositioned { if (savedIndex >= 0) launchBounds[savedIndex].set(it.boundsInWindow().toAndroidBounds()) }
                         .graphicsLayer {
@@ -2005,7 +2022,7 @@ private fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: F
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         rowIds.forEach { id ->
                             val app = apps[id]
-                            if (app != null) Image(app.icon.asImageBitmap(), null, Modifier.size((size * FolderPreview.iconFraction(columns)).dp).clip(Corner.icon))
+                            if (app != null) Image(app.image, null, Modifier.size((size * FolderPreview.iconFraction(columns)).dp).clip(Corner.icon))
                             else Spacer(Modifier.size((size * FolderPreview.iconFraction(columns)).dp))
                         }
                     }
@@ -2031,7 +2048,7 @@ private fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modif
         .semantics { onLongClick("App options") { onLongClick(); true } }.padding(horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally) {
         Box {
-            Image(app.icon.asImageBitmap(), null, Modifier.size(iconSize).onGloballyPositioned { bounds.set(it.boundsInWindow().toAndroidBounds()) }
+            Image(app.image, null, Modifier.size(iconSize).onGloballyPositioned { bounds.set(it.boundsInWindow().toAndroidBounds()) }
                 .graphicsLayer { scaleX = 1f - .08f * progress; scaleY = 1f - .08f * progress }
                 .pressGlow(progress, Corner.icon))
             AppBadge(badgeCount(app.packageName), Modifier.align(Alignment.TopEnd))
@@ -2062,8 +2079,12 @@ internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.
 }
 
 @Composable
-private fun currentTime(): LocalDateTime {
-    val time by produceState(LocalDateTime.now()) { while (true) { value = LocalDateTime.now(); delay(1000) } }
+private fun currentTime(everyMs: Long = 60_000L): LocalDateTime {
+    // The clock card shows minutes and the date card a day, so a tick every second only made them recompose 59 times a minute for
+    // nothing: this ticks just after each minute (or [everyMs]) changes.
+    val time by produceState(LocalDateTime.now(), everyMs) {
+        while (true) { value = LocalDateTime.now(); delay((everyMs + 50L) - (System.currentTimeMillis() % everyMs)) }
+    }
     return time
 }
 
@@ -2173,6 +2194,9 @@ private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifie
 /** Where each visible stack rail is, in root coordinates, so the page gestures can step aside for a touch that starts on one. */
 internal object StackRailRegistry { val bounds = mutableMapOf<Any, androidx.compose.ui.geometry.Rect>() }
 
+/** What is under the finger during a drag. */
+private data class DragTargets(val raw: DropTarget?, val target: DropTarget?, val folderApp: String?)
+
 /** The dots down the right edge of a widget stack. Tapping a dot, or dragging along the rail, switches widgets. It is a
  * rail and not a swipe on the widget itself because vertical swipes on Home already open the panel and notifications.
  */
@@ -2273,7 +2297,7 @@ private fun AppPicker(apps: List<AppEntry>, dockSlot: Int?, onSelect: (AppEntry)
                     .combinedClickable(enabled = enabled, onClick = { onSelect(app) }, onLongClick = { onLongClick(app) })
                     .alpha(if (enabled) 1f else .45f)
                     .padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Image(app.icon.asImageBitmap(), null, Modifier.size(44.dp).clip(Corner.icon))
+                    Image(app.image, null, Modifier.size(44.dp).clip(Corner.icon))
                     Text(app.label, Modifier.padding(start = 16.dp).weight(1f), maxLines = 2)
                     if (dockSlot != null && enabled) Icon(Icons.Rounded.Add, "Choose ${app.label}")
                 }

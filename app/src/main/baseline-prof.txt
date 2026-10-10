@@ -1,0 +1,3 @@
+HSPLcom/jake/duolauncher/**;->**(**)**
+HSPLcom/jake/duolauncher/**;-><init>(**)V
+Lcom/jake/duolauncher/**;

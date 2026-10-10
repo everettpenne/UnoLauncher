@@ -152,7 +152,7 @@ internal fun Spotlight(
                 items(appResults, key = { "app-${it.id}" }) { app ->
                     Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.small).clickable { onLaunch(app) }
                         .padding(horizontal = 6.dp, vertical = 6.dp).testTag("spotlight-app-${app.id}"), verticalAlignment = Alignment.CenterVertically) {
-                        Image(app.icon.asImageBitmap(), null, Modifier.size(40.dp).clip(Corner.icon))
+                        Image(app.image, null, Modifier.size(40.dp).clip(Corner.icon))
                         Text(app.label, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }

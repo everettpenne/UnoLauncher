@@ -391,8 +391,9 @@ private fun CounterFace(slot: Int, onOptions: () -> Unit) {
 @Composable
 private fun TimersFace(slot: Int, onOptions: () -> Unit) {
     val context = LocalContext.current
+    // Ticks twice a second only while a timer runs; a widget that is just showing the buttons has nothing to redraw.
     val now by produceState(System.currentTimeMillis(), IslandTools.timerActive) {
-        while (true) { value = System.currentTimeMillis(); delay(500) }
+        while (true) { value = System.currentTimeMillis(); delay(if (IslandTools.timerActive) 500 else 600_000) }
     }
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-timers-$slot")) {
         val ink = LocalGlassInk.current

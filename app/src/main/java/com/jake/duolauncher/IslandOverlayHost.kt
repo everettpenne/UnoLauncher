@@ -176,6 +176,7 @@ internal class IslandOverlayHost(
                 IslandRuntime.statusBarVisible = configuration.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE
             }
             var visible by androidx.compose.runtime.remember { mutableStateOf(true) }
+            var alwaysWide by androidx.compose.runtime.remember { mutableStateOf(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("islandWide", false)) }
             var islandScale by androidx.compose.runtime.remember {
                 mutableStateOf(context.getSharedPreferences("appearance", Context.MODE_PRIVATE).getFloat("islandScale", .5f).coerceIn(0f, 1f))
             }
@@ -195,6 +196,7 @@ internal class IslandOverlayHost(
                     val enabled = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("islandEverywhere", false)
                     visible = OverlayPolicy.shouldShow(enabled, (!needsOverlayPermission || Settings.canDrawOverlays(context)),
                         keyguard.isKeyguardLocked, power.isInteractive)
+                    alwaysWide = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("islandWide", false)
                     islandScale = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
                         .getFloat("islandScale", .5f).coerceIn(0f, 1f)
                     // The debug HUD (debug builds only) follows its switch while the overlay runs.
@@ -212,6 +214,7 @@ internal class IslandOverlayHost(
                     deviceStatus = rememberBatteryStatus(),
                     feedHeadline = null,
                     sizeScale = islandScale,
+                    alwaysWide = alwaysWide,
                     dockWidthPx = 0f,
                     environmentOverride = environment,
                     anchoredToWindow = true,

@@ -89,7 +89,7 @@ class NativeAppearanceLocationIntegrationTest {
                 if (listOf(node.text, node.contentDescription).any { it?.toString() == text }) return true
                 return (0 until node.childCount).any { contains(node.getChild(it), text) }
             }
-            val settingsWindow = automation.windows.firstOrNull { contains(it.root, "Make it yours") }
+            val settingsWindow = automation.windows.firstOrNull { contains(it.root, "Launcher settings") }
             fun scrollable(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
                 if (node == null) return null
                 if (node.isVisibleToUser && node.isScrollable) return node
@@ -165,7 +165,7 @@ class NativeAppearanceLocationIntegrationTest {
             assertNull("Location permission must be user initiated", find("Don’t allow"))
 
             openNativeHomeCustomization(automation) { click("Customize launcher") }
-            click("Wallpaper & appearance")
+            click("Wallpaper & glass")
             clickAfterScrolling("Sunrise / sunset")
             val launcherBefore = launcherPrefs.all.toMap()
             val appearanceBefore = appearancePrefs.all.toMap()

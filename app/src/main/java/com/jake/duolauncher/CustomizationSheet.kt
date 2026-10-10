@@ -23,7 +23,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
-internal enum class CustomizationPage { OVERVIEW, WALLPAPER, HOME, GESTURES, EXTRAS, FEED, UPDATES, BACKUP, HELP }
+internal enum class CustomizationPage { OVERVIEW, WALLPAPER, ICONS, HOME, GESTURES, SEARCH, PANEL, ISLAND, KEYBOARD, PRIVACY, FEED, UPDATES, BACKUP, HELP }
 
 @Composable
 internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, model: LauncherModel,
@@ -62,11 +62,16 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
 ) {
     var wide by rememberSaveable { mutableStateOf(initiallyWide) }
     val title = when (page) {
-        CustomizationPage.OVERVIEW -> "Make it yours"
-        CustomizationPage.WALLPAPER -> "Wallpaper & appearance"
+        CustomizationPage.OVERVIEW -> "Launcher settings"
+        CustomizationPage.WALLPAPER -> "Wallpaper & glass"
+        CustomizationPage.ICONS -> "App icons"
         CustomizationPage.HOME -> "Home layout"
-        CustomizationPage.GESTURES -> "Gestures & search"
-        CustomizationPage.EXTRAS -> "Control panel & extras"
+        CustomizationPage.GESTURES -> "Gestures & feel"
+        CustomizationPage.SEARCH -> "Search"
+        CustomizationPage.PANEL -> "Control panel & Focus"
+        CustomizationPage.ISLAND -> "Dynamic island"
+        CustomizationPage.KEYBOARD -> "Keyboard"
+        CustomizationPage.PRIVACY -> "Notifications & privacy"
         CustomizationPage.FEED -> "News feed"
         CustomizationPage.UPDATES -> "Updates"
         CustomizationPage.BACKUP -> "Backup"
@@ -93,21 +98,36 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     if (state.canUndoEdit) OutlinedButton(onClick = { model.undoEdit(); onClose() },
                         Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Undo last layout change") }
                     MiniHomePreview(backgrounds.previewBitmap, state, 176.dp)
-                    CustomizationDestination(Icons.Rounded.Wallpaper, "Wallpaper & appearance",
-                        if (backgrounds.previewPending) "Photo ready to review" else "Background, colors, and light",
+                    SettingsGroupLabel("Look")
+                    CustomizationDestination(Icons.Rounded.Wallpaper, "Wallpaper & glass",
+                        if (backgrounds.previewPending) "Photo ready to review" else "Background, liquid glass, light and dark",
                         "customization-wallpaper") { onPage(CustomizationPage.WALLPAPER) }
+                    if (extras != null) CustomizationDestination(Icons.Rounded.Apps, "App icons",
+                        "Original, themed or tinted by your wallpaper", "customization-icons") { onPage(CustomizationPage.ICONS) }
+                    SettingsGroupLabel("Home")
                     CustomizationDestination(Icons.Rounded.GridView, "Home layout",
                         "Icons, spacing, dock, and widgets", "customization-home") { onPage(CustomizationPage.HOME) }
-                    CustomizationDestination(Icons.Rounded.Search, "Gestures & search",
-                        "Labels, status, and search behavior", "customization-gestures") { onPage(CustomizationPage.GESTURES) }
-                    if (extras != null) CustomizationDestination(Icons.Rounded.Tune, "Control panel & extras",
-                        "Panel tiles, Focus, icon style, badges, contacts", "customization-extras") { onPage(CustomizationPage.EXTRAS) }
+                    CustomizationDestination(Icons.Rounded.Gesture, "Gestures & feel",
+                        "Labels, status, swipes, haptics and sounds", "customization-gestures") { onPage(CustomizationPage.GESTURES) }
+                    if (extras != null) CustomizationDestination(Icons.Rounded.Search, "Search",
+                        "Google button, suggestions, contacts", "customization-search") { onPage(CustomizationPage.SEARCH) }
+                    if (extras != null) CustomizationDestination(Icons.Rounded.Tune, "Control panel & Focus",
+                        "Panel tiles, shortcuts, Focus", "customization-panel") { onPage(CustomizationPage.PANEL) }
+                    SettingsGroupLabel("Island & keyboard")
+                    if (extras != null) CustomizationDestination(Icons.Rounded.Circle, "Dynamic island",
+                        "Size, live activities, bubbles, widget, timer", "customization-island") { onPage(CustomizationPage.ISLAND) }
+                    if (extras != null) CustomizationDestination(Icons.Rounded.Keyboard, "Keyboard",
+                        "Uno Keyboard: suggestions, autocorrect, one-handed", "customization-keyboard") { onPage(CustomizationPage.KEYBOARD) }
+                    SettingsGroupLabel("Privacy")
+                    if (extras != null) CustomizationDestination(Icons.Rounded.Lock, "Notifications & privacy",
+                        "Notification access, badges, what each permission can see", "customization-privacy") { onPage(CustomizationPage.PRIVACY) }
+                    SettingsGroupLabel("More")
                     CustomizationDestination(Icons.Rounded.RssFeed, "News feed",
                         "Your own headlines in place of Discover", "customization-feed") { onPage(CustomizationPage.FEED) }
-                    CustomizationDestination(Icons.Rounded.SystemUpdateAlt, "Updates",
-                        "Check for releases, install any version, or update automatically", "customization-updates") { onPage(CustomizationPage.UPDATES) }
                     CustomizationDestination(Icons.Rounded.Save, "Backup",
-                        "Save or restore this layout", "customization-backup") { onPage(CustomizationPage.BACKUP) }
+                        "Save or restore your layout and settings", "customization-backup") { onPage(CustomizationPage.BACKUP) }
+                    CustomizationDestination(Icons.Rounded.SystemUpdateAlt, "Updates",
+                        "Check for releases or update automatically", "customization-updates") { onPage(CustomizationPage.UPDATES) }
                     CustomizationDestination(Icons.Rounded.HelpOutline, "Help & setup",
                         "Home app, widgets, gestures, and Discover", "customization-help") {
                         onPage(CustomizationPage.HELP)
@@ -175,6 +195,26 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     Text("Height widens the glass rim the lens bends; amount sets how far the view behind is displaced; chromatic adds the color fringe at the edges. Turn off liquid glass for a flat look or to save battery.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                    AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear)
+                }
+                CustomizationPage.HOME -> HomeLayoutSettings(state, wide, { wide = it }, model, homePage,
+                    onEditPins, onWidget, onAddWidget, onRemoveWidget)
+                CustomizationPage.GESTURES -> {
+                    SettingsSwitch("Show app names", state.labels, model::setLabels, "label-switch")
+                    SettingsSwitch("Show status at upper right", state.verticalStatus, model::setVerticalStatus, "status-switch")
+                    Text("Swipe sideways anywhere on Home to change pages. Swipe down on the left for notifications, and on the right for the control panel. Swipe up anywhere to open these settings.",
+                        style = MaterialTheme.typography.bodyMedium)
+                    if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.GESTURES)
+                }
+                CustomizationPage.ICONS -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.ICONS)
+                CustomizationPage.SEARCH -> {
+                    SettingsSwitch("Search button opens Google", state.googleSearch, model::setGoogleSearch, "google-search-switch")
+                    Text("All apps always keeps local app search.", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.SEARCH)
+                }
+                CustomizationPage.PANEL -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.PANEL)
+                CustomizationPage.ISLAND -> {
                     SettingsSwitch("Dynamic island", appearance.island, onIsland, "island-switch")
                     SettingsSwitch("Island everywhere", islandEverywhere, onIslandEverywhere, "island-everywhere-switch")
                     Text("Shows the island above other apps with Android's \"display over other apps\" permission. The overlay window is exactly the island's size, never draws on the lock screen or when the screen is off, and touches outside it pass through.",
@@ -184,21 +224,10 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         tag = "island-scale-slider") { onIslandScale(it) }
                     Text("A liquid capsule at the camera cutout: the time, then a tap expands battery, the top feed headline, and quick actions. It flashes app launches and charging and never overlays other apps.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                    AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear)
+                    if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.ISLAND)
                 }
-                CustomizationPage.HOME -> HomeLayoutSettings(state, wide, { wide = it }, model, homePage,
-                    onEditPins, onWidget, onAddWidget, onRemoveWidget)
-                CustomizationPage.GESTURES -> {
-                    SettingsSwitch("Show app names", state.labels, model::setLabels, "label-switch")
-                    SettingsSwitch("Show status at upper right", state.verticalStatus, model::setVerticalStatus, "status-switch")
-                    SettingsSwitch("Search button opens Google", state.googleSearch, model::setGoogleSearch, "google-search-switch")
-                    Text("All apps always keeps local app search.", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Swipe sideways anywhere on Home to change pages. Swipe down on the left for notifications, and on the right for the control panel (or Android Quick Settings; see Control panel & extras).",
-                        style = MaterialTheme.typography.bodyMedium)
-                }
-                CustomizationPage.EXTRAS -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps)
+                CustomizationPage.KEYBOARD -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.KEYBOARD)
+                CustomizationPage.PRIVACY -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.PRIVACY)
                 CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onSourceEnabled)
                 CustomizationPage.UPDATES -> UpdatesPanel(updates, onCheckUpdates, onInstallRelease, onAutoUpdate)
                 CustomizationPage.BACKUP -> {
@@ -263,6 +292,12 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+/** The small grey heading above a group of rows on the settings overview, as in iOS Settings. */
+@Composable private fun SettingsGroupLabel(text: String) {
+    Text(text.uppercase(), Modifier.padding(start = 6.dp, top = 10.dp), style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable private fun CustomizationDestination(icon: ImageVector, title: String, detail: String, tag: String, onClick: () -> Unit) {

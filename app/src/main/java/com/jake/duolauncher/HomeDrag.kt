@@ -198,3 +198,23 @@ internal fun Modifier.homeDragInput(
         }
     }
 }
+
+/**
+ * Dropping one app onto the middle of another makes a folder of the two, as on iOS; dropping nearer a cell's edge just
+ * moves the app there. Returns the app being dropped onto, or null when the drop is an ordinary move.
+ *
+ * Only a plain app (not a folder, not a widget) dropped on a Home cell holding a different plain app qualifies, and only
+ * when the pointer is in the middle of the cell: within 30% of its width and 35% of its height of the centre.
+ */
+internal fun folderDropTarget(region: DragRegion?, point: Offset, source: DragRegion?, isFolder: (String) -> Boolean): String? {
+    if (region == null || source == null || region.target !is DropTarget.Home) return null
+    val dragged = source.appId ?: return null
+    if (source.target is DropTarget.Widget || isFolder(dragged)) return null
+    val occupant = region.appId ?: return null
+    if (occupant == dragged || isFolder(occupant)) return null
+    val b = region.bounds
+    if (b.isEmpty) return null
+    val dx = kotlin.math.abs(point.x - b.center.x) / b.width
+    val dy = kotlin.math.abs(point.y - b.center.y) / b.height
+    return occupant.takeIf { dx <= .30f && dy <= .35f }
+}

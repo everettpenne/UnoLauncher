@@ -7,8 +7,8 @@ import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
+
+
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -26,8 +26,8 @@ internal fun rememberPressProgress(interactionSource: InteractionSource): State<
     LaunchedEffect(interactionSource) {
         interactionSource.interactions.collectLatest { interaction: Interaction ->
             when (interaction) {
-                is PressInteraction.Press -> progress.animateTo(1f, spring(0.45f, 260f))
-                is PressInteraction.Release -> progress.animateTo(0f, spring(0.45f, 260f))
+                is PressInteraction.Press -> progress.animateTo(1f, spring(0.6f, 520f))
+                is PressInteraction.Release -> progress.animateTo(0f, spring(0.6f, 520f))
                 is PressInteraction.Cancel -> progress.snapTo(0f)
             }
         }
@@ -35,16 +35,16 @@ internal fun rememberPressProgress(interactionSource: InteractionSource): State<
     return progress.asState()
 }
 
-/** Draws a soft white bloom over the content while [progress] is above zero. */
-internal fun Modifier.pressGlow(progress: Float, shape: Shape): Modifier =
-    clip(shape).drawWithContent {
-        drawContent()
-        if (progress > 0.001f) {
-            drawRect(
-                color = Color.White.copy(alpha = .18f * progress),
-                topLeft = androidx.compose.ui.geometry.Offset.Zero,
-                size = Size(size.width, size.height),
-                blendMode = BlendMode.Plus,
-            )
-        }
-    }
+/** Used to draw a soft white bloom over a pressed icon, which read as a shadow flashing over the Home screen on every tap.
+ * Pressing is now shown by the springy scale alone, as on iOS; the function stays so every press site keeps its modifier.
+ */
+@Suppress("UNUSED_PARAMETER")
+internal fun Modifier.pressGlow(progress: Float, shape: Shape): Modifier = this
+
+/** No ripple or highlight on press anywhere in the launcher: the Material ripple drew a grey shadow under every tap on Home. */
+internal object NoIndication : androidx.compose.foundation.IndicationNodeFactory {
+    override fun create(interactionSource: InteractionSource): androidx.compose.ui.node.DelegatableNode =
+        object : Modifier.Node() {}
+    override fun equals(other: Any?) = other === this
+    override fun hashCode() = -1
+}

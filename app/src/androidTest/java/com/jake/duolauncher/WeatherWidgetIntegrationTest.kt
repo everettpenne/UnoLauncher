@@ -60,7 +60,7 @@ class WeatherWidgetIntegrationTest {
                 if (listOf(node.text, node.contentDescription).any { it?.toString() == text }) return true
                 return (0 until node.childCount).any { contains(node.getChild(it), text) }
             }
-            val settingsWindow = automation.windows.firstOrNull { contains(it.root, "Make it yours") || contains(it.root, "Home layout") }
+            val settingsWindow = automation.windows.firstOrNull { contains(it.root, "Launcher settings") || contains(it.root, "Home layout") }
             val scroller = settingsWindow?.let { window ->
                 fun scrollable(candidate: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
                     if (candidate == null) return null

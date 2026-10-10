@@ -16,14 +16,18 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
-/** The "Control panel & extras" page of the Customize sheet. */
+/** Which part of the extras a Customize page shows (each is its own page, reached from the overview). */
+internal enum class ExtrasSection { KEYBOARD, GESTURES, PANEL, ICONS, ISLAND, SEARCH, PRIVACY }
+
+/** One of the extras pages of the Customize sheet. */
 @Composable
-internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
+internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, section: ExtrasSection) {
     val store = actions.store
     val s = store.state
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val note = MaterialTheme.typography.bodySmall
 
+    if (section == ExtrasSection.KEYBOARD) {
     Text("Uno Keyboard", style = MaterialTheme.typography.titleMedium)
     val keyboardContext = androidx.compose.ui.platform.LocalContext.current
     // Android 14+ forbids reading the enabled/selected IME settings for targetSdk > 33, so the
@@ -77,8 +81,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     ChoiceRow("Right", "The keys sit against the right edge, a little narrower", s.kbOneHanded == 2, "kb-one-handed-right") { store.setKbOneHanded(2) }
     Text("A glass-styled keyboard with key previews, accents on long-press, caps lock, a numbers page and a field-aware Return key. It is strictly local: nothing you type is stored, learned, logged or sent, and its code contains no network access (a test enforces that). Suggestions and autocorrect use a word list bundled in the app (English only); they never learn from what you type, never save a word, and switch themselves off in password, email, web address, name and number fields. Backspace right after a correction undoes it, and that word is left alone for the session. There is no swipe typing yet.",
         style = note, color = muted)
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    }
 
+    if (section == ExtrasSection.GESTURES) {
     Text("Feel and sound", style = MaterialTheme.typography.titleMedium)
     SettingsSwitch("Haptics", s.haptics, store::setHaptics, "haptics-switch")
     SettingsSwitch("Sounds", s.sounds, store::setSounds, "sounds-switch")
@@ -98,8 +103,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
         s.rightSwipe == RightSwipe.PANEL, "swipe-panel") { store.setRightSwipe(RightSwipe.PANEL) }
     ChoiceRow("Android Quick Settings", "Needs the optional shade accessibility service",
         s.rightSwipe == RightSwipe.SYSTEM, "swipe-system") { store.setRightSwipe(RightSwipe.SYSTEM) }
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    }
 
+    if (section == ExtrasSection.PANEL) {
     Text("Control panel tiles", style = MaterialTheme.typography.titleMedium)
     s.tileOrder.forEachIndexed { index, tile ->
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -125,8 +131,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     Text("Hides the apps you pick from Home and All apps until Focus is off. Nothing is uninstalled, and your layout is not changed; hidden apps leave an empty spot.",
         style = note, color = muted)
     AppChecklist(apps, s.focusHidden, "focus") { store.toggleFocusHidden(it) }
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    }
 
+    if (section == ExtrasSection.ICONS) {
     Text("App icons", style = MaterialTheme.typography.titleMedium)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilterChip(s.iconStyle == IconStyle.ORIGINAL, { store.setIconStyle(IconStyle.ORIGINAL) }, { Text("Original") },
@@ -140,8 +147,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
         style = note, color = muted)
     Text("Themed uses each app's own single-colour icon layer where it ships one (Android 13+), in the launcher's colours; other apps are washed to match.",
         style = note, color = muted)
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    }
 
+    if (section == ExtrasSection.ISLAND) {
     Text("Island timer", style = MaterialTheme.typography.titleMedium)
     val context = androidx.compose.ui.platform.LocalContext.current
     val exact = IslandTools.exactAlarmsAllowed(context)
@@ -152,8 +160,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
         context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
             android.net.Uri.parse("package:${context.packageName}")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
     }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("exact-alarm")) { Text("Allow exact alarms") }
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    }
 
+    if (section == ExtrasSection.SEARCH) {
     Text("Search suggestions", style = MaterialTheme.typography.titleMedium)
     val resolver = rememberHandoffResolver(s)
     SettingsSwitch("Suggest other apps and the web", s.handoff, store::setHandoff, "handoff-switch")
@@ -179,8 +188,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
             ChoiceRow(label, pkg, s.webPackage == pkg, "web-$pkg") { store.setWebPackage(pkg) }
         }
     }
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    }
 
+    if (section == ExtrasSection.PRIVACY) {
     Text("Notifications (optional)", style = MaterialTheme.typography.titleMedium)
     val accessOn = actions.hasNotificationAccess()
     Text(if (accessOn) "Notification access is on." else "Notification access is off. The launcher reads nothing until you turn it on in Android's settings, and you can turn it off there at any time.",
@@ -190,6 +200,8 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     }
     SettingsSwitch("Badges on app icons", s.badges, store::setBadges, "badges-switch")
     SettingsSwitch("Track title and artwork in media", s.mediaDetails, store::setMediaDetails, "media-details-switch")
+    }
+    if (section == ExtrasSection.ISLAND) {
     SettingsSwitch("Camera and microphone indicators", s.privacyIndicators, store::setPrivacyIndicators, "privacy-indicators-switch")
     Text("The island shows a green camera or orange microphone mark while any app is using that hardware, like Android's own privacy dots. It needs no permission: Android tells every app when the camera or microphone becomes busy, without saying which app is using it. Nothing is recorded or stored.",
         style = note, color = muted)
@@ -206,8 +218,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     SettingsSwitch("Show new notifications in the island", s.notificationPeek, store::setNotificationPeek, "peek-switch")
     Text("Everything stays on this device. Badges count unread notifications per app; the island shows the app's name only, never the message.",
         style = note, color = muted)
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    }
 
+    if (section == ExtrasSection.ISLAND) {
     // Developer HUD: only offered by debuggable builds, so a release build has neither the switch nor the overlay.
     val hudContext = androidx.compose.ui.platform.LocalContext.current
     if (hudContext.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
@@ -218,10 +231,13 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
             style = note, color = muted)
         HorizontalDivider(Modifier.padding(vertical = 6.dp))
     }
+    }
 
+    if (section == ExtrasSection.PRIVACY) {
     PermissionLedgerSection(actions)
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    }
 
+    if (section == ExtrasSection.SEARCH) {
     Text("Contacts in search (optional)", style = MaterialTheme.typography.titleMedium)
     SettingsSwitch("Search contacts from All apps", s.contactSearch, { on ->
         if (on) { store.setContactSearch(true); if (!actions.hasContactsPermission()) actions.requestContacts() }
@@ -229,6 +245,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     }, "contact-search-switch")
     Text("Asks Android's contacts permission. Names are matched on this device and shown below the app results; nothing is stored or sent.",
         style = note, color = muted)
+    }
 }
 
 @Composable

@@ -112,7 +112,7 @@ private fun findFreeWidgetIndex(layout: HomeLayout, page: Int, spanX: Int, spanY
 @Composable
 fun DuoTheme(dark: Boolean = false, content: @Composable () -> Unit) {
     val palette = if (dark) DarkDuoPalette else LightDuoPalette
-    CompositionLocalProvider(LocalDuoPalette provides palette) {
+    CompositionLocalProvider(LocalDuoPalette provides palette, LocalIndication provides NoIndication) {
         MaterialTheme(shapes = DuoMaterialShapes, typography = DuoTypography, colorScheme = if (dark) darkColorScheme(primary = Color(0xFF9BC5D7), onPrimary = Color(0xFF12303D),
             surface = Color(0xFF17272E), onSurface = palette.ink, secondary = Color(0xFFD1BE98),
             secondaryContainer = Color(0xFF314852), onSecondaryContainer = palette.ink)
@@ -393,7 +393,9 @@ internal fun LauncherScreen(
     val blockedDock = drag.moved && target is DropTarget.Dock &&
         if (drag.source?.folderId != null) state.dock.none { it == null }
         else drag.source?.appId?.let { !canPlaceInDock(state.layout, it) } == true
-    val insertionTarget = target.takeIf { drag.moved && !blockedDock }
+    // Held over the middle of another app: the drop makes a folder, so nothing reflows out of the way.
+    val folderTargetApp = if (drag.active && drag.moved) folderDropTarget(drag.destination(drag.pointer, eligibleDragPages), drag.pointer, drag.source, ::isFolderId) else null
+    val insertionTarget = target.takeIf { drag.moved && !blockedDock && folderTargetApp == null }
     val widgetRawTarget = widgetSession?.let { session -> drag.regions.values.firstOrNull {
         it.target is DropTarget.Home && it.page in eligibleDragPages && it.bounds.contains(session.pointer)
     }?.target as? DropTarget.Home }
@@ -438,7 +440,11 @@ internal fun LauncherScreen(
             }
                 ?: rawDestination
         } else rawDestination
+        val folderOntoApp = if (moved && !cancelled && destination is DropTarget.Home)
+            folderDropTarget(drag.destination(drag.pointer, eligibleDragPages), drag.pointer, source, ::isFolderId) else null
         val changed = when {
+            folderOntoApp != null && destination is DropTarget.Home && source.folderId == null ->
+                model.createFolder(folderOntoApp, source.appId ?: "", destination.index) != null
             source.folderId != null && destination is DropTarget.Folder ->
                 model.addAppToFolder(destination.id, source.appId ?: "")
             source.folderId != null && destination != null && source.appId != null ->
@@ -608,6 +614,7 @@ internal fun LauncherScreen(
                         PullRoute.NOTIFICATIONS -> launcherActivity.openSystemShade(ShadePanel.NOTIFICATIONS)
                     }
                 },
+                onUpwardSwipe = { UnoFeedback.play(Cue.OPEN, haptic); island.collapse(); customizationPage = CustomizationPage.OVERVIEW; sheet = "settings" },
                 onLeadingOverscroll = if (firstHome == 0) onDiscover else null,
                 ignorePress = { point -> pageStripBounds.contains(point + gestureOriginInRoot) },
             )) {
@@ -789,7 +796,7 @@ internal fun LauncherScreen(
                         island.collapse()
                         if (pager.currentPage != -1) scope.launch { pager.animateScrollToPage(-1) }
                     },
-                    onCustomize = { island.collapse(); customizationPage = CustomizationPage.WALLPAPER; sheet = "settings" })
+                    onCustomize = { island.collapse(); customizationPage = CustomizationPage.OVERVIEW; sheet = "settings" })
                 // Charging transitions flash through the island.
                 LaunchedEffect(deviceStatus.charging) {
                     if (deviceStatus.charging == true) island.showCharging(deviceStatus.battery)
@@ -1212,7 +1219,7 @@ internal fun LauncherScreen(
             ControlPanel(controlGlass, extras?.store?.state ?: ExtrasState(), state.apps,
                 onToggleFocus = { extras?.toggleFocus?.invoke() },
                 onLaunchApp = { app -> controlPanelOpen = false; onLaunch(app) },
-                onCustomize = { controlPanelOpen = false; customizationPage = CustomizationPage.EXTRAS; sheet = "settings" },
+                onCustomize = { controlPanelOpen = false; customizationPage = CustomizationPage.PANEL; sheet = "settings" },
                 onDismiss = { controlPanelOpen = false }, onSystemSettings = {
                 controlPanelOpen = false
                 launcherActivity.openSystemShade(ShadePanel.QUICK_SETTINGS)

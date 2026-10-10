@@ -68,7 +68,7 @@ class NativeWidgetHomeBehaviorIntegrationTest {
                 if (listOf(candidate.text, candidate.contentDescription).any { it?.toString() == text }) return true
                 return (0 until candidate.childCount).any { contains(candidate.getChild(it), text) }
             }
-            val window = automation.windows.firstOrNull { contains(it.root, "Make it yours") || contains(it.root, "Home layout") }
+            val window = automation.windows.firstOrNull { contains(it.root, "Launcher settings") || contains(it.root, "Home layout") }
             fun scrollable(candidate: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
                 if (candidate == null) return null
                 if (candidate.isVisibleToUser && candidate.isScrollable) return candidate

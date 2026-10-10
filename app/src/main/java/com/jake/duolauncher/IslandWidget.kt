@@ -43,10 +43,8 @@ internal object IslandWidgetState {
     fun load(context: Context) {
         if (loaded) return
         loaded = true
+        // Preferences only: nothing here talks to the system, since this runs while the island is first composed.
         id = prefs(context).getInt("id", -1)
-        // A widget that was allocated but never finished (the app was closed half way through) is not kept.
-        val host = IslandWidgetHostHolder.get(context)
-        host.appWidgetIds.filter { it != id }.forEach(host::deleteAppWidgetId)
     }
 
     fun set(context: Context, value: Int) {
@@ -99,6 +97,8 @@ internal class IslandWidgetController(private val activity: ComponentActivity) {
 
     fun start(provider: AppWidgetProviderInfo) {
         cancel()
+        // A widget allocated earlier but never finished (the app was closed half way through) is not kept.
+        host.appWidgetIds.filter { it != IslandWidgetState.id }.forEach(host::deleteAppWidgetId)
         message = null
         pendingId = host.allocateAppWidgetId()
         try {

@@ -102,7 +102,7 @@ class NativeWidgetLifecycleIntegrationTest {
                 if (listOf(node.text, node.contentDescription).any { it?.toString() == text }) return true
                 return (0 until node.childCount).any { contains(node.getChild(it), text) }
             }
-            val window = automation.windows.firstOrNull { contains(it.root, "Make it yours") || contains(it.root, "Home layout") }
+            val window = automation.windows.firstOrNull { contains(it.root, "Launcher settings") || contains(it.root, "Home layout") }
             fun scrollable(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
                 if (node == null) return null
                 if (node.isVisibleToUser && node.isScrollable) return node

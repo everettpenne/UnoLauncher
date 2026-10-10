@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.26.0-uno01
+
+- No more shadow on tap: every press on Home drew either Material's grey ripple or a white bloom over the icon (pressGlow). Both are gone launcher-wide (LocalIndication is now a no-op); pressing is shown by the springy scale alone, which now settles faster (damping 0.6, stiffness 520 instead of 0.45 / 260).
+- Dropping an app on the middle of another app makes a folder of the two, as on iOS (within 30% of the cell's width and 35% of its height from the centre; nearer the edge is still an ordinary move). While held over the middle nothing reflows out of the way. Apps from All apps can be dropped onto Home apps the same way. The rule (folderDropTarget) is unit tested; apps never nest folders or widgets.
+- Swipe up from anywhere on Home opens the launcher settings (not when the touch starts on a widget that scrolls itself, or on a scrolled dock; the same guard the downward swipes use). Verified on an emulator.
+- Settings reorganised like iOS Settings: a grouped overview (Look: Wallpaper & glass, App icons; Home: Home layout, Gestures & feel, Search, Control panel & Focus; Island & keyboard: Dynamic island, Keyboard; Privacy: Notifications & privacy; More: News feed, Backup, Updates, Help). The old "Control panel & extras" page, which held about twenty unrelated sections, is split into those pages, and the island switches moved off the wallpaper page onto the Dynamic island page. Every switch keeps its test tag. Opening the island's Customize button now lands on the overview.
+- Folders show a 3x3 preview (from 0.24) and the press feel above applies to them too.
+- Not verified on a device: the emulator was too slow to judge drag-to-folder or the feel of the changes; please try dragging apps onto each other, tapping icons, and swiping up on a real phone.
+
 ## 0.25.0-uno01
 
 - Pop-out bubbles: with more live activities than the pill can carry (it shows two), the extras come out as small round bubbles beside the pill, up to two, as on newer dynamic islands. Tapping a bubble brings its activity to the front of the pill. The island's drawing window reserves room for them and the touch window grows to cover them while they show. The ordering rules (IslandBubbles) are unit tested; verified on an emulator with camera, microphone and a Live Update at once (the Live Update showed as a bubble, and a tap on it put "12 min" on the pill). Debug builds can fake the camera and microphone with the debug broadcast (--ez camera true --ez mic true).

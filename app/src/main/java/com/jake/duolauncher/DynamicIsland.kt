@@ -316,6 +316,10 @@ internal fun DynamicIsland(
             }
         }
     }
+    // The apps picked for the control panel's shortcuts, one tap from the open island (looked up off the main thread, and only while open).
+    val quickApps by produceState(emptyList<QuickApp>(), state.expanded) {
+        value = if (state.expanded && IslandQuick.enabled(context)) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { IslandQuick.resolve(context) } else emptyList()
+    }
     val torch = rememberTorch(active = state.expanded && IslandTools.toolsOpen)
     // A timer whose alarm never reached us (the process was stopped, or Android delayed it) must still finish: once the
     // clock passes its end it rings from here. onAlarm ignores a second trigger, so this cannot double up.
@@ -382,7 +386,8 @@ internal fun DynamicIsland(
     val compactTarget = if (anchoredToWindow && !hasLiveContent) 1f else 0f
     val compactness by animateFloatAsState(compactTarget, spring(dampingRatio = .8f, stiffness = 380f), label = "island compact")
     val frame = IslandGeometry.frame(environment, d, progress, sizeScale,
-        extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(IslandTools.toolsOpen) - actionsTrimDp,
+        extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(IslandTools.toolsOpen) +
+            (if (IslandTools.toolsOpen) TOOLS_PANELS_ROW_DP else if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) - actionsTrimDp,
         extraWidthDp = eventWidth, compactness = compactness)
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
     val corner = minOf(minOf(frame.width, frame.height) / 2f, 30f * d) / d
@@ -424,7 +429,7 @@ internal fun DynamicIsland(
     // the island opened from the wrong corner and collapsed through the wrong place. Touches are taken by a separate small window
     // that follows the island (see IslandOverlayHost), so the empty part of this one never blocks the app underneath.
     val windowRect: PxRect? = if (anchoredToWindow && frame.side == IslandSide.TOP) {
-        val open = IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + UPDATE_ROW_DP + IslandWidgetState.ROW_DP + 6f - actionsTrimDp)
+        val open = IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + UPDATE_ROW_DP + IslandWidgetState.ROW_DP + 6f + maxOf(QUICK_ROW_DP, TOOLS_PANELS_ROW_DP) - actionsTrimDp)
         val wide = IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = MAX_EVENT_EXTRA_DP)
         val pad = 10f * d
         PxRect(
@@ -665,6 +670,14 @@ internal fun DynamicIsland(
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(6.dp))
                 }
+                if (quickApps.isNotEmpty()) Row(Modifier.fillMaxWidth().height(QUICK_ROW_DP.dp - 6.dp).padding(bottom = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                    quickApps.forEach { app ->
+                        Image(app.icon, app.label, Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).clickable {
+                            launchIslandApp(context, app.component); state.collapse()
+                        }.testTag("island-quick-app"))
+                    }
+                }
                 if (showActions) Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     if (onWebSearch != null) {
@@ -723,6 +736,9 @@ internal const val MAX_QUEUED_FLASHES = 3
 internal const val MEDIA_ROW_DP = 126f
 /** The height the open panel reserves for its action buttons, in dp; taken back where they are not shown. */
 internal const val ACTIONS_ROW_DP = 44f
+/** The quick-launch strip of apps in the open island, and the row of system panels in the tools face. */
+internal const val QUICK_ROW_DP = 52f
+internal const val TOOLS_PANELS_ROW_DP = 46f
 /** Extra panel height, in dp, when a Live Update card is showing. */
 internal const val UPDATE_ROW_DP = 76f
 
@@ -854,6 +870,12 @@ private fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
             Text("On call · ${IslandClock.countdown((nowMs - call.startedAt).coerceAtLeast(0L))}",
                 color = IosGreen, fontSize = 11.sp, maxLines = 1)
         }
+        call.hangUp?.let { end ->
+            // The call app's own hang-up action, sent as it would be from its notification.
+            Box(Modifier.padding(end = 6.dp).height(26.dp).clip(RoundedCornerShape(50)).background(Color(0xFFFF453A))
+                .clickable { runCatching { end.send() } }.padding(horizontal = 12.dp).testTag("island-call-end"),
+                contentAlignment = Alignment.Center) { Text("End", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+        }
         Icon(Icons.AutoMirrored.Rounded.OpenInNew, "Open call", tint = Color.White.copy(alpha = .7f),
             modifier = Modifier.size(14.dp).padding(end = 4.dp))
     }
@@ -921,6 +943,18 @@ private fun IslandToolsFace(clockMs: Long, torch: TorchState) {
         if (IslandTools.stopwatchStarted && !IslandTools.swRunning) ToolButton(Icons.Rounded.Refresh, "Reset stopwatch") { IslandTools.resetStopwatch(context) }
         ToolButton(if (torch.on) Icons.Rounded.FlashlightOn else Icons.Rounded.FlashlightOff,
             if (torch.on) "Flashlight, on" else "Flashlight", enabled = torch.available) { IslandTools.touch(); torch.toggle() }
+    }
+    // Android's own quick panels, which slide up over whatever is on screen (they need no permission): internet and volume.
+    Row(Modifier.fillMaxWidth().height(TOOLS_PANELS_ROW_DP.dp).testTag("island-tools-panels"), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        listOf("Internet" to android.provider.Settings.Panel.ACTION_INTERNET_CONNECTIVITY, "Volume" to android.provider.Settings.Panel.ACTION_VOLUME)
+            .forEach { (label, action) ->
+                Box(Modifier.weight(1f).height(34.dp).clip(RoundedCornerShape(percent = 50)).background(Color.White.copy(alpha = .14f))
+                    .clickable { IslandTools.touch(); runCatching { context.startActivity(android.content.Intent(action).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+                    .semantics { contentDescription = "Open $label panel" }.testTag("island-panel-${label.lowercase()}"), contentAlignment = Alignment.Center) {
+                    Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                }
+            }
     }
 }
 

@@ -47,7 +47,7 @@ Screenshots show sample data on an emulator sized to the reference Fold, and som
 | See notifications | Pull down from the top-left of Home (needs the optional shade service, see below) |
 | Open the control panel | Pull down from the top-right of Home: media, volume, brightness, ringer, flashlight, Focus, shortcuts and a hand-off to Android's Quick Settings |
 | Move an app or widget | Long-press, then drag. Hold at a screen edge to change or create a page |
-| Make a folder | Drop an app onto the **middle** of another app. Drop nearer the edge to just move it there |
+| Make a folder | Drop an app onto the **middle** of another app. Drop nearer the edge to just move it there. Drop an app on a **large folder** to put it inside |
 | Add to the dock | Drag an app into a free dock slot (move one out first if the dock is full) |
 | Open Discover / your news feed | Swipe right from the first Home page, or tap the compass. It shows Google's feed when available, otherwise your own feed |
 | Use split screen | Long-press an app, **Open in split screen**, then pick the second app |
@@ -77,10 +77,11 @@ Long-press empty space, choose **Widgets**, and pick one.
 
 The pill around your camera shows what is happening, and opens into a small panel.
 
-- **Tap** it to open the panel (time, battery with time-to-full while charging, music, a call, a Live Update, your widget, a web-search field, and shortcuts to the feed and settings). **Swipe up** or tap outside to close it. **Long-press** it for tools: a flashlight, a timer and a stopwatch.
+- **Tap** it to open the panel (time, battery with time-to-full while charging, music, a call, a Live Update, your widget, a web-search field, and shortcuts to the feed and settings). **Swipe up** or tap outside to close it. **Long-press** it for tools: a flashlight, a timer and a stopwatch, plus Android's own **Internet** and **Volume** panels.
 - **Several things at once:** the pill carries two; a third and fourth pop out as round **bubbles** beside it. Tap a bubble to bring it to the front, or flick across the pill to turn the order.
 - **What it shows:** music (title, artwork, controls and a seek bar you can tap or drag), calls (caller and time), timers and the stopwatch, **Android 16 Live Updates** (a ride, a delivery, a timer), camera and microphone marks, a red mark while the screen is recorded, VPN and USB-data alerts, headphone and Bluetooth audio connecting, ringer, airplane and Do Not Disturb changes, charging, and optionally a peek when a notification arrives.
 - **Over other apps:** turn on **Island everywhere** and grant "Display over other apps". If you also enable the optional shade service, the island is drawn above the status bar so it can be tapped. It steps aside in landscape (video and games).
+- **Shortcuts and buttons:** the open island carries the apps you picked under *Control panel & Focus → Shortcuts in the panel* (up to five, one tap each), and Search, Feed and Customize buttons. Over other apps those buttons open Uno on that screen, because an overlay cannot take typing. During a call the card has an **End** button.
 - **A widget in the island:** choose one Android widget in *Dynamic island* settings for the open panel to show.
 - **Control:** every switch is in *Dynamic island* settings, including **Apps that can use the island** (switch off any app's Live Updates and peeks).
 
@@ -125,7 +126,7 @@ No launcher account, server, advertising, analytics or automatic crash upload is
 - Panels and widgets use circular-arc corners and only app icons get continuous corners: the glass library accepts rounded rectangles only.
 - Discover can differ across Google, Android and vendor updates; recovery controls always return you Home. The news feed works without the Google app, reads RSS 2.0 and Atom with plain summaries, and needs a browser to open stories.
 - Work apps and widgets remain subject to administrator policy. Private Space is not supported. Icon packs are not implemented. Folders cannot nest or sit in the dock.
-- Imported Android widgets must be bound again; backups exclude widget stacks, photo backgrounds and system widget capabilities. A large folder or widget restored on another phone keeps its apps only where the same apps exist.
+- Imported Android widgets must be bound again; backups exclude widget stacks, photo backgrounds and system widget capabilities. A large folder or widget restored on another phone keeps its apps only where the same apps exist. Known problems and unverified features are listed in [future fixes needed](docs/future-fixes.md).
 - The full-screen rule is landscape only (portrait full-screen apps cannot be detected without reading other apps' windows, which Uno will not do). Moon phase is the mean cycle and can be hours off.
 - Secure lock-screen replacement and hinge-driven cross-display animation are outside scope.
 
@@ -143,7 +144,7 @@ The project is Kotlin and Jetpack Compose with native widget hosting. Unit tests
 
 ## Documentation, feedback and licence
 
-[User guide](docs/user-guide.md) · [Troubleshooting](docs/troubleshooting.md) · [Island roadmap](docs/island-roadmap.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Data and permissions](PRIVACY.md)
+[User guide](docs/user-guide.md) · [Troubleshooting](docs/troubleshooting.md) · [Island roadmap](docs/island-roadmap.md) · [Future fixes needed](docs/future-fixes.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Data and permissions](PRIVACY.md)
 
 Use the issue templates with version, phone model, Android version, folded or unfolded state and reproduction steps, and review screenshots and logs for personal and work information first.
 

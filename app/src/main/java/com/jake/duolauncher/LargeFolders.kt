@@ -99,6 +99,13 @@ internal object LargeFolders {
 
     fun of(slot: Int): LargeFolder = folders[slot] ?: LargeFolder()
 
+    /** Puts the app in, if it is not there and there is room. True when it is in afterwards. */
+    fun add(slot: Int, appId: String): Boolean {
+        if (appId in of(slot).appIds) return true
+        val next = LargeFolderRules.toggle(of(slot), appId) ?: return false
+        commit(folders + (slot to next)); return true
+    }
+
     fun toggle(slot: Int, appId: String) { LargeFolderRules.toggle(of(slot), appId)?.let { commit(folders + (slot to it)) } }
     fun rename(slot: Int, title: String) { commit(folders + (slot to LargeFolderRules.rename(of(slot), title))) }
     fun prune(placedSlots: Set<Int>) {

@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
     private val homeRequests = mutableIntStateOf(0)
     private val searchRequests = mutableIntStateOf(0)
     private val feedSetupRequests = mutableIntStateOf(0)
+    private val customizeRequests = mutableIntStateOf(0)
     private val defaultHome = mutableStateOf(false)
     private val showFirstRun = mutableStateOf(false)
     private lateinit var setupExperience: SetupExperience
@@ -134,7 +135,7 @@ class MainActivity : ComponentActivity() {
             runOnUiThread { if (app != null) island.showPeek(app, label) else island.showEvent(IslandEvent(label, IslandSymbol.NOTIFICATION)) }
         }
         updateDefaultHome()
-        if (savedInstanceState == null && intent.getStringExtra("duo_destination") == "search") searchRequests.intValue++
+        if (savedInstanceState == null) openDestination(intent.getStringExtra("duo_destination"))
         intent.removeExtra("duo_destination")
         setContent {
             SideEffect { UnoFeedback.configure(this@MainActivity, extrasStore.state.haptics, extrasStore.state.sounds) }
@@ -167,6 +168,7 @@ class MainActivity : ComponentActivity() {
                     extras = extrasActions,
                     feed = feeds.state.collectAsStateWithLifecycle().value,
                     feedSetupRequests = feedSetupRequests.intValue,
+                    customizeRequests = customizeRequests.intValue,
                     onFeedRefresh = feeds::refresh,
                     onFeedOpenEntry = ::openFeedEntry,
                     onFeedVisible = { feeds.refreshIfStale() },
@@ -321,11 +323,20 @@ class MainActivity : ComponentActivity() {
         outState.putBoolean(SHADE_SETTINGS_PENDING, returningFromShadeSettings)
         super.onSaveInstanceState(outState)
     }
+    /** Where an island button or a shortcut asked the launcher to go. */
+    private fun openDestination(destination: String?) {
+        when (destination) {
+            "search" -> searchRequests.intValue++
+            "customize" -> customizeRequests.intValue++
+            "feed" -> window.decorView.post { openDiscover() }
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         FoldRenderExperiment.onNewIntent(this, intent)
-        if (intent.getStringExtra("duo_destination") == "search") searchRequests.intValue++
+        if (intent.getStringExtra("duo_destination") in setOf("search", "feed", "customize")) openDestination(intent.getStringExtra("duo_destination"))
         else if (intent.hasCategory(Intent.CATEGORY_HOME) || intent.getStringExtra("duo_destination") == "home") homeRequests.intValue++
         intent.removeExtra("duo_destination")
     }

@@ -131,7 +131,7 @@ internal fun LauncherScreen(
     state: LauncherState, model: LauncherModel, widgets: WidgetController, homeRequests: Int,
     onLaunch: (AppEntry) -> Unit, onMakeDefault: () -> Unit, onAppInfo: (AppEntry) -> Unit,
     isDefaultHome: Boolean, deviceStatus: DeviceStatus, onStatusMode: (Boolean) -> Unit, onWallpaperPreview: () -> Unit,
-    onDiscover: () -> Unit = {}, searchRequests: Int = 0,
+    onDiscover: () -> Unit = {}, searchRequests: Int = 0, customizeRequests: Int = 0,
     onLaunchFrom: (AppEntry, android.graphics.Rect?) -> Unit = { app, _ -> onLaunch(app) },
     onGoogleSearch: (android.graphics.Rect?) -> Boolean = { false },
     appearance: AppearanceState = AppearanceState(),
@@ -353,6 +353,7 @@ internal fun LauncherScreen(
         focus.clearFocus(); keyboard?.hide()
         pager.animateScrollToPage(page)
     } }
+    LaunchedEffect(customizeRequests) { if (customizeRequests > 0) { island.collapse(); customizationPage = CustomizationPage.OVERVIEW; sheet = "settings" } }
     LaunchedEffect(searchRequests) { if (searchRequests > 0) { drag.clear(); widgetSession = null; resizeSlot = null; sheet = ""; widgetPackage = null; widgetExactTarget = false; selectedId = null
         if (!state.googleSearch || !onGoogleSearch(null)) pager.animateScrollToPage(homePages)
     } }
@@ -449,9 +450,18 @@ internal fun LauncherScreen(
             }
                 ?: rawDestination
         } else rawDestination
+        // An app dropped on a large folder goes into it (and leaves its Home or dock spot, as it would into an ordinary folder).
+        val largeFolderSlot = if (moved && !cancelled && source.appId != null && !isFolderId(source.appId) && source.folderId == null &&
+            (source.target is DropTarget.Home || source.target is DropTarget.Dock || source.target is DropTarget.Library))
+            drag.regions.values.firstOrNull { it.target is DropTarget.Widget && it.widgetId == FOLDER_WIDGET && it.page in eligibleDragPages &&
+                it.bounds.contains(drag.pointer) }?.let { (it.target as DropTarget.Widget).index } else null
         val folderOntoApp = if (moved && !cancelled && destination is DropTarget.Home)
             folderDropTarget(drag.destination(drag.pointer, eligibleDragPages), drag.pointer, source, ::isFolderId) else null
         val changed = when {
+            largeFolderSlot != null && source.appId != null && LargeFolders.add(largeFolderSlot, source.appId) -> {
+                if (source.target is DropTarget.Home || source.target is DropTarget.Dock) model.removePlacement(source.target)
+                true
+            }
             folderOntoApp != null && destination is DropTarget.Home && source.folderId == null ->
                 model.createFolder(folderOntoApp, source.appId ?: "", destination.index) != null
             source.folderId != null && destination is DropTarget.Folder ->

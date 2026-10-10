@@ -72,4 +72,33 @@ class LargeFolderIntegrationTest {
             }
         } finally { compose.runOnIdle { model().restoreLayout(before) } }
     }
+
+    @Test fun anAppDroppedOnALargeFolderGoesIntoIt() {
+        ready()
+        val before = model().state.value.layout
+        try {
+            compose.runOnIdle {
+                model().state.value.order.toList().forEach { model().setPinned(it, false) }
+                model().state.value.layout.widgetPlacements.map { it.slot }.forEach { model().removePlacement(DropTarget.Widget(it)) }
+            }
+            compose.waitForIdle()
+            compose.runOnIdle { model().state.value.apps.take(4).forEach { model().setPinned(it.id, true) } }
+            compose.waitForIdle()
+            val layout = model().state.value.layout
+            val from = layout.slots.indexOfFirst { it != null }
+            assertTrue("an app is on Home: ${layout.slots}", from >= 0)
+            val app = model().state.value.apps.first { it.id == layout.slots[from] }
+            val slot = (layout.widgetPlacements.maxOfOrNull { it.slot } ?: -1) + 1
+            // A free 2 x 2 elsewhere on the page.
+            val index = (0 until HOME_CELLS).first { it != from && widgetCandidate(layout, slot, it, 2, 2) != null && from !in widgetCandidate(layout, slot, it, 2, 2)!!.coveredIndices() }
+            compose.runOnIdle { assertTrue(model().placeWidget(widgetCandidate(layout, slot, index, 2, 2)!!.copy(id = FOLDER_WIDGET))) }
+            compose.waitForIdle()
+            val start = compose.onNodeWithTag("home-cell-$from").fetchSemanticsNode().boundsInRoot.center
+            val end = compose.onAllNodesWithTag("large-folder-$slot", useUnmergedTree = true)[0].fetchSemanticsNode().boundsInRoot.center
+            compose.onNodeWithTag("launcher-root").performTouchInput { down(start); advanceEventTime(700); moveTo(start + androidx.compose.ui.geometry.Offset(3f, 0f)); moveTo(end, 300); up() }
+            compose.waitForIdle()
+            assertTrue("it is in the large folder", app.id in LargeFolders.of(slot).appIds)
+            assertNull("and has left its Home spot", model().state.value.layout.slots.getOrNull(from))
+        } finally { compose.runOnIdle { model().restoreLayout(before) } }
+    }
 }

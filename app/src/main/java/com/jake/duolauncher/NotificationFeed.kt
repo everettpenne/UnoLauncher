@@ -26,7 +26,9 @@ import androidx.core.graphics.drawable.toBitmap
  * lasts; the caller text and start time are held in memory only and never stored.
  */
 internal data class OngoingCall(val caller: String, val packageName: String, val startedAt: Long,
-    val openIntent: android.app.PendingIntent?)
+    val openIntent: android.app.PendingIntent?,
+    /** The call notification's own hang-up action, when it has one (an ongoing call); the island's End button sends it. */
+    val hangUp: android.app.PendingIntent? = null)
 
 /** Pure rules for recognising a live call from a notification's public fields. */
 internal object CallLogic {
@@ -160,7 +162,10 @@ class UnoNotificationListener : NotificationListenerService() {
         val caller = CallLogic.callerFrom(sbn.notification.category, sbn.notification.extras.getCharSequence(Notification.EXTRA_TITLE),
             sbn.isOngoing, sbn.packageName, packageName)
         if (caller != null) {
-            NotificationFeed.ongoingCall = OngoingCall(caller, sbn.packageName, sbn.postTime, sbn.notification.contentIntent)
+            val n = sbn.notification
+            val hangUpAt = CallActions.hangUpIndex(n.extras.getInt("android.callType", 0), n.actions?.size ?: 0)
+            NotificationFeed.ongoingCall = OngoingCall(caller, sbn.packageName, sbn.postTime, n.contentIntent,
+                hangUpAt?.let { n.actions[it].actionIntent })
         }
     }
 

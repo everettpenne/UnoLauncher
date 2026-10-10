@@ -2,6 +2,7 @@ package com.jake.duolauncher
 
 import android.app.KeyguardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.PowerManager
 import android.provider.Settings
@@ -81,6 +82,15 @@ internal class IslandOverlayHost(
         windowManager = context.getSystemService(WindowManager::class.java)
         savedStateController.performRestore(null)
         addWindow()
+    }
+
+    /** Opens the launcher on [destination] (search, feed or customize) and closes the island. */
+    private fun openUno(destination: String) {
+        IslandRuntime.state.collapse()
+        runCatching {
+            context.startActivity(Intent(context, MainActivity::class.java).putExtra("duo_destination", destination)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }
     }
 
     private fun collapseIfOpen() { if (IslandRuntime.state.expanded) IslandRuntime.state.collapse() }
@@ -205,14 +215,15 @@ internal class IslandOverlayHost(
                     dockWidthPx = 0f,
                     environmentOverride = environment,
                     anchoredToWindow = true,
-                    showActions = false,
+                    showActions = true,
                     onFrameChanged = { frame, window ->
                         lastFrame = frame; lastWindow = window
                         applyLayout()
                     },
-                    onSearch = {},
-                    onOpenFeed = {},
-                    onCustomize = {},
+                    // The island here cannot take typing (it is never focused), so its buttons open Uno on the right screen instead.
+                    onSearch = { openUno("search") },
+                    onOpenFeed = { openUno("feed") },
+                    onCustomize = { openUno("customize") },
                 )
             }
         }

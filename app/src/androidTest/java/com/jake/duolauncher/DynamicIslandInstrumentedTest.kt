@@ -147,4 +147,28 @@ class DynamicIslandInstrumentedTest {
         assertEquals("the field empties after sending", "", compose.onAllNodesWithTag("island-search-field", useUnmergedTree = true)[0]
             .fetchSemanticsNode().config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.EditableText)?.text ?: "")
     }
+
+    @Test fun theOpenIslandShowsTheControlPanelShortcutsAsAQuickLaunchStrip() {
+        val prefs = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+            .getSharedPreferences("extras", android.content.Context.MODE_PRIVATE)
+        val before = prefs.getString("shortcuts", null)
+        try {
+            prefs.edit().putString("shortcuts", "com.jake.duolauncher/com.jake.duolauncher.MainActivity").commit()
+            show()
+            compose.runOnIdle { state.toggle() }
+            compose.waitUntil(20_000) { compose.onAllNodesWithTag("island-quick-app", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+            assertEquals(1, compose.onAllNodesWithTag("island-quick-app", useUnmergedTree = true).fetchSemanticsNodes().size)
+        } finally { prefs.edit().apply { if (before == null) remove("shortcuts") else putString("shortcuts", before) }.commit() }
+    }
+
+    @Test fun anOngoingCallWithAHangUpActionShowsAnEndButton() {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val noop = android.app.PendingIntent.getBroadcast(context, 0, android.content.Intent("com.jake.duolauncher.TEST_HANGUP").setPackage(context.packageName),
+            android.app.PendingIntent.FLAG_IMMUTABLE)
+        show()
+        compose.runOnIdle { NotificationFeed.ongoingCall = OngoingCall("Ada", "com.example.phone", System.currentTimeMillis(), noop, hangUp = noop) }
+        compose.runOnIdle { state.toggle() }
+        compose.waitForIdle()
+        try { assertPresent("island-call-end") } finally { compose.runOnIdle { NotificationFeed.ongoingCall = null } }
+    }
 }

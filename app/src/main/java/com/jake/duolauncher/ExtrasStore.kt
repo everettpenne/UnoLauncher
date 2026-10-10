@@ -25,6 +25,7 @@ internal data class ExtrasState(
     val privacyIndicators: Boolean = true,
     val securityAlerts: Boolean = true,
     val audioAlerts: Boolean = true,
+    val islandShortcuts: Boolean = true,
     val liveUpdates: Boolean = true,
     val islandEverywhere: Boolean = false,
     val notificationPeek: Boolean = false,
@@ -77,6 +78,7 @@ internal class ExtrasStore(context: Context) {
         privacyIndicators = prefs.getBoolean("privacyIndicators", true),
         securityAlerts = prefs.getBoolean("securityAlerts", true),
         audioAlerts = prefs.getBoolean("audioAlerts", true),
+        islandShortcuts = prefs.getBoolean("islandShortcuts", true),
         liveUpdates = prefs.getBoolean("liveUpdates", true),
         islandEverywhere = prefs.getBoolean("islandEverywhere", false),
         notificationPeek = prefs.getBoolean("notificationPeek", false),
@@ -112,6 +114,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("privacyIndicators", next.privacyIndicators)
             .putBoolean("securityAlerts", next.securityAlerts)
             .putBoolean("audioAlerts", next.audioAlerts)
+            .putBoolean("islandShortcuts", next.islandShortcuts)
             .putBoolean("liveUpdates", next.liveUpdates)
             .putBoolean("islandEverywhere", next.islandEverywhere)
             .putBoolean("notificationPeek", next.notificationPeek)
@@ -146,6 +149,7 @@ internal class ExtrasStore(context: Context) {
     fun setBadges(value: Boolean) = save(state.copy(badges = value))
     fun setMediaDetails(value: Boolean) = save(state.copy(mediaDetails = value))
     fun setCallDetails(value: Boolean) = save(state.copy(callDetails = value))
+    fun setIslandShortcuts(value: Boolean) = save(state.copy(islandShortcuts = value))
     fun setAudioAlerts(value: Boolean) = save(state.copy(audioAlerts = value))
     fun setPrivacyIndicators(value: Boolean) = save(state.copy(privacyIndicators = value))
     fun setSecurityAlerts(value: Boolean) = save(state.copy(securityAlerts = value))

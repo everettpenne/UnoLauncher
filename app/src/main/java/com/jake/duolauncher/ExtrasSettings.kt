@@ -208,6 +208,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     SettingsSwitch("VPN and USB data alerts", s.securityAlerts, store::setSecurityAlerts, "security-alerts-switch")
     Text("The island flashes when a VPN connects or drops and when a USB data connection starts or ends (plain charging is not announced here). It needs no extra permission and keeps nothing.",
         style = note, color = muted)
+    SettingsSwitch("App shortcuts in the island", s.islandShortcuts, store::setIslandShortcuts, "island-shortcuts-switch")
+    Text("The open island shows the apps you picked under Control panel & Focus, Shortcuts in the panel (up to five), one tap each, like the app shortcuts in HyperOS's island. Long-press the island for tools: timer, stopwatch, flashlight, and Android's internet and volume panels. During a call the card has an End button.",
+        style = note, color = muted)
     SettingsSwitch("Headphone and Bluetooth audio alerts", s.audioAlerts, store::setAudioAlerts, "audio-alerts-switch")
     Text("The island flashes the name of Bluetooth audio, a headset or headphones when they connect or disconnect. It needs no permission and keeps nothing. Opening the island on a charging phone also shows how long until it is full.",
         style = note, color = muted)

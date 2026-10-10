@@ -214,6 +214,9 @@ internal fun LauncherScreen(
         onDispose { if (active) LiveDiscover.setExternalResultPending(launcherActivity, "main", "widget-picker", false) }
     }
     val appsById = remember(state.apps) { state.apps.associateBy { it.id } }
+    SideEffect { HomeAppsBridge.apps = appsById; HomeAppsBridge.launch = onLaunchFrom }
+    // A large folder whose Home widget is gone takes its contents with it.
+    LaunchedEffect(state.widgetPlacements) { LargeFolders.prune(state.widgetPlacements.filter { it.id == FOLDER_WIDGET }.map { it.slot }.toSet()) }
     val drag = remember { HomeDragState() }
     val folderOwnsInput = openFolderId != null || drag.source?.folderId != null
     DisposableEffect(folderOwnsInput) {
@@ -918,6 +921,7 @@ internal fun LauncherScreen(
                                 },
                                 onRemove = { widgets.remove(widgetSlot); sheet = "" },
                                 onClose = { sheet = "" },
+                                onEditFolder = if (placement.id == FOLDER_WIDGET) {{ sheet = "largeFolder" }} else null,
                                 stackMembers = WidgetStacks.members(widgetSlot).map { it to widgets.label(it) },
                                 onStackWith = if (state.widgetPlacements.any { it.slot != widgetSlot && it.id >= 0 && widgets.manager.getAppWidgetInfo(it.id) != null }
                                     && WidgetStacks.members(widgetSlot).size < StackRules.MAX_MEMBERS) {{ sheet = "stackPick" }} else null,
@@ -925,6 +929,7 @@ internal fun LauncherScreen(
                                     WidgetStacks.remove(widgetSlot, memberId); widgets.pruneUnusedIds()
                                 })
                         }
+                        "largeFolder" -> LargeFolderEditor(widgetSlot, state.apps) { sheet = "widgetActions" }
                         "stackPick" -> Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)
                             .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1173,6 +1178,7 @@ internal fun LauncherScreen(
                                             ?: when (session.builtinId) {
                                                 CLOCK_WIDGET -> "Clock"
                                                 DATE_WIDGET -> "Date"
+                                                FOLDER_WIDGET -> "Large folder"
                                                 else -> "Widget panel"
                                             }, color = Ink,
                                             textAlign = TextAlign.Center)
@@ -2171,6 +2177,7 @@ private fun widgetLabel(id: Int, controller: WidgetController) = when (id) {
     CLOCK_WIDGET -> "Clock"
     DATE_WIDGET -> "Date"
     INFO_WIDGET -> "Widget panel"
+    FOLDER_WIDGET -> "Large folder"
     EMPTY_WIDGET -> "Add widget"
     else -> controller.label(id)
 }
@@ -2187,6 +2194,7 @@ private fun MovableWidget(id: Int, slot: Int, controller: WidgetController, drag
         when (id) {
             CLOCK_WIDGET -> ClockCard(onAdd)
             DATE_WIDGET -> DateCard(onAdd)
+            FOLDER_WIDGET -> LargeFolderFace(slot, onAdd)
             INFO_WIDGET -> if (slot % 3 == 2) ExpandedCard(onAdd) else GlassCard(onClick = onAdd) {
                 val ink = LocalGlassInk.current
                 Icon(Icons.Rounded.Widgets, null, tint = ink.primary, modifier = Modifier.size(28.dp))
@@ -2365,6 +2373,7 @@ private fun WidgetActions(
     stackMembers: List<Pair<Int, String>> = emptyList(),
     onStackWith: (() -> Unit)? = null,
     onRemoveFromStack: (Int) -> Unit = {},
+    onEditFolder: (() -> Unit)? = null,
 ) {
     val sheetMaxHeight = with(LocalDensity.current) {
         (LocalWindowInfo.current.containerSize.height * .88f).toDp()
@@ -2385,6 +2394,7 @@ private fun WidgetActions(
             Text("Widget options", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close widget options") }
         }
+        onEditFolder?.let { ActionRow(Icons.Rounded.Folder, "Choose folder apps", it, Modifier.testTag("widget-folder-apps-${placement.slot}")) }
         onStackWith?.let { ActionRow(Icons.Rounded.Layers, "Stack another widget here", it, Modifier.testTag("widget-stack-${placement.slot}")) }
         stackMembers.forEach { (memberId, label) ->
             ActionRow(Icons.Rounded.RemoveCircleOutline, "Remove $label from this stack", { onRemoveFromStack(memberId) },

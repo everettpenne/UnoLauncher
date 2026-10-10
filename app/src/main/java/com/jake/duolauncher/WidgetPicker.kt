@@ -258,7 +258,7 @@ internal fun VisualWidgetPicker(
                 if (words.isEmpty() && selectedProfile.isPersonal) {
                     item("duo-widgets") { Text("Uno Launcher", style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 10.dp, start = 4.dp)) }
-                    items(listOf(CLOCK_WIDGET to "Clock", DATE_WIDGET to "Date", INFO_WIDGET to "Widget panel"),
+                    items(listOf(CLOCK_WIDGET to "Clock", DATE_WIDGET to "Date", INFO_WIDGET to "Widget panel", FOLDER_WIDGET to "Large folder"),
                         key = { "builtin-${it.first}" }) { (id, label) ->
                         Surface(Modifier.fillMaxWidth().testTag("widget-builtin-$id")
                             .clickable { focusManager.clearFocus(); keyboard?.hide(); onBuiltin(id) },

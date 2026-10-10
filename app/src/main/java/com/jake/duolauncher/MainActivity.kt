@@ -101,6 +101,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // Before anything can prune widget ids: stacked widgets are not on the grid but must stay bound.
         WidgetStacks.init(this)
+        LargeFolders.init(this)
         super.onCreate(savedInstanceState)
         setupExperience = SetupExperience(this)
         showFirstRun.value = setupExperience.entryDecision(SetupExperience.hadLauncherState(this)) ==

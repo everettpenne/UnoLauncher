@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.28.0-uno01
+
+- Large folders, as in HyperOS: a folder that takes several Home cells and shows its apps on its face, so each launches with one tap without opening anything. Add one from the widget picker (Uno Launcher, "Large folder"; 2 x 2 to start), then tap it and choose "Choose folder apps" to pick up to 24 apps and name it. It is resized like any widget (Widget options, Resize), and a bigger face shows more icons (icons are 44 dp in 56 dp cells; the face shows as many as fit, in as many columns as fit). Moving, paging and removing use the widget machinery; the apps and name live in their own preference file (LargeFolders), and a folder whose widget is gone takes its contents with it.
+- Built as a built-in widget (FOLDER_WIDGET = -6) rather than a bigger kind of the ordinary folder, because the ordinary folder is one cell in the layout's slot list and every drop, undo and backup rule depends on that; multi-cell placement, collision, resize and paging already exist for widgets. The cost: it is not the ordinary folder, so you cannot drop an app onto it to add it (use Choose folder apps), and apps in a large folder are also still on Home wherever you had them.
+- Backup: a layout backup keeps the large folder's place and size but not its apps or name (like widget stacks), so a restored one is empty until you choose its apps again.
+- Tests: unit tests for the storage, toggle, limits, pruning and capacity rules; an instrumented test that places a large folder, fills it, checks its apps are on the face, and that removing the widget clears its contents (passes on an emulator). Not tried: tapping an icon on the face (launching), the picker's own path to placing it, and the editor sheet.
+
 ## 0.27.0-uno01
 
 Features taken from HyperOS (3.x) after reading what its launcher and Super Island do (third-party coverage; Xiaomi's own changelogs were not available):

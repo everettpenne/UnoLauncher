@@ -171,4 +171,43 @@ class DynamicIslandInstrumentedTest {
         compose.waitForIdle()
         try { assertPresent("island-call-end") } finally { compose.runOnIdle { NotificationFeed.ongoingCall = null } }
     }
+
+    private fun card(title: String?, text: String?, seconds: Int = 6) = PeekNotification("com.example.chat", "Chat", title, text, null, null, seconds)
+
+    @Test fun aNotificationCardShowsTheTitleAndTextItWasGiven() {
+        show()
+        compose.runOnIdle { state.showPeekCard(card("Ada", "see you at six")) }
+        compose.waitForIdle()
+        assertPresent("island-peek-card"); assertPresent("island-peek-title"); assertPresent("island-peek-text")
+    }
+
+    @Test fun aTitleOnlyCardHasNoTextLine() {
+        show()
+        compose.runOnIdle { state.showPeekCard(card("Ada", null)) }
+        compose.waitForIdle()
+        assertPresent("island-peek-title")
+        assertEquals(0, compose.onAllNodesWithTag("island-peek-text", useUnmergedTree = true).fetchSemanticsNodes().size)
+    }
+
+    @Test fun theCardTucksAwayAfterTheTimeChosenForItsApp() {
+        compose.mainClock.autoAdvance = false
+        show()
+        compose.runOnIdle { state.showPeekCard(card("Ada", "hi", seconds = 3)) }
+        compose.mainClock.advanceTimeBy(1_000)
+        assertPresent("island-peek-card")
+        compose.mainClock.advanceTimeBy(4_000)
+        compose.waitForIdle()
+        assertFalse(state.expanded)
+        assertEquals(null, state.peekCard)
+    }
+
+    @Test fun aCardDoesNotInterruptAnIslandThePersonOpened() {
+        show()
+        compose.runOnIdle { state.toggle() }
+        compose.waitForIdle()
+        compose.runOnIdle { state.showPeekCard(card("Ada", "hi")) }
+        compose.waitForIdle()
+        assertEquals(null, state.peekCard)
+        assertTrue(state.expanded)
+    }
 }

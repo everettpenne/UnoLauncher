@@ -129,10 +129,16 @@ class MainActivity : ComponentActivity() {
         }
         status = DeviceStatusMonitor(this).also { lifecycle.addObserver(it) }
         IslandTools.load(this)
-        NotificationFeed.onPeek = { pkg, label ->
-            // The posting app's own icon when it is a launchable app here; otherwise a plain bell.
-            val app = model.state.value.apps.firstOrNull { it.packageName == pkg }
-            runOnUiThread { if (app != null) island.showPeek(app, label) else island.showEvent(IslandEvent(label, IslandSymbol.NOTIFICATION)) }
+        NotificationFeed.onPeek = { peek ->
+            // With a title or text to show, the island drops down into a card; otherwise it flashes the app's icon and name.
+            val app = model.state.value.apps.firstOrNull { it.packageName == peek.packageName }
+            runOnUiThread {
+                when {
+                    peek.title != null || peek.text != null -> island.showPeekCard(peek)
+                    app != null -> island.showPeek(app, peek.appLabel)
+                    else -> island.showEvent(IslandEvent(peek.appLabel, IslandSymbol.NOTIFICATION))
+                }
+            }
         }
         updateDefaultHome()
         if (savedInstanceState == null) openDestination(intent.getStringExtra("duo_destination"))

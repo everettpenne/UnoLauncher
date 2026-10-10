@@ -215,6 +215,12 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     Text("The island flashes the name of Bluetooth audio, a headset or headphones when they connect or disconnect. It needs no permission and keeps nothing. Opening the island on a charging phone also shows how long until it is full.",
         style = note, color = muted)
     SettingsSwitch("Live Updates in the island", s.liveUpdates, store::setLiveUpdates, "live-updates-switch")
+    SettingsSwitch("Downloads and other progress", s.progressTasks, store::setProgressTasks, "progress-tasks-switch")
+    Text("A download, upload or install with a progress bar in its notification shows on the island as a ring round the app's icon, with its percentage; open the island for its card. Only the title and the progress are read, never the body text.",
+        style = note, color = muted)
+    SettingsSwitch("Navigation in the island", s.navigationTasks, store::setNavigationTasks, "navigation-tasks-switch")
+    Text("While a maps app shows turn-by-turn directions, the island carries the next instruction and the distance or arrival line under it (the navigation notification's own title and text). Nothing is kept.",
+        style = note, color = muted)
     Text("Android 16 apps can post a Live Update for a ride, delivery, timer or navigation. The island shows the app's icon and status beside the camera and a card with its progress when open. Only the title, short status, progress and icon are read, never message text; it needs notification access.",
         style = note, color = muted)
     IslandWidgetSetting(actions.islandWidget, note, muted)
@@ -223,6 +229,13 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     Text("While a call is active, the island shows the caller name and elapsed time from the phone app's own call notification, and tapping it opens the call screen. The name is read only while the call is running and never stored; message text is never read.",
         style = note, color = muted)
     SettingsSwitch("Show new notifications in the island", s.notificationPeek, store::setNotificationPeek, "peek-switch")
+    Text("How much a new notification shows when the island drops down for it:", style = note, color = muted)
+    ChoiceRow("App name only", "A flash of the app's icon and name, never what it says", s.peekLevel == 0, "peek-level-name") { store.setPeekLevel(0) }
+    ChoiceRow("Name and title", "A card with the sender or subject; tap it to open the notification", s.peekLevel == 1, "peek-level-title") { store.setPeekLevel(1) }
+    ChoiceRow("Name, title and text", "The card also shows the first lines of the text. Uno reads that text to show it, and keeps nothing",
+        s.peekLevel == 2, "peek-level-text") { store.setPeekLevel(2) }
+    OutlinedTextField(s.peekBlocked, { store.setPeekBlocked(it) }, Modifier.fillMaxWidth().testTag("peek-blocked"), minLines = 1, maxLines = 3,
+        label = { Text("Hide notifications containing these words") }, supportingText = { Text("Separate with commas. A match shows only the app's name.") })
     Text("Everything stays on this device. Badges count unread notifications per app; the island shows the app's name only, never the message.",
         style = note, color = muted)
     }
@@ -317,14 +330,29 @@ private fun IslandWidgetSetting(controller: IslandWidgetController?, note: andro
     }
 }
 
-/** Per-app control of what may use the island, like the app list in HyperOS's island settings. */
+/** Per-app control of the island, like the app list in HyperOS's island settings: switch an app off, or choose how long its notification
+ * cards stay (Auto is 6 seconds). Tap the time to change it.
+ */
 @Composable
 private fun IslandLinksSetting(actions: ExtrasActions, apps: List<AppEntry>, note: androidx.compose.ui.text.TextStyle, muted: androidx.compose.ui.graphics.Color) {
     val s = actions.store.state
+    var open by rememberSaveable { mutableStateOf(false) }
+    val timeouts = PeekTimeouts.parse(s.peekTimeouts)
     Text("Apps that can use the island", style = MaterialTheme.typography.titleMedium)
-    Text("Every app is linked until you switch it off here. A switched-off app's Live Updates and new-notification peeks never reach the island.",
+    Text("Every app is linked until you switch it off here. A switched-off app's Live Updates, progress, navigation and notification cards never reach the island. The time beside an app is how long its notification card stays.",
         style = note, color = muted)
-    val byId = apps.associateBy { it.id }
-    val linked = apps.filter { IslandLinks.allowed(it.packageName, s.islandMuted) }.map { it.id }.toSet()
-    AppChecklist(apps, linked, "island-link") { id -> byId[id]?.let { actions.store.toggleIslandLink(it.packageName) } }
+    OutlinedButton(onClick = { open = !open }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("island-link-choose")) {
+        Text(if (open) "Done" else "Choose apps (${apps.count { IslandLinks.allowed(it.packageName, s.islandMuted) }} linked)")
+    }
+    if (open) apps.forEach { app ->
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).clickable { actions.store.toggleIslandLink(app.packageName) }
+            .testTag("island-link-app-${app.id}"), verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(IslandLinks.allowed(app.packageName, s.islandMuted), { actions.store.toggleIslandLink(app.packageName) })
+            Image(app.icon.asImageBitmap(), null, Modifier.size(32.dp).clip(Corner.icon))
+            Text(app.label, Modifier.padding(start = 12.dp).weight(1f), maxLines = 1)
+            TextButton(onClick = { actions.store.cyclePeekTimeout(app.packageName) }, modifier = Modifier.testTag("island-timeout-${app.id}")) {
+                Text(PeekTimeouts.label(timeouts, app.packageName))
+            }
+        }
+    }
 }

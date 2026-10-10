@@ -57,6 +57,45 @@ class LiveUpdateTest {
     @Test fun theLedgerSaysLiveUpdatesReadOnlyTitleStatusProgressAndIcon() {
         val notifications = PermissionLedger.rows(LedgerInputs(false, false, false, true, false, false)).first { it.id == "notifications" }
         assertTrue(notifications.usedFor.contains("Live Updates")); assertTrue(notifications.canSee.contains("progress"))
-        assertTrue(notifications.canSee.contains("Never the text of a message"))
+        assertTrue(notifications.canSee.contains("only if you choose it") && notifications.canSee.contains("opt-in"))
+    }
+}
+
+class ActivityClassifyTest {
+    private fun c(promoted: Boolean = false, category: String? = null, ongoing: Boolean = true, progress: Int = 0, max: Int = 0,
+        indeterminate: Boolean = false, live: Boolean = true, nav: Boolean = true, tasks: Boolean = true) =
+        LiveUpdateLogic.classify(promoted, category, ongoing, progress, max, indeterminate, live, nav, tasks)
+
+    @Test fun aPromotedNotificationIsALiveUpdateOnlyWhileThatSwitchIsOn() {
+        org.junit.Assert.assertEquals(ActivitySource.PROMOTED, c(promoted = true))
+        org.junit.Assert.assertNull(c(promoted = true, live = false))
+    }
+
+    @Test fun anOngoingNavigationNotificationIsNavigation() {
+        org.junit.Assert.assertEquals(ActivitySource.NAVIGATION, c(category = "navigation"))
+        org.junit.Assert.assertNull(c(category = "navigation", nav = false))
+        org.junit.Assert.assertNull(c(category = "navigation", ongoing = false))
+    }
+
+    @Test fun aDownloadIsAProgressTask() {
+        org.junit.Assert.assertEquals(ActivitySource.PROGRESS, c(progress = 40, max = 100))
+        org.junit.Assert.assertEquals(ActivitySource.PROGRESS, c(category = "progress", progress = 1, max = 3))
+    }
+
+    @Test fun notEverythingWithABarIsATask() {
+        org.junit.Assert.assertNull(c(progress = 40, max = 100, tasks = false))
+        org.junit.Assert.assertNull(c(progress = 40, max = 100, ongoing = false))
+        org.junit.Assert.assertNull(c(progress = 0, max = 100, indeterminate = true))
+        org.junit.Assert.assertNull(c(progress = 100, max = 100))          // finished
+        org.junit.Assert.assertNull(c(progress = 5, max = 0))              // no bar
+        listOf("call", "transport", "alarm", "msg", "email", "social").forEach {
+            org.junit.Assert.assertNull("$it is not a task", c(category = it, progress = 5, max = 10))
+        }
+    }
+
+    @Test fun ongoingMeansOngoingOrForegroundService() {
+        org.junit.Assert.assertTrue(LiveUpdateLogic.isOngoing(0x2))
+        org.junit.Assert.assertTrue(LiveUpdateLogic.isOngoing(0x40))
+        org.junit.Assert.assertFalse(LiveUpdateLogic.isOngoing(0x10))
     }
 }

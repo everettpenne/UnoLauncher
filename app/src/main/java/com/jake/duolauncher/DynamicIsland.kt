@@ -62,6 +62,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -203,8 +204,22 @@ internal class IslandState {
     }
 
     fun dismissFlash() { queued.clear(); clearFlash() }
-    fun toggle() { expanded = !expanded; dismissFlash(); IslandTools.toolsOpen = false }
-    fun collapse() { expanded = false; IslandTools.toolsOpen = false }
+    /** A new notification shown as a card dropping down from the island (see [PeekNotification]); null when there is none. */
+    var peekCard by mutableStateOf<PeekNotification?>(null)
+        private set
+    /** Bumped on every card, so a second card restarts the wait before the island tucks away. */
+    var peekKey by mutableIntStateOf(0)
+        private set
+
+    /** Drops the card down, unless the person already has the island open for something else (their music, a timer). */
+    fun showPeekCard(peek: PeekNotification) {
+        if (expanded && peekCard == null) return
+        dismissFlash(); IslandTools.toolsOpen = false
+        peekCard = peek; peekKey++; expanded = true
+    }
+
+    fun toggle() { expanded = !expanded; peekCard = null; dismissFlash(); IslandTools.toolsOpen = false }
+    fun collapse() { expanded = false; peekCard = null; IslandTools.toolsOpen = false }
 }
 
 private fun IslandSymbol.icon(): ImageVector = when (this) {
@@ -386,7 +401,7 @@ internal fun DynamicIsland(
     val compactTarget = if (anchoredToWindow && !hasLiveContent) 1f else 0f
     val compactness by animateFloatAsState(compactTarget, spring(dampingRatio = .8f, stiffness = 380f), label = "island compact")
     val frame = IslandGeometry.frame(environment, d, progress, sizeScale,
-        extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(IslandTools.toolsOpen) +
+        extraBodyDp = if (state.peekCard != null) 0f else (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(IslandTools.toolsOpen) +
             (if (IslandTools.toolsOpen) TOOLS_PANELS_ROW_DP else if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) - actionsTrimDp,
         extraWidthDp = eventWidth, compactness = compactness)
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
@@ -410,9 +425,14 @@ internal fun DynamicIsland(
         if (state.flashTitle != null) { delay(2600); state.advanceFlash() }
     }
     // An idle expanded island tucks itself back in.
-    LaunchedEffect(state.expanded, IslandTools.toolsOpen, IslandTools.interactions, isPlaying) {
-        // Longer while music plays, since that is when the buttons are being used; any button press restarts the wait.
-        if (state.expanded) { delay(if (IslandTools.toolsOpen) 20_000L else if (isPlaying) 12_000L else 5000L); state.collapse() }
+    LaunchedEffect(state.expanded, IslandTools.toolsOpen, IslandTools.interactions, isPlaying, state.peekKey) {
+        // Longer while music plays, since that is when the buttons are being used; any button press restarts the wait. A notification card
+        // stays for the time chosen for its app.
+        if (state.expanded) {
+            val peek = state.peekCard
+            delay(if (peek != null) peek.seconds * 1000L else if (IslandTools.toolsOpen) 20_000L else if (isPlaying) 12_000L else 5000L)
+            state.collapse()
+        }
     }
 
     // Anchored (overlay) mode renders only the island itself: the service positions a
@@ -614,8 +634,26 @@ internal fun DynamicIsland(
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 IslandToolsFace(clockMs, torch)
             }
+            // A new notification as a card: icon, who or what, and the text if the level allows. Tap opens it; swipe up or wait to dismiss.
+            state.peekCard?.let { peek ->
+                if (progress > .4f) Row(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
+                    .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)
+                    .clip(RoundedCornerShape(14.dp)).clickable {
+                        runCatching { peek.open?.send() }; state.collapse()
+                    }.testTag("island-peek-card"), verticalAlignment = Alignment.CenterVertically) {
+                    peek.icon?.let { Image(it.asImageBitmap(), null, Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(peek.appLabel, color = Color.White.copy(alpha = .65f), fontSize = 11.sp, maxLines = 1)
+                        peek.title?.let { Text(it, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-peek-title")) }
+                        peek.text?.let { Text(it, color = Color.White.copy(alpha = .85f), fontSize = 13.sp, maxLines = 2,
+                            overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-peek-text")) }
+                    }
+                }
+            }
             // Expanded face: live panel, starting below the camera hole.
-            if (progress > .4f && !IslandTools.toolsOpen) Column(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
+            if (progress > .4f && !IslandTools.toolsOpen && state.peekCard == null) Column(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -1031,7 +1069,18 @@ private fun updateTint(update: LiveUpdate): Color {
 @Composable
 private fun UpdateGlyph(update: LiveUpdate, size: androidx.compose.ui.unit.Dp) {
     val tint = updateTint(update)
-    Box(Modifier.size(size).clip(CircleShape).background(tint.copy(alpha = .28f)), contentAlignment = Alignment.Center) {
+    val fraction = LiveUpdateLogic.fraction(update.progress, update.progressMax, update.indeterminate)
+    Box(Modifier.size(size).clip(CircleShape).background(tint.copy(alpha = .28f))
+        // A download or other task with a progress bar wears it as a ring round its icon.
+        .drawWithContent {
+            drawContent()
+            if (fraction != null) {
+                val stroke = 2.2.dp.toPx()
+                drawArc(tint, -90f, 360f * fraction, false, androidx.compose.ui.geometry.Offset(stroke / 2, stroke / 2),
+                    androidx.compose.ui.geometry.Size(this.size.width - stroke, this.size.height - stroke),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+            }
+        }, contentAlignment = Alignment.Center) {
         val icon = remember(update.icon) { update.icon?.asImageBitmap() }
         if (icon != null) Image(icon, null, Modifier.size(size * .66f), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(tint))
         else Icon(Icons.Rounded.RssFeed, null, tint = tint, modifier = Modifier.size(size * .6f))

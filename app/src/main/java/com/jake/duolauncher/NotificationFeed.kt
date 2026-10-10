@@ -61,7 +61,7 @@ internal object NotificationFeed {
     var liveUpdates by mutableStateOf<List<LiveUpdate>>(emptyList())
     var connected by mutableStateOf(false)
     /** Set by the activity; called with an app's name when a new notification should peek in the island. */
-    @Volatile var onPeek: ((packageName: String, label: String) -> Unit)? = null
+    @Volatile var onPeek: ((PeekNotification) -> Unit)? = null
 }
 
 /** Opt-in notification access, used for three things and nothing else: unread counts for icon badges,
@@ -123,26 +123,36 @@ class UnoNotificationListener : NotificationListenerService() {
         handler?.post { recount(); untrackCall(sbn); syncLiveUpdates() }
     }
 
-    /** Reads the Live Updates (notifications Android has promoted) out of the active ones. Only the title, body text, short status,
-     * progress, clock and small icon of those promoted ongoing notifications are taken (a ride's "Driver is 4 minutes away"), and
-     * only while the Live Updates switch is on. Ordinary notifications, including chat and message ones, are not read for their text.
+    /** Reads what the island shows as activities out of the active notifications: Live Updates (the ones Android 16 has promoted),
+     * navigation instructions, and progress tasks such as downloads. Only the title, body text, short status, progress, clock and small
+     * icon are taken, each kind only while its own switch is on, and ordinary chat and message notifications are never read for their text.
      */
     private fun syncLiveUpdates() {
-        if (!prefs.getBoolean("liveUpdates", true)) { NotificationFeed.liveUpdates = emptyList(); return }
+        val liveOn = prefs.getBoolean("liveUpdates", true)
+        val navOn = prefs.getBoolean("navigationTasks", true)
+        val tasksOn = prefs.getBoolean("progressTasks", true)
+        if (!liveOn && !navOn && !tasksOn) { NotificationFeed.liveUpdates = emptyList(); return }
         val active = runCatching { activeNotifications }.getOrNull() ?: return
         // Debug builds also show their own (the test poster); a release build never lists its own notifications.
         val debuggable = applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
         val muted = IslandLinks.parse(prefs.getString("islandMuted", null))
-        val found = active.filter { IslandLinks.allowed(it.packageName, muted) && LiveUpdateLogic.isLiveUpdate(it.notification.flags) && (debuggable || it.packageName != packageName) }
+        val found = active.filter { IslandLinks.allowed(it.packageName, muted) && (debuggable || it.packageName != packageName) }
             .mapNotNull { sbn -> runCatching {
                 val n = sbn.notification; val e = n.extras
+                val source = LiveUpdateLogic.classify(LiveUpdateLogic.isLiveUpdate(n.flags), n.category, LiveUpdateLogic.isOngoing(n.flags),
+                    e.getInt(Notification.EXTRA_PROGRESS, 0), e.getInt(Notification.EXTRA_PROGRESS_MAX, 0),
+                    e.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false), liveOn, navOn, tasksOn) ?: return@runCatching null
                 val title = e.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
                 if (title.isEmpty()) return@runCatching null
                 val label = runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString() }
                     .getOrDefault(sbn.packageName)
                 val chrono = if (e.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false)) n.`when` else null
-                LiveUpdate(sbn.key, sbn.packageName, label, title, e.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
-                    if (android.os.Build.VERSION.SDK_INT >= 36) n.shortCriticalText else null, e.getInt(Notification.EXTRA_PROGRESS, 0), e.getInt(Notification.EXTRA_PROGRESS_MAX, 0),
+                // A progress task shows its percentage, not the app's body text (which may name a file); a navigation card is the instruction
+                // and what is under it (distance, arrival); a Live Update keeps its own status text.
+                val text = if (source == ActivitySource.PROGRESS) null else e.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+                LiveUpdate(sbn.key, sbn.packageName, label, title, text,
+                    if (source == ActivitySource.PROMOTED && android.os.Build.VERSION.SDK_INT >= 36) n.shortCriticalText else null,
+                    e.getInt(Notification.EXTRA_PROGRESS, 0), e.getInt(Notification.EXTRA_PROGRESS_MAX, 0),
                     e.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false), chrono,
                     e.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN, false),
                     smallIconOf(n),
@@ -197,7 +207,19 @@ class UnoNotificationListener : NotificationListenerService() {
         val label = runCatching {
             packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString()
         }.getOrNull() ?: return
-        NotificationFeed.onPeek?.invoke(sbn.packageName, label)
+        // The notification's own words are read only when the person chose a level that shows them, and then only to show them (or to
+        // check them against the blocked words); nothing is kept.
+        val level = PeekLevel.of(prefs.getInt("peekLevel", 0))
+        val shown = if (level == PeekLevel.NAME) null else {
+            val e = sbn.notification.extras
+            val text = e.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: e.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
+            PeekContent.visible(level, e.getCharSequence(Notification.EXTRA_TITLE)?.toString(), text,
+                PeekContent.parseWords(prefs.getString("peekBlocked", null)))
+        }
+        val seconds = PeekTimeouts.seconds(PeekTimeouts.parse(prefs.getString("peekTimeouts", null)), sbn.packageName)
+        val icon = runCatching { packageManager.getApplicationIcon(sbn.packageName).toBitmap(96, 96) }.getOrNull()
+        NotificationFeed.onPeek?.invoke(PeekNotification(sbn.packageName, label, shown?.first, shown?.second, icon,
+            sbn.notification.contentIntent, seconds))
     }
 
     private fun syncMedia(list: List<MediaController>? = null) {

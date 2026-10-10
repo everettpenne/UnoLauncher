@@ -61,7 +61,7 @@ internal object PermissionLedger {
             LedgerRow("notifications", "Notification access",
                 if (i.notificationAccess) "Allowed" else "Not allowed", i.notificationAccess,
                 "Badges on app icons, the track title and artwork, the call card, Live Updates in the island, and the island's notification peeks, each only if you switch it on.",
-                "App names, the current track's title, artist and artwork, the caller's name while a call is active, and a Live Update's title, short status, progress and icon. Never the text of a message. Nothing is stored or sent.",
+                "App names, the current track's title, artist and artwork, the caller's name while a call is active, and a Live Update's title, text, short status, progress and icon; a download's title and progress; a navigation notification's instruction; and, only if you choose it, the title (and text) of a new notification for the island's card. Chat and message text is read only at that last, opt-in level. Nothing is stored or sent.",
                 LedgerAction.NOTIFICATION_ACCESS),
             LedgerRow("contacts", "Contacts",
                 if (i.contactsAllowed) "Allowed" else "Not allowed", i.contactsAllowed,

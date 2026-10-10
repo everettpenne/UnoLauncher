@@ -34,7 +34,7 @@ class IslandSecurityTest {
 
     @Test fun everyRowSaysWhatItCanSeeAndNoRowClaimsToReadMessages() {
         PermissionLedger.rows(inputs()).forEach { assertTrue(it.id, it.canSee.isNotBlank() && it.usedFor.isNotBlank()) }
-        assertTrue(row(inputs(), "notifications").canSee.contains("Never the text of a message"))
+        assertTrue(row(inputs(), "notifications").canSee.contains("only if you choose it"))
     }
 
     @Test fun theSummaryTellsYouWhichIslandYouHave() {

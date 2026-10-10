@@ -26,6 +26,14 @@ internal data class ExtrasState(
     val securityAlerts: Boolean = true,
     val audioAlerts: Boolean = true,
     val islandShortcuts: Boolean = true,
+    val progressTasks: Boolean = true,
+    val navigationTasks: Boolean = true,
+    /** How much of a new notification the island's card shows: 0 name only, 1 plus title, 2 plus text (see PeekLevel). */
+    val peekLevel: Int = 0,
+    /** Words that keep a notification's text off the island, comma separated. */
+    val peekBlocked: String = "",
+    /** Per-app seconds a notification card stays (see PeekTimeouts). */
+    val peekTimeouts: String = "",
     val liveUpdates: Boolean = true,
     val islandEverywhere: Boolean = false,
     val notificationPeek: Boolean = false,
@@ -79,6 +87,11 @@ internal class ExtrasStore(context: Context) {
         securityAlerts = prefs.getBoolean("securityAlerts", true),
         audioAlerts = prefs.getBoolean("audioAlerts", true),
         islandShortcuts = prefs.getBoolean("islandShortcuts", true),
+        progressTasks = prefs.getBoolean("progressTasks", true),
+        navigationTasks = prefs.getBoolean("navigationTasks", true),
+        peekLevel = prefs.getInt("peekLevel", 0).coerceIn(0, 2),
+        peekBlocked = prefs.getString("peekBlocked", "") ?: "",
+        peekTimeouts = prefs.getString("peekTimeouts", "") ?: "",
         liveUpdates = prefs.getBoolean("liveUpdates", true),
         islandEverywhere = prefs.getBoolean("islandEverywhere", false),
         notificationPeek = prefs.getBoolean("notificationPeek", false),
@@ -115,6 +128,11 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("securityAlerts", next.securityAlerts)
             .putBoolean("audioAlerts", next.audioAlerts)
             .putBoolean("islandShortcuts", next.islandShortcuts)
+            .putBoolean("progressTasks", next.progressTasks)
+            .putBoolean("navigationTasks", next.navigationTasks)
+            .putInt("peekLevel", next.peekLevel)
+            .putString("peekBlocked", next.peekBlocked)
+            .putString("peekTimeouts", next.peekTimeouts)
             .putBoolean("liveUpdates", next.liveUpdates)
             .putBoolean("islandEverywhere", next.islandEverywhere)
             .putBoolean("notificationPeek", next.notificationPeek)
@@ -149,6 +167,12 @@ internal class ExtrasStore(context: Context) {
     fun setBadges(value: Boolean) = save(state.copy(badges = value))
     fun setMediaDetails(value: Boolean) = save(state.copy(mediaDetails = value))
     fun setCallDetails(value: Boolean) = save(state.copy(callDetails = value))
+    fun setProgressTasks(value: Boolean) = save(state.copy(progressTasks = value))
+    fun setNavigationTasks(value: Boolean) = save(state.copy(navigationTasks = value))
+    fun setPeekLevel(value: Int) = save(state.copy(peekLevel = value.coerceIn(0, 2)))
+    fun setPeekBlocked(value: String) = save(state.copy(peekBlocked = value.take(600)))
+    fun cyclePeekTimeout(packageName: String) =
+        save(state.copy(peekTimeouts = PeekTimeouts.serialize(PeekTimeouts.cycle(PeekTimeouts.parse(state.peekTimeouts), packageName))))
     fun setIslandShortcuts(value: Boolean) = save(state.copy(islandShortcuts = value))
     fun setAudioAlerts(value: Boolean) = save(state.copy(audioAlerts = value))
     fun setPrivacyIndicators(value: Boolean) = save(state.copy(privacyIndicators = value))

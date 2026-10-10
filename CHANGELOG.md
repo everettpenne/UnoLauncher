@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.33.0-uno01
+
+Ideas taken from HyperBridge (an Apache-2.0 app that feeds notifications to HyperOS's island; read for ideas only, no code used).
+
+- Downloads and other progress: any ongoing notification with a real, unfinished progress bar (a download, an upload, an install) shows on the island as a ring round the app's icon with its percentage, and as a card with a bar when the island is open. Only its title and progress are read, never its body text; players, calls, alarms and messages are not counted as tasks. Switch: "Downloads and other progress".
+- Navigation: an ongoing navigation notification (the navigation category, so Organic Maps, OsmAnd and the like as well as Google Maps) shows its instruction and the line under it (distance or arrival) on the island. Switch: "Navigation in the island". Both kinds and Live Updates share one list on the island (newest first, up to three), so they already get the pill's two slots and the pop-out bubbles.
+- Notification cards: the island now drops down a card for a new notification and tucks it away after a few seconds, instead of only flashing the app's name. You choose how much it shows: app name only (the default, as before), plus the title, or plus the text. Tapping the card opens the notification itself (its own content intent, so a message opens its conversation); a swipe up or the wait dismisses it. It does not interrupt an island you have opened yourself. Android's own heads-up banner cannot be suppressed by a launcher, so turn "pop on screen" off for the apps in Android's notification settings if you want only the island's card.
+- Spoiler protection: a list of words that keep a notification's text off the island. If any of them appears in the title or text, only the app's name is shown. Case is ignored; the list is cleaned and bounded.
+- Per-app timeouts: in "Apps that can use the island" each app has a time (Auto is 6 seconds, then 3, 6, 10 or 15) for how long its card stays. The same list's switches now also cover progress and navigation.
+- Privacy wording: notification access now reads, beyond the app names and counts of before, a Live Update's text, a download's title and progress, a navigation instruction and, only at the card levels you choose, a new notification's title and text. PRIVACY.md, the permission ledger and the README say so, and the ledger tests were updated from "never the text of a message" to the accurate statement.
+- Not built: inline reply from the card (it needs typing, which the island over other apps cannot take), and a separate "floating" choice; the card's timeout and tap-to-open are the behaviours. The flash for the name-only level keeps its fixed length.
+- Tests: unit tests for the activity classification (what counts as a download or navigation), the card levels, the blocked words and the per-app timeouts; emulator tests that the card shows its title and text, drops the text line at the title level, tucks away after the app's time, and does not interrupt an island you opened. Not seen with real apps: a real download, a real navigation notification, a real message card.
+
 ## 0.32.0-uno01
 
 A batch of island work, prompted by a review of what was half-built. The three problems reported from the phone (the island search field that could not be found, device location that never answers, and entering a place by hand) are written up in docs/future-fixes.md with what is probably behind each and what to try, and are deliberately not changed here, except that the first is helped by the overlay buttons below. docs/future-fixes.md also lists every shipped feature that is thin or has never been run on a phone.

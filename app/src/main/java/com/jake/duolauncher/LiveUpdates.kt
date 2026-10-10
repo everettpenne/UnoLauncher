@@ -27,8 +27,27 @@ internal data class LiveUpdate(
     val openIntent: PendingIntent?,
 )
 
+/** What kind of thing an island activity (a [LiveUpdate]) came from. */
+internal enum class ActivitySource { PROMOTED, NAVIGATION, PROGRESS }
+
 /** Pure rules for recognising and presenting Live Updates, so they are unit-tested apart from the notification service. */
 internal object LiveUpdateLogic {
+    /** Notification categories whose progress bars are not "a task" (a call, a media player, navigation has its own kind). */
+    private val NOT_TASKS = setOf("call", "transport", "navigation", "alarm", "reminder", "msg", "email", "social")
+
+    /** Whether the notification feeds the island as a Live Update, a navigation instruction or a progress task (a download, an
+     * upload, an install), or nothing. [promoted] is the Android 16 flag; the other kinds work on any Android version. A progress task
+     * needs a real, unfinished, determinate progress bar on an ongoing notification, from an app other than a player or a call.
+     */
+    fun classify(promoted: Boolean, category: String?, ongoing: Boolean, progress: Int, progressMax: Int, indeterminate: Boolean,
+        liveUpdatesOn: Boolean, navigationOn: Boolean, tasksOn: Boolean): ActivitySource? = when {
+        promoted && liveUpdatesOn -> ActivitySource.PROMOTED
+        navigationOn && ongoing && category == "navigation" -> ActivitySource.NAVIGATION
+        tasksOn && ongoing && !indeterminate && progressMax > 0 && progress in 0 until progressMax &&
+            (category == null || category !in NOT_TASKS) -> ActivitySource.PROGRESS
+        else -> null
+    }
+
     /** [android.app.Notification.FLAG_PROMOTED_ONGOING], repeated so this file's logic needs no Android classes. */
     const val PROMOTED_FLAG = 0x40000
     const val MAX_SHOWN = 3
@@ -36,6 +55,8 @@ internal object LiveUpdateLogic {
 
     /** The system marks a notification promoted once it has asked and qualified; that flag is the one thing to trust. */
     fun isLiveUpdate(flags: Int): Boolean = flags and PROMOTED_FLAG != 0
+
+    fun isOngoing(flags: Int): Boolean = flags and (0x2 or 0x40) != 0 // FLAG_ONGOING_EVENT or FLAG_FOREGROUND_SERVICE
 
     /** How far along it is, 0 to 1, or null when it has no progress or its progress is indeterminate. */
     fun fraction(progress: Int, max: Int, indeterminate: Boolean): Float? =

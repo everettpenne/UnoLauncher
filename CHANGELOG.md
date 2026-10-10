@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.27.0-uno01
+
+Features taken from HyperOS (3.x) after reading what its launcher and Super Island do (third-party coverage; Xiaomi's own changelogs were not available):
+
+- Apps that can use the island: Customize, Dynamic island, "Apps that can use the island" lists your apps, all linked by default; switching one off keeps its Live Updates and new-notification peeks out of the island, like the per-app list in HyperOS's island settings (IslandLinks, kept by package name; it is part of the settings backup). Unit tested.
+- Seekable music progress: the open island's music card has a thin position bar that you can tap to jump or drag to scrub (HyperOS makes its island media progress interactive). It appears when the player reports a duration, advances while playing from the position the player last reported (MediaProgress, unit tested), and the island's clock ticks once a second only while the island is open and playing. The island's own swipe handling no longer takes a sideways drag on the open island, so the scrub works. The music row is 14 dp taller.
+- Already here, in HyperOS terms: several live events at once (the pill carries two and up to two more come out as bubbles, 0.25.0), widgets in the island (0.25.0), a Live Updates focus on ride/delivery/timer cards (0.24.0), tinted icons following the wallpaper (0.24.0).
+- Looked at and not done: folder sizes (2x1, 1x2, and large folders whose apps launch without opening them) and a 5x8 home grid need changes to the 4-column home grid and drag model that deserve a release of their own; the lock-screen features (depth clock, AI wallpapers) belong to the system, which a launcher cannot change; "super icon" and app lock were not found in the coverage.
+
 ## 0.26.1-uno01
 
 - Fix the tap shadow that 0.26.0 meant to remove: MaterialTheme installs its own ripple as LocalIndication inside the theme, which overrode the no-op provided outside it. The no-op is now provided inside MaterialTheme.

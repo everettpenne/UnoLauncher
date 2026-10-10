@@ -24,6 +24,8 @@ import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -293,7 +295,7 @@ internal fun DynamicIsland(
     val clockMs by produceState(System.currentTimeMillis()) {
         while (true) {
             value = System.currentTimeMillis()
-            delay(if (IslandTools.swRunning) 100L else if (IslandTools.timerActive) 500L else if (LiveUpdateLogic.needsSecondTick(NotificationFeed.liveUpdates)) 1_000L else 5_000L)
+            delay(if (IslandTools.swRunning) 100L else if (IslandTools.timerActive) 500L else if (state.expanded && state.playing) 1_000L else if (LiveUpdateLogic.needsSecondTick(NotificationFeed.liveUpdates)) 1_000L else 5_000L)
         }
     }
     val torch = rememberTorch(active = state.expanded && IslandTools.toolsOpen)
@@ -481,7 +483,8 @@ internal fun DynamicIsland(
                         last = change.position
                         val delta = last - down.position
                         if (!moved && (abs(delta.x) > slop || abs(delta.y) > slop)) moved = true
-                        if (moved) change.consume()
+                        // A sideways drag on the open island belongs to what is under the finger (the music seek bar).
+                        if (moved && !(state.expanded && abs(delta.x) > abs(delta.y))) change.consume()
                         if (!change.pressed) break
                     }
                     if (!moved) return@awaitEachGesture
@@ -628,6 +631,8 @@ internal fun DynamicIsland(
                             mediaCommand(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
                         },
                         onNext = { IslandTools.touch(); mediaCommand(context, KeyEvent.KEYCODE_MEDIA_NEXT) },
+                        progress = mediaFraction(shownPlaying, clockMs),
+                        onSeek = { fraction -> mediaSeek(fraction) },
                         onOpenPlayer = NotificationFeed.nowPlaying?.controller?.sessionActivity?.let { intent ->
                             { runCatching { intent.send() }; state.collapse() }
                         })
@@ -662,7 +667,7 @@ internal const val MAX_EVENT_EXTRA_DP = 140f
 internal const val MAX_QUEUED_FLASHES = 3
 
 /** Extra panel height, in dp, when the music card is showing: artwork and track above, the controls below. */
-internal const val MEDIA_ROW_DP = 112f
+internal const val MEDIA_ROW_DP = 126f
 /** The height the open panel reserves for its action buttons, in dp; taken back where they are not shown. */
 internal const val ACTIONS_ROW_DP = 44f
 /** Extra panel height, in dp, when a Live Update card is showing. */
@@ -714,7 +719,7 @@ internal fun EqualizerBars(color: Color, modifier: Modifier = Modifier, barCount
 @Composable
 private fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: String? = null,
     art: androidx.compose.ui.graphics.ImageBitmap? = null, onPrevious: () -> Unit, onPlayPause: () -> Unit,
-    onNext: () -> Unit, onOpenPlayer: (() -> Unit)? = null) {
+    onNext: () -> Unit, progress: Float? = null, onSeek: ((Float) -> Unit)? = null, onOpenPlayer: (() -> Unit)? = null) {
     Column(Modifier.fillMaxWidth().testTag("island-media")) {
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
             .then(if (onOpenPlayer != null) Modifier.clickable(onClick = onOpenPlayer).testTag("island-open-player") else Modifier),
@@ -735,7 +740,10 @@ private fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: S
                     maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
-        Spacer(Modifier.height(4.dp))
+        // The track's position, which can be tapped or dragged to seek (the interactive progress of HyperOS's island). Only when the
+        // player reports a duration.
+        if (progress != null && onSeek != null) SeekBar(progress, tint, onSeek) else Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(2.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
             MediaButton(Icons.Rounded.SkipPrevious, "Previous", onPrevious)
             MediaButton(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
@@ -743,6 +751,41 @@ private fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: S
             MediaButton(Icons.Rounded.SkipNext, "Next", onNext)
         }
     }
+}
+
+/** A thin track position bar: tap to jump, drag to scrub. The seek is sent once the finger lifts. */
+@Composable
+private fun SeekBar(progress: Float, tint: Color, onSeek: (Float) -> Unit) {
+    var width by remember { mutableFloatStateOf(1f) }
+    var dragging by remember { mutableStateOf<Float?>(null) }
+    val shown = (dragging ?: progress).coerceIn(0f, 1f)
+    Box(Modifier.fillMaxWidth().height(14.dp).onSizeChanged { width = it.width.toFloat() }
+        .pointerInput(Unit) { detectTapGestures { onSeek((it.x / width).coerceIn(0f, 1f)) } }
+        .pointerInput(Unit) {
+            detectHorizontalDragGestures(onDragStart = { dragging = (it.x / width).coerceIn(0f, 1f) },
+                onDragEnd = { dragging?.let(onSeek); dragging = null }, onDragCancel = { dragging = null }) { change, _ ->
+                dragging = (change.position.x / width).coerceIn(0f, 1f)
+            }
+        }.testTag("island-seek"), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = .18f))) {
+            Box(Modifier.fillMaxWidth(shown).fillMaxHeight().background(tint, RoundedCornerShape(50)))
+        }
+    }
+}
+
+/** Fraction along the current track for the seek bar, or null when the player reports no duration. */
+private fun mediaFraction(playing: Boolean, @Suppress("UNUSED_PARAMETER") tick: Long): Float? {
+    val controller = NotificationFeed.nowPlaying?.controller ?: return null
+    val state = controller.playbackState ?: return null
+    val duration = controller.metadata?.getLong(android.media.MediaMetadata.METADATA_KEY_DURATION) ?: return null
+    return MediaProgress.fraction(state.position, state.lastPositionUpdateTime, state.playbackSpeed, playing,
+        android.os.SystemClock.elapsedRealtime(), duration)
+}
+
+private fun mediaSeek(fraction: Float) {
+    val controller = NotificationFeed.nowPlaying?.controller ?: return
+    val duration = controller.metadata?.getLong(android.media.MediaMetadata.METADATA_KEY_DURATION) ?: return
+    runCatching { controller.transportControls.seekTo(MediaProgress.seekTarget(fraction, 1f, duration)) }
 }
 
 /** The live call card: caller and elapsed time; tapping opens the phone app's call screen. */

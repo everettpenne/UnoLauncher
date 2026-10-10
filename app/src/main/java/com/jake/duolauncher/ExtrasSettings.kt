@@ -212,6 +212,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     Text("Android 16 apps can post a Live Update for a ride, delivery, timer or navigation. The island shows the app's icon and status beside the camera and a card with its progress when open. Only the title, short status, progress and icon are read, never message text; it needs notification access.",
         style = note, color = muted)
     IslandWidgetSetting(actions.islandWidget, note, muted)
+    IslandLinksSetting(actions, apps, note, muted)
     SettingsSwitch("Show calls in the island", s.callDetails, store::setCallDetails, "call-details-switch")
     Text("While a call is active, the island shows the caller name and elapsed time from the phone app's own call notification, and tapping it opens the call screen. The name is read only while the call is running and never stored; message text is never read.",
         style = note, color = muted)
@@ -308,4 +309,16 @@ private fun IslandWidgetSetting(controller: IslandWidgetController?, note: andro
             }
         }, confirmButton = { TextButton(onClick = { picking = false }) { Text("Cancel") } })
     }
+}
+
+/** Per-app control of what may use the island, like the app list in HyperOS's island settings. */
+@Composable
+private fun IslandLinksSetting(actions: ExtrasActions, apps: List<AppEntry>, note: androidx.compose.ui.text.TextStyle, muted: androidx.compose.ui.graphics.Color) {
+    val s = actions.store.state
+    Text("Apps that can use the island", style = MaterialTheme.typography.titleMedium)
+    Text("Every app is linked until you switch it off here. A switched-off app's Live Updates and new-notification peeks never reach the island.",
+        style = note, color = muted)
+    val byId = apps.associateBy { it.id }
+    val linked = apps.filter { IslandLinks.allowed(it.packageName, s.islandMuted) }.map { it.id }.toSet()
+    AppChecklist(apps, linked, "island-link") { id -> byId[id]?.let { actions.store.toggleIslandLink(it.packageName) } }
 }

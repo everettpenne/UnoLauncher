@@ -129,7 +129,8 @@ class UnoNotificationListener : NotificationListenerService() {
         val active = runCatching { activeNotifications }.getOrNull() ?: return
         // Debug builds also show their own (the test poster); a release build never lists its own notifications.
         val debuggable = applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
-        val found = active.filter { LiveUpdateLogic.isLiveUpdate(it.notification.flags) && (debuggable || it.packageName != packageName) }
+        val muted = IslandLinks.parse(prefs.getString("islandMuted", null))
+        val found = active.filter { IslandLinks.allowed(it.packageName, muted) && LiveUpdateLogic.isLiveUpdate(it.notification.flags) && (debuggable || it.packageName != packageName) }
             .mapNotNull { sbn -> runCatching {
                 val n = sbn.notification; val e = n.extras
                 val title = e.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
@@ -180,6 +181,7 @@ class UnoNotificationListener : NotificationListenerService() {
 
     private fun peek(sbn: StatusBarNotification) {
         if (!prefs.getBoolean("notificationPeek", false) || sbn.packageName == packageName) return
+        if (!IslandLinks.allowed(sbn.packageName, IslandLinks.parse(prefs.getString("islandMuted", null)))) return
         val flags = sbn.notification.flags
         if (flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE or Notification.FLAG_GROUP_SUMMARY) != 0) return
         val now = System.currentTimeMillis()

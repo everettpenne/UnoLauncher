@@ -16,6 +16,8 @@ internal data class ExtrasState(
     val iconStyle: IconStyle = IconStyle.ORIGINAL,
     val focusOn: Boolean = false,
     val focusHidden: Set<String> = emptySet(),
+    /** Packages switched off for the island (Live Updates and notification peeks); see IslandLinks. */
+    val islandMuted: Set<String> = emptySet(),
     val focusVibrate: Boolean = false,
     val badges: Boolean = false,
     val mediaDetails: Boolean = false,
@@ -66,6 +68,7 @@ internal class ExtrasStore(context: Context) {
         iconStyle = IconStyle.fromPreference(prefs.getString("iconStyle", null)),
         focusOn = prefs.getBoolean("focusOn", false),
         focusHidden = PanelLayout.parseIds(prefs.getString("focusHidden", null)).toSet(),
+        islandMuted = IslandLinks.parse(prefs.getString("islandMuted", null)),
         focusVibrate = prefs.getBoolean("focusVibrate", false),
         badges = prefs.getBoolean("badges", false),
         mediaDetails = prefs.getBoolean("mediaDetails", false),
@@ -99,6 +102,7 @@ internal class ExtrasStore(context: Context) {
             .putString("iconStyle", next.iconStyle.name)
             .putBoolean("focusOn", next.focusOn)
             .putString("focusHidden", PanelLayout.serializeIds(next.focusHidden.toList()))
+            .putString("islandMuted", IslandLinks.serialize(next.islandMuted))
             .putBoolean("focusVibrate", next.focusVibrate)
             .putBoolean("badges", next.badges)
             .putBoolean("mediaDetails", next.mediaDetails)
@@ -134,6 +138,7 @@ internal class ExtrasStore(context: Context) {
     fun setFocusOn(value: Boolean) = save(state.copy(focusOn = value))
     fun toggleFocusHidden(id: String) =
         save(state.copy(focusHidden = if (id in state.focusHidden) state.focusHidden - id else state.focusHidden + id))
+    fun toggleIslandLink(packageName: String) = save(state.copy(islandMuted = IslandLinks.toggle(state.islandMuted, packageName)))
     fun setFocusVibrate(value: Boolean) = save(state.copy(focusVibrate = value))
     fun setBadges(value: Boolean) = save(state.copy(badges = value))
     fun setMediaDetails(value: Boolean) = save(state.copy(mediaDetails = value))

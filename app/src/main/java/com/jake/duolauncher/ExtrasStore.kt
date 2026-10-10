@@ -168,4 +168,5 @@ internal class ExtrasActions(
     val openNotificationAccess: () -> Unit = {},
     val hasNotificationAccess: () -> Boolean = { false },
     val toggleFocus: () -> Unit = {},
+    val islandWidget: IslandWidgetController? = null,
 )

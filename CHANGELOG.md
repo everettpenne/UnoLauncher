@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.0-uno01
+
+- Pop-out bubbles: with more live activities than the pill can carry (it shows two), the extras come out as small round bubbles beside the pill, up to two, as on newer dynamic islands. Tapping a bubble brings its activity to the front of the pill. The island's drawing window reserves room for them and the touch window grows to cover them while they show. The ordering rules (IslandBubbles) are unit tested; verified on an emulator with camera, microphone and a Live Update at once (the Live Update showed as a bubble, and a tap on it put "12 min" on the pill). Debug builds can fake the camera and microphone with the debug broadcast (--ez camera true --ez mic true).
+- Widget in the island (opt-in): Customize, Control panel & extras, "Widget in the island" lets you choose one Android widget that the open island shows under its activities, like HyperOS island widgets. It has its own widget host (id 2048), separate from Home's, so Home's tidy-up of unused widgets never touches it; Android asks you to allow the binding and runs the widget's own setup screen. NOT yet run end to end: the emulator became too overloaded to drive the picker, so choosing a widget, its rendering in the panel and taps on it are untested. Nothing happens until a widget is chosen.
+- Not built: a draggable pop-out island subwindow. It needs a touchable, movable window of its own (the island's windows are deliberately not touchable and fixed-size), which is a larger change than fitted this release.
+
 ## 0.24.0-uno01
 
 - Android 16 Live Updates in the island: a notification flagged as promoted ongoing (a ride, delivery, timer, navigation) appears as the app's icon and short status beside the camera, and as a card with its title and progress bar when the island is open. Only the title, short status, progress and small icon are read, never message text. Needs notification access; a switch turns it off. Pure logic (LiveUpdateLogic) is unit tested; verified on an emulator with a debug-only broadcast that posts a promoted notification.

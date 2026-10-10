@@ -19,6 +19,10 @@ import android.graphics.drawable.Icon
 class DebugLiveUpdateReceiver : BroadcastReceiver() {
     // Only ever driven by adb on an Android 16 emulator; older versions have no ProgressStyle to post.
     override fun onReceive(context: Context, intent: Intent) {
+        // --ez camera true / --ez mic true stand in for the privacy indicators, to get several live activities at once.
+        if (intent.hasExtra("camera")) com.jake.duolauncher.IslandRuntime.state.cameraActive = intent.getBooleanExtra("camera", false)
+        if (intent.hasExtra("mic")) com.jake.duolauncher.IslandRuntime.state.micActive = intent.getBooleanExtra("mic", false)
+        if (!intent.hasExtra("title") && !intent.hasExtra("clear") && !intent.hasExtra("short")) return
         if (android.os.Build.VERSION.SDK_INT < 36) return
         val manager = context.getSystemService(NotificationManager::class.java)
         if (intent.getBooleanExtra("clear", false)) { manager.cancel(ID); return }

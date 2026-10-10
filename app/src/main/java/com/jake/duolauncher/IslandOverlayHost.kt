@@ -259,7 +259,7 @@ internal class IslandOverlayHost(
                 val pad = 6f * context.resources.displayMetrics.density
                 showTouchWindow(manager,
                     left = (frame.left - pad).roundToInt(), top = (frame.top - pad).roundToInt(),
-                    width = (frame.width + 2f * pad).roundToInt(), height = (frame.height + 2f * pad).roundToInt())
+                    width = (frame.width + 2f * pad + IslandRuntime.bubbleExtraPx).roundToInt(), height = (frame.height + 2f * pad).roundToInt())
             }
             frame != null -> {
                 // Camera on a side edge: one window sized to the island, as the island moves it.

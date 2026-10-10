@@ -69,3 +69,4 @@ docs/images/*
 *.pem
 *.key
 !docs/releases/0.24.0-uno01.md
+!docs/releases/0.25.0-uno01.md

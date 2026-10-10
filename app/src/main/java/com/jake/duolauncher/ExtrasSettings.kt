@@ -199,6 +199,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>) {
     SettingsSwitch("Live Updates in the island", s.liveUpdates, store::setLiveUpdates, "live-updates-switch")
     Text("Android 16 apps can post a Live Update for a ride, delivery, timer or navigation. The island shows the app's icon and status beside the camera and a card with its progress when open. Only the title, short status, progress and icon are read, never message text; it needs notification access.",
         style = note, color = muted)
+    IslandWidgetSetting(actions.islandWidget, note, muted)
     SettingsSwitch("Show calls in the island", s.callDetails, store::setCallDetails, "call-details-switch")
     Text("While a call is active, the island shows the caller name and elapsed time from the phone app's own call notification, and tapping it opens the call screen. The name is read only while the call is running and never stored; message text is never read.",
         style = note, color = muted)
@@ -256,5 +257,38 @@ private fun AppChecklist(apps: List<AppEntry>, selected: Set<String>, tag: Strin
             Image(app.icon.asImageBitmap(), null, Modifier.size(32.dp).clip(Corner.icon))
             Text(app.label, Modifier.padding(start = 12.dp), maxLines = 1)
         }
+    }
+}
+
+/** Choose, change or remove the one widget the open island shows. */
+@Composable
+private fun IslandWidgetSetting(controller: IslandWidgetController?, note: androidx.compose.ui.text.TextStyle, muted: androidx.compose.ui.graphics.Color) {
+    if (controller == null) return
+    var picking by remember { mutableStateOf(false) }
+    val id = IslandWidgetState.id
+    Text("Widget in the island", style = MaterialTheme.typography.titleMedium)
+    Text(if (id >= 0) "Showing: ${controller.currentLabel() ?: "an unavailable widget"}" else "None chosen",
+        modifier = Modifier.testTag("island-widget-current"))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { picking = true }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("island-widget-choose")) {
+            Text(if (id >= 0) "Change" else "Choose widget")
+        }
+        if (id >= 0) OutlinedButton(onClick = controller::remove, Modifier.weight(1f).heightIn(min = 48.dp).testTag("island-widget-remove")) { Text("Remove") }
+    }
+    controller.message?.let { Text(it, color = MaterialTheme.colorScheme.error, style = note) }
+    Text("The open island shows this widget under its time and activities, like HyperOS island widgets. It is an ordinary Android widget that you choose and Android asks you to allow; it runs in its own host, separate from Home.",
+        style = note, color = muted)
+    if (picking) {
+        val providers = remember { controller.providers() }
+        AlertDialog(onDismissRequest = { picking = false }, title = { Text("Widget in the island") }, text = {
+            androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                items(providers.size) { index ->
+                    val provider = providers[index]
+                    TextButton(onClick = { picking = false; controller.start(provider) }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Text(controller.label(provider), Modifier.fillMaxWidth())
+                    }
+                }
+            }
+        }, confirmButton = { TextButton(onClick = { picking = false }) { Text("Cancel") } })
     }
 }

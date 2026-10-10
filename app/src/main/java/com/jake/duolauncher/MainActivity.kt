@@ -62,8 +62,10 @@ class MainActivity : ComponentActivity() {
             hasContactsPermission = { checkSelfPermission(android.Manifest.permission.READ_CONTACTS) == android.content.pm.PackageManager.PERMISSION_GRANTED },
             openNotificationAccess = { startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
             hasNotificationAccess = { notificationAccess.value },
-            toggleFocus = ::toggleFocus)
+            toggleFocus = ::toggleFocus, islandWidget = islandWidget)
     }
+    // Registered when the activity is created: a result launcher cannot be registered once the activity has started.
+    private val islandWidget = IslandWidgetController(this)
     private fun toggleFocus() {
         val next = !extrasStore.state.focusOn
         extrasStore.setFocusOn(next)
@@ -320,7 +322,7 @@ class MainActivity : ComponentActivity() {
 
     @Deprecated("Widget configuration uses the platform host request-code API")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (!widgets.onActivityResult(requestCode, resultCode)) super.onActivityResult(requestCode, resultCode, data)
+        if (!widgets.onActivityResult(requestCode, resultCode) && !islandWidget.onActivityResult(requestCode, resultCode)) super.onActivityResult(requestCode, resultCode, data)
     }
 
     private fun launchApp(app: AppEntry, bounds: android.graphics.Rect? = null) {

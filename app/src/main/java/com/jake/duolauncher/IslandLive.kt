@@ -45,6 +45,25 @@ internal object IslandLive {
     }
 }
 
+/** Pop-out bubbles: as on newer dynamic islands, live activities beyond the two the pill can carry come out as small round
+ * bubbles beside it. Tapping one brings its activity to the front of the pill. Pure, so the rules are unit-tested.
+ */
+internal object IslandBubbles {
+    const val MAX = 2
+    const val SIZE_DP = 30f
+    const val GAP_DP = 6f
+
+    /** The activities shown as bubbles: those after the pill's two, at most [MAX]. */
+    fun extras(kinds: List<LiveKind>): List<LiveKind> = kinds.drop(2).take(MAX)
+
+    /** How far to turn the order so the tapped bubble's activity is in front of the pill. */
+    fun shiftFor(kinds: List<LiveKind>, bubbleIndex: Int): Int =
+        if (bubbleIndex in extras(kinds).indices) 2 + bubbleIndex else 0
+
+    /** How much room to the right of the pill the bubbles need, in dp (0 with none). */
+    fun reserveDp(count: Int): Float = if (count <= 0) 0f else GAP_DP + count * (SIZE_DP + GAP_DP)
+}
+
 /** The colour the island borrows from album artwork: the most common vivid hue in a small copy of the picture, lifted so it
  * stays readable on black. Works on raw ARGB pixels so it can be tested without Android.
  */

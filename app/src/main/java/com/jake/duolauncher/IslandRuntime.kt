@@ -20,6 +20,8 @@ internal object IslandRuntime {
         private set
 
     /** Whether the system status bar is showing, approximated: false while the display is landscape (see FullScreenPolicy). */
+    /** Room the pop-out bubbles need to the right of the pill, in pixels, so the touch window covers them. */
+    @Volatile var bubbleExtraPx = 0
     var statusBarVisible by mutableStateOf(true)
     
     fun updateOverlay(active: Boolean) {

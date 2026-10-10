@@ -121,6 +121,7 @@ internal class IslandState {
     var activityShift by mutableIntStateOf(0)
         private set
     fun rotateActivities() { activityShift++ }
+    fun rotateBy(places: Int) { activityShift += places }
 
     private class Flash(val title: String, val icon: androidx.compose.ui.graphics.ImageBitmap?,
         val component: android.content.ComponentName?, val symbol: IslandSymbol)
@@ -283,6 +284,7 @@ internal fun DynamicIsland(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    LaunchedEffect(Unit) { IslandWidgetState.load(context) }
     val now by produceState(LocalDateTime.now()) {
         while (true) { value = LocalDateTime.now(); delay(30_000L) }
     }
@@ -360,7 +362,7 @@ internal fun DynamicIsland(
     val compactTarget = if (anchoredToWindow && !hasLiveContent) 1f else 0f
     val compactness by animateFloatAsState(compactTarget, spring(dampingRatio = .8f, stiffness = 380f), label = "island compact")
     val frame = IslandGeometry.frame(environment, d, progress, sizeScale,
-        extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) - actionsTrimDp,
+        extraBodyDp = (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(IslandTools.toolsOpen) - actionsTrimDp,
         extraWidthDp = eventWidth, compactness = compactness)
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
     val corner = minOf(minOf(frame.width, frame.height) / 2f, 30f * d) / d
@@ -402,12 +404,12 @@ internal fun DynamicIsland(
     // the island opened from the wrong corner and collapsed through the wrong place. Touches are taken by a separate small window
     // that follows the island (see IslandOverlayHost), so the empty part of this one never blocks the app underneath.
     val windowRect: PxRect? = if (anchoredToWindow && frame.side == IslandSide.TOP) {
-        val open = IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + UPDATE_ROW_DP - actionsTrimDp)
+        val open = IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + UPDATE_ROW_DP + IslandWidgetState.ROW_DP + 6f - actionsTrimDp)
         val wide = IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = MAX_EVENT_EXTRA_DP)
         val pad = 10f * d
         PxRect(
             minOf(open.left, wide.left, frame.left) - pad, minOf(open.top, wide.top, frame.top),
-            maxOf(open.left + open.width, wide.left + wide.width, frame.left + frame.width) + pad,
+            maxOf(open.left + open.width, wide.left + wide.width, frame.left + frame.width + IslandBubbles.reserveDp(IslandBubbles.MAX) * d) + pad,
             maxOf(open.top + open.height, wide.top + wide.height, frame.top + frame.height) + pad)
     } else null
     val wrapperModifier = if (anchoredToWindow) {
@@ -428,6 +430,25 @@ internal fun DynamicIsland(
         }.testTag("island-scrim"))
         // The island's window-pixel position, translated into this parent's own frame. The
         // everywhere-overlay positions its window itself and renders the island at the origin.
+        // Pop-out bubbles beside the collapsed pill for the live activities that do not fit in it.
+        val bubbleKinds = if (state.expanded || flashActive || IslandTools.ringing) emptyList() else IslandBubbles.extras(liveKinds)
+        IslandRuntime.bubbleExtraPx = (IslandBubbles.reserveDp(bubbleKinds.size) * d).roundToInt()
+        LaunchedEffect(bubbleKinds.size) { onFrameChanged?.invoke(frame, windowRect) }
+        bubbleKinds.forEachIndexed { index, kind ->
+            Box(Modifier
+                .offset {
+                    val x = frame.left + frame.width + (IslandBubbles.GAP_DP + index * (IslandBubbles.SIZE_DP + IslandBubbles.GAP_DP)) * d
+                    val y = frame.top + (frame.height - IslandBubbles.SIZE_DP * d) / 2f
+                    androidx.compose.ui.unit.IntOffset(
+                        (x - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
+                }
+                .size(IslandBubbles.SIZE_DP.dp).clip(CircleShape).background(Color.Black)
+                .clickable { UnoFeedback.play(Cue.TICK, haptic); state.rotateBy(IslandBubbles.shiftFor(liveKinds, index)) }
+                .semantics { contentDescription = "Show ${kind.name.lowercase()}" }
+                .testTag("island-bubble-${kind.name.lowercase()}"), contentAlignment = Alignment.Center) {
+                LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, update = updates.firstOrNull())
+            }
+        }
         Box(Modifier
             .offset { if (anchoredToWindow) {
                 androidx.compose.ui.unit.IntOffset(
@@ -591,6 +612,10 @@ internal fun DynamicIsland(
                     Spacer(Modifier.height(6.dp))
                     UpdateCard(u, clockMs, onOpen = { runCatching { u.openIntent?.send() }; state.collapse() })
                 }
+                if (IslandWidgetState.id >= 0 && !IslandTools.toolsOpen) {
+                    Spacer(Modifier.height(6.dp))
+                    IslandWidgetPanel(Modifier.fillMaxWidth().height(IslandWidgetState.ROW_DP.dp))
+                }
                 if (mediaVisible) {
                     Spacer(Modifier.height(6.dp))
                     PlaybackRow(playing = shownPlaying, tint = artTint, title = NotificationFeed.nowPlaying?.title,
@@ -642,6 +667,9 @@ internal const val MEDIA_ROW_DP = 112f
 internal const val ACTIONS_ROW_DP = 44f
 /** Extra panel height, in dp, when a Live Update card is showing. */
 internal const val UPDATE_ROW_DP = 76f
+
+/** The open island's hosted widget row; see IslandWidget. */
+private fun widgetRowDp(toolsOpen: Boolean): Float = if (IslandWidgetState.id >= 0 && !toolsOpen) IslandWidgetState.ROW_DP + 6f else 0f
 /** The artwork tile in the music card, in dp. */
 internal const val MEDIA_ART_DP = 56f
 /** Extra panel height, in dp, when the call card is showing. */

@@ -29,10 +29,44 @@ internal enum class IslandSymbol(val tint: Color) {
     NOTIFICATION(Color.White),
     VPN(Color(0xFF30D158)),
     USB(Color(0xFFFF9F0A)),
+    HEADPHONES(Color.White),
+    RECORDING(Color(0xFFFF453A)),
 }
 
 /** A brief event shown in the collapsed island, like iOS's ringer, charging and Focus flashes. */
 internal data class IslandEvent(val title: String, val symbol: IslandSymbol)
+
+/** Which audio outputs the island announces, and what to call them. Pure, so the choices are tested. */
+internal object AudioDevices {
+    /** A name for a newly connected or removed audio output, or null for ones that are not worth an event (the phone's own
+     * speaker and earpiece, HDMI, and so on). Bluetooth and USB devices use their own product name when they give one.
+     */
+    fun label(type: Int, productName: CharSequence?): String? {
+        val name = productName?.toString()?.trim().orEmpty()
+        return when (type) {
+            android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, android.media.AudioDeviceInfo.TYPE_BLE_HEADSET,
+            android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER, android.media.AudioDeviceInfo.TYPE_BLE_BROADCAST ->
+                name.ifEmpty { "Bluetooth audio" }
+            android.media.AudioDeviceInfo.TYPE_HEARING_AID -> name.ifEmpty { "Hearing aid" }
+            android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES, android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Headphones"
+            android.media.AudioDeviceInfo.TYPE_USB_HEADSET -> name.ifEmpty { "USB headset" }
+            else -> null
+        }
+    }
+}
+
+/** Charge-time wording for the open island. */
+internal object ChargeText {
+    /** "40 min to full" or "1 h 5 min to full" from the system's estimate in ms, or null when it has none (-1) or the time is
+     * under a minute or absurd (over a day).
+     */
+    fun toFull(remainingMs: Long): String? {
+        if (remainingMs < 60_000L || remainingMs > 24L * 60 * 60_000L) return null
+        val minutes = ((remainingMs + 30_000L) / 60_000L).toInt()
+        return if (minutes < 60) "$minutes min to full"
+        else "${minutes / 60} h${if (minutes % 60 != 0) " ${minutes % 60} min" else ""} to full"
+    }
+}
 
 /** Wording for system events, kept apart from the receivers so it can be unit-tested. */
 internal object IslandEvents {
@@ -54,6 +88,9 @@ internal object IslandEvents {
 
     /** A USB data connection starting or ending. Plain charging has its own event; this is the link that carries data. */
     fun usbData(on: Boolean) = IslandEvent(if (on) "USB data connected" else "USB data off", IslandSymbol.USB)
+
+    fun audioDevice(connected: Boolean, label: String) =
+        IslandEvent(if (connected) "$label connected" else "$label disconnected", IslandSymbol.HEADPHONES)
 
     fun charging(percent: Int?) = IslandEvent(if (percent != null) "Charging $percent%" else "Charging", IslandSymbol.CHARGING)
 }
@@ -264,7 +301,37 @@ internal fun IslandSystemEvents(state: IslandState) {
                     handler, ContextCompat.RECEIVER_NOT_EXPORTED)
             }
         }
+        // Headphones and Bluetooth audio connecting. AudioDeviceCallback needs no permission; Android replays the devices already
+        // connected the moment a callback is registered, which is not an event, so anything in the first moments is ignored.
+        val audioAlertsOn = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("audioAlerts", true)
+        val audioRegisteredAt = android.os.SystemClock.elapsedRealtime()
+        val deviceCallback = object : android.media.AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(added: Array<out android.media.AudioDeviceInfo>?) {
+                if (android.os.SystemClock.elapsedRealtime() - audioRegisteredAt < 1_500L) return
+                added.orEmpty().firstOrNull { it.isSink && AudioDevices.label(it.type, it.productName) != null }?.let {
+                    state.showEvent(IslandEvents.audioDevice(true, AudioDevices.label(it.type, it.productName)!!))
+                }
+            }
+            override fun onAudioDevicesRemoved(removed: Array<out android.media.AudioDeviceInfo>?) {
+                if (android.os.SystemClock.elapsedRealtime() - audioRegisteredAt < 1_500L) return
+                removed.orEmpty().firstOrNull { it.isSink && AudioDevices.label(it.type, it.productName) != null }?.let {
+                    state.showEvent(IslandEvents.audioDevice(false, AudioDevices.label(it.type, it.productName)!!))
+                }
+            }
+        }
+        // Screen recording (Android 15+): Android tells a window when it is being captured. DETECT_SCREEN_RECORDING is a normal,
+        // install-time permission; the answer is only "recorded" or "not", never by what.
+        val windows = context.getSystemService(android.view.WindowManager::class.java)
+        val recordingConsumer = java.util.function.Consumer<Int> { stateCode ->
+            state.recordingActive = stateCode == android.view.WindowManager.SCREEN_RECORDING_STATE_VISIBLE
+        }
+        val recordingExecutor = java.util.concurrent.Executor { handler.post(it) }
+        if (indicators && android.os.Build.VERSION.SDK_INT >= 35) {
+            runCatching { state.recordingActive = windows.addScreenRecordingCallback(recordingExecutor, recordingConsumer) ==
+                android.view.WindowManager.SCREEN_RECORDING_STATE_VISIBLE }
+        }
         handler.post {
+            if (audioAlertsOn) runCatching { audio.registerAudioDeviceCallback(deviceCallback, handler) }
             audio.registerAudioPlaybackCallback(playback, handler)
             state.setPlaying(System.currentTimeMillis(), audio.isMusicActive)
             if (indicators) {
@@ -288,6 +355,9 @@ internal fun IslandSystemEvents(state: IslandState) {
             runCatching { connectivity?.unregisterNetworkCallback(vpnCallback) }
             handler.removeCallbacksAndMessages(null)
             handler.post {
+                runCatching { audio.unregisterAudioDeviceCallback(deviceCallback) }
+                if (android.os.Build.VERSION.SDK_INT >= 35) runCatching { windows.removeScreenRecordingCallback(recordingConsumer) }
+                state.recordingActive = false
                 audio.unregisterAudioPlaybackCallback(playback)
                 runCatching { cameras?.unregisterAvailabilityCallback(cameraCallback) }
                 runCatching { cameras?.unregisterTorchCallback(torchCallback) }

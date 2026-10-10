@@ -82,6 +82,17 @@ class DynamicIslandInstrumentedTest {
         assertEquals(0, compose.onAllNodesWithTag("island-camera", useUnmergedTree = true).fetchSemanticsNodes().size)
     }
 
+    @Test fun screenRecordingMarkFollowsItsState() {
+        show()
+        assertEquals(0, compose.onAllNodesWithTag("island-recording", useUnmergedTree = true).fetchSemanticsNodes().size)
+        compose.runOnIdle { state.recordingActive = true }
+        compose.waitForIdle()
+        assertPresent("island-recording")
+        compose.runOnIdle { state.recordingActive = false }
+        compose.waitForIdle()
+        assertEquals(0, compose.onAllNodesWithTag("island-recording", useUnmergedTree = true).fetchSemanticsNodes().size)
+    }
+
     @Test fun liveUpdateShowsItsShortStatusWhenCollapsed() {
         show()
         compose.runOnIdle { NotificationFeed.liveUpdates = listOf(liveUpdate()) }

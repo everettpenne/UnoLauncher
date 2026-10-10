@@ -44,4 +44,14 @@ class LargeFolderRulesTest {
         assertTrue(small.first >= 1 && small.second >= 1)
         assertEquals(1 to 1, LargeFolderRules.capacity(10f, 10f))
     }
+
+    @Test fun thinFacesGetCompactIconsAndNoTitle() {
+        val wide = LargeFolderRules.metrics(165f, 85f)   // 2 x 1
+        val tall = LargeFolderRules.metrics(80f, 190f)   // 1 x 2
+        val normal = LargeFolderRules.metrics(165f, 190f) // 2 x 2
+        assertTrue(!wide.titled && !tall.titled && normal.titled)
+        assertTrue(wide.icon < normal.icon)
+        assertTrue("2 x 1 holds at least 3 icons", LargeFolderRules.capacity(165f, 85f).second >= 3)
+        assertTrue("1 x 2 holds at least 3 icons", LargeFolderRules.capacity(80f, 190f).second >= 3)
+    }
 }

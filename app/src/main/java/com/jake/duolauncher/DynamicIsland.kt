@@ -14,6 +14,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.rounded.Usb
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -119,6 +121,8 @@ internal class IslandState {
     /** The microphone or camera is in use by some app (an Android privacy indicator, shown in the island). */
     var micActive by mutableStateOf(false)
     var cameraActive by mutableStateOf(false)
+    /** The screen is being recorded (Android 15+), shown as a red mark. */
+    var recordingActive by mutableStateOf(false)
     /** How far a flick has turned the order of the live activities, so a different one can be put in front. */
     var activityShift by mutableIntStateOf(0)
         private set
@@ -213,6 +217,8 @@ private fun IslandSymbol.icon(): ImageVector = when (this) {
     IslandSymbol.TIMER -> Icons.Rounded.Timer
     IslandSymbol.VPN -> Icons.Rounded.VpnKey
     IslandSymbol.USB -> Icons.Rounded.Usb
+    IslandSymbol.HEADPHONES -> Icons.Rounded.Headphones
+    IslandSymbol.RECORDING -> Icons.Rounded.FiberManualRecord
     IslandSymbol.NOTIFICATION -> Icons.Rounded.NotificationsActive
 }
 
@@ -298,6 +304,16 @@ internal fun DynamicIsland(
             delay(if (IslandTools.swRunning) 100L else if (IslandTools.timerActive) 500L else if (state.expanded && state.playing) 1_000L else if (LiveUpdateLogic.needsSecondTick(NotificationFeed.liveUpdates)) 1_000L else 5_000L)
         }
     }
+    // How long until the battery is full, asked of the system only while the island is open on a charging phone.
+    val chargeLeft by produceState<String?>(null, state.expanded, deviceStatus.charging, deviceStatus.battery) {
+        value = null
+        if (state.expanded && deviceStatus.charging == true) {
+            val battery = context.getSystemService(android.os.BatteryManager::class.java)
+            value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                runCatching { ChargeText.toFull(battery.computeChargeTimeRemaining()) }.getOrNull()
+            }
+        }
+    }
     val torch = rememberTorch(active = state.expanded && IslandTools.toolsOpen)
     // A timer whose alarm never reached us (the process was stopped, or Android delayed it) must still finish: once the
     // clock passes its end it rings from here. onAlarm ignores a second trigger, so this cannot double up.
@@ -348,7 +364,7 @@ internal fun DynamicIsland(
     val updates = NotificationFeed.liveUpdates
     // Everything live on the collapsed pill, most important first, and which goes in which slot (see IslandLive).
     val liveKinds = IslandLive.rotated(IslandLive.active(camera = state.cameraActive, mic = state.micActive, call = callActive,
-        timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaVisible, update = updates.isNotEmpty()), state.activityShift)
+        timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaVisible, update = updates.isNotEmpty(), recording = state.recordingActive), state.activityShift)
     val plan = IslandLive.plan(liveKinds)
     // A camera on a side edge has no room beside it unless the pill widens, so live content asks for some.
     val cameraOnSide = environment.cutout?.let {
@@ -601,9 +617,13 @@ internal fun DynamicIsland(
                         Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = Color.White.copy(alpha = .85f),
                             fontSize = 12.sp)
                     }
-                    Text(if (deviceStatus.battery != null) "${deviceStatus.battery}%" else "—",
-                        color = if (deviceStatus.charging == true) IosGreen else Color.White,
-                        fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(if (deviceStatus.battery != null) "${deviceStatus.battery}%" else "—",
+                            color = if (deviceStatus.charging == true) IosGreen else Color.White,
+                            fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        chargeLeft?.let { Text(it, color = IosGreen.copy(alpha = .85f), fontSize = 11.sp, maxLines = 1,
+                            modifier = Modifier.testTag("island-charge-left")) }
+                    }
                 }
                 NotificationFeed.ongoingCall?.let { call ->
                     Spacer(Modifier.height(6.dp))
@@ -894,6 +914,9 @@ private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boo
         LiveKind.MIC -> if (glyph) Icon(Icons.Rounded.Mic, "Microphone in use", tint = PRIVACY_MIC,
             modifier = Modifier.size(16.dp).testTag("island-mic"))
             else Text("Mic", color = PRIVACY_MIC, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        LiveKind.RECORDING -> if (glyph) Icon(Icons.Rounded.FiberManualRecord, "Screen is being recorded", tint = IslandSymbol.RECORDING.tint,
+            modifier = Modifier.size(16.dp).testTag("island-recording"))
+            else Text("Recording", color = IslandSymbol.RECORDING.tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         LiveKind.CALL -> if (glyph) Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(14.dp))
             else Text(NotificationFeed.ongoingCall?.caller ?: "", color = Color.White, fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,

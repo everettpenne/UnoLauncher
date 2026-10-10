@@ -258,15 +258,17 @@ internal fun VisualWidgetPicker(
                 if (words.isEmpty() && selectedProfile.isPersonal) {
                     item("duo-widgets") { Text("Uno Launcher", style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 10.dp, start = 4.dp)) }
-                    items(listOf(CLOCK_WIDGET to "Clock", DATE_WIDGET to "Date", INFO_WIDGET to "Widget panel", FOLDER_WIDGET to "Large folder"),
-                        key = { "builtin-${it.first}" }) { (id, label) ->
+                    items(listOf(Triple(CLOCK_WIDGET, "Clock", "2 × 2"), Triple(DATE_WIDGET, "Date", "2 × 2"),
+                        Triple(INFO_WIDGET, "Widget panel", "2 × 2"), Triple(FOLDER_WIDGET, "Large folder", "2 × 2"),
+                        Triple(FOLDER_WIDE_PICK, "Large folder, wide", "2 × 1"), Triple(FOLDER_TALL_PICK, "Large folder, tall", "1 × 2")),
+                        key = { "builtin-${it.first}" }) { (id, label, size) ->
                         Surface(Modifier.fillMaxWidth().testTag("widget-builtin-$id")
                             .clickable { focusManager.clearFocus(); keyboard?.hide(); onBuiltin(id) },
                             color = Glass.copy(alpha = .55f), border = BorderStroke(1.dp, Color.White.copy(alpha = .55f)),
                             shape = Corner.large) {
                             Column(Modifier.padding(16.dp)) {
                                 Text(label, style = MaterialTheme.typography.titleMedium)
-                                Text("2 × 2 · Tap to place", style = MaterialTheme.typography.labelMedium)
+                                Text("$size · Tap to place", style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }

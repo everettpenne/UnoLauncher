@@ -203,10 +203,13 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     }
     if (section == ExtrasSection.ISLAND) {
     SettingsSwitch("Camera and microphone indicators", s.privacyIndicators, store::setPrivacyIndicators, "privacy-indicators-switch")
-    Text("The island shows a green camera or orange microphone mark while any app is using that hardware, like Android's own privacy dots. It needs no permission: Android tells every app when the camera or microphone becomes busy, without saying which app is using it. Nothing is recorded or stored.",
+    Text("The island shows a green camera or orange microphone mark while any app is using that hardware, like Android's own privacy dots, and a red mark while the screen is being recorded (Android 15+, using the normal DETECT_SCREEN_RECORDING permission). It needs no runtime permission: Android tells every app when the camera or microphone becomes busy, without saying which app is using it. Nothing is recorded or stored.",
         style = note, color = muted)
     SettingsSwitch("VPN and USB data alerts", s.securityAlerts, store::setSecurityAlerts, "security-alerts-switch")
     Text("The island flashes when a VPN connects or drops and when a USB data connection starts or ends (plain charging is not announced here). It needs no extra permission and keeps nothing.",
+        style = note, color = muted)
+    SettingsSwitch("Headphone and Bluetooth audio alerts", s.audioAlerts, store::setAudioAlerts, "audio-alerts-switch")
+    Text("The island flashes the name of Bluetooth audio, a headset or headphones when they connect or disconnect. It needs no permission and keeps nothing. Opening the island on a charging phone also shows how long until it is full.",
         style = note, color = muted)
     SettingsSwitch("Live Updates in the island", s.liveUpdates, store::setLiveUpdates, "live-updates-switch")
     Text("Android 16 apps can post a Live Update for a ride, delivery, timer or navigation. The island shows the app's icon and status beside the camera and a card with its progress when open. Only the title, short status, progress and icon are read, never message text; it needs notification access.",

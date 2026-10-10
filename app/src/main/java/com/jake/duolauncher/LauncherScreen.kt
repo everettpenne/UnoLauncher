@@ -896,11 +896,13 @@ internal fun LauncherScreen(
                             val gridSizing = WidgetGridSizing(GRID_COLUMNS, GRID_ROWS, geometry.gridWidth / GRID_COLUMNS,
                                 minOf(topPitch, geometry.rowHeight), maxOf(topPitch, geometry.rowHeight), 10f, 18f,
                                 topRowHeightDp = topPitch, appRowHeightDp = geometry.rowHeight)
-                            val constraints = widgets.manager.getAppWidgetInfo(placement.id)?.let { widgets.sizing(it, gridSizing) }
+                            val constraints = if (placement.id == FOLDER_WIDGET) FOLDER_SPAN_CONSTRAINTS
+                                else widgets.manager.getAppWidgetInfo(placement.id)?.let { widgets.sizing(it, gridSizing) }
                             WidgetActions(placement, constraints,
                                 canConfigure = widgets.canReconfigure(placement.id),
                                 onConfigure = { widgets.reconfigure(placement.id); sheet = "" },
-                                isValid = { x, y -> (x == placement.spanX && y == placement.spanY) || resizeWidget(state.layout, widgetSlot, x, y) != state.layout },
+                                isValid = { x, y -> (placement.id != FOLDER_WIDGET || x * y >= 2) &&
+                                    ((x == placement.spanX && y == placement.spanY) || resizeWidget(state.layout, widgetSlot, x, y) != state.layout) },
                                 onResize = { x, y -> model.resizeWidget(widgetSlot, x, y) },
                                 onStartResize = { x, y ->
                                     resizeSlot = widgetSlot; resizeWidth = x; resizeHeight = y
@@ -1042,10 +1044,13 @@ internal fun LauncherScreen(
                             scope.launch { pager.scrollToPage(homeCellPage(targetIndex).coerceIn(0, homePages)) }
                         }
                     },
-                    onBuiltin = builtin@{ builtinId ->
+                    onBuiltin = builtin@{ pickedId ->
+                        // The wide and tall large folders are picker choices only: a large folder with that footprint.
+                        val builtinId = if (pickedId == FOLDER_WIDE_PICK || pickedId == FOLDER_TALL_PICK) FOLDER_WIDGET else pickedId
+                        val pickedSpan = when (pickedId) { FOLDER_WIDE_PICK -> WidgetSpan(2, 1); FOLDER_TALL_PICK -> WidgetSpan(1, 2); else -> null }
                         val existing = model.placement(widgetSlot)
                         val special = existing?.takeIf { it.row + it.spanY > GRID_ROWS }
-                        val span = existing?.let { WidgetSpan(it.spanX, it.spanY) } ?: WidgetSpan(2, 2)
+                        val span = pickedSpan ?: existing?.let { WidgetSpan(it.spanX, it.spanY) } ?: WidgetSpan(2, 2)
                         if (special != null) {
                             widgetSession = WidgetPickerSession(null, widgetSlot, span, Offset.Zero,
                                 dragging = false, candidate = special, builtinId = builtinId)
@@ -1305,7 +1310,8 @@ internal fun LauncherScreen(
                 val feasible = placement.page >= -1 && placement.row in 0 until GRID_ROWS &&
                     !(placement.id >= 0 && resizeConstraints == null) && minW <= maxW && minH <= maxH
                 val candidate = resizeWidget(state.layout, slot, resizeWidth, resizeHeight)
-                val valid = feasible && ((resizeWidth == placement.spanX && resizeHeight == placement.spanY) || candidate != state.layout)
+                val valid = feasible && (placement.id != FOLDER_WIDGET || resizeWidth * resizeHeight >= 2) &&
+                    ((resizeWidth == placement.spanX && resizeHeight == placement.spanY) || candidate != state.layout)
                 val widthPx = (bounds.width + (resizeWidth - placement.spanX) * resizePitchX).coerceAtLeast(resizePitchX)
                 val density = LocalDensity.current
                 fun resizeRowTop(row: Int) = if (row <= 2) row * resizeTopPitch else 2 * resizeTopPitch + (row - 2) * resizeAppPitch
@@ -2172,6 +2178,9 @@ private fun StackRail(selected: Int, count: Int, onSelect: (Int) -> Unit, modifi
         }
     }
 }
+
+/** A large folder may be as small as 2 x 1 or 1 x 2 (never 1 x 1), up to the whole grid. */
+private val FOLDER_SPAN_CONSTRAINTS = WidgetSpanConstraints(WidgetSpan(2, 2), WidgetSpan(1, 1), WidgetSpan(GRID_COLUMNS, GRID_ROWS), true, true)
 
 private fun widgetLabel(id: Int, controller: WidgetController) = when (id) {
     CLOCK_WIDGET -> "Clock"

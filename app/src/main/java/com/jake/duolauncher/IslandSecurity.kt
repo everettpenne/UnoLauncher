@@ -68,9 +68,9 @@ internal object PermissionLedger {
                 "Finding contacts from search, if you switch that on.",
                 "Contact names, matched on this device. Nothing is stored or sent.",
                 LedgerAction.APP_INFO),
-            LedgerRow("indicators", "Camera, microphone, VPN and USB marks",
+            LedgerRow("indicators", "Camera, microphone, recording, VPN, USB and audio marks",
                 "No permission needed", true,
-                "The island's camera and microphone marks, and VPN and USB-data alerts.",
+                "The island's camera, microphone and screen-recording marks, and VPN, USB-data and audio-device alerts. Screen recording uses Android's install-time DETECT_SCREEN_RECORDING permission.",
                 "Only that something is happening, never which app or what was captured. Android reports these to every app.",
                 LedgerAction.NONE),
         )

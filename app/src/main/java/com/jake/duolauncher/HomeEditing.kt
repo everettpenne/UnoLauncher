@@ -9,6 +9,9 @@ const val DATE_WIDGET = -3
 const val INFO_WIDGET = -4
 const val NEEDS_BINDING_WIDGET = -5
 const val FOLDER_WIDGET = -6
+/** Widget-picker choices for the other sizes of a large folder; each is placed as FOLDER_WIDGET with that footprint. */
+const val FOLDER_WIDE_PICK = -7
+const val FOLDER_TALL_PICK = -8
 
 data class WidgetPlacement(val slot: Int, val id: Int, val page: Int, val column: Int, val row: Int, val spanX: Int, val spanY: Int)
 data class WidgetRestore(val slot: Int, val providerComponent: String, val userSerial: Long, val title: String,

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.29.0-uno01
+
+- Large folders in 2 x 1 and 1 x 2: the widget picker offers "Large folder, wide" and "Large folder, tall" next to the 2 x 2 one, and any large folder can be resized down to 2 x 1 or 1 x 2 (never 1 x 1) or up to the whole grid. Thin faces use compact icons (32 dp in 40 dp cells) and drop the title so a few apps still fit: about three icons in a 2 x 1 and four in a 1 x 2. Metrics and capacity are unit tested; an emulator test places both shapes.
+- Island: headphone and Bluetooth audio alerts. The island flashes the device's name when Bluetooth audio, a headset, wired headphones or a USB headset connects or disconnects (the phone's own speaker, HDMI and the like are ignored; the devices already connected when the island appears are not announced). It uses Android's AudioDeviceCallback, which needs no permission; a switch turns it off.
+- Island: a red recording mark while the screen is being recorded (Android 15+). Android tells a window when it is being captured through WindowManager's screen-recording callback; it only says "recorded" or "not", never by what. It needs the normal, install-time DETECT_SCREEN_RECORDING permission (added to the manifest and described in the permission ledger) and follows the camera/microphone indicators switch. It is a privacy mark, so it takes a pill slot ahead of calls and media.
+- Island: time to full. The open island on a charging phone shows "40 min to full" under the battery percentage, from BatteryManager.computeChargeTimeRemaining (asked off the main thread and only while open and charging).
+- Debug builds' broadcast can fake the recording mark (--ez recording true). Not seen on a real recording, headphones or charger: the emulator tests cover the mark's appearing and disappearing; the wording and device choices are unit tested.
+
 ## 0.28.0-uno01
 
 - Large folders, as in HyperOS: a folder that takes several Home cells and shows its apps on its face, so each launches with one tap without opening anything. Add one from the widget picker (Uno Launcher, "Large folder"; 2 x 2 to start), then tap it and choose "Choose folder apps" to pick up to 24 apps and name it. It is resized like any widget (Widget options, Resize), and a bigger face shows more icons (icons are 44 dp in 56 dp cells; the face shows as many as fit, in as many columns as fit). Moving, paging and removing use the widget machinery; the apps and name live in their own preference file (LargeFolders), and a folder whose widget is gone takes its contents with it.

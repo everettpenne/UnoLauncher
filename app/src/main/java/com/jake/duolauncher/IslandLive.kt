@@ -7,7 +7,7 @@ import kotlin.math.min
 /** Things that can be live on the collapsed island at once. Privacy indicators come first and are glyph-only; the rest are in
  * the order of how much the user needs to see them. A flash event or a ringing timer is not in here: those take the whole pill.
  */
-internal enum class LiveKind(val privacy: Boolean = false) { CAMERA(true), MIC(true), CALL, TIMER, STOPWATCH, UPDATE, MEDIA }
+internal enum class LiveKind(val privacy: Boolean = false) { CAMERA(true), MIC(true), RECORDING(true), CALL, TIMER, STOPWATCH, UPDATE, MEDIA }
 
 /** What a collapsed-pill slot shows for a kind: its small glyph (an icon or artwork), or its detail (the text or bars). */
 internal enum class SlotShow { GLYPH, DETAIL }
@@ -19,10 +19,11 @@ internal data class SlotPlan(val leading: Pair<LiveKind, SlotShow>?, val trailin
  */
 internal object IslandLive {
     fun active(camera: Boolean, mic: Boolean, call: Boolean, timer: Boolean, stopwatch: Boolean, media: Boolean,
-        update: Boolean = false): List<LiveKind> =
+        update: Boolean = false, recording: Boolean = false): List<LiveKind> =
         buildList {
             if (camera) add(LiveKind.CAMERA)
             if (mic) add(LiveKind.MIC)
+            if (recording) add(LiveKind.RECORDING)
             if (call) add(LiveKind.CALL)
             if (timer) add(LiveKind.TIMER)
             if (stopwatch) add(LiveKind.STOPWATCH)

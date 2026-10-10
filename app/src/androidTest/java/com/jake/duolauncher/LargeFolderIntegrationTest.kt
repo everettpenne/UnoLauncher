@@ -45,4 +45,31 @@ class LargeFolderIntegrationTest {
             compose.waitUntil(5_000) { LargeFolders.folders[slot] == null }
         } finally { compose.runOnIdle { model().restoreLayout(before) } }
     }
+
+    @Test fun wideAndTallLargeFoldersShowTheirApps() {
+        ready()
+        val before = model().state.value.layout
+        try {
+            compose.runOnIdle { model().state.value.order.toList().forEach { model().setPinned(it, false) } }
+            compose.waitForIdle()
+            val arranged = model().state.value.layout
+            val apps = model().state.value.apps.take(3)
+            assertEquals(3, apps.size)
+            val base = (arranged.widgetPlacements.maxOfOrNull { it.slot } ?: -1) + 1
+            val shapes = listOf(base to (2 to 1), base + 1 to (1 to 2))
+            shapes.forEach { (slot, span) ->
+                val layout = model().state.value.layout
+                val index = (0 until HOME_CELLS).firstOrNull { widgetCandidate(layout, slot, it, span.first, span.second) != null }
+                assertNotNull("Needs room for ${span.first} x ${span.second}", index)
+                val placement = widgetCandidate(layout, slot, index!!, span.first, span.second)!!.copy(id = FOLDER_WIDGET)
+                compose.runOnIdle {
+                    assertTrue(model().placeWidget(placement))
+                    apps.forEach { LargeFolders.toggle(slot, it.id) }
+                }
+                compose.waitForIdle()
+                assertTrue("${span.first} x ${span.second} should show an app",
+                    apps.any { compose.onAllNodesWithTag("large-folder-app-${it.id}", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() })
+            }
+        } finally { compose.runOnIdle { model().restoreLayout(before) } }
+    }
 }

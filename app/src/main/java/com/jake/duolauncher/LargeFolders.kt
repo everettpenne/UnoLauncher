@@ -66,10 +66,20 @@ internal object LargeFolderRules {
     /** Keeps only the folders whose Home widget still exists, so a slot reused by something else never inherits old contents. */
     fun prune(folders: Map<Int, LargeFolder>, placedSlots: Set<Int>) = folders.filterKeys { it in placedSlots }
 
-    /** How many app icons fit on a face of this size, and in how many columns (icons 44 dp in 56 dp cells, 62 dp rows, 28 dp title). */
+    /** Icon and cell sizes (dp) for a face: roomy ones normally, compact ones on a thin face (2 x 1, 1 x 2) so a few icons still fit,
+     * and whether the face has room for its title.
+     */
+    data class Metrics(val icon: Float, val cellW: Float, val cellH: Float, val titled: Boolean)
+
+    fun metrics(widthDp: Float, heightDp: Float): Metrics =
+        if (minOf(widthDp, heightDp) < 130f) Metrics(32f, 40f, 40f, false)
+        else Metrics(44f, 56f, 62f, heightDp >= 130f)
+
+    /** The columns and how many app icons fit on a face of this size. */
     fun capacity(widthDp: Float, heightDp: Float): Pair<Int, Int> {
-        val columns = ((widthDp - 16f) / 56f).toInt().coerceAtLeast(1)
-        val rows = ((heightDp - 28f - 8f) / 62f).toInt().coerceAtLeast(1)
+        val m = metrics(widthDp, heightDp)
+        val columns = ((widthDp - 16f) / m.cellW).toInt().coerceAtLeast(1)
+        val rows = ((heightDp - (if (m.titled) 36f else 8f)) / m.cellH).toInt().coerceAtLeast(1)
         return columns to columns * rows
     }
 }
@@ -115,18 +125,19 @@ internal fun LargeFolderFace(slot: Int, onOpenOptions: () -> Unit) {
     Surface(Modifier.fillMaxSize().testTag("large-folder-$slot").clickable(onClick = onOpenOptions),
         color = Glass.copy(alpha = .62f), shape = Corner.large, border = BorderStroke(1.dp, Color.White.copy(alpha = .5f))) {
         BoxWithConstraints(Modifier.padding(8.dp)) {
+            val m = LargeFolderRules.metrics(maxWidth.value + 16f, maxHeight.value + 16f)
             val (columns, capacity) = LargeFolderRules.capacity(maxWidth.value + 16f, maxHeight.value + 16f)
             val shown = folder.appIds.mapNotNull(apps::get).take(capacity)
             Column(Modifier.fillMaxSize()) {
-                Text(folder.title, color = Color.White, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                if (m.titled) Text(folder.title, color = Color.White, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(start = 4.dp, bottom = 6.dp).testTag("large-folder-title"))
-                if (shown.isEmpty()) Text("Tap to choose apps", color = Color.White.copy(alpha = .75f), fontSize = 12.sp,
+                if (shown.isEmpty()) Text(if (m.titled) "Tap to choose apps" else "Tap", color = Color.White.copy(alpha = .75f), fontSize = 12.sp,
                     modifier = Modifier.padding(4.dp))
                 shown.chunked(columns).forEach { row ->
                     Row(Modifier.fillMaxWidth()) {
                         row.forEach { app ->
-                            Box(Modifier.width(56.dp).height(62.dp), contentAlignment = Alignment.TopCenter) {
-                                Image(app.icon.asImageBitmap(), null, Modifier.size(44.dp).clip(Corner.icon)
+                            Box(Modifier.width(m.cellW.dp).height(m.cellH.dp), contentAlignment = Alignment.TopCenter) {
+                                Image(app.icon.asImageBitmap(), null, Modifier.size(m.icon.dp).clip(Corner.icon)
                                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                         HomeAppsBridge.launch(app, null)
                                     }.semantics { contentDescription = app.label }.testTag("large-folder-app-${app.id}"))

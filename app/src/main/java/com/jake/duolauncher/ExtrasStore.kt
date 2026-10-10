@@ -24,6 +24,7 @@ internal data class ExtrasState(
     val callDetails: Boolean = true,
     val privacyIndicators: Boolean = true,
     val securityAlerts: Boolean = true,
+    val audioAlerts: Boolean = true,
     val liveUpdates: Boolean = true,
     val islandEverywhere: Boolean = false,
     val notificationPeek: Boolean = false,
@@ -75,6 +76,7 @@ internal class ExtrasStore(context: Context) {
         callDetails = prefs.getBoolean("callDetails", true),
         privacyIndicators = prefs.getBoolean("privacyIndicators", true),
         securityAlerts = prefs.getBoolean("securityAlerts", true),
+        audioAlerts = prefs.getBoolean("audioAlerts", true),
         liveUpdates = prefs.getBoolean("liveUpdates", true),
         islandEverywhere = prefs.getBoolean("islandEverywhere", false),
         notificationPeek = prefs.getBoolean("notificationPeek", false),
@@ -109,6 +111,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("callDetails", next.callDetails)
             .putBoolean("privacyIndicators", next.privacyIndicators)
             .putBoolean("securityAlerts", next.securityAlerts)
+            .putBoolean("audioAlerts", next.audioAlerts)
             .putBoolean("liveUpdates", next.liveUpdates)
             .putBoolean("islandEverywhere", next.islandEverywhere)
             .putBoolean("notificationPeek", next.notificationPeek)
@@ -143,6 +146,7 @@ internal class ExtrasStore(context: Context) {
     fun setBadges(value: Boolean) = save(state.copy(badges = value))
     fun setMediaDetails(value: Boolean) = save(state.copy(mediaDetails = value))
     fun setCallDetails(value: Boolean) = save(state.copy(callDetails = value))
+    fun setAudioAlerts(value: Boolean) = save(state.copy(audioAlerts = value))
     fun setPrivacyIndicators(value: Boolean) = save(state.copy(privacyIndicators = value))
     fun setSecurityAlerts(value: Boolean) = save(state.copy(securityAlerts = value))
     fun setLiveUpdates(value: Boolean) = save(state.copy(liveUpdates = value))

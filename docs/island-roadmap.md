@@ -11,7 +11,7 @@ What is built, and what is still to do. This is a working list, not a promise.
 - Smoother morph: the faces crossfade, closing is critically damped, and the overlay window is held at the open size while the island moves.
 - Album-art tint on the bars and play button.
 - A music card in the open island: artwork and track above the controls, with the controls staying visible after a pause.
-- A permission ledger (Customize, Control panel & extras): every permission the launcher uses, what it is for, what it can see, and a link to turn it off, plus a plain line saying which island you actually have (Home only, above other apps but not tappable, or tappable).
+- A permission ledger (Launcher settings, Notifications & privacy): every permission the launcher uses, what it is for, what it can see, and a link to turn it off, plus a plain line saying which island you actually have (Home only, above other apps but not tappable, or tappable).
 - A blocked-service check: the ledger says so when the accessibility service is turned on in Settings but Android is not running it (Advanced Protection or a restricted-settings block), and the plain overlay is used instead.
 - VPN connected / dropped and USB data connected / ended alerts, from public callbacks that need no extra permission, with a switch to turn them off.
 

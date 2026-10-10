@@ -18,14 +18,13 @@ To make Uno Launcher the launcher, choose **Set as home app** in customization, 
 
 ## Customize Home
 
-Long press an empty Home cell to open **Add to Home**, then choose **Widgets**, **Wallpaper**, or **Customize launcher**. If every cell is occupied, long press the slim wallpaper margin at the left edge of the grid. In **Make it yours** you can open:
+Swipe up anywhere on Home to open **Launcher settings** (not when the swipe starts on a widget that scrolls itself). You can also long press an empty Home cell to open **Add to Home**, then choose **Widgets**, **Wallpaper**, or **Customize launcher**. If every cell is occupied, long press the slim wallpaper margin at the left edge of the grid. The settings are grouped like iOS Settings:
 
-- **Wallpaper & appearance** for launcher photos, Android wallpaper, and color mode.
-- **Home layout** for icon size, row spacing, dock geometry, Home apps, and widgets on the visible page.
-- **Gestures & search** for app names, the upper-right status display, and Google search behavior.
-- **News feed** to add https RSS/Atom feeds (the GrapheneOS ones are one tap), refresh them, and choose whether the feed replaces Google Discover. Without the Google app the feed always owns this page. Feeds must be https, and a redirect to a different server is refused.
-- **Backup** to save or restore the layout.
-- **Help & setup** for Home selection, widgets, shade gestures, and Discover.
+- **Look:** **Wallpaper & glass** (launcher photos, Android wallpaper, liquid glass, color from wallpaper, light and dark) and **App icons** (original, themed or tinted by your wallpaper).
+- **Home:** **Home layout** (icon size, row spacing, dock geometry, Home apps, widgets on the visible page), **Gestures & feel** (app names, the upper-right status display, pull-down and right-hand swipes, haptics and sounds), **Search** (the Google button, suggestions, contacts) and **Control panel & Focus**.
+- **Island & keyboard:** **Dynamic island** (size, everywhere mode, live activities, alerts, the island widget, which apps may use it) and **Keyboard**.
+- **Privacy:** **Notifications & privacy** (notification access, badges, and what every permission can see).
+- **More:** **News feed**, **Backup** (layout and your settings, including large folders and widget notes), **Updates** and **Help & setup**.
 
 After a layout edit, **Undo last layout change** appears in customization. It covers the latest supported layout change, so use it before making another edit.
 
@@ -51,7 +50,7 @@ Scrollable Android widgets keep their native vertical scrolling when the touch b
 
 ## Background and appearance
 
-In **Wallpaper & appearance**, **Choose a photo** creates a private preview. It does not replace the current launcher background until you choose **Apply**; **Cancel** keeps the committed background. If selection is interrupted, choose **Resume** or **Cancel**. Recovery has been checked for activity recreation and a completed private preview file, but an interruption during the earlier decode step may require selecting the photo again.
+In **Wallpaper & glass**, **Choose a photo** creates a private preview. It does not replace the current launcher background until you choose **Apply**; **Cancel** keeps the committed background. If selection is interrupted, choose **Resume** or **Cancel**. Recovery has been checked for activity recreation and a completed private preview file, but an interruption during the earlier decode step may require selecting the photo again.
 
 **Preview Android wallpaper** opens Android's separate wallpaper preview. It does not change Uno Launcher's **Launcher background**. **Reset to Uno dunes** removes the selected launcher background.
 
@@ -66,3 +65,10 @@ On Home, swipe down from the left 70% to open Notifications or from the right 30
 Open **Backup**, choose **Save**, and select a document destination. Choose **Restore** to select a backup, inspect **Review restored layout**, then choose **Restore** again. **Cancel** leaves Home unchanged.
 
 Backups contain Home and dock positions, folders, widget descriptions and spaces, layout presets, labels, search behavior, and status settings. They include the unfolded-only workspace. They do not include the selected background photo or live Android widget bindings. After restore, provider widgets keep their saved space but require **Reconnect**; unavailable apps leave empty positions, and work-profile entries may need manual placement. Review a backup before sharing because it can expose app names, folder names, and profile metadata.
+
+
+## Dragging, folders and the widget library
+
+Drop an app on the middle of another app to make a folder of the two; drop nearer the edge to move it there. **Large folders** (widget picker, Uno widgets: 2 × 2, wide 2 × 1 and tall 1 × 2) show their apps on Home so each launches with one tap; tap one, then **Choose folder apps**.
+
+The widget picker's **Uno widgets** are drawn by the launcher itself with no permissions: **Battery**, **Month**, **Day, month and year**, **Moon phase**, **Countdown**, **Note**, **Counter**, **Timers** (starts the island timer) and **Sunrise and sunset** (for the place you set in Appearance). Countdowns, notes and counters keep what you type in the app's private storage, and layout backups carry it.

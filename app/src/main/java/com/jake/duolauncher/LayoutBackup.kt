@@ -55,7 +55,7 @@ internal fun encodeLayoutBackup(state: LauncherState, widgetDescriptors: List<Ba
         val item = JSONObject().put("slot", placement.slot).put("page", placement.page)
             .put("column", placement.column).put("row", placement.row).put("spanX", placement.spanX).put("spanY", placement.spanY)
         when {
-            placement.id in setOf(CLOCK_WIDGET, DATE_WIDGET, INFO_WIDGET, FOLDER_WIDGET) -> item.put("builtinId", placement.id)
+            isBuiltinWidgetId(placement.id) -> item.put("builtinId", placement.id)
             saved != null -> item.put("provider", saved.providerComponent).put("userSerial", saved.userSerial)
                 .put("title", saved.title).put("profileLabel", saved.profileLabel).put("work", saved.isWork)
                 .put("sourceScope", exportedWidgetScope(saved, sourceScope))
@@ -158,7 +158,7 @@ internal fun decodeLayoutBackup(raw: String, currentApps: List<AppEntry>, curren
         val builtin = if (item.has("builtinId")) item.strictInt("builtinId") else null
         val provider = item.optString("provider").takeIf(String::isNotBlank)
         val id = if (builtin != null) {
-            require(builtin in setOf(CLOCK_WIDGET, DATE_WIDGET, INFO_WIDGET, FOLDER_WIDGET)); builtin
+            require(isBuiltinWidgetId(builtin)); builtin
         } else NEEDS_BINDING_WIDGET
         val placement = WidgetPlacement(slot, id, item.strictInt("page"), item.strictInt("column"), item.strictInt("row"),
             item.strictInt("spanX"), item.strictInt("spanY"))
@@ -230,3 +230,6 @@ private fun JSONObject.strictFloat(key: String): Float {
 }
 
 private fun JSONObject.strictBoolean(key: String) = get(key) as? Boolean ?: error("$key must be a boolean")
+
+/** The widgets Uno draws itself: the clock, date and panel cards, the large folder, and the widget library. */
+internal fun isBuiltinWidgetId(id: Int) = id == CLOCK_WIDGET || id == DATE_WIDGET || id == INFO_WIDGET || id == FOLDER_WIDGET || UnoWidgets.byId(id) != null

@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity() {
         UpdateSecurity.appVersion = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "unknown"
         WidgetStacks.init(this)
         LargeFolders.init(this)
+        WidgetData.init(this)
         super.onCreate(savedInstanceState)
         setupExperience = SetupExperience(this)
         showFirstRun.value = setupExperience.entryDecision(SetupExperience.hadLauncherState(this)) ==
@@ -119,7 +120,7 @@ class MainActivity : ComponentActivity() {
         }.also { it.restore(savedInstanceState) }
         backups = BackupController(this, model, widgets, onExternalResultChanged = { active ->
             LiveDiscover.setExternalResultPending(this, "main", "layout-backup", active)
-        }, onSettingsApplied = { extrasStore.reload(); appearance.reloadFromPreferences() }).also { it.restore() }
+        }, onSettingsApplied = { extrasStore.reload(); appearance.reloadFromPreferences(); LargeFolders.reload(); WidgetData.reload() }).also { it.restore() }
         backgrounds = LauncherBackgroundController(this) { active ->
             LiveDiscover.setExternalResultPending(this, "main", "launcher-background", active)
         }

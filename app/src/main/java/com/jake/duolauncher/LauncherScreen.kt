@@ -28,6 +28,7 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.animation.core.animateFloatAsState
@@ -216,7 +217,9 @@ internal fun LauncherScreen(
     val appsById = remember(state.apps) { state.apps.associateBy { it.id } }
     SideEffect { HomeAppsBridge.apps = appsById; HomeAppsBridge.launch = onLaunchFrom }
     // A large folder whose Home widget is gone takes its contents with it.
-    LaunchedEffect(state.widgetPlacements) { LargeFolders.prune(state.widgetPlacements.filter { it.id == FOLDER_WIDGET }.map { it.slot }.toSet()) }
+    LaunchedEffect(state.widgetPlacements) {
+        WidgetData.prune(state.widgetPlacements.filter { UnoWidgets.byId(it.id) != null }.map { it.slot }.toSet())
+        LargeFolders.prune(state.widgetPlacements.filter { it.id == FOLDER_WIDGET }.map { it.slot }.toSet()) }
     val drag = remember { HomeDragState() }
     val folderOwnsInput = openFolderId != null || drag.source?.folderId != null
     DisposableEffect(folderOwnsInput) {
@@ -785,7 +788,7 @@ internal fun LauncherScreen(
                 .width(preset.dockWidth.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val controlSize = dockIconSize(geometry.iconSize).dp
-                if (pager.currentPage == -1) CircleControl(Icons.Rounded.ArrowForward, "Back to home", "discover-home", controlSize, controlGlass) { scope.launch { pager.animateScrollToPage(0) } }
+                if (pager.currentPage == -1) CircleControl(Icons.AutoMirrored.Rounded.ArrowForward, "Back to home", "discover-home", controlSize, controlGlass) { scope.launch { pager.animateScrollToPage(0) } }
                 val searchBounds = remember { android.graphics.Rect() }
                 Box(Modifier.onGloballyPositioned { searchBounds.set(it.boundsInWindow().toAndroidBounds()) }) {
                     CircleControl(Icons.Rounded.Search, if (state.googleSearch) "Search Google" else "Search apps", "search", controlSize, controlGlass) {
@@ -1047,7 +1050,8 @@ internal fun LauncherScreen(
                     onBuiltin = builtin@{ pickedId ->
                         // The wide and tall large folders are picker choices only: a large folder with that footprint.
                         val builtinId = if (pickedId == FOLDER_WIDE_PICK || pickedId == FOLDER_TALL_PICK) FOLDER_WIDGET else pickedId
-                        val pickedSpan = when (pickedId) { FOLDER_WIDE_PICK -> WidgetSpan(2, 1); FOLDER_TALL_PICK -> WidgetSpan(1, 2); else -> null }
+                        val pickedSpan = when (pickedId) { FOLDER_WIDE_PICK -> WidgetSpan(2, 1); FOLDER_TALL_PICK -> WidgetSpan(1, 2)
+                            else -> UnoWidgets.byId(pickedId)?.let { WidgetSpan(it.spanX, it.spanY) } }
                         val existing = model.placement(widgetSlot)
                         val special = existing?.takeIf { it.row + it.spanY > GRID_ROWS }
                         val span = pickedSpan ?: existing?.let { WidgetSpan(it.spanX, it.spanY) } ?: WidgetSpan(2, 2)
@@ -1184,7 +1188,7 @@ internal fun LauncherScreen(
                                                 CLOCK_WIDGET -> "Clock"
                                                 DATE_WIDGET -> "Date"
                                                 FOLDER_WIDGET -> "Large folder"
-                                                else -> "Widget panel"
+                                                else -> UnoWidgets.byId(session.builtinId ?: 0)?.label ?: "Widget panel"
                                             }, color = Ink,
                                             textAlign = TextAlign.Center)
                                         Text("${session.span.width} × ${session.span.height}", color = Ink)
@@ -2017,7 +2021,7 @@ private fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modif
 }
 
 @Composable
-private fun GlassCard(modifier: Modifier = Modifier, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.ui.unit.Dp = 14.dp, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val glass = LocalPageGlass.current
     // Built-in widget text follows the wallpaper behind it: white on dark, dark ink on pale.
     val ink = rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .14f else .24f)
@@ -2025,11 +2029,11 @@ private fun GlassCard(modifier: Modifier = Modifier, onClick: () -> Unit, conten
         if (glass != null) {
             Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.large, glass.tint.copy(alpha = .14f),
                 blurRadius = 1f, settings = glass.settings).clip(Corner.large).clickable(onClick = onClick)
-                .padding(14.dp), verticalArrangement = Arrangement.SpaceBetween, content = content)
+                .padding(padding), verticalArrangement = Arrangement.SpaceBetween, content = content)
         } else {
             Surface(modifier.fillMaxSize().then(ink.track).clip(Corner.large).clickable(onClick = onClick),
                 color = Glass.copy(alpha = .24f), shape = Corner.large, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .18f))) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.SpaceBetween, content = content)
+                Column(Modifier.padding(padding), verticalArrangement = Arrangement.SpaceBetween, content = content)
             }
         }
     }
@@ -2188,7 +2192,7 @@ private fun widgetLabel(id: Int, controller: WidgetController) = when (id) {
     INFO_WIDGET -> "Widget panel"
     FOLDER_WIDGET -> "Large folder"
     EMPTY_WIDGET -> "Add widget"
-    else -> controller.label(id)
+    else -> UnoWidgets.byId(id)?.label ?: controller.label(id)
 }
 
 @Composable
@@ -2210,11 +2214,15 @@ private fun MovableWidget(id: Int, slot: Int, controller: WidgetController, drag
                 Text("Your widgets", color = ink.primary, fontSize = 15.sp, maxLines = 1)
                 Text("Tap to choose", color = ink.soft(), fontSize = 12.sp)
             }
-            else -> Surface(Modifier.fillMaxSize().clickable(onClick = onAdd), color = Glass.copy(alpha = .18f),
-                shape = Corner.large, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .25f))) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Rounded.Add, null, tint = Color.White)
-                    Text(if (id >= 0) "Widget unavailable" else "Add widget", color = Color.White, fontSize = 12.sp)
+            else -> {
+                val library = UnoWidgets.byId(id)
+                if (library != null) library.face(slot, onAdd)
+                else Surface(Modifier.fillMaxSize().clickable(onClick = onAdd), color = Glass.copy(alpha = .18f),
+                    shape = Corner.large, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .25f))) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Rounded.Add, null, tint = Color.White)
+                        Text(if (id >= 0) "Widget unavailable" else "Add widget", color = Color.White, fontSize = 12.sp)
+                    }
                 }
             }
         }
@@ -2248,111 +2256,6 @@ private fun AppPicker(apps: List<AppEntry>, dockSlot: Int?, onSelect: (AppEntry)
                     if (dockSlot != null && enabled) Icon(Icons.Rounded.Add, "Choose ${app.label}")
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun SettingsPanel(state: LauncherState, initiallyWide: Boolean, model: LauncherModel, isDefaultHome: Boolean,
-    onMakeDefault: () -> Unit, onClose: () -> Unit, onEditPins: () -> Unit, onWidget: (Int) -> Unit,
-    onAddWidget: (Int) -> Unit, onRemoveWidget: (Int) -> Unit, onWallpaperPreview: () -> Unit,
-    onExportLayout: () -> Unit, onImportLayout: () -> Unit,
-    appearance: AppearanceState, onAppearanceMode: (AppearanceMode) -> Unit,
-    onAppearanceManual: (String, Double, Double) -> Unit, onAppearanceDeviceLocation: () -> Unit,
-    onAppearanceClear: () -> Unit,
-    backgrounds: LauncherBackgroundController,
-    homePage: Int = 0) {
-    var wide by rememberSaveable { mutableStateOf(initiallyWide) }
-    val p = if (wide) state.expanded else state.compact
-    Column(Modifier.fillMaxWidth().fillMaxHeight(.92f).padding(horizontal = 24.dp).padding(bottom = 16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Make it yours", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close customization") }
-        }
-        Button(onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().testTag("default-home-settings")) {
-            Text(if (isDefaultHome) "Change home app" else "Set as home app")
-        }
-        TextButton(onClick = onEditPins, modifier = Modifier.fillMaxWidth()) { Text("Choose home apps") }
-        if (state.canUndoEdit) TextButton(onClick = { model.undoEdit(); onClose() }, modifier = Modifier.fillMaxWidth()) {
-            Text("Undo last layout change")
-        }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(!wide, { wide = false }, label = { Text("Cover / compact") })
-            FilterChip(wide, { wide = true }, label = { Text("Inner / expanded") })
-        }
-        SettingSlider("App icon size", "${p.iconSize.toInt()} dp", p.iconSize, 40f..68f) { model.setPreset(wide, p.copy(iconSize = it)) }
-        SettingSlider("Space between rows", "${p.rowGap.toInt()} dp", p.rowGap, 0f..28f) { model.setPreset(wide, p.copy(rowGap = it)) }
-        SettingSlider("Dock width", "${p.dockWidth.toInt()} dp", p.dockWidth, 56f..84f) { model.setPreset(wide, p.copy(dockWidth = it)) }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Align dock with app rows", Modifier.weight(1f))
-            Switch(p.dockAlignToGrid, { model.setPreset(wide, p.copy(dockAlignToGrid = it)) }, colors = IosSwitchColors)
-        }
-        if (!p.dockAlignToGrid) SettingSlider("Dock height on screen", "${(p.dockPosition * 100).toInt()}%", p.dockPosition, .25f.. .75f) { model.setPreset(wide, p.copy(dockPosition = it)) }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Show app names", Modifier.weight(1f)); Switch(state.labels, model::setLabels, Modifier.testTag("label-switch"), colors = IosSwitchColors)
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Status at upper right", Modifier.weight(1f)); Switch(state.verticalStatus, model::setVerticalStatus, Modifier.testTag("status-switch"), colors = IosSwitchColors)
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Search button opens Google", Modifier.weight(1f))
-            Switch(state.googleSearch, model::setGoogleSearch, Modifier.testTag("google-search-switch"))
-        }
-        Text("Opens Google’s search screen. All apps keeps local app search.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        TextButton(onClick = { model.setPreset(wide, LayoutPreset()) }) { Text("Reset this layout") }
-        HorizontalDivider(Modifier.padding(vertical = 12.dp))
-        TextButton(onClick = onWallpaperPreview, modifier = Modifier.fillMaxWidth().testTag("wallpaper-preview")) {
-            Icon(Icons.Rounded.Wallpaper, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Apply matching wallpaper")
-        }
-        Text("Preview the current launcher background in Android’s wallpaper picker, then choose where to apply it.", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("Launcher background", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
-        Button(onClick = backgrounds::choosePhoto, enabled = !backgrounds.loading,
-            modifier = Modifier.fillMaxWidth().testTag("background-choose")) { Text("Choose background photo") }
-        if (backgrounds.photoSelected) OutlinedButton(onClick = backgrounds::reset,
-            modifier = Modifier.fillMaxWidth().testTag("background-reset")) { Text("Reset to Uno dunes") }
-        if (backgrounds.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("background-loading"))
-        (backgrounds.errorMessage ?: backgrounds.successMessage)?.let { message ->
-            TextButton(onClick = backgrounds::clearMessage, Modifier.fillMaxWidth().testTag("background-message")) { Text(message) }
-        }
-        Text("The selected photo stays on this device and is not included in layout backups.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        HorizontalDivider(Modifier.padding(vertical = 12.dp))
-        AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear)
-        HorizontalDivider(Modifier.padding(vertical = 12.dp))
-        Text("Layout backup", style = MaterialTheme.typography.titleMedium)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onExportLayout, modifier = Modifier.weight(1f).testTag("layout-export")) { Text("Save") }
-            OutlinedButton(onClick = onImportLayout, modifier = Modifier.weight(1f).testTag("layout-import")) { Text("Restore") }
-        }
-        Text("Restore always shows a review before changing Home.", style = MaterialTheme.typography.bodySmall)
-        HorizontalDivider(Modifier.padding(vertical = 12.dp))
-        Text("Widgets · Page ${homePage + 1}", style = MaterialTheme.typography.titleMedium)
-        state.widgetPlacements.filter { it.page == homePage }.forEach { placement ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("${placement.spanX} × ${placement.spanY} widget · row ${placement.row + 1}", Modifier.weight(1f))
-                IconButton(onClick = { onRemoveWidget(placement.slot) },
-                    modifier = Modifier.semantics { contentDescription = "Remove widget" }) {
-                    Icon(Icons.Rounded.DeleteOutline, null)
-                }
-                TextButton(onClick = { onWidget(placement.slot) }) { Text("Replace") }
-            }
-        }
-        if (wide) state.widgetPlacements.filter { it.page == -1 }.forEach { placement ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Unfolded-only page", Modifier.weight(1f))
-                IconButton(onClick = { onRemoveWidget(placement.slot) },
-                    modifier = Modifier.semantics { contentDescription = "Remove widget from Unfolded-only page" }) {
-                    Icon(Icons.Rounded.DeleteOutline, null)
-                }
-                TextButton(onClick = { onWidget(placement.slot) }) { Text("Replace") }
-            }
-        }
-        TextButton(onClick = { onAddWidget(homePage) }, Modifier.fillMaxWidth()) { Text("Add widget to this page") }
-        Text("Hold and drag an app to move it. Pause at the screen edge to turn pages. Release without moving for options.", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 20.dp))
         }
     }
 }

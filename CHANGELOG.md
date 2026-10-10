@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.30.0-uno01
+
+- A library of nine new built-in widgets (widget picker, Uno widgets), drawn by the launcher itself with no provider app and no permission: **Battery** (a ring for the level, time to full while charging), **Month** (a calendar with today marked, from the date alone; it reads no calendar app), **Day, month and year** (progress bars and the days left), **Moon phase** (drawn from the date with the mean synodic month), **Countdown** (a name and a date you choose, days until or since), **Note** (a short note, up to 600 characters), **Counter** (tap to add, a small button to subtract, tap the name to rename or reset), **Timers** (5, 10, 25 and 45 minute buttons that start the island timer, with the running time and Stop) and **Sunrise and sunset** (from the place set in Appearance, worked out on the phone with the existing solar maths). Each is a built-in widget id, so placing, moving, resizing, paging and removing use the widget machinery; the registry (UnoWidgets) and each widget's rules (UnoWidgetLogic) are unit tested, and emulator tests place all nine and check their faces, a counter tap and that a note goes with its widget.
+- What the typed widgets keep (notes, counters, countdown names and dates) lives in its own private preference file (WidgetData) and is pruned with its widget. It is now part of the settings backup, together with large folders' apps and names, which a backup used to drop: restoring a layout brings its notes, counters and large folders back. (A raised length limit applies to large folders only.)
+- Cleaned up after a study of the whole app: the dead, unreferenced old settings panel (about 100 lines, still titled "Make it yours") is gone; directional icons that were flagged deprecated (back, forward, help, open, backspace) now mirror correctly in right-to-left languages; the Help page and the user guide, troubleshooting guide and roadmap no longer use the old settings names or say only a long-press opens settings; and a new section of the user guide covers the grouped settings, dragging to make folders, large folders and the widget library.
+- Aesthetic pass from looking at the widgets on an emulator: the battery ring is thinner with a smaller percentage, the month grid has tighter padding so six-week months fit, the moon has an outline and a lit side that follows its phase, and the year card's bars fit with the days left in its title.
+
 ## 0.29.1-uno01
 
 A security release, answering an October 2026 audit of 0.27.0 (no policy violations; two Medium and several Low findings):

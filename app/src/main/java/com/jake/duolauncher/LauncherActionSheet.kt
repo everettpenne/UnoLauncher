@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -59,7 +60,7 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
         .padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (moving) IconButton(onClick = { onMoving(false) }) { Icon(Icons.Rounded.ArrowBack, "Back") }
+            if (moving) IconButton(onClick = { onMoving(false) }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
             Image(app.icon.asImageBitmap(), null, Modifier.size(48.dp).clip(Corner.icon))
             Spacer(Modifier.width(14.dp)); Column(Modifier.weight(1f)) {
                 Text(if (moving) "Move ${app.label}" else app.label, style = MaterialTheme.typography.titleLarge)

@@ -13,8 +13,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Backspace
-import androidx.compose.material.icons.rounded.Backspace
+import androidx.compose.material.icons.automirrored.outlined.Backspace
+import androidx.compose.material.icons.automirrored.rounded.Backspace
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.EmojiEmotions
 import androidx.compose.material.icons.rounded.KeyboardDoubleArrowLeft
@@ -331,7 +331,7 @@ private fun RepeatingKey(palette: KeyPalette, modifier: Modifier, onHaptic: (Hap
                 pressed = false
             }
         }) {
-        Icon(if (pressed) Icons.Rounded.Backspace else Icons.Outlined.Backspace, "Delete", tint = palette.ink, modifier = Modifier.size(24.dp))
+        Icon(if (pressed) Icons.AutoMirrored.Rounded.Backspace else Icons.AutoMirrored.Outlined.Backspace, "Delete", tint = palette.ink, modifier = Modifier.size(24.dp))
     }
 }
 

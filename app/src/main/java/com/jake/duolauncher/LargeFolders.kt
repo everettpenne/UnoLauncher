@@ -94,6 +94,9 @@ internal object LargeFolders {
         folders = LargeFolderRules.parse(runCatching { prefs?.getString("folders", null) }.getOrNull())
     }
 
+    /** Re-reads everything (after a settings restore). */
+    fun reload() { folders = LargeFolderRules.parse(runCatching { prefs?.getString("folders", null) }.getOrNull()) }
+
     fun of(slot: Int): LargeFolder = folders[slot] ?: LargeFolder()
 
     fun toggle(slot: Int, appId: String) { LargeFolderRules.toggle(of(slot), appId)?.let { commit(folders + (slot to it)) } }

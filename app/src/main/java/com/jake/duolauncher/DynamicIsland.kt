@@ -34,11 +34,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.AirplanemodeActive
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Pause
@@ -821,7 +821,7 @@ private fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
             Text("On call · ${IslandClock.countdown((nowMs - call.startedAt).coerceAtLeast(0L))}",
                 color = IosGreen, fontSize = 11.sp, maxLines = 1)
         }
-        Icon(Icons.Rounded.OpenInNew, "Open call", tint = Color.White.copy(alpha = .7f),
+        Icon(Icons.AutoMirrored.Rounded.OpenInNew, "Open call", tint = Color.White.copy(alpha = .7f),
             modifier = Modifier.size(14.dp).padding(end = 4.dp))
     }
 }

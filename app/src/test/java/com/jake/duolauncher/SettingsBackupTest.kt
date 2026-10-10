@@ -49,4 +49,19 @@ class SettingsBackupTest {
         assertFalse(SettingsBackup.exportable(SettingsBackup.EXTRAS, "webPackage"))
         assertNull(null)
     }
+
+    @Test fun widgetDataAndLargeFoldersRoundTripAndAllowLongFolderLists() {
+        val folderJson = "{\"3\":{\"t\":\"Work\",\"a\":[" + (1..24).joinToString(",") { "\"0|com.example.application.package$it/com.example.application.package$it.MainActivity\"" } + "]}}"
+        assertTrue("long enough to exceed an ordinary setting", folderJson.length > 2_000)
+        val snapshot = SettingsSnapshot(emptyMap(), emptyMap(), mapOf("5_note" to "buy milk", "5_count" to "7"), mapOf("folders" to folderJson))
+        val back = SettingsBackup.decode(SettingsBackup.encode(snapshot))
+        assertEquals("buy milk", back.widgetData["5_note"])
+        assertEquals(folderJson, back.largeFolders["folders"])
+        assertTrue(back.largeFolders["folders"] is String)
+    }
+
+    @Test fun anOversizedWidgetDataValueIsRefused() {
+        val huge = "x".repeat(2_001)
+        try { SettingsBackup.decode(JSONObject("""{"uno_widget_data":{"1_note":"$huge"}}""")); org.junit.Assert.fail("accepted") } catch (_: Exception) { }
+    }
 }

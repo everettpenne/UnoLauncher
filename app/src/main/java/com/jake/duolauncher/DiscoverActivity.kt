@@ -30,10 +30,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -413,7 +413,7 @@ private fun DiscoverDock(state: LauncherState, status: DeviceStatus, fullSize: S
             }
             Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 12.dp).width(preset.dockWidth.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 // Home is physically to the right of Discover, matching our fixed page order.
-                FilledTonalIconButton(onClick = onHome, Modifier.testTag("discover-home")) { Icon(Icons.Rounded.ArrowForward, "Back to home") }
+                FilledTonalIconButton(onClick = onHome, Modifier.testTag("discover-home")) { Icon(Icons.AutoMirrored.Rounded.ArrowForward, "Back to home") }
                 Spacer(Modifier.height(8.dp))
                 FilledTonalIconButton(onClick = onSearch) { Icon(Icons.Rounded.Search, "Search apps") }
             }

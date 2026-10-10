@@ -37,7 +37,7 @@ Android still controls the lock screen, notification panels, recents, and system
 1. Download the signed APK from this repository's Releases section. Read its tested-device notes and known issues.
 2. Open the APK, allow installation from that source if Android asks, and open **Uno Launcher**.
 3. Try the layout before choosing **Set as home app**. Select Uno Launcher in Android's Home app settings when ready.
-4. Long press an empty Home cell or the narrow wallpaper margin beside a full grid to add widgets or **Customize launcher**. Help is available from customization.
+4. Swipe up anywhere on Home for **Launcher settings**, or long press an empty Home cell or the narrow wallpaper margin beside a full grid to add widgets or **Customize launcher**. Help is available from customization.
 
 To switch back, open Android **Settings → Apps → Default apps → Home app** and select your previous launcher. Vendor labels may differ. Installing Uno Launcher does not automatically select it as Home.
 

@@ -18,7 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -227,7 +227,7 @@ internal fun VisualWidgetPicker(
         Column(Modifier.fillMaxSize().then(if (glass != null) Modifier.padding(top = 8.dp)
             else Modifier.statusBarsPadding().navigationBarsPadding()).padding(horizontal = 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Back") }
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
                 Text("Widgets", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
             }
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(vertical = 10.dp)
@@ -269,6 +269,22 @@ internal fun VisualWidgetPicker(
                             Column(Modifier.padding(16.dp)) {
                                 Text(label, style = MaterialTheme.typography.titleMedium)
                                 Text("$size · Tap to place", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                }
+                if (words.isEmpty() && selectedProfile.isPersonal) {
+                    item("uno-library") { Text("Uno widgets", style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 10.dp, start = 4.dp)) }
+                    items(UnoWidgets.all, key = { "uno-${it.id}" }) { def ->
+                        Surface(Modifier.fillMaxWidth().testTag("widget-builtin-${def.id}")
+                            .clickable { focusManager.clearFocus(); keyboard?.hide(); onBuiltin(def.id) },
+                            color = Glass.copy(alpha = .55f), border = BorderStroke(1.dp, Color.White.copy(alpha = .55f)),
+                            shape = Corner.large) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text(def.label, style = MaterialTheme.typography.titleMedium)
+                                Text(def.blurb, style = MaterialTheme.typography.bodySmall)
+                                Text("${def.spanX} × ${def.spanY} · Tap to place", style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }

@@ -29,7 +29,7 @@ A recovery screen proves that Uno Launcher can return safely; it does not prove 
 
 ## The search button does not open Google
 
-In **Customize launcher → Gestures & search**, check **Search button opens Google**. Uno Launcher asks the Google app to open Android's global search screen. If that activity is missing or blocked, Uno falls back to **All apps** with its local **Search apps** field. You can turn the setting off to use local app search every time.
+In **Launcher settings → Search**, check **Search button opens Google**. Uno Launcher asks the Google app to open Android's global search screen. If that activity is missing or blocked, Uno falls back to **All apps** with its local **Search apps** field. You can turn the setting off to use local app search every time.
 
 ## A widget will not add or finish setup
 

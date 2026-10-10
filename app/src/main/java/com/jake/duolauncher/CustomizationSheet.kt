@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -128,7 +129,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         "Save or restore your layout and settings", "customization-backup") { onPage(CustomizationPage.BACKUP) }
                     CustomizationDestination(Icons.Rounded.SystemUpdateAlt, "Updates",
                         "Check for releases or update automatically", "customization-updates") { onPage(CustomizationPage.UPDATES) }
-                    CustomizationDestination(Icons.Rounded.HelpOutline, "Help & setup",
+                    CustomizationDestination(Icons.AutoMirrored.Rounded.HelpOutline, "Help & setup",
                         "Home app, widgets, gestures, and Discover", "customization-help") {
                         onPage(CustomizationPage.HELP)
                     }
@@ -265,7 +266,7 @@ private fun LauncherHelp(
     }
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
     HelpSection(Icons.Rounded.TouchApp, "Customize any page",
-        "Long-press empty space, then choose Customize launcher. If a page is full, long-press the slim area at its left edge.")
+        "Swipe up anywhere on Home to open these settings, or long-press empty space and choose Customize launcher. If a page is full, long-press the slim area at its left edge.")
     HelpSection(Icons.Rounded.Widgets, "Widgets",
         "Add Android widgets to empty Home cells. Hold a widget to move or remove it.")
     OutlinedButton(onClick = onAddWidget, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-add-widget")) {

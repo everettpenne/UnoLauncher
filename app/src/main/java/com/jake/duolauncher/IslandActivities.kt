@@ -81,7 +81,7 @@ internal object IslandEvents {
     /** [filter] is a [NotificationManager] interruption filter; everything but "all" is Do Not Disturb. */
     fun doNotDisturb(filter: Int): IslandEvent =
         if (filter == NotificationManager.INTERRUPTION_FILTER_ALL || filter == NotificationManager.INTERRUPTION_FILTER_UNKNOWN)
-            IslandEvent("Focus off", IslandSymbol.FOCUS)
+            IslandEvent("Do Not Disturb off", IslandSymbol.FOCUS)
         else IslandEvent("Do Not Disturb", IslandSymbol.FOCUS)
 
     fun vpn(on: Boolean) = IslandEvent(if (on) "VPN on" else "VPN off", IslandSymbol.VPN)

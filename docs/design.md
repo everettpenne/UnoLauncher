@@ -174,9 +174,9 @@ the page-dots reserve. They sit below the island, rail, dock and dots and never 
 The pill body is **true black** (`#000000`, an OLED pixel that is off) so the camera hole disappears
 into it; only a 2.5 dp outer ring stays see-through, which keeps the lens refraction and rim highlight.
 Collapsed, the trailing slot shows, in priority order: an event, the playback equalizer, charging, the
-battery. Events flash for 2.6 s and widen the pill to fit their title: ringer (Silent / Vibrate /
-Ringer), airplane mode, Do Not Disturb (Focus), charging with its percentage, and app launches. A
-ringer change right after a Focus change is dropped (DND moves the ringer too). Each event gives the
+battery (the battery level only when the status rail is off; see Metaphor policy). Events flash for 2.6 s and widen the pill to fit their title: ringer (Silent / Vibrate /
+Ringer), airplane mode, Do Not Disturb, charging with its percentage, and app launches. A
+ringer change right after a Do Not Disturb change is dropped (DND moves the ringer too). Each event gives the
 pill a small spring pulse. Playback is detected with `AudioManager` (no permission): an animated
 four-bar equalizer, and, in the expanded panel, previous / play-pause / next sent as media keys, kept
 for 90 s after audio stops so a paused track can be resumed. Titles and artwork would need notification
@@ -321,3 +321,24 @@ Backspace is grapheme-aware (an emoji, a flag or a symbol with its variation sel
 The emoji panel (`EmojiData`, parsed from `assets/keyboard/emoji.txt`) is a scrolling grid with category tabs beside the ABC and delete keys; recents are kept in memory for the session only. The switcher key is shown only when Android says there is another keyboard to switch to, and the input method declares `supportsSwitchingToNextInputMethod`. A Paste button appears in the suggestion lane when the clipboard holds text. Long-pressing a symbol or digit opens its variants (dashes, currency, quotes, degree, and so on) as well as a letter's accents. One-handed mode (Launcher settings, Control panel & extras) pushes the keys to one side at 80% width and leaves a button on the free side to restore full width. In landscape the fullscreen extract editor is switched off so the app stays visible above the keyboard.
 
 `KeyHaptics` fires `VibrationEffect.Composition` primitives (LOW_TICK, TICK, CLICK) from `HapticProfile`, with a predefined tick on motors without them, on a `HandlerThread`, using `VibrationAttributes.USAGE_TOUCH` on API 33+ and checking `HAPTIC_FEEDBACK_ENABLED` otherwise. Strength 0.6 reproduces the base profile and scales linearly; 12 ms rate limit.
+
+## Metaphor policy
+
+Uno borrows on purpose: **Apple's look** (island, glass, squircles, Spotlight-style search, Live Activities), **Android's behaviour** (insets, work profiles, widget bindings, system Back, Home-app rules) and **GrapheneOS's values** (everything optional, nothing learned, nothing sent). That mix is the product. What follows keeps the mix from colliding in the user's hands. It comes from the UX audit of 0.28.0; each rule says where the code already follows it.
+
+1. **One surface per event type (the event-home ladder).** Every event has one home; a second surface may repeat it only when the first is not on screen.
+   | Event | Home |
+   | --- | --- |
+   | Something ongoing (call, timer, stopwatch, Live Update, download, music) | an island slot (two on the pill, two as bubbles; see Island activities) |
+   | A message or app notification | the peek card, then the badge on the app's icon |
+   | Camera, microphone, screen recording | the privacy dots beside the pill |
+   | A system change (ringer, airplane, Do Not Disturb, VPN, USB, headphones, charging) | a short island flash |
+   | Settings you change (volume, brightness, torch, Focus) | the control panel |
+2. **One owner per fact.**
+   - *Time:* the status rail when it is on, else the open island panel; the collapsed island never shows the time.
+   - *Battery:* the status rail's ring when the rail is on; the collapsed island shows the battery only while charging, or its percentage when the rail is off (`statusRailShown` in `DynamicIsland`). The Android status bar belongs to the system and is never drawn over.
+3. **One control centre.** The control panel is the default right-hand pull-down. Android's own Quick Settings is an explicitly named alternative, **Android mode** (Gestures & feel), and needs the optional shade service. A panel row that leaves Uno for Android's Settings (brightness access, Do Not Disturb access, System settings) carries a chevron so the jump is expected.
+4. **Imports are restyled before they ship.** Anything adopted from another platform (HyperOS's music bar, HyperBridge's progress cards, SmartIsland's bubbles) is redrawn in the island / glass / `Corner` / motion system first. "From X" is a sourcing note in the changelog, never a style.
+5. **Own the vocabulary.** User-facing names are Uno's: *Launcher settings*, *Focus* (hides the apps you pick; it is the launcher's, not Android's), *Do Not Disturb* (Android's, and the island says so), *Live Updates*, *Search*. "Spotlight" is a code name only (`Spotlight.kt`); no screen says it. One word, one meaning: Focus never also names Do Not Disturb.
+6. **Back always works.** Every overlay, sheet and page (Search, control panel, folders, widget picker, settings pages, Discover) handles system Back by closing one level. Swipes (return from the feed, pulls) are conveniences on top of Back, never a replacement. A new surface without a Back handler does not ship.
+7. **Consent speaks in the product's voice.** Permission explainers and the ledger use the same plain wording and glass styling as the rest of the settings; they are part of the product, not an interruption of it.

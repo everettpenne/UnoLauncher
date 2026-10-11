@@ -25,8 +25,8 @@ class IslandActivitiesTest {
             NotificationManager.INTERRUPTION_FILTER_ALARMS).forEach {
             assertEquals("Do Not Disturb", IslandEvents.doNotDisturb(it).title)
         }
-        assertEquals("Focus off", IslandEvents.doNotDisturb(NotificationManager.INTERRUPTION_FILTER_ALL).title)
-        assertEquals("Focus off", IslandEvents.doNotDisturb(NotificationManager.INTERRUPTION_FILTER_UNKNOWN).title)
+        assertEquals("Do Not Disturb off", IslandEvents.doNotDisturb(NotificationManager.INTERRUPTION_FILTER_ALL).title)
+        assertEquals("Do Not Disturb off", IslandEvents.doNotDisturb(NotificationManager.INTERRUPTION_FILTER_UNKNOWN).title)
         assertEquals(IslandSymbol.FOCUS, IslandEvents.doNotDisturb(NotificationManager.INTERRUPTION_FILTER_NONE).symbol)
     }
 

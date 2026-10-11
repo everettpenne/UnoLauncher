@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.37.0-uno01
+
+From an independent UX audit of how the launcher's borrowed design languages meet. The audit's overall finding stands: Apple's look, Android's behaviour and GrapheneOS's values are the product, and what needed fixing was the places where two of them answered the same question. Judged against the code, some of its points were already true and are left as they were (see below).
+
+- **One owner for the battery level.** With the vertical status rail on, the rail shows the time and a battery ring, and the collapsed island also printed the battery percentage. The island now says nothing about the battery unless it is charging; with the rail off it still shows the percentage as before. (Over other apps, and with the rail off, nothing changes.)
+- **"Focus" means one thing.** The island's flash for switching Android's Do Not Disturb off said "Focus off", the same word as Uno's own Focus (the switch that hides the apps you pick). It now says "Do Not Disturb off".
+- **One control centre, one alternative.** The right-hand pull-down choice "Android Quick Settings" is now **Android mode** ("Opens Android's own Quick Settings instead"), so the control panel is clearly the default and the other is clearly the exception.
+- **The keyboard says what it does.** Under the keyboard's switches a line now reads "Suggestions use a fixed word list. Nothing you type is learned or stored", where the longer explanation was at the bottom of the page.
+- **A written metaphor policy** in `docs/design.md`: an event-home table (each kind of event has one home), one owner for time and battery, one control centre, imports restyled before they ship, one name per thing, Back always works, and consent in the product's voice.
+- **Checked and left alone:** rows that leave Uno for Android's Settings (brightness access, Do Not Disturb access, System settings, shortcuts) already carry a chevron; the keyboard's switcher key already uses the same glass key as the rest of the keyboard; the island's music bar is already drawn in the island's own style; every overlay and page already handles system Back; "Spotlight" appears nowhere on screen (only in code), so there was no second search name to unify. Time was never shown by the collapsed island.
+
 ## 0.36.0-uno01
 
 - **One name for settings.** The home menu's "Customize launcher", the island's "Customize" button, the settings sheet's close button and the places that told you to "hide in Customize" or "turn one on under Customize > News feed" now all say **Launcher settings** or **Settings**, the same name as the sheet's title. The help page's "Customize any page" is "Settings on any page".

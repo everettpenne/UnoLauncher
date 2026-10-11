@@ -58,7 +58,7 @@ Appearance choices are **Light**, **Dark**, **Follow system**, and **Sunrise / s
 
 ## Optional shade gestures
 
-On Home, swipe down from the left 70% to open Notifications or from the right 30% to open Quick Settings. This is off until you turn it on: Android only lets a launcher open those panels through an accessibility service. The first swipe explains exactly what the service can and can't do and offers **Open settings** or **No thanks**. **No thanks** is remembered, and the swipe then does nothing; pressing outside the prompt only hides it for now. You can enable the gestures later from **Help & setup**, and turn them off any time in Android Settings → Accessibility. The service only requests the system panel actions; it can't read your screen or see other apps.
+On Home, swipe down from the left 70% to open Notifications or from the right 30% to open Android's Quick Settings (choose "Android mode" in Gestures & feel; otherwise the right side opens Uno's control panel). This is off until you turn it on: Android only lets a launcher open those panels through an accessibility service. The first swipe explains exactly what the service can and can't do and offers **Open settings** or **No thanks**. **No thanks** is remembered, and the swipe then does nothing; pressing outside the prompt only hides it for now. You can enable the gestures later from **Help & setup**, and turn them off any time in Android Settings → Accessibility. The service only requests the system panel actions; it can't read your screen or see other apps.
 
 ## Layout backup
 

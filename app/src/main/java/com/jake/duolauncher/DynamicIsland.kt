@@ -304,6 +304,8 @@ internal fun DynamicIsland(
     dockWidthPx: Float = 0f,
     environmentOverride: IslandEnvironment? = null,
     anchoredToWindow: Boolean = false,
+    /** The status rail is on screen beside the island and already shows the time and the battery level; see docs/design.md (one owner). */
+    statusRailShown: Boolean = false,
     showActions: Boolean = true,
     /** Over other apps: the island's frame, and the fixed window rectangle it is drawn in (null when the window wraps it). */
     onFrameChanged: ((IslandFrame, PxRect?) -> Unit)? = null,
@@ -650,7 +652,9 @@ internal fun DynamicIsland(
                         LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, update = updates.firstOrNull())
                     } else if (deviceStatus.charging == true) {
                         Icon(Icons.Rounded.BatteryChargingFull, null, tint = IosGreen, modifier = Modifier.size(16.dp))
-                    } else if (deviceStatus.battery != null) {
+                    } else if (deviceStatus.battery != null && !statusRailShown) {
+                        // One owner for the battery level: with the status rail on screen it shows the level, and the island
+                        // speaks about the battery only while charging (above).
                         Text("${deviceStatus.battery}%", color = Color.White.copy(alpha = .9f), fontSize = 12.sp,
                             maxLines = 1)
                     }

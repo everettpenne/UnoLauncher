@@ -53,6 +53,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("keyboard-enable")) { Text("Turn on Uno Keyboard") }
     else if (keyboardSelected != true) OutlinedButton(onClick = { keyboardContext.getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.showInputMethodPicker() },
         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("keyboard-switch")) { Text("Switch to Uno Keyboard") }
+    Text("Suggestions use a fixed word list. Nothing you type is learned or stored.", style = note, color = muted)
     SettingsSwitch("Suggestions", s.kbSuggestions, store::setKbSuggestions, "kb-suggestions-switch")
     SettingsSwitch("Autocorrect", s.kbAutocorrect, store::setKbAutocorrect, "kb-autocorrect-switch")
     SettingsSwitch("Number row", s.kbNumberRow, store::setKbNumberRow, "kb-number-row-switch")
@@ -101,7 +102,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     Text("Right-hand swipe down", style = MaterialTheme.typography.titleMedium)
     ChoiceRow("Control panel", "The launcher's own panel; needs no accessibility service",
         s.rightSwipe == RightSwipe.PANEL, "swipe-panel") { store.setRightSwipe(RightSwipe.PANEL) }
-    ChoiceRow("Android Quick Settings", "Needs the optional shade accessibility service",
+    ChoiceRow("Android mode", "Opens Android's own Quick Settings instead; needs the optional shade accessibility service",
         s.rightSwipe == RightSwipe.SYSTEM, "swipe-system") { store.setRightSwipe(RightSwipe.SYSTEM) }
     }
 

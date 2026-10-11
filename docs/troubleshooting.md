@@ -4,7 +4,7 @@ Uno Launcher is an experimental Fold beta. Device vendors, Android releases, the
 
 ## Uno Launcher is not the Home app
 
-Long press empty Home space, choose **Customize launcher**, then **Set as home app**. You can also use **Help & setup → Set Uno Launcher as Home**. Complete the choice in Android's Home app settings.
+Long press empty Home space, choose **Launcher settings**, then **Set as home app**. You can also use **Help & setup → Set Uno Launcher as Home**. Complete the choice in Android's Home app settings.
 
 To switch back, choose **Change home app** in customization or use Android **Settings → Apps → Default apps → Home app**. Installing Uno never changes the Home app automatically.
 

@@ -309,7 +309,7 @@ internal class UpdateStore(
     }
 }
 
-/** The Updates page inside Customize launcher. */
+/** The Updates page inside Launcher settings. */
 @Composable
 internal fun UpdatesPanel(
     updates: UpdateState,

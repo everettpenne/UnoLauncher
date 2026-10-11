@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.36.0-uno01
+
+- **One name for settings.** The home menu's "Customize launcher", the island's "Customize" button, the settings sheet's close button and the places that told you to "hide in Customize" or "turn one on under Customize > News feed" now all say **Launcher settings** or **Settings**, the same name as the sheet's title. The help page's "Customize any page" is "Settings on any page".
+- **A menu that says what it holds.** Long-pressing empty space showed a sheet titled "Add to Home" whose rows were Widgets, Wallpaper and Launcher settings. It is now titled "This space", with the line "Add a widget, change the wallpaper, or open settings."
+- **Leftover names fixed.** The wallpaper page said the preview "does not change Duo's launcher background"; it now says Uno's. The App icons page no longer repeats its own title as a heading (it says "Icon style"). The island's privacy-indicator switch describes the new dots rather than marks.
+- **A tour that looks at every screen.** A new emulator test walks the home screen and every settings page and saves a screenshot of each, so the whole launcher can be reviewed by eye after a change; it found the wording above.
+- Release notes are now listed in the public-source allowlist as part of the release steps (0.35.0's first two publish attempts failed because its notes were missing from it; the third passed).
+
 ## 0.35.0-uno01
 
 - **Music washes the island in its colour.** While something plays, the album art's colour fades from the left edge of the pill and the open panel into the island's black (as HyperOS does). Paused music keeps a fainter wash; a notification card, an event flash or a ringing timer takes the island's colour first, so two colours never compete.

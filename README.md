@@ -41,7 +41,7 @@ Screenshots show sample data on an emulator sized to the reference Fold, and som
 | --- | --- |
 | Change Home pages | Swipe sideways across Home, the dock or the right rail (one page per swipe) |
 | See all apps | Swipe past the last Home page, or tap the page control. Search is built in |
-| Open launcher settings | **Swipe up anywhere on Home** (not from a scrolling widget), or long-press empty space and tap **Customize launcher** |
+| Open launcher settings | **Swipe up anywhere on Home** (not from a scrolling widget), or long-press empty space and tap **Launcher settings** |
 | Search everything | Pull down on Home away from the top edge, or tap the magnifier in the island's search field. Apps, contacts, answers and feeds in one box; **Enter** opens the top app, or, with no app to open, runs a web search in your browser with your words already in it. With no match it also offers F-Droid, Aurora or a web search in the app you pick |
 | Search the web from the island | Open the island, type in its **Search the web** field and press Enter: your browser (Vanadium if installed) opens on the results page |
 | See notifications | Pull down from the top-left of Home (needs the optional shade service, see below) |
@@ -83,7 +83,7 @@ The pill around your camera shows what is happening, and opens into a small pane
 - **Notification cards:** with notification access on and "Show new notifications in the island", the island drops down a card for each new notification and tucks away after a few seconds (set per app). You choose how much it shows: the app's name only (the default), plus the title, or plus the text; words you list keep a notification's text off the island. Tap the card to open the notification.
 - **What it shows:** downloads and uploads (a progress ring round the app's icon), turn-by-turn navigation, music (title, artwork, controls and a seek bar you can tap or drag), calls (caller and time), timers and the stopwatch, **Android 16 Live Updates** (a ride, a delivery, a timer), camera and microphone marks, a red mark while the screen is recorded, VPN and USB-data alerts, headphone and Bluetooth audio connecting, ringer, airplane and Do Not Disturb changes, charging, and optionally a peek when a notification arrives.
 - **Over other apps:** turn on **Island everywhere** and grant "Display over other apps". If you also enable the optional shade service, the island is drawn above the status bar so it can be tapped. It steps aside in landscape (video and games).
-- **Shortcuts and buttons:** the open island carries the apps you picked under *Control panel & Focus → Shortcuts in the panel* (up to five, one tap each), and Search, Feed and Customize buttons. Over other apps those buttons open Uno on that screen, because an overlay cannot take typing. During a call the card has an **End** button.
+- **Shortcuts and buttons:** the open island carries the apps you picked under *Control panel & Focus → Shortcuts in the panel* (up to five, one tap each), and Search, Feed and Settings buttons. Over other apps those buttons open Uno on that screen, because an overlay cannot take typing. During a call the card has an **End** button.
 - **A widget in the island:** choose one Android widget in *Dynamic island* settings for the open panel to show.
 - **Control:** every switch is in *Dynamic island* settings, including **Apps that can use the island** (switch off any app's Live Updates and peeks).
 

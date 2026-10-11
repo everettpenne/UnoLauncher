@@ -79,7 +79,7 @@ class CustomizationNavigationIntegrationTest {
         val before = model().state.value.layout
         compose.openHomeCustomization()
         compose.onNodeWithTag("customization-help").performScrollTo().performClick()
-        compose.onNodeWithText("Customize any page").assertIsDisplayed()
+        compose.onNodeWithText("Settings on any page").assertIsDisplayed()
         compose.onNodeWithTag("help-home-settings").assertExists()
         compose.onNodeWithTag("help-add-widget").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("help-shade-setup").performScrollTo().assertIsDisplayed()

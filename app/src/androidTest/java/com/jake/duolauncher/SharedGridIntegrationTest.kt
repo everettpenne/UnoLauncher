@@ -52,7 +52,7 @@ class SharedGridIntegrationTest {
             compose.runOnIdle { model().removePlacement(DropTarget.Widget(0)) }
             val catalogBaseline = model().state.value.layout
             compose.onNodeWithTag("home-cell-0").performTouchInput { longClick() }
-            compose.onNodeWithText("Add to Home").assertIsDisplayed()
+            compose.onNodeWithText("This space").assertIsDisplayed()
             compose.onNodeWithTag("empty-space-widgets").performClick()
             compose.onNodeWithTag("visual-widget-picker").assertIsDisplayed()
             compose.onNodeWithText("Widgets").assertIsDisplayed()

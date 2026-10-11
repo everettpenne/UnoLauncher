@@ -134,7 +134,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     }
 
     if (section == ExtrasSection.ICONS) {
-    Text("App icons", style = MaterialTheme.typography.titleMedium)
+    Text("Icon style", style = MaterialTheme.typography.titleMedium)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilterChip(s.iconStyle == IconStyle.ORIGINAL, { store.setIconStyle(IconStyle.ORIGINAL) }, { Text("Original") },
             Modifier.testTag("icons-original"))
@@ -203,7 +203,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     }
     if (section == ExtrasSection.ISLAND) {
     SettingsSwitch("Camera and microphone indicators", s.privacyIndicators, store::setPrivacyIndicators, "privacy-indicators-switch")
-    Text("The island shows a green camera or orange microphone mark while any app is using that hardware, like Android's own privacy dots, and a red mark while the screen is being recorded (Android 15+, using the normal DETECT_SCREEN_RECORDING permission). It needs no runtime permission: Android tells every app when the camera or microphone becomes busy, without saying which app is using it. Nothing is recorded or stored.",
+    Text("The island shows a green camera dot or orange microphone dot beside the pill while any app is using that hardware, like Android's own privacy dots, and a red dot while the screen is being recorded (Android 15+, using the normal DETECT_SCREEN_RECORDING permission). It needs no runtime permission: Android tells every app when the camera or microphone becomes busy, without saying which app is using it. Nothing is recorded or stored.",
         style = note, color = muted)
     SettingsSwitch("VPN and USB data alerts", s.securityAlerts, store::setSecurityAlerts, "security-alerts-switch")
     Text("The island flashes when a VPN connects or drops and when a USB data connection starts or ends (plain charging is not announced here). It needs no extra permission and keeps nothing.",

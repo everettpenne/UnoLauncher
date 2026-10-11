@@ -112,7 +112,7 @@ internal fun ControlPanel(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Focus", color = ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Text(if (extras.focusHidden.isEmpty()) "Choose apps to hide in Customize"
+                Text(if (extras.focusHidden.isEmpty()) "Choose apps to hide in Launcher settings"
                     else if (extras.focusOn) "${extras.focusHidden.size} apps hidden" else "Hides ${extras.focusHidden.size} apps",
                     color = ink.copy(alpha = .6f), fontSize = 12.sp)
             }
@@ -123,7 +123,7 @@ internal fun ControlPanel(
             if (chosen.isEmpty()) TileRow(ink, modifier.clickable { onCustomize() }.testTag("cp-shortcuts")) {
                 Icon(Icons.Rounded.Apps, null, tint = ink.copy(alpha = .8f), modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(12.dp))
-                Text("Add shortcuts in Customize", color = ink.copy(alpha = .8f), fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text("Add shortcuts in Launcher settings", color = ink.copy(alpha = .8f), fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Icon(Icons.Rounded.ChevronRight, null, tint = ink.copy(alpha = .6f))
             } else Row(modifier.fillMaxWidth().clip(TileShape).background(ink.copy(alpha = .08f)).padding(vertical = 8.dp)
                 .testTag("cp-shortcuts"), horizontalArrangement = Arrangement.SpaceEvenly) {

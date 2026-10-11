@@ -772,11 +772,11 @@ internal fun DynamicIsland(
                     if (onWebSearch != null) {
                         IslandSearchField(onWebSearch, onSearch, Modifier.weight(1f))
                         IslandAction(Icons.Rounded.RssFeed, "Feed", false, onOpenFeed)
-                        IslandAction(Icons.Rounded.Tune, "Customize", false, onCustomize)
+                        IslandAction(Icons.Rounded.Tune, "Settings", false, onCustomize)
                     } else {
                         IslandAction(Icons.Rounded.Search, "Search", actionLabelsFit, onSearch)
                         IslandAction(Icons.Rounded.RssFeed, "Feed", actionLabelsFit, onOpenFeed)
-                        IslandAction(Icons.Rounded.Tune, "Customize", actionLabelsFit, onCustomize)
+                        IslandAction(Icons.Rounded.Tune, "Settings", actionLabelsFit, onCustomize)
                     }
                 }
             }

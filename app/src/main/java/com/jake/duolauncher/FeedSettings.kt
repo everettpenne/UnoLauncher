@@ -16,7 +16,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
-/** News feed management inside Customize launcher: sources, preference, and refresh. */
+/** News feed management inside Launcher settings: sources, preference, and refresh. */
 @Composable
 internal fun FeedSettings(
     feed: FeedState,

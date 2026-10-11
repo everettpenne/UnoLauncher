@@ -297,7 +297,7 @@ class LauncherIntegrationTest {
         compose.openHomeCustomization()
         compose.onNodeWithTag("customization-gestures").performClick()
         compose.onNodeWithTag("status-switch").performScrollTo().performClick()
-        compose.onNodeWithContentDescription("Close customization").performClick()
+        compose.onNodeWithContentDescription("Close settings").performClick()
         compose.onNodeWithTag("status-rail").assertDoesNotExist()
         compose.activityRule.scenario.recreate()
         ready()

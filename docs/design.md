@@ -85,7 +85,7 @@ the feed page and the native Google Discover window all use `PageIndicatorLayout
 ## Home geometry
 
 - Grid: 4 columns × 6 rows; dock: 4 slots.
-- Presets (Customize launcher → Home layout, per cover/inner):
+- Presets (Launcher settings → Home layout, per cover/inner):
   icon size 40–68 dp, row gap 0–28 dp, dock width 56–84 dp, dock height on screen
   25–75% (or aligned to rows).
 - Pager inset math: `pagerWidth = maxWidth - dockWidth - 28 dp`; the pager runs under
@@ -318,6 +318,6 @@ Backspace is grapheme-aware (an emoji, a flag or a symbol with its variation sel
 
 ## Keyboard features
 
-The emoji panel (`EmojiData`, parsed from `assets/keyboard/emoji.txt`) is a scrolling grid with category tabs beside the ABC and delete keys; recents are kept in memory for the session only. The switcher key is shown only when Android says there is another keyboard to switch to, and the input method declares `supportsSwitchingToNextInputMethod`. A Paste button appears in the suggestion lane when the clipboard holds text. Long-pressing a symbol or digit opens its variants (dashes, currency, quotes, degree, and so on) as well as a letter's accents. One-handed mode (Customize, Control panel & extras) pushes the keys to one side at 80% width and leaves a button on the free side to restore full width. In landscape the fullscreen extract editor is switched off so the app stays visible above the keyboard.
+The emoji panel (`EmojiData`, parsed from `assets/keyboard/emoji.txt`) is a scrolling grid with category tabs beside the ABC and delete keys; recents are kept in memory for the session only. The switcher key is shown only when Android says there is another keyboard to switch to, and the input method declares `supportsSwitchingToNextInputMethod`. A Paste button appears in the suggestion lane when the clipboard holds text. Long-pressing a symbol or digit opens its variants (dashes, currency, quotes, degree, and so on) as well as a letter's accents. One-handed mode (Launcher settings, Control panel & extras) pushes the keys to one side at 80% width and leaves a button on the free side to restore full width. In landscape the fullscreen extract editor is switched off so the app stays visible above the keyboard.
 
 `KeyHaptics` fires `VibrationEffect.Composition` primitives (LOW_TICK, TICK, CLICK) from `HapticProfile`, with a predefined tick on motors without them, on a `HandlerThread`, using `VibrationAttributes.USAGE_TOUCH` on API 33+ and checking `HAPTIC_FEEDBACK_ENABLED` otherwise. Strength 0.6 reproduces the base profile and scales linearly; 12 ms rate limit.

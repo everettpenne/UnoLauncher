@@ -122,7 +122,7 @@ internal fun FirstRunSetupSheet(
                 SetupGuideRow(
                     icon = Icons.Rounded.Widgets,
                     title = "Make the space useful",
-                    detail = "Add a widget now, or long-press empty space later to customize any page.",
+                    detail = "Add a widget now, or long-press empty space later to open settings for that page.",
                 )
                 OutlinedButton(
                     onClick = onAddWidget,

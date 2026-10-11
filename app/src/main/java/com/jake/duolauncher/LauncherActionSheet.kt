@@ -116,14 +116,14 @@ internal fun EmptySpaceActionSheet(onWidgets: () -> Unit, onWallpaper: () -> Uni
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
         .padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Add to Home", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            Text("This space", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close empty space options") }
         }
-        Text("Choose what belongs in this space.", style = MaterialTheme.typography.bodyMedium,
+        Text("Add a widget, change the wallpaper, or open settings.", style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
         ActionRow(Icons.Rounded.Widgets, "Widgets", onWidgets, Modifier.testTag("empty-space-widgets"))
         ActionRow(Icons.Rounded.Wallpaper, "Wallpaper", onWallpaper, Modifier.testTag("empty-space-wallpaper"))
-        ActionRow(Icons.Rounded.Tune, "Customize launcher", onCustomize, Modifier.testTag("empty-space-customize"))
+        ActionRow(Icons.Rounded.Tune, "Launcher settings", onCustomize, Modifier.testTag("empty-space-customize"))
     }
 }
 

@@ -180,7 +180,7 @@ class NativeWidgetLifecycleIntegrationTest {
 
             tap("Home page 2")
             shell("appwidget revokebind --package com.jake.duolauncher --user 0")
-            openNativeHomeCustomization(automation) { click("Customize launcher") }; click("Home layout")
+            openNativeHomeCustomization(automation) { click("Launcher settings") }; click("Home layout")
             clickAfterScrolling("Add widget to this page")
             typeWidgetSearch(provider.loadLabel(main.packageManager).toString())
             click(provider.loadLabel(main.packageManager).toString())
@@ -196,7 +196,7 @@ class NativeWidgetLifecycleIntegrationTest {
             assertFalse("Canceling system widget consent must delete its allocated ID",
                 bindCanceledId in widgets.host.appWidgetIds)
 
-            openNativeHomeCustomization(automation) { click("Customize launcher") }; click("Home layout")
+            openNativeHomeCustomization(automation) { click("Launcher settings") }; click("Home layout")
             clickAfterScrolling("Add widget to this page")
             typeWidgetSearch(provider.loadLabel(main.packageManager).toString())
             click(provider.loadLabel(main.packageManager).toString())
@@ -236,7 +236,7 @@ class NativeWidgetLifecycleIntegrationTest {
             assertNull(model.placement(slot))
             assertFalse(canceledId in widgets.host.appWidgetIds)
 
-            openNativeHomeCustomization(automation) { click("Customize launcher") }; click("Home layout")
+            openNativeHomeCustomization(automation) { click("Launcher settings") }; click("Home layout")
             clickAfterScrolling("Add widget to this page")
             typeWidgetSearch(provider.loadLabel(main.packageManager).toString())
             click(provider.loadLabel(main.packageManager).toString())

@@ -18,7 +18,7 @@ To make Uno Launcher the launcher, choose **Set as home app** in customization, 
 
 ## Customize Home
 
-Swipe up anywhere on Home to open **Launcher settings** (not when the swipe starts on a widget that scrolls itself). You can also long press an empty Home cell to open **Add to Home**, then choose **Widgets**, **Wallpaper**, or **Customize launcher**. If every cell is occupied, long press the slim wallpaper margin at the left edge of the grid. The settings are grouped like iOS Settings:
+Swipe up anywhere on Home to open **Launcher settings** (not when the swipe starts on a widget that scrolls itself). You can also long press an empty Home cell to open **Add to Home**, then choose **Widgets**, **Wallpaper**, or **Launcher settings**. If every cell is occupied, long press the slim wallpaper margin at the left edge of the grid. The settings are grouped like iOS Settings:
 
 - **Look:** **Wallpaper & glass** (launcher photos, Android wallpaper, liquid glass, color from wallpaper, light and dark) and **App icons** (original, themed or tinted by your wallpaper).
 - **Home:** **Home layout** (icon size, row spacing, dock geometry, Home apps, widgets on the visible page), **Gestures & feel** (app names, the upper-right status display, pull-down and right-hand swipes, haptics and sounds), **Search** (the Google button, suggestions, contacts) and **Control panel & Focus**.

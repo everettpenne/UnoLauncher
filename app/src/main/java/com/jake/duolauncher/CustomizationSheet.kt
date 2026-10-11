@@ -88,7 +88,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
             if (page != CustomizationPage.OVERVIEW) IconButton(onClick = { onPage(CustomizationPage.OVERVIEW) },
                 Modifier.testTag("customization-back")) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
             Text(title, Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close customization") }
+            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close settings") }
         }
         Column(Modifier.weight(1f).verticalScroll(bodyScroll).padding(bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -159,7 +159,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     }
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     Text("Android wallpaper", style = MaterialTheme.typography.titleMedium)
-                    Text("Opens Android’s preview to change the phone wallpaper. It does not change Duo’s launcher background.",
+                    Text("Opens Android’s preview to change the phone wallpaper. It does not change Uno’s launcher background.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedButton(onClick = onWallpaperPreview, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         .testTag("wallpaper-preview")) { Icon(Icons.Rounded.Wallpaper, null); Spacer(Modifier.width(8.dp)); Text("Preview Android wallpaper") }
@@ -265,8 +265,8 @@ private fun LauncherHelp(
         Text(if (isDefaultHome) "Change home app" else "Set Uno Launcher as Home")
     }
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
-    HelpSection(Icons.Rounded.TouchApp, "Customize any page",
-        "Swipe up anywhere on Home to open these settings, or long-press empty space and choose Customize launcher. If a page is full, long-press the slim area at its left edge.")
+    HelpSection(Icons.Rounded.TouchApp, "Settings on any page",
+        "Swipe up anywhere on Home to open these settings, or long-press empty space and choose Launcher settings. If a page is full, long-press the slim area at its left edge.")
     HelpSection(Icons.Rounded.Widgets, "Widgets",
         "Add Android widgets to empty Home cells. Hold a widget to move or remove it.")
     OutlinedButton(onClick = onAddWidget, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-add-widget")) {
@@ -279,7 +279,7 @@ private fun LauncherHelp(
         Text("Set up shade gestures")
     }
     HelpSection(Icons.Rounded.Explore, "Discover",
-        "Swipe right from the first Home page. If Google can't provide the feed, Uno Launcher keeps a Home return and recovery actions available. Add your own feeds in News feed customization to fill this slot without Google.")
+        "Swipe right from the first Home page. If Google can't provide the feed, Uno Launcher keeps a Home return and recovery actions available. Add your own feeds under News feed to fill this slot without Google.")
 }
 
 @Composable

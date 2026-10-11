@@ -164,7 +164,7 @@ class NativeAppearanceLocationIntegrationTest {
             assertEquals(packageName, automation.rootInActiveWindow?.packageName?.toString())
             assertNull("Location permission must be user initiated", find("Don’t allow"))
 
-            openNativeHomeCustomization(automation) { click("Customize launcher") }
+            openNativeHomeCustomization(automation) { click("Launcher settings") }
             click("Wallpaper & glass")
             clickAfterScrolling("Sunrise / sunset")
             val launcherBefore = launcherPrefs.all.toMap()
@@ -187,7 +187,7 @@ class NativeAppearanceLocationIntegrationTest {
             assertEquals(backgroundBefore, backgroundPrefs.all.toMap())
             assertArrayEquals(photoBefore, backgroundFile.takeIf(File::isFile)?.readBytes())
 
-            click("Close customization")
+            click("Close settings")
             await { find("Discover")?.isVisibleToUser == true }
             click("Discover")
             await(20_000) { LiveDiscover.progress >= .99f && LiveDiscover.message.value == null }

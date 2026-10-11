@@ -86,7 +86,7 @@ private fun FeedPageBody(
                     horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("All your feeds are switched off.", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
-                    Text("Turn one on under Customize > News feed.", style = MaterialTheme.typography.bodySmall,
+                    Text("Turn one on under Launcher settings > News feed.", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 feed.refreshing && feed.shownEntries.isEmpty() -> {

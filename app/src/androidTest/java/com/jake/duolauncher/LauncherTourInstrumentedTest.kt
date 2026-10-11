@@ -15,8 +15,8 @@ class LauncherTourInstrumentedTest {
     private val compose = createAndroidComposeRule<MainActivity>()
     @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
 
-    private fun shot(name: String) {
-        compose.waitForIdle()
+    private fun shot(name: String, settle: Boolean = true) {
+        if (settle) compose.waitForIdle()
         val b = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         File(compose.activity.filesDir, "tour-$name.png").outputStream().use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
@@ -77,5 +77,22 @@ class LauncherTourInstrumentedTest {
             compose.onNodeWithTag("launcher-root").performTouchInput { swipeDown(startY = height * .35f, endY = height * .75f) }
             Thread.sleep(800); shot("sheet-search")
         }
+    }
+
+    /** Search growing out of the island, frame by frame (the test clock is held and moved by hand so each picture is one moment). */
+    @Test fun tourSearchGrowsFromTheIsland() {
+        val model = ViewModelProvider(compose.activity)[LauncherModel::class.java]
+        compose.waitUntil(60_000) { !model.state.value.loading }
+        runCatching { compose.onNodeWithText("Not now").performClick(); compose.waitForIdle() }
+        compose.onNodeWithContentDescription("Home page 1").performClick()
+        compose.waitForIdle()
+        shot("search-0-home")
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("launcher-root").performTouchInput { swipeDown(startY = height * .35f, endY = height * .75f) }
+        for ((i, ms) in listOf(30L, 90L, 150L, 250L, 900L).withIndex()) {
+            compose.mainClock.advanceTimeBy(ms)
+            shot("search-${i + 1}-${ms}ms", settle = false)
+        }
+        compose.mainClock.autoAdvance = true
     }
 }

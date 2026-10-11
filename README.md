@@ -42,7 +42,7 @@ Screenshots show sample data on an emulator sized to the reference Fold, and som
 | Change Home pages | Swipe sideways across Home, the dock or the right rail (one page per swipe) |
 | See all apps | Swipe past the last Home page, or tap the page control. Search is built in |
 | Open launcher settings | **Swipe up anywhere on Home** (not from a scrolling widget), or long-press empty space and tap **Launcher settings** |
-| Search everything | Pull down on Home away from the top edge, or tap the magnifier in the island's search field. Apps, contacts, answers and feeds in one box; **Enter** opens the top app, or, with no app to open, runs a web search in your browser with your words already in it. With no match it also offers F-Droid, Aurora or a web search in the app you pick |
+| Search everything | Pull down on Home away from the top edge, or tap the magnifier in the island's search field. The search panel grows out of the island. Apps, contacts, answers and feeds in one box; **Enter** opens the top app, or, with no app to open, runs a web search in your browser with your words already in it. With no match it also offers F-Droid, Aurora or a web search in the app you pick |
 | Search the web from the island | Open the island, type in its **Search the web** field and press Enter: your browser (Vanadium if installed) opens on the results page |
 | See notifications | Pull down from the top-left of Home (needs the optional shade service, see below) |
 | Open the control panel | Pull down from the top-right of Home: media, volume, brightness, ringer, flashlight, Focus, shortcuts and a hand-off to Android's Quick Settings |

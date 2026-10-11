@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
             runOnUiThread {
                 when {
                     peek.title != null || peek.text != null -> island.showPeekCard(peek)
-                    app != null -> island.showPeek(app, peek.appLabel)
+                    app != null -> island.showPeek(app, peek.appLabel, peek.open)
                     else -> island.showEvent(IslandEvent(peek.appLabel, IslandSymbol.NOTIFICATION))
                 }
             }

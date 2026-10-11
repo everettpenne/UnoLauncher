@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -1254,14 +1255,28 @@ internal fun LauncherScreen(
         // The control panel lives out here, beside the inset-padded Home content, so its dimming layer covers the whole
         // window. Inside that content it stopped at the status and navigation bars, leaving two undimmed strips that
         // read as the edges of a panel behind the glass; the panel itself applies the safe-area padding.
+        // Search grows out of the island: the panel starts as the collapsed pill and opens to full size (and shrinks back into
+        // it on the way out). The enter and exit are driven by this transition's own progress, not by a fade.
+        val spotlightView = androidx.compose.ui.platform.LocalView.current
+        val spotlightDensity = LocalDensity.current.density
+        val spotlightPill = remember(spotlightOpen, appearance.island, appearance.islandScale) {
+            if (!appearance.island) null else runCatching {
+                IslandGeometry.frame(readIslandEnvironment(spotlightView, with(density) { preset.dockWidth.dp.toPx() }),
+                    spotlightDensity, 0f, appearance.islandScale)
+            }.getOrNull()
+        }
         androidx.compose.animation.AnimatedVisibility(spotlightOpen,
-            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { -it / 4 },
-            exit = androidx.compose.animation.fadeOut()) {
+            enter = androidx.compose.animation.EnterTransition.None,
+            exit = androidx.compose.animation.ExitTransition.None) {
+            val grow by transition.animateFloat(transitionSpec = {
+                if (targetState == androidx.compose.animation.EnterExitState.Visible) androidx.compose.animation.core.spring(dampingRatio = .78f, stiffness = 320f)
+                else androidx.compose.animation.core.tween(200)
+            }, label = "search grows from the island") { if (it == androidx.compose.animation.EnterExitState.Visible) 1f else 0f }
             Spotlight(controlGlass, state.apps, feed.shownEntries, extras?.store?.state?.contactSearch == true, handoffResolver,
                 onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },
                 onOpenFeedLink = { link -> spotlightOpen = false; onFeedOpenEntry(link) },
                 onOpenContact = { contact -> spotlightOpen = false; ContactsSearch.open(launcherActivity, contact) },
-                onDismiss = { spotlightOpen = false })
+                onDismiss = { spotlightOpen = false }, progress = grow, pill = spotlightPill)
         }
         androidx.compose.animation.AnimatedVisibility(controlPanelOpen,
             enter = androidx.compose.animation.slideInVertically { -it / 2 } + androidx.compose.animation.fadeIn(),

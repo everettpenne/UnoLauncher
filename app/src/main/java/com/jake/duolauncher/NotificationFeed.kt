@@ -76,8 +76,9 @@ class UnoNotificationListener : NotificationListenerService() {
     private var handler: Handler? = null
     private var sessions: MediaSessionManager? = null
     private var component: ComponentName? = null
-    private var tracked: MediaController? = null
-    private var trackedCallback: MediaController.Callback? = null
+    private val watched = HashMap<android.media.session.MediaSession.Token, Pair<MediaController, MediaController.Callback>>()
+    private var latest: List<MediaController> = emptyList()
+    private var chosenToken: android.media.session.MediaSession.Token? = null
     private val lastPeek = mutableMapOf<String, Long>()
     private val prefs by lazy { getSharedPreferences("extras", Context.MODE_PRIVATE) }
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
@@ -111,7 +112,7 @@ class UnoNotificationListener : NotificationListenerService() {
         NotificationFeed.liveUpdates = emptyList()
         runCatching { prefs.unregisterOnSharedPreferenceChangeListener(prefListener) }
         runCatching { sessions?.removeOnActiveSessionsChangedListener(sessionsListener) }
-        untrack()
+        unwatchAll()
         worker?.quitSafely(); worker = null; handler = null
     }
 
@@ -231,21 +232,35 @@ class UnoNotificationListener : NotificationListenerService() {
     }
 
     private fun syncMedia(list: List<MediaController>? = null) {
-        if (!prefs.getBoolean("mediaDetails", false)) { untrack(); NotificationFeed.nowPlaying = null; return }
+        if (!prefs.getBoolean("mediaDetails", false)) { unwatchAll(); NotificationFeed.nowPlaying = null; return }
         val controllers = list ?: runCatching { sessions?.getActiveSessions(component) }.getOrNull().orEmpty()
-        val chosen = controllers.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: controllers.firstOrNull()
-        if (chosen == null) { untrack(); NotificationFeed.nowPlaying = null; return }
-        if (tracked?.sessionToken != chosen.sessionToken) {
-            untrack()
+        latest = controllers
+        // Every session is watched, not just the one on show. It used to follow only the first one it chose, so a second player
+        // that started while the first sat paused went unnoticed until the list of sessions itself changed, and the island kept
+        // showing the paused one (or nothing playing) while music was audible.
+        val gone = watched.keys.filter { token -> controllers.none { it.sessionToken == token } }
+        gone.forEach { token -> watched.remove(token)?.let { (controller, callback) -> runCatching { controller.unregisterCallback(callback) } } }
+        controllers.forEach { controller ->
+            val token = controller.sessionToken ?: return@forEach
+            if (token in watched) return@forEach
             val callback = object : MediaController.Callback() {
-                override fun onMetadataChanged(metadata: MediaMetadata?) = publish(chosen)
-                override fun onPlaybackStateChanged(state: PlaybackState?) = publish(chosen)
+                override fun onMetadataChanged(metadata: MediaMetadata?) { handler?.post { choose() } }
+                override fun onPlaybackStateChanged(state: PlaybackState?) { handler?.post { choose() } }
                 override fun onSessionDestroyed() { handler?.post { syncMedia() } }
             }
-            tracked = chosen; trackedCallback = callback
-            runCatching { chosen.registerCallback(callback, handler) }
+            watched[token] = controller to callback
+            runCatching { controller.registerCallback(callback, handler) }
         }
-        publish(chosen)
+        choose()
+    }
+
+    /** Picks what the island shows: whatever is playing now, else the one it was already showing, else the first. */
+    private fun choose() {
+        val playing = latest.firstOrNull { IslandPlayback.sessionPlaying(it.playbackState?.state) }
+        val keep = latest.firstOrNull { it.sessionToken == chosenToken }
+        val chosen = playing ?: keep ?: latest.firstOrNull()
+        chosenToken = chosen?.sessionToken
+        if (chosen == null) NotificationFeed.nowPlaying = null else publish(chosen)
     }
 
     private fun publish(controller: MediaController) {
@@ -254,13 +269,13 @@ class UnoNotificationListener : NotificationListenerService() {
             title = meta?.getString(MediaMetadata.METADATA_KEY_TITLE),
             artist = meta?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: meta?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST),
             art = meta?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: meta?.getBitmap(MediaMetadata.METADATA_KEY_ART),
-            playing = controller.playbackState?.state == PlaybackState.STATE_PLAYING,
+            playing = IslandPlayback.sessionPlaying(controller.playbackState?.state),
             controller = controller)
     }
 
-    private fun untrack() {
-        runCatching { trackedCallback?.let { tracked?.unregisterCallback(it) } }
-        tracked = null; trackedCallback = null
+    private fun unwatchAll() {
+        watched.values.forEach { (controller, callback) -> runCatching { controller.unregisterCallback(callback) } }
+        watched.clear(); latest = emptyList(); chosenToken = null
     }
 
     private companion object { const val PEEK_GAP_MS = 4_000L; const val SYNC_DELAY_MS = 150L }

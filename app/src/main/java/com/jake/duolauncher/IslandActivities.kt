@@ -110,6 +110,21 @@ internal object IslandPlayback {
      */
     fun controlsVisible(nowMs: Long, playing: Boolean, lastPlayingAtMs: Long): Boolean =
         playing || (lastPlayingAtMs > 0L && nowMs - lastPlayingAtMs <= RESUME_WINDOW_MS)
+
+    /** How long from [nowMs] until the paused controls leave, or null when they are not on a countdown. */
+    fun hideAfterMs(nowMs: Long, playing: Boolean, lastPlayingAtMs: Long): Long? =
+        if (playing || lastPlayingAtMs <= 0L) null else (lastPlayingAtMs + RESUME_WINDOW_MS - nowMs).coerceAtLeast(0L)
+
+    /** Whether a media session's playback state means "sound is, or is about to be, coming out". Buffering counts: a player that
+     * is starting, or catching up after a seek, reports it, and treating it as paused made the island flicker to "paused". */
+    fun sessionPlaying(state: Int?): Boolean = state == android.media.session.PlaybackState.STATE_PLAYING ||
+        state == android.media.session.PlaybackState.STATE_BUFFERING ||
+        state == android.media.session.PlaybackState.STATE_FAST_FORWARDING ||
+        state == android.media.session.PlaybackState.STATE_REWINDING
+
+    /** The player's own session is the truest answer when there is one (it says "paused" the instant you pause, and "playing" before
+     * the audio system has reported anything); without one, the audio system's answer stands. */
+    fun effective(audioActive: Boolean, sessionPlaying: Boolean?): Boolean = sessionPlaying ?: audioActive
 }
 
 /** Sends a media key to whichever player is active. [AudioManager.dispatchMediaKeyEvent] needs no

@@ -106,6 +106,9 @@ internal class IslandState {
     var flashIcon by mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
         private set
     /** The app a peek came from, so tapping its icon on the island opens that app. */
+    /** What tapping the flashed app icon does: the notification's own tap action when it has one, else opening the app. */
+    var flashOpen by mutableStateOf<android.app.PendingIntent?>(null)
+        private set
     var flashComponent by mutableStateOf<android.content.ComponentName?>(null)
         private set
     var flashSymbol by mutableStateOf<IslandSymbol?>(null)
@@ -135,13 +138,15 @@ internal class IslandState {
     fun rotateBy(places: Int) { activityShift += places }
 
     private class Flash(val title: String, val icon: androidx.compose.ui.graphics.ImageBitmap?,
-        val component: android.content.ComponentName?, val symbol: IslandSymbol, val tint: Color? = null)
+        val component: android.content.ComponentName?, val symbol: IslandSymbol, val tint: Color? = null,
+        val open: android.app.PendingIntent? = null)
     private val queued = ArrayDeque<Flash>()
 
     private fun present(flash: Flash) {
         flashTitle = flash.title
         flashIcon = flash.icon
         flashComponent = flash.component
+        flashOpen = flash.open
         flashSymbol = flash.symbol
         flashTint = flash.tint
         flashKey++
@@ -169,7 +174,7 @@ internal class IslandState {
         if (next != null) present(next) else clearFlash()
     }
 
-    private fun clearFlash() { flashTitle = null; flashIcon = null; flashSymbol = null; flashComponent = null; flashTint = null }
+    private fun clearFlash() { flashTitle = null; flashIcon = null; flashSymbol = null; flashComponent = null; flashOpen = null; flashTint = null }
 
     val queuedFlashCount: Int get() = queued.size
 
@@ -192,10 +197,10 @@ internal class IslandState {
     }
 
     /** A notification peek: the app's icon and name, but never the message. */
-    fun showPeek(app: AppEntry, label: String) {
+    fun showPeek(app: AppEntry, label: String, open: android.app.PendingIntent? = null) {
         offer(Flash(label, app.image,
             app.component.takeIf { app.user == android.os.Process.myUserHandle() && it.packageName.isNotEmpty() },
-            IslandSymbol.APP, AppTints.of(app.packageName) { app.icon }?.let { Color(it) }))
+            IslandSymbol.APP, AppTints.of(app.packageName) { app.icon }?.let { Color(it) }, open))
     }
 
     fun showCharging(percent: Int?) {
@@ -207,6 +212,16 @@ internal class IslandState {
         if (value || playing) lastPlayingAt = nowMs
         playing = value
     }
+
+    private var wasPlaying = false
+    /** The island's answer to "is it playing" changed (or was re-confirmed): a start or a stop both restart the resume window. */
+    fun notePlaybackChange(nowMs: Long, playingNow: Boolean) {
+        if (playingNow || wasPlaying) lastPlayingAt = nowMs
+        wasPlaying = playingNow
+    }
+
+    /** The player has gone away: nothing to resume, so the controls leave at once. */
+    fun endPlayback() { lastPlayingAt = 0L; wasPlaying = false }
 
     fun dismissFlash() { queued.clear(); clearFlash() }
     /** A new notification shown as a card dropping down from the island (see [PeekNotification]); null when there is none. */
@@ -379,10 +394,22 @@ internal fun DynamicIsland(
     val expandedAlpha = ((progress - .5f) / .5f).coerceIn(0f, 1f)
     val flashActive = state.flashTitle != null
     // Playing means audio is active and, when the session is known, that it is not paused (the session answers a pause at once).
-    val isPlaying = state.playing && (NotificationFeed.nowPlaying?.playing ?: true)
+    val isPlaying = IslandPlayback.effective(state.playing, NotificationFeed.nowPlaying?.playing)
     // The panel reserves room for the Search / Feed / Customize buttons; over other apps they are not shown, so that room goes.
     val actionsTrimDp = if (showActions) 0f else ACTIONS_ROW_DP
-    val mediaVisible = IslandPlayback.controlsVisible(clockMs, state.playing, state.lastPlayingAt)
+    // The paused controls leave exactly when their window ends, not at the next tick of a slow clock: this is told the moment to look again.
+    var windowTick by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(isPlaying, state.playing) {
+        // The session and the audio system both feed "is it playing"; the window to resume starts when the answer last was yes.
+        state.notePlaybackChange(System.currentTimeMillis(), isPlaying)
+        val wait = IslandPlayback.hideAfterMs(System.currentTimeMillis(), isPlaying, state.lastPlayingAt) ?: return@LaunchedEffect
+        delay(wait + 50L)
+        windowTick = System.currentTimeMillis()
+    }
+    // A player that closes (its session ends) takes its controls with it unless something is still playing.
+    val sessionPresent = NotificationFeed.nowPlaying != null
+    LaunchedEffect(sessionPresent) { if (!sessionPresent && !state.playing) state.endPlayback() }
+    val mediaVisible = IslandPlayback.controlsVisible(maxOf(clockMs, windowTick), isPlaying, state.lastPlayingAt)
     val art = NotificationFeed.nowPlaying?.art
     val artImage = remember(art) { art?.asImageBitmap() }
     // The island borrows a colour from the album artwork for the bars and the play button.
@@ -623,11 +650,14 @@ internal fun DynamicIsland(
                         val symbol = state.flashSymbol
                         val bitmap = state.flashIcon
                         val component = state.flashComponent
-                        // The app's icon opens the app (a child click, so it wins over the pill's own expand tap).
+                        val open = state.flashOpen
+                        // The app's icon opens what the notification points at (its own tap action, as the card does), or the app when
+                        // it has none (a child click, so it wins over the pill's own expand tap).
                         if (bitmap != null) Box(Modifier.size(36.dp).clip(CircleShape)
-                            .then(if (component != null) Modifier.clickable {
+                            .then(if (component != null || open != null) Modifier.clickable {
                                 UnoFeedback.play(Cue.OPEN, haptic)
-                                state.dismissFlash(); state.collapse(); launchIslandApp(context, component)
+                                state.dismissFlash(); state.collapse()
+                                if (open == null || runCatching { open.send() }.isFailure) component?.let { launchIslandApp(context, it) }
                             }.testTag("island-peek-app") else Modifier), contentAlignment = Alignment.Center) {
                             Image(bitmap, null, Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)))
                         }
@@ -694,7 +724,10 @@ internal fun DynamicIsland(
                     // A wash of the app icon's colour behind the card, fading to the island's black.
                     .then(peek.tint?.let { c -> Modifier.background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color(c).copy(alpha = .38f), Color.Transparent))) } ?: Modifier)
                     .clickable {
-                        runCatching { peek.open?.send() }; state.collapse()
+                        // The notification's own tap action; with none, the app itself.
+                        if (peek.open == null || runCatching { peek.open.send() }.isFailure)
+                            context.packageManager.getLaunchIntentForPackage(peek.packageName)?.let { runCatching { context.startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+                        state.collapse()
                     }.testTag("island-peek-card"), verticalAlignment = Alignment.CenterVertically) {
                     peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) }
                     Spacer(Modifier.width(10.dp))

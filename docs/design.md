@@ -278,6 +278,8 @@ The strength setting (`TiltMath.gainFor`, 1x to 6x) multiplies the roll, and `Gl
 
 ## Spotlight
 
+Search grows out of the island (`SpotlightEmerge`): the panel begins as the collapsed pill, true black, and grows to full size, driven by the enter and exit transition's own progress; the panel's content fades in during the second half. Without an island it opens from the top, inside the safe area.
+
 `Spotlight.kt` is an overlay at the same level as the control panel, so it covers the whole window. `SpotlightRank` orders app matches (name prefix, then a word prefix, then contains, alphabetical) and feed matches (every word must appear), and it reuses `SearchSmarts` and `ContactsSearch`. The left pull-down is a setting (`LeftSwipe`) so notifications remain the default.
 
 ## Feedback

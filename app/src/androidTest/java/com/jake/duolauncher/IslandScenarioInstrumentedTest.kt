@@ -117,6 +117,42 @@ class IslandScenarioInstrumentedTest {
         assertTrue(present("island-media"))
     }
 
+    private fun setSession(playing: Boolean, audioActive: Boolean) {
+        val art = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888).also { Canvas(it).drawColor(0xFFE2582B.toInt()) }
+        compose.runOnIdle {
+            NotificationFeed.nowPlaying = NowPlaying("Night Drive", "The Examples", art, playing, session!!.controller)
+            state.setPlaying(System.currentTimeMillis(), audioActive)
+        }
+        compose.waitForIdle()
+    }
+
+    @Test fun theSessionDecidesPlayingBeforeTheAudioSystemHasSaidAnything() {
+        show()
+        playMusic(playing = true)
+        // The player says it is playing, the audio system has not caught up (or is momentarily silent): playing.
+        setSession(playing = true, audioActive = false)
+        assertTrue(present("island-playing"))
+        // The player says paused while the audio system still reports activity (it lags a pause): paused at once.
+        setSession(playing = false, audioActive = true)
+        assertTrue(present("island-paused") && !present("island-playing"))
+    }
+
+    @Test fun pausedControlsLeaveWhenTheirWindowEndsAndComeBackOnPlay() {
+        show()
+        playMusic(playing = true)
+        // Paused a minute and a half ago: nothing left to resume.
+        compose.runOnIdle {
+            NotificationFeed.nowPlaying = null
+            state.setPlaying(System.currentTimeMillis() - 95_000L, true); state.setPlaying(System.currentTimeMillis() - 95_000L, false)
+        }
+        compose.waitForIdle()
+        assertTrue("controls gone", !present("island-paused") && !present("island-playing"))
+        // Playing again brings them straight back.
+        compose.runOnIdle { state.setPlaying(System.currentTimeMillis(), true) }
+        compose.waitForIdle()
+        assertTrue(present("island-playing"))
+    }
+
     @Test fun musicAndACallShareThePillWithTheCallInFull() {
         show()
         playMusic(playing = true)

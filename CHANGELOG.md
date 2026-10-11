@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.38.0-uno01
+
+- **Search grows out of the island.** Pulling down for search (or tapping the island's Search button) no longer fades in a glass sheet: the panel starts as the collapsed pill, true black like the island, and grows to its full size from the camera, shrinking back into it when you leave. The text and results fade in once there is room for them. Without an island the panel still opens from the top, kept clear of the status bar. (The frame-by-frame motion is a spring and could not be captured exactly on the emulator; the sizing rules are unit-tested and the open and settled states were checked in screenshots.)
+- **Tapping the app icon on a notification opens that notification.** When a notification only has room for the app's icon and name on the pill, tapping the icon now sends the notification's own tap action (the conversation, the message, the download) rather than just opening the app's front page; an app that gave no action is opened as before. The drop-down card does the same, and falls back to opening the app if the notification has no action.
+- **Music detection is quicker and more accurate.**
+  - The island now trusts the player's own session first: it knows "paused" the instant you pause and "playing" before the audio system has said anything. The audio system's answer is used when there is no session.
+  - Every media session is watched, not only the one on show. Before, a second player that started while the first sat paused was not noticed until the list of sessions changed.
+  - A player that is buffering (starting, or catching up after a seek) counts as playing, so the island no longer flickers to "paused".
+  - Paused controls leave at the exact moment their 90-second window ends, not at the next tick of a slow clock, and leave at once when the player closes. A start or a stop each restart the window.
+- **The waveform moves.** Checked on the display in a plain activity (the test framework switches endless animations off, which is why an earlier check seemed to show still bars): the four bars change from frame to frame while playing and sit still, at rest height, when paused.
+- Tests: unit tests for the playback rules and the search sizing; emulator tests for the session-versus-audio cases, the controls leaving and returning, and the moving and still waveform. A small debug-only activity hosts the bars for that check; release builds do not contain it.
+
 ## 0.37.0-uno01
 
 From an independent UX audit of how the launcher's borrowed design languages meet. The audit's overall finding stands: Apple's look, Android's behaviour and GrapheneOS's values are the product, and what needed fixing was the places where two of them answered the same question. Judged against the code, some of its points were already true and are left as they were (see below).

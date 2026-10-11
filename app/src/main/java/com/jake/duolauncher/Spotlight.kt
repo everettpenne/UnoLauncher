@@ -1,6 +1,14 @@
 package com.jake.duolauncher
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -70,7 +78,34 @@ internal object SpotlightRank {
     }
 }
 
-/** Search from anywhere on Home: a glass panel over whatever page you are on. One box finds apps, contacts (if you
+/**
+ * How the search panel grows out of the island. At [progress] 0 the panel is exactly the collapsed pill (same width and height,
+ * same centre, black like the pill); at 1 it is the full panel. The panel's own content is drawn once and scaled, so the
+ * only numbers needed are the pill's size and where its centre is.
+ */
+internal object SpotlightEmerge {
+    /** The panel's horizontal scale: the pill's width as a fraction of the panel's, growing to 1. */
+    fun scaleX(progress: Float, pillWidth: Float, panelWidth: Float): Float {
+        if (panelWidth <= 0f) return 1f
+        val from = (pillWidth / panelWidth).coerceIn(.05f, 1f)
+        return from + (1f - from) * progress.coerceIn(0f, 1f)
+    }
+
+    /** The panel's vertical scale, from the pill's height as a fraction of the panel's. */
+    fun scaleY(progress: Float, pillHeight: Float, panelHeight: Float): Float {
+        if (panelHeight <= 0f) return 1f
+        val from = (pillHeight / panelHeight).coerceIn(.03f, 1f)
+        return from + (1f - from) * progress.coerceIn(0f, 1f)
+    }
+
+    /** Sideways shift that keeps the panel's centre moving from the pill's centre to its own as it grows. */
+    fun shiftX(progress: Float, pillCenterX: Float, panelCenterX: Float) = (pillCenterX - panelCenterX) * (1f - progress.coerceIn(0f, 1f))
+
+    /** The fields and results fade in during the second half of the growth, so they are never seen squashed. */
+    fun contentAlpha(progress: Float) = ((progress - .45f) / .55f).coerceIn(0f, 1f)
+}
+
+/** Search from anywhere on Home: a panel that grows out of the island over whatever page you are on. One box finds apps, contacts (if you
  * turned that on), answers to sums and conversions, and headlines you already saved from your feeds. Nothing leaves
  * the device, and it never touches the web.
  */
@@ -86,6 +121,10 @@ internal fun Spotlight(
     onOpenContact: (ContactResult) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 0 = the collapsed island pill, 1 = fully open; driven by the caller's enter/exit transition. */
+    progress: Float = 1f,
+    /** The collapsed pill the panel grows from (null without an island: the panel then grows from the top edge). */
+    pill: IslandFrame? = null,
 ) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
@@ -102,33 +141,50 @@ internal fun Spotlight(
         delay(150)
         contacts = withContext(Dispatchers.IO) { ContactsSearch.search(context, query) }
     }
-    val shape = Corner.xlarge
-    val panelBackdrop = rememberLayerBackdrop()
-    val accent = LocalWallpaperAccent.current
-    val surface = MaterialTheme.colorScheme.surface.let { base ->
-        if (accent != null) androidx.compose.ui.graphics.lerp(base, accent.glass, .5f) else base
-    }.copy(alpha = .66f)
-    val ink = MaterialTheme.colorScheme.onSurface
+    // The island's own look: a true-black body (the pill's colour, so the panel reads as the pill grown larger), white ink and
+    // a hairline rim. The glass the panel used to have belonged to a sheet that appeared from nowhere.
+    val shape = RoundedCornerShape(30.dp)
+    val ink = Color.White
     val quiet = remember { MutableInteractionSource() }
+    val density = LocalDensity.current
+    var panelSize by remember { mutableStateOf(IntSize.Zero) }
+    var panelLeft by remember { mutableFloatStateOf(0f) }
+    val pillTop = pill?.top ?: 0f
+    val pillBottom = pill?.let { it.top + it.height } ?: 0f
 
-    Box(modifier.fillMaxSize().background(Color.Black.copy(alpha = .30f))
+    Box(modifier.fillMaxSize().background(Color.Black.copy(alpha = .38f * progress.coerceIn(0f, 1f)))
         .clickable(interactionSource = quiet, indication = null, onClick = onDismiss).testTag("spotlight-scrim"),
         contentAlignment = Alignment.TopCenter) {
-        Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing).imePadding().padding(horizontal = 12.dp).padding(top = 8.dp)
+        Column(Modifier.then(if (pill == null) Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(top = 8.dp) else Modifier)
+            .padding(top = with(density) { pillTop.toDp() })
+            .imePadding().padding(horizontal = 12.dp)
             .widthIn(max = 460.dp).fillMaxWidth().heightIn(max = 560.dp)
+            .onGloballyPositioned { panelSize = it.size; panelLeft = it.positionInRoot().x }
+            .graphicsLayer {
+                transformOrigin = TransformOrigin(.5f, 0f)
+                if (pill != null) {
+                    scaleX = SpotlightEmerge.scaleX(progress, pill.width, panelSize.width.toFloat())
+                    scaleY = SpotlightEmerge.scaleY(progress, pill.height, panelSize.height.toFloat())
+                    translationX = SpotlightEmerge.shiftX(progress, pill.left + pill.width / 2f, panelLeft + panelSize.width / 2f)
+                } else {
+                    alpha = progress.coerceIn(0f, 1f)
+                    scaleX = .9f + .1f * progress; scaleY = .9f + .1f * progress
+                }
+            }
+            .clip(shape).background(Color.Black).border(1.dp, Color.White.copy(alpha = .10f), shape)
             .clickable(interactionSource = quiet, indication = null) {}
-            .then(if (glass != null) Modifier.drawBackdrop(
-                backdrop = glass.backdrop, shape = { shape },
-                effects = {
-                    vibrancy(); blur(8f.dp.toPx())
-                    lens(lerp(8f, 44f, glass.settings.height).dp.toPx(), lerp(16f, 132f, glass.settings.amount).dp.toPx(),
-                        depthEffect = true, chromaticAberration = glass.settings.chromatic > 0.05f)
-                },
-                highlight = { GlassRim.Light }, exportedBackdrop = panelBackdrop,
-                onDrawSurface = { drawRect(surface) })
-            else Modifier.background(MaterialTheme.colorScheme.surface, shape))
             .padding(14.dp).testTag("spotlight")) {
+          // Everything inside fades in once the panel is big enough to hold it; the top is kept clear of the camera hole.
+          Column(Modifier.graphicsLayer { alpha = if (pill != null) SpotlightEmerge.contentAlpha(progress) else 1f }) {
+            if (pill != null) Spacer(Modifier.height(with(density) { (pillBottom - pillTop).toDp() }.coerceAtLeast(0.dp)))
+            CompositionLocalProvider(LocalContentColor provides ink) {
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().focusRequester(focus).testTag("spotlight-field"),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = ink, unfocusedTextColor = ink, cursorColor = ink,
+                    focusedBorderColor = ink.copy(alpha = .55f), unfocusedBorderColor = ink.copy(alpha = .25f),
+                    focusedPlaceholderColor = ink.copy(alpha = .55f), unfocusedPlaceholderColor = ink.copy(alpha = .55f),
+                    focusedLeadingIconColor = ink.copy(alpha = .8f), unfocusedLeadingIconColor = ink.copy(alpha = .8f),
+                    focusedTrailingIconColor = ink.copy(alpha = .8f), unfocusedTrailingIconColor = ink.copy(alpha = .8f)),
                 placeholder = { Text("Search apps, answers, feeds", maxLines = 1) }, singleLine = true, shape = Corner.pill,
                 // Enter opens the top app, as on iOS; with no app to open it searches the web in your browser with the words typed.
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
@@ -184,6 +240,8 @@ internal fun Spotlight(
                     Text("Nothing found", Modifier.padding(12.dp), color = ink.copy(alpha = .7f))
                 }
             }
+            }
+          }
         }
     }
 }

@@ -127,10 +127,22 @@ internal object IslandPlayback {
     fun effective(audioActive: Boolean, sessionPlaying: Boolean?): Boolean = sessionPlaying ?: audioActive
 }
 
+/** Sends a notification's or session's own tap action. From Android 14 the sender has to say that it is allowed to bring an activity to
+ * the front (a PendingIntent sent without that is quietly dropped when the sending app is not the one on screen, which is the case for
+ * the island over other apps, and reports success all the same). A tap on the island is the user's own action, so it says so. */
+internal fun sendTapAction(context: Context, action: android.app.PendingIntent?): Boolean {
+    if (action == null) return false
+    return runCatching {
+        val options = android.app.ActivityOptions.makeBasic()
+        if (android.os.Build.VERSION.SDK_INT >= 34) options.setPendingIntentBackgroundActivityStartMode(
+            android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+        action.send(context, 0, null, null, null, null, options.toBundle())
+    }.isSuccess
+}
+
 /** Opens the app that is playing: its own now-playing screen (the session's activity) when it has one, else the app's front door. */
 internal fun openPlayer(context: Context, controller: android.media.session.MediaController) {
-    val sent = controller.sessionActivity?.let { runCatching { it.send() }.isSuccess } == true
-    if (sent) return
+    if (sendTapAction(context, controller.sessionActivity)) return
     context.packageManager.getLaunchIntentForPackage(controller.packageName)?.let {
         runCatching { context.startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }

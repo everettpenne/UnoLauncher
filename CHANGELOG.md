@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.39.1-uno01
+
+- **Tapping a notification in the island is more forgiving, and its tap action is sent properly.**
+  - A tap anywhere on a notification's flash (not only on the 20 dp app icon) now opens that notification. Before, a tap that just missed the icon opened the island's panel and threw the flash away, which looked like "the tap does nothing".
+  - The icon's own tap target is larger (40 dp).
+  - Every tap action the island sends (a notification's, the music player's now-playing screen, a call's, a Live Update's) now says that it may bring an activity to the front. From Android 14 a sender that does not say so can have the start silently dropped while the call still reports success; that is the likeliest reason it worked on the emulator but not on your phone. If an action still fails, the island falls back to opening the app itself.
+- Tests: emulator tests tap the track in the open island and the app icon on a notification flash, and check that the right app or screen is in front afterwards.
+- Not verified: I cannot send a real notification from another app to the emulator, so the flash was driven directly with a notification-style tap action. Please say whether tapping a notification (icon or pill) and the music card now opens the app; if it still does not, say which of the two, and whether it is over Home or over another app.
+
 ## 0.39.0-uno01
 
 - **Search now grows out of the camera, and the dimming reaches the top.** On a phone whose Home window starts below the camera cutout, the search panel was laid out in the wrong coordinates: it sat about one cutout's height too low (a black blob under the camera, not joined to it) and the dimming layer stopped at the same line, leaving a lighter strip along the top edge. That strip is the "shaded area behind search" that has been there since the control panel and search were added. Both are now laid out in the window's own coordinates, the panel takes its position from the island's own resting frame (the one the island is drawn with), and the dimming covers the whole window. An emulator test puts the panel inside a parent that starts well below the top and checks that the panel's top equals the pill's top and the dimming reaches y = 0.

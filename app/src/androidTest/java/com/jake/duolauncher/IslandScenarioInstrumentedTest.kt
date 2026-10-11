@@ -6,6 +6,7 @@ import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToString
@@ -151,6 +152,46 @@ class IslandScenarioInstrumentedTest {
         compose.runOnIdle { state.setPlaying(System.currentTimeMillis(), true) }
         compose.waitForIdle()
         assertTrue(present("island-playing"))
+    }
+
+    @Test fun tappingTheTrackInTheOpenIslandOpensThePlayersApp() {
+        show()
+        playMusic(playing = true)
+        openShot("open-player-before")
+        assertTrue("the card is tappable", present("island-open-player"))
+        val device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        compose.onAllNodesWithTag("island-open-player", useUnmergedTree = true)[0].performClick()
+        // The session is this app's own and offers no now-playing screen, so the player's app is its launcher activity.
+        var top = ""
+        val end = System.currentTimeMillis() + 15_000
+        while (System.currentTimeMillis() < end && !top.contains("MainActivity")) {
+            Thread.sleep(500)
+            top = device.executeShellCommand("dumpsys activity activities").lineSequence().firstOrNull { "topResumedActivity" in it || "ResumedActivity" in it }.orEmpty()
+        }
+        assertTrue("the player's app came to the front: $top", top.contains("MainActivity"))
+    }
+
+    @Test fun tappingTheAppIconOnANotificationFlashOpensThatNotification() {
+        show()
+        val icon = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888).also { Canvas(it).drawColor(0xFF3B82F6.toInt()) }
+        val app = AppEntry("com.android.settings/com.android.settings.Settings", "Settings", icon)
+        // The notification's own tap action: something other than the app's front page, so the two can be told apart.
+        val open = android.app.PendingIntent.getActivity(context, 0,
+            android.content.Intent(android.provider.Settings.ACTION_DATE_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+        compose.runOnIdle { state.showPeek(app, "Settings", open) }
+        compose.waitForIdle()
+        assertTrue("the app icon is on the pill and tappable", present("island-peek-app"))
+        shot("notification-flash")
+        val device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        compose.onAllNodesWithTag("island-peek-app", useUnmergedTree = true)[0].performClick()
+        var top = ""
+        val end = System.currentTimeMillis() + 15_000
+        while (System.currentTimeMillis() < end && !top.contains("DateTime", ignoreCase = true) && !top.contains("settings", ignoreCase = true)) {
+            Thread.sleep(500)
+            top = device.executeShellCommand("dumpsys activity activities").lineSequence().firstOrNull { "topResumedActivity" in it || "ResumedActivity" in it }.orEmpty()
+        }
+        assertTrue("the notification's screen came to the front: $top", top.contains("settings", ignoreCase = true))
     }
 
     @Test fun musicAndACallShareThePillWithTheCallInFull() {

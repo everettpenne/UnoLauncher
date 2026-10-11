@@ -205,6 +205,9 @@ internal class IslandState {
             IslandSymbol.APP, AppTints.of(app.packageName) { app.icon }?.let { Color(it) }, open))
     }
 
+    /** Whether the flash on show is a notification's (its app's icon) with somewhere to go when tapped. */
+    fun flashOpensSomething() = flashTitle != null && flashSymbol == IslandSymbol.APP && (flashOpen != null || flashComponent != null)
+
     fun showCharging(percent: Int?) {
         if (flashTitle == null) showEvent(IslandEvents.charging(percent))
     }
@@ -396,6 +399,14 @@ internal fun DynamicIsland(
     val collapsedAlpha = (1f - progress / .5f).coerceIn(0f, 1f)
     val expandedAlpha = ((progress - .5f) / .5f).coerceIn(0f, 1f)
     val flashActive = state.flashTitle != null
+    // Tapping a notification's flash: its own tap action, or the app when it has none. The values are read before the flash is cleared.
+    val openFlash: () -> Unit = {
+        val open = state.flashOpen
+        val component = state.flashComponent
+        UnoFeedback.play(Cue.OPEN, haptic)
+        state.dismissFlash(); state.collapse()
+        if (!sendTapAction(context, open)) component?.let { launchIslandApp(context, it) }
+    }
     // Playing means audio is active and, when the session is known, that it is not paused (the session answers a pause at once).
     val isPlaying = IslandPlayback.effective(state.playing, NotificationFeed.nowPlaying?.playing)
     // The panel reserves room for the Search / Feed / Customize buttons; over other apps they are not shown, so that room goes.
@@ -630,9 +641,12 @@ internal fun DynamicIsland(
                     state.dismissFlash(); IslandTools.toolsOpen = true; state.expanded = true
                 },
                 onClick = {
-                    UnoFeedback.play(Cue.OPEN, haptic)
                     // A ringing timer is silenced by a tap before anything else.
-                    if (IslandTools.ringing) IslandTools.stopRinging(context) else state.toggle()
+                    if (IslandTools.ringing) { UnoFeedback.play(Cue.OPEN, haptic); IslandTools.stopRinging(context) }
+                    // A tap anywhere on a notification's flash opens that notification (the icon alone is a small target for a
+                    // thumb, and a tap that just missed it used to open the panel and lose the flash instead).
+                    else if (state.flashOpensSomething()) openFlash()
+                    else { UnoFeedback.play(Cue.OPEN, haptic); state.toggle() }
                 })
             .testTag("dynamic-island")) {
             val hole = frame.hole
@@ -656,12 +670,9 @@ internal fun DynamicIsland(
                         val open = state.flashOpen
                         // The app's icon opens what the notification points at (its own tap action, as the card does), or the app when
                         // it has none (a child click, so it wins over the pill's own expand tap).
-                        if (bitmap != null) Box(Modifier.size(36.dp).clip(CircleShape)
-                            .then(if (component != null || open != null) Modifier.clickable {
-                                UnoFeedback.play(Cue.OPEN, haptic)
-                                state.dismissFlash(); state.collapse()
-                                if (open == null || runCatching { open.send() }.isFailure) component?.let { launchIslandApp(context, it) }
-                            }.testTag("island-peek-app") else Modifier), contentAlignment = Alignment.Center) {
+                        if (bitmap != null) Box(Modifier.size(40.dp).clip(CircleShape)
+                            .then(if (component != null || open != null) Modifier.clickable { openFlash() }.testTag("island-peek-app") else Modifier),
+                            contentAlignment = Alignment.Center) {
                             Image(bitmap, null, Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)))
                         }
                         else if (symbol != null) Icon(symbol.icon(), null, tint = symbol.tint, modifier = Modifier.size(18.dp))
@@ -728,7 +739,7 @@ internal fun DynamicIsland(
                     .then(peek.tint?.let { c -> Modifier.background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color(c).copy(alpha = .38f), Color.Transparent))) } ?: Modifier)
                     .clickable {
                         // The notification's own tap action; with none, the app itself.
-                        if (peek.open == null || runCatching { peek.open.send() }.isFailure)
+                        if (!sendTapAction(context, peek.open))
                             context.packageManager.getLaunchIntentForPackage(peek.packageName)?.let { runCatching { context.startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
                         state.collapse()
                     }.testTag("island-peek-card"), verticalAlignment = Alignment.CenterVertically) {
@@ -764,12 +775,12 @@ internal fun DynamicIsland(
                 NotificationFeed.ongoingCall?.let { call ->
                     Spacer(Modifier.height(6.dp))
                     CallRow(call, clockMs, onClick = {
-                        runCatching { call.openIntent?.send() }; state.collapse()
+                        sendTapAction(context, call.openIntent); state.collapse()
                     })
                 }
                 updates.firstOrNull()?.let { u ->
                     Spacer(Modifier.height(6.dp))
-                    UpdateCard(u, clockMs, onOpen = { runCatching { u.openIntent?.send() }; state.collapse() })
+                    UpdateCard(u, clockMs, onOpen = { sendTapAction(context, u.openIntent); state.collapse() })
                 }
                 if (IslandWidgetState.id >= 0 && !IslandTools.toolsOpen) {
                     Spacer(Modifier.height(6.dp))

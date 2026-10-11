@@ -177,6 +177,7 @@ internal class IslandOverlayHost(
             }
             var visible by androidx.compose.runtime.remember { mutableStateOf(true) }
             var alwaysWide by androidx.compose.runtime.remember { mutableStateOf(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("islandWide", false)) }
+            var resumeWindowMs by androidx.compose.runtime.remember { mutableStateOf(IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))) }
             var islandScale by androidx.compose.runtime.remember {
                 mutableStateOf(context.getSharedPreferences("appearance", Context.MODE_PRIVATE).getFloat("islandScale", .5f).coerceIn(0f, 1f))
             }
@@ -197,6 +198,7 @@ internal class IslandOverlayHost(
                     visible = OverlayPolicy.shouldShow(enabled, (!needsOverlayPermission || Settings.canDrawOverlays(context)),
                         keyguard.isKeyguardLocked, power.isInteractive)
                     alwaysWide = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("islandWide", false)
+                    resumeWindowMs = IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))
                     islandScale = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
                         .getFloat("islandScale", .5f).coerceIn(0f, 1f)
                     // The debug HUD (debug builds only) follows its switch while the overlay runs.
@@ -215,6 +217,7 @@ internal class IslandOverlayHost(
                     feedHeadline = null,
                     sizeScale = islandScale,
                     alwaysWide = alwaysWide,
+                    resumeWindowMs = resumeWindowMs,
                     dockWidthPx = 0f,
                     environmentOverride = environment,
                     anchoredToWindow = true,

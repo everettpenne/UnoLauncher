@@ -30,15 +30,6 @@ class IslandActivitiesTest {
         assertEquals(IslandSymbol.FOCUS, IslandEvents.doNotDisturb(NotificationManager.INTERRUPTION_FILTER_NONE).symbol)
     }
 
-    @Test fun controlsShowWhilePlayingAndForAWhileAfter() {
-        val stopped = 1_000_000L
-        assertTrue(IslandPlayback.controlsVisible(stopped, playing = true, lastPlayingAtMs = 0L))
-        assertTrue("just after stopping", IslandPlayback.controlsVisible(stopped + 1_000, false, stopped))
-        assertTrue("at the end of the window",
-            IslandPlayback.controlsVisible(stopped + IslandPlayback.RESUME_WINDOW_MS, false, stopped))
-        assertFalse("after the window", IslandPlayback.controlsVisible(stopped + IslandPlayback.RESUME_WINDOW_MS + 1, false, stopped))
-        assertFalse("never played", IslandPlayback.controlsVisible(stopped, false, 0L))
-    }
 
     @Test fun theResumeWindowStartsWhenPlaybackStopsNotWhenItStarted() {
         val state = IslandState()

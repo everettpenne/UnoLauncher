@@ -50,6 +50,10 @@ internal data class NowPlaying(
     val art: Bitmap?,
     val playing: Boolean,
     val controller: MediaController,
+    /** For deciding whether paused media is worth coming back to (see IslandPlayback.resumable). */
+    val stateCode: Int? = null,
+    val positionMs: Long = -1L,
+    val durationMs: Long = -1L,
 )
 
 /** Process-wide, read-only view of the listener's findings, for Compose to read. */
@@ -270,7 +274,10 @@ class UnoNotificationListener : NotificationListenerService() {
             artist = meta?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: meta?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST),
             art = meta?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: meta?.getBitmap(MediaMetadata.METADATA_KEY_ART),
             playing = IslandPlayback.sessionPlaying(controller.playbackState?.state),
-            controller = controller)
+            controller = controller,
+            stateCode = controller.playbackState?.state,
+            positionMs = controller.playbackState?.position ?: -1L,
+            durationMs = meta?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: -1L)
     }
 
     private fun unwatchAll() {

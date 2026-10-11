@@ -209,6 +209,13 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     SettingsSwitch("VPN and USB data alerts", s.securityAlerts, store::setSecurityAlerts, "security-alerts-switch")
     Text("The island flashes when a VPN connects or drops and when a USB data connection starts or ends (plain charging is not announced here). It needs no extra permission and keeps nothing.",
         style = note, color = muted)
+    Text("Paused music and podcasts", style = MaterialTheme.typography.titleMedium)
+    Text("The wide pill is for sound that is playing. Paused media stays on the pill for a few seconds, then, if it is worth coming back to (it has a title, you are part-way through it and it is longer than 30 seconds), a soft ring in the cover's colour shows round the camera and the track stays on the open island for this long. Finished videos and short clips just fade out.",
+        style = note, color = muted)
+    IslandPlayback.RESUME_CHOICES_MIN.forEach { minutes ->
+        ChoiceRow(if (minutes == 1) "1 minute" else "$minutes minutes", if (minutes == 2) "The default" else "",
+            s.mediaResumeMinutes == minutes, "media-resume-$minutes") { store.setMediaResumeMinutes(minutes) }
+    }
     SettingsSwitch("Permanent wide island", s.islandWide, store::setIslandWide, "island-wide-switch")
     Text("Over other apps the island normally shrinks to a ring round the camera when it has nothing to show, so it does not cover your status bar. With this on it stays as the wide pill, with the battery level on one side. It covers the status bar icons beside the camera.",
         style = note, color = muted)

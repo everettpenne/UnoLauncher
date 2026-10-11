@@ -102,18 +102,64 @@ internal fun IslandSymbol.isRinger() = this == IslandSymbol.RINGER || this == Is
  * paused track can be resumed from the island (a paused player no longer counts as "active").
  */
 internal object IslandPlayback {
-    const val RESUME_WINDOW_MS = 90_000L
+    /** How long paused or finished media stays on the pill itself, with still bars, before the pill goes back to its resting size. */
+    const val LINGER_MS = 6_000L
+    /** How long paused media that is worth coming back to stays on the open island by default. Settable (see [resumeWindowMs]). */
+    const val DEFAULT_RESUME_MS = 120_000L
+    /** Content shorter than this is not "something to return to": a clip, a notification sound. */
+    const val MIN_RESUMABLE_CONTENT_MS = 30_000L
+    /** Within this much of the end the media is counted as finished, not paused. */
+    const val END_SLACK_MS = 2_000L
+    /** A player that says "playing" while no audio is coming out (a muted autoplay video) stops counting as playing after this long. */
+    const val SILENT_GRACE_MS = 4_000L
 
-    /** [nowMs] comes from a clock that ticks every few seconds, so right after a pause it can be older than [lastPlayingAtMs]. That
-     * used to count as "outside the window" and hid the controls until the next tick, with the island still open and empty; anything
-     * not yet past the window, however recent, is inside it.
-     */
-    fun controlsVisible(nowMs: Long, playing: Boolean, lastPlayingAtMs: Long): Boolean =
-        playing || (lastPlayingAtMs > 0L && nowMs - lastPlayingAtMs <= RESUME_WINDOW_MS)
+    /** What the island does about media right now. */
+    enum class Phase {
+        /** Audio is playing: the pill is wide, with moving bars. */
+        PLAYING,
+        /** Just stopped or paused (or finished): still bars on the pill for a few seconds, then it goes. */
+        LINGER,
+        /** Paused with a title, a position and more than 30 seconds of content: off the pill, a glow round the camera, and the card stays
+         * on the open island until the window ends. */
+        RESUMABLE,
+        GONE,
+    }
 
-    /** How long from [nowMs] until the paused controls leave, or null when they are not on a countdown. */
-    fun hideAfterMs(nowMs: Long, playing: Boolean, lastPlayingAtMs: Long): Long? =
-        if (playing || lastPlayingAtMs <= 0L) null else (lastPlayingAtMs + RESUME_WINDOW_MS - nowMs).coerceAtLeast(0L)
+    /** The minutes choices for how long paused media stays on the open island. */
+    val RESUME_CHOICES_MIN = listOf(1, 2, 10, 30)
+    fun resumeWindowMs(minutes: Int): Long = (if (minutes in RESUME_CHOICES_MIN) minutes else 2) * 60_000L
+
+    /** Whether paused media is worth coming back to: it has a title, it is paused part-way through (a position, not at the very end),
+     * and it is longer than [MIN_RESUMABLE_CONTENT_MS]. A finished video, a stopped player and a short clip are not. */
+    fun resumable(title: String?, stateCode: Int?, positionMs: Long, durationMs: Long): Boolean =
+        !title.isNullOrBlank() && stateCode == android.media.session.PlaybackState.STATE_PAUSED &&
+            positionMs > 0L && durationMs > MIN_RESUMABLE_CONTENT_MS && positionMs < durationMs - END_SLACK_MS
+
+    fun phase(nowMs: Long, playing: Boolean, lastPlayingAtMs: Long, resumable: Boolean, resumeWindowMs: Long = DEFAULT_RESUME_MS): Phase {
+        if (playing) return Phase.PLAYING
+        if (lastPlayingAtMs <= 0L) return Phase.GONE
+        val since = nowMs - lastPlayingAtMs
+        return when {
+            since <= LINGER_MS -> Phase.LINGER
+            resumable && since <= resumeWindowMs -> Phase.RESUMABLE
+            else -> Phase.GONE
+        }
+    }
+
+    /** How long from [nowMs] until the phase changes by itself (the end of the linger, or of the window), or null when it will not. */
+    fun nextChangeMs(nowMs: Long, playing: Boolean, lastPlayingAtMs: Long, resumable: Boolean, resumeWindowMs: Long = DEFAULT_RESUME_MS): Long? {
+        if (playing || lastPlayingAtMs <= 0L) return null
+        val since = nowMs - lastPlayingAtMs
+        return when {
+            since < LINGER_MS -> LINGER_MS - since
+            resumable && since < resumeWindowMs -> resumeWindowMs - since
+            else -> null
+        }
+    }
+
+    /** Whether a session that says "playing" really is: audio is coming out, or went quiet only a moment ago. */
+    fun sessionAudible(audioActive: Boolean, silentSinceMs: Long, nowMs: Long): Boolean =
+        audioActive || silentSinceMs <= 0L || nowMs - silentSinceMs < SILENT_GRACE_MS
 
     /** Whether a media session's playback state means "sound is, or is about to be, coming out". Buffering counts: a player that
      * is starting, or catching up after a seek, reports it, and treating it as paused made the island flicker to "paused". */
@@ -124,7 +170,8 @@ internal object IslandPlayback {
 
     /** The player's own session is the truest answer when there is one (it says "paused" the instant you pause, and "playing" before
      * the audio system has reported anything); without one, the audio system's answer stands. */
-    fun effective(audioActive: Boolean, sessionPlaying: Boolean?): Boolean = sessionPlaying ?: audioActive
+    fun effective(audioActive: Boolean, sessionPlaying: Boolean?, sessionAudible: Boolean = true): Boolean =
+        if (sessionPlaying == null) audioActive else sessionPlaying && sessionAudible
 }
 
 /** Sends a notification's or session's own tap action. From Android 14 the sender has to say that it is allowed to bring an activity to

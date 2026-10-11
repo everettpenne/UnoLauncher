@@ -125,6 +125,8 @@ internal class IslandState {
         private set
     var lastPlayingAt by mutableLongStateOf(0L)
         private set
+    var audioSilentSince by mutableLongStateOf(0L)
+        private set
     /** Set by [IslandSystemEvents] while it listens: asks it to read the audio state again shortly (after a media command). */
     @Volatile var recheckPlayback: (() -> Unit)? = null
 
@@ -215,6 +217,8 @@ internal class IslandState {
     /** Records whether audio is playing; the stop time is what starts the resume window. */
     fun setPlaying(nowMs: Long, value: Boolean) {
         if (value || playing) lastPlayingAt = nowMs
+        // When the audio went quiet (kept from the first answer, since the system is asked again a moment later); 0 while it plays.
+        if (value) audioSilentSince = 0L else if (playing || audioSilentSince == 0L) audioSilentSince = nowMs
         playing = value
     }
 
@@ -224,6 +228,9 @@ internal class IslandState {
         if (playingNow || wasPlaying) lastPlayingAt = nowMs
         wasPlaying = playingNow
     }
+
+    /** For tests: pretends the media last played at [ms], so the lingering and the window can be checked without waiting minutes. */
+    internal fun setLastPlayingAtForTest(ms: Long) { lastPlayingAt = ms }
 
     /** The player has gone away: nothing to resume, so the controls leave at once. */
     fun endPlayback() { lastPlayingAt = 0L; wasPlaying = false }
@@ -334,6 +341,8 @@ internal fun DynamicIsland(
     onWebSearch: ((String) -> Unit)? = null,
     /** Keep the pill wide when idle, instead of shrinking to a ring round the camera over other apps. */
     alwaysWide: Boolean = false,
+    /** How long paused media worth returning to stays on the open island (and glows round the camera). */
+    resumeWindowMs: Long = IslandPlayback.DEFAULT_RESUME_MS,
     onOpenFeed: () -> Unit,
     onCustomize: () -> Unit,
     modifier: Modifier = Modifier,
@@ -407,23 +416,41 @@ internal fun DynamicIsland(
         state.dismissFlash(); state.collapse()
         if (!sendTapAction(context, open)) component?.let { launchIslandApp(context, it) }
     }
-    // Playing means audio is active and, when the session is known, that it is not paused (the session answers a pause at once).
-    val isPlaying = IslandPlayback.effective(state.playing, NotificationFeed.nowPlaying?.playing)
+    val nowPlaying = NotificationFeed.nowPlaying
+    // The paused controls leave exactly when their window ends, not at the next tick of a slow clock: these are told the moment to look again.
+    var windowTick by remember { mutableLongStateOf(0L) }
+    var silenceTick by remember { mutableLongStateOf(0L) }
+    val phaseNow = maxOf(clockMs, windowTick, silenceTick)
+    // Playing means the player says so (its session answers a pause at once) and audio is coming out; with no session, audio alone decides.
+    // A session that says "playing" over silence (a muted autoplay video) stops counting after a few seconds.
+    val audible = IslandPlayback.sessionAudible(state.playing, state.audioSilentSince, phaseNow)
+    val isPlaying = IslandPlayback.effective(state.playing, nowPlaying?.playing, audible)
+    LaunchedEffect(state.audioSilentSince, nowPlaying?.playing) {
+        if (nowPlaying?.playing == true && !state.playing && state.audioSilentSince > 0L) {
+            delay(IslandPlayback.SILENT_GRACE_MS + 50L)
+            silenceTick = System.currentTimeMillis()
+        }
+    }
+    // Whether the paused media is worth coming back to (a title, a position, more than 30 seconds of it, not at the end).
+    val resumable = nowPlaying != null && IslandPlayback.resumable(nowPlaying.title, nowPlaying.stateCode, nowPlaying.positionMs, nowPlaying.durationMs)
     // The panel reserves room for the Search / Feed / Customize buttons; over other apps they are not shown, so that room goes.
     val actionsTrimDp = if (showActions) 0f else ACTIONS_ROW_DP
-    // The paused controls leave exactly when their window ends, not at the next tick of a slow clock: this is told the moment to look again.
-    var windowTick by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(isPlaying, state.playing) {
-        // The session and the audio system both feed "is it playing"; the window to resume starts when the answer last was yes.
+    LaunchedEffect(isPlaying, state.playing, resumable, resumeWindowMs) {
+        // The session and the audio system both feed "is it playing"; the lingering starts when the answer last was yes.
         state.notePlaybackChange(System.currentTimeMillis(), isPlaying)
-        val wait = IslandPlayback.hideAfterMs(System.currentTimeMillis(), isPlaying, state.lastPlayingAt) ?: return@LaunchedEffect
-        delay(wait + 50L)
-        windowTick = System.currentTimeMillis()
+        while (true) {
+            val wait = IslandPlayback.nextChangeMs(System.currentTimeMillis(), isPlaying, state.lastPlayingAt, resumable, resumeWindowMs) ?: break
+            delay(wait + 50L)
+            windowTick = System.currentTimeMillis()
+        }
     }
     // A player that closes (its session ends) takes its controls with it unless something is still playing.
-    val sessionPresent = NotificationFeed.nowPlaying != null
+    val sessionPresent = nowPlaying != null
     LaunchedEffect(sessionPresent) { if (!sessionPresent && !state.playing) state.endPlayback() }
-    val mediaVisible = IslandPlayback.controlsVisible(maxOf(clockMs, windowTick), isPlaying, state.lastPlayingAt)
+    val mediaPhase = IslandPlayback.phase(phaseNow, isPlaying, state.lastPlayingAt, resumable, resumeWindowMs)
+    // The card in the open island stays for as long as there is anything to resume; the pill itself only carries playing and lingering media.
+    val mediaVisible = mediaPhase != IslandPlayback.Phase.GONE
+    val mediaOnPill = mediaPhase == IslandPlayback.Phase.PLAYING || mediaPhase == IslandPlayback.Phase.LINGER
     val art = NotificationFeed.nowPlaying?.art
     val artImage = remember(art) { art?.asImageBitmap() }
     // The island borrows a colour from the album artwork for the bars and the play button.
@@ -440,7 +467,7 @@ internal fun DynamicIsland(
     val updates = NotificationFeed.liveUpdates
     // Everything live on the collapsed pill, most important first, and which goes in which slot (see IslandLive).
     val liveKinds = IslandLive.rotated(IslandLive.active(call = callActive,
-        timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaVisible, update = updates.isNotEmpty()), state.activityShift)
+        timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaOnPill, update = updates.isNotEmpty()), state.activityShift)
     val plan = IslandLive.plan(liveKinds)
     // A camera on a side edge has no room beside it unless the pill widens, so live content asks for some.
     val cameraOnSide = environment.cutout?.let {
@@ -477,6 +504,10 @@ internal fun DynamicIsland(
     val ring = IslandRingLogic.choose(flashActive, progress >= .5f || state.expanded, IslandTools.ringing,
         IslandTools.timerActive, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
         deviceStatus.charging == true, deviceStatus.battery, IslandSymbol.TIMER.tint, IosGreen, state.flashTint)
+    // Paused media worth returning to: a soft ring of the cover's colour round the camera, behind the timer and charging rings.
+    val resumeGlow by animateFloatAsState(
+        if (mediaPhase == IslandPlayback.Phase.RESUMABLE && !state.expanded && !flashActive && !IslandTools.ringing) 1f else 0f,
+        tween(500), label = "island resume glow")
     // A new event gives the island a small spring pulse, like iOS's.
     val pulse = remember { Animatable(1f) }
     LaunchedEffect(state.flashKey) {
@@ -589,7 +620,7 @@ internal fun DynamicIsland(
             .graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }
             .size(width = (frame.width / d).dp, height = (frame.height / d).dp)
             .islandBody(glass?.backdrop, corner.dp, settings = glass?.settings ?: GlassSettings.Default)
-            .islandRing(ring, corner * d, 2.5f * d)
+            .islandRing(ring, corner * d, 2.5f * d, glow = artTint.copy(alpha = .55f * resumeGlow).takeIf { resumeGlow > .01f })
             .clip(RoundedCornerShape(corner.dp))
             // The playing track's colour fading in from the artwork side, like HyperOS's island.
             .drawBehind {

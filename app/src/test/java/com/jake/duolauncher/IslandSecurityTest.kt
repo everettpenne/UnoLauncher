@@ -53,14 +53,11 @@ class IslandSecurityTest {
         assertEquals(IslandSymbol.USB, IslandEvents.usbData(true).symbol)
     }
 
-    @Test fun theControlsStayWhenTheClockIsABitBehindThePause() {
-        // The island's clock ticks every 5 s, so right after a pause it can be older than the moment the pause was noticed. That used to
-        // read as a negative time and hide the controls until the next tick.
-        assertTrue(IslandPlayback.controlsVisible(nowMs = 100_000L, playing = false, lastPlayingAtMs = 103_000L))
-        assertTrue(IslandPlayback.controlsVisible(100_000L, false, 100_000L))
-        assertTrue(IslandPlayback.controlsVisible(100_000L + IslandPlayback.RESUME_WINDOW_MS, false, 100_000L))
-        assertFalse(IslandPlayback.controlsVisible(100_001L + IslandPlayback.RESUME_WINDOW_MS, false, 100_000L))
-        assertFalse("never played", IslandPlayback.controlsVisible(100_000L, false, 0L))
-        assertTrue(IslandPlayback.controlsVisible(100_000L, true, 0L))
+    @Test fun theMediaStaysWhenTheClockIsABitBehindThePause() {
+        // The island's clock ticks every few seconds, so right after a pause it can be older than the moment the pause was noticed. That
+        // used to read as a negative time and hide the controls until the next tick.
+        assertEquals(IslandPlayback.Phase.LINGER, IslandPlayback.phase(100_000L, false, 103_000L, resumable = false))
+        assertEquals(IslandPlayback.Phase.PLAYING, IslandPlayback.phase(100_000L, true, 0L, resumable = false))
+        assertEquals(IslandPlayback.Phase.GONE, IslandPlayback.phase(100_000L, false, 0L, resumable = true))
     }
 }

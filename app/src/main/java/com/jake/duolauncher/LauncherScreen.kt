@@ -829,6 +829,7 @@ internal fun LauncherScreen(
                     feedHeadline = feed.shownEntries.firstOrNull()?.title,
                     sizeScale = appearance.islandScale,
                     statusRailShown = state.verticalStatus,
+                    resumeWindowMs = IslandPlayback.resumeWindowMs(extras?.store?.state?.mediaResumeMinutes ?: 2),
                     dockWidthPx = with(density) { preset.dockWidth.dp.toPx() },
                     onSearch = { island.collapse(); spotlightOpen = true },
                     onWebSearch = { query -> island.collapse(); handoffResolver.searchWeb(query) },

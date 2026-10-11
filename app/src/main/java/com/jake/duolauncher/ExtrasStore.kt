@@ -28,6 +28,8 @@ internal data class ExtrasState(
     val islandShortcuts: Boolean = true,
     /** Keep the island's pill wide when idle over other apps, instead of shrinking to a ring round the camera. */
     val islandWide: Boolean = false,
+    /** Minutes that paused media worth returning to stays on the open island (and glows round the camera): 1, 2, 10 or 30. */
+    val mediaResumeMinutes: Int = 2,
     val progressTasks: Boolean = true,
     val navigationTasks: Boolean = true,
     /** How much of a new notification the island's card shows: 0 name only, 1 plus title, 2 plus text (see PeekLevel). */
@@ -90,6 +92,7 @@ internal class ExtrasStore(context: Context) {
         audioAlerts = prefs.getBoolean("audioAlerts", true),
         islandShortcuts = prefs.getBoolean("islandShortcuts", true),
         islandWide = prefs.getBoolean("islandWide", false),
+        mediaResumeMinutes = prefs.getInt("mediaResumeMinutes", 2),
         progressTasks = prefs.getBoolean("progressTasks", true),
         navigationTasks = prefs.getBoolean("navigationTasks", true),
         peekLevel = prefs.getInt("peekLevel", 0).coerceIn(0, 2),
@@ -132,6 +135,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("audioAlerts", next.audioAlerts)
             .putBoolean("islandShortcuts", next.islandShortcuts)
             .putBoolean("islandWide", next.islandWide)
+            .putInt("mediaResumeMinutes", next.mediaResumeMinutes)
             .putBoolean("progressTasks", next.progressTasks)
             .putBoolean("navigationTasks", next.navigationTasks)
             .putInt("peekLevel", next.peekLevel)
@@ -172,6 +176,7 @@ internal class ExtrasStore(context: Context) {
     fun setMediaDetails(value: Boolean) = save(state.copy(mediaDetails = value))
     fun setCallDetails(value: Boolean) = save(state.copy(callDetails = value))
     fun setIslandWide(value: Boolean) = save(state.copy(islandWide = value))
+    fun setMediaResumeMinutes(value: Int) = save(state.copy(mediaResumeMinutes = value))
     fun setProgressTasks(value: Boolean) = save(state.copy(progressTasks = value))
     fun setNavigationTasks(value: Boolean) = save(state.copy(navigationTasks = value))
     fun setPeekLevel(value: Int) = save(state.copy(peekLevel = value.coerceIn(0, 2)))

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.40.0-uno01
+
+- **The wide pill is for sound that is playing.** Playing media shows the wide pill with the moving bars and the cover-colour wash, as before. What happens when it stops now depends on whether it is worth coming back to:
+  - **Finished or not worth returning to** (a video that reached its end, a clip of 30 seconds or less, a player that stopped, anything without a title or a position): still bars on the pill for about six seconds, then it goes. It is gone from the open island too.
+  - **Paused part-way through something worth returning to** (it has a title, a position, is longer than 30 seconds and is not at its end): after the six seconds the pill goes back to its resting size and a soft ring in the cover's colour glows round the camera. The track stays on the open island, where you can resume it, for two minutes by default.
+- **A setting for that time.** *Dynamic island → Paused music and podcasts*: 1, 2 (default), 10 or 30 minutes.
+- **The glow sits behind the timer and charging rings.** It is drawn outside the pill and under any ring, so a running timer or a charging ring stays on top and unchanged. It is not shown while the island is open, while an event flashes, or while a timer rings.
+- **A player that says "playing" over silence stops counting after four seconds.** A muted autoplay video in a feed reports "playing" while no sound comes out, and since 0.38 the island trusted the player over the audio system, which is the likeliest reason the indicator hung around. Playing now needs the player to say so and audio to be coming out (or to have gone quiet only a moment ago); with no player session, audio alone decides as before.
+- Tests: unit tests for every phase and boundary (linger, resumable, window, settable window, the silence rule, what counts as worth returning to); emulator tests for paused-and-resumable, just paused, finished video, short clip, no title, past the window, and a session playing over silence.
+
 ## 0.39.1-uno01
 
 - **Tapping a notification in the island is more forgiving, and its tap action is sent properly.**

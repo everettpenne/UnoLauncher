@@ -194,6 +194,82 @@ class IslandScenarioInstrumentedTest {
         assertTrue("the notification's screen came to the front: $top", top.contains("settings", ignoreCase = true))
     }
 
+    /** Paused [secondsAgo] seconds ago, at [positionMs] of [durationMs], as the player's session would report it. */
+    private fun pausedAgo(secondsAgo: Long, positionMs: Long, durationMs: Long, title: String? = "Night Drive") {
+        val art = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888).also { Canvas(it).drawColor(0xFFE2582B.toInt()) }
+        val then = System.currentTimeMillis() - secondsAgo * 1_000L
+        compose.runOnIdle {
+            NotificationFeed.nowPlaying = NowPlaying(title, "The Examples", art, false, session!!.controller,
+                PlaybackState.STATE_PAUSED, positionMs, durationMs)
+            state.setPlaying(then, true); state.setPlaying(then, false)
+        }
+        compose.waitForIdle()
+        // The island noted the change at this moment; move that to where the test says it happened.
+        compose.runOnIdle { state.setLastPlayingAtForTest(then) }
+        compose.waitForIdle()
+    }
+
+
+    @Test fun pausedMediaWorthReturningToLeavesThePillButStaysOnTheOpenIsland() {
+        show()
+        playMusic(playing = true)
+        pausedAgo(secondsAgo = 20, positionMs = 60_000, durationMs = 240_000)
+        assertTrue("off the pill", !present("island-paused") && !present("island-playing"))
+        // The glow fades in over half a second; let it.
+        compose.mainClock.autoAdvance = false
+        compose.mainClock.advanceTimeBy(900)
+        shot("resumable-glow", settle = false)
+        compose.mainClock.autoAdvance = true
+        openShot("resumable-open")
+        assertTrue("still on the open island", present("island-media"))
+    }
+
+    @Test fun justPausedMediaLingersOnThePillForAFewSeconds() {
+        show()
+        playMusic(playing = true)
+        pausedAgo(secondsAgo = 2, positionMs = 60_000, durationMs = 240_000)
+        assertTrue("still bars on the pill", present("island-paused"))
+    }
+
+    @Test fun aFinishedVideoLeavesAfterTheLingerWithNothingToReturnTo() {
+        show()
+        playMusic(playing = true)
+        pausedAgo(secondsAgo = 20, positionMs = 239_000, durationMs = 240_000)
+        assertTrue(!present("island-paused") && !present("island-playing"))
+        compose.runOnIdle { state.toggle() }
+        compose.waitForIdle()
+        assertTrue("and not on the open island either", !present("island-media"))
+    }
+
+    @Test fun aShortClipAndAnUntitledPauseAreNotWorthReturningTo() {
+        show()
+        playMusic(playing = true)
+        pausedAgo(secondsAgo = 20, positionMs = 10_000, durationMs = 25_000)
+        compose.runOnIdle { state.toggle() }; compose.waitForIdle()
+        assertTrue("short clip", !present("island-media"))
+        compose.runOnIdle { state.collapse() }
+        pausedAgo(secondsAgo = 20, positionMs = 60_000, durationMs = 240_000, title = null)
+        compose.runOnIdle { state.toggle() }; compose.waitForIdle()
+        assertTrue("no title", !present("island-media"))
+    }
+
+    @Test fun resumableMediaLeavesTheOpenIslandWhenTheWindowEnds() {
+        show()
+        playMusic(playing = true)
+        pausedAgo(secondsAgo = 180, positionMs = 60_000, durationMs = 240_000)
+        compose.runOnIdle { state.toggle() }; compose.waitForIdle()
+        assertTrue("past the default two minutes", !present("island-media"))
+    }
+
+    @Test fun aSessionSayingPlayingOverSilenceStopsShowingAsPlaying() {
+        show()
+        playMusic(playing = true)
+        // Audio has been quiet for ten seconds while the session still says playing (a muted autoplay video).
+        compose.runOnIdle { state.setPlaying(System.currentTimeMillis() - 10_000L, true); state.setPlaying(System.currentTimeMillis() - 10_000L, false) }
+        compose.waitForIdle()
+        assertTrue("not shown as playing", !present("island-playing"))
+    }
+
     @Test fun musicAndACallShareThePillWithTheCallInFull() {
         show()
         playMusic(playing = true)

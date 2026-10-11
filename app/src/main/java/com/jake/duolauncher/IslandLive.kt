@@ -18,18 +18,25 @@ internal data class SlotPlan(val leading: Pair<LiveKind, SlotShow>?, val trailin
  * the other; with two, each side carries one (the left one as a glyph, the right one in full).
  */
 internal object IslandLive {
-    fun active(camera: Boolean, mic: Boolean, call: Boolean, timer: Boolean, stopwatch: Boolean, media: Boolean,
-        update: Boolean = false, recording: Boolean = false): List<LiveKind> =
+    /** The activities that take a place on the pill, most important first. Camera, microphone and screen recording are not among them:
+     * they are privacy marks, shown as small dots beside the island whatever else is going on (see [privacy]), so a video call keeps its
+     * timer on the pill instead of being pushed out by the camera and microphone.
+     */
+    fun active(call: Boolean, timer: Boolean, stopwatch: Boolean, media: Boolean, update: Boolean = false): List<LiveKind> =
         buildList {
-            if (camera) add(LiveKind.CAMERA)
-            if (mic) add(LiveKind.MIC)
-            if (recording) add(LiveKind.RECORDING)
             if (call) add(LiveKind.CALL)
             if (timer) add(LiveKind.TIMER)
             if (stopwatch) add(LiveKind.STOPWATCH)
             if (update) add(LiveKind.UPDATE)
             if (media) add(LiveKind.MEDIA)
         }
+
+    /** The privacy marks to show as dots, in a fixed order (camera, microphone, screen recording). */
+    fun privacy(camera: Boolean, mic: Boolean, recording: Boolean): List<LiveKind> = buildList {
+        if (camera) add(LiveKind.CAMERA)
+        if (mic) add(LiveKind.MIC)
+        if (recording) add(LiveKind.RECORDING)
+    }
 
     /** The list turned [shift] places (a flick across the island swaps which activity is in front). */
     fun rotated(kinds: List<LiveKind>, shift: Int): List<LiveKind> {
@@ -63,6 +70,25 @@ internal object IslandBubbles {
 
     /** How much room to the right of the pill the bubbles need, in dp (0 with none). */
     fun reserveDp(count: Int): Float = if (count <= 0) 0f else GAP_DP + count * (SIZE_DP + GAP_DP)
+}
+
+/** Where the privacy dots sit beside the pill, and how much room they need. */
+internal object IslandPrivacy {
+    const val DOT_DP = 9f
+    const val GAP_DP = 6f
+    const val STEP_DP = 13f
+    fun widthDp(count: Int): Float = if (count <= 0) 0f else GAP_DP + count * STEP_DP
+}
+
+/** The fade of the playing track's colour across the island, as in HyperOS: strongest while music plays, faint while it is paused, and
+ * none whenever something else has the island (an event flash, a notification card, a ringing timer) or music is not one of the things
+ * it is showing.
+ */
+internal object IslandGlow {
+    const val PLAYING = .40f
+    const val PAUSED = .16f
+    fun target(mediaShown: Boolean, playing: Boolean, somethingElseHasIt: Boolean): Float =
+        if (!mediaShown || somethingElseHasIt) 0f else if (playing) PLAYING else PAUSED
 }
 
 /** The colour the island borrows from album artwork: the most common vivid hue in a small copy of the picture, lifted so it

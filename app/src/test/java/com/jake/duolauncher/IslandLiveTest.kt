@@ -4,8 +4,8 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class IslandLiveTest {
-    private fun kinds(camera: Boolean = false, mic: Boolean = false, call: Boolean = false, timer: Boolean = false,
-        stopwatch: Boolean = false, media: Boolean = false) = IslandLive.active(camera, mic, call, timer, stopwatch, media)
+    private fun kinds(call: Boolean = false, timer: Boolean = false, stopwatch: Boolean = false, media: Boolean = false) =
+        IslandLive.active(call, timer, stopwatch, media)
 
     @Test fun nothingLiveMeansNothingInEitherSlot() {
         val plan = IslandLive.plan(kinds())
@@ -25,17 +25,36 @@ class IslandLiveTest {
         assertEquals(LiveKind.TIMER to SlotShow.DETAIL, plan.trailing)
     }
 
-    @Test fun priorityRunsPrivacyThenCallThenTimerThenStopwatchThenMedia() {
-        assertEquals(listOf(LiveKind.CAMERA, LiveKind.MIC, LiveKind.CALL, LiveKind.TIMER, LiveKind.STOPWATCH, LiveKind.MEDIA),
-            kinds(true, true, true, true, true, true))
+    @Test fun priorityRunsCallThenTimerThenStopwatchThenMedia() {
+        assertEquals(listOf(LiveKind.CALL, LiveKind.TIMER, LiveKind.STOPWATCH, LiveKind.MEDIA), kinds(true, true, true, true))
     }
 
-    @Test fun aPrivacyIndicatorIsAlwaysAGlyphNeverAParagraph() {
-        val both = IslandLive.plan(kinds(camera = true, mic = true))
-        assertEquals(LiveKind.MIC to SlotShow.GLYPH, both.leading)
-        assertEquals(LiveKind.CAMERA to SlotShow.GLYPH, both.trailing)
-        val withMusic = IslandLive.plan(kinds(mic = true, media = true))
-        assertEquals(LiveKind.MIC to SlotShow.GLYPH, withMusic.trailing)
+    @Test fun privacyMarksAreDotsAndNeverTakeAPlaceOnThePill() {
+        assertEquals(listOf(LiveKind.CAMERA, LiveKind.MIC, LiveKind.RECORDING), IslandLive.privacy(true, true, true))
+        assertEquals(emptyList<LiveKind>(), IslandLive.privacy(false, false, false))
+        assertTrue(IslandLive.privacy(true, true, true).all { it.privacy })
+        assertTrue(IslandLive.active(true, true, true, true, true).none { it.privacy })
+    }
+
+    @Test fun aVideoCallKeepsItsTimerOnThePillWhateverThePrivacyMarksAre() {
+        // Camera and microphone are dots, so the call (with music) holds the pill: the call in full, the music as a glyph.
+        val plan = IslandLive.plan(kinds(call = true, media = true))
+        assertEquals(LiveKind.CALL to SlotShow.DETAIL, plan.trailing)
+        assertEquals(LiveKind.MEDIA to SlotShow.GLYPH, plan.leading)
+        assertEquals(2, IslandLive.privacy(true, true, false).size)
+    }
+
+    @Test fun theDotsHaveRoomOnlyWhenThereAreAny() {
+        assertEquals(0f, IslandPrivacy.widthDp(0), 0f)
+        assertTrue(IslandPrivacy.widthDp(3) > IslandPrivacy.widthDp(1))
+    }
+
+    @Test fun theMusicFadeIsStrongWhilePlayingFaintWhilePausedAndGoneWhenSomethingElseHasTheIsland() {
+        assertEquals(IslandGlow.PLAYING, IslandGlow.target(true, true, false), 0f)
+        assertEquals(IslandGlow.PAUSED, IslandGlow.target(true, false, false), 0f)
+        assertEquals(0f, IslandGlow.target(false, true, false), 0f)
+        assertEquals(0f, IslandGlow.target(true, true, true), 0f)
+        assertTrue(IslandGlow.PLAYING > IslandGlow.PAUSED && IslandGlow.PAUSED > 0f)
     }
 
     @Test fun aFlickTurnsTheListSoADifferentActivityIsInFront() {
@@ -71,5 +90,43 @@ class IslandLiveTest {
     @Test fun aDarkCoverIsLiftedSoItStaysReadableOnBlack() {
         val (r, g, b) = channels(ArtTint.fromPixels(solid(0xFF300A40.toInt(), 400))!!)
         assertTrue("bright enough: ${maxOf(r, g, b)}", maxOf(r, g, b) >= 200)
+    }
+}
+
+/** Every combination of the five activities, checked against the rules the island is built on, so no mix of them can clash. */
+class IslandCombinationTest {
+    private val all = listOf(LiveKind.CALL, LiveKind.TIMER, LiveKind.STOPWATCH, LiveKind.UPDATE, LiveKind.MEDIA)
+
+    private fun subsets(): List<List<LiveKind>> = (0 until (1 shl all.size)).map { mask -> all.filterIndexed { i, _ -> mask and (1 shl i) != 0 } }
+
+    @Test fun everyCombinationPlacesWhatItShowsOnceAndInPriorityOrder() {
+        subsets().forEach { subset ->
+            val kinds = IslandLive.active(LiveKind.CALL in subset, LiveKind.TIMER in subset, LiveKind.STOPWATCH in subset,
+                LiveKind.MEDIA in subset, LiveKind.UPDATE in subset)
+            assertEquals("order for $subset", subset, kinds)                         // priority order, nothing invented or lost
+            val plan = IslandLive.plan(kinds)
+            val bubbles = IslandBubbles.extras(kinds)
+            if (kinds.isEmpty()) { assertNull(plan.leading); assertNull(plan.trailing); assertTrue(bubbles.isEmpty()); return@forEach }
+            val onPill = listOfNotNull(plan.leading?.first, plan.trailing?.first).distinct()
+            // The most important activity always has the detail slot on the right, in full.
+            assertEquals("front of $subset", kinds[0], plan.trailing!!.first)
+            if (kinds.size >= 2) assertEquals("second of $subset", kinds[1], plan.leading!!.first)
+            // Pill and bubbles never repeat an activity, and together they show the first four.
+            assertTrue("no repeats in $subset", (onPill + bubbles).distinct().size == (onPill + bubbles).size)
+            assertEquals("shown for $subset", kinds.take(4), (listOf(kinds[0]) + listOfNotNull(kinds.getOrNull(1)) + bubbles))
+            assertTrue("at most two bubbles", bubbles.size <= IslandBubbles.MAX)
+        }
+    }
+
+    @Test fun onlyTheLowestPriorityActivityCanBeHiddenAndOnlyWhenAllFiveAreLive() {
+        val every = IslandLive.active(true, true, true, true, true)
+        val shown = listOf(every[0], every[1]) + IslandBubbles.extras(every)
+        assertEquals(listOf(LiveKind.MEDIA), every - shown.toSet())
+        assertEquals(emptyList<LiveKind>(), IslandLive.active(true, true, true, true, false).let { it - (listOf(it[0], it[1]) + IslandBubbles.extras(it)).toSet() })
+    }
+
+    @Test fun turningTheListNeverLosesAnActivity() {
+        val kinds = IslandLive.active(true, true, true, true, true)
+        (-7..7).forEach { shift -> assertEquals(kinds.toSet(), IslandLive.rotated(kinds, shift).toSet()) }
     }
 }

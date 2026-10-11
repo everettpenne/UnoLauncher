@@ -63,6 +63,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -218,6 +219,8 @@ internal class IslandState {
     /** Drops the card down, unless the person already has the island open for something else (their music, a timer). */
     fun showPeekCard(peek: PeekNotification) {
         if (expanded && peekCard == null) return
+        // A ringing timer has the island until it is dealt with.
+        if (IslandTools.ringing) return
         dismissFlash(); IslandTools.toolsOpen = false
         peekCard = peek; peekKey++; expanded = true
     }
@@ -324,7 +327,7 @@ internal fun DynamicIsland(
     val clockMs by produceState(System.currentTimeMillis()) {
         while (true) {
             value = System.currentTimeMillis()
-            delay(if (IslandTools.swRunning) 100L else if (IslandTools.timerActive) 500L else if (state.expanded && state.playing) 1_000L else if (LiveUpdateLogic.needsSecondTick(NotificationFeed.liveUpdates)) 1_000L else 5_000L)
+            delay(if (IslandTools.swRunning) 100L else if (IslandTools.timerActive) 500L else if (state.expanded && state.playing) 1_000L else if (LiveUpdateLogic.needsSecondTick(NotificationFeed.liveUpdates) || NotificationFeed.ongoingCall != null) 1_000L else 5_000L)
         }
     }
     // How long until the battery is full, asked of the system only while the island is open on a charging phone.
@@ -393,8 +396,8 @@ internal fun DynamicIsland(
     val callActive = NotificationFeed.ongoingCall != null
     val updates = NotificationFeed.liveUpdates
     // Everything live on the collapsed pill, most important first, and which goes in which slot (see IslandLive).
-    val liveKinds = IslandLive.rotated(IslandLive.active(camera = state.cameraActive, mic = state.micActive, call = callActive,
-        timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaVisible, update = updates.isNotEmpty(), recording = state.recordingActive), state.activityShift)
+    val liveKinds = IslandLive.rotated(IslandLive.active(call = callActive,
+        timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaVisible, update = updates.isNotEmpty()), state.activityShift)
     val plan = IslandLive.plan(liveKinds)
     // A camera on a side edge has no room beside it unless the pill widens, so live content asks for some.
     val cameraOnSide = environment.cutout?.let {
@@ -423,6 +426,10 @@ internal fun DynamicIsland(
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
     val corner = minOf(minOf(frame.width, frame.height) / 2f, 30f * d) / d
     val sideways = frame.side != IslandSide.TOP
+    // The colour fade for music: while the music is one of the things the pill shows (or the panel is open), and nothing else has the island.
+    val glowAlpha = animateFloatAsState(
+        IslandGlow.target(mediaVisible && (state.expanded || liveKinds.take(2).contains(LiveKind.MEDIA)), isPlaying,
+            flashActive || IslandTools.ringing || state.peekCard != null), tween(650), label = "island media glow")
     // A progress ring around the collapsed pill: a running timer, or the battery level while charging.
     val ring = IslandRingLogic.choose(flashActive, progress >= .5f || state.expanded, IslandTools.ringing,
         IslandTools.timerActive, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
@@ -472,7 +479,7 @@ internal fun DynamicIsland(
         val pad = 10f * d
         PxRect(
             minOf(open.left, wide.left, frame.left) - pad, minOf(open.top, wide.top, frame.top),
-            maxOf(open.left + open.width, wide.left + wide.width, frame.left + frame.width + IslandBubbles.reserveDp(IslandBubbles.MAX) * d) + pad,
+            maxOf(open.left + open.width, wide.left + wide.width, frame.left + frame.width + (IslandBubbles.reserveDp(IslandBubbles.MAX) + IslandPrivacy.widthDp(3)) * d) + pad,
             maxOf(open.top + open.height, wide.top + wide.height, frame.top + frame.height) + pad)
     } else null
     val wrapperModifier = if (anchoredToWindow) {
@@ -495,12 +502,29 @@ internal fun DynamicIsland(
         // everywhere-overlay positions its window itself and renders the island at the origin.
         // Pop-out bubbles beside the collapsed pill for the live activities that do not fit in it.
         val bubbleKinds = if (state.expanded || flashActive || IslandTools.ringing) emptyList() else IslandBubbles.extras(liveKinds)
-        IslandRuntime.bubbleExtraPx = (IslandBubbles.reserveDp(bubbleKinds.size) * d).roundToInt()
-        LaunchedEffect(bubbleKinds.size) { onFrameChanged?.invoke(touchFrame, windowRect) }
+        // Camera, microphone and screen recording are dots beside the pill, always, and not activities: the pill and the bubbles show what
+        // the person is doing, the dots show what the phone is doing. The bubbles start after the dots.
+        val privacyKinds = IslandLive.privacy(state.cameraActive, state.micActive, state.recordingActive)
+        val dotsDp = IslandPrivacy.widthDp(privacyKinds.size)
+        IslandRuntime.bubbleExtraPx = if (bubbleKinds.isEmpty()) 0 else ((IslandBubbles.reserveDp(bubbleKinds.size) + dotsDp) * d).roundToInt()
+        LaunchedEffect(bubbleKinds.size, privacyKinds.size) { onFrameChanged?.invoke(touchFrame, windowRect) }
+        privacyKinds.forEachIndexed { index, kind ->
+            Box(Modifier
+                .offset {
+                    val x = frame.left + frame.width + (IslandPrivacy.GAP_DP + index * IslandPrivacy.STEP_DP) * d
+                    val y = frame.top + (frame.height - IslandPrivacy.DOT_DP * d) / 2f
+                    androidx.compose.ui.unit.IntOffset(
+                        (x - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
+                }
+                .size(IslandPrivacy.DOT_DP.dp).clip(CircleShape)
+                .background(when (kind) { LiveKind.CAMERA -> IosGreen; LiveKind.MIC -> PRIVACY_MIC; else -> IslandSymbol.RECORDING.tint })
+                .semantics { contentDescription = when (kind) { LiveKind.CAMERA -> "Camera in use"; LiveKind.MIC -> "Microphone in use"; else -> "Screen is being recorded" } }
+                .testTag(when (kind) { LiveKind.CAMERA -> "island-camera"; LiveKind.MIC -> "island-mic"; else -> "island-recording" }))
+        }
         bubbleKinds.forEachIndexed { index, kind ->
             Box(Modifier
                 .offset {
-                    val x = frame.left + frame.width + (IslandBubbles.GAP_DP + index * (IslandBubbles.SIZE_DP + IslandBubbles.GAP_DP)) * d
+                    val x = frame.left + frame.width + (dotsDp + IslandBubbles.GAP_DP + index * (IslandBubbles.SIZE_DP + IslandBubbles.GAP_DP)) * d
                     val y = frame.top + (frame.height - IslandBubbles.SIZE_DP * d) / 2f
                     androidx.compose.ui.unit.IntOffset(
                         (x - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
@@ -524,6 +548,12 @@ internal fun DynamicIsland(
             .islandBody(glass?.backdrop, corner.dp, settings = glass?.settings ?: GlassSettings.Default)
             .islandRing(ring, corner * d, 2.5f * d)
             .clip(RoundedCornerShape(corner.dp))
+            // The playing track's colour fading in from the artwork side, like HyperOS's island.
+            .drawBehind {
+                val a = glowAlpha.value
+                if (a > .01f) drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(
+                    0f to artTint.copy(alpha = a), .55f to artTint.copy(alpha = a * .35f), 1f to Color.Transparent, endX = size.width))
+            }
             .pointerInput(state.expanded, liveKinds.size, flashActive) {
                 // Swipe up closes (or dismisses a flash), and a sideways flick turns the live activities so another is in front,
                 // or sends a flash away. There is no swipe down to open: Android takes a downward drag that starts at the top of
@@ -806,7 +836,7 @@ private fun widgetRowDp(toolsOpen: Boolean): Float = if (IslandWidgetState.id >=
 /** The artwork tile in the music card, in dp. */
 internal const val MEDIA_ART_DP = 56f
 /** Extra panel height, in dp, when the call card is showing. */
-internal const val CALL_ROW_DP = 40f
+internal const val CALL_ROW_DP = 48f
 internal val PLAYBACK_PINK = Color(0xFFFF375F)
 
 /** Four bars that rise and fall out of step: the iOS "audio is playing" mark. The animation drives
@@ -919,7 +949,7 @@ private fun mediaSeek(fraction: Float) {
 /** The live call card: caller and elapsed time; tapping opens the phone app's call screen. */
 @Composable
 private fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(12.dp))
+    Row(Modifier.fillMaxWidth().height(42.dp).clip(RoundedCornerShape(12.dp))
         .clickable(onClick = onClick).testTag("island-call-row"), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
@@ -1026,6 +1056,8 @@ private fun ToolButton(icon: ImageVector, label: String, enabled: Boolean = true
 }
 
 
+/** One text size for the detail beside the camera, whichever activity it is: the timer, the call, the stopwatch, a Live Update. */
+private const val SLOT_TEXT_SP = 12
 private val PRIVACY_MIC = Color(0xFFFF9F0A)
 
 /** One live activity as it appears in a side of the collapsed pill: its small glyph, or its detail (text or bars). */
@@ -1044,18 +1076,20 @@ private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boo
             modifier = Modifier.size(16.dp).testTag("island-recording"))
             else Text("Recording", color = IslandSymbol.RECORDING.tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         LiveKind.CALL -> if (glyph) Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(14.dp))
-            else Text(NotificationFeed.ongoingCall?.caller ?: "", color = Color.White, fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            // How long the call has lasted, in green, like the other things that count time (the timer, the stopwatch). The caller's name
+            // is on the open island's call card: a name cut to five letters says little, a clock says how long.
+            else Text(NotificationFeed.ongoingCall?.let { IslandClock.countdown((clockMs - it.startedAt).coerceAtLeast(0L)) } ?: "", color = IosGreen,
+                fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                 modifier = Modifier.padding(end = 4.dp).testTag("island-call"))
         LiveKind.TIMER -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(16.dp))
             else Text(IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)), color = IslandSymbol.TIMER.tint,
-                fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-timer"))
+                fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-timer"))
         LiveKind.STOPWATCH -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = Color.White, modifier = Modifier.size(16.dp))
             else Text(IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)), color = Color.White,
-                fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
+                fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
         LiveKind.UPDATE -> if (update != null) {
             if (glyph) UpdateGlyph(update, 22.dp)
-            else Text(LiveUpdateLogic.glance(update, clockMs), color = updateTint(update), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            else Text(LiveUpdateLogic.glance(update, clockMs), color = updateTint(update), fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, modifier = Modifier.padding(end = 4.dp).testTag("island-live-update"))
         }
         LiveKind.MEDIA -> if (glyph) {

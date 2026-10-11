@@ -36,9 +36,9 @@ class IslandExtrasTest {
         assertNull(ChargeText.toFull(48L * 60 * 60_000L))
     }
 
-    @Test fun recordingIsAPrivacyMarkAheadOfOrdinaryActivities() {
-        val kinds = IslandLive.active(camera = false, mic = true, call = true, timer = false, stopwatch = false, media = true, recording = true)
-        assertEquals(listOf(LiveKind.MIC, LiveKind.RECORDING, LiveKind.CALL, LiveKind.MEDIA), kinds)
+    @Test fun recordingIsAPrivacyDotNotAnActivity() {
+        assertEquals(listOf(LiveKind.MIC, LiveKind.RECORDING), IslandLive.privacy(false, true, true))
+        assertEquals(listOf(LiveKind.CALL, LiveKind.MEDIA), IslandLive.active(call = true, timer = false, stopwatch = false, media = true))
         assertEquals(true, LiveKind.RECORDING.privacy)
     }
 }

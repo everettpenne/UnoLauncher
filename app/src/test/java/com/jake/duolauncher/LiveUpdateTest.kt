@@ -47,10 +47,10 @@ class LiveUpdateTest {
     }
 
     @Test fun aLiveUpdateRanksAfterTheStopwatchAndBeforeMusic() {
-        val all = IslandLive.active(camera = true, mic = true, call = true, timer = true, stopwatch = true, media = true, update = true)
-        assertEquals(listOf(LiveKind.CAMERA, LiveKind.MIC, LiveKind.CALL, LiveKind.TIMER, LiveKind.STOPWATCH, LiveKind.UPDATE, LiveKind.MEDIA), all)
+        val all = IslandLive.active(call = true, timer = true, stopwatch = true, media = true, update = true)
+        assertEquals(listOf(LiveKind.CALL, LiveKind.TIMER, LiveKind.STOPWATCH, LiveKind.UPDATE, LiveKind.MEDIA), all)
         // With music as well, the update is the one in full on the right and the music is the glyph on the left.
-        val plan = IslandLive.plan(IslandLive.active(false, false, false, false, false, media = true, update = true))
+        val plan = IslandLive.plan(IslandLive.active(false, false, false, media = true, update = true))
         assertEquals(LiveKind.MEDIA to SlotShow.GLYPH, plan.leading); assertEquals(LiveKind.UPDATE to SlotShow.DETAIL, plan.trailing)
     }
 

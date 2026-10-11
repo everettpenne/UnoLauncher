@@ -35,6 +35,8 @@ class DynamicIslandInstrumentedTest {
             }
         }
         compose.waitForIdle()
+        // IslandSystemEvents resets the camera/mic marks asynchronously when it registers; let that settle before a test sets state.
+        Thread.sleep(2_500)
     }
 
     /** The island is laid out around a camera hole that this test window does not have on screen, so presence in the tree is

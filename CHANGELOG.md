@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.35.0-uno01
+
+- **Music washes the island in its colour.** While something plays, the album art's colour fades from the left edge of the pill and the open panel into the island's black (as HyperOS does). Paused music keeps a fainter wash; a notification card, an event flash or a ringing timer takes the island's colour first, so two colours never compete.
+- **Privacy marks are dots, not pill slots.** The camera, microphone and screen-recording marks are small round dots beside the pill, so a video call keeps its call time and its music on the pill and shows the dots as well. Previously the three marks could take the pill's two places.
+- **A call shows how long it has lasted** (green, ticking every second) on the pill instead of a name cut to a few letters. The name is on the open call card, whose second line no longer clips.
+- **One rule for what is shown.** Of the five activities (call, timer, stopwatch, Live Update, music) the pill shows two and bubbles show the next two; only music, the least urgent, is left out when all five run at once. Every combination is covered by a unit test.
+- **Text sizes agree:** timer, stopwatch, Live Update and call text on the pill all use one size. A peek card does not appear over a ringing timer.
+- Tests: scenario tests on the emulator for a video call, an event during a call, music playing, music with a call and a crowded island, with screenshots; the older island tests wait for the island's system listeners before setting state.
+
 ## 0.34.0-uno01
 
 - The island takes the colour of an app's icon. A new notification's card has a wash of the icon's colour fading into the island's black, an event flash for an app rings the pill in that colour while it shows, and a Live Update or download whose app gives no colour of its own uses the icon's (a progress ring and glyph in that colour). The colour is the icon's dominant vivid hue (the same picker used for album art), worked out once per app and kept; grey, black and white icons give none.

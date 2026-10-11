@@ -119,6 +119,8 @@ internal class IslandState {
     /** Bumped on every flash, so the same event twice in a row still pulses and times out afresh. */
     var flashKey by mutableIntStateOf(0)
         private set
+    /** The collapsed pill in window coordinates, as the island itself laid it out around the camera; search grows out of it. */
+    var restPill by mutableStateOf<IslandFrame?>(null)
     var playing by mutableStateOf(false)
         private set
     var lastPlayingAt by mutableLongStateOf(0L)
@@ -382,6 +384,7 @@ internal fun DynamicIsland(
     var environment by remember { mutableStateOf(environmentOverride
         ?: IslandEnvironment(null, initialWidth.toFloat(), 0f)) }
     var origin by remember { mutableStateOf(Offset.Zero) }
+    LaunchedEffect(environment, sizeScale, d) { state.restPill = IslandGeometry.frame(environment, d, 0f, sizeScale) }
     LaunchedEffect(configuration, environmentOverride) {
         environment = environmentOverride ?: readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight)
     }
@@ -786,8 +789,10 @@ internal fun DynamicIsland(
                         onNext = { IslandTools.touch(); mediaCommand(context, KeyEvent.KEYCODE_MEDIA_NEXT) },
                         progress = mediaFraction(shownPlaying, clockMs),
                         onSeek = { fraction -> mediaSeek(fraction) },
-                        onOpenPlayer = NotificationFeed.nowPlaying?.controller?.sessionActivity?.let { intent ->
-                            { runCatching { intent.send() }; state.collapse() }
+                        // Tapping the cover or the title opens the player: the app's own "now playing" screen when it offers one,
+                        // otherwise the app itself (many players give no session activity).
+                        onOpenPlayer = NotificationFeed.nowPlaying?.controller?.let { controller ->
+                            { openPlayer(context, controller); state.collapse() }
                         })
                 }
                 Spacer(Modifier.height(8.dp))

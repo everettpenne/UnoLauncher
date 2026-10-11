@@ -1,12 +1,14 @@
 package com.jake.duolauncher
 
 import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.layout.layout
+import kotlin.math.roundToInt
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.foundation.background
@@ -152,14 +154,26 @@ internal fun Spotlight(
     val pillTop = pill?.top ?: 0f
     val pillBottom = pill?.let { it.top + it.height } ?: 0f
 
-    Box(modifier.fillMaxSize().background(Color.Black.copy(alpha = .38f * progress.coerceIn(0f, 1f)))
+    // The panel's parent may sit below the top of the window (under the status bar or the camera cutout, depending on how the window is
+    // laid out), so the island's position in window coordinates would land too low, and the dimming would stop short of the top edge,
+    // leaving a lighter strip there. The scrim and panel are laid out in window coordinates instead: a full-window box shifted back by
+    // wherever this parent really is.
+    val view = androidx.compose.ui.platform.LocalView.current
+    var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    Box(modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() }) {
+    Box(Modifier.layout { measurable, constraints ->
+            // Exactly the window's size, placed so its top-left corner is the window's (a size modifier would centre it instead).
+            val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(view.rootView.width, view.rootView.height))
+            layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(-origin.x.roundToInt(), -origin.y.roundToInt()) }
+        }
+        .background(Color.Black.copy(alpha = .38f * progress.coerceIn(0f, 1f)))
         .clickable(interactionSource = quiet, indication = null, onClick = onDismiss).testTag("spotlight-scrim"),
         contentAlignment = Alignment.TopCenter) {
         Column(Modifier.then(if (pill == null) Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(top = 8.dp) else Modifier)
             .padding(top = with(density) { pillTop.toDp() })
             .imePadding().padding(horizontal = 12.dp)
             .widthIn(max = 460.dp).fillMaxWidth().heightIn(max = 560.dp)
-            .onGloballyPositioned { panelSize = it.size; panelLeft = it.positionInRoot().x }
+            .onGloballyPositioned { panelSize = it.size; panelLeft = it.positionInWindow().x }
             .graphicsLayer {
                 transformOrigin = TransformOrigin(.5f, 0f)
                 if (pill != null) {
@@ -243,6 +257,7 @@ internal fun Spotlight(
             }
           }
         }
+    }
     }
 }
 

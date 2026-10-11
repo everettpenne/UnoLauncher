@@ -127,6 +127,15 @@ internal object IslandPlayback {
     fun effective(audioActive: Boolean, sessionPlaying: Boolean?): Boolean = sessionPlaying ?: audioActive
 }
 
+/** Opens the app that is playing: its own now-playing screen (the session's activity) when it has one, else the app's front door. */
+internal fun openPlayer(context: Context, controller: android.media.session.MediaController) {
+    val sent = controller.sessionActivity?.let { runCatching { it.send() }.isSuccess } == true
+    if (sent) return
+    context.packageManager.getLaunchIntentForPackage(controller.packageName)?.let {
+        runCatching { context.startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    }
+}
+
 /** Sends a media key to whichever player is active. [AudioManager.dispatchMediaKeyEvent] needs no
  * permission, and no notification access: the island can pause, resume and skip, but it cannot
  * read a title or artwork, which would need that access.

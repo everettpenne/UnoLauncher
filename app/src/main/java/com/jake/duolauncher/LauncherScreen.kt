@@ -1257,14 +1257,7 @@ internal fun LauncherScreen(
         // read as the edges of a panel behind the glass; the panel itself applies the safe-area padding.
         // Search grows out of the island: the panel starts as the collapsed pill and opens to full size (and shrinks back into
         // it on the way out). The enter and exit are driven by this transition's own progress, not by a fade.
-        val spotlightView = androidx.compose.ui.platform.LocalView.current
-        val spotlightDensity = LocalDensity.current.density
-        val spotlightPill = remember(spotlightOpen, appearance.island, appearance.islandScale) {
-            if (!appearance.island) null else runCatching {
-                IslandGeometry.frame(readIslandEnvironment(spotlightView, with(density) { preset.dockWidth.dp.toPx() }),
-                    spotlightDensity, 0f, appearance.islandScale)
-            }.getOrNull()
-        }
+        val spotlightPill = if (appearance.island) island.restPill else null
         androidx.compose.animation.AnimatedVisibility(spotlightOpen,
             enter = androidx.compose.animation.EnterTransition.None,
             exit = androidx.compose.animation.ExitTransition.None) {

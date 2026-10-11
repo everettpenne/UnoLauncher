@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.39.0-uno01
+
+- **Search now grows out of the camera, and the dimming reaches the top.** On a phone whose Home window starts below the camera cutout, the search panel was laid out in the wrong coordinates: it sat about one cutout's height too low (a black blob under the camera, not joined to it) and the dimming layer stopped at the same line, leaving a lighter strip along the top edge. That strip is the "shaded area behind search" that has been there since the control panel and search were added. Both are now laid out in the window's own coordinates, the panel takes its position from the island's own resting frame (the one the island is drawn with), and the dimming covers the whole window. An emulator test puts the panel inside a parent that starts well below the top and checks that the panel's top equals the pill's top and the dimming reaches y = 0.
+- **Tap the cover or title to open the player.** In the open island's music card, tapping the album art or the track opens the app that is playing: its own now-playing screen if it offers one, otherwise the app itself (before, it did nothing for players that offer no now-playing screen).
+
 ## 0.38.0-uno01
 
 - **Search grows out of the island.** Pulling down for search (or tapping the island's Search button) no longer fades in a glass sheet: the panel starts as the collapsed pill, true black like the island, and grows to its full size from the camera, shrinking back into it when you leave. The text and results fade in once there is room for them. Without an island the panel still opens from the top, kept clear of the status bar. (The frame-by-frame motion is a spring and could not be captured exactly on the emulator; the sizing rules are unit-tested and the open and settled states were checked in screenshots.)

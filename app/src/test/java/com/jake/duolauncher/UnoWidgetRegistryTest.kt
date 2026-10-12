@@ -11,7 +11,7 @@ import org.junit.Test
 /** The rules every widget in the registry has to keep (see docs/widget-development.md). They protect saved layouts and backups. */
 class UnoWidgetRegistryTest {
     /** Ids already shipped. A saved layout or a backup may hold any of them, so none may ever be removed or reused for something else. */
-    private val shipped = (-30..-20).toSet()
+    private val shipped = (-32..-20).toSet()
 
     @Test fun everyShippedIdIsStillRegistered() {
         val registered = UnoWidgets.all.map { it.id }.toSet()

@@ -5,6 +5,8 @@ import com.jake.duolauncher.feed.*
 import com.jake.duolauncher.panel.*
 import com.jake.duolauncher.appearance.*
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -146,6 +148,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     Text("Launcher background", style = MaterialTheme.typography.titleMedium)
                     Text("Changes the image behind Uno Launcher’s Home screens.", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    BuiltInBackgroundPicker(backgrounds.builtin, backgrounds::chooseBuiltin, appearance.dark)
                     Button(onClick = backgrounds::choosePhoto, enabled = !backgrounds.loading,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-choose")) {
                         Text(if (backgrounds.previewPending) "Choose a different photo" else "Choose a photo")
@@ -157,7 +160,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                             modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("background-preview-apply")) { Text("Apply") }
                     }
                     if (backgrounds.photoSelected && !backgrounds.previewPending) OutlinedButton(onClick = backgrounds::reset,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-reset")) { Text("Reset to Uno dunes") }
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-reset")) { Text("Remove photo") }
                     if (backgrounds.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("background-loading"))
                     (backgrounds.errorMessage ?: backgrounds.successMessage)?.let { message ->
                         TextButton(onClick = backgrounds::clearMessage, Modifier.fillMaxWidth().testTag("background-message")) { Text(message) }
@@ -350,6 +353,39 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
             }
         }
     }
+}
+
+@Composable private fun BuiltInBackgroundPicker(selected: BuiltinBackground, onSelect: (BuiltinBackground) -> Unit, dark: Boolean) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Built-in background", style = MaterialTheme.typography.titleSmall)
+        // Three to a row, each tall enough to show the scene itself.
+        BuiltinBackground.entries.chunked(3).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { builtin ->
+                    val active = builtin == selected
+                    Surface(onClick = { onSelect(builtin) },
+                        modifier = Modifier.weight(1f).height(148.dp).testTag("builtin-${builtin.name.lowercase()}"),
+                        shape = Corner.medium,
+                        color = if (active) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .52f),
+                        border = if (active) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
+                        Column(Modifier.padding(6.dp)) {
+                            Box(Modifier.fillMaxWidth().weight(1f).clip(Corner.small)) { BuiltinPreview(builtin, dark) }
+                            Text(builtin.label, Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp), maxLines = 1,
+                                style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+                // Keeps a short last row's cards the same width as the others.
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable private fun BuiltinPreview(builtin: BuiltinBackground, dark: Boolean, modifier: Modifier = Modifier) {
+    // Fills the card: a Canvas with no size draws nothing, which left every thumbnail empty.
+    Canvas(modifier.fillMaxSize()) { drawBuiltin(builtin, dark) }
 }
 
 @Composable private fun HomeLayoutSettings(state: LauncherState, wide: Boolean, onWide: (Boolean) -> Unit,

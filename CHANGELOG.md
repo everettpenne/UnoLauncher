@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.43.0-uno01
+
+- **Six built-in wallpapers**, each with a day and a night version: Uno dunes (the original), **Deep dunes** (the original three dunes with soft flowing depth), **Dune range** (broad dunes under hazy mountain ranges, with stars at night, closer to the iPhone Duo's desert), **Dune glass**, **Dune bloom** and **Dune flow** (abstract scenes with grain and soft light, made to give the glass something to refract). All are drawn on the phone, nothing is downloaded.
+- **The night wallpapers fade to pure black at the very top**, so the camera cutout disappears and the island appears to emerge from the dark.
+- **A new wallpaper picker**: a grid of previews of the built-in scenes, so you can see them before choosing.
+- **Photos widget**: shows photos you choose with Android's document picker (read access to those images only, no photo-library permission), changing every 15 minutes. Remove all forgets the list.
+- **World clock widget**: the time in up to four places you pick, in your 12/24-hour style, with Tomorrow or Yesterday when a place is on another day.
+- A contributor checklist for widgets in `docs/widget-development.md`.
+- Tests: unit tests for the wallpaper renderers (deterministic output, geometry, night stars, black-top mask), Photos and World clock rules, and the widget registry.
+
 ## 0.42.0-uno01
 
 - **Edit Home, like iOS's jiggle mode.** Long-press empty space and choose **Edit Home** (an app's options have it too). Icons wiggle and carry a **−** badge, a drag starts the moment your finger moves (no long press), and free cells show as faint squares with the one under your finger filling in, so it is plain where an icon can go. Tap **−** to take an app off Home (it stays in All apps), **+** adds apps or a widget, and **Done** or Back leaves. A tap on an icon does not open it while you edit.

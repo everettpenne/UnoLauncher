@@ -1,5 +1,5 @@
 <resources>
-    <string name="dune_wallpaper_description">Uno dunes — the launcher’s landscape, sized for your display.</string>
+    <string name="dune_wallpaper_description">Uno Launcher’s built-in dunes and glass backgrounds, sized for your display.</string>
     <string name="keyboard_label">Uno Keyboard</string>
     <string name="keyboard_subtype">English (US)</string>
     <string name="shade_service_label">Uno Launcher shade gestures</string>

@@ -41,3 +41,48 @@ Anything outside `widgets/`, the registry line and your tests. In particular: `A
 ## Checking it by hand
 
 Build and install the debug app on an emulator or a spare phone, long-press empty space on Home, choose **Widgets**, pick yours from **Uno widgets**, and check: it places, it resizes, it survives rotating the phone and restarting the app, it looks right on light and dark glass, and removing it and undoing brings it back. For a widget with typed data, also make a backup (Launcher settings, Backup) and restore it.
+
+## Contributor checklist
+
+Work through this in order. Each box is something a reviewer will look for, so ticking it yourself first makes the review short.
+
+### 1. Before you start
+
+- [ ] There is an **issue** for the widget that says what it shows and how it behaves, and it names the **id** you were given. Do not start without one: two people picking the next free number is how two widgets end up with one.
+- [ ] The widget needs **no permission, no network, and no new kind of stored data.** If it does (Bluetooth, contacts, location, photos from the library, anything that asks Android for access), **stop and ask the owner first.** That is a decision about what the app is allowed to do, not a widget change. The manifest, the permission ledger in the settings, `PRIVACY.md` and the consent wording all change with it, and those belong to the owner.
+- [ ] You have your **own working copy**: a fork, or a `git worktree` on a branch, never someone else's checkout. Branch from the latest `main`.
+
+### 2. While you write it
+
+- [ ] One new file, `widgets/<Name>Widget.kt`, plus tests. Nothing outside `widgets/` except the registry line and your tests.
+- [ ] **Write the registry line last.** Until it is there nothing can place your widget, so a half-finished file cannot affect anyone and the project keeps compiling.
+- [ ] Every non-trivial rule is a plain function with a JVM test, in `app/src/test/java/com/jake/duolauncher/`. Faces only draw.
+- [ ] Colours come from `LocalGlassInk`, corners from `Corner`, the title row from `CardTitle`. It reads on light and dark glass.
+- [ ] It redraws as rarely as it can (`rememberNow` with the slowest period that looks right).
+- [ ] Typed data goes through `WidgetData`, never your own preferences file.
+- [ ] You have not touched `AndroidManifest.xml`, the Gradle files, `.github/`, `scripts/`, `PRIVACY.md`, the updater, backup, or the island.
+- [ ] **Keep it compiling.** Never push code that does not build to a branch others pull from. If you need to share unfinished work, open a **draft** pull request.
+
+### 3. Before you open the pull request
+
+- [ ] `./scripts/gradle.sh :app:assembleDebug :app:testDebugUnitTest :app:lintDebug` passes, with no new warnings.
+- [ ] On an emulator or a spare phone: it places from **Widgets → Uno widgets**, resizes, survives **rotating the phone and restarting the app**, and **removing it and undoing** brings it back.
+- [ ] If it keeps typed data: make a backup (Launcher settings → Backup) and restore it; the data comes back.
+- [ ] Screenshots on **sample data only**, light and dark, in the pull request.
+- [ ] You have **rebased on the latest `main`**, and `UnoWidgetRegistryTest` still passes (it fails if an id is repeated, positive, or a shipped one is missing).
+
+### 4. In the pull request
+
+Say what it shows, which id it uses, what you ran, and what you did not test. The owner will answer within a few days; small, single-widget pull requests are merged first. Do not bundle other changes in.
+
+### 5. After it is merged
+
+- [ ] Delete your branch. The widget ships with the next release; the owner writes the release notes and lists it in the README.
+- [ ] If you find a bug in it later, open an issue with the version and a screenshot, and do not reuse or renumber the id.
+
+### Keeping the whole project buildable while several people write widgets
+
+- One widget per branch, one branch per person; a branch that does not compile stays on its author's fork.
+- The registry (`widgets/UnoWidgets.kt`) is the only file several widgets touch, and each adds one line, so conflicts are a trivial merge: keep both lines.
+- If you want to try someone else's unfinished widget, check out their branch in a separate worktree; do not copy their files into yours.
+- If two people need the same helper, put it in `widgets/WidgetHelpers.kt` in its own small pull request first.

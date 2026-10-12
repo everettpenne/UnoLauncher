@@ -33,6 +33,37 @@ private const val BACKGROUND_ENABLED = "photoEnabled"
 private const val BACKGROUND_ID = "photoId"
 private const val BACKGROUND_FILE = "launcher-background.jpg"
 private const val MAX_BACKGROUND_EDGE = 2048
+private const val BUILTIN_BACKGROUND = "builtinBackground"
+
+/** The launcher's own drawn backgrounds, offered beside a committed photo. */
+enum class BuiltinBackground(val label: String) {
+    DUNES("Uno dunes"),
+    DEEP_DUNES("Deep dunes"),
+    DUNE_GLASS("Dune glass"),
+    DUNE_RANGE("Dune range"),
+    DUNE_BLOOM("Dune bloom"),
+    DUNE_FLOW("Dune flow"),
+}
+
+/** The built-in background currently selected, read by [drawLauncherBackground] without a context.
+ * Kept in sync at every entry point that draws the wallpaper, so the Home screen, the Discover
+ * frame and the live wallpaper all agree even though they draw from different code paths.
+ */
+internal object LauncherBackgroundRuntime {
+    // Compose state, so a drawing that reads it is redrawn when the choice changes.
+    var builtin: BuiltinBackground by androidx.compose.runtime.mutableStateOf(BuiltinBackground.DUNES)
+}
+
+internal fun builtinBackground(context: Context): BuiltinBackground = runCatching {
+    BuiltinBackground.valueOf(
+        launcherBackgroundPreferences(context).getString(BUILTIN_BACKGROUND, BuiltinBackground.DUNES.name)
+            ?: BuiltinBackground.DUNES.name)
+}.getOrDefault(BuiltinBackground.DUNES)
+
+internal fun setBuiltinBackground(context: Context, value: BuiltinBackground) {
+    launcherBackgroundPreferences(context).edit().putString(BUILTIN_BACKGROUND, value.name).apply()
+    LauncherBackgroundRuntime.builtin = value
+}
 
 internal object LauncherBackgroundCache {
     @Volatile var bitmap: Bitmap? = null
@@ -85,6 +116,8 @@ class LauncherBackgroundController(
 ) : DefaultLifecycleObserver {
     var photoSelected by mutableStateOf(launcherBackgroundEnabled(activity))
         private set
+    var builtin by mutableStateOf(builtinBackground(activity))
+        private set
     var loading by mutableStateOf(false)
         private set
     var errorMessage by mutableStateOf<String?>(null)
@@ -109,6 +142,7 @@ class LauncherBackgroundController(
 
     init {
         activity.lifecycle.addObserver(this)
+        LauncherBackgroundRuntime.builtin = builtin
         val previewPhase = previewPhase()
         val persistedPreviewFile = if (previewPhase == PHASE_READY) previewFile() else null
         cleanupStagedFiles(persistedPreviewFile)
@@ -162,7 +196,21 @@ class LauncherBackgroundController(
         }
     }
 
+    /** Drops a committed photo and reveals the currently selected built-in background. */
     fun reset() {
+        clearPhoto()
+        successMessage = "Using ${builtin.label}."
+    }
+
+    /** Chooses one of the launcher's own drawn backgrounds, replacing any committed photo. */
+    fun chooseBuiltin(value: BuiltinBackground) {
+        clearPhoto()
+        setBuiltinBackground(activity, value)
+        builtin = value
+        successMessage = "Using ${value.label}."
+    }
+
+    private fun clearPhoto() {
         generation++; pickerPending = false; loading = false
         discardPreview()
         releasePreviewGrant()
@@ -171,7 +219,7 @@ class LauncherBackgroundController(
         launcherBackgroundFile(activity).delete()
         prefs.edit().putBoolean(BACKGROUND_ENABLED, false).remove(BACKGROUND_ID).remove(PICKER_PENDING).remove(PENDING_URI)
             .remove(PENDING_OPERATION).remove(PREVIEW_PHASE).remove(PREVIEW_FILE).apply()
-        photoSelected = false; errorMessage = null; successMessage = "Using Uno dunes."
+        photoSelected = false; errorMessage = null
         onExternalResultChanged(false)
         cleanupStagedFiles()
     }

@@ -1,0 +1,27 @@
+# Who must review a change. The owner is requested on everything; a collaborator is added to the line for the area they look after
+# (and only that area), for example:
+#   /app/src/main/java/com/jake/duolauncher/widgets/   @everettpenne @their-github-name
+# Anything that can change what the app is allowed to do, how it is built, signed or released stays with the owner alone.
+*                                           @everettpenne
+
+# Build, release and supply chain: owner only.
+/.github/                                   @everettpenne
+/scripts/                                   @everettpenne
+/PUBLIC-FILES                               @everettpenne
+/build.gradle.kts                           @everettpenne
+/settings.gradle.kts                        @everettpenne
+/gradle/                                    @everettpenne
+/app/build.gradle.kts                       @everettpenne
+/app/proguard-rules.pro                     @everettpenne
+
+# Permissions and what the app exposes: owner only.
+/app/src/main/AndroidManifest.xml           @everettpenne
+/app/src/debug/AndroidManifest.xml          @everettpenne
+/app/src/main/res/xml/                      @everettpenne
+/PRIVACY.md                                 @everettpenne
+
+# The updater, backup and the privacy tests are merge gates: owner only.
+/app/src/main/java/com/jake/duolauncher/Updates.kt         @everettpenne
+/app/src/main/java/com/jake/duolauncher/UpdateSecurity.kt  @everettpenne
+/app/src/main/java/com/jake/duolauncher/LayoutBackup.kt    @everettpenne
+/app/src/test/java/com/jake/duolauncher/keyboard/          @everettpenne

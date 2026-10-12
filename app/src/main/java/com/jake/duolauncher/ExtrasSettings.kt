@@ -237,7 +237,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     IslandWidgetSetting(actions.islandWidget, note, muted)
     IslandLinksSetting(actions, apps, note, muted)
     SettingsSwitch("Show calls in the island", s.callDetails, store::setCallDetails, "call-details-switch")
-    Text("While a call is active, the island shows the caller name and elapsed time from the phone app's own call notification, and tapping it opens the call screen. The name is read only while the call is running and never stored; message text is never read.",
+    Text("While a call is active, the island shows the caller name and elapsed time from the phone app's own call notification, and tapping it opens the call screen. The name is read only while the call is running and never stored.",
         style = note, color = muted)
     SettingsSwitch("Show new notifications in the island", s.notificationPeek, store::setNotificationPeek, "peek-switch")
     Text("How much a new notification shows when the island drops down for it:", style = note, color = muted)

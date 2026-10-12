@@ -176,7 +176,9 @@ internal object IslandPlayback {
 
 /** Sends a notification's or session's own tap action. From Android 14 the sender has to say that it is allowed to bring an activity to
  * the front (a PendingIntent sent without that is quietly dropped when the sending app is not the one on screen, which is the case for
- * the island over other apps, and reports success all the same). A tap on the island is the user's own action, so it says so. */
+ * the island over other apps, where the sender is not the app on screen, and reports success all the same). This is the only place the
+ * allowance is attached, and every caller is a tap handler on the island (a notification, the music card, a call, a Live Update): the
+ * user's own action. Nothing else in the app sends a PendingIntent with it, and nothing sends one without a tap. */
 internal fun sendTapAction(context: Context, action: android.app.PendingIntent?): Boolean {
     if (action == null) return false
     return runCatching {

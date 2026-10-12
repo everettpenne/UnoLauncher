@@ -43,7 +43,8 @@ internal object IslandTools {
     var interactions by mutableIntStateOf(0); private set
 
     private var ringtone: Ringtone? = null
-    private val main = Handler(Looper.getMainLooper())
+    // Created on first use, so the object can be initialised where there is no Android (unit tests).
+    private val main by lazy { Handler(Looper.getMainLooper()) }
     private var loaded = false
 
     val timerActive: Boolean get() = timerEndAt > 0L

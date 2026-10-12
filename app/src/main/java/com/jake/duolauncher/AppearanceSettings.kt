@@ -53,7 +53,10 @@ internal fun AppearanceSettings(state: AppearanceState, onMode: (AppearanceMode)
                     .testTag("appearance-device-location")) { Text("Use device location") }
                 AppearanceFeedback(state.locationStatus, MaterialTheme.colorScheme.onSurfaceVariant,
                     "appearance-location-status")
-                if (state.latitude != null) TextButton(onClick = onClear, Modifier.fillMaxWidth()) { Text("Clear location") }
+                if (state.latitude != null) {
+                    Text("Kept only on this device, never sent, until you clear it.", style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = onClear, Modifier.fillMaxWidth()) { Text("Clear location") }
+                }
             }
         }
     }

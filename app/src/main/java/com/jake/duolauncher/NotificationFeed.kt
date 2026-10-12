@@ -70,7 +70,7 @@ internal object NotificationFeed {
 
 /** Opt-in notification access, used for three things and nothing else: unread counts for icon badges,
  * the current track's title and artwork, and a brief "app name" peek in the island. Nothing is stored,
- * logged or sent anywhere, and message text is never read. Until the user turns access on in Android's
+ * logged or sent anywhere, and chat and message notifications are never read for their text (the only text taken is a promoted Live Update's, a navigation instruction's and, if the user turns it on, a peek card's). Until the user turns access on in Android's
  * settings this service is never bound; each feature also has its own switch in Customize.
  *
  * Every call into the system (active notifications, media sessions) runs on a private worker thread.

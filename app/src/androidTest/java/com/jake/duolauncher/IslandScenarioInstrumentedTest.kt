@@ -159,16 +159,15 @@ class IslandScenarioInstrumentedTest {
         playMusic(playing = true)
         openShot("open-player-before")
         assertTrue("the card is tappable", present("island-open-player"))
-        val device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-        compose.onAllNodesWithTag("island-open-player", useUnmergedTree = true)[0].performClick()
-        // The session is this app's own and offers no now-playing screen, so the player's app is its launcher activity.
-        var top = ""
-        val end = System.currentTimeMillis() + 15_000
-        while (System.currentTimeMillis() < end && !top.contains("MainActivity")) {
-            Thread.sleep(500)
-            top = device.executeShellCommand("dumpsys activity activities").lineSequence().firstOrNull { "topResumedActivity" in it || "ResumedActivity" in it }.orEmpty()
-        }
-        assertTrue("the player's app came to the front: $top", top.contains("MainActivity"))
+        // The session is this app's own and offers no now-playing screen, so the player's app is its launcher activity. The start is
+        // caught by a monitor that does not let it happen: really opening the launcher inside the test's own process starved the test.
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val monitor = instrumentation.addMonitor(MainActivity::class.java.name, null, true)
+        try {
+            compose.onAllNodesWithTag("island-open-player", useUnmergedTree = true)[0].performClick()
+            val launched = monitor.waitForActivityWithTimeout(10_000)
+            assertTrue("the player's app was asked to open", monitor.hits > 0 || launched != null)
+        } finally { instrumentation.removeMonitor(monitor) }
     }
 
     @Test fun tappingTheAppIconOnANotificationFlashOpensThatNotification() {

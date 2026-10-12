@@ -4,7 +4,7 @@ import android.app.PendingIntent
 import android.graphics.Bitmap
 
 /** One Android 16 Live Update (a "promoted ongoing" notification: a ride, a delivery, a timer, navigation), reduced to what the
- * island shows. Held in memory only while the notification exists; the text of a message is never read, and nothing here is
+ * island shows. Held in memory only while the notification exists; the text of a chat or message notification is never read (only a promoted Live Update's own title, body and status are), and nothing here is
  * stored or sent.
  */
 internal data class LiveUpdate(

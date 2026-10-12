@@ -350,6 +350,9 @@ internal fun DynamicIsland(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     LaunchedEffect(Unit) { IslandWidgetState.load(context) }
+    // The panel's clock follows the phone's 12/24-hour setting, like the status rail's.
+    val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
+    val timeFormatter = remember(is24Hour) { DateTimeFormatter.ofPattern(ClockFormat.timePattern(is24Hour, meridiem = true)) }
     val now by produceState(LocalDateTime.now()) {
         while (true) { value = LocalDateTime.now(); delay(30_000L) }
     }
@@ -786,7 +789,7 @@ internal fun DynamicIsland(
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(now.format(DateTimeFormatter.ofPattern("HH:mm")), color = Color.White,
+                        Text(now.format(timeFormatter), color = Color.White,
                             fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
                         Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = Color.White.copy(alpha = .85f),
                             fontSize = 12.sp)

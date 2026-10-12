@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.42.0-uno01
+
+- **Edit Home, like iOS's jiggle mode.** Long-press empty space and choose **Edit Home** (an app's options have it too). Icons wiggle and carry a **−** badge, a drag starts the moment your finger moves (no long press), and free cells show as faint squares with the one under your finger filling in, so it is plain where an icon can go. Tap **−** to take an app off Home (it stays in All apps), **+** adds apps or a widget, and **Done** or Back leaves. A tap on an icon does not open it while you edit.
+- **Forgiving drops.** A drop that just misses a cell (in a margin, or beside the grid) now lands in the nearest Home cell instead of being thrown away, within three quarters of a cell's height. Dropping one app on the middle of another still makes a folder.
+- **About "only two columns":** every free cell on a Home page already accepted a drop in my check (the layout allows gaps anywhere), so the grid itself was not the limit. What was missing was any way to see or feel that: no free-cell hints, no edit mode, and moving by "Move earlier / Move later" buttons. This release adds the first two; the Move buttons are still there under an app's options.
+- Tests: unit tests for the wiggle, the distance and nearest-cell rules; emulator tests that enter Edit Home, check the badges and free cells, remove an app with its badge, drag with no long press, check that a tap does not open an app while editing, and that Done and Back leave. The drag, paging, workspace, folder and widget-move suites were re-run on the result: of 29 tests, 4 failed, none because of this change. Three need a widget-binding permission that a fresh emulator does not grant ("Emulator fixture requires widget binding permission"), and one (`draggingAFilteredAppDismissesTheKeyboardBeforePlacement`) drops an app on the middle of another and expects a plain move, which since large folders arrived makes a folder, so the test needs updating.
+
 ## 0.41.0-uno01
 
 This release reorganises the code so that more than one person can work on it safely (no change to behaviour there), and improves the widget library.

@@ -43,6 +43,18 @@ internal class HomeDragState {
         .maxByOrNull(::dragRegionPriority)
     fun destination(point: Offset, pages: Set<Int>): DragRegion? {
         regions[DropTarget.Remove]?.takeIf { source?.target !is DropTarget.Library && it.bounds.contains(point) }?.let { return it }
+        return direct(point, pages) ?: nearestHomeCell(point, pages)
+    }
+
+    /** A drop that just misses every cell (in a margin, or beside the grid) lands in the nearest Home cell instead of being lost. */
+    private fun nearestHomeCell(point: Offset, pages: Set<Int>): DragRegion? {
+        if (source?.appId == null && source?.target !is DropTarget.Widget) return null
+        val cells = regions.values.filter { it.target is DropTarget.Home && (it.page == null || it.page in pages) && it.scope == activeSourceScope }
+        val reach = cells.maxOfOrNull { it.bounds.height }?.times(.75f) ?: return null
+        return HomeEditLogic.nearest(point, cells.map { it to it.bounds }, reach)
+    }
+
+    private fun direct(point: Offset, pages: Set<Int>): DragRegion? {
         return regions.values.filter {
             (it.page == null || it.page in pages) && it.bounds.contains(point) && when (it.target) {
                 // A moving widget is rendered at its preview footprint and registers the
@@ -150,12 +162,30 @@ private suspend fun AwaitPointerEventScope.awaitWidgetLongPressOrCancellation(
     return current.takeUnless { canceled }
 }
 
+/**
+ * While editing Home: waits (in the Initial pass, ahead of the pager and of any icon) for the finger to move past the touch slop and
+ * claims the gesture then. Null if it lifts or a second finger arrives first. The Main pass would be too late, because the pager takes a
+ * sideways move before the root sees it.
+ */
+private suspend fun AwaitPointerEventScope.awaitInstantDragStart(down: PointerInputChange): PointerInputChange? {
+    while (true) {
+        val event = awaitPointerEvent(PointerEventPass.Initial)
+        val change = event.changes.firstOrNull { it.id == down.id } ?: return null
+        if (!change.pressed || event.changes.any { it.id != down.id && it.pressed }) return null
+        if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+            change.consume()
+            return change
+        }
+    }
+}
+
 /** The root owns the pointer so paging cannot dispose the active gesture. */
 @Composable
 internal fun Modifier.homeDragInput(
     drag: HomeDragState, enabled: Boolean, page: Int, eligiblePages: Set<Int> = setOf(page),
-    onStart: () -> Unit, onFinish: (Boolean) -> Unit,
+    instant: Boolean = false, onStart: () -> Unit, onFinish: (Boolean) -> Unit,
 ): Modifier {
+    val currentInstant by rememberUpdatedState(instant)
     val currentEnabled by rememberUpdatedState(enabled)
     val currentPage by rememberUpdatedState(page)
     val currentEligiblePages by rememberUpdatedState(eligiblePages)
@@ -167,11 +197,15 @@ internal fun Modifier.homeDragInput(
             if (!currentEnabled) return@awaitEachGesture
             val point = down.position + drag.rootOrigin
             val region = drag.hit(point, currentEligiblePages)?.takeIf { it.movable } ?: return@awaitEachGesture
-            if (region.target is DropTarget.Widget && (region.widgetId ?: EMPTY_WIDGET) >= 0) {
+            // While editing Home a drag starts as soon as the finger moves, as in iOS's jiggle mode; otherwise it takes a long press.
+            val started = if (currentInstant) {
+                awaitInstantDragStart(down)
+            } else if (region.target is DropTarget.Widget && (region.widgetId ?: EMPTY_WIDGET) >= 0) {
                 awaitWidgetLongPressOrCancellation(down)
             } else {
                 awaitLongPressOrCancellation(down.id)
-            } ?: return@awaitEachGesture
+            }
+            started ?: return@awaitEachGesture
             drag.source = region
             drag.pointer = point
             drag.origin = point

@@ -46,6 +46,7 @@ Screenshots show sample data on an emulator sized to the reference Fold, and som
 | Search the web from the island | Open the island, type in its **Search the web** field and press Enter: your browser (Vanadium if installed) opens on the results page |
 | See notifications | Pull down from the top-left of Home (needs the optional shade service, see below) |
 | Open the control panel | Pull down from the top-right of Home: media, volume, brightness, ringer, flashlight, Focus, shortcuts and a hand-off to Android's Quick Settings |
+| Rearrange Home | Long-press empty space and choose **Edit Home** (or an app's **Edit Home**). Icons wiggle and show a **−** badge; drag any icon at once, with no long press, to any free cell (free cells show as faint squares); tap **−** to take an app off Home; **+** adds apps or a widget; **Done** or Back leaves. A drop that just misses a cell lands in the nearest one |
 | Move an app or widget | Long-press, then drag. Hold at a screen edge to change or create a page |
 | Make a folder | Drop an app onto the **middle** of another app. Drop nearer the edge to just move it there. Drop an app on a **large folder** to put it inside |
 | Add to the dock | Drag an app into a free dock slot (move one out first if the dock is full) |

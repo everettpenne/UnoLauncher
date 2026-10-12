@@ -326,6 +326,10 @@ The emoji panel (`EmojiData`, parsed from `assets/keyboard/emoji.txt`) is a scro
 
 `KeyHaptics` fires `VibrationEffect.Composition` primitives (LOW_TICK, TICK, CLICK) from `HapticProfile`, with a predefined tick on motors without them, on a `HandlerThread`, using `VibrationAttributes.USAGE_TOUCH` on API 33+ and checking `HAPTIC_FEEDBACK_ENABLED` otherwise. Strength 0.6 reproduces the base profile and scales linearly; 12 ms rate limit.
 
+## Edit Home (`HomeEditMode.kt`)
+
+The launcher's version of iOS's jiggle mode, kept to presentation: the placement rules are still in `HomeEditing.kt`. While editing: Home icons wiggle (`HomeEditLogic.wiggleAngle`, 1.6 degrees, out of step by icon and leaning opposite ways on neighbours), each carries a 22 dp remove badge with a 44 dp touch target, free cells show as faint icon-sized squares (`home-free-N`, filling in under the finger), a tap on an icon does not open it, and a drag starts as soon as the finger passes the touch slop. That start is read in the Initial pointer pass, ahead of the pager, because the pager takes a sideways move before the root sees it. A drop that misses every cell lands in the nearest one within three quarters of a cell height (`HomeEditLogic.nearest`). The bar across the top is a + (Add apps, Add widget) and Done; Back also leaves. Folders and widgets can be dragged while editing, but only apps carry a remove badge.
+
 ## Metaphor policy
 
 Uno borrows on purpose: **Apple's look** (island, glass, squircles, Spotlight-style search, Live Activities), **Android's behaviour** (insets, work profiles, widget bindings, system Back, Home-app rules) and **GrapheneOS's values** (everything optional, nothing learned, nothing sent). That mix is the product. What follows keeps the mix from colliding in the user's hands. It comes from the UX audit of 0.28.0; each rule says where the code already follows it.

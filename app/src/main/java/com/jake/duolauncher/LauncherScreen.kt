@@ -198,6 +198,8 @@ internal fun LauncherScreen(
     var resizeAppPitch by remember { mutableFloatStateOf(1f) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var appMoveMenu by rememberSaveable { mutableStateOf(false) }
+    // Edit Home: icons wiggle and can be dragged at once, removed with their badge, and an + adds apps or a widget.
+    var homeEditing by rememberSaveable { mutableStateOf(false) }
     var customizationPage by rememberSaveable { mutableStateOf(CustomizationPage.OVERVIEW) }
     LaunchedEffect(selectedId) { if (selectedId == null) appMoveMenu = false }
     LaunchedEffect(sheet) { if (sheet.isEmpty()) customizationPage = CustomizationPage.OVERVIEW }
@@ -393,6 +395,8 @@ internal fun LauncherScreen(
         val destination = if (drag.source?.target is DropTarget.Library) homePages else drag.originPage.coerceAtMost(homePages - 1)
         drag.clear(); scope.launch { pager.scrollToPage(destination) }
     } else if (selectedId != null) selectedId = null else { focus.clearFocus(); scope.launch { pager.animateScrollToPage(0) } } }
+    val editActions = remember(model) { HomeEditActions { app -> model.setPinned(app.id, false) } }
+    BackHandler(enabled = homeEditing && sheet.isEmpty() && !drag.active && selectedId == null && resizeSlot == null) { homeEditing = false }
     val openDiscover = { if (firstHome > 0) scope.launch { pager.animateScrollToPage(-1) } else onDiscover(); Unit }
     val openLibrary = { scope.launch { pager.animateScrollToPage(homePages) }; Unit }
 
@@ -536,7 +540,7 @@ internal fun LauncherScreen(
         compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
     }.onSizeChanged { LiveDiscover.fullSize = androidx.compose.ui.geometry.Size(it.width.toFloat(), it.height.toFloat()) }.testTag("launcher-root").homeDragInput(drag,
         enabled = sheet.isEmpty() && !showFirstRun && selectedId == null && resizeSlot == null && pager.currentPage >= 0,
-        page = pager.currentPage, eligiblePages = eligibleDragPages, onStart = {
+        page = pager.currentPage, eligiblePages = eligibleDragPages, instant = homeEditing, onStart = {
             focus.clearFocus(); keyboard?.hide(); haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             if (drag.source?.folderId != null) openFolderId = null
             if (drag.source?.target is DropTarget.Library) scope.launch {
@@ -695,7 +699,7 @@ internal fun LauncherScreen(
                     // snapping, accessibility state, and programmatic page requests.
                     HorizontalPager(nativePager, Modifier.fillMaxHeight().width(pagerWidth), userScrollEnabled = false,
                         key = { if (it < firstHome) "discover" else if (it - firstHome == visibleHomePages) "library" else "home-${it - firstHome}" }) { }
-                    CompositionLocalProvider(LocalPageGlass provides pageGlass) { ExpandedWorkspace(
+                    CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions) { ExpandedWorkspace(
                         nativePager = nativePager, motion = workspaceMotion!!, firstHome = firstHome,
                         viewportWidth = pagerWidth, trailingOverscan = pagerEndInset,
                         visibleHomePages = visibleHomePages, panelWidth = panelWidth,
@@ -730,7 +734,7 @@ internal fun LauncherScreen(
                     key = { if (it < firstHome) "discover" else if (it - firstHome == visibleHomePages) "library" else "home-${it - firstHome}" }) { physicalPage ->
                     val page = physicalPage - firstHome
                     Box(Modifier.fillMaxSize().padding(end = pagerEndInset)) {
-                    CompositionLocalProvider(LocalPageGlass provides pageGlass) {
+                    CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions) {
                     if (page == -1) {
                         DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace),
                             feed, feedVisible, onFeedRefresh, onFeedOpenEntry,
@@ -832,6 +836,16 @@ internal fun LauncherScreen(
                         if (!state.googleSearch || !onGoogleSearch(searchBounds)) openLibrary()
                     }
                 }
+            }
+            if (homeEditing && sheet.isEmpty() && !drag.active && !controlPanelOpen && !spotlightOpen && !showFirstRun) {
+                HomeEditBar(
+                    onAddApps = { homeEditing = false; sheet = "pins" },
+                    onAddWidget = {
+                        val page = pager.currentPage.coerceIn(0, homePages - 1)
+                        homeEditing = false; widgetSlot = model.nextWidgetSlot(); widgetTargetIndex = page * HOME_CELLS
+                        widgetPackage = null; widgetProfileSerial = null; widgetExactTarget = false; sheet = "widgets"
+                    },
+                    onDone = { homeEditing = false }, modifier = Modifier.align(Alignment.TopCenter))
             }
             if (appearance.island && !islandEverywhere && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen && !spotlightOpen) {
                 DynamicIsland(island, controlGlass, deviceStatus,
@@ -1430,7 +1444,8 @@ internal fun LauncherScreen(
                     onCreateFolder = { createFolderFirstId = app.id; selectedId = null },
                     onClose = { appMoveMenu = false; selectedId = null },
                     onSplit = { splitFirstId = app.id; selectedId = null; sheet = "split" },
-                    shortcuts = shortcuts, onShortcut = { AppShortcuts.start(launcherActivity, it); selectedId = null })
+                    shortcuts = shortcuts, onShortcut = { AppShortcuts.start(launcherActivity, it); selectedId = null },
+                    onEditHome = { homeEditing = true; selectedId = null })
             }
         }
         emptyCellIndex?.let { index ->
@@ -1439,7 +1454,8 @@ internal fun LauncherScreen(
                         widgetTargetIndex = index; widgetExactTarget = true; widgetSlot = model.nextWidgetSlot(); widgetPackage = null; widgetProfileSerial = null
                         emptyCellIndex = null; sheet = "widgets"
                     }, onWallpaper = { emptyCellIndex = null; sheet = "settings:wallpaper" },
-                    onCustomize = { emptyCellIndex = null; sheet = "settings" }, onClose = { emptyCellIndex = null })
+                    onCustomize = { emptyCellIndex = null; sheet = "settings" }, onClose = { emptyCellIndex = null },
+                    onEditHome = { emptyCellIndex = null; homeEditing = true })
             }
         }
         createFolderFirstId?.let { firstId ->
@@ -1821,6 +1837,9 @@ private fun SharedHomeGrid(
     val pendingIsReplacement = pending != null && widgetPlacements.any { it.slot == pending.slot }
     val pageWidgets = widgetPlacements.filter { it.page == page } + listOfNotNull(pending?.takeUnless { pendingIsReplacement })
     val renderedRows = maxOf(GRID_ROWS, pageWidgets.maxOfOrNull { it.row + it.spanY } ?: GRID_ROWS)
+    val editing = LocalHomeEditing.current
+    val editActions = LocalHomeEditActions.current
+    val coveredCells = remember(pageWidgets) { pageWidgets.flatMapTo(mutableSetOf()) { it.coveredIndices() } }
     val topPitch = (geometry.widgetHeight + 18f) / 2f
     fun rowTop(row: Int) = if (row <= 2) row * topPitch else geometry.widgetHeight + 18f + (row - 2) * rowHeight
     BoxWithConstraints(Modifier.fillMaxWidth().height(rowTop(renderedRows).dp)) {
@@ -1838,6 +1857,9 @@ private fun SharedHomeGrid(
             val previewId = previewAt(globalIndex)
             val highlighted = drag.active && target == cell
             val gap = hiddenIndex == globalIndex
+            // Where an icon could go: free cells show a faint square while Home is being edited or something is being dragged,
+            // and the one under the finger fills in.
+            val showFree = (editing || drag.active) && savedId == null && globalIndex !in coveredCells
             val row = localIndex / GRID_COLUMNS
             val cellHeight = rowTop(row + 1) - rowTop(row)
             Box(Modifier.offset(x = cellWidth * (localIndex % GRID_COLUMNS), y = rowTop(row).dp)
@@ -1848,6 +1870,8 @@ private fun SharedHomeGrid(
                 // No frame around the cell being dragged over: only, while a drop would make a folder, a soft square behind the app below.
                 .background(if (drag.folderIntentApp != null && drag.folderIntentApp == savedApp?.id) Color.White.copy(alpha = .16f) else Color.Transparent, Corner.medium),
                 contentAlignment = Alignment.TopCenter) {
+                if (showFree) Box(Modifier.padding(top = 2.dp).size(iconSize.dp).background(Color.White.copy(alpha = if (highlighted) .28f else .09f), Corner.icon)
+                    .testTag("home-free-$globalIndex"))
             }
         }
 
@@ -1872,8 +1896,16 @@ private fun SharedHomeGrid(
                 )
                 Box(Modifier.offset { animatedOffset }.width(cellWidth).height(rowHeight.dp)
                     .alpha(opacity).testTag("home-app-$id"), contentAlignment = Alignment.TopCenter) {
-                    if (visible) AppTile(app, iconSize, labels,
-                        onClick = { onLaunch(app, it) }, onLongClick = { onActions(app) })
+                    if (visible) {
+                        // Editing: the icon wiggles (but not the one being dragged), a tap does not open it, and its badge removes it.
+                        val still = !editing || (drag.active && draggedId == id)
+                        Box(Modifier.homeWiggle(!still, id.hashCode())) {
+                            AppTile(app, iconSize, labels,
+                                onClick = { if (!editing) onLaunch(app, it) }, onLongClick = { onActions(app) })
+                        }
+                        if (editing && !drag.active) RemoveBadge(app.label,
+                            Modifier.align(Alignment.TopStart).offset(x = (cellWidth - iconSize.dp) / 2 - 14.dp, y = (-10).dp)) { editActions?.remove(app) }
+                    }
                 }
             }
         }

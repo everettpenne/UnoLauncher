@@ -26,6 +26,8 @@ Swipe up anywhere on Home to open **Launcher settings** (not when the swipe star
 - **Privacy:** **Notifications & privacy** (notification access, badges, and what every permission can see).
 - **More:** **News feed**, **Backup** (layout and your settings, including large folders and widget notes), **Updates** and **Help & setup**.
 
+**Edit Home** works like iOS's jiggle mode. Long press empty space and choose **Edit Home** (an app's options have it too). Icons wiggle and carry a **−** badge. Drag any icon at once, without a long press, to any free cell: free cells show as faint squares and the one under your finger fills in, and a drop that just misses a cell lands in the nearest one. Tap **−** to take an app off Home (it stays in All apps). The **+** at the top left adds apps or a widget; **Done**, or Back, leaves. Dropping one app on the middle of another still makes a folder.
+
 After a layout edit, **Undo last layout change** appears in Launcher settings. It covers the latest supported layout change, so use it before making another edit.
 
 ## Apps, folders, and the dock

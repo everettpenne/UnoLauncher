@@ -95,4 +95,24 @@ class LauncherTourInstrumentedTest {
         }
         compose.mainClock.autoAdvance = true
     }
+
+    /** Edit Home as a person sees it: wiggling icons with badges, free cells, the + and Done bar. */
+    @Test fun tourEditHome() {
+        val model = ViewModelProvider(compose.activity)[LauncherModel::class.java]
+        compose.waitUntil(60_000) { !model.state.value.loading }
+        runCatching { compose.onNodeWithText("Not now").performClick(); compose.waitForIdle() }
+        compose.onNodeWithContentDescription("Home page 1").performClick()
+        compose.waitForIdle()
+        val layout = model.state.value.layout
+        val blocked = layout.widgetPlacements.filter { it.page == 0 }.flatMap { it.coveredIndices() }.toSet()
+        val free = (0 until HOME_CELLS).first { it !in blocked && layout.slotAt(it) == null && it >= 12 }
+        compose.onNodeWithTag("home-cell-$free").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnLongClick)
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("empty-space-edit").fetchSemanticsNodes().isNotEmpty() }
+        shot("edit-0-menu")
+        compose.onNodeWithTag("empty-space-edit").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("home-edit-done", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        shot("edit-1-mode")
+        compose.onNodeWithTag("home-edit-add").performClick()
+        shot("edit-2-add-menu")
+    }
 }

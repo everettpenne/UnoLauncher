@@ -57,7 +57,7 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
     onAddOrRemove: () -> Unit, onMoveFirst: () -> Unit, onMoveEarlier: () -> Unit, onMoveLater: () -> Unit,
     onMovePage: (Int) -> Unit, onInfo: () -> Unit, onWidgets: (() -> Unit)?, onCreateFolder: () -> Unit,
     onClose: () -> Unit, onSplit: (() -> Unit)? = null,
-    shortcuts: List<AppShortcut> = emptyList(), onShortcut: (AppShortcut) -> Unit = {}) {
+    shortcuts: List<AppShortcut> = emptyList(), onShortcut: (AppShortcut) -> Unit = {}, onEditHome: (() -> Unit)? = null) {
     ModalDialogBackHandler { if (moving) onMoving(false) else onClose() }
     val maxHeight = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * .88f).toDp() }
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
@@ -97,6 +97,7 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
                 }
                 HorizontalDivider(Modifier.padding(vertical = 6.dp))
             }
+            if (placed && onEditHome != null) ActionRow(Icons.Rounded.DragIndicator, "Edit Home", onEditHome, Modifier.testTag("app-edit-home"))
             if (placed) ActionRow(Icons.Rounded.DragIndicator, "Move on Home", { onMoving(true) })
             else ActionRow(Icons.Rounded.Home, "Add to Home", onAddOrRemove)
             onWidgets?.let { ActionRow(Icons.Rounded.Widgets, "Widgets", it) }
@@ -114,7 +115,7 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
 
 @Composable
 internal fun EmptySpaceActionSheet(onWidgets: () -> Unit, onWallpaper: () -> Unit,
-    onCustomize: () -> Unit, onClose: () -> Unit) {
+    onCustomize: () -> Unit, onClose: () -> Unit, onEditHome: (() -> Unit)? = null) {
     val maxHeight = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * .75f).toDp() }
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
         .padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
@@ -122,8 +123,9 @@ internal fun EmptySpaceActionSheet(onWidgets: () -> Unit, onWallpaper: () -> Uni
             Text("This space", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close empty space options") }
         }
-        Text("Add a widget, change the wallpaper, or open settings.", style = MaterialTheme.typography.bodyMedium,
+        Text("Rearrange Home, add a widget, change the wallpaper, or open settings.", style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+        onEditHome?.let { ActionRow(Icons.Rounded.DragIndicator, "Edit Home", it, Modifier.testTag("empty-space-edit")) }
         ActionRow(Icons.Rounded.Widgets, "Widgets", onWidgets, Modifier.testTag("empty-space-widgets"))
         ActionRow(Icons.Rounded.Wallpaper, "Wallpaper", onWallpaper, Modifier.testTag("empty-space-wallpaper"))
         ActionRow(Icons.Rounded.Tune, "Launcher settings", onCustomize, Modifier.testTag("empty-space-customize"))

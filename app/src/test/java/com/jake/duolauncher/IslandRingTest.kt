@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import androidx.compose.ui.graphics.Color
 import org.junit.Assert.*
 import org.junit.Test

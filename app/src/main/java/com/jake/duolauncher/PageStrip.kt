@@ -1,5 +1,8 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.appearance.*
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background

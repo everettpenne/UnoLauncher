@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.panel.*
+
 import android.media.AudioManager
 import org.junit.Assert.*
 import org.junit.Test

@@ -1,5 +1,8 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.folders.*
+
 import android.app.Application
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager

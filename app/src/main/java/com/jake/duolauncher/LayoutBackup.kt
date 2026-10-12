@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.folders.*
+
 import com.jake.duolauncher.widgets.*
 
 import android.content.ComponentName

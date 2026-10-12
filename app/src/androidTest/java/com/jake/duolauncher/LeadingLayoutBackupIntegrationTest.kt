@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.folders.*
+
 import android.content.ComponentName
 import android.graphics.Bitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4

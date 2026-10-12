@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import androidx.compose.ui.geometry.Offset

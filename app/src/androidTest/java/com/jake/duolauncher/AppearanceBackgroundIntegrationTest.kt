@@ -1,5 +1,8 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.appearance.*
+
 import android.content.ContentValues
 import android.content.Context
 import android.content.SharedPreferences

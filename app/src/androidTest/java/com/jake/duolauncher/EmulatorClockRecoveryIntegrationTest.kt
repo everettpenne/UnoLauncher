@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import android.appwidget.AppWidgetManager
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario

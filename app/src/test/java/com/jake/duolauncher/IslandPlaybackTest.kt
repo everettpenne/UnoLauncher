@@ -1,7 +1,10 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.search.*
+
 import android.media.session.PlaybackState
-import com.jake.duolauncher.IslandPlayback.Phase
+import com.jake.duolauncher.island.IslandPlayback.Phase
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

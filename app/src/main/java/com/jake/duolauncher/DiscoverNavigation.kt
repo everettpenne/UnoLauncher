@@ -1,5 +1,8 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.appearance.*
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState

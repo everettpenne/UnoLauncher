@@ -54,7 +54,7 @@
         <activity android:name=".LiveDiscoverActivity" android:theme="@style/Theme.Duo.LiveDiscover"
             android:exported="false" android:resizeableActivity="true" />
         <!-- Fires when an island timer ends; not exported, so only this app's own alarm can reach it. -->
-        <receiver android:name=".TimerReceiver" android:exported="false" />
+        <receiver android:name=".island.TimerReceiver" android:exported="false" />
         <!-- Opt-in: bound only after the user turns on notification access in Android's settings. It reads
              unread counts, the playing track and the posting app's name, and nothing else. -->
         <service android:name=".UnoNotificationListener" android:exported="true"
@@ -70,12 +70,12 @@
             <intent-filter><action android:name="android.view.InputMethod" /></intent-filter>
             <meta-data android:name="android.view.im" android:resource="@xml/uno_keyboard_method" />
         </service>
-        <service android:name=".DuneWallpaperService" android:label="Uno dunes"
+        <service android:name=".appearance.DuneWallpaperService" android:label="Uno dunes"
             android:permission="android.permission.BIND_WALLPAPER" android:exported="true">
             <intent-filter><action android:name="android.service.wallpaper.WallpaperService" /></intent-filter>
             <meta-data android:name="android.service.wallpaper" android:resource="@xml/dune_wallpaper" />
         </service>
-        <service android:name=".IslandOverlayService" android:exported="false" />
+        <service android:name=".island.IslandOverlayService" android:exported="false" />
         <service android:name=".SystemShadeAccessibilityService"
             android:label="@string/shade_service_label"
             android:description="@string/shade_service_description"

@@ -1,5 +1,9 @@
 package com.jake.duolauncher.widgets
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.panel.*
+import com.jake.duolauncher.appearance.*
+
 import com.jake.duolauncher.*
 import android.content.Context
 import android.content.Intent

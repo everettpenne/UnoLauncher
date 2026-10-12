@@ -1,5 +1,7 @@
 package com.jake.duolauncher.widgets
 
+import com.jake.duolauncher.island.*
+
 import com.jake.duolauncher.*
 import android.content.Context
 import androidx.compose.foundation.layout.*

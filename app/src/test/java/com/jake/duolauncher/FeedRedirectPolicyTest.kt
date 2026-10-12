@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.feed.*
+
 import java.net.URI
 import org.junit.Assert.*
 import org.junit.Test

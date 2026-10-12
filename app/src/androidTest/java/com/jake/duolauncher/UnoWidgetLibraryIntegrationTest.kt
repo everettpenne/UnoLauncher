@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import com.jake.duolauncher.widgets.*
 
 import androidx.compose.ui.test.*

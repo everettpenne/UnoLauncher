@@ -1,5 +1,7 @@
 package com.jake.duolauncher.debug
 
+import com.jake.duolauncher.island.*
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -20,9 +22,9 @@ class DebugLiveUpdateReceiver : BroadcastReceiver() {
     // Only ever driven by adb on an Android 16 emulator; older versions have no ProgressStyle to post.
     override fun onReceive(context: Context, intent: Intent) {
         // --ez camera true / --ez mic true stand in for the privacy indicators, to get several live activities at once.
-        if (intent.hasExtra("camera")) com.jake.duolauncher.IslandRuntime.state.cameraActive = intent.getBooleanExtra("camera", false)
-        if (intent.hasExtra("recording")) com.jake.duolauncher.IslandRuntime.state.recordingActive = intent.getBooleanExtra("recording", false)
-        if (intent.hasExtra("mic")) com.jake.duolauncher.IslandRuntime.state.micActive = intent.getBooleanExtra("mic", false)
+        if (intent.hasExtra("camera")) com.jake.duolauncher.island.IslandRuntime.state.cameraActive = intent.getBooleanExtra("camera", false)
+        if (intent.hasExtra("recording")) com.jake.duolauncher.island.IslandRuntime.state.recordingActive = intent.getBooleanExtra("recording", false)
+        if (intent.hasExtra("mic")) com.jake.duolauncher.island.IslandRuntime.state.micActive = intent.getBooleanExtra("mic", false)
         if (!intent.hasExtra("title") && !intent.hasExtra("clear") && !intent.hasExtra("short")) return
         if (android.os.Build.VERSION.SDK_INT < 36) return
         val manager = context.getSystemService(NotificationManager::class.java)

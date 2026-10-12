@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.appearance.*
+
 import kotlin.math.abs
 import org.junit.Assert.*
 import org.junit.Test

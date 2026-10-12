@@ -1,5 +1,8 @@
 package com.jake.duolauncher.keyboard
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.appearance.*
+
 import android.content.Context
 import android.os.Build
 import android.os.Handler

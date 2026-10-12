@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.folders.*
+
 const val GRID_COLUMNS = 4
 const val GRID_ROWS = 6
 const val HOME_CELLS = GRID_COLUMNS * GRID_ROWS

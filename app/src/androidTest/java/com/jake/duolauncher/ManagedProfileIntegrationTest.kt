@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import android.app.role.RoleManager
 import android.content.ComponentName
 import android.content.pm.LauncherApps

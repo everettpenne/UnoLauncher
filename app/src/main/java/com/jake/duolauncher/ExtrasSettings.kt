@@ -1,5 +1,10 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.search.*
+import com.jake.duolauncher.panel.*
+import com.jake.duolauncher.appearance.*
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*

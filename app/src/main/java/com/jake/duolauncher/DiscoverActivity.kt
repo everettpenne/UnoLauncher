@@ -1,5 +1,8 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.appearance.*
+
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Application

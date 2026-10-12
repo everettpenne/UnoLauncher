@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import android.app.NotificationManager
 import android.media.AudioManager
 import org.junit.Assert.*

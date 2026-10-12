@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import android.graphics.Color
 import android.hardware.Sensor
 import android.hardware.SensorEvent

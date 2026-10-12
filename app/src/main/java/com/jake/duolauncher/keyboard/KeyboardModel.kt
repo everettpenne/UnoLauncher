@@ -1,5 +1,7 @@
 package com.jake.duolauncher.keyboard
 
+import com.jake.duolauncher.island.*
+
 /** Everything about how the keyboard types, with no Android classes, so it is unit-tested. The keyboard code in this
  * package never touches the network: a test (`KeyboardPrivacyTest`) fails the build if it ever imports anything that
  * could.

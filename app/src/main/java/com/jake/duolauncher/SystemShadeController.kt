@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import android.accessibilityservice.AccessibilityService
 import android.content.ComponentName
 import android.content.Context

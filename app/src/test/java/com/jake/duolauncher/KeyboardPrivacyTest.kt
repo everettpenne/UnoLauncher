@@ -1,5 +1,8 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.feed.*
+
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File

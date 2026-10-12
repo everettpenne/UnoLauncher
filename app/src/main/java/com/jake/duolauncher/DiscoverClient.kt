@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import android.app.Activity
 import android.content.*
 import android.net.Uri

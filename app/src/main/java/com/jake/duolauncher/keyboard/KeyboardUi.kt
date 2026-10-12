@@ -1,5 +1,8 @@
 package com.jake.duolauncher.keyboard
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.appearance.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -47,7 +50,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
-import com.jake.duolauncher.DuoTypography
+import com.jake.duolauncher.appearance.DuoTypography
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** What a key is, for painting: a letter-style key (light), a special key (grey), or the blue action key. */

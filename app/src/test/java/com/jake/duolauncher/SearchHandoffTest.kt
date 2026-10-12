@@ -1,5 +1,8 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.search.*
+
 import org.junit.Assert.*
 import org.junit.Test
 

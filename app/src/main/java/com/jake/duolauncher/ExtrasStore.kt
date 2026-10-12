@@ -1,5 +1,9 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.search.*
+import com.jake.duolauncher.appearance.*
+
 import android.content.Context
 import androidx.compose.runtime.*
 

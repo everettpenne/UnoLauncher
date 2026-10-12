@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.folders.*
+
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

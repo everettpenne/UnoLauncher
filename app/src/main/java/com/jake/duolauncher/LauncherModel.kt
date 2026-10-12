@@ -1,5 +1,9 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.appearance.*
+import com.jake.duolauncher.folders.*
+
 import android.app.Application
 import android.content.ComponentName
 import android.content.pm.LauncherApps
@@ -359,18 +363,18 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         val installed = mutable.value.apps.mapTo(mutableSetOf(), AppEntry::id)
         if (firstAppId !in installed || secondAppId !in installed) return null
         val id = newFolderId()
-        return id.takeIf { commitLayout(com.jake.duolauncher.createFolder(mutable.value.layout, FolderEntry(id, title, emptyList()),
+        return id.takeIf { commitLayout(com.jake.duolauncher.folders.createFolder(mutable.value.layout, FolderEntry(id, title, emptyList()),
             firstAppId, secondAppId, targetIndex)) }
     }
-    fun renameFolder(folderId: String, title: String) = commitLayout(com.jake.duolauncher.renameFolder(mutable.value.layout, folderId, title))
+    fun renameFolder(folderId: String, title: String) = commitLayout(com.jake.duolauncher.folders.renameFolder(mutable.value.layout, folderId, title))
     fun addAppToFolder(folderId: String, appId: String, index: Int? = null): Boolean {
         if (mutable.value.apps.none { it.id == appId }) return false
-        return commitLayout(com.jake.duolauncher.addAppToFolder(mutable.value.layout, folderId, appId, index))
+        return commitLayout(com.jake.duolauncher.folders.addAppToFolder(mutable.value.layout, folderId, appId, index))
     }
     fun removeAppFromFolder(folderId: String, appId: String, target: DropTarget) =
-        commitLayout(com.jake.duolauncher.removeAppFromFolder(mutable.value.layout, folderId, appId, target))
+        commitLayout(com.jake.duolauncher.folders.removeAppFromFolder(mutable.value.layout, folderId, appId, target))
     fun moveFolderApp(folderId: String, appId: String, index: Int) =
-        commitLayout(com.jake.duolauncher.moveFolderApp(mutable.value.layout, folderId, appId, index))
+        commitLayout(com.jake.duolauncher.folders.moveFolderApp(mutable.value.layout, folderId, appId, index))
     fun folder(id: String) = mutable.value.layout.folder(id)
 
     fun applyImportedLayout(preview: LayoutImportPreview): Boolean {

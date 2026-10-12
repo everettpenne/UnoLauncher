@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.appearance.*
+
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Bitmap

@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.appearance.*
+
 import com.jake.duolauncher.keyboard.*
 import org.junit.Assert.*
 import org.junit.Test

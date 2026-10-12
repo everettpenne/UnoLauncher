@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Context

@@ -1,5 +1,8 @@
 package com.jake.duolauncher.keyboard
 
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.appearance.*
+
 import android.content.ClipboardManager
 import android.content.Context
 import android.inputmethodservice.InputMethodService
@@ -173,7 +176,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
 
     private fun readAccent(): Int? =
         if (getSharedPreferences("appearance", Context.MODE_PRIVATE).getBoolean("wallpaperColor", false))
-            runCatching { com.jake.duolauncher.WallpaperAccents.compute(this, ui.dark(this)).accent.toArgb() }.getOrNull() else null
+            runCatching { com.jake.duolauncher.appearance.WallpaperAccents.compute(this, ui.dark(this)).accent.toArgb() }.getOrNull() else null
 
     private fun resyncMirror() {
         val before = currentInputConnection?.getTextBeforeCursor(80, 0)

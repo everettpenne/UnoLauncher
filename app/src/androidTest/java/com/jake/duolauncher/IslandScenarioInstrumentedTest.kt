@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.media.MediaMetadata

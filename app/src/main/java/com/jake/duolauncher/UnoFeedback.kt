@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import android.content.Context
 import android.media.AudioManager
 import android.os.Handler

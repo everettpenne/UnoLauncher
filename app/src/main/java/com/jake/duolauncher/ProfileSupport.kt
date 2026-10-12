@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.folders.*
+
 import android.content.pm.LauncherApps
 import android.os.Build
 import android.os.UserHandle

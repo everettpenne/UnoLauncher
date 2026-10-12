@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.*
+
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.os.ParcelFileDescriptor

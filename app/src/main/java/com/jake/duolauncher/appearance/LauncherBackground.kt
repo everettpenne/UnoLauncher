@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +35,7 @@ private const val BACKGROUND_ID = "photoId"
 private const val BACKGROUND_FILE = "launcher-background.jpg"
 private const val MAX_BACKGROUND_EDGE = 2048
 private const val BUILTIN_BACKGROUND = "builtinBackground"
+private const val SYSTEM_SYNC = "systemWallpaperSync"
 
 /** The launcher's own drawn backgrounds, offered beside a committed photo. */
 enum class BuiltinBackground(val label: String) {
@@ -118,6 +120,11 @@ class LauncherBackgroundController(
         private set
     var builtin by mutableStateOf(builtinBackground(activity))
         private set
+    /** Whether choosing a background also sets Android's home and lock screen wallpaper to it. Off until the person turns it on. */
+    var systemSync by mutableStateOf(launcherBackgroundPreferences(activity).getBoolean(SYSTEM_SYNC, false))
+        private set
+    /** Whether the launcher is in dark appearance; the sheet keeps this current so a built-in night scene is the one sent. */
+    var dark = false
     var loading by mutableStateOf(false)
         private set
     var errorMessage by mutableStateOf<String?>(null)
@@ -208,6 +215,42 @@ class LauncherBackgroundController(
         setBuiltinBackground(activity, value)
         builtin = value
         successMessage = "Using ${value.label}."
+        if (systemSync) pushToSystem(null)
+    }
+
+    /** Turns "also set Android's home and lock screen" on or off. Turning it on sends the current background at once. */
+    fun chooseSystemSync(on: Boolean) {
+        prefs.edit().putBoolean(SYSTEM_SYNC, on).apply()
+        systemSync = on
+        if (on) pushToSystem(null)
+    }
+
+    /**
+     * Sets Android's home and lock screen wallpaper to the current background: the committed photo (or [photo], just
+     * committed), otherwise the chosen built-in scene drawn at screen size. Done off the main thread because drawing a
+     * scene and handing it to the system both take a moment; the result is reported in the same message line as other
+     * background changes. A failure leaves the previous system wallpaper in place and says so.
+     */
+    private fun pushToSystem(photo: Bitmap?) {
+        val metrics = activity.resources.displayMetrics
+        val width = minOf(metrics.widthPixels, metrics.heightPixels)
+        val height = maxOf(metrics.widthPixels, metrics.heightPixels)
+        val useDark = dark
+        val kind = builtin
+        val photoFile = launcherBackgroundFile(activity)
+        val usePhoto = photo != null || (launcherBackgroundEnabled(activity) && photoFile.isFile)
+        Thread {
+            val result = runCatching {
+                val bitmap = photo ?: if (usePhoto) requireNotNull(BitmapFactory.decodeFile(photoFile.path)) { "The photo could not be read." }
+                    else DuneSceneCache.systemBitmap(kind, width, height, useDark)
+                android.app.WallpaperManager.getInstance(activity).setBitmap(bitmap, null, true,
+                    android.app.WallpaperManager.FLAG_SYSTEM or android.app.WallpaperManager.FLAG_LOCK)
+            }
+            activity.runOnUiThread {
+                result.onSuccess { successMessage = "Android home and lock screen set to match."; errorMessage = null }
+                    .onFailure { errorMessage = "Could not set the Android wallpaper: ${it.message ?: "unknown error"}" }
+            }
+        }.start()
     }
 
     private fun clearPhoto() {
@@ -248,6 +291,7 @@ class LauncherBackgroundController(
                 photoSelected = true
                 errorMessage = null
                 successMessage = "Launcher background updated."
+                if (systemSync) pushToSystem(staged.bitmap)
                 cleanupStagedFiles()
             }
             .onFailure { errorMessage = it.message ?: "That photo could not be saved." }

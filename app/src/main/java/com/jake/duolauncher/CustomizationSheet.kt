@@ -148,6 +148,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     Text("Launcher background", style = MaterialTheme.typography.titleMedium)
                     Text("Changes the image behind Uno Launcher’s Home screens.", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    SideEffect { backgrounds.dark = appearance.dark }
                     BuiltInBackgroundPicker(backgrounds.builtin, backgrounds::chooseBuiltin, appearance.dark)
                     Button(onClick = backgrounds::choosePhoto, enabled = !backgrounds.loading,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-choose")) {
@@ -167,7 +168,10 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     }
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     Text("Android wallpaper", style = MaterialTheme.typography.titleMedium)
-                    Text("Opens Android’s preview to change the phone wallpaper. It does not change Uno’s launcher background.",
+                    Text("Opens Android’s preview to change the phone wallpaper. On its own it does not change Uno’s launcher background.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    SettingsSwitch("Also set home and lock screen", backgrounds.systemSync, backgrounds::chooseSystemSync, "system-wallpaper-sync-switch")
+                    Text("When on, choosing a background here also sets Android’s home and lock screen wallpaper to the same picture, replacing what is there now (including a live wallpaper). Off by default; nothing leaves the phone.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedButton(onClick = onWallpaperPreview, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         .testTag("wallpaper-preview")) { Icon(Icons.Rounded.Wallpaper, null); Spacer(Modifier.width(8.dp)); Text("Preview Android wallpaper") }

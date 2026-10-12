@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.44.0-uno01
+
+- **Set Android's wallpaper too.** On the Wallpaper page, **Also set home and lock screen** (off by default) hands the background you choose, a built-in scene or your photo, to Android as the home and lock screen wallpaper. Turning it on sends the current background at once and replaces what is there now, including a live wallpaper. Adds the install-time `SET_WALLPAPER` permission (no prompt).
+- **Photos widget: pick an album.** The widget can now rotate through every picture in one of your photo albums, including new ones, besides the photos you choose by hand. This asks for the Photos & media permission, only when you tap Allow in the widget; without it the widget works as before. Listed in the permission ledger and in `PRIVACY.md`.
+- Widget work is now done in its own lane (own working copy, lane-check script) so it can proceed in parallel with launcher work; see `docs/widget-development.md`.
+
 ## 0.43.1-uno01
 
 - **Photos widget now shows your photos.** Choosing photos saved them but the widget never drew any: the code that reads a picture's size treated Android's normal "no bitmap returned while measuring" answer as a failure, so every picture was rejected. Fixed, with an emulator test that puts a real image in the widget and checks it is drawn.

@@ -17,6 +17,13 @@
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <!-- Opt-in contact search in All apps; asked for only when the user turns it on. Names only. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Wallpaper page, "Also set home and lock screen": lets the launcher set the Android wallpaper when the person turns that on.
+         An install-time permission with no prompt; nothing happens unless the switch is on. -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <!-- Photos widget, album source: lists photo albums and reads the images of the one the user chooses, only while the
+         widget is on screen. Asked for only when the user picks an album; the widget works without it (chosen photos). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <!-- Island timer: lets it fire to the second with Home closed. Off by default on Android 14+, and the
          user can leave it off; the timer then ends a little late (still in Doze) instead of failing. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />

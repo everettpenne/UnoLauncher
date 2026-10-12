@@ -1,5 +1,6 @@
 package com.jake.duolauncher.appearance
 
+import androidx.compose.ui.graphics.asAndroidBitmap
 import com.jake.duolauncher.island.*
 
 import com.jake.duolauncher.*
@@ -173,6 +174,20 @@ internal object DuneSceneCache {
         BuiltinBackground.DUNE_RANGE -> DuneRange.render(w, h, dark)
         BuiltinBackground.DUNES -> error("Uno dunes is drawn directly, not rendered")
     }
+
+    /** Any built-in scene as a plain bitmap at [width] x [height], for handing to Android as the system wallpaper. The
+     *  original dunes are drawn with Compose paths rather than rendered pixels, so they are drawn into a bitmap here. */
+    fun systemBitmap(kind: BuiltinBackground, width: Int, height: Int, dark: Boolean): android.graphics.Bitmap =
+        if (kind != BuiltinBackground.DUNES) getBlocking(kind, width, height, dark).asAndroidBitmap()
+        else {
+            val image = ImageBitmap(width, height)
+            androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
+                androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr,
+                androidx.compose.ui.graphics.Canvas(image), androidx.compose.ui.geometry.Size(width.toFloat(), height.toFloat())) {
+                drawDunes(dark)
+            }
+            image.asAndroidBitmap()
+        }
 
     private fun build(kind: BuiltinBackground, width: Int, height: Int, dark: Boolean): ImageBitmap {
         val small = width < 300

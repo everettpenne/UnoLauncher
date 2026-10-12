@@ -37,6 +37,7 @@ internal data class LedgerInputs(
     val notificationAccess: Boolean,
     val contactsAllowed: Boolean,
     val islandEverywhere: Boolean,
+    val photosAllowed: Boolean = false,
 )
 
 internal object PermissionLedger {
@@ -68,6 +69,11 @@ internal object PermissionLedger {
                 if (i.contactsAllowed) "Allowed" else "Not allowed", i.contactsAllowed,
                 "Finding contacts from search, if you switch that on.",
                 "Contact names, matched on this device. Nothing is stored or sent.",
+                LedgerAction.APP_INFO),
+            LedgerRow("photos", "Photos & media",
+                if (i.photosAllowed) "Allowed" else "Not allowed", i.photosAllowed,
+                "The Photos widget, to rotate through an album you choose.",
+                "Album names and the images of the album you pick, read only while the widget is on screen. Nothing is copied out, stored or sent.",
                 LedgerAction.APP_INFO),
             LedgerRow("indicators", "Camera, microphone, recording, VPN, USB and audio marks",
                 "No permission needed", true,

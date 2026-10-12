@@ -47,7 +47,7 @@ internal object UnoWidgets {
         UnoWidgetDef(ANALOG_CLOCK, "Analog clock", "A dial with hour and minute hands, and today's date. Moves once a minute.", 2, 2) { s, o -> AnalogClockFace(s, o) },
         UnoWidgetDef(NEXT_ALARM, "Next alarm", "When your next clock-app alarm rings, and how long until it. Tap to open the clock app.", 2, 2) { s, o -> NextAlarmFace(s, o) },
         UnoWidgetDef(WORLD_CLOCK, "World clock", "The time in up to four places you choose. Tap to pick them.", 2, 2) { s, o -> WorldClockFace(s, o) },
-        UnoWidgetDef(PHOTOS, "Photos", "Your chosen photos, changing every 15 minutes. Tap to choose them.", 2, 2) { s, o -> PhotosFace(s, o) },
+        UnoWidgetDef(PHOTOS, "Photos", "Your photos or an album, changing on a schedule you set. Tap to preview.", 2, 2) { s, o -> PhotosFace(s, o) },
     )
 
     fun byId(id: Int): UnoWidgetDef? = all.firstOrNull { it.id == id }

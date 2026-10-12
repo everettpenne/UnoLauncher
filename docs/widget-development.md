@@ -86,3 +86,21 @@ Say what it shows, which id it uses, what you ran, and what you did not test. Th
 - The registry (`widgets/UnoWidgets.kt`) is the only file several widgets touch, and each adds one line, so conflicts are a trivial merge: keep both lines.
 - If you want to try someone else's unfinished widget, check out their branch in a separate worktree; do not copy their files into yours.
 - If two people need the same helper, put it in `widgets/WidgetHelpers.kt` in its own small pull request first.
+
+## Working as the widget lane (a person or an agent working in parallel)
+
+One person or agent can own widgets while another works on the launcher's larger architecture. This is what keeps the two from colliding.
+
+**Separate working copies.** Never share a checkout. Run `scripts/widget-worktree.sh` once; it creates `../uno-widgets` on branch `widgets/work` from `origin/main`. Everything below happens there. Do not touch `main` locally, and do not build in the other person's directory.
+
+**The lane.** The widget lane may change only: `widgets/`, widget tests (`*Widget*Test.kt`, `PhotoGallery`/`WorldClock` tests) and widget emulator tests, and this file. `scripts/check-lane.sh widgets` lists anything else you changed and fails; `scripts/widget-check.sh` runs it first. Everything else, including the manifest, `PRIVACY.md`, the permission ledger, Home, the island, backup, `scripts/`, `.github/`, version numbers, release notes and `CHANGELOG.md`, belongs to the launcher lane. If a widget needs a change there, write it down in the pull request or an issue and stop; do not make it.
+
+**Never release.** Do not bump a version, tag, or write release notes. Open a pull request (or leave the branch pushed) and say what is in it; the launcher lane batches widget work into releases.
+
+**Ids.** The launcher lane hands out widget ids. Ids used so far: -20 to -32 (shipped). **-33 is reserved** for a held-back Device battery widget (it needs a Bluetooth permission, so it is not shipped). The next free id is **-34**; ask before taking it so two widgets never share one.
+
+**The loop.** `scripts/widget-check.sh` (lane check, widget unit tests, debug build) while you work; `scripts/widget-check.sh --full` (adds lint and the whole unit suite) before you push. Keep to rules that a JVM test can check. If you need to see the widget, build the debug app on an emulator **you** started (an emulator is one device: two people installing the app on it overwrite each other, so the launcher lane keeps `emulator-5554` and the widget lane starts a second one on another port, `emulator -avd <name> -port 5556`, and runs `ANDROID_SERIAL=emulator-5556`).
+
+**Staying current.** `git fetch && git rebase origin/main` before you start each piece of work and before you push. The one file both lanes edit is `widgets/UnoWidgets.kt` (a line per widget, plus the `UnoWidgetRegistryTest` set of shipped ids); keep your change to your own lines and a rebase stays trivial.
+
+**Tell the truth about testing.** Say what you ran and what you did not. An emulator test that draws a real image beats reasoning about code: a Photos widget once shipped drawing nothing because a null from a size-only decode was read as a failure.

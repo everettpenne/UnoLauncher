@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.43.1-uno01
+
+- **Photos widget now shows your photos.** Choosing photos saved them but the widget never drew any: the code that reads a picture's size treated Android's normal "no bitmap returned while measuring" answer as a failure, so every picture was rejected. Fixed, with an emulator test that puts a real image in the widget and checks it is drawn.
+
 ## 0.43.0-uno01
 
 - **Six built-in wallpapers**, each with a day and a night version: Uno dunes (the original), **Deep dunes** (the original three dunes with soft flowing depth), **Dune range** (broad dunes under hazy mountain ranges, with stars at night, closer to the iPhone Duo's desert), **Dune glass**, **Dune bloom** and **Dune flow** (abstract scenes with grain and soft light, made to give the glass something to refract). All are drawn on the phone, nothing is downloaded.

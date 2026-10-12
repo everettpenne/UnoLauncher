@@ -101,7 +101,11 @@ private fun decodeSampled(context: Context, uriString: String, maxPx: Int): Imag
     val uri = Uri.parse(uriString)
     val resolver = context.contentResolver
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return null
+    // Root cause of "photos never appear": decodeStream returns null when inJustDecodeBounds is set (it only fills in
+    // the size), so treating that null as "could not open" rejected every picture. Only a missing stream, or a
+    // picture with no readable size, means failure here.
+    resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: Unit
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
     var sample = 1
     while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxPx) sample *= 2
     val options = BitmapFactory.Options().apply { inSampleSize = sample }

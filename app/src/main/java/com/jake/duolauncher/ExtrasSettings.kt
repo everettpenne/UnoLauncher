@@ -210,7 +210,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     Text("The island flashes when a VPN connects or drops and when a USB data connection starts or ends (plain charging is not announced here). It needs no extra permission and keeps nothing.",
         style = note, color = muted)
     Text("Paused music and podcasts", style = MaterialTheme.typography.titleMedium)
-    Text("The wide pill is for sound that is playing. Paused media stays on the pill for a few seconds, then, if it is worth coming back to (it has a title, you are part-way through it and it is longer than 30 seconds), a soft ring in the cover's colour shows round the camera and the track stays on the open island for this long. Finished videos and short clips just fade out.",
+    Text("The wide pill is for sound that is playing. Paused media stays on the pill for a few seconds, then the pill goes back to its resting size. If it is worth coming back to (it has a title, you are part-way through it and it is longer than 30 seconds), the track stays on the open island for this long. Finished videos and short clips just fade out.",
         style = note, color = muted)
     IslandPlayback.RESUME_CHOICES_MIN.forEach { minutes ->
         ChoiceRow(if (minutes == 1) "1 minute" else "$minutes minutes", if (minutes == 2) "The default" else "",

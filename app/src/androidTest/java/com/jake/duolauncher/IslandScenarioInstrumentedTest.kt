@@ -215,11 +215,7 @@ class IslandScenarioInstrumentedTest {
         playMusic(playing = true)
         pausedAgo(secondsAgo = 20, positionMs = 60_000, durationMs = 240_000)
         assertTrue("off the pill", !present("island-paused") && !present("island-playing"))
-        // The glow fades in over half a second; let it.
-        compose.mainClock.autoAdvance = false
-        compose.mainClock.advanceTimeBy(900)
-        shot("resumable-glow", settle = false)
-        compose.mainClock.autoAdvance = true
+        shot("resumable-resting")
         openShot("resumable-open")
         assertTrue("still on the open island", present("island-media"))
     }

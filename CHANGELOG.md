@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.40.1-uno01
+
+- **The glow round the camera is gone.** Paused media worth returning to no longer rings the camera in the cover's colour. Everything else about 0.40.0 stays: the wide pill is for playing sound, paused or finished media lingers six seconds with still bars, media worth returning to (a title, part-way through, longer than 30 seconds) leaves the pill and stays on the open island for two minutes by default (1, 2, 10 or 30 minutes in Dynamic island settings), and a player that says "playing" over silence stops counting after four seconds. The pill's own rings (timer, charging, event flash) are unchanged.
+
 ## 0.40.0-uno01
 
 - **The wide pill is for sound that is playing.** Playing media shows the wide pill with the moving bars and the cover-colour wash, as before. What happens when it stops now depends on whether it is worth coming back to:

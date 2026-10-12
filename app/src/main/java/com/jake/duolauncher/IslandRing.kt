@@ -11,7 +11,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
 
 /** What the ring around the collapsed island is currently showing, if anything. */
 internal data class RingState(val fraction: Float, val color: Color)
@@ -43,8 +42,8 @@ internal object IslandRingLogic {
 }
 
 /** Draws [ring] as a progress arc hugging the island's outline, clockwise from the top centre, over a faint track. */
-internal fun Modifier.islandRing(ring: RingState?, cornerPx: Float, strokePx: Float, glow: Color? = null): Modifier =
-    if (ring == null && glow == null) this else drawWithContent {
+internal fun Modifier.islandRing(ring: RingState?, cornerPx: Float, strokePx: Float): Modifier =
+    if (ring == null) this else drawWithContent {
         val inset = strokePx / 2f + 1f
         val w = size.width - inset * 2; val h = size.height - inset * 2
         if (w <= 0f || h <= 0f) { drawContent(); return@drawWithContent }
@@ -64,12 +63,6 @@ internal fun Modifier.islandRing(ring: RingState?, cornerPx: Float, strokePx: Fl
             close()
         }
         drawContent()
-        // A soft halo outside the pill (never over its black body), under any ring drawn after it: many thin strokes, wider and
-        // fainter outward, so it reads as a glow and not as bands.
-        if (glow != null) clipPath(outline, androidx.compose.ui.graphics.ClipOp.Difference) {
-            for (i in 14 downTo 1) drawPath(outline, glow.copy(alpha = glow.alpha * .05f), style = Stroke(strokePx * (1f + i * .9f)))
-        }
-        if (ring == null) return@drawWithContent
         val measure = PathMeasure().apply { setPath(outline, false) }
         drawPath(outline, ring.color.copy(alpha = .22f), style = Stroke(strokePx))
         IslandRingLogic.arc(measure.length, ring.fraction)?.let { range ->

@@ -504,10 +504,6 @@ internal fun DynamicIsland(
     val ring = IslandRingLogic.choose(flashActive, progress >= .5f || state.expanded, IslandTools.ringing,
         IslandTools.timerActive, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
         deviceStatus.charging == true, deviceStatus.battery, IslandSymbol.TIMER.tint, IosGreen, state.flashTint)
-    // Paused media worth returning to: a soft ring of the cover's colour round the camera, behind the timer and charging rings.
-    val resumeGlow by animateFloatAsState(
-        if (mediaPhase == IslandPlayback.Phase.RESUMABLE && !state.expanded && !flashActive && !IslandTools.ringing) 1f else 0f,
-        tween(500), label = "island resume glow")
     // A new event gives the island a small spring pulse, like iOS's.
     val pulse = remember { Animatable(1f) }
     LaunchedEffect(state.flashKey) {
@@ -620,7 +616,7 @@ internal fun DynamicIsland(
             .graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }
             .size(width = (frame.width / d).dp, height = (frame.height / d).dp)
             .islandBody(glass?.backdrop, corner.dp, settings = glass?.settings ?: GlassSettings.Default)
-            .islandRing(ring, corner * d, 2.5f * d, glow = artTint.copy(alpha = .55f * resumeGlow).takeIf { resumeGlow > .01f })
+            .islandRing(ring, corner * d, 2.5f * d)
             .clip(RoundedCornerShape(corner.dp))
             // The playing track's colour fading in from the artwork side, like HyperOS's island.
             .drawBehind {

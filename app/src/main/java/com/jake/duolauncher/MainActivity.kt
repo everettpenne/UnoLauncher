@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.widgets.*
+
 import android.app.role.RoleManager
 import android.app.WallpaperManager
 import android.content.ComponentName

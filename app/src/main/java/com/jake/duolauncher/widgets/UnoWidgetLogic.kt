@@ -1,4 +1,4 @@
-package com.jake.duolauncher
+package com.jake.duolauncher.widgets
 
 import java.time.DayOfWeek
 import java.time.LocalDate

@@ -2,6 +2,8 @@
 
 package com.jake.duolauncher
 
+import com.jake.duolauncher.widgets.*
+
 import android.appwidget.AppWidgetProviderInfo
 import android.os.UserManager
 import androidx.activity.compose.BackHandler

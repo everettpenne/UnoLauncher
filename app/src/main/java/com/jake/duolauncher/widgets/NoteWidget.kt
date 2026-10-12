@@ -29,12 +29,12 @@ internal fun NoteFace(slot: Int, onOptions: () -> Unit) {
     }
     if (editing) {
         var draft by remember { mutableStateOf(note) }
-        AlertDialog(onDismissRequest = { editing = false }, title = { Text("Note") }, text = {
-            Column {
-                OutlinedTextField(draft, { draft = WidgetText.note(it) }, Modifier.fillMaxWidth().heightIn(min = 140.dp).testTag("note-field"), maxLines = 10)
-                Text("${draft.length} / ${WidgetText.MAX_NOTE}. Kept on this phone only.", fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
-            }
-        }, confirmButton = { TextButton(onClick = { WidgetData.set(slot, "note", draft); editing = false }, Modifier.testTag("note-save")) { Text("Done") } },
-            dismissButton = { TextButton(onClick = { editing = false }) { Text("Cancel") } })
+        GlassDialog(onDismissRequest = { editing = false }, title = "Note", actions = {
+            GlassButton("Cancel", { editing = false })
+            GlassButton("Done", { WidgetData.set(slot, "note", draft); editing = false }, prominent = true, tag = "note-save")
+        }) {
+            GlassTextField(draft, { draft = WidgetText.note(it) }, minHeight = 140.dp, maxLines = 10, tag = "note-field")
+            GlassNote("${draft.length} / ${WidgetText.MAX_NOTE}. Kept on this phone only.")
+        }
     }
 }

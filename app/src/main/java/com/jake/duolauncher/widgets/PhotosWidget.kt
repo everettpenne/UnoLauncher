@@ -1,6 +1,7 @@
 package com.jake.duolauncher.widgets
 
 import com.jake.duolauncher.appearance.*
+import com.jake.duolauncher.panel.*
 
 import com.jake.duolauncher.*
 import android.Manifest
@@ -168,71 +169,37 @@ private fun PhotosMenu(slot: Int, intervalMin: Long, shuffle: Boolean, albumId: 
             WidgetData.set(slot, "album", "")
         }
     }
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = Corner.large, color = MaterialTheme.colorScheme.surface, modifier = Modifier.testTag("photos-menu")) {
-            Column(Modifier.padding(20.dp).heightIn(max = 560.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("Photos settings", style = MaterialTheme.typography.titleLarge)
-                Text("Change every", style = MaterialTheme.typography.titleSmall)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PhotoGallery.INTERVALS.forEach { minutes ->
-                        FilterChip(selected = minutes == intervalMin,
-                            onClick = { WidgetData.set(slot, "interval", minutes.toString()) },
-                            label = { Text(if (minutes >= 60) "${minutes / 60} h" else "$minutes min") },
-                            modifier = Modifier.testTag("photos-interval-$minutes"))
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Shuffle", style = MaterialTheme.typography.titleSmall)
-                        Text("Mix the order so the same first photo does not always lead.", fontSize = 12.sp)
-                    }
-                    Switch(shuffle, { WidgetData.set(slot, "shuffle", if (it) "1" else "") },
-                        Modifier.testTag("photos-shuffle"))
-                }
-                HorizontalDivider()
-                Text("Where the photos come from", style = MaterialTheme.typography.titleSmall)
-                // Manual source.
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Chosen photos", style = MaterialTheme.typography.bodyLarge)
-                        Text("${manual.size} photo${if (manual.size == 1) "" else "s"} · pick them yourself", fontSize = 12.sp)
-                    }
-                    if (albumId != null) TextButton(onClick = { WidgetData.set(slot, "album", "") },
-                        Modifier.testTag("photos-source-manual")) { Text("Use these") }
-                }
-                OutlinedButton(onClick = { pickPhotos.launch(arrayOf("image/*")) },
-                    Modifier.fillMaxWidth().testTag("photos-choose")) { Text("Choose photos…") }
-                // Album source.
-                if (!PhotoAlbums.hasAccess(context)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("To draw from an album, Uno needs Photos & media access — read only, to list your albums and show them.",
-                            Modifier.weight(1f), fontSize = 12.sp)
-                        OutlinedButton(onClick = { requestPhotos.launch(PhotoAlbums.permission()) },
-                            Modifier.testTag("photos-allow")) { Text("Allow") }
-                    }
-                } else {
-                    OutlinedButton(onClick = { showAlbums = !showAlbums },
-                        Modifier.fillMaxWidth().testTag("photos-album-toggle")) {
-                        Text(if (showAlbums) "Hide albums" else (if (albumId != null) WidgetData.get(slot, "albumName").ifBlank { "Album" } else "Choose an album…"))
-                    }
-                    if (showAlbums) {
-                        if (albums.isEmpty()) Text("No albums found.", fontSize = 12.sp)
-                        albums.forEach { album ->
-                            AlbumRow(album, selected = album.bucketId == albumId, onClick = {
-                                WidgetData.set(slot, "album", album.bucketId)
-                                WidgetData.set(slot, "albumName", album.name)
-                            })
-                        }
-                    }
-                }
-                Text("Android grants read access to the chosen pictures or album only; they are shown on this phone and never sent anywhere.",
-                    fontSize = 11.sp)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss, Modifier.testTag("photos-done")) { Text("Done") }
+    GlassDialog(onDismissRequest = onDismiss, title = "Photos settings", modifier = Modifier.testTag("photos-menu"),
+        actions = { GlassButton("Done", onDismiss, prominent = true, tag = "photos-done") }) {
+        GlassHeading("CHANGE EVERY")
+        GlassChips(PhotoGallery.INTERVALS, intervalMin, { minutes -> if (minutes >= 60) "${minutes / 60} h" else "$minutes min" },
+            { minutes -> WidgetData.set(slot, "interval", minutes.toString()) }, tagPrefix = "photos-interval", key = { it.toString() })
+        GlassSwitchRow("Shuffle", shuffle, { WidgetData.set(slot, "shuffle", if (it) "1" else "") },
+            help = "Mix the order so the same first photo does not always lead.", tag = "photos-shuffle")
+        GlassDivider()
+        GlassHeading("WHERE THE PHOTOS COME FROM")
+        GlassRow("Chosen photos", onClick = { pickPhotos.launch(arrayOf("image/*")) }, modifier = Modifier.testTag("photos-choose"),
+            subtitle = "${manual.size} photo${if (manual.size == 1) "" else "s"} · tap to add more",
+            trailing = if (albumId != null) ({ GlassButton("Use these", { WidgetData.set(slot, "album", "") }, tag = "photos-source-manual") }) else null)
+        if (!PhotoAlbums.hasAccess(context)) {
+            GlassRow("Use an album", onClick = { requestPhotos.launch(PhotoAlbums.permission()) }, modifier = Modifier.testTag("photos-allow"),
+                subtitle = "Needs Photos & media access: read only, to list your albums and show them.",
+                trailing = { GlassButton("Allow", { requestPhotos.launch(PhotoAlbums.permission()) }) })
+        } else {
+            GlassRow(if (albumId != null) WidgetData.get(slot, "albumName").ifBlank { "Album" } else "Choose an album",
+                onClick = { showAlbums = !showAlbums }, modifier = Modifier.testTag("photos-album-toggle"),
+                subtitle = if (showAlbums) "Tap to hide the list" else "Tap to pick one of your albums")
+            if (showAlbums) {
+                if (albums.isEmpty()) GlassNote("No albums found.")
+                albums.forEach { album ->
+                    AlbumRow(album, selected = album.bucketId == albumId, onClick = {
+                        WidgetData.set(slot, "album", album.bucketId)
+                        WidgetData.set(slot, "albumName", album.name)
+                    })
                 }
             }
         }
+        GlassNote("Android grants read access to the chosen pictures or album only; they are shown on this phone and never sent anywhere.")
     }
 }
 
@@ -244,18 +211,15 @@ private fun AlbumRow(album: PhotoAlbum, selected: Boolean, onClick: () -> Unit) 
         value = album.cover?.let { uri -> PhotoCache.get(uri, 96)
             ?: withContext(Dispatchers.IO) { decodeSampled(context, uri, 96) }?.also { PhotoCache.put(uri, 96, it) } }
     }
-    Row(Modifier.fillMaxWidth().clip(Corner.medium).clickable(onClick = onClick)
-        .padding(vertical = 4.dp).testTag("photos-album-${album.bucketId}"), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(44.dp).clip(Corner.small).background(Color.Black.copy(alpha = .08f)), contentAlignment = Alignment.Center) {
-            if (cover != null) Image(cover!!, album.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            else Icon(Icons.Rounded.PhotoLibrary, null)
-        }
-        Column(Modifier.weight(1f).padding(start = 10.dp)) {
-            Text(album.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
-            Text("${album.count} photo${if (album.count == 1) "" else "s"}", style = MaterialTheme.typography.bodySmall)
-        }
-        if (selected) Icon(Icons.Rounded.Check, "Selected", tint = MaterialTheme.colorScheme.primary)
-    }
+    GlassRow("${album.name}", onClick = onClick, modifier = Modifier.testTag("photos-album-${album.bucketId}"),
+        subtitle = "${album.count} photo${if (album.count == 1) "" else "s"}",
+        leading = {
+            Box(Modifier.size(44.dp).clip(Corner.small).background(Color.Black.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
+                if (cover != null) Image(cover!!, album.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                else Icon(Icons.Rounded.PhotoLibrary, null)
+            }
+        },
+        trailing = { if (selected) Icon(Icons.Rounded.Check, "Selected", tint = LocalWallpaperAccent.current?.accent ?: IosOrange) })
 }
 
 /** A small in-memory cache of decoded pictures, keyed by URI and target size. Dropped entries are left to the garbage

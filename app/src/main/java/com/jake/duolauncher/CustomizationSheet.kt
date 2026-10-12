@@ -237,6 +237,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         tag = "island-scale-slider") { onIslandScale(it) }
                     Text("A liquid capsule at the camera cutout: the time, then a tap expands battery, the top feed headline, and quick actions. It flashes app launches and charging and never overlays other apps.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (appearance.island) IslandStyleSection(IslandThemeController.current)
                     if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.ISLAND)
                 }
                 CustomizationPage.KEYBOARD -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.KEYBOARD)

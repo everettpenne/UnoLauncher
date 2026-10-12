@@ -1,0 +1,91 @@
+package com.jake.duolauncher
+
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.widgets.*
+
+import android.graphics.Bitmap
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.lifecycle.ViewModelProvider
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import java.io.File
+
+/** The glass menus: the Photos widget's settings and the island style page, driven and photographed. */
+class GlassMenusInstrumentedTest {
+    private val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    private fun model() = ViewModelProvider(compose.activity)[LauncherModel::class.java]
+    private fun present(tag: String) = compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+
+    private fun shot(name: String) {
+        compose.waitForIdle(); Thread.sleep(800)
+        val b = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        val dir = compose.activity.getExternalFilesDir(null)!!
+        File(dir, "menu-$name.png").outputStream().use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    private fun ready() {
+        compose.waitUntil(90_000) { !model().state.value.loading }
+        runCatching { compose.onNodeWithText("Not now").performClick(); compose.waitForIdle() }
+    }
+
+    @Test fun photosMenuIsGlassAndWorks() {
+        ready()
+        compose.runOnIdle { model().state.value.layout.widgetPlacements.map { it.slot }.forEach { model().removePlacement(DropTarget.Widget(it)) } }
+        compose.waitForIdle()
+        val layout = model().state.value.layout
+        val index = (0 until HOME_CELLS).first { widgetCandidate(layout, 0, it, 2, 2) != null }
+        compose.runOnIdle { assertTrue(model().placeWidget(widgetCandidate(layout, 0, index, 2, 2)!!.copy(id = UnoWidgets.PHOTOS))) }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Home page 1").performClick()
+        compose.waitForIdle()
+        compose.onAllNodesWithTag("uno-photos-0", useUnmergedTree = true)[0].performClick()
+        compose.waitUntil(10_000) { present("photos-preview-settings") }
+        compose.onNodeWithTag("photos-preview-settings", useUnmergedTree = true).performClick()
+        compose.waitUntil(10_000) { present("photos-menu") }
+        shot("photos")
+        compose.onNodeWithTag("photos-interval-30", useUnmergedTree = true).performClick()
+        compose.waitForIdle()
+        assertEquals("30", WidgetData.get(0, "interval"))
+        compose.onNodeWithTag("photos-done", useUnmergedTree = true).performClick()
+        compose.waitForIdle()
+        assertFalse(present("photos-menu"))
+    }
+
+    @Test fun islandStyleChangesTheIslandTheme() {
+        ready()
+        compose.onNodeWithContentDescription("Home page 1").performClick()
+        compose.waitForIdle()
+        compose.openHomeCustomization()
+        compose.onNodeWithTag("customization-island").performScrollTo().performClick()
+        compose.waitUntil(10_000) { present("island-style") }
+        compose.onNodeWithTag("island-style").performScrollTo()
+        IslandThemes.reset()
+        compose.onNodeWithTag("island-preset-Neon", useUnmergedTree = true).performScrollTo().performClick()
+        compose.waitForIdle()
+        assertEquals("Neon", IslandThemes.active.name)
+        shot("island-style")
+        compose.onNodeWithTag("island-panel-SQUARE", useUnmergedTree = true).performScrollTo().performClick()
+        compose.waitForIdle()
+        assertEquals("Custom", IslandThemes.active.name)
+        assertEquals(PanelShape.SQUARE, IslandThemes.active.panel)
+        // Close settings and look at the real island in the custom theme, collapsed and tapped open.
+        IslandThemes.apply(IslandThemes.presets.first { it.name == "Neon" })
+        compose.onNodeWithContentDescription("Close settings").performClick()
+        compose.waitForIdle()
+        shot("island-neon")
+        val device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        device.click(device.displayWidth / 2, 66)
+        shot("island-neon-open")
+        compose.onNodeWithContentDescription("Home page 1").performClick()
+        compose.openHomeCustomization()
+        compose.onNodeWithTag("customization-island").performScrollTo().performClick()
+        compose.waitUntil(10_000) { present("island-style") }
+        compose.onNodeWithTag("island-theme-reset", useUnmergedTree = true).performScrollTo().performClick()
+        compose.waitForIdle()
+        assertEquals("Classic", IslandThemes.active.name)
+    }
+}

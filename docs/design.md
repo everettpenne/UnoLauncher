@@ -196,6 +196,36 @@ touch targets, which Compose pads to 48 dp, and they caught taps meant for the p
   sheet as an inset glass card and exports its backdrop so controls inside refract the
   sheet itself (`LocalPageGlass`).
 
+## Building menus (the glass UI kit, `appearance/GlassUi.kt`)
+
+Any menu, dialog or settings panel that is not a launcher surface of its own is built from the glass kit, never from Material's stock widgets. Material's `AlertDialog`, `Switch`, `FilterChip`, `OutlinedButton`, `TextButton` and `Surface` are opaque and use Material's palette, so they read as a different app next to the dock and the island (the first Photos widget menu did, and was rebuilt). The kit exists so a contributor can make a correct menu without knowing how the lens works.
+
+| Need | Use | Notes |
+| --- | --- | --- |
+| A widget's settings, or a short confirmation | `GlassDialog(onDismissRequest, title, actions) { content }` | A glass card over a dimmed Home; scrolls; taps outside dismiss. It exports its own backdrop, so the controls inside refract the card. With liquid glass off it falls back to a stock dialog of the same content. |
+| An action | `GlassButton(text, onClick, prominent = false)` | A pill, 48 dp tall. One `prominent` button (filled with the wallpaper accent) per menu, for the primary action; the rest are plain. |
+| One of several choices | `GlassChips(options, selected, label, onSelect)` | Mutually exclusive pills; scrolls sideways if they do not fit. Not for more than about six options. |
+| An on/off setting | `GlassSwitchRow(label, checked, onChecked, help)` | The liquid switch, with an optional help line. |
+| A list entry | `GlassRow(title, onClick, subtitle, leading, trailing)` | 52 dp minimum, tappable, for lists and "tap to pick" rows. |
+| Text entry | `GlassTextField(value, onValueChange, placeholder)` | A soft well with a hairline rim. Put the test tag on it: it is the editable node. |
+| Structure | `GlassHeading` (upper case, small), `GlassDivider`, `GlassNote` (help text) | Headings name a group; notes explain a control in one sentence. |
+
+Rules:
+
+- **Ink and accent come from the kit.** Text is the panel's `onSurface`; the highlight colour is the wallpaper accent (`LocalWallpaperAccent`), iOS orange when there is none. Do not hard-code colours in a menu.
+- **48 dp touch targets, 16 dp padding, 12 dp between controls** (the kit does this for you).
+- **No nesting of cards.** A menu is one glass card; groups inside it are separated by a heading or a divider, not by more cards.
+- **A viewer is not a menu.** A full-screen photo or media viewer may be plain black; the controls that open a settings menu from it must still lead to a `GlassDialog`.
+- **Selection lens and sheets:** a settings *page* is a `GlassModalSheet` (as in Launcher settings); a *dialog* is a `GlassDialog`. Do not use a Material `ModalBottomSheet` directly.
+- **Test tags stay on the control that is clicked or edited**, so emulator tests can drive a menu (`photos-interval-30`, `note-field`).
+- A new kind of control (a slider, a colour picker) is added to the kit, with this table updated, rather than made inside one menu. `LiquidSliderControl` and `LiquidSwitchControl` (`panel/LiquidControls.kt`) are the existing liquid parts; wrap them in `Glass*` before using them in a widget menu.
+
+The Material `DatePickerDialog` in the Countdown widget is the one remaining stock dialog (no glass date picker exists yet); it opens from a `GlassDialog` and is a known gap, not a pattern to copy.
+
+## Island themes
+
+The island's look is data (`island/IslandTheme.kt`): colours, a panel shape, a control shape and a motion feel, applied by one object, `IslandThemes.active`. Island code reads its colours, shapes and springs from the active theme and never hard-codes them, with three exceptions that are deliberate: the privacy marks (camera, microphone, recording, VPN, USB), the call controls, and anything that is not the island's own surface. Rules for themes, and the file format, are in [Island themes](island-themes.md). When adding something to the island, ask which theme slot it uses; if none fits, add a slot (and a field to the file format, keeping old files valid) instead of a literal.
+
 ## Deliberate Material deviations
 
 1. Squircle app icons (22.37%) instead of Material's circular arcs.

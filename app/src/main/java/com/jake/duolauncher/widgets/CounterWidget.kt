@@ -43,10 +43,12 @@ internal fun CounterFace(slot: Int, onOptions: () -> Unit) {
     }
     if (editing) {
         var draft by remember { mutableStateOf(name) }
-        AlertDialog(onDismissRequest = { editing = false }, title = { Text("Counter") }, text = {
-            OutlinedTextField(draft, { draft = WidgetText.name(it) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Name") })
-        }, confirmButton = { TextButton(onClick = { WidgetData.set(slot, "name", draft.ifBlank { "Counter" }); editing = false }) { Text("Save") } },
-            dismissButton = { Row { TextButton(onClick = { WidgetData.set(slot, "count", "0"); editing = false }) { Text("Reset to 0") }
-                TextButton(onClick = { editing = false }) { Text("Cancel") } } })
+        GlassDialog(onDismissRequest = { editing = false }, title = "Counter", actions = {
+            GlassButton("Reset to 0", { WidgetData.set(slot, "count", "0"); editing = false })
+            GlassButton("Cancel", { editing = false })
+            GlassButton("Save", { WidgetData.set(slot, "name", draft.ifBlank { "Counter" }); editing = false }, prominent = true)
+        }) {
+            GlassTextField(draft, { draft = WidgetText.name(it) }, placeholder = "Name", singleLine = true)
+        }
     }
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.45.0-uno01
+
+- **Island themes.** The island's look is now data: body and text colours, four accent colours (playback, charging, timer and silent, focus), a panel shape (soft, round, square), a button shape (pill, rounded, square) and a motion feel (calm, standard, snappy, bouncy). **Launcher settings, Dynamic island, Island style** has five presets (Classic, Midnight, Graphite, Neon, Amber), a live preview, and pickers for each colour and shape. Classic is exactly the look you had before.
+- **Import and export.** **Import a theme** reads a small text file you pick, shows a preview, and applies it only when you tap Apply; **Export this theme** saves the current look so you can edit or send it. Only files you pick are read; Uno has no way for another app to send it a theme. The format and how to write one are in `docs/island-themes.md`.
+- **Safe by construction.** A theme cannot change what the island does. Camera, microphone, screen-recording, VPN and USB marks and the call buttons keep their own colours. Files over 8 KB, invalid files, a body that is not dark (the camera hole must stay hidden) and text or accents that would not be readable are refused with the reason.
+- **Glass UI kit.** A set of building blocks for menus (`GlassDialog`, `GlassButton`, `GlassChips`, `GlassSwitchRow`, `GlassRow`, `GlassTextField`, headings and notes), with rules in `docs/design.md`. The Photos widget's settings, which used Material's plain dialog, were rebuilt on it, as were the Note, Counter, Countdown and World clock dialogs. The Countdown date picker is still Material's.
+- Tests: unit tests for the theme format and legibility rules (including that the documented sample parses), and emulator tests that drive the Photos menu and the island style page and photograph a themed island.
+
 ## 0.44.0-uno01
 
 - **Set Android's wallpaper too.** On the Wallpaper page, **Also set home and lock screen** (off by default) hands the background you choose, a built-in scene or your photo, to Android as the home and lock screen wallpaper. Turning it on sends the current background at once and replaces what is there now, including a live wallpaper. Adds the install-time `SET_WALLPAPER` permission (no prompt).

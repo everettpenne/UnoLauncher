@@ -15,10 +15,10 @@ All paths below are relative to `app/src/main/java/com/jake/duolauncher/`. Featu
 | Folders | `folders/` | Large folders, the folder panel, folder editing and previews |
 | Android widgets | `WidgetController.kt`, `WidgetPicker.kt`, `WidgetSizing.kt`, `ZeroPaddingWidgetHost.kt`, `WidgetVerticalGestures.kt`, `WidgetStacks.kt` | Provider catalog, binding/configuration, geometry, stacks and native touch arbitration |
 | Uno widgets | `widgets/` | The launcher's own widgets, one file each, and the registry (`UnoWidgets.kt`). See [Writing an Uno widget](widget-development.md) |
-| Dynamic island | `island/` | The pill and its panel, activities (calls, timers, media, Live Updates), the overlay over other apps, notification cards, quick apps, and the permission ledger |
+| Dynamic island | `island/` | The pill and its panel, activities (calls, timers, media, Live Updates), the overlay over other apps, notification cards, quick apps, the island's themes (`IslandTheme.kt`, see [Island themes](island-themes.md)), and the permission ledger |
 | Search | `search/` | The search panel that grows from the island, answers, hand-off to other apps, All apps, optional contacts |
 | Control panel | `panel/` | The pull-down panel and the system controls it drives |
-| Appearance | `appearance/` | Photo and dune wallpapers, liquid glass, ink, corners, type, colour from wallpaper, scheduling |
+| Appearance | `appearance/` | Photo and dune wallpapers, liquid glass, ink, corners, type, colour from wallpaper, scheduling, and the glass UI kit for menus (`GlassUi.kt`) |
 | News feed | `feed/` | User-added RSS/Atom sources, direct bounded fetching, on-device cache, and the Discover-slot surface |
 | Keyboard | `keyboard/` | Uno Keyboard (the input method) and its tests' privacy gate |
 | Google features | `GoogleSearch.kt`, `DiscoverClient.kt`, `LiveDiscoverActivity.kt`, `DiscoverBounds.kt` | Search intents, feed protocol, persistent host and embedding compatibility |

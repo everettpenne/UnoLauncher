@@ -26,6 +26,7 @@ class IslandOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        IslandThemes.init(this)
         if (SystemShadeAccessibilityService.hostsIsland()) { stopSelf(); return }
         // If the user revokes "display over other apps", the overlay stops immediately.
         permissionReceiver = object : BroadcastReceiver() {

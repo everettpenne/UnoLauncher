@@ -20,6 +20,7 @@ docs/*
 !docs/island-roadmap.md
 !docs/working-together.md
 !docs/widget-development.md
+!docs/island-themes.md
 !docs/releases/
 docs/releases/*
 !docs/releases/0.15.0-beta01.md

@@ -287,8 +287,9 @@ private fun Modifier.islandBody(
     rimWidth: Dp = 2.5.dp,
     settings: GlassSettings,
 ): Modifier {
+    val fill = themeFill
     val shape = RoundedCornerShape(cornerRadius)
-    if (backdrop == null) return background(Color.Black, shape)
+    if (backdrop == null) return background(fill, shape)
     return drawBackdrop(
         backdrop = backdrop,
         shape = { shape },
@@ -304,9 +305,9 @@ private fun Modifier.islandBody(
         },
         highlight = { GlassRim.Light },
         onDrawSurface = {
-            drawRect(Color.Black.copy(alpha = .55f))
+            drawRect(fill.copy(alpha = .55f))
             val rim = rimWidth.toPx()
-            drawRoundRect(Color.Black, topLeft = Offset(rim, rim),
+            drawRoundRect(fill, topLeft = Offset(rim, rim),
                 size = Size(size.width - 2 * rim, size.height - 2 * rim),
                 cornerRadius = CornerRadius((cornerRadius.toPx() - rim).coerceAtLeast(0f)))
         },
@@ -410,7 +411,7 @@ internal fun DynamicIsland(
 
     // Opening is lively; closing is critically damped, so the island settles onto the camera without overshooting it.
     val progress by animateFloatAsState(if (state.expanded) 1f else 0f,
-        if (state.expanded) spring(dampingRatio = 0.62f, stiffness = 300f) else spring(dampingRatio = 1f, stiffness = 420f),
+        if (state.expanded) IslandThemes.active.spring(0.62f, 300f) else IslandThemes.active.spring(1f, 420f, tunedDamping = false),
         label = "island expand")
     val collapsedAlpha = (1f - progress / .5f).coerceIn(0f, 1f)
     val expandedAlpha = ((progress - .5f) / .5f).coerceIn(0f, 1f)
@@ -461,7 +462,7 @@ internal fun DynamicIsland(
     val art = NotificationFeed.nowPlaying?.art
     val artImage = remember(art) { art?.asImageBitmap() }
     // The island borrows a colour from the album artwork for the bars and the play button.
-    val artTint = remember(art) { art?.let { it.artTintArgb() }?.let { Color(it) } } ?: PLAYBACK_PINK
+    val artTint = remember(art) { art?.let { it.artTintArgb() }?.let { Color(it) } } ?: IslandThemes.active.playback
     // The play/pause icon flips the moment it is tapped; the real state takes over when it arrives (or after a moment).
     var pendingPlaying by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(isPlaying) { pendingPlaying = null }
@@ -482,13 +483,13 @@ internal fun DynamicIsland(
     val eventTargetDp = if (flashActive) IslandGeometry.eventExtraWidthDp((state.flashTitle ?: "").length, sizeScale)
         else if (cameraOnSide && liveKinds.isNotEmpty()) 60f else 0f
     val eventWidth by animateFloatAsState(eventTargetDp,
-        spring(dampingRatio = .6f, stiffness = 420f), label = "island event width")
+        IslandThemes.active.spring(.6f, 420f), label = "island event width")
     // Over other apps the system status bar already shows the time and battery right beside the camera, so while the island has
     // nothing to say it shrinks to a ring around the camera instead of covering those icons. Anything live (an event, a timer,
     // a call, playback) widens it again.
     val hasLiveContent = flashActive || IslandTools.ringing || liveKinds.isNotEmpty()
     val compactTarget = if (anchoredToWindow && !hasLiveContent && !alwaysWide) 1f else 0f
-    val compactness by animateFloatAsState(compactTarget, spring(dampingRatio = .8f, stiffness = 380f), label = "island compact")
+    val compactness by animateFloatAsState(compactTarget, IslandThemes.active.spring(.8f, 380f), label = "island compact")
     val extraBody = if (state.peekCard != null) 0f else (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(IslandTools.toolsOpen) +
         (if (IslandTools.toolsOpen) TOOLS_PANELS_ROW_DP else if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) - actionsTrimDp
     val frame = IslandGeometry.frame(environment, d, progress, sizeScale, extraBodyDp = extraBody, extraWidthDp = eventWidth, compactness = compactness)
@@ -501,7 +502,9 @@ internal fun DynamicIsland(
     reported[0] = if (frame.nearly(headingFor)) headingFor else (reported[0] ?: frame).union(frame).union(headingFor)
     val touchFrame = reported[0] ?: headingFor
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
-    val corner = minOf(minOf(frame.width, frame.height) / 2f, 30f * d) / d
+    val half = minOf(frame.width, frame.height) / 2f
+    val panelScale = IslandThemes.active.panel.scale
+    val corner = (if (panelScale < 1f) minOf(half, 30f * d) * panelScale else minOf(half, 30f * d * panelScale)) / d
     val sideways = frame.side != IslandSide.TOP
     // The colour fade for music: while the music is one of the things the pill shows (or the panel is open), and nothing else has the island.
     val glowAlpha = animateFloatAsState(
@@ -510,14 +513,14 @@ internal fun DynamicIsland(
     // A progress ring around the collapsed pill: a running timer, or the battery level while charging.
     val ring = IslandRingLogic.choose(flashActive, progress >= .5f || state.expanded, IslandTools.ringing,
         IslandTools.timerActive, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
-        deviceStatus.charging == true, deviceStatus.battery, IslandSymbol.TIMER.tint, IosGreen, state.flashTint)
+        deviceStatus.charging == true, deviceStatus.battery, IslandThemes.active.timer, IslandThemes.active.charging, state.flashTint)
     // A new event gives the island a small spring pulse, like iOS's.
     val pulse = remember { Animatable(1f) }
     LaunchedEffect(state.flashKey) {
         if (state.flashKey > 0) {
             pulse.snapTo(1f)
-            pulse.animateTo(1.09f, spring(dampingRatio = .45f, stiffness = 700f))
-            pulse.animateTo(1f, spring(dampingRatio = .4f, stiffness = 260f))
+            pulse.animateTo(1.09f, IslandThemes.active.spring(.45f, 700f))
+            pulse.animateTo(1f, IslandThemes.active.spring(.4f, 260f))
         }
     }
     // Flash returns to the collapsed clock after a beat.
@@ -606,7 +609,7 @@ internal fun DynamicIsland(
                     androidx.compose.ui.unit.IntOffset(
                         (x - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
                 }
-                .size(IslandBubbles.SIZE_DP.dp).clip(CircleShape).background(Color.Black)
+                .size(IslandBubbles.SIZE_DP.dp).clip(CircleShape).background(themeFill)
                 .clickable { UnoFeedback.play(Cue.TICK, haptic); state.rotateBy(IslandBubbles.shiftFor(liveKinds, index)) }
                 .semantics { contentDescription = "Show ${kind.name.lowercase()}" }
                 .testTag("island-bubble-${kind.name.lowercase()}"), contentAlignment = Alignment.Center) {
@@ -709,9 +712,9 @@ internal fun DynamicIsland(
                             contentAlignment = Alignment.Center) {
                             Image(bitmap, null, Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)))
                         }
-                        else if (symbol != null) Icon(symbol.icon(), null, tint = symbol.tint, modifier = Modifier.size(18.dp))
+                        else if (symbol != null) Icon(symbol.icon(), null, tint = IslandThemes.active.tint(symbol), modifier = Modifier.size(18.dp))
                     } else if (IslandTools.ringing) {
-                        Icon(Icons.Rounded.Alarm, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Alarm, null, tint = IslandThemes.active.timer, modifier = Modifier.size(18.dp))
                     } else plan.leading?.let { (kind, show) ->
                         LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, update = updates.firstOrNull())
                     }
@@ -719,21 +722,21 @@ internal fun DynamicIsland(
                 }
                 val trailing: @Composable () -> Unit = {
                     if (flashActive) {
-                        Text(state.flashTitle ?: "", color = Color.White, fontSize = 12.sp,
+                        Text(state.flashTitle ?: "", color = themeInk, fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(end = 4.dp))
                     } else if (IslandTools.ringing) {
-                        Text("Timer done", color = IslandSymbol.TIMER.tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        Text("Timer done", color = IslandThemes.active.timer, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, modifier = Modifier.testTag("island-timer-done"))
                     } else if (plan.trailing != null) {
                         val (kind, show) = plan.trailing
                         LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, update = updates.firstOrNull())
                     } else if (deviceStatus.charging == true) {
-                        Icon(Icons.Rounded.BatteryChargingFull, null, tint = IosGreen, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Rounded.BatteryChargingFull, null, tint = IslandThemes.active.charging, modifier = Modifier.size(16.dp))
                     } else if (deviceStatus.battery != null && !statusRailShown) {
                         // One owner for the battery level: with the status rail on screen it shows the level, and the island
                         // speaks about the battery only while charging (above).
-                        Text("${deviceStatus.battery}%", color = Color.White.copy(alpha = .9f), fontSize = 12.sp,
+                        Text("${deviceStatus.battery}%", color = themeInk.copy(alpha = .9f), fontSize = 12.sp,
                             maxLines = 1)
                     }
                 }
@@ -780,10 +783,10 @@ internal fun DynamicIsland(
                     peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) }
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(peek.appLabel, color = Color.White.copy(alpha = .65f), fontSize = 11.sp, maxLines = 1)
-                        peek.title?.let { Text(it, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                        Text(peek.appLabel, color = themeInk.copy(alpha = .65f), fontSize = 11.sp, maxLines = 1)
+                        peek.title?.let { Text(it, color = themeInk, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                             overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-peek-title")) }
-                        peek.text?.let { Text(it, color = Color.White.copy(alpha = .85f), fontSize = 13.sp, maxLines = 2,
+                        peek.text?.let { Text(it, color = themeInk.copy(alpha = .85f), fontSize = 13.sp, maxLines = 2,
                             overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-peek-text")) }
                     }
                 }
@@ -793,16 +796,16 @@ internal fun DynamicIsland(
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(now.format(timeFormatter), color = Color.White,
+                        Text(now.format(timeFormatter), color = themeInk,
                             fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-                        Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = Color.White.copy(alpha = .85f),
+                        Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = themeInk.copy(alpha = .85f),
                             fontSize = 12.sp)
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(if (deviceStatus.battery != null) "${deviceStatus.battery}%" else "—",
-                            color = if (deviceStatus.charging == true) IosGreen else Color.White,
+                            color = if (deviceStatus.charging == true) IslandThemes.active.charging else themeInk,
                             fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                        chargeLeft?.let { Text(it, color = IosGreen.copy(alpha = .85f), fontSize = 11.sp, maxLines = 1,
+                        chargeLeft?.let { Text(it, color = IslandThemes.active.charging.copy(alpha = .85f), fontSize = 11.sp, maxLines = 1,
                             modifier = Modifier.testTag("island-charge-left")) }
                     }
                 }
@@ -842,7 +845,7 @@ internal fun DynamicIsland(
                 }
                 Spacer(Modifier.height(8.dp))
                 feedHeadline?.let { headline ->
-                    Text(headline, color = Color.White.copy(alpha = .95f), fontSize = 13.sp,
+                    Text(headline, color = themeInk.copy(alpha = .95f), fontSize = 13.sp,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(6.dp))
                 }
@@ -878,15 +881,15 @@ internal fun DynamicIsland(
 private fun IslandSearchField(onSubmit: (String) -> Unit, onFullSearch: () -> Unit, modifier: Modifier = Modifier) {
     var text by remember { mutableStateOf("") }
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    Row(modifier.height(44.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = .14f)).padding(start = 4.dp, end = 12.dp),
+    Row(modifier.height(44.dp).clip(IslandThemes.active.controlShape()).background(themeInk.copy(alpha = .14f)).padding(start = 4.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onFullSearch).semantics { contentDescription = "Search apps and more" },
-            contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Search, null, tint = Color.White.copy(alpha = .85f), modifier = Modifier.size(18.dp)) }
+        Box(Modifier.size(36.dp).clip(IslandThemes.active.controlShape()).clickable(onClick = onFullSearch).semantics { contentDescription = "Search apps and more" },
+            contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Search, null, tint = themeInk.copy(alpha = .85f), modifier = Modifier.size(18.dp)) }
         Box(Modifier.weight(1f).padding(start = 2.dp), contentAlignment = Alignment.CenterStart) {
-            if (text.isEmpty()) Text("Search the web", color = Color.White.copy(alpha = .55f), fontSize = 14.sp, maxLines = 1)
+            if (text.isEmpty()) Text("Search the web", color = themeInk.copy(alpha = .55f), fontSize = 14.sp, maxLines = 1)
             androidx.compose.foundation.text.BasicTextField(text, { text = it.take(200) }, Modifier.fillMaxWidth().testTag("island-search-field"),
-                singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 14.sp),
-                cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = themeInk, fontSize = 14.sp),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(themeInk),
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
                 keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
                     val query = text.trim()
@@ -925,6 +928,10 @@ internal const val MEDIA_ART_DP = 56f
 /** Extra panel height, in dp, when the call card is showing. */
 internal const val CALL_ROW_DP = 48f
 internal val PLAYBACK_PINK = Color(0xFFFF375F)
+
+/** The active island theme's colours, read where the island draws (see IslandTheme.kt). */
+private val themeInk: Color @Composable @ReadOnlyComposable get() = IslandThemes.active.ink
+private val themeFill: Color @Composable @ReadOnlyComposable get() = IslandThemes.active.fill
 
 /** Four bars that rise and fall out of step: the iOS "audio is playing" mark. The animation drives
  * a layer scale, so it never recomposes while it runs.
@@ -970,7 +977,7 @@ private fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: S
             .then(if (onOpenPlayer != null) Modifier.clickable(onClick = onOpenPlayer).testTag("island-open-player") else Modifier),
             verticalAlignment = Alignment.CenterVertically) {
             // The cover when the player gives one; otherwise the bars, which are still while paused and move while playing.
-            Box(Modifier.size(MEDIA_ART_DP.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = .1f)),
+            Box(Modifier.size(MEDIA_ART_DP.dp).clip(RoundedCornerShape(12.dp)).background(themeInk.copy(alpha = .1f)),
                 contentAlignment = Alignment.Center) {
                 if (art != null) Image(art, null, Modifier.fillMaxSize().testTag("island-art"),
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop)
@@ -978,10 +985,10 @@ private fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: S
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(title ?: if (playing) "Playing" else "Paused", color = Color.White, fontSize = 16.sp,
+                Text(title ?: if (playing) "Playing" else "Paused", color = themeInk, fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag("island-track"))
-                artist?.let { Text(it, color = Color.White.copy(alpha = .72f), fontSize = 13.sp,
+                artist?.let { Text(it, color = themeInk.copy(alpha = .72f), fontSize = 13.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
@@ -1012,7 +1019,7 @@ private fun SeekBar(progress: Float, tint: Color, onSeek: (Float) -> Unit) {
                 dragging = (change.position.x / width).coerceIn(0f, 1f)
             }
         }.testTag("island-seek"), contentAlignment = Alignment.Center) {
-        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = .18f))) {
+        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(themeInk.copy(alpha = .18f))) {
             Box(Modifier.fillMaxWidth(shown).fillMaxHeight().background(tint, RoundedCornerShape(50)))
         }
     }
@@ -1041,7 +1048,7 @@ private fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
         Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
-            Text(call.caller, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            Text(call.caller, color = themeInk, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("On call · ${IslandClock.countdown((nowMs - call.startedAt).coerceAtLeast(0L))}",
                 color = IosGreen, fontSize = 11.sp, maxLines = 1)
@@ -1050,21 +1057,21 @@ private fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
             // The call app's own hang-up action, sent as it would be from its notification.
             Box(Modifier.padding(end = 6.dp).height(26.dp).clip(RoundedCornerShape(50)).background(Color(0xFFFF453A))
                 .clickable { runCatching { end.send() } }.padding(horizontal = 12.dp).testTag("island-call-end"),
-                contentAlignment = Alignment.Center) { Text("End", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                contentAlignment = Alignment.Center) { Text("End", color = themeInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
         }
-        Icon(Icons.AutoMirrored.Rounded.OpenInNew, "Open call", tint = Color.White.copy(alpha = .7f),
+        Icon(Icons.AutoMirrored.Rounded.OpenInNew, "Open call", tint = themeInk.copy(alpha = .7f),
             modifier = Modifier.size(14.dp).padding(end = 4.dp))
     }
 }
 
 @Composable
-private fun MediaButton(icon: ImageVector, label: String, onClick: () -> Unit, tint: Color = Color.White,
+private fun MediaButton(icon: ImageVector, label: String, onClick: () -> Unit, tint: Color = themeInk,
     size: androidx.compose.ui.unit.Dp = 44.dp, iconSize: androidx.compose.ui.unit.Dp = 24.dp) {
     val haptic = LocalHapticFeedback.current
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) .84f else 1f, spring(dampingRatio = .55f, stiffness = 700f), label = "media press")
-    Box(Modifier.size(size).graphicsLayer { scaleX = scale; scaleY = scale }.clip(CircleShape)
+    val scale by animateFloatAsState(if (pressed) .84f else 1f, IslandThemes.active.spring(.55f, 700f), label = "media press")
+    Box(Modifier.size(size).graphicsLayer { scaleX = scale; scaleY = scale }.clip(IslandThemes.active.controlShape())
         .clickable(interactionSource = source, indication = null) {
             UnoFeedback.play(Cue.TICK, haptic)
             onClick()
@@ -1076,18 +1083,18 @@ private fun MediaButton(icon: ImageVector, label: String, onClick: () -> Unit, t
 @Composable
 private fun IslandAction(icon: ImageVector, label: String, showLabel: Boolean, onClick: () -> Unit) {
     if (!showLabel) {
-        Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onClick)
+        Box(Modifier.size(44.dp).clip(IslandThemes.active.controlShape()).clickable(onClick = onClick)
             .semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Icon(icon, null, tint = themeInk, modifier = Modifier.size(20.dp))
         }
         return
     }
-    Row(Modifier.clip(RoundedCornerShape(percent = 50))
+    Row(Modifier.clip(IslandThemes.active.controlShape())
         .clickable { onClick() }.padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        Icon(icon, label, tint = Color.White, modifier = Modifier.size(15.dp))
-        Text(label, color = Color.White, fontSize = 12.sp)
+        Icon(icon, label, tint = themeInk, modifier = Modifier.size(15.dp))
+        Text(label, color = themeInk, fontSize = 12.sp)
     }
 }
 
@@ -1097,22 +1104,22 @@ private fun IslandToolsFace(clockMs: Long, torch: TorchState) {
     val context = LocalContext.current
     Row(Modifier.fillMaxWidth().height(40.dp).testTag("island-tools-timer"), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Icon(Icons.Rounded.Timer, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(18.dp))
+        Icon(Icons.Rounded.Timer, null, tint = IslandThemes.active.timer, modifier = Modifier.size(18.dp))
         if (IslandTools.timerActive) {
             Text(if (IslandTools.ringing) "Done" else IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)),
-                color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                color = themeInk, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             ToolButton(Icons.Rounded.Close, "Cancel timer") { IslandTools.cancelTimer(context) }
         } else TimerPresets.MINUTES.map { it to "${it}m" }.forEach { (minutes, label) ->
-            Box(Modifier.weight(1f).height(34.dp).clip(RoundedCornerShape(percent = 50)).background(Color.White.copy(alpha = .14f))
+            Box(Modifier.weight(1f).height(34.dp).clip(IslandThemes.active.controlShape()).background(themeInk.copy(alpha = .14f))
                 .clickable { IslandTools.startTimer(context, minutes * 60_000L) }
                 .semantics { contentDescription = "Start $minutes minute timer" }.testTag("island-timer-$minutes"),
                 contentAlignment = Alignment.Center) {
-                Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text(label, color = themeInk, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             }
         }
     }
     Row(Modifier.fillMaxWidth().height(44.dp).testTag("island-tools-stopwatch"), verticalAlignment = Alignment.CenterVertically) {
-        Text(IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)), color = Color.White, fontSize = 20.sp,
+        Text(IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)), color = themeInk, fontSize = 20.sp,
             fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1)
         ToolButton(if (IslandTools.swRunning) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
             if (IslandTools.swRunning) "Stop stopwatch" else "Start stopwatch") { IslandTools.toggleStopwatch(context) }
@@ -1125,10 +1132,10 @@ private fun IslandToolsFace(clockMs: Long, torch: TorchState) {
         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         listOf("Internet" to android.provider.Settings.Panel.ACTION_INTERNET_CONNECTIVITY, "Volume" to android.provider.Settings.Panel.ACTION_VOLUME)
             .forEach { (label, action) ->
-                Box(Modifier.weight(1f).height(34.dp).clip(RoundedCornerShape(percent = 50)).background(Color.White.copy(alpha = .14f))
+                Box(Modifier.weight(1f).height(34.dp).clip(IslandThemes.active.controlShape()).background(themeInk.copy(alpha = .14f))
                     .clickable { IslandTools.touch(); runCatching { context.startActivity(android.content.Intent(action).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
                     .semantics { contentDescription = "Open $label panel" }.testTag("island-panel-${label.lowercase()}"), contentAlignment = Alignment.Center) {
-                    Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Text(label, color = themeInk, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
             }
     }
@@ -1136,9 +1143,9 @@ private fun IslandToolsFace(clockMs: Long, torch: TorchState) {
 
 @Composable
 private fun ToolButton(icon: ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
-    Box(Modifier.size(44.dp).clip(CircleShape).clickable(enabled = enabled, onClick = onClick)
+    Box(Modifier.size(44.dp).clip(IslandThemes.active.controlShape()).clickable(enabled = enabled, onClick = onClick)
         .semantics { contentDescription = label }.testTag("island-tool-${label.lowercase().replace(' ', '-')}"), contentAlignment = Alignment.Center) {
-        Icon(icon, null, tint = Color.White.copy(alpha = if (enabled) 1f else .35f), modifier = Modifier.size(22.dp))
+        Icon(icon, null, tint = themeInk.copy(alpha = if (enabled) 1f else .35f), modifier = Modifier.size(22.dp))
     }
 }
 
@@ -1168,11 +1175,11 @@ private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boo
             else Text(NotificationFeed.ongoingCall?.let { IslandClock.countdown((clockMs - it.startedAt).coerceAtLeast(0L)) } ?: "", color = IosGreen,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                 modifier = Modifier.padding(end = 4.dp).testTag("island-call"))
-        LiveKind.TIMER -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = IslandSymbol.TIMER.tint, modifier = Modifier.size(16.dp))
-            else Text(IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)), color = IslandSymbol.TIMER.tint,
+        LiveKind.TIMER -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = IslandThemes.active.timer, modifier = Modifier.size(16.dp))
+            else Text(IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)), color = IslandThemes.active.timer,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-timer"))
-        LiveKind.STOPWATCH -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = Color.White, modifier = Modifier.size(16.dp))
-            else Text(IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)), color = Color.White,
+        LiveKind.STOPWATCH -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = themeInk, modifier = Modifier.size(16.dp))
+            else Text(IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)), color = themeInk,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
         LiveKind.UPDATE -> if (update != null) {
             if (glyph) UpdateGlyph(update, 22.dp)
@@ -1231,15 +1238,15 @@ private fun UpdateCard(update: LiveUpdate, clockMs: Long, onOpen: () -> Unit) {
             UpdateGlyph(update, 34.dp)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(update.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(update.text ?: update.appLabel, color = Color.White.copy(alpha = .72f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(update.title, color = themeInk, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(update.text ?: update.appLabel, color = themeInk.copy(alpha = .72f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(LiveUpdateLogic.glance(update, clockMs), color = tint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                 modifier = Modifier.padding(start = 8.dp))
         }
         LiveUpdateLogic.fraction(update.progress, update.progressMax, update.indeterminate)?.let { f ->
             Spacer(Modifier.height(6.dp))
-            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = .18f)).testTag("island-update-progress")) {
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(themeInk.copy(alpha = .18f)).testTag("island-update-progress")) {
                 Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(tint))
             }
         }

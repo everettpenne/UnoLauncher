@@ -78,6 +78,7 @@ internal class IslandOverlayHost(
     val isShowing: Boolean get() = composeView != null
 
     fun start() {
+        IslandThemes.init(context)
         if (started) return
         started = true
         windowManager = context.getSystemService(WindowManager::class.java)

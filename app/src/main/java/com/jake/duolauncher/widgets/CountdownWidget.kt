@@ -49,25 +49,20 @@ internal fun CountdownFace(slot: Int, onOptions: () -> Unit) {
         var draftDate by remember { mutableStateOf(set) }
         var draftYearly by remember { mutableStateOf(yearly) }
         var picking by remember { mutableStateOf(false) }
-        AlertDialog(onDismissRequest = { editing = false }, title = { Text("Countdown") }, text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(draftName, { draftName = WidgetText.name(it) }, Modifier.fillMaxWidth().testTag("countdown-name"),
-                    singleLine = true, label = { Text("Name") })
-                OutlinedButton(onClick = { picking = true }, Modifier.fillMaxWidth().testTag("countdown-date")) {
-                    Text(draftDate?.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")) ?: "Choose a date")
-                }
-                Row(Modifier.fillMaxWidth().clickable { draftYearly = !draftYearly }.testTag("countdown-yearly"), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(draftYearly, { draftYearly = it })
-                    Text("Repeat every year", fontSize = 14.sp)
-                }
-            }
-        }, confirmButton = { TextButton(onClick = {
-            WidgetData.set(slot, "name", draftName.ifBlank { "Countdown" })
-            WidgetData.set(slot, "date", draftDate?.toString().orEmpty())
-            WidgetData.set(slot, "yearly", if (draftYearly) "1" else "")
-            editing = false
-        }, Modifier.testTag("countdown-save")) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { editing = false }) { Text("Cancel") } })
+        GlassDialog(onDismissRequest = { editing = false }, title = "Countdown", actions = {
+            GlassButton("Cancel", { editing = false })
+            GlassButton("Save", {
+                WidgetData.set(slot, "name", draftName.ifBlank { "Countdown" })
+                WidgetData.set(slot, "date", draftDate?.toString().orEmpty())
+                WidgetData.set(slot, "yearly", if (draftYearly) "1" else "")
+                editing = false
+            }, prominent = true, tag = "countdown-save")
+        }) {
+            GlassTextField(draftName, { draftName = WidgetText.name(it) }, placeholder = "Name", singleLine = true, tag = "countdown-name")
+            GlassButton(draftDate?.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")) ?: "Choose a date", { picking = true },
+                Modifier.fillMaxWidth(), tag = "countdown-date")
+            GlassSwitchRow("Repeat every year", draftYearly, { draftYearly = it }, tag = "countdown-yearly")
+        }
         if (picking) {
             val state = rememberDatePickerState(initialSelectedDateMillis = (draftDate ?: today).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
             DatePickerDialog(onDismissRequest = { picking = false }, confirmButton = { TextButton(onClick = {

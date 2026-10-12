@@ -54,38 +54,28 @@ internal fun WorldClockFace(slot: Int, onOptions: () -> Unit) {
     if (editing) {
         var draft by remember { mutableStateOf(zones) }
         var query by remember { mutableStateOf("") }
-        AlertDialog(onDismissRequest = { editing = false }, title = { Text("World clock") }, text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 320.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (draft.isEmpty()) Text("Add up to ${WorldClock.MAX_CITIES} places; each shows its time here, and tomorrow or yesterday when it is on another day.",
-                    fontSize = 12.sp)
-                draft.forEachIndexed { index, zoneId ->
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(WorldClock.cityFor(zoneId)?.label ?: zoneId, Modifier.weight(1f), fontSize = 14.sp)
-                        IconButton(onClick = { draft = WorldClock.removeAt(draft, index) },
-                            modifier = Modifier.testTag("world-clock-remove-$index")) {
-                            Icon(Icons.Rounded.Close, "Remove ${WorldClock.cityFor(zoneId)?.label ?: zoneId}")
-                        }
-                    }
-                }
-                if (draft.size < WorldClock.MAX_CITIES) {
-                    OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().testTag("world-clock-search"),
-                        singleLine = true, label = { Text("Add a place") })
-                    WorldClock.search(query, draft).forEach { city ->
-                        Row(Modifier.fillMaxWidth().clickable { draft = WorldClock.add(draft, city.zoneId); query = "" }
-                            .padding(vertical = 6.dp).testTag("world-clock-add-${city.tag}"),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Text(city.label, Modifier.weight(1f), fontSize = 14.sp)
-                            Text(WorldClock.offsetLabel(city.zoneId, Instant.now()), fontSize = 12.sp)
-                        }
-                    }
-                } else Text("${WorldClock.MAX_CITIES} places at most; remove one to add another.", fontSize = 12.sp)
+        GlassDialog(onDismissRequest = { editing = false }, title = "World clock", actions = {
+            GlassButton("Cancel", { editing = false })
+            GlassButton("Save", {
+                WidgetData.set(slot, "zones", WorldClock.serializeZones(draft))
+                editing = false
+            }, prominent = true, tag = "world-clock-save")
+        }) {
+            if (draft.isEmpty()) GlassNote("Add up to ${WorldClock.MAX_CITIES} places; each shows its time here, and tomorrow or yesterday when it is on another day.")
+            draft.forEachIndexed { index, zoneId ->
+                GlassRow(WorldClock.cityFor(zoneId)?.label ?: zoneId, onClick = { draft = WorldClock.removeAt(draft, index) },
+                    modifier = Modifier.testTag("world-clock-remove-$index"),
+                    trailing = { Icon(Icons.Rounded.Close, "Remove ${WorldClock.cityFor(zoneId)?.label ?: zoneId}") })
             }
-        }, confirmButton = { TextButton(onClick = {
-            WidgetData.set(slot, "zones", WorldClock.serializeZones(draft))
-            editing = false
-        }, Modifier.testTag("world-clock-save")) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { editing = false }) { Text("Cancel") } })
+            if (draft.size < WorldClock.MAX_CITIES) {
+                GlassTextField(query, { query = it }, placeholder = "Add a place", singleLine = true, tag = "world-clock-search")
+                WorldClock.search(query, draft).forEach { city ->
+                    GlassRow(city.label, onClick = { draft = WorldClock.add(draft, city.zoneId); query = "" },
+                        modifier = Modifier.testTag("world-clock-add-${city.tag}"),
+                        trailing = { GlassNote(WorldClock.offsetLabel(city.zoneId, Instant.now())) })
+                }
+            } else GlassNote("${WorldClock.MAX_CITIES} places at most; remove one to add another.")
+        }
     }
 }
 

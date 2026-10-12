@@ -114,7 +114,9 @@ class MainActivity : ComponentActivity() {
         WidgetStacks.init(this)
         LargeFolders.init(this)
         WidgetData.init(this)
+        IslandThemes.init(this)
         super.onCreate(savedInstanceState)
+        IslandThemeController.current = IslandThemeController(this)
         setupExperience = SetupExperience(this)
         showFirstRun.value = setupExperience.entryDecision(SetupExperience.hadLauncherState(this)) ==
             SetupEntryDecision.SHOW
@@ -236,6 +238,7 @@ class MainActivity : ComponentActivity() {
         shadeSetupDialog?.dismiss()
         if (!isChangingConfigurations) releaseShadeSetupOwnership()
         cancelAppearanceLocation()
+        if (!isChangingConfigurations) IslandThemeController.current?.let { it.dispose(); IslandThemeController.current = null }
         super.onDestroy()
     }
     override fun onResume() {

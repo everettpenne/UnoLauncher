@@ -55,6 +55,9 @@ internal fun MoonFace(slot: Int, onOptions: () -> Unit) {
         Text(MoonPhase.name(cycle), color = ink.primary, fontSize = 12.sp, maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally))
         Text("${(MoonPhase.illumination(at) * 100).toInt()}% lit", color = ink.soft(), fontSize = 11.sp, maxLines = 1,
             modifier = Modifier.align(Alignment.CenterHorizontally))
+        // What is coming: the nearer of the next full and the next new moon.
+        Text(MoonPhase.nextText(MoonPhase.next(at)), color = ink.soft(), fontSize = 10.sp, maxLines = 1,
+            modifier = Modifier.align(Alignment.CenterHorizontally).testTag("moon-next-$slot"))
     }
 }
 

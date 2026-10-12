@@ -1,0 +1,63 @@
+package com.jake.duolauncher.widgets
+
+import com.jake.duolauncher.*
+import com.jake.duolauncher.island.*
+import com.jake.duolauncher.appearance.*
+import android.app.AlarmManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import java.time.Instant
+import java.time.ZoneId
+
+/**
+ * The Next alarm widget: the time of the next alarm set in the phone's clock app, and how long until it. It asks Android for exactly
+ * that one answer ([AlarmManager.getNextAlarmClock]), which needs no permission, and shows it only here: nothing is kept or sent. Tapping
+ * it opens the clock app where the alarm is set. Registered in [UnoWidgets].
+ */
+@Composable
+internal fun NextAlarmFace(slot: Int, onOptions: () -> Unit) {
+    val context = LocalContext.current
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var info by remember { mutableStateOf(readNextAlarm(context)) }
+    // Android announces a change to the next alarm; the minute tick keeps "in 7 h 20 min" honest between changes.
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) { info = readNextAlarm(context); nowMs = System.currentTimeMillis() }
+        }
+        androidx.core.content.ContextCompat.registerReceiver(context, receiver, IntentFilter(AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED),
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(60_000L); nowMs = System.currentTimeMillis(); info = readNextAlarm(context) } }
+    GlassCard(onClick = { if (!sendTapAction(context, info?.showIntent)) onOptions() }, modifier = Modifier.testTag("uno-next-alarm-$slot")) {
+        val ink = LocalGlassInk.current
+        CardTitle(Icons.Rounded.Alarm, "Next alarm")
+        val alarm = info
+        if (alarm == null) {
+            Text("No alarm set", color = ink.primary, fontSize = 18.sp, fontWeight = FontWeight.Light, modifier = Modifier.testTag("next-alarm-none"))
+            Text("Set one in your clock app.", color = ink.soft(), fontSize = 12.sp)
+        } else {
+            val zone = ZoneId.systemDefault()
+            val parts = NextAlarmText.describe(Instant.ofEpochMilli(nowMs).atZone(zone), Instant.ofEpochMilli(alarm.triggerTime).atZone(zone),
+                android.text.format.DateFormat.is24HourFormat(context))
+            Text(parts.time, color = ink.primary, fontSize = 30.sp, fontWeight = FontWeight.Light, maxLines = 1, modifier = Modifier.testTag("next-alarm-time"))
+            Text(parts.day, color = ink.primary, fontSize = 13.sp, maxLines = 1)
+            Text(parts.remaining, color = ink.soft(), fontSize = 12.sp, maxLines = 1)
+        }
+    }
+}
+
+private fun readNextAlarm(context: Context): AlarmManager.AlarmClockInfo? =
+    runCatching { context.getSystemService(AlarmManager::class.java)?.nextAlarmClock }.getOrNull()

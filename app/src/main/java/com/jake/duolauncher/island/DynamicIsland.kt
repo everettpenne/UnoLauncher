@@ -1102,7 +1102,7 @@ private fun IslandToolsFace(clockMs: Long, torch: TorchState) {
             Text(if (IslandTools.ringing) "Done" else IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)),
                 color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             ToolButton(Icons.Rounded.Close, "Cancel timer") { IslandTools.cancelTimer(context) }
-        } else listOf(1 to "1m", 5 to "5m", 10 to "10m", 30 to "30m").forEach { (minutes, label) ->
+        } else TimerPresets.MINUTES.map { it to "${it}m" }.forEach { (minutes, label) ->
             Box(Modifier.weight(1f).height(34.dp).clip(RoundedCornerShape(percent = 50)).background(Color.White.copy(alpha = .14f))
                 .clickable { IslandTools.startTimer(context, minutes * 60_000L) }
                 .semantics { contentDescription = "Start $minutes minute timer" }.testTag("island-timer-$minutes"),

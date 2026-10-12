@@ -91,4 +91,32 @@ class UnoWidgetLibraryIntegrationTest {
             File(compose.activity.filesDir, "uno-widgets2.png").outputStream().use { shot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         } finally { compose.runOnIdle { model().restoreLayout(before) } }
     }
+
+    @Test fun theAnalogClockAndTheNextAlarmDraw() {
+        ready()
+        val before = model().state.value.layout
+        try {
+            compose.runOnIdle {
+                model().state.value.order.toList().forEach { model().setPinned(it, false) }
+                model().state.value.layout.widgetPlacements.map { it.slot }.forEach { model().removePlacement(DropTarget.Widget(it)) }
+            }
+            compose.waitForIdle()
+            val chosen = listOf(UnoWidgets.ANALOG_CLOCK to "analog-clock", UnoWidgets.NEXT_ALARM to "next-alarm", UnoWidgets.MOON to "moon", UnoWidgets.COUNTDOWN to "countdown")
+            val base = (model().state.value.layout.widgetPlacements.maxOfOrNull { it.slot } ?: -1) + 1
+            chosen.forEachIndexed { i, (id, _) ->
+                val slot = base + i
+                val layout = model().state.value.layout
+                val index = (0 until HOME_CELLS).firstOrNull { widgetCandidate(layout, slot, it, 2, 2) != null }
+                assertNotNull(index)
+                compose.runOnIdle { assertTrue(model().placeWidget(widgetCandidate(layout, slot, index!!, 2, 2)!!.copy(id = id))) }
+            }
+            compose.waitForIdle()
+            chosen.forEachIndexed { i, (_, tag) -> assertTrue("$tag face", present("uno-$tag-${base + i}")) }
+            // With no alarm set it says so; with one it shows a time (this fixture sets none).
+            assertTrue(present("next-alarm-none") || present("next-alarm-time"))
+            assertTrue("the moon says what is coming", present("moon-next-${base + 2}"))
+            val shot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            File(compose.activity.filesDir, "uno-widgets3.png").outputStream().use { shot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        } finally { compose.runOnIdle { model().restoreLayout(before) } }
+    }
 }

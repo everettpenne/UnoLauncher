@@ -4,30 +4,26 @@ What is built, and what is still to do. This is a working list, not a promise.
 
 ## Built
 
-- Collapsed pill with two slots: the live activities (privacy indicators, call, timer, stopwatch, music) sit either side of the camera, and a sideways flick turns which one is in front.
-- Camera and microphone indicators, permission-free (public camera-availability and audio-recording callbacks).
-- Event queue: a second event waits behind the first instead of erasing it.
-- Gestures: swipe up to close or dismiss, flick sideways to turn the activities (no swipe down: Android cancels a downward drag from the top for the notification shade).
-- Smoother morph: the faces crossfade, closing is critically damped, and the overlay window is held at the open size while the island moves.
-- Album-art tint on the bars and play button.
-- A music card in the open island: artwork and track above the controls, with the controls staying visible after a pause.
-- A permission ledger (Launcher settings, Notifications & privacy): every permission the launcher uses, what it is for, what it can see, and a link to turn it off, plus a plain line saying which island you actually have (Home only, above other apps but not tappable, or tappable).
-- A blocked-service check: the ledger says so when the accessibility service is turned on in Settings but Android is not running it (Advanced Protection or a restricted-settings block), and the plain overlay is used instead.
-- VPN connected / dropped and USB data connected / ended alerts, from public callbacks that need no extra permission, with a switch to turn them off.
+- **A pill with two slots and up to two bubbles.** Calls, timers, stopwatches, Live Updates and music sit either side of the camera, the next two pop out as round bubbles, and a sideways flick turns which is in front. When all five run at once only music, the least urgent, is left out (every combination is unit tested).
+- **Privacy dots.** Camera, microphone and screen recording show as small green, orange and red dots beside the pill, from public callbacks that need no permission.
+- **Music that follows the player.** The player's own session decides playing and paused; a session that says "playing" over silence stops counting after a few seconds. Finished media lingers a few seconds; paused media worth returning to (a title, part-way through, over 30 seconds) leaves the pill and waits on the open island for a time you set. The cover colour washes the pill while it plays; the moving bars are checked on the real display.
+- **Notification cards and flashes.** A new notification drops a card (name only, name and title, or name, title and text; blocked words; per-app timeouts and an allowlist). A flash with only the app's icon opens that notification on a tap anywhere on the pill.
+- **Live Updates, navigation and downloads** as generic activities, each with its own switch.
+- **Over other apps.** An overlay with a bounds-exact touch window, optional permanent wide pill, hiding in landscape, never on the lock screen; plain overlay or the optional accessibility-hosted island above the status bar.
+- **Quick apps and a hosted widget** in the open panel; a search field and **search that grows out of the island**.
+- **Event flashes** for ringer, airplane, Do Not Disturb, charging, VPN, USB data and audio devices, queued so two quick events are both seen.
+- **A permission ledger** (Launcher settings, Notifications & privacy): every permission, what it is for, what it can see, and a link to turn it off, and a plain line saying which island you actually have.
 
-## To do: bringing the island in line with the spirit of GrapheneOS
+## To do
 
-The island should be a privacy and system-status instrument first and an iOS imitation second. Done so far is listed above; still to do:
-
-1. **Stay out of the way.** Hide automatically during full-screen video and games. The island cannot see other apps' windows, and the system bar insets an overlay window receives are not reliable enough to depend on, so this needs a trustworthy full-screen signal first.
-2. **Peek allowlist.** Notification peeks are app name only and off by default; add a per-app allowlist so only the apps you pick can peek.
+1. **One owner for the island's state and effects.** Home and the overlay share one `IslandState` and each composable still runs its own effects against it. Move the policy and effects into one controller, behind tests that pin today's behaviour (the first of these, `IslandStateTest`, exists).
+2. **Hide over apps the person chooses.** An optional list, off by default, with its own consent. It needs the accessibility service to learn which app is in front, so it must not be on by default and its consent copy must say exactly what the service then receives.
 3. **Per-profile awareness.** Work profile, Private Space and secondary users: say whose notification or app an event is, and keep profiles from mixing in search and peeks.
-4. **Which app is using the camera or microphone.** Only where Android allows it without privileged permissions; today the marks say that something is in use, not what.
+4. **Which app is using the camera or microphone,** only where Android allows it without privileged permissions.
 5. **Sensors switched off.** Show GrapheneOS's Sensors permission state if it can be read without privileges.
-6. **Be honest about what it is.** The island is a drawn pill, not hardware. Keep the "connects to no hosts" stance, keep the release notes' hashes and signing fingerprint, and keep documenting exactly what each permission does (the ledger is where that now lives).
+6. **Be honest about what it is.** A drawn pill, not hardware; no hosts contacted; documenting exactly what each permission does.
 
-## To do: other ideas
+## Ideas
 
-- Android 16+ Live Updates (promoted ongoing notifications) as generic live activities, with notification access on.
 - Bluetooth device connect events (opt-in; needs the Bluetooth permission).
 - A fully fixed-size window with a proper touch region, if a clean way appears.

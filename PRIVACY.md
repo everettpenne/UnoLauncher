@@ -8,6 +8,7 @@ Uno Launcher stores settings, Home layout, widget placement, and selected wallpa
 - Widget providers control their content, accounts, and network activity; Android hosts their widgets.
 - Battery, Wi-Fi, cellular signal, and airplane-mode readings populate the Home status rail while visible. Signal display does not require location access.
 - Selecting a photo creates a local preview. Apply commits it; cancel preserves the previous background. Android's picker grants access to chosen images only.
+- The Next alarm widget asks Android for the time of the next alarm set in your clock app (a public call that needs no permission), shows it on that widget and keeps and sends nothing.
 - Sunrise/sunset appearance stores coordinates you enter or explicitly request from the device; a requested place is rounded to a tenth of a degree (about 11 km) before it is kept. Times are calculated locally. There is no background location tracking, and Clear location removes the stored coordinates.
 
 ## Optional access

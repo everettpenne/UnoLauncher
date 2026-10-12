@@ -4,7 +4,9 @@ import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
 import com.jake.duolauncher.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material3.*
@@ -24,7 +26,10 @@ import java.time.format.DateTimeFormatter
 internal fun CountdownFace(slot: Int, onOptions: () -> Unit) {
     val today = rememberNow(60_000).toLocalDate()
     val name = WidgetData.get(slot, "name", "Countdown")
-    val target = Countdown.parse(WidgetData.get(slot, "date"))
+    val set = Countdown.parse(WidgetData.get(slot, "date"))
+    val yearly = WidgetData.get(slot, "yearly") == "1"
+    // A yearly countdown (a birthday) rolls on to the next time its day comes round; the date shown is that next one.
+    val target = set?.let { Countdown.target(today, it, yearly) }
     var editing by remember { mutableStateOf(false) }
     GlassCard(onClick = { editing = true }, modifier = Modifier.testTag("uno-countdown-$slot")) {
         val ink = LocalGlassInk.current
@@ -36,12 +41,13 @@ internal fun CountdownFace(slot: Int, onOptions: () -> Unit) {
                 Text(big, color = ink.primary, fontSize = 38.sp, fontWeight = FontWeight.Light, lineHeight = 40.sp, maxLines = 1)
                 if (unit.isNotEmpty()) Text(unit, color = ink.soft(), fontSize = 13.sp)
             }
-            Text(target.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")), color = ink.soft(), fontSize = 11.sp, maxLines = 1)
+            Text(target.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")) + if (yearly) " · every year" else "", color = ink.soft(), fontSize = 11.sp, maxLines = 1)
         }
     }
     if (editing) {
         var draftName by remember { mutableStateOf(name) }
-        var draftDate by remember { mutableStateOf(target) }
+        var draftDate by remember { mutableStateOf(set) }
+        var draftYearly by remember { mutableStateOf(yearly) }
         var picking by remember { mutableStateOf(false) }
         AlertDialog(onDismissRequest = { editing = false }, title = { Text("Countdown") }, text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -50,10 +56,15 @@ internal fun CountdownFace(slot: Int, onOptions: () -> Unit) {
                 OutlinedButton(onClick = { picking = true }, Modifier.fillMaxWidth().testTag("countdown-date")) {
                     Text(draftDate?.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")) ?: "Choose a date")
                 }
+                Row(Modifier.fillMaxWidth().clickable { draftYearly = !draftYearly }.testTag("countdown-yearly"), verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(draftYearly, { draftYearly = it })
+                    Text("Repeat every year", fontSize = 14.sp)
+                }
             }
         }, confirmButton = { TextButton(onClick = {
             WidgetData.set(slot, "name", draftName.ifBlank { "Countdown" })
             WidgetData.set(slot, "date", draftDate?.toString().orEmpty())
+            WidgetData.set(slot, "yearly", if (draftYearly) "1" else "")
             editing = false
         }, Modifier.testTag("countdown-save")) { Text("Save") } },
             dismissButton = { TextButton(onClick = { editing = false }) { Text("Cancel") } })

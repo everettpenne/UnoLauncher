@@ -18,6 +18,8 @@ docs/*
 !docs/architecture.md
 !docs/design.md
 !docs/island-roadmap.md
+!docs/working-together.md
+!docs/widget-development.md
 !docs/releases/
 docs/releases/*
 !docs/releases/0.15.0-beta01.md

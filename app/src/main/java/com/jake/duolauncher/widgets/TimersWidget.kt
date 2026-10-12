@@ -43,7 +43,7 @@ internal fun TimersFace(slot: Int, onOptions: () -> Unit) {
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(listOf(5, 10), listOf(25, 45)).forEach { row ->
+                TimerPresets.MINUTES.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         row.forEach { minutes ->
                             Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(ink.soft(.18f))

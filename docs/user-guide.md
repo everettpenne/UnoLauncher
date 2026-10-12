@@ -6,7 +6,7 @@ Uno Launcher is an experimental Android launcher designed around a foldable phon
 
 On a fresh install, **Welcome to Uno Launcher** offers **Choose Home app**, **Add a widget**, **Explore Home**, and **Not now**. Choosing or skipping setup does not prevent later changes.
 
-To make Uno Launcher the launcher, choose **Set as home app** in customization, or open **Help & setup** and choose **Set Uno Launcher as Home**. Android owns the final Home-app chooser. To switch away later, choose **Change home app**, or use Android **Settings → Apps → Default apps → Home app**. The exact Android path may vary by device.
+To make Uno Launcher the launcher, choose **Set as home app** in Launcher settings, or open **Help & setup** and choose **Set Uno Launcher as Home**. Android owns the final Home-app chooser. To switch away later, choose **Change home app**, or use Android **Settings → Apps → Default apps → Home app**. The exact Android path may vary by device.
 
 ## Move around Home
 
@@ -26,7 +26,7 @@ Swipe up anywhere on Home to open **Launcher settings** (not when the swipe star
 - **Privacy:** **Notifications & privacy** (notification access, badges, and what every permission can see).
 - **More:** **News feed**, **Backup** (layout and your settings, including large folders and widget notes), **Updates** and **Help & setup**.
 
-After a layout edit, **Undo last layout change** appears in customization. It covers the latest supported layout change, so use it before making another edit.
+After a layout edit, **Undo last layout change** appears in Launcher settings. It covers the latest supported layout change, so use it before making another edit.
 
 ## Apps, folders, and the dock
 
@@ -40,7 +40,7 @@ If Android exposes a managed profile, **All apps** shows **Personal** and **Work
 
 ## Widgets
 
-Open **Widgets** from an empty-space menu, **Add widget to this page** in customization, or **Add a widget** during setup. Search the catalog, select **Personal** or **Work** when those choices exist, then tap a preview to place it or hold it to drag. Android may ask you to allow the binding, and some providers open their own setup screen.
+Open **Widgets** from an empty-space menu, **Add widget to this page** in Launcher settings, or **Add a widget** during setup. Search the catalog, select **Personal** or **Work** when those choices exist, then tap a preview to place it or hold it to drag. Android may ask you to allow the binding, and some providers open their own setup screen.
 
 Hold an existing widget to pick it up, then drag it across cells or pages. A small amount of held finger jitter is allowed. Move into the lower-right **Remove** target to delete it from Home. Long press and release without dragging to open **Widget options**, which can include **Widget settings**, **Resize on Home**, page moves, **Replace**, and **Remove**.
 

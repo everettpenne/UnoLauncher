@@ -4,20 +4,27 @@ Uno Launcher is a Kotlin/Jetpack Compose Android Home application with one norma
 
 ## Where to start
 
-All paths below are relative to `app/src/main/java/com/jake/duolauncher/`.
+All paths below are relative to `app/src/main/java/com/jake/duolauncher/`. Features live in a folder (and Kotlin package) each; everything is `internal` to the one module, so a package is a place to find things and a boundary to review. The top level holds the core: Home, state, paging, drag, Android widget hosting, Discover, backup and the updater. See [Working together](working-together.md) for who looks after what.
 
-| Area | Entry points | Responsibility |
+| Area | Where | Responsibility |
 | --- | --- | --- |
 | Activity and setup | `MainActivity.kt`, `SetupExperience.kt` | Android intents/results, Home selection, fresh-install setup and optional access |
-| App catalog and saved layout | `LauncherModel.kt`, `ProfileSupport.kt` | Observable launcher state, profile-aware identities, package changes and persistence |
+| App catalog and saved layout | `LauncherModel.kt`, `LayoutModel.kt`, `ProfileSupport.kt` | Observable launcher state, profile-aware identities, package changes and persistence |
 | Home and navigation | `LauncherScreen.kt`, `LauncherPager.kt`, `PageGestures.kt`, `WorkspacePageMotion.kt` | Page composition, shared gestures, unfolded pairs and page motion |
-| Editing and folders | `HomeEditing.kt`, `HomeDrag.kt`, `FolderEditing.kt`, `FolderPanel.kt` | Placement rules, drag previews, insertion, folders and cancellation |
-| Native widgets | `WidgetController.kt`, `WidgetPicker.kt`, `WidgetSizing.kt`, `ZeroPaddingWidgetHost.kt`, `WidgetVerticalGestures.kt` | Provider catalog, binding/configuration, geometry and native touch arbitration |
+| Editing | `HomeEditing.kt`, `HomeDrag.kt` | Placement rules, drag previews, insertion and cancellation |
+| Folders | `folders/` | Large folders, the folder panel, folder editing and previews |
+| Android widgets | `WidgetController.kt`, `WidgetPicker.kt`, `WidgetSizing.kt`, `ZeroPaddingWidgetHost.kt`, `WidgetVerticalGestures.kt`, `WidgetStacks.kt` | Provider catalog, binding/configuration, geometry, stacks and native touch arbitration |
+| Uno widgets | `widgets/` | The launcher's own widgets, one file each, and the registry (`UnoWidgets.kt`). See [Writing an Uno widget](widget-development.md) |
+| Dynamic island | `island/` | The pill and its panel, activities (calls, timers, media, Live Updates), the overlay over other apps, notification cards, quick apps, and the permission ledger |
+| Search | `search/` | The search panel that grows from the island, answers, hand-off to other apps, All apps, optional contacts |
+| Control panel | `panel/` | The pull-down panel and the system controls it drives |
+| Appearance | `appearance/` | Photo and dune wallpapers, liquid glass, ink, corners, type, colour from wallpaper, scheduling |
+| News feed | `feed/` | User-added RSS/Atom sources, direct bounded fetching, on-device cache, and the Discover-slot surface |
+| Keyboard | `keyboard/` | Uno Keyboard (the input method) and its tests' privacy gate |
 | Google features | `GoogleSearch.kt`, `DiscoverClient.kt`, `LiveDiscoverActivity.kt`, `DiscoverBounds.kt` | Search intents, feed protocol, persistent host and embedding compatibility |
-| News feed | `FeedStore`/`FeedFetcher`/`FeedParser` (`FeedModel.kt`, `FeedFetcher.kt`, `FeedParser.kt`), `FeedPage.kt`, `FeedSettings.kt` | User-added RSS/Atom sources, direct bounded fetching, on-device cache, and the Discover-slot surface |
-| Customization | `CustomizationSheet.kt`, `LauncherActionSheet.kt` | Long-press actions, settings subpages and sheet navigation |
-| Photos, appearance and status | `LauncherBackground.kt`, `AppearanceSettings.kt`, `SolarSchedule.kt`, `DeviceStatus.kt`, `StatusRail.kt` | Private photo staging, theme scheduling, live status and its presentation |
-| Backup and shade access | `LayoutBackup.kt`, `BackupController.kt`, `SystemShadeController.kt` | Portable layout import/export and optional system-panel actions |
+| Settings and sheets | `CustomizationSheet.kt`, `LauncherActionSheet.kt`, `ExtrasSettings.kt`, `ExtrasStore.kt` | Long-press actions, settings pages and the saved settings |
+| Status | `DeviceStatus.kt`, `StatusRail.kt` | Live status and its presentation |
+| Backup and shade access | `LayoutBackup.kt`, `BackupController.kt`, `SettingsBackup.kt`, `SystemShadeController.kt`, `Updates.kt` | Portable layout and settings import/export, optional system-panel actions, the self-updater |
 
 ## Layout and identity
 

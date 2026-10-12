@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.41.0-uno01
+
+This release reorganises the code so that more than one person can work on it safely (no change to behaviour there), and improves the widget library.
+
+- **Code is grouped by feature.** The Kotlin files now live in a folder (and package) per feature: `island/`, `search/`, `panel/`, `appearance/`, `folders/`, `feed/`, `widgets/` and `keyboard/`; Home, state, paging, drag, Android widget hosting, Discover, backup and the updater stay at the top level. Moving a file only changes its package line and the imports that use it; the 76 unit-test files and the emulator suites for the island, settings, folders and widgets were run on the result. The manifest names three components by their new package (the island overlay service, the timer receiver and the dune wallpaper service).
+- **Uno widgets are one file each.** `UnoWidgets.kt` is now only the registry; every widget (`BatteryWidget.kt`, `MonthWidget.kt`, `MoonWidget.kt` and so on) has its own file in `widgets/`. A new test fails if a widget id is repeated, positive, or a shipped id disappears, because saved layouts and backups depend on them.
+- **Four widget improvements and two new widgets** (all permission-free, all local):
+  - **Analog clock** (new): a dial with hour and minute hands and the date; it redraws once a minute, exactly when the hand moves.
+  - **Next alarm** (new): the time of your next clock-app alarm, which day, and how long until it; tap to open the clock app. It asks Android for that one answer (no permission) and keeps nothing; it updates the moment an alarm changes.
+  - **Moon** now says what is coming: "Full moon in 6 days" or "New moon tomorrow", whichever is nearer.
+  - **Countdown** can repeat every year, for a birthday or an anniversary: it rolls on to the next time the day comes round, and 29 February falls on the 28th in a year without one.
+  - **Timers and the island agree.** The Timers widget offered 5, 10, 25 and 45 minutes while the island's own tools offered 1, 5, 10 and 30; both now use one list (5, 10, 25, 45), kept in one place so they cannot drift apart again.
+- **Guides for working together.** `docs/working-together.md` describes the repository (public, a protected `main`, release tags only the owner can create, fork and pull request, who reviews what); `docs/widget-development.md` is the rules and checklist for writing a widget; the code map, island roadmap, user guide and troubleshooting guide are brought up to date.
+- **On GitHub:** `main` now requires a passing CI build and a code-owner review (the owner can still push), `.github/CODEOWNERS` keeps the build, release, permissions and updater files with the owner, and `v*` release tags can only be created by the owner.
+- Old planning notes that were superseded were removed.
+
 ## 0.40.2-uno01
 
 From an independent audit's improvement plan, the small, safe items only.

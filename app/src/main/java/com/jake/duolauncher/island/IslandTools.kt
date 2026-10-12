@@ -198,3 +198,8 @@ internal fun rememberTorch(active: Boolean): TorchState {
     }
     return torch
 }
+
+/** The timer lengths offered, in minutes, by the island's tools and by the Timers widget alike, so the two never disagree. */
+internal object TimerPresets {
+    val MINUTES = listOf(5, 10, 25, 45)
+}

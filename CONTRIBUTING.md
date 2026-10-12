@@ -2,7 +2,7 @@
 
 Keep changes focused. Describe the user-visible problem, resulting behavior, and validation. Start with an issue before substantial features or changes to dock geometry, fold layout, or Google integration.
 
-Read the [code map](docs/architecture.md) for ownership, persistence and gesture constraints. The [user guide](docs/user-guide.md) and [troubleshooting guide](docs/troubleshooting.md) describe the behavior changes should preserve.
+Read [Working together](docs/working-together.md) for how the repository is organised (fork, pull request, who reviews what), and the [code map](docs/architecture.md) for ownership, persistence and gesture constraints. The [user guide](docs/user-guide.md) and [troubleshooting guide](docs/troubleshooting.md) describe the behavior changes should preserve.
 
 Run `./scripts/gradle.sh :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`. Use disposable emulators for instrumentation.
 

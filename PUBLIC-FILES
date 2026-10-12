@@ -36,6 +36,8 @@ docs/troubleshooting.md
 docs/architecture.md
 docs/design.md
 docs/island-roadmap.md
+docs/working-together.md
+docs/widget-development.md
 docs/releases/0.15.0-beta01.md
 docs/releases/0.16.0-uno01.md
 docs/releases/0.16.1-uno01.md
@@ -96,3 +98,4 @@ docs/releases/0.39.1-uno01.md
 docs/releases/0.40.0-uno01.md
 docs/releases/0.40.1-uno01.md
 docs/releases/0.40.2-uno01.md
+docs/releases/0.41.0-uno01.md

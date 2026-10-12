@@ -76,6 +76,25 @@ internal object MoonPhase {
 
     /** True while the lit side grows (it is on the right in the northern hemisphere). */
     fun waxing(cycle: Double) = cycle < .5
+
+    /** Days from [at] until the cycle next reaches [target] (0.5 full, 0 new), strictly ahead, at most one month. */
+    fun daysUntilCycle(at: ZonedDateTime, target: Double): Double {
+        val ahead = ((target - cycle(at)) % 1.0 + 1.0) % 1.0
+        return ahead * SYNODIC_DAYS
+    }
+
+    /** The nearer of the next full and next new moon, as whole days (rounded up, so "0 days" is never shown for something still ahead). */
+    data class Next(val name: String, val days: Int)
+
+    fun next(at: ZonedDateTime): Next {
+        val full = daysUntilCycle(at, .5); val new = daysUntilCycle(at, 0.0)
+        return if (full <= new) Next("Full moon", kotlin.math.ceil(full).toInt()) else Next("New moon", kotlin.math.ceil(new).toInt())
+    }
+
+    fun nextText(next: Next): String = when (next.days) {
+        0, 1 -> "${next.name} tomorrow"
+        else -> "${next.name} in ${next.days} days"
+    }
 }
 
 /** Wording for a countdown to a date. */
@@ -95,6 +114,51 @@ internal object Countdown {
     }
 
     fun parse(raw: String?): LocalDate? = runCatching { LocalDate.parse(raw) }.getOrNull()
+
+    /** The date to count to. A yearly countdown (a birthday, an anniversary) rolls forward to the next time its day comes round, today
+     * included; 29 February falls on the 28th in a year without one. Otherwise it is the date as set. */
+    fun target(today: LocalDate, set: LocalDate, yearly: Boolean): LocalDate {
+        if (!yearly || !set.isBefore(today)) return set
+        var next = set.withYear(today.year)
+        if (next.isBefore(today)) next = set.withYear(today.year + 1)
+        return next
+    }
+
+    /** How many years the set date is behind the target, for "turns 30" style wording: 0 when it is not yearly or not yet a year on. */
+    fun years(set: LocalDate, target: LocalDate): Int = (target.year - set.year).coerceAtLeast(0)
+}
+
+/** Where the hands of an analog clock point, in degrees clockwise from twelve. No seconds hand: it would redraw every second for nothing. */
+internal object AnalogClock {
+    fun minuteAngle(time: java.time.LocalTime): Float = time.minute * 6f + time.second * 0.1f
+    fun hourAngle(time: java.time.LocalTime): Float = (time.hour % 12) * 30f + time.minute * 0.5f
+    /** Milliseconds from [time] to the next whole minute, so the face redraws exactly when the minute hand moves. */
+    fun msToNextMinute(time: java.time.LocalTime): Long = 60_000L - (time.second * 1000L + time.nano / 1_000_000L)
+}
+
+/** How the next alarm reads: "7:30 AM", "Tomorrow", "in 7 h 20 min". */
+internal object NextAlarmText {
+    data class Parts(val time: String, val day: String, val remaining: String)
+
+    fun describe(now: ZonedDateTime, trigger: ZonedDateTime, is24Hour: Boolean): Parts {
+        val pattern = com.jake.duolauncher.ClockFormat.timePattern(is24Hour, meridiem = true)
+        val time = java.time.format.DateTimeFormatter.ofPattern(pattern, java.util.Locale.getDefault()).format(trigger)
+        val days = ChronoUnit.DAYS.between(now.toLocalDate(), trigger.toLocalDate())
+        val day = when {
+            days <= 0L -> "Today"
+            days == 1L -> "Tomorrow"
+            days < 7L -> trigger.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())
+            else -> java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d", java.util.Locale.getDefault()).format(trigger)
+        }
+        val minutes = ChronoUnit.MINUTES.between(now, trigger).coerceAtLeast(0L)
+        val remaining = when {
+            minutes < 1L -> "in under a minute"
+            minutes < 60L -> "in $minutes min"
+            minutes < 24L * 60L -> "in ${minutes / 60} h ${minutes % 60} min"
+            else -> "in ${minutes / (24 * 60)} d ${(minutes % (24 * 60)) / 60} h"
+        }
+        return Parts(time, day, remaining)
+    }
 }
 
 /** Wording for the sun widget. */

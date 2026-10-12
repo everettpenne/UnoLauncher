@@ -10,6 +10,8 @@ overlaps happen.
 - **Look follows Apple's HIG:** continuous corners, the dynamic island, iOS control
   colors, liquid glass. Deviations from Material are intentional and listed here.
 
+> Files named in this document live in feature folders under `app/src/main/java/com/jake/duolauncher/` (`island/`, `search/`, `panel/`, `appearance/`, `folders/`, `feed/`, `widgets/`, `keyboard/`); see the [code map](architecture.md).
+
 ## Spacing scale
 
 Commit to multiples of 4 dp; prefer the 8 dp grid.

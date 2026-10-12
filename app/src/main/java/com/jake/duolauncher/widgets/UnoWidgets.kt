@@ -29,6 +29,8 @@ internal object UnoWidgets {
     const val COUNTER = -26
     const val TIMERS = -27
     const val SUN = -28
+    const val ANALOG_CLOCK = -29
+    const val NEXT_ALARM = -30
 
     val all: List<UnoWidgetDef> = listOf(
         UnoWidgetDef(BATTERY, "Battery", "A ring for the charge level, and time to full while charging.", 2, 2) { s, o -> BatteryFace(s, o) },
@@ -40,6 +42,8 @@ internal object UnoWidgets {
         UnoWidgetDef(COUNTER, "Counter", "Tap to add one; a small button takes one away. Tap the name to rename or reset.", 2, 2) { s, o -> CounterFace(s, o) },
         UnoWidgetDef(TIMERS, "Timers", "One tap starts a 5, 10, 25 or 45 minute timer in the island.", 2, 2) { s, o -> TimersFace(s, o) },
         UnoWidgetDef(SUN, "Sunrise and sunset", "Today's times for the place you set in Appearance. Worked out on the phone.", 2, 2) { s, o -> SunFace(s, o) },
+        UnoWidgetDef(ANALOG_CLOCK, "Analog clock", "A dial with hour and minute hands, and today's date. Moves once a minute.", 2, 2) { s, o -> AnalogClockFace(s, o) },
+        UnoWidgetDef(NEXT_ALARM, "Next alarm", "When your next clock-app alarm rings, and how long until it. Tap to open the clock app.", 2, 2) { s, o -> NextAlarmFace(s, o) },
     )
 
     fun byId(id: Int): UnoWidgetDef? = all.firstOrNull { it.id == id }

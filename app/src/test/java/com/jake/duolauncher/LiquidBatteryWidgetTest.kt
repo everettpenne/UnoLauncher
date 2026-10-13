@@ -3,6 +3,7 @@ package com.jake.duolauncher
 import com.jake.duolauncher.widgets.*
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -58,5 +59,21 @@ class LiquidBatteryWidgetTest {
         assertEquals(0f, points.first().first, 1e-4f)
         assertEquals(1f, points.last().first, 1e-4f)
         assertTrue(points.all { (x, y) -> x in 0f..1f && y in 0f..1f })
+    }
+
+    @Test fun theLiquidChangesColourWithTheCharge() {
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF34C759), LiquidBattery.liquidColor(30, true, null))
+        assertEquals(androidx.compose.ui.graphics.Color(0xFFFF453A), LiquidBattery.liquidColor(8, false, null))
+        assertEquals(androidx.compose.ui.graphics.Color(0xFFFF9500), LiquidBattery.liquidColor(15, false, null))
+        val accent = androidx.compose.ui.graphics.Color(0xFF123456)
+        assertEquals(accent, LiquidBattery.liquidColor(80, false, accent))
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF38A8FF), LiquidBattery.liquidColor(80, false, null))
+    }
+
+    @Test fun bubblesStayInsideTheLiquidAndKeepMoving() {
+        for (p in listOf(0f, .25f, .5f, .99f)) LiquidBattery.bubbles(p).forEach { b ->
+            assertTrue(b.x in 0f..1f); assertTrue(b.y in 0f..1f); assertTrue(b.size > 0f)
+        }
+        assertNotEquals(LiquidBattery.bubbles(0f).map { it.y }, LiquidBattery.bubbles(.3f).map { it.y })
     }
 }

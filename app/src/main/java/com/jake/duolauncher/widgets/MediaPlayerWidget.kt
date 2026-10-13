@@ -14,6 +14,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -58,6 +63,10 @@ import kotlinx.coroutines.delay
  *
  * Nothing here asks the player anything while drawing: the position, duration and speed arrive on [NowPlaying] from the
  * listener's own thread, because a player query is a binder call that can stall for seconds (see docs/design.md).
+ *
+ * The look follows the artwork: it is blurred and dimmed into a wash behind the card (so every track gets its own colours), the
+ * text and controls are white on it, and the layout adapts to the size it is given: a compact card (title, artist, progress, controls),
+ * or, when it is wide, the artwork as a tile beside them with the elapsed and remaining time.
  */
 @Composable
 internal fun MediaPlayerFace(slot: Int, onOptions: () -> Unit) {
@@ -69,83 +78,131 @@ internal fun MediaPlayerFace(slot: Int, onOptions: () -> Unit) {
         if (!playing) { value = System.currentTimeMillis(); return@produceState }
         while (true) { value = System.currentTimeMillis(); delay(1_000L) }
     }
+    val art = remember(np?.art) { np?.art?.asImageBitmap() }
     GlassCard(onClick = { val controller = np?.controller; if (controller != null) openPlayer(context, controller) else onOptions() },
-        modifier = Modifier.testTag("uno-media-player-$slot")) {
-        val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.MusicNote, "Now playing")
-        val now = np
-        if (now == null) {
-            val detailsOn = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("mediaDetails", false)
-            Text(stringResource(com.jake.duolauncher.R.string.nothing_playing), color = ink.primary, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-            Text(stringResource(when (MediaWidget.emptyHint(NotificationFeed.connected, detailsOn)) {
-                MediaWidget.EmptyHint.NEEDS_ACCESS -> com.jake.duolauncher.R.string.media_widget_needs_access
-                MediaWidget.EmptyHint.NEEDS_SETTING -> com.jake.duolauncher.R.string.media_widget_needs_setting
-                MediaWidget.EmptyHint.IDLE -> com.jake.duolauncher.R.string.media_widget_idle
-            }), color = ink.soft(), fontSize = 12.sp, modifier = Modifier.testTag("media-empty-hint"))
-        } else {
-            val art = remember(now.art) { now.art?.asImageBitmap() }
-            Row(Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(ink.soft(.18f)),
-                    contentAlignment = Alignment.Center) {
-                    if (art != null) Image(art, "Album art", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    else Icon(Icons.Rounded.MusicNote, null, tint = ink.primary, modifier = Modifier.size(24.dp))
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(MediaWidget.displayTitle(now.title, now.playing), color = ink.primary, fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.testTag("media-title"))
-                    now.artist?.let {
-                        Text(it, color = ink.soft(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        modifier = Modifier.testTag("uno-media-player-$slot"), padding = 0.dp) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val glassInk = LocalGlassInk.current
+            val onArt = np != null && art != null
+            if (onArt) ArtWash(art!!)
+            val ink = if (onArt) Color.White else glassInk.primary
+            val soft = if (onArt) Color.White.copy(alpha = .74f) else glassInk.soft()
+            if (np == null) {
+                EmptyPlayer(context, ink, soft)
+            } else if (maxWidth >= 240.dp) {
+                val tile = minOf(maxHeight - 16.dp, 92.dp)
+                Row(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    ArtTile(art, ink, Modifier.size(tile))
+                    Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+                        TrackText(np, ink, soft, titleSize = 16.sp)
+                        SeekBar(np, playing, tick, ink, showTimes = true)
+                        Controls(context, playing, ink, onArt, Modifier.fillMaxWidth())
                     }
                 }
-            }
-            SeekBar(now, playing, tick, ink.primary)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically) {
-                MediaControl(Icons.Rounded.SkipPrevious, "Previous", ink.primary) {
-                    mediaCommand(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS)
-                }
-                MediaControl(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    if (playing) "Pause" else "Play", ink.primary, size = 52.dp, iconScale = .55f) {
-                    mediaCommand(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
-                }
-                MediaControl(Icons.Rounded.SkipNext, "Next", ink.primary) {
-                    mediaCommand(context, KeyEvent.KEYCODE_MEDIA_NEXT)
+            } else {
+                Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                    TrackText(np, ink, soft, titleSize = 13.sp)
+                    SeekBar(np, playing, tick, ink, showTimes = false)
+                    Controls(context, playing, ink, onArt, Modifier.fillMaxWidth())
                 }
             }
         }
     }
 }
 
-/** A thin seek bar: tap to jump (a drag would fight the Home pager's page swipe). The filled part follows the position the listener
- *  last reported, moved on by the playback speed. A screen reader gets its value and can set it. */
+/** The artwork, blurred and dimmed, filling the card: each track brings its own colours to the glass. */
 @Composable
-private fun SeekBar(now: NowPlaying, playing: Boolean, tick: Long, tint: androidx.compose.ui.graphics.Color) {
+private fun ArtWash(art: ImageBitmap) {
+    Box(Modifier.fillMaxSize().clipToBounds()) {
+        Image(art, null, Modifier.fillMaxSize().blur(30.dp, BlurredEdgeTreatment.Unbounded), contentScale = ContentScale.Crop)
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = .22f), Color.Black.copy(alpha = .58f)))))
+    }
+}
+
+@Composable
+private fun ArtTile(art: ImageBitmap?, ink: Color, modifier: Modifier) {
+    Box(modifier.clip(RoundedCornerShape(16.dp)).background(ink.copy(alpha = .14f)), contentAlignment = Alignment.Center) {
+        if (art != null) Image(art, "Album art", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        else Icon(Icons.Rounded.MusicNote, null, tint = ink, modifier = Modifier.size(34.dp))
+    }
+}
+
+@Composable
+private fun TrackText(now: NowPlaying, ink: Color, soft: Color, titleSize: androidx.compose.ui.unit.TextUnit) {
+    Column {
+        Text(MediaWidget.displayTitle(now.title, now.playing), color = ink, fontSize = titleSize, fontWeight = FontWeight.SemiBold,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("media-title"))
+        Text(now.artist ?: "", color = soft, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun Controls(context: Context, playing: Boolean, ink: Color, onArt: Boolean, modifier: Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+        MediaControl(Icons.Rounded.SkipPrevious, "Previous", ink, size = 44.dp) { mediaCommand(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS) }
+        MediaControl(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (playing) "Pause" else "Play", ink, size = 48.dp,
+            filled = true, iconColor = if (onArt) Color.Black.copy(alpha = .86f) else Color.White) { mediaCommand(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) }
+        MediaControl(Icons.Rounded.SkipNext, "Next", ink) { mediaCommand(context, KeyEvent.KEYCODE_MEDIA_NEXT) }
+    }
+}
+
+@Composable
+private fun EmptyPlayer(context: Context, ink: Color, soft: Color) {
+    val detailsOn = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("mediaDetails", false)
+    Column(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.Center) {
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(ink.copy(alpha = .10f)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.MusicNote, null, tint = soft, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(stringResource(com.jake.duolauncher.R.string.nothing_playing), color = ink, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        Text(stringResource(when (MediaWidget.emptyHint(NotificationFeed.connected, detailsOn)) {
+            MediaWidget.EmptyHint.NEEDS_ACCESS -> com.jake.duolauncher.R.string.media_widget_needs_access
+            MediaWidget.EmptyHint.NEEDS_SETTING -> com.jake.duolauncher.R.string.media_widget_needs_setting
+            MediaWidget.EmptyHint.IDLE -> com.jake.duolauncher.R.string.media_widget_idle
+        }), color = soft, fontSize = 12.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("media-empty-hint"))
+    }
+}
+
+/** A thin seek bar with a knob: tap to jump (a drag would fight the Home pager's page swipe). The filled part follows the position the
+ *  listener last reported, moved on by the playback speed. A screen reader gets its value and can set it. With [showTimes], the elapsed
+ *  and remaining time sit at its ends. */
+@Composable
+private fun SeekBar(now: NowPlaying, playing: Boolean, tick: Long, tint: Color, showTimes: Boolean) {
     @Suppress("UNUSED_EXPRESSION") tick   // read, so the bar is redrawn each second while playing
     val duration = now.durationMs
     val fraction = MediaWidget.fraction(now.positionMs, now.positionUpdatedAtMs, now.speed, playing,
         SystemClock.elapsedRealtime(), duration) ?: return
     var width by remember { mutableIntStateOf(1) }
     val seek = { target: Float -> runCatching { now.controller.transportControls.seekTo(MediaWidget.seekTarget(target, duration)) }; Unit }
-    Box(Modifier.fillMaxWidth().height(48.dp).onSizeChanged { width = it.width }
-        .pointerInput(duration, now.controller) { detectTapGestures { seek(it.x / width.coerceAtLeast(1)) } }
-        .semantics {
-            contentDescription = "Seek"
-            progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
-            setProgress { target -> seek(target); true }
-        }.testTag("media-seek"), contentAlignment = Alignment.CenterStart) {
-        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(tint.copy(alpha = .18f)))
-        Box(Modifier.fillMaxWidth(fraction).height(4.dp).clip(RoundedCornerShape(50)).background(tint))
+    Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (showTimes) Text(MediaWidget.timeLabel((duration * fraction).toLong()), color = tint.copy(alpha = .8f), fontSize = 10.sp,
+            modifier = Modifier.padding(end = 8.dp))
+        Box(Modifier.weight(1f).fillMaxHeight().onSizeChanged { width = it.width }
+            .pointerInput(duration, now.controller) { detectTapGestures { seek(it.x / width.coerceAtLeast(1)) } }
+            .semantics {
+                contentDescription = "Seek"
+                progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
+                setProgress { target -> seek(target); true }
+            }.testTag("media-seek"), contentAlignment = Alignment.CenterStart) {
+            Box(Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(50)).background(tint.copy(alpha = .26f)))
+            Box(Modifier.fillMaxWidth(fraction).height(3.dp).clip(RoundedCornerShape(50)).background(tint))
+            // The knob rides the end of the filled part.
+            Box(Modifier.fillMaxWidth(fraction.coerceAtLeast(.001f)).wrapContentWidth(Alignment.End)) {
+                Box(Modifier.size(9.dp).clip(CircleShape).background(tint))
+            }
+        }
+        if (showTimes) Text(MediaWidget.remainingLabel((duration * (1f - fraction)).toLong()), color = tint.copy(alpha = .8f), fontSize = 10.sp,
+            modifier = Modifier.padding(start = 8.dp))
     }
 }
 
 @Composable
-private fun MediaControl(icon: ImageVector, label: String, tint: androidx.compose.ui.graphics.Color,
-    size: Dp = 48.dp, iconScale: Float = .5f, onClick: () -> Unit) {
-    Box(Modifier.size(size).clip(CircleShape).clickable(onClick = onClick)
-        .semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
-        Icon(icon, label, tint = tint, modifier = Modifier.size(size * iconScale))
+private fun MediaControl(icon: ImageVector, label: String, tint: Color, size: Dp = 44.dp, filled: Boolean = false,
+    iconColor: Color = tint, onClick: () -> Unit) {
+    Box(Modifier.size(size).clip(CircleShape).then(if (filled) Modifier.background(tint.copy(alpha = .94f)) else Modifier)
+        .clickable(onClick = onClick).semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
+        Icon(icon, label, tint = iconColor, modifier = Modifier.size(size * if (filled) .56f else .52f))
     }
 }
 
@@ -171,6 +228,16 @@ internal object MediaWidget {
 
     /** The position for a seek to [fraction] of a [durationMs] track. */
     fun seekTarget(fraction: Float, durationMs: Long): Long = (durationMs * fraction.coerceIn(0f, 1f)).toLong()
+
+    /** The time left, shown with a leading minus ("-2:10"). */
+    fun remainingLabel(ms: Long): String = "\u2212" + timeLabel(ms)
+
+    /** "1:23" or "1:02:03" for a position in milliseconds (never negative). */
+    fun timeLabel(ms: Long): String {
+        val total = ms.coerceAtLeast(0L) / 1000L
+        val h = total / 3600; val m = (total % 3600) / 60; val sec = total % 60
+        return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
+    }
 
     /** A track without a title still reads as playing or paused, not blank. */
     fun displayTitle(title: String?, playing: Boolean): String =

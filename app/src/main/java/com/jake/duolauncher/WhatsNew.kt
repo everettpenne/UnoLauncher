@@ -27,10 +27,13 @@ internal object WhatsNew {
 
     enum class Decision { SHOW, MARK_SEEN, NOTHING }
 
+    /** The part of a version a note is written for: "0.46" for "0.46.1-uno01". A patch release does not show the note again. */
+    fun noteKey(version: String): String = version.substringBefore('-').split('.').take(2).joinToString(".")
+
     /** [seen] is the version whose note was last shown or skipped (null if never). A fresh install is marked seen without showing. */
     fun decide(seen: String?, current: String, freshInstall: Boolean): Decision = when {
         current.isBlank() || current == "unknown" -> Decision.NOTHING
-        seen == current -> Decision.NOTHING
+        seen != null && noteKey(seen) == noteKey(current) -> Decision.NOTHING
         freshInstall -> Decision.MARK_SEEN
         else -> Decision.SHOW
     }

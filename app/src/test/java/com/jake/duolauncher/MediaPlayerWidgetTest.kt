@@ -44,4 +44,10 @@ class MediaPlayerWidgetTest {
         assertEquals(MediaWidget.EmptyHint.NEEDS_SETTING, MediaWidget.emptyHint(accessConnected = true, detailsOn = false))
         assertEquals(MediaWidget.EmptyHint.IDLE, MediaWidget.emptyHint(true, true))
     }
+
+    @Test fun timeLabelsReadLikeAPlayer() {
+        assertEquals("0:00", MediaWidget.timeLabel(0)); assertEquals("0:00", MediaWidget.timeLabel(-5))
+        assertEquals("1:23", MediaWidget.timeLabel(83_000)); assertEquals("59:59", MediaWidget.timeLabel(3_599_000))
+        assertEquals("1:02:03", MediaWidget.timeLabel(3_723_000))
+    }
 }

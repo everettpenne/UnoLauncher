@@ -19,4 +19,10 @@ class WhatsNewTest {
         assertEquals(Decision.NOTHING, WhatsNew.decide(null, "unknown", false))
         assertEquals(Decision.NOTHING, WhatsNew.decide(null, "", false))
     }
+
+    @Test fun aPatchReleaseDoesNotShowTheNoteAgain() {
+        assertEquals("0.46", WhatsNew.noteKey("0.46.1-uno01")); assertEquals("0.46", WhatsNew.noteKey("0.46.0-uno01"))
+        assertEquals(Decision.NOTHING, WhatsNew.decide(seen = "0.46.0-uno01", current = "0.46.1-uno01", freshInstall = false))
+        assertEquals(Decision.SHOW, WhatsNew.decide(seen = "0.46.1-uno01", current = "0.47.0-uno01", freshInstall = false))
+    }
 }

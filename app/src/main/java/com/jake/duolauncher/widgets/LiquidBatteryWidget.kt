@@ -22,6 +22,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BatteryChargingFull
+import androidx.compose.material.icons.rounded.BatteryStd
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -67,49 +69,61 @@ internal fun LiquidBatteryFace(slot: Int, onOptions: () -> Unit) {
     val transition = rememberInfiniteTransition(label = "liquid-battery")
     val phase by transition.animateFloat(0f, 2f * PI.toFloat(),
         infiniteRepeatable(tween(6000, easing = LinearEasing)), label = "phase")
-    GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-liquid-battery-$slot")) {
+    val rise by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(5200, easing = LinearEasing)), label = "bubbles")
+    // The whole card is the vessel: the liquid fills it from the bottom, edge to edge.
+    GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-liquid-battery-$slot"), padding = 0.dp) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.BatteryChargingFull, "Battery")
         val fill = LiquidBattery.fill(reading.percent)
-        val liquidColor = when {
-            reading.charging -> IosGreen
-            reading.percent in 0..20 -> IosOrange
-            else -> ink.primary
-        }
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+        val accent = LocalWallpaperAccent.current?.accent
+        val liquid = LiquidBattery.liquidColor(reading.percent, reading.charging, accent)
+        Box(Modifier.fillMaxSize()) {
             Canvas(Modifier.fillMaxSize().testTag("liquid-battery-canvas-$slot")) {
-                val inset = 1.5.dp.toPx()
-                val left = inset; val top = inset; val right = size.width - inset; val bottom = size.height - inset
-                val corner = 14.dp.toPx()
-                clipPath(Path().apply { addRoundRect(RoundRect(left, top, right, bottom, corner, corner)) }) {
-                    val points = LiquidBattery.surfacePoints(fill, tilt, LiquidBattery.AMPLITUDE, phase)
-                    val surface = points.map { (x, y) ->
-                        Offset(left + x * (right - left), bottom - y * (bottom - top))
+                val w = size.width; val h = size.height
+                fun surface(level: Float, amp: Float, ph: Float, tiltScale: Float) = LiquidBattery.surfacePoints(level, tilt * tiltScale, amp, ph)
+                    .map { (x, y) -> Offset(x * w, h - y * h) }
+                fun body(points: List<Offset>) = Path().apply {
+                    moveTo(0f, h); points.forEach { lineTo(it.x, it.y) }; lineTo(w, h); close()
+                }
+                if (fill > 0f) {
+                    // A second, slower wave behind the first gives the liquid depth.
+                    val back = surface((fill + .018f).coerceAtMost(1f), LiquidBattery.AMPLITUDE * 1.4f, -phase * .7f + 1.3f, .8f)
+                    drawPath(body(back), Brush.verticalGradient(listOf(liquid.copy(alpha = .38f), liquid.copy(alpha = .16f)),
+                        startY = back.minOf { it.y }, endY = h))
+                    val front = surface(fill, LiquidBattery.AMPLITUDE, phase, 1f)
+                    val top = front.minOf { it.y }
+                    drawPath(body(front), Brush.verticalGradient(listOf(liquid.copy(alpha = .94f), liquid.copy(alpha = .62f)), startY = top, endY = h))
+                    // Light under the waterline, a bright meniscus on it, and a soft glint down the left side where the glass catches the light.
+                    clipPath(body(front)) {
+                        drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = .30f), Color.Transparent), startY = top, endY = top + 26.dp.toPx()))
+                        drawRect(Brush.horizontalGradient(listOf(Color.White.copy(alpha = .20f), Color.Transparent), endX = w * .30f))
+                        if (reading.charging) LiquidBattery.bubbles(rise).forEach { b ->
+                            val bx = b.x * w; val by = h - (h - top) * b.y
+                            drawCircle(Color.White.copy(alpha = .30f * (1f - b.y)), b.size * 4.dp.toPx(), Offset(bx, by))
+                            drawCircle(Color.White.copy(alpha = .45f * (1f - b.y)), b.size * 4.dp.toPx(), Offset(bx, by), style = Stroke(1.dp.toPx()))
+                        }
                     }
-                    val liquid = Path().apply {
-                        moveTo(left, bottom)
-                        surface.forEach { lineTo(it.x, it.y) }
-                        lineTo(right, bottom)
-                        close()
-                    }
-                    drawPath(liquid, Brush.verticalGradient(
-                        0f to liquidColor.copy(alpha = .95f), 1f to liquidColor.copy(alpha = .55f),
-                        startY = surface.first().y, endY = bottom))
-                    // The waterline: a thin light edge where the liquid meets the air.
-                    val surfaceLine = Path().apply {
-                        moveTo(surface.first().x, surface.first().y)
-                        surface.drop(1).forEach { lineTo(it.x, it.y) }
-                    }
-                    drawPath(surfaceLine, Color.White.copy(alpha = .4f), style = Stroke(1.5.dp.toPx()))
+                    val line = Path().apply { moveTo(front.first().x, front.first().y); front.drop(1).forEach { lineTo(it.x, it.y) } }
+                    drawPath(line, Color.White.copy(alpha = .75f), style = Stroke(1.6.dp.toPx(), cap = StrokeCap.Round))
                 }
             }
-            Text(if (reading.percent >= 0) "${reading.percent}%" else "—",
-                color = onInk(ink), fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.testTag("liquid-battery-percent"))
+            // The words: white where the liquid is behind them, the glass ink where it is not.
+            val onLiquid = fill > .5f
+            val primary = if (onLiquid) Color.White else ink.primary
+            Row(Modifier.padding(start = 14.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (reading.charging) Icons.Rounded.BatteryChargingFull else Icons.Rounded.BatteryStd, null,
+                    tint = if (fill > .84f) Color.White.copy(alpha = .85f) else ink.soft(), modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(androidx.compose.ui.res.stringResource(com.jake.duolauncher.R.string.battery_widget_title), color = if (fill > .84f) Color.White.copy(alpha = .85f) else ink.soft(), fontSize = 12.sp)
+            }
+            val shadow = if (onLiquid) androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = .28f), Offset(0f, 2f), 8f) else null
+            Text(if (reading.percent >= 0) "${reading.percent}%" else "—", color = primary, fontSize = 36.sp, fontWeight = FontWeight.Light,
+                style = androidx.compose.ui.text.TextStyle(shadow = shadow),
+                modifier = Modifier.align(Alignment.Center).offset(y = 6.dp).testTag("liquid-battery-percent"))
+            Text(reading.toFull ?: if (reading.charging) "Charging" else "On battery",
+                color = if (fill > .12f) Color.White.copy(alpha = .92f) else ink.soft(), fontSize = 11.sp, maxLines = 1,
+                style = androidx.compose.ui.text.TextStyle(shadow = if (fill > .12f) androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = .25f), Offset(0f, 1f), 4f) else null),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp))
         }
-        Text(reading.toFull ?: if (reading.charging) "Charging" else "On battery",
-            color = ink.soft(), fontSize = 11.sp, maxLines = 1,
-            modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }
 
@@ -173,6 +187,25 @@ internal object LiquidBattery {
     const val AMPLITUDE = .035f
     const val MAX_TILT = .3f
     private const val G = 9.81f
+
+    /** The liquid's colour: green while charging, orange when low, red when nearly empty, otherwise the wallpaper accent (or a clear blue). */
+    fun liquidColor(percent: Int, charging: Boolean, accent: Color?): Color = when {
+        charging -> Color(0xFF34C759)
+        percent in 0..10 -> Color(0xFFFF453A)
+        percent in 0..20 -> Color(0xFFFF9500)
+        else -> accent ?: Color(0xFF38A8FF)
+    }
+
+    /** A bubble rising through the liquid: [x] across the width, [y] up from the bottom as a fraction of the liquid's depth, [size] relative. */
+    data class Bubble(val x: Float, val y: Float, val size: Float)
+
+    /** Six bubbles at fixed places across the width, each rising at its own speed and phase as [progress] (0..1) loops. */
+    fun bubbles(progress: Float): List<Bubble> = listOf(
+        Triple(.18f, 0f, .9f), Triple(.34f, .45f, .6f), Triple(.52f, .2f, 1.1f), Triple(.66f, .7f, .7f), Triple(.80f, .35f, .85f), Triple(.90f, .9f, .55f),
+    ).map { (x, offset, size) ->
+        val speed = 1f + offset * .6f
+        Bubble(x + .02f * sin((progress * speed + offset) * 2f * PI.toFloat()), (progress * speed + offset) % 1f, size)
+    }
 
     /** The fill level from a battery percent, empty for an unknown reading. */
     fun fill(percent: Int): Float = if (percent < 0) 0f else (percent / 100f).coerceIn(0f, 1f)

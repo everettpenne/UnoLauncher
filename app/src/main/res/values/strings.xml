@@ -326,4 +326,5 @@
     <string name="island_theme_paste">Paste a theme from text</string>
     <string name="island_theme_copied">Theme copied. Paste it into any message; the other person uses Paste a theme.</string>
     <string name="island_theme_clipboard_empty">The clipboard has no text to read.</string>
+    <string name="battery_widget_title">Battery</string>
 </resources>

@@ -19,7 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.platform.LocalContext
@@ -59,14 +61,22 @@ internal fun BatteryFace(slot: Int, onOptions: () -> Unit) {
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
             val tint = when { reading.charging -> IosGreen; reading.level in 0..20 -> IosOrange; else -> ink.primary }
             Canvas(Modifier.fillMaxHeight().aspectRatio(1f)) {
-                val stroke = 5.dp.toPx()
-                val inset = stroke / 2f
-                val arcSize = Size(size.width - stroke, size.height - stroke)
-                drawArc(ink.soft(.22f), -90f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
-                if (reading.level >= 0) drawArc(tint, -90f, 360f * reading.level / 100f, false, Offset(inset, inset), arcSize,
-                    style = Stroke(stroke, cap = StrokeCap.Round))
+                val stroke = 8.dp.toPx()
+                val inset = stroke * .9f
+                val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
+                val topLeft = Offset(inset, inset)
+                drawArc(ink.soft(.20f), -90f, 360f, false, topLeft, arcSize, style = Stroke(stroke))
+                if (reading.level >= 0) {
+                    val sweep = 360f * reading.level / 100f
+                    // A soft glow under the arc, then the arc itself with a gradient that brightens toward its leading end.
+                    drawArc(tint.copy(alpha = if (reading.charging || reading.level in 0..20) .22f else .08f), -90f, sweep, false, topLeft, arcSize, style = Stroke(stroke * 1.9f, cap = StrokeCap.Round))
+                    rotate(-90f) {
+                        drawArc(Brush.sweepGradient(0f to tint.copy(alpha = .55f), (sweep / 360f).coerceAtLeast(.02f) to tint, 1f to tint.copy(alpha = .55f)),
+                            0f, sweep, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+                    }
+                }
             }
-            Text(if (reading.level >= 0) "${reading.level}%" else "—", color = ink.primary, fontSize = 13.sp, fontWeight = FontWeight.Normal)
+            Text(if (reading.level >= 0) "${reading.level}%" else "—", color = ink.primary, fontSize = 17.sp, fontWeight = FontWeight.Light)
         }
         Text(reading.toFull ?: if (reading.charging) "Charging" else "On battery", color = ink.soft(), fontSize = 11.sp, maxLines = 1,
             modifier = Modifier.align(Alignment.CenterHorizontally))

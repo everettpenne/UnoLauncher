@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.46.1-uno01
+
+- **Media player, redesigned.** The album art is blurred into a wash behind the card, so every track brings its own colours; text and controls are white on it with a filled play button. At 2x2 it shows title, artist, a progress bar with a knob and previous, play and next (before, the title and artwork were squeezed out entirely); at 4x2 the artwork becomes a tile beside them, with the elapsed and remaining time. The empty state is calmer. Long titles end in "…" (a scrolling title was tried and left out: it keeps Compose busy and hangs the emulator tests).
+- **Liquid battery, redesigned.** The whole card is the vessel: the liquid fills it edge to edge with a second slower wave behind the first, a bright waterline, light under the surface and a glint down one side. It is green with rising bubbles while charging, orange at 20% or below, red at 10% or below, and your wallpaper accent (or a clear blue) otherwise; the percentage is large and stays readable where the surface crosses it.
+- **Battery ring polished:** a thicker ring with a gradient that brightens toward its end, and a percentage that no longer collides with it.
+- A patch release no longer shows the "what's new" note again: it is shown once per feature version (0.46, then 0.47).
+
 ## 0.46.0-uno01
 
 - **A new Molten metal wallpaper**, redone from scratch to evoke the iPhone 17 Pro wallpapers while staying dune-like: long wind-sculpted sweeps drawn as one continuous field of glass-like contour lines that bend into and through each other, crisp hairline highlights with a faint red-blue fringe like thick glass, light that pools just past a contour and falls away to black, and grain on the glow only. Ice blue by day, ember by night, and mostly black so icons stay readable, with a dark top for the camera and island.

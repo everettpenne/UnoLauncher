@@ -74,6 +74,7 @@ internal fun encodeLayoutBackup(state: LauncherState, widgetDescriptors: List<Ba
         .put("dockWidth", value.dockWidth).put("dockPosition", value.dockPosition).put("dockAlignToGrid", value.dockAlignToGrid)
     return JSONObject().put("version", LAYOUT_BACKUP_VERSION).put("sourceScope", sourceScope).put("apps", apps)
         .put("homeSlots", JSONArray(state.homeSlots)).put("leadingSlots", JSONArray(state.leadingSlots))
+        .put("pages", state.layout.pageCount)
         .put("dock", JSONArray(state.dock)).put("folders", folders).put("widgets", widgets)
         .put("labels", state.labels).put("googleSearch", state.googleSearch).put("verticalStatus", state.verticalStatus)
         .put("compact", preset(state.compact)).put("expanded", preset(state.expanded))
@@ -149,7 +150,9 @@ internal fun decodeLayoutBackup(raw: String, currentApps: List<AppEntry>, curren
         else -> importedApp(value)
     } }
     val dock = rawDock.map { value -> value?.also { require(!isReservedFolderId(it)) }?.let(::importedApp) }
-    var layout = HomeLayout(slots.dropLastWhile { it == null }, dock, folders = folders, leadingSlots = leadingSlots)
+    // Optional, so backups made before blank pages existed still import: only the pages that had something on them come back.
+    val pages = if (root.has("pages")) root.strictInt("pages").also { require(it in 1..MAX_HOME_PAGES) } else 1
+    var layout = HomeLayout(slots.dropLastWhile { it == null }, dock, folders = folders, leadingSlots = leadingSlots, minPages = pages)
     val profileSerials = currentProfiles.mapTo(mutableSetOf(), AppProfile::userSerial)
     val profileIssues = linkedSetOf<String>()
     val widgetArray = root.getJSONArray("widgets")

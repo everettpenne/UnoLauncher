@@ -54,11 +54,23 @@ class LeadingLayoutBackupIntegrationTest {
             widgetPlacements = placements, widgetRestores = restores, loading = false)
     }
 
+    @Test fun blankHomePagesRoundTripAndOlderBackupsStillImport() {
+        val state = mixedState().copy(minPages = 4)
+        val raw = encodeLayoutBackup(state, emptyList(), "same-scope")
+        assertEquals(4, JSONObject(raw).getInt("pages"))
+        assertEquals(4, decodeLayoutBackup(raw, state.apps, profiles, "same-scope").layout.pageCount)
+        // A backup made before blank pages existed has no "pages" key.
+        val older = JSONObject(raw).apply { remove("pages") }.toString()
+        assertEquals(1, decodeLayoutBackup(older, state.apps, profiles, "same-scope").layout.pageCount)
+        val bad = JSONObject(raw).put("pages", 500).toString()
+        assertThrows(Exception::class.java) { decodeLayoutBackup(bad, state.apps, profiles, "same-scope") }
+    }
+
     @Test fun version2RoundTripsMixedLeadingAppsFoldersWidgetsAndProfiles() {
         val state = mixedState()
         val raw = encodeLayoutBackup(state, emptyList(), "same-scope")
         val json = JSONObject(raw)
-        assertEquals(2, json.getInt("version"))
+        assertEquals(LAYOUT_BACKUP_VERSION, json.getInt("version"))
         assertEquals(HOME_CELLS, json.getJSONArray("leadingSlots").length())
 
         val preview = decodeLayoutBackup(raw, state.apps, profiles, "same-scope")

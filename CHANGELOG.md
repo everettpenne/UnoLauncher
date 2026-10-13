@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.48.3-uno01
+
+- **Layout backups now include blank Home pages.** A backup stores how many Home pages you had, so pages you added with Add page come back after a restore. Backups made before this have no page count and restore as before (only pages with something on them). Layout backups stay version 3, so an older build can still read a newer backup, though it ignores the page count.
+- Tests: an emulator test round-trips a backup with blank pages, an older backup without a page count, and a nonsense page count; a stale assertion that expected backup version 2 was corrected.
+
 ## 0.48.2-uno01
 
 - **Fixed a crash after restoring settings from a backup.** Root cause: Android's JSON writes a whole-number float (a keyboard haptic strength of 1.0, the island size at 1.0) as `1`, so the restore read it back as an integer and, on an install that had never saved that setting, stored it as an integer; the launcher then read it as a decimal and threw `ClassCastException` at startup. Restore now writes these settings (keyboard haptic strength, island size, tilt, and the three lens knobs) as decimals, and every place that reads them accepts a stray integer, so an install already holding the bad value starts again without reinstalling.

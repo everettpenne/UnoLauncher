@@ -279,7 +279,13 @@ internal object DuneLandscape {
 
     /** [crest] gives dune i's crest as a fraction of the height at column fraction x; [ranges] says whether jagged ranges stand behind. */
     class Config(val dunes: Int, val crest: (Int, Float) -> Float, val day: Palette, val night: Palette, val ranges: Boolean, val ripple: Float,
-        val rangeBase: FloatArray = floatArrayOf(), val rangeHeight: FloatArray = floatArrayOf(), val rangeHaze: FloatArray = floatArrayOf(), val rangeSeed: IntArray = intArrayOf())
+        val rangeBase: FloatArray = floatArrayOf(), val rangeHeight: FloatArray = floatArrayOf(), val rangeHaze: FloatArray = floatArrayOf(), val rangeSeed: IntArray = intArrayOf(),
+        /** How wide the blend at each crest is, as a multiple of the original: below 1 draws sharper silhouettes. */
+        val edge: Float = 1f,
+        /** How much of the film grain the open sky keeps (1 = as much as the sand). A smooth gradient shows grain far more than texture does. */
+        val skyGrain: Float = 1f,
+        /** The grain's cell, in pixels at the size it is rendered. */
+        val grainCell: Int = 2)
 
     /** A star in the pixel's cell, if the cell has one: its brightness at this pixel (0 when it has none or the pixel is far from it). */
     private fun starAt(x: Int, y: Int, cell: Int, h: Int): Float {
@@ -338,11 +344,12 @@ internal object DuneLandscape {
                 val xf = x / (w - 1f)
                 val mist = (SceneMath.noise2(xf * 3f, yf * 5f, 5) - .5f) * p.mist
                 var rr = sky[0] + mist; var gg = sky[1] + mist; var bb = sky[2] + mist
+                var land = 0f   // how much of this pixel is rock or sand; the open sky keeps only [Config.skyGrain] of the grain
                 if (p.stars && y < h * .5f) { val st = starAt(x, y, starCell, h) * .9f; rr += st * .95f; gg += st * .97f; bb += st }
                 for (r in 0 until ranges) {
                     val d = y - ridge[r][x]
                     if (d < -2f) continue
-                    val inside = SceneMath.smooth(d / (1.6f * s))
+                    val inside = SceneMath.smooth(d / (1.6f * s * cfg.edge))
                     val t = SceneMath.smooth(facing[r][x] * .5f + .5f) * exp(-d / (h * .035f))
                     var cr = SceneMath.lerp(rbR, rlR, t); var cg = SceneMath.lerp(rbG, rlG, t); var cb = SceneMath.lerp(rbB, rlB, t)
                     val mott = (SceneMath.noise2(x / (14f * s), y / (14f * s), 40 + r) - .5f) * (if (dark) .30f else .16f)
@@ -350,11 +357,12 @@ internal object DuneLandscape {
                     val hz = cfg.rangeHaze[r] * (1f - d / (h * .09f) * .3f).coerceIn(.6f, 1f)
                     cr = SceneMath.lerp(cr, hzR, hz); cg = SceneMath.lerp(cg, hzG, hz); cb = SceneMath.lerp(cb, hzB, hz)
                     rr = SceneMath.lerp(rr, cr, inside); gg = SceneMath.lerp(gg, cg, inside); bb = SceneMath.lerp(bb, cb, inside)
+                    land = maxOf(land, inside * .6f)
                 }
                 for (i in 0 until layers) {
                     val depth = if (layers > 1) i / (layers - 1f) else 1f
                     val d = y - crest[i][x]
-                    val inside = SceneMath.smooth(d / (3f * s))
+                    val inside = SceneMath.smooth(d / (3f * s * cfg.edge))
                     if (d < 0f) {
                         val g = exp(-(-d) / ((46f + 60f * (1f - depth)) * s)) * (1f - inside) * p.glowGain
                         if (g > .003f) { rr += glR * g; gg += glG * g; bb += glB * g }
@@ -372,6 +380,7 @@ internal object DuneLandscape {
                     val ripple = rp * (.012f + .020f * depth) * lit * inside * cfg.ripple
                     cr += ripple; cg += ripple; cb += ripple
                     rr = SceneMath.lerp(rr, cr, inside); gg = SceneMath.lerp(gg, cg, inside); bb = SceneMath.lerp(bb, cb, inside)
+                    land = maxOf(land, inside)
                     val k = exp(-((Math.abs(d) / ((2.2f + 1.6f * depth) * s)).let { it * it })) * (.5f + .5f * depth) * p.rimGain
                     rr += rimR * k; gg += rimG * k; bb += rimB * k
                 }
@@ -380,7 +389,11 @@ internal object DuneLandscape {
                 val vk = 1f - SceneMath.smooth((v - .35f) / .5f) * p.vignette
                 val lum = (rr + gg + bb) / 3f
                 val mid = .55f + .45f * (1f - Math.abs(lum - .5f) * 2f)
-                val gr = SceneMath.grain(x / 2, y / 2, 11) * p.grain * mid * grainScale
+                val keep = cfg.skyGrain + (1f - cfg.skyGrain) * land
+                val cell = cfg.grainCell
+                // A hair of fine dither on top, so a sky with its grain taken out does not band.
+                val dither = SceneMath.grain(x, y, 29) * (1f / 255f)
+                val gr = SceneMath.grain(x / cell, y / cell, 11) * p.grain * mid * grainScale * keep + dither
                 out[y * w + x] = SceneMath.pack(rr * vk + gr, gg * vk + gr, bb * vk + gr)
             }
         }
@@ -554,7 +567,7 @@ internal object DuneDeep {
         band = intArrayOf(0xBFD3DC, 0x8497A0, 0x56625F, 0x2E302B, 0x15130F, 0x0B0A08), bandPos = floatArrayOf(0f, .07f, .2f, .45f, .75f, 1f),
         rim = 0xD2E6F2, glow = 0x8DB6D2, haze = 0x2B4350, rangeBase = 0, rangeLit = 0,
         glowGain = .22f, rimGain = .42f, grain = .075f, vignette = .28f, mist = .06f, stars = false)
-    private val config = DuneLandscape.Config(3, ::crestFraction, day, night, ranges = false, ripple = .6f)
+    internal val config = DuneLandscape.Config(3, ::crestFraction, day, night, ranges = false, ripple = .6f)
 
     fun render(width: Int, height: Int, dark: Boolean): IntArray = DuneLandscape.render(width, height, dark, config)
 }
@@ -587,9 +600,13 @@ internal object DuneRange {
         band = intArrayOf(0x8F8C9E, 0x716E80, 0x57546A, 0x3E3B4E, 0x2A2837, 0x201E2B), bandPos = floatArrayOf(0f, .08f, .25f, .55f, .85f, 1f),
         rim = 0xC7D3EA, glow = 0x9A86A8, haze = 0x4C4862, rangeBase = 0x1B1C26, rangeLit = 0x34343F,
         glowGain = .05f, rimGain = .09f, grain = .04f, vignette = .28f, mist = .06f, stars = true)
-    private val config = DuneLandscape.Config(3, ::crestFraction, day, night, ranges = true, ripple = 1f,
+    internal val config = DuneLandscape.Config(3, ::crestFraction, day, night, ranges = true, ripple = 1f,
         rangeBase = floatArrayOf(.440f, .480f, .515f), rangeHeight = floatArrayOf(.085f, .095f, .090f),
-        rangeHaze = floatArrayOf(.80f, .60f, .42f), rangeSeed = intArrayOf(21, 22, 23))
+        rangeHaze = floatArrayOf(.80f, .60f, .42f), rangeSeed = intArrayOf(21, 22, 23),
+        edge = .5f, skyGrain = .2f, grainCell = 2)
+
+    /** Rendered at the screen's own width (up to this), not at the 720 px the other scenes use: stretched, it went soft and its grain coarse. */
+    const val RENDER_WIDTH = 1080
 
     fun render(width: Int, height: Int, dark: Boolean): IntArray = DuneLandscape.render(width, height, dark, config)
 }

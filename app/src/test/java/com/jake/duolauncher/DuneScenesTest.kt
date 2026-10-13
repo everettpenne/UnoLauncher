@@ -156,6 +156,28 @@ class DuneScenesTest {
         }
     }
 
+    /** Local noise: how far pixels sit from the mean of their 5x5 neighbourhood, over a band of rows. */
+    private fun localNoise(px: IntArray, w: Int, y0: Int, y1: Int): Double {
+        var sum = 0.0; var n = 0
+        for (y in y0 until y1) for (x in 2 until w - 2) {
+            fun g(xx: Int, yy: Int) = ((px[yy * w + xx] shr 8) and 255).toDouble()
+            var m = 0.0; for (dy in -2..2) for (dx in -2..2) m += g(x + dx, y + dy); m /= 25
+            sum += (g(x, y) - m) * (g(x, y) - m); n++
+        }
+        return Math.sqrt(sum / n)
+    }
+
+    @Test fun rangeSkyIsCleanWhileTheSandKeepsItsGrain() {
+        val w = 540; val h = 1200
+        for (dark in listOf(false, true)) {
+            val px = DuneRange.render(w, h, dark)
+            val sky = localNoise(px, w, (h * .10).toInt(), (h * .28).toInt())
+            val sand = localNoise(px, w, (h * .82).toInt(), (h * .95).toInt())
+            assertTrue("sky noise $sky should be well below sand noise (night includes stars) $sand (dark=$dark)", sky < sand * .6)
+            assertTrue("the sand still has texture: $sand", sand > 2.0)
+        }
+    }
+
     @Test fun moltenContoursFlowContinuouslyFromTopToBottom() {
         // One smooth height field, so a contour line crosses every column: it rises through about CONTOURS lines from top to bottom everywhere.
         for (x in listOf(0f, .2f, .5f, .8f, 1f)) {

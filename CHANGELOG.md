@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.49.0-uno01
+
+- **Dune range is crisper and cleaner.** Same composition, same colours; what changed is how it is drawn.
+  - **Sharper:** the scene was computed at 720 px wide and stretched to your screen, which softened every edge and enlarged the grain. It is now computed at your screen's own width (up to 1080 px), and the blend along each ridge and dune crest is half as wide, so silhouettes are crisp.
+  - **A clean sky:** film grain over a smooth gradient reads as noise, not texture. The open sky now keeps a fifth of the grain, with a hair of fine dither so it does not band. Measured on the same rows, the sky's noise drops about four times; the sand's is unchanged.
+  - **Finer sand:** the sand keeps its grain, now fine instead of coarse after the stretch, so it reads as sand rather than blotches.
+  - Dune range only: the other built-in backgrounds are drawn as before.
+- **Dune range takes a little longer to appear the first time** after a change of size or light/dark, since it draws more pixels (on a background thread, with the gradient showing meanwhile).
+- Tests: a regression test checks that the sky's noise is well under the sand's, day and night, and that the sand still has texture.
+
 ## 0.48.3-uno01
 
 - **Layout backups now include blank Home pages.** A backup stores how many Home pages you had, so pages you added with Add page come back after a restore. Backups made before this have no page count and restore as before (only pages with something on them). Layout backups stay version 3, so an older build can still read a newer backup, though it ignores the page count.

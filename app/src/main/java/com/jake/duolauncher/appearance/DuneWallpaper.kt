@@ -193,8 +193,10 @@ internal object DuneSceneCache {
 
     private fun build(kind: BuiltinBackground, width: Int, height: Int, dark: Boolean): ImageBitmap {
         val small = width < 300
-        val w = if (small) width.coerceAtLeast(16) else BASE_WIDTH
-        val h = if (small) height.coerceAtLeast(16) else (BASE_WIDTH.toFloat() * height / width).toInt().coerceAtLeast(16)
+        // Dune range keeps its edges and grain sharp by being rendered at (up to) the screen's own width; the others are soft by design.
+        val base = if (kind == BuiltinBackground.DUNE_RANGE) minOf(width, DuneRange.RENDER_WIDTH).coerceAtLeast(BASE_WIDTH) else BASE_WIDTH
+        val w = if (small) width.coerceAtLeast(16) else base
+        val h = if (small) height.coerceAtLeast(16) else (base.toFloat() * height / width).toInt().coerceAtLeast(16)
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val px = pixels(kind, w, h, dark)
         // By night the very top is the deepest black, so the camera cutout and the island's pill disappear into it and the island rises

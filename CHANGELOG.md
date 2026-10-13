@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.52.0-uno01
+
+- **Uno widgets can be stacked.** The Clock, the Date card and every widget in the Uno library (Note, Counter, Battery, Month, Moon, Timers and the rest) now stack, alone or mixed with Android widgets. Open a widget's options, choose **Stack another widget here**, and pick the one to merge in; switch between them with the dots down the stack's right edge. A stacked widget keeps its own saved data (a note's text, a counter's count), and **Remove ... from this stack** forgets it.
+- Behind the scenes, a stacked Uno widget keeps the Home slot it had, so that slot is not given to a new widget and its data is not cleaned up while the stack's base widget is on Home.
+- Still true from before: stacks are not saved in layout backups, and the widget stacks line on the device checklist has not been confirmed on a phone.
+- Tests: unit tests for the stack member codes; an emulator test stacks a Counter behind a Note, switches with the rail, and checks its data and slot survive.
+
 ## 0.51.0-uno01
 
 - **Material You colors.** A new switch under Customize > Wallpaper, **Material You colors**, takes the colors of buttons, switches, sliders and glass from Android's Material You palette (made from your system wallpaper). It replaces *Color from wallpaper* while it is on, and the same contrast checks keep controls readable whatever the system picks. Uno's own palette is still the default.

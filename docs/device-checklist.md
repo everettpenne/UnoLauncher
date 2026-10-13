@@ -23,7 +23,7 @@ Build under test: the latest release (see Launcher settings, Updates).
 
 ## C. Widgets and Home
 
-- [ ] **Widget stacks.** Make a stack of two widgets, swipe between them, restart the launcher. *Expect:* the stack and its position survive. (You reported stacks not working; two fixes have not been confirmed.)
+- [ ] **Widget stacks.** Make a stack of two widgets (Android or Uno, or one of each), swipe between them, restart the launcher. *Expect:* the stack and its position survive. (You reported stacks not working; two fixes have not been confirmed.)
 - [ ] **Photos widget.** Choose photos with the picker; add an album (allow Photos & media when asked). *Expect:* pictures show and change; the Settings menu is glass.
 - [ ] **World clock and other glass menus.** Open the menus of the Note, Counter, Countdown and World clock widgets. *Expect:* they match the rest of Home and the keyboard does not cover the field.
 - [ ] **Edit Home.** Long-press empty space, Edit Home. *Expect:* icons wiggle, drag starts at once, free cells show, Done leaves. Tell us where you still cannot place an icon.

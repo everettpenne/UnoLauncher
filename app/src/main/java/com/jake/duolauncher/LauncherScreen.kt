@@ -122,11 +122,18 @@ private fun findFreeWidgetIndex(layout: HomeLayout, page: Int, spanX: Int, spanY
     return null
 }
 
+/** The theme for a saved appearance (light or dark, and Material You when it is on). */
 @Composable
-fun DuoTheme(dark: Boolean = false, content: @Composable () -> Unit) {
+fun DuoTheme(appearance: AppearanceState, content: @Composable () -> Unit) = DuoTheme(appearance.dark, appearance.materialYou, content)
+
+@Composable
+fun DuoTheme(dark: Boolean = false, materialYou: Boolean = false, content: @Composable () -> Unit) {
     val palette = if (dark) DarkDuoPalette else LightDuoPalette
     CompositionLocalProvider(LocalDuoPalette provides palette) {
-        MaterialTheme(shapes = DuoMaterialShapes, typography = DuoTypography, colorScheme = if (dark) darkColorScheme(primary = Color(0xFF9BC5D7), onPrimary = Color(0xFF12303D),
+        val context = androidx.compose.ui.platform.LocalContext.current
+        MaterialTheme(shapes = DuoMaterialShapes, typography = DuoTypography, colorScheme = if (materialYou && dark) androidx.compose.material3.dynamicDarkColorScheme(context)
+        else if (materialYou) androidx.compose.material3.dynamicLightColorScheme(context)
+        else if (dark) darkColorScheme(primary = Color(0xFF9BC5D7), onPrimary = Color(0xFF12303D),
             surface = Color(0xFF17272E), onSurface = palette.ink, secondary = Color(0xFFD1BE98),
             secondaryContainer = Color(0xFF314852), onSecondaryContainer = palette.ink)
         else lightColorScheme(primary = Color(0xFF30596D), onPrimary = Color.White,
@@ -168,6 +175,7 @@ internal fun LauncherScreen(
     onSourceEnabled: (String, Boolean) -> Unit = { _, _ -> },
     onLiquidGlass: (Boolean) -> Unit = {},
     onWallpaperColor: (Boolean) -> Unit = {},
+    onMaterialYou: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onTiltStrength: (Float) -> Unit = {},
     island: IslandState = IslandState(),
@@ -942,6 +950,7 @@ internal fun LauncherScreen(
                             onShadeSetup = { sheet = ""; onShadeSetup() },
                             extras = extras,
                             onWallpaperColor = onWallpaperColor,
+                            onMaterialYou = onMaterialYou,
                             onTiltHighlight = onTiltHighlight,
                             onTiltStrength = onTiltStrength,
                             backgrounds = launcherActivity.backgrounds,

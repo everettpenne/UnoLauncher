@@ -36,6 +36,10 @@ data class LayoutImportPreview(
     val googleSearch: Boolean,
     val verticalStatus: Boolean,
     val settings: SettingsSnapshot? = null,
+    /** Apps the backup hides (those still installed here); null when the backup predates hidden apps, which leaves the current ones alone. */
+    val hiddenApps: Set<String>? = null,
+    /** Hidden apps in the backup that are not installed on this phone. */
+    val hiddenUnavailable: Int = 0,
 )
 
 fun layoutBackupScope(context: Context): String {
@@ -75,6 +79,7 @@ internal fun encodeLayoutBackup(state: LauncherState, widgetDescriptors: List<Ba
     return JSONObject().put("version", LAYOUT_BACKUP_VERSION).put("sourceScope", sourceScope).put("apps", apps)
         .put("homeSlots", JSONArray(state.homeSlots)).put("leadingSlots", JSONArray(state.leadingSlots))
         .put("pages", state.layout.pageCount)
+        .put("hidden", JSONArray(state.hiddenApps.filter { id -> state.apps.any { it.id == id } }.sorted()))
         .put("dock", JSONArray(state.dock)).put("folders", folders).put("widgets", widgets)
         .put("labels", state.labels).put("googleSearch", state.googleSearch).put("verticalStatus", state.verticalStatus)
         .put("compact", preset(state.compact)).put("expanded", preset(state.expanded))
@@ -197,12 +202,18 @@ internal fun decodeLayoutBackup(raw: String, currentApps: List<AppEntry>, curren
     val labels = root.strictBoolean("labels"); val googleSearch = root.strictBoolean("googleSearch")
     val verticalStatus = root.strictBoolean("verticalStatus")
     val settings = if (version >= 3) root.optJSONObject("settings")?.let(SettingsBackup::decode) else null
+    // Optional, like "pages": a backup from before hidden apps carries none and leaves the current ones alone.
+    val hiddenIds = root.optJSONArray("hidden")?.let { array ->
+        require(array.length() <= 2_000)
+        List(array.length()) { array.getString(it) }.also { ids -> require(ids.all { it in appMetadata }) { "Hidden app without metadata" } }
+    }
     return LayoutImportPreview(layout, missing.toList(), profileIssues.toList(),
         appCount = (slots + leadingSlots).count { it != null && !isReservedFolderId(it) } +
             dock.count { it != null } + folders.sumOf { it.appIds.size },
         folderCount = folders.size, widgetCount = layout.widgetPlacements.size,
         compact = compact, expanded = expanded, labels = labels, googleSearch = googleSearch, verticalStatus = verticalStatus,
-        settings = settings)
+        settings = settings, hiddenApps = hiddenIds?.filter { it in available }?.toSet(),
+        hiddenUnavailable = hiddenIds?.count { it !in available } ?: 0)
 }
 
 internal fun validBackupPlacement(value: WidgetPlacement): Boolean {

@@ -66,6 +66,33 @@ class LeadingLayoutBackupIntegrationTest {
         assertThrows(Exception::class.java) { decodeLayoutBackup(bad, state.apps, profiles, "same-scope") }
     }
 
+    @Test fun hiddenAppsRoundTripAndTheCompletenessCheckPasses() {
+        val base = mixedState()
+        val state = base.copy(hiddenApps = setOf(base.apps[0].id, "com.gone/com.gone.Main"), minPages = 3)
+        val raw = encodeLayoutBackup(state, emptyList(), "same-scope", SettingsSnapshot(emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap()))
+        // Only hidden apps that are still installed are written.
+        assertEquals(setOf(base.apps[0].id), JSONObject(raw).getJSONArray("hidden").let { a -> (0 until a.length()).map(a::getString) }.toSet())
+        val preview = decodeLayoutBackup(raw, state.apps, profiles, "same-scope")
+        assertEquals(setOf(base.apps[0].id), preview.hiddenApps)
+        assertTrue(BackupCheck.verifyExport(state, raw, "same-scope").joinToString(), BackupCheck.verifyExport(state, raw, "same-scope").isEmpty())
+        val older = JSONObject(raw).apply { remove("hidden") }.toString()
+        assertNull("an older backup leaves hidden apps alone", decodeLayoutBackup(older, state.apps, profiles, "same-scope").hiddenApps)
+    }
+
+    @Test fun theCheckNoticesWhatDidNotSurviveAndTheSummaryListsWhatComesBack() {
+        val state = mixedState()
+        val raw = encodeLayoutBackup(state, emptyList(), "same-scope")
+        // A different Home than the one that was saved: the check must say so.
+        val changed = state.copy(homeSlots = listOf(state.apps[3].id, null, null))
+        assertTrue(BackupCheck.verifyExport(changed, raw, "same-scope").any { "Home apps" in it })
+        // Fewer installed apps on the restoring phone: the summary flags what stays empty.
+        val preview = decodeLayoutBackup(raw, state.apps.drop(1), profiles, "same-scope")
+        val lines = BackupCheck.restoreSummary(preview)
+        assertTrue(lines.any { it.label == "Apps" && it.status == BackupLine.Status.ATTENTION })
+        assertTrue(lines.any { it.label == "Home pages" })
+        assertTrue(lines.any { it.label == "Not saved by backups" })
+    }
+
     @Test fun version2RoundTripsMixedLeadingAppsFoldersWidgetsAndProfiles() {
         val state = mixedState()
         val raw = encodeLayoutBackup(state, emptyList(), "same-scope")

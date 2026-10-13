@@ -289,6 +289,9 @@
     <string name="hidden_apps_note">Hidden apps are out of All apps, suggestions and Home. Typing an app\'s exact name in search still finds it.</string>
     <string name="hidden_apps_none">No hidden apps. Long-press an app and choose Hide app.</string>
     <string name="show_again">Show again</string>
+    <string name="spotlight_settings">Settings</string>
+    <string name="spotlight_settings_detail">Opens Android\'s settings page</string>
+    <string name="material_you_note">Takes the colors of buttons, switches and glass from Android\'s Material You palette (made from your system wallpaper). It replaces Color from wallpaper while it is on.</string>
     <string name="nothing_found">Nothing found</string>
 
     <!-- widgets/CountdownWidget.kt -->
@@ -339,10 +342,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Hide apps from All apps and search: long-press an app, choose Hide app, and type its exact name to find it again.</string>
-    <string name="whats_new_2">The long-press menu can now uninstall an app or turn its badge off, and badges can be a plain dot.</string>
-    <string name="whats_new_3">Move Home pages earlier or later from the + menu while editing Home.</string>
-    <string name="whats_new_4">Dune range is crisper, with a clean sky and fine grain on the sand.</string>
+    <string name="whats_new_1">Material You colors: an optional theme that takes controls and glass colors from your system palette.</string>
+    <string name="whats_new_2">Spotlight opens Android settings pages (try wifi or battery) and starts timers (try timer 5).</string>
+    <string name="whats_new_3">Backups now check themselves when saved and list exactly what comes back before you restore.</string>
+    <string name="whats_new_4">Hidden apps, page reordering and dot badges from 0.50 are still here.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

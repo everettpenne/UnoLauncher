@@ -135,3 +135,13 @@ internal fun rememberWallpaperAccent(enabled: Boolean, dark: Boolean): Wallpaper
     val revision = LauncherBackgroundCache.revision.intValue
     return remember(enabled, dark, revision) { if (enabled) WallpaperAccents.compute(context, dark) else null }
 }
+
+/** The interface colours for Material You: the phone's own dynamic primary (Android takes it from the system wallpaper), run
+ * through the same contrast walk as "Color from wallpaper", so controls and glass stay legible whatever the system picks.
+ */
+@Composable
+internal fun rememberMaterialYouAccent(dark: Boolean): WallpaperAccent {
+    val context = LocalContext.current
+    val primary = (if (dark) androidx.compose.material3.dynamicDarkColorScheme(context) else androidx.compose.material3.dynamicLightColorScheme(context)).primary
+    return remember(primary, dark) { AccentMath.derive(primary.toArgb(), dark) }
+}

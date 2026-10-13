@@ -194,7 +194,7 @@ class DiscoverActivity : DiscoverPageActivity() {
         setContent {
             val state by model.state.collectAsStateWithLifecycle()
             val status by monitor.state.collectAsStateWithLifecycle()
-            DuoTheme(rememberSavedAppearance().dark) {
+            DuoTheme(rememberSavedAppearance()) {
                 BackHandler { DiscoverSession.requestHome(this) }
                 DiscoverDock(if (state.loading) state.copy(apps = startupApps) else state, status, fullSize.value, onLaunch = ::launchApp,
                     onHome = { DiscoverSession.requestHome(this) }, onSearch = { DiscoverSession.home(this, search = true) },
@@ -249,7 +249,7 @@ class DiscoverFeedActivity : DiscoverPageActivity() {
             onVisible = frame::reveal, onProgress = { DiscoverMotion.progress.floatValue = it; frame.invalidate() },
             onClosed = { DiscoverSession.home(this) })
         setContent {
-            DuoTheme(rememberSavedAppearance().dark) {
+            DuoTheme(rememberSavedAppearance()) {
                 BackHandler { returnHome() }
                 var showMessage by remember { mutableStateOf(false) }
                 LaunchedEffect(message.value) {

@@ -1,0 +1,52 @@
+package com.jake.duolauncher
+
+import com.jake.duolauncher.search.*
+import org.junit.Assert.*
+import org.junit.Test
+
+class SpotlightSourcesTest {
+    private fun labels(q: String) = SpotlightSources.settings(q).map { it.label }
+
+    @Test fun settingsMatchByNameAndAlternativeWords() {
+        assertEquals("Wi-Fi", labels("wifi").first())
+        assertEquals("Wi-Fi", labels("wi-fi").first())
+        assertEquals("Bluetooth", labels("blue").first())
+        assertEquals("Display", labels("bright").first())
+        assertTrue("Security" in labels("fingerprint"))
+        assertTrue("Security" in labels("screen lock"))
+    }
+
+    @Test fun shortOrUnknownQueriesFindNoSettings() {
+        assertTrue(labels("wi").isEmpty())
+        assertTrue(labels("").isEmpty())
+        assertTrue(labels("zzzz").isEmpty())
+        assertTrue(labels("calculator").isEmpty())
+    }
+
+    @Test fun settingsResultsAreCappedAndNameMatchesComeFirst() {
+        val result = labels("app")
+        assertTrue(result.size <= SpotlightSources.MAX_SETTINGS)
+        assertEquals("Apps", result.first())
+    }
+
+    @Test fun timersParseWithAndWithoutUnits() {
+        fun seconds(q: String) = SpotlightSources.timer(q)?.seconds
+        assertEquals(300L, seconds("timer 5"))
+        assertEquals(90L, seconds("timer 90 s"))
+        assertEquals(600L, seconds("10 min timer"))
+        assertEquals(7200L, seconds("set a timer for 2 hours"))
+        assertEquals(90L, seconds("Timer 1.5 min"))
+        assertEquals("5 min timer", SpotlightSources.timer("timer 5")?.label)
+        assertEquals("2 h timer", SpotlightSources.timer("timer 2h")?.label)
+    }
+
+    @Test fun nonsenseTimersAreNotTimers() {
+        assertNull(SpotlightSources.timer("timer"))
+        assertNull(SpotlightSources.timer("timer 0"))
+        assertNull(SpotlightSources.timer("timer 100 hours"))
+        assertNull(SpotlightSources.timer("timers 5"))
+        assertNull(SpotlightSources.timer("5"))
+        assertNull(SpotlightSources.quickAction("clock"))
+        assertTrue(SpotlightSources.quickAction("stopwatch") is QuickAction.Stopwatch)
+    }
+}

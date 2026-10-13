@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.51.0-uno01
+
+- **Material You colors.** A new switch under Customize > Wallpaper, **Material You colors**, takes the colors of buttons, switches, sliders and glass from Android's Material You palette (made from your system wallpaper). It replaces *Color from wallpaper* while it is on, and the same contrast checks keep controls readable whatever the system picks. Uno's own palette is still the default.
+- **More in Spotlight.**
+  - **Settings pages:** typing "wifi", "bluetooth", "brightness", "battery", "fingerprint", "vpn" and so on offers the matching Android settings page (18 of them; matched by name or alternative words, from three letters).
+  - **Quick actions:** "timer 5", "10 min timer" or "set a timer for 90 s" starts a timer in the island, and "stopwatch" starts or stops the stopwatch.
+  - Nothing is read from other apps and nothing leaves the phone. Calendar events are not included: they would need a new permission.
+- **Backup completeness checks.**
+  - **After saving**, the backup is read back the way a restore would read it, and the confirmation says what was saved ("3 pages, 2 hidden apps, 4 folders, 5 widgets"), or lists anything that did not survive.
+  - **Before restoring**, the review screen lists what comes back, with a mark for each line: pages, apps (and any not installed on this phone), folders, widgets (and which must reconnect), hidden apps, settings, and what backups never carry (widget stacks and your background photo).
+  - **Hidden apps are now in backups.** Backups made before this have none and leave your current hidden apps alone.
+- Tests: unit tests for settings and timer matching; emulator tests for the dynamic palette, the saved setting, the Spotlight rows, hidden apps in a backup and the completeness check (including noticing a changed Home).
+
 ## 0.50.0-uno01
 
 - **Hidden apps.** Long-press an app and choose **Hide app**: it leaves All apps, the pickers, Spotlight suggestions, Home and the dock. Typing the app's exact name in All apps or Spotlight still finds it. **Settings > Notifications & privacy** lists your hidden apps, each with **Show again**. An app inside a folder has to be taken out of the folder first. Hidden apps are not yet carried in layout backups.

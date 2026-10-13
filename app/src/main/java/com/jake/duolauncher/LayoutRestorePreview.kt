@@ -21,6 +21,12 @@ internal fun LayoutRestorePreview(preview: LayoutImportPreview, onRestore: () ->
                 Text("${preview.appCount} apps · ${preview.folderCount} folders · ${preview.widgetCount} widgets")
                 if (preview.layout.leadingSlots.any { it != null } || preview.layout.widgetPlacements.any { it.page == -1 })
                     Text(stringResource(com.jake.duolauncher.R.string.includes_your_unfolded_only_page), style = MaterialTheme.typography.bodySmall)
+                BackupCheck.restoreSummary(preview).forEach { line ->
+                    val mark = when (line.status) { BackupLine.Status.OK -> "✓"; BackupLine.Status.ATTENTION -> "!"; BackupLine.Status.NOTE -> "–" }
+                    Text("$mark ${line.label}: ${line.detail}", style = MaterialTheme.typography.bodySmall,
+                        color = if (line.status == BackupLine.Status.ATTENTION) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.testTag("backup-line-${line.label.lowercase().replace(' ', '-')}"))
+                }
                 Text(stringResource(com.jake.duolauncher.R.string.this_also_restores_icon_layout_labels))
                 preview.settings?.let { Text("Also restores ${it.count} Uno settings (island, keyboard, appearance, and panel choices). Location and debug options are never included.") }
                 Text(stringResource(com.jake.duolauncher.R.string.widget_stacks_are_not_included_their), style = MaterialTheme.typography.bodySmall)

@@ -29,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.RssFeed
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -200,6 +202,8 @@ internal fun Spotlight(
     var copied by remember(query) { mutableStateOf(false) }
     val feedResults = remember(feedEntries, query) { SpotlightRank.feed(feedEntries, query) }
     val smart = remember(query) { SearchSmarts.answer(query) }
+    val quick = remember(query) { SpotlightSources.quickAction(query) }
+    val settingsHits = remember(query) { SpotlightSources.settings(query) }
     val suggestions = remember(query, appResults.size, smart, handoff) { handoff.targets(query, appResults.size, smart != null) }
     var contacts by remember { mutableStateOf(emptyList<ContactResult>()) }
     LaunchedEffect(query, contactsEnabled) {
@@ -274,7 +278,7 @@ internal fun Spotlight(
                 }),
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search") } })
-            val nothing = smart == null && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()
+            val nothing = smart == null && quick == null && settingsHits.isEmpty() && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()
             val typed = query.isNotBlank()
             val webOffered = suggestions.any { it.kind == HandoffKind.WEB }
             LazyColumn(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -290,6 +294,19 @@ internal fun Spotlight(
                         Text(smart.text, color = ink, fontSize = 24.sp, fontWeight = FontWeight.Medium)
                         Text(stringResource(if (copied) com.jake.duolauncher.R.string.spotlight_copied else com.jake.duolauncher.R.string.spotlight_tap_to_copy),
                             color = ink.copy(alpha = .5f), fontSize = 11.sp)
+                    }
+                }
+                if (quick != null) item("quick") {
+                    SpotlightRow(quick.label, quick.detail, "spotlight-quick", true, ink, {
+                        when (quick) {
+                            is QuickAction.Timer -> com.jake.duolauncher.island.IslandTools.startTimer(context, quick.seconds * 1000L)
+                            is QuickAction.Stopwatch -> com.jake.duolauncher.island.IslandTools.toggleStopwatch(context)
+                        }
+                        onDismiss()
+                    }) {
+                        Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Timer, null, Modifier.size(22.dp))
+                        }
                     }
                 }
                 if (!typed && suggested.isNotEmpty()) {
@@ -313,6 +330,17 @@ internal fun Spotlight(
                     SpotlightRow(contact.name, null, "spotlight-contact-${contact.id}", false, ink, { onOpenContact(contact) }) {
                         Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), CircleShape), contentAlignment = Alignment.Center) {
                             Text(contact.name.firstOrNull()?.uppercase() ?: "?", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+                if (settingsHits.isNotEmpty()) item("settings-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_settings), ink) }
+                items(settingsHits, key = { "settings-${it.action}" }) { page ->
+                    SpotlightRow(page.label, stringResource(com.jake.duolauncher.R.string.spotlight_settings_detail), "spotlight-settings-${page.label.lowercase().replace(' ', '-')}", false, ink, {
+                        runCatching { context.startActivity(android.content.Intent(page.action).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        onDismiss()
+                    }) {
+                        Box(Modifier.size(40.dp).background(ink.copy(alpha = .12f), Corner.icon), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Settings, null, Modifier.size(22.dp))
                         }
                     }
                 }

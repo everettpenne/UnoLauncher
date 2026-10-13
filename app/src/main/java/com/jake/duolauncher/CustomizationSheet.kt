@@ -56,6 +56,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     settings: GlassSettings = GlassSettings.Default,
     onLiquidGlass: (Boolean) -> Unit = {},
     onWallpaperColor: (Boolean) -> Unit = {},
+    onMaterialYou: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onTiltStrength: (Float) -> Unit = {},
     onRefractionHeight: (Float) -> Unit = {},
@@ -204,6 +205,9 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                                 modifier = Modifier.testTag("tilt-readout"))
                         }
                     }
+                    SettingsSwitch("Material You colors", appearance.materialYou, onMaterialYou, "material-you-switch")
+                    Text(stringResource(com.jake.duolauncher.R.string.material_you_note), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     SettingsSwitch("Color from wallpaper", appearance.wallpaperColor, onWallpaperColor, "wallpaper-color-switch")
                     Text(stringResource(com.jake.duolauncher.R.string.takes_one_color_from_your_wallpaper),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -165,10 +165,11 @@ class MainActivity : ComponentActivity() {
                 rawState.copy(apps = Focus.filter(rawState.apps, { it.id }, extrasState.focusOn, extrasState.focusHidden))
             }
             val deviceStatus = status.state.collectAsStateWithLifecycle().value
-            DuoTheme(appearance.state.dark) {
+            DuoTheme(appearance.state.dark, appearance.state.materialYou) {
                 androidx.compose.runtime.CompositionLocalProvider(LocalFeedFollow provides feeds::addFeed,
                     LocalWallpaperLuma provides rememberWallpaperLuma(appearance.state.dark),
-                    LocalWallpaperAccent provides rememberWallpaperAccent(appearance.state.wallpaperColor, appearance.state.dark)) {
+                    LocalWallpaperAccent provides (if (appearance.state.materialYou) rememberMaterialYouAccent(appearance.state.dark)
+                        else rememberWallpaperAccent(appearance.state.wallpaperColor, appearance.state.dark))) {
                 LauncherScreen(state, model, widgets, homeRequests.intValue,
                     onLaunch = { launchApp(it) }, onMakeDefault = ::makeDefault, onAppInfo = ::appInfo,
                     isDefaultHome = defaultHome.value, deviceStatus = deviceStatus, onStatusMode = ::setStatusMode, onWallpaperPreview = ::previewWallpaper,
@@ -197,6 +198,7 @@ class MainActivity : ComponentActivity() {
                     onSourceEnabled = feeds::setSourceEnabled,
                     onLiquidGlass = appearance::setLiquidGlass,
                     onWallpaperColor = appearance::setWallpaperColor,
+                    onMaterialYou = appearance::setMaterialYou,
                     onTiltHighlight = appearance::setTiltHighlight,
                     onTiltStrength = appearance::setTiltStrength,
                     island = island,

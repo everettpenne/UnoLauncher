@@ -40,6 +40,7 @@ class BackupController(
     private var operation: String? = null
     private var generation = 0
     private var importRaw: String? = null
+    private var exportSummary: String? = null
     private val createDocument = activity.activityResultRegistry.register(
         "duo.backup.create", activity, ActivityResultContracts.CreateDocument("application/json")
     ) createCallback@{ uri ->
@@ -80,6 +81,10 @@ class BackupController(
         val raw = runCatching { encodeLayoutBackup(state, widgetDescriptors(state), scope, SettingsBackup.capture(activity)) }.getOrElse {
             errorMessage = it.message ?: "Layout backup could not be prepared."; return
         }
+        // Read the file back as a restore would, so anything that would not survive is reported now, while the phone is still set up.
+        val problems = BackupCheck.verifyExport(state, raw, scope)
+        exportSummary = if (problems.isEmpty()) "Layout backup saved and checked: ${BackupCheck.savedSummary(state)}."
+            else "Layout backup saved, but the check found problems: ${problems.joinToString("; ")}."
         begin(OP_EXPORT, raw)
         try { createDocument.launch(fileName) }
         catch (error: Exception) { errorMessage = error.message ?: "The document picker is unavailable."; clearTransaction(false) }
@@ -142,7 +147,7 @@ class BackupController(
             }
             result.rethrowCancellation()
             if (token != generation || operation != OP_EXPORT) return@launch
-            result.onSuccess { successMessage = "Layout backup saved." }
+            result.onSuccess { successMessage = exportSummary ?: "Layout backup saved."; exportSummary = null }
                 .onFailure { errorMessage = it.message ?: "Layout backup could not be saved." }
             clearTransaction(clearMessages = false)
         }

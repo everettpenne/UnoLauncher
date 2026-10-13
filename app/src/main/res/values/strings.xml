@@ -339,10 +339,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Dune range is now sharper and cleaner: a crisp skyline, a clear sky and fine grain left only on the sand.</string>
-    <string name="whats_new_2">Home can have several pages, and layout backups keep your blank pages.</string>
-    <string name="whats_new_3">Spotlight is regrouped, finds apps by initials and suggests what you open most.</string>
-    <string name="whats_new_4">Widgets resize to exactly the rows you drag to.</string>
+    <string name="whats_new_1">Hide apps from All apps and search: long-press an app, choose Hide app, and type its exact name to find it again.</string>
+    <string name="whats_new_2">The long-press menu can now uninstall an app or turn its badge off, and badges can be a plain dot.</string>
+    <string name="whats_new_3">Move Home pages earlier or later from the + menu while editing Home.</string>
+    <string name="whats_new_4">Dune range is crisper, with a clean sky and fine grain on the sand.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

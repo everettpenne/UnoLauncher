@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.50.0-uno01
+
+- **Hidden apps.** Long-press an app and choose **Hide app**: it leaves All apps, the pickers, Spotlight suggestions, Home and the dock. Typing the app's exact name in All apps or Spotlight still finds it. **Settings > Notifications & privacy** lists your hidden apps, each with **Show again**. An app inside a folder has to be taken out of the folder first. Hidden apps are not yet carried in layout backups.
+- **More in the long-press menu:** **Uninstall** (not offered for phone apps that cannot be removed; Uno now asks Android for the permission to start an uninstall) and **Turn badges off for this app**, which silences one app's badge.
+- **Reorder Home pages.** Edit Home's **+** menu has **Move this page earlier** and **later**; the page's apps, folders and widgets move with it.
+- **Badges:** choose **Count** or **Dot** (a plain dot with no number) under Notifications & privacy.
+- Already in earlier releases, for reference: apps' own quick actions in the long-press menu and opt-in notification badges.
+- Tests: unit tests for hidden-app matching, moving pages (apps and widgets travel, edges do nothing) and the badge mute list; emulator tests hide an app from its menu and move a blank page earlier.
+
 ## 0.49.1-uno01
 
 - **Dune range: the distant rock ranges are cleaner too.** They keep about a third of the grain they had (the sky keeps a fifth, and the sand keeps all of it), and the soft blotchy mottling in the haze is about 45% weaker, so the ridges read as haze and rock rather than noise. The composition, colours and the sand's texture are unchanged.

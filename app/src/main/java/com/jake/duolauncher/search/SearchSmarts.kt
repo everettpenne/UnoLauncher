@@ -14,10 +14,20 @@ internal data class SmartAnswer(val text: String, val detail: String)
  * returns null so ordinary app search is untouched ("7-zip" and "2048" are app names, not sums).
  */
 internal object SearchSmarts {
-    fun answer(query: String): SmartAnswer? {
+    fun answer(query: String, now: java.time.LocalDateTime = java.time.LocalDateTime.now()): SmartAnswer? {
         val q = query.trim()
         if (q.isEmpty() || q.length > 80) return null
-        return percentOf(q) ?: conversion(q) ?: calculation(q)
+        return dateOrTime(q, now) ?: percentOf(q) ?: conversion(q) ?: calculation(q)
+    }
+
+    /** "date", "today", "time", "now": what the clock says, answered on the device. */
+    private fun dateOrTime(q: String, now: java.time.LocalDateTime): SmartAnswer? {
+        val fmt = { pattern: String -> java.time.format.DateTimeFormatter.ofPattern(pattern, java.util.Locale.getDefault()).format(now) }
+        return when (q.lowercase().removePrefix("what is ").removePrefix("what's ").removePrefix("the ").trim().removeSuffix("?")) {
+            "date", "today", "todays date", "today's date" -> SmartAnswer(fmt("EEEE, d MMMM yyyy"), fmt("'Week' w"))
+            "time", "now", "current time" -> SmartAnswer(fmt("HH:mm"), fmt("EEEE, d MMMM"))
+            else -> null
+        }
     }
 
     // ---- arithmetic ------------------------------------------------------------------------------------------

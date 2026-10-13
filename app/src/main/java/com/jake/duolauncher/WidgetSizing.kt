@@ -115,3 +115,24 @@ fun widgetSpanConstraints(provider: WidgetProviderSizing, grid: WidgetGridSizing
 
 private fun spanForSize(sizeDp: Float, cellDp: Float, gapDp: Float): Int =
     ceil(((sizeDp.coerceAtLeast(0f) + gapDp) / cellDp).toDouble()).toInt().coerceAtLeast(1)
+
+/** Top edge of [row] on Home. The first two rows sit on the narrower widget pitch, the rest on the app-row pitch. */
+internal fun homeRowTop(row: Int, topPitch: Float, appPitch: Float): Float =
+    if (row <= 2) row * topPitch else 2 * topPitch + (row - 2) * appPitch
+
+/**
+ * Rows a widget covers after its resize handle is dragged [dy] px. Root cause of widgets ending up
+ * half to a full row taller than asked: the drag used one uniform pitch (the narrow top one) while
+ * the rows below it are taller, so the same finger travel counted extra rows. This measures the
+ * dragged bottom edge against the true row boundaries and picks the nearest one.
+ */
+internal fun resizeRowsFor(startRow: Int, startRows: Int, dy: Float, topPitch: Float, appPitch: Float, min: Int, max: Int): Int {
+    val target = homeRowTop(startRow + startRows, topPitch, appPitch) + dy
+    var best = min.coerceAtLeast(1)
+    var bestDistance = Float.MAX_VALUE
+    for (rows in best..maxOf(best, max)) {
+        val distance = kotlin.math.abs(homeRowTop(startRow + rows, topPitch, appPitch) - target)
+        if (distance < bestDistance) { best = rows; bestDistance = distance }
+    }
+    return best
+}

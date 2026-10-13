@@ -61,6 +61,7 @@ data class LauncherState(
     val dock: List<String?> = List(4) { null },
     val widgetPlacements: List<WidgetPlacement> = DEFAULT_WIDGET_PLACEMENTS,
     val widgetRestores: List<WidgetRestore> = emptyList(),
+    val minPages: Int = 1,
     val googleSearch: Boolean = true,
     val compact: LayoutPreset = LayoutPreset(),
     val expanded: LayoutPreset = LayoutPreset(),
@@ -71,7 +72,7 @@ data class LauncherState(
 ) {
     val order: List<String> get() = homeSlots.filterNotNull()
     val widgets: List<Int> get() = layout.widgets
-    val layout: HomeLayout get() = HomeLayout(homeSlots, dock, widgetPlacements, folders, widgetRestores, leadingSlots)
+    val layout: HomeLayout get() = HomeLayout(homeSlots, dock, widgetPlacements, folders, widgetRestores, leadingSlots, minPages)
     val homePages get() = layout.pageCount
 }
 
@@ -237,7 +238,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
                     val validPins = pins.map { it?.takeUnless(removedIds::contains) }
                     val validDock = dock.map { it?.takeUnless(removedIds::contains) }
                     val reconciled = reconcileFolders(HomeLayout(validPins, validDock, old.widgetPlacements, old.folders,
-                        old.widgetRestores, old.leadingSlots), removedIds)
+                        old.widgetRestores, old.leadingSlots, old.minPages), removedIds)
                     old.copy(apps = entries, profiles = profiles, homeSlots = reconciled.slots, leadingSlots = reconciled.leadingSlots,
                         dock = reconciled.dock, folders = reconciled.folders,
                         canUndoEdit = old.canUndoEdit && old.layout == reconciled, loading = false,
@@ -393,7 +394,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         undoImportSettings = UndoImportSettings(old.compact, old.expanded, old.labels, old.googleSearch, old.verticalStatus)
         mutable.value = old.copy(homeSlots = preview.layout.slots, leadingSlots = preview.layout.leadingSlots, dock = preview.layout.dock,
             widgetPlacements = preview.layout.widgetPlacements, folders = preview.layout.folders,
-            widgetRestores = preview.layout.widgetRestores, compact = preview.compact, expanded = preview.expanded,
+            widgetRestores = preview.layout.widgetRestores, minPages = preview.layout.minPages, compact = preview.compact, expanded = preview.expanded,
             labels = preview.labels, googleSearch = preview.googleSearch, verticalStatus = preview.verticalStatus,
             editRevision = old.editRevision + 1, canUndoEdit = true)
         persist()
@@ -404,6 +405,8 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         val target = mutable.value.layout.placement(to) ?: return false
         return moveWidgetTo(from, target.page * HOME_CELLS + target.row * GRID_COLUMNS + target.column)
     }
+    fun addHomePage(): Boolean = commitLayout(mutable.value.layout.withAddedPage())
+    fun removeHomePage(page: Int): Boolean = commitLayout(mutable.value.layout.withoutPage(page))
     fun moveWidgetTo(slot: Int, index: Int) = commitLayout(moveWidget(mutable.value.layout, slot, index))
     fun resizeWidget(slot: Int, spanX: Int, spanY: Int) = commitLayout(resizeWidget(mutable.value.layout, slot, spanX, spanY))
     fun placeWidget(placement: WidgetPlacement) = commitLayout(placeWidget(mutable.value.layout, placement))
@@ -418,7 +421,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         undoImportSettings = null
         mutable.value = old.copy(homeSlots = next.slots, leadingSlots = next.leadingSlots, dock = next.dock,
             widgetPlacements = next.widgetPlacements, folders = next.folders,
-            widgetRestores = next.widgetRestores,
+            widgetRestores = next.widgetRestores, minPages = next.minPages,
             editRevision = old.editRevision + 1, canUndoEdit = true)
         persist()
         return true
@@ -433,7 +436,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         mutable.value = old.copy(homeSlots = reconcileHomeSlots(before.slots, installed),
             leadingSlots = before.leadingSlots.map { it?.takeIf(installed::contains) },
             dock = before.dock.map { it?.takeIf(installed::contains) }, widgetPlacements = before.widgetPlacements, folders = before.folders,
-            widgetRestores = before.widgetRestores, compact = settings?.compact ?: old.compact,
+            widgetRestores = before.widgetRestores, minPages = before.minPages, compact = settings?.compact ?: old.compact,
             expanded = settings?.expanded ?: old.expanded, labels = settings?.labels ?: old.labels,
             googleSearch = settings?.googleSearch ?: old.googleSearch, verticalStatus = settings?.verticalStatus ?: old.verticalStatus,
             canUndoEdit = false,
@@ -480,7 +483,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         mutable.update { it.copy(homeSlots = reconcileHomeSlots(layout.slots, installed),
             leadingSlots = layout.slotsForPage(-1).map { id -> id?.takeIf { it in installed || isFolderId(it) } },
             dock = layout.dock.map { id -> id?.takeIf { it in installed || isFolderId(it) } }, widgetPlacements = layout.widgetPlacements,
-            folders = layout.folders, widgetRestores = layout.widgetRestores,
+            folders = layout.folders, widgetRestores = layout.widgetRestores, minPages = layout.minPages,
             canUndoEdit = false, editRevision = it.editRevision + 1) }
         undoLayout = null
         undoImportSettings = null
@@ -506,6 +509,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
             .put("widgets", widgets).put("labels", s.labels)
             .put("folders", folders)
             .put("restores", restores)
+            .put("minPages", s.minPages)
             .put("googleSearch", s.googleSearch)
             .put("verticalStatus", s.verticalStatus)
             .put("compact", preset(s.compact)).put("expanded", preset(s.expanded))
@@ -643,6 +647,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
             leadingSlots = rawLeadingSlots,
             dock = loadedDock,
             widgetPlacements = placements, folders = folders, widgetRestores = restores,
+            minPages = j.optInt("minPages", 1).coerceIn(1, MAX_HOME_PAGES),
             googleSearch = j.optBoolean("googleSearch", true),
             labels = j.optBoolean("labels", true), compact = preset("compact", LayoutPreset()),
             expanded = preset("expanded", LayoutPreset()), verticalStatus = j.optBoolean("verticalStatus", true))

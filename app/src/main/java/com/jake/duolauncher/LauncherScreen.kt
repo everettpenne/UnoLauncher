@@ -851,6 +851,10 @@ internal fun LauncherScreen(
                         homeEditing = false; widgetSlot = model.nextWidgetSlot(); widgetTargetIndex = page * HOME_CELLS
                         widgetPackage = null; widgetProfileSerial = null; widgetExactTarget = false; sheet = "widgets"
                     },
+                    onAddPage = { if (model.addHomePage()) scope.launch { pager.animateScrollToPage(model.state.value.homePages - 1) } },
+                    onRemovePage = pager.currentPage.takeIf { it in 1 until homePages && state.layout.pageIsEmpty(it) }?.let { page ->
+                        { model.removeHomePage(page); Unit }
+                    },
                     onDone = { homeEditing = false }, modifier = Modifier.align(Alignment.TopCenter))
             }
             if (appearance.island && !islandEverywhere && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen && !spotlightOpen) {
@@ -1390,7 +1394,7 @@ internal fun LauncherScreen(
                     ((resizeWidth == placement.spanX && resizeHeight == placement.spanY) || candidate != state.layout)
                 val widthPx = (bounds.width + (resizeWidth - placement.spanX) * resizePitchX).coerceAtLeast(resizePitchX)
                 val density = LocalDensity.current
-                fun resizeRowTop(row: Int) = if (row <= 2) row * resizeTopPitch else 2 * resizeTopPitch + (row - 2) * resizeAppPitch
+                fun resizeRowTop(row: Int) = homeRowTop(row, resizeTopPitch, resizeAppPitch)
                 val heightPx = (resizeRowTop(placement.row + resizeHeight) - resizeRowTop(placement.row) -
                     with(density) { 18.dp.toPx() }).coerceAtLeast(resizePitchY)
                 Box(Modifier.offset { IntOffset(bounds.left.roundToInt(), bounds.top.roundToInt()) }
@@ -1409,7 +1413,7 @@ internal fun LauncherScreen(
                                 if (feasible && resizeConstraints?.canResizeHorizontally != false)
                                     resizeWidth = (startWidth + (dx / resizePitchX).roundToInt()).coerceIn(minW, maxW)
                                 if (feasible && resizeConstraints?.canResizeVertically != false)
-                                    resizeHeight = (startHeight + (dy / resizePitchY).roundToInt()).coerceIn(minH, maxH)
+                                    resizeHeight = resizeRowsFor(placement.row, startHeight, dy, resizeTopPitch, resizeAppPitch, minH, maxH)
                             })
                         }, contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.OpenInFull, "Drag to resize widget", tint = Ink, modifier = Modifier.size(22.dp))

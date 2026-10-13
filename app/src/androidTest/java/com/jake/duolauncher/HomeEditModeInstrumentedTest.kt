@@ -55,6 +55,20 @@ class HomeEditModeInstrumentedTest {
         } finally { compose.runOnIdle { model().restoreLayout(before) } }
     }
 
+    @Test fun addPageKeepsABlankPageAndRemoveTakesItAway() {
+        ready()
+        val before = model().state.value.layout
+        try {
+            enterEditMode(freeCell(before))
+            compose.onNodeWithTag("home-edit-add").performClick()
+            compose.onNodeWithTag("home-edit-add-page").performClick()
+            compose.waitUntil(10_000) { model().state.value.homePages == before.pageCount + 1 }
+            compose.onNodeWithTag("home-edit-add").performClick()
+            compose.onNodeWithTag("home-edit-remove-page").assertExists().performClick()
+            compose.waitUntil(10_000) { model().state.value.homePages == before.pageCount }
+        } finally { compose.runOnIdle { model().restoreLayout(before) } }
+    }
+
     @Test fun theBadgeTakesTheAppOffHome() {
         ready()
         val before = model().state.value.layout

@@ -108,6 +108,8 @@
     <!-- HomeEditMode.kt -->
     <string name="add_apps">Add apps</string>
     <string name="add_widget">Add widget</string>
+    <string name="add_page">Add page</string>
+    <string name="remove_empty_page">Remove this empty page</string>
     <string name="done">Done</string>
 
     <!-- LauncherActionSheet.kt -->
@@ -267,6 +269,15 @@
 
     <!-- search/Spotlight.kt -->
     <string name="search_apps_answers_feeds">Search apps, answers, feeds</string>
+    <string name="spotlight_apps">Apps</string>
+    <string name="spotlight_suggested">Suggested</string>
+    <string name="spotlight_contacts">Contacts</string>
+    <string name="spotlight_headlines">Saved headlines</string>
+    <string name="spotlight_elsewhere">Search elsewhere</string>
+    <string name="spotlight_top_hit">Top hit · Enter opens it</string>
+    <string name="spotlight_tap_to_copy">Tap to copy</string>
+    <string name="spotlight_copied">Copied</string>
+    <string name="spotlight_search_web">Search the web for “%1$s”</string>
     <string name="nothing_found">Nothing found</string>
 
     <!-- widgets/CountdownWidget.kt -->
@@ -317,10 +328,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">The widget picker now shows every widget as a live preview of itself, and each Uno widget has been redesigned.</string>
-    <string name="whats_new_2">A new Media player that takes its colours from the album art, and a Liquid battery that fills its whole card.</string>
-    <string name="whats_new_3">Molten metal, a new wallpaper of glass-like contour lines that bend into one another, in ice blue by day and ember by night.</string>
-    <string name="whats_new_4">Icon packs, island styles you can copy and paste, and menus that share one glass style.</string>
+    <string name="whats_new_1">Home can have several pages: add or remove a blank page from the + menu while editing Home.</string>
+    <string name="whats_new_2">Spotlight is regrouped, finds apps by initials, remembers what you open most, and answers date and time.</string>
+    <string name="whats_new_3">Widgets resize to exactly the rows you drag to, instead of ending up taller.</string>
+    <string name="whats_new_4">The widget picker, redesigned widgets, Molten metal wallpaper and icon packs from 0.46 and 0.47 are still here.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

@@ -43,6 +43,8 @@ fun normalizeHomeSlots(slots: List<String?>): List<String?> {
 fun reconcileHomeSlots(slots: List<String?>, installed: Set<String>) =
     normalizeHomeSlots(slots.map { it?.takeIf(installed::contains) })
 
+internal const val MAX_HOME_PAGES = 12
+
 data class HomeLayout(
     val slots: List<String?>,
     val dock: List<String?>,
@@ -50,6 +52,8 @@ data class HomeLayout(
     val folders: List<FolderEntry> = emptyList(),
     val widgetRestores: List<WidgetRestore> = emptyList(),
     val leadingSlots: List<String?> = List(HOME_CELLS) { null },
+    /** Pages the user asked for; blank pages persist because [pageCount] is otherwise content-derived. */
+    val minPages: Int = 1,
 ) {
     val widgets: List<Int> get() {
         val last = widgetPlacements.maxOfOrNull { it.slot } ?: -1
@@ -58,8 +62,20 @@ data class HomeLayout(
     fun placement(slot: Int) = widgetPlacements.firstOrNull { it.slot == slot }
     fun folder(id: String) = folders.firstOrNull { it.id == id }
     fun widgetRestore(slot: Int) = widgetRestores.firstOrNull { it.slot == slot }
-    val pageCount get() = maxOf(homePageCount(slots.size),
+    val pageCount get() = maxOf(homePageCount(slots.size), minPages.coerceIn(1, MAX_HOME_PAGES),
         widgetPlacements.filter { it.page >= 0 }.maxOfOrNull { it.page + 1 } ?: 1)
+    fun pageIsEmpty(page: Int) = page in 0 until pageCount &&
+        slotsForPage(page).all { it == null } && widgetPlacements.none { it.page == page }
+    fun withAddedPage(): HomeLayout = if (pageCount >= MAX_HOME_PAGES) this else copy(minPages = pageCount + 1)
+    /** Drops an empty page, shifting later pages (apps and widgets) down by one. Page 0 is never removed. */
+    fun withoutPage(page: Int): HomeLayout {
+        if (page <= 0 || pageCount <= 1 || !pageIsEmpty(page)) return this
+        val first = page * HOME_CELLS
+        val shifted = slots.filterIndexed { index, _ -> index < first || index >= first + HOME_CELLS }
+        return copy(slots = normalizeHomeSlots(shifted),
+            widgetPlacements = widgetPlacements.map { if (it.page > page) it.copy(page = it.page - 1) else it },
+            minPages = pageCount - 1)
+    }
     fun slotAt(index: Int): String? = when (homeCellPage(index)) {
         -1 -> leadingSlots.getOrNull(homeCellLocal(index))
         in 0..Int.MAX_VALUE -> slots.getOrNull(index)

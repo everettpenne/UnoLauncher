@@ -23,6 +23,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -58,25 +59,74 @@ import kotlinx.coroutines.withContext
 internal object SpotlightRank {
     const val MAX_APPS = 6
     const val MAX_FEED = 4
+    const val MAX_SUGGESTED = 4
 
-    /** Apps whose name starts with the query come first, then names with a word that starts with it, then names that
-     * merely contain it; each group alphabetical. A blank query matches nothing (Spotlight shows nothing until you type).
-     */
-    fun <T> apps(apps: List<T>, query: String, label: (T) -> String): List<T> {
-        val q = query.trim().lowercase()
-        if (q.isEmpty()) return emptyList()
-        fun tier(label: String): Int {
-            val l = label.lowercase()
-            return when {
-                l.startsWith(q) -> 0
-                l.split(' ', '-', '.', '_').any { it.startsWith(q) } -> 1
-                l.contains(q) -> 2
-                else -> 3
-            }
-        }
-        return apps.map { it to tier(label(it)) }.filter { it.second < 3 }
-            .sortedWith(compareBy({ it.second }, { label(it.first).lowercase() })).map { it.first }.take(MAX_APPS)
+    /** How a label matches a query, best first. [NONE] drops the app from the results. */
+    enum class Tier { PREFIX, WORD_PREFIX, INITIALS, CONTAINS, FUZZY, NONE }
+
+    private fun words(label: String): List<String> {
+        // "YouTube Music" -> you, tube, music: split on separators and on lower-to-upper humps.
+        val spaced = label.replace(Regex("""([a-z0-9])([A-Z])"""), "$1 $2")
+        return spaced.lowercase().split(' ', '-', '.', '_', '/').filter { it.isNotEmpty() }
     }
+
+    fun tier(label: String, query: String): Tier {
+        val q = query.trim().lowercase().replace(" ", "")
+        if (q.isEmpty()) return Tier.NONE
+        val l = label.lowercase()
+        val parts = words(label)
+        return when {
+            l.startsWith(query.trim().lowercase()) || l.replace(" ", "").startsWith(q) -> Tier.PREFIX
+            parts.any { it.startsWith(q) } -> Tier.WORD_PREFIX
+            // "ytm" finds YouTube Music, "gm" Google Maps: the query is a run of leading letters of the words.
+            q.length >= 2 && parts.size >= 2 && initialsMatch(parts, q) -> Tier.INITIALS
+            l.contains(q) || l.replace(" ", "").contains(q) -> Tier.CONTAINS
+            // Only for longer queries, or two letters would match half the drawer.
+            q.length >= 3 && isSubsequence(q, l.replace(" ", "")) -> Tier.FUZZY
+            else -> Tier.NONE
+        }
+    }
+
+    private fun initialsMatch(parts: List<String>, q: String): Boolean {
+        var at = 0
+        for (part in parts) {
+            if (at >= q.length) break
+            var taken = 0
+            while (at + taken < q.length && taken < part.length && part[taken] == q[at + taken]) taken++
+            if (taken == 0) return false
+            at += taken
+        }
+        return at == q.length
+    }
+
+    private fun isSubsequence(q: String, text: String): Boolean {
+        var at = 0
+        for (c in text) if (at < q.length && c == q[at]) at++
+        return at == q.length
+    }
+
+    /** Frecency: launches count for more when recent. A launch loses half its weight every [HALF_LIFE_DAYS] days. */
+    const val HALF_LIFE_DAYS = 14.0
+    fun frecency(count: Int, lastLaunchMs: Long, nowMs: Long): Double {
+        if (count <= 0) return 0.0
+        val ageDays = ((nowMs - lastLaunchMs).coerceAtLeast(0L)) / 86_400_000.0
+        return count * Math.pow(0.5, ageDays / HALF_LIFE_DAYS)
+    }
+
+    /**
+     * Best match first: how the name matches, then how often and recently you open the app, then alphabetical.
+     * A blank query matches nothing (see [suggested] for what Spotlight offers before you type).
+     */
+    fun <T> apps(apps: List<T>, query: String, label: (T) -> String, frecency: (T) -> Double = { 0.0 }): List<T> {
+        if (query.isBlank()) return emptyList()
+        return apps.map { it to tier(label(it), query) }.filter { it.second != Tier.NONE }
+            .sortedWith(compareBy<Pair<T, Tier>>({ it.second }, { -frecency(it.first) }, { label(it.first).lowercase() }))
+            .map { it.first }.take(MAX_APPS)
+    }
+
+    /** What to offer before anything is typed: the apps you open most, if you have opened any. */
+    fun <T> suggested(apps: List<T>, frecency: (T) -> Double): List<T> =
+        apps.filter { frecency(it) > .05 }.sortedByDescending(frecency).take(MAX_SUGGESTED)
 
     /** Saved feed entries whose title or summary mentions every word of the query. */
     fun feed(entries: List<FeedEntry>, query: String): List<FeedEntry> {
@@ -139,7 +189,12 @@ internal fun Spotlight(
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { focus.requestFocus(); keyboard?.show() }
-    val appResults = remember(apps, query) { SpotlightRank.apps(apps, query) { it.label } }
+    val history = remember { SpotlightHistory(context) }
+    val scores = remember { history.scores() }
+    val appResults = remember(apps, query) { SpotlightRank.apps(apps, query, { it.label }, { scores[it.id] ?: 0.0 }) }
+    val suggested = remember(apps) { SpotlightRank.suggested(apps) { scores[it.id] ?: 0.0 } }
+    val launch = { app: AppEntry -> history.record(app.id); onLaunch(app) }
+    var copied by remember(query) { mutableStateOf(false) }
     val feedResults = remember(feedEntries, query) { SpotlightRank.feed(feedEntries, query) }
     val smart = remember(query) { SearchSmarts.answer(query) }
     val suggestions = remember(query, appResults.size, smart, handoff) { handoff.targets(query, appResults.size, smart != null) }
@@ -210,54 +265,77 @@ internal fun Spotlight(
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
                 keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
                     when {
-                        appResults.isNotEmpty() -> onLaunch(appResults.first())
+                        appResults.isNotEmpty() -> launch(appResults.first())
                         query.isNotBlank() -> if (handoff.searchWeb(query)) onDismiss()
                     }
                 }),
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search") } })
             val nothing = smart == null && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()
+            val typed = query.isNotBlank()
+            val webOffered = suggestions.any { it.kind == HandoffKind.WEB }
             LazyColumn(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (smart != null) item("smart") {
-                    Column(Modifier.fillMaxWidth().clip(Corner.medium).background(ink.copy(alpha = .10f)).padding(horizontal = 16.dp, vertical = 10.dp)
-                        .testTag("spotlight-answer")) {
+                    Column(Modifier.fillMaxWidth().clip(Corner.medium).background(ink.copy(alpha = .10f))
+                        .clickable {
+                            val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                            clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Spotlight answer", smart.text))
+                            copied = true
+                        }
+                        .padding(horizontal = 16.dp, vertical = 10.dp).testTag("spotlight-answer")) {
                         Text(smart.detail, color = ink.copy(alpha = .7f), fontSize = 12.sp)
                         Text(smart.text, color = ink, fontSize = 24.sp, fontWeight = FontWeight.Medium)
+                        Text(stringResource(if (copied) com.jake.duolauncher.R.string.spotlight_copied else com.jake.duolauncher.R.string.spotlight_tap_to_copy),
+                            color = ink.copy(alpha = .5f), fontSize = 11.sp)
                     }
                 }
-                items(appResults, key = { "app-${it.id}" }) { app ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.small).clickable { onLaunch(app) }
-                        .padding(horizontal = 6.dp, vertical = 6.dp).testTag("spotlight-app-${app.id}"), verticalAlignment = Alignment.CenterVertically) {
+                if (!typed && suggested.isNotEmpty()) {
+                    item("suggested-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_suggested), ink) }
+                    items(suggested, key = { "suggested-${it.id}" }) { app ->
+                        SpotlightRow(app.label, null, "spotlight-app-${app.id}", false, ink, { launch(app) }) {
+                            Image(app.image, null, Modifier.size(40.dp).clip(Corner.icon))
+                        }
+                    }
+                }
+                if (appResults.isNotEmpty()) item("apps-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_apps), ink) }
+                itemsIndexed(appResults, key = { _, app -> "app-${app.id}" }) { index, app ->
+                    // The first result is what Enter opens, so it is marked as the top hit.
+                    SpotlightRow(app.label, if (index == 0) stringResource(com.jake.duolauncher.R.string.spotlight_top_hit) else null,
+                        "spotlight-app-${app.id}", index == 0, ink, { launch(app) }) {
                         Image(app.image, null, Modifier.size(40.dp).clip(Corner.icon))
-                        Text(app.label, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
+                if (contacts.isNotEmpty()) item("contacts-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_contacts), ink) }
                 items(contacts, key = { "contact-${it.id}" }) { contact ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.small).clickable { onOpenContact(contact) }
-                        .padding(horizontal = 6.dp, vertical = 6.dp).testTag("spotlight-contact-${contact.id}"), verticalAlignment = Alignment.CenterVertically) {
+                    SpotlightRow(contact.name, null, "spotlight-contact-${contact.id}", false, ink, { onOpenContact(contact) }) {
                         Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), CircleShape), contentAlignment = Alignment.Center) {
                             Text(contact.name.firstOrNull()?.uppercase() ?: "?", fontWeight = FontWeight.SemiBold)
                         }
-                        Text(contact.name, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
+                if (feedResults.isNotEmpty()) item("feed-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_headlines), ink) }
                 items(feedResults, key = { "feed-${it.link}" }) { entry ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.small).clickable { onOpenFeedLink(entry.link) }
-                        .padding(horizontal = 6.dp, vertical = 6.dp).testTag("spotlight-feed"), verticalAlignment = Alignment.CenterVertically) {
+                    SpotlightRow(entry.title, entry.sourceLabel, "spotlight-feed", false, ink, { onOpenFeedLink(entry.link) }, titleLines = 2) {
                         Box(Modifier.size(40.dp).background(ink.copy(alpha = .10f), Corner.icon), contentAlignment = Alignment.Center) {
                             Icon(Icons.Rounded.RssFeed, null, Modifier.size(20.dp))
                         }
-                        Column(Modifier.padding(start = 12.dp)) {
-                            Text(entry.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 14.sp)
-                            Text(entry.sourceLabel, fontSize = 11.sp, color = ink.copy(alpha = .6f), maxLines = 1)
-                        }
                     }
                 }
+                if (typed && nothing) item("none") {
+                    Text(stringResource(com.jake.duolauncher.R.string.nothing_found), Modifier.padding(12.dp), color = ink.copy(alpha = .7f))
+                }
+                if (suggestions.isNotEmpty()) item("elsewhere-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_elsewhere), ink) }
                 items(suggestions, key = { "handoff-${it.kind}-${it.packageName}" }) { target ->
                     HandoffRow(target, ink, Modifier.clickable { handoff.open(target, query); onDismiss() })
                 }
-                if (query.isNotBlank() && nothing) item("none") {
-                    Text(stringResource(com.jake.duolauncher.R.string.nothing_found), Modifier.padding(12.dp), color = ink.copy(alpha = .7f))
+                // Enter already searches the web; this row makes the same action visible, whatever the handoff setting.
+                if (typed && !webOffered) item("web") {
+                    SpotlightRow(stringResource(com.jake.duolauncher.R.string.spotlight_search_web, query.trim()), null, "spotlight-web", false, ink,
+                        { if (handoff.searchWeb(query)) onDismiss() }) {
+                        Box(Modifier.size(40.dp).background(ink.copy(alpha = .12f), Corner.icon), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Search, null, Modifier.size(20.dp))
+                        }
+                    }
                 }
             }
             }
@@ -279,6 +357,28 @@ internal fun HandoffRow(target: HandoffTarget, ink: Color, modifier: Modifier = 
             Text(target.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp)
             Text(if (target.kind == HandoffKind.WEB) "Opens your browser's own search" else "Not installed? Look for it here",
                 fontSize = 11.sp, color = ink.copy(alpha = .6f), maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun SpotlightHeader(text: String, ink: Color) {
+    Text(text.uppercase(), Modifier.padding(start = 8.dp, top = 10.dp, bottom = 2.dp), color = ink.copy(alpha = .5f),
+        fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = .8.sp)
+}
+
+/** One result: a 40 dp leading mark, a title, an optional second line; the top hit sits on a faint plate. */
+@Composable
+private fun SpotlightRow(title: String, subtitle: String?, tag: String, highlighted: Boolean, ink: Color, onClick: () -> Unit,
+    titleLines: Int = 1, leading: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.small)
+        .then(if (highlighted) Modifier.background(ink.copy(alpha = .09f)) else Modifier)
+        .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+        .padding(horizontal = 6.dp, vertical = 6.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically) {
+        leading()
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(title, maxLines = titleLines, overflow = TextOverflow.Ellipsis, fontSize = if (titleLines > 1) 14.sp else 16.sp)
+            if (subtitle != null) Text(subtitle, fontSize = 11.sp, color = ink.copy(alpha = .6f), maxLines = 1)
         }
     }
 }

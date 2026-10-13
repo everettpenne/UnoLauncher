@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.48.0-uno01
+
+- **Several Home pages.** Edit Home's **+** menu now has **Add page**, which keeps a blank page until you fill it, and **Remove this empty page**. Pages survive restarts and undo; the cap is 12. (Before, a page existed only while something was on it.)
+- **Spotlight, revamped.**
+  - Results are grouped under Apps, Contacts, Saved headlines and Search elsewhere, in one row style, and the top hit (what Enter opens) is marked.
+  - Smarter matching: word starts, **initials** ("ytm" finds YouTube Music, "gm" Google Maps) and loose letter matches for three letters or more. Equally good matches put the apps you open most, and most recently, first. That history stays on the device.
+  - Before you type, Spotlight suggests the apps you open most.
+  - New answers on the device: "date", "today", "time". Tapping any answer copies it.
+  - A visible "Search the web for ..." row, the same action as Enter.
+- **Widgets no longer end up taller than you set them.** Root cause: dragging the resize handle converted finger travel to rows with the narrow top-row height, but the rows below are taller, so the same drag counted extra rows (a half to a full row too many). The handle now measures against the real row boundaries.
+- **Faster development loop:** `scripts/quick-check.sh` compiles and runs the unit tests in seconds; the deeper checks are for releases.
+- Tests: new unit tests for pages, resize rows, matching, frecency and date answers; an emulator test adds and removes a page.
+
 ## 0.47.0-uno01
 
 - **The widget picker shows what you are choosing.** Every Uno widget (and the Clock and Date cards) is drawn as its real face at Home size, in a two-column grid with its name, size and what it does. A tap on the preview places the widget. Previews use sample data (a track playing, an alarm for tomorrow, a note, a counter at 3) and never read or save anything of yours. Search now matches widget names and descriptions.

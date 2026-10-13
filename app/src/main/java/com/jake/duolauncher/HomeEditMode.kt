@@ -89,7 +89,7 @@ internal fun RemoveBadge(label: String, modifier: Modifier = Modifier, onClick: 
 
 /** The bar across the top while editing: + on the left, Done on the right. */
 @Composable
-internal fun HomeEditBar(onAddApps: () -> Unit, onAddWidget: () -> Unit, onDone: () -> Unit, modifier: Modifier = Modifier) {
+internal fun HomeEditBar(onAddApps: () -> Unit, onAddWidget: () -> Unit, onAddPage: () -> Unit, onRemovePage: (() -> Unit)?, onDone: () -> Unit, modifier: Modifier = Modifier) {
     var menu by remember { mutableStateOf(false) }
     Row(modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -100,6 +100,8 @@ internal fun HomeEditBar(onAddApps: () -> Unit, onAddWidget: () -> Unit, onDone:
             DropdownMenu(menu, { menu = false }) {
                 DropdownMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.add_apps)) }, onClick = { menu = false; onAddApps() }, modifier = Modifier.testTag("home-edit-add-apps"))
                 DropdownMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.add_widget)) }, onClick = { menu = false; onAddWidget() }, modifier = Modifier.testTag("home-edit-add-widget"))
+                DropdownMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.add_page)) }, onClick = { menu = false; onAddPage() }, modifier = Modifier.testTag("home-edit-add-page"))
+                if (onRemovePage != null) DropdownMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.remove_empty_page)) }, onClick = { menu = false; onRemovePage() }, modifier = Modifier.testTag("home-edit-remove-page"))
             }
         }
         FilledTonalButton(onClick = onDone, Modifier.heightIn(min = 44.dp).testTag("home-edit-done")) { Text(stringResource(com.jake.duolauncher.R.string.done)) }

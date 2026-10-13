@@ -437,7 +437,11 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
     fun resizeWidget(slot: Int, spanX: Int, spanY: Int) = commitLayout(resizeWidget(mutable.value.layout, slot, spanX, spanY))
     fun placeWidget(placement: WidgetPlacement) = commitLayout(placeWidget(mutable.value.layout, placement))
     fun placement(slot: Int) = mutable.value.layout.placement(slot)
-    fun nextWidgetSlot() = (mutable.value.widgetPlacements.maxOfOrNull { it.slot } ?: -1) + 1
+    /** A slot nobody uses: past every placed widget and every Uno widget stacked behind one (it still owns that slot's saved data). */
+    fun nextWidgetSlot(): Int {
+        val placed = mutable.value.widgetPlacements.map { it.slot }
+        return (placed + WidgetStacks.unoMemberSlots(placed.toSet())).maxOrNull()?.plus(1) ?: 0
+    }
     fun removePlacement(source: DropTarget) = commitLayout(removePlacement(mutable.value.layout, source))
     private fun commitLayout(next: HomeLayout): Boolean {
         if (statePayloadInvalid) return false

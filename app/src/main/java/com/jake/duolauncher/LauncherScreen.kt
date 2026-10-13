@@ -242,8 +242,10 @@ internal fun LauncherScreen(
     val appsById = remember(state.apps) { state.apps.associateBy { it.id } }
     SideEffect { HomeAppsBridge.apps = appsById; HomeAppsBridge.launch = onLaunchFrom }
     // A large folder whose Home widget is gone takes its contents with it.
-    LaunchedEffect(state.widgetPlacements) {
-        WidgetData.prune(state.widgetPlacements.filter { UnoWidgets.byId(it.id) != null }.map { it.slot }.toSet())
+    LaunchedEffect(state.widgetPlacements, WidgetStacks.stacks) {
+        val placedSlots = state.widgetPlacements.map { it.slot }.toSet()
+        WidgetData.prune(state.widgetPlacements.filter { UnoWidgets.byId(it.id) != null }.map { it.slot }.toSet() +
+            WidgetStacks.unoMemberSlots(placedSlots))
         LargeFolders.prune(state.widgetPlacements.filter { it.id == FOLDER_WIDGET }.map { it.slot }.toSet()) }
     val drag = remember { HomeDragState() }
     val folderOwnsInput = openFolderId != null || drag.source?.folderId != null
@@ -1006,11 +1008,13 @@ internal fun LauncherScreen(
                                 onRemove = { widgets.remove(widgetSlot); sheet = "" },
                                 onClose = { sheet = "" },
                                 onEditFolder = if (placement.id == FOLDER_WIDGET) {{ sheet = "largeFolder" }} else null,
-                                stackMembers = WidgetStacks.members(widgetSlot).map { it to widgets.label(it) },
-                                onStackWith = if (state.widgetPlacements.any { it.slot != widgetSlot && it.id >= 0 && widgets.manager.getAppWidgetInfo(it.id) != null }
+                                stackMembers = WidgetStacks.members(widgetSlot).map { it to stackMemberLabel(it, widgets) },
+                                onStackWith = if (state.widgetPlacements.any { it.slot != widgetSlot && stackable(it, widgets) }
                                     && WidgetStacks.members(widgetSlot).size < StackRules.MAX_MEMBERS) {{ sheet = "stackPick" }} else null,
                                 onRemoveFromStack = { memberId ->
-                                    WidgetStacks.remove(widgetSlot, memberId); widgets.pruneUnusedIds()
+                                    // An Uno widget in the stack has no Android id to release: forgetting it is all there is to do, and
+                                    // its saved data is pruned once nothing refers to its slot.
+                                    WidgetStacks.remove(widgetSlot, memberId); if (!StackRules.isUno(memberId)) widgets.pruneUnusedIds()
                                 })
                         }
                         "largeFolder" -> LargeFolderEditor(widgetSlot, state.apps) { sheet = "widgetActions" }
@@ -1022,11 +1026,13 @@ internal fun LauncherScreen(
                             }
                             Text(stringResource(com.jake.duolauncher.R.string.it_moves_into_this_widget_s),
                                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            state.widgetPlacements.filter { it.slot != widgetSlot && it.id >= 0 && widgets.manager.getAppWidgetInfo(it.id) != null }
+                            state.widgetPlacements.filter { it.slot != widgetSlot && stackable(it, widgets) }
                                 .forEach { other ->
-                                    ActionRow(Icons.Rounded.Widgets, "${widgets.label(other.id)}  ·  page ${other.page + 1}", {
+                                    ActionRow(Icons.Rounded.Widgets, "${widgetLabel(other.id, widgets)}  ·  page ${other.page + 1}", {
                                         // Remember it as a stack member first, so removing its grid spot doesn't unbind it.
-                                        if (WidgetStacks.add(widgetSlot, other.id)) { widgets.remove(other.slot) }
+                                        if (other.id >= 0) { if (WidgetStacks.add(widgetSlot, other.id)) widgets.remove(other.slot) }
+                                        // An Uno widget joins under a code that keeps its slot, so its saved data goes with it.
+                                        else if (WidgetStacks.add(widgetSlot, StackRules.unoCode(other.id, other.slot))) model.removePlacement(DropTarget.Widget(other.slot))
                                         sheet = ""
                                     }, Modifier.testTag("stack-pick-${other.slot}"))
                                 }
@@ -2232,7 +2238,9 @@ private fun ExpandedCard(onClick: () -> Unit) {
 }
 
 @Composable
-private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifier: Modifier, onAdd: () -> Unit, fallback: @Composable () -> Unit) {
+private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifier: Modifier, onAdd: () -> Unit,
+    /** Draws a built-in widget: its id and the slot that owns its saved data (a stacked widget keeps the slot it had). */
+    fallback: @Composable (faceId: Int, faceSlot: Int) -> Unit) {
     var restoreMessage by remember(slot) { mutableStateOf<String?>(null) }
     val glass = LocalPageGlass.current
     // Glass sits behind the provider's RemoteViews; it shows through transparent widgets
@@ -2270,7 +2278,8 @@ private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifie
         val shown = StackRules.clampPage(stackPage, members.size)
         val shownId = if (shown == 0) id else members[shown - 1]
         val info = remember(shownId) { if (shownId >= 0) controller.manager.getAppWidgetInfo(shownId) else null }
-        if (info == null) { if (shown == 0) fallback() }
+        if (StackRules.isUno(shownId)) key(shownId) { fallback(StackRules.unoWidgetId(shownId), StackRules.unoSlot(shownId)) }
+        else if (info == null) { if (shown == 0) fallback(id, slot) }
         else {
             key(shownId) {
                 AndroidView(factory = { context -> controller.host.createView(context, shownId, info) },
@@ -2281,7 +2290,7 @@ private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifie
         LaunchedEffect(shown) { if (members.isNotEmpty()) { nameVisible = true; delay(1100); nameVisible = false } }
         androidx.compose.animation.AnimatedVisibility(nameVisible && members.isNotEmpty(), Modifier.align(Alignment.TopCenter).padding(top = 6.dp),
             enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
-            Text(widgetLabel(shownId, controller), color = Color.White, fontSize = 11.sp, maxLines = 1,
+            Text(stackMemberLabel(shownId, controller), color = Color.White, fontSize = 11.sp, maxLines = 1,
                 modifier = Modifier.background(Color.Black.copy(alpha = .45f), Corner.pill).padding(horizontal = 10.dp, vertical = 3.dp)
                     .testTag("stack-widget-name"))
         }
@@ -2331,6 +2340,15 @@ private fun StackRail(selected: Int, count: Int, onSelect: (Int) -> Unit, modifi
 /** A large folder may be as small as 2 x 1 or 1 x 2 (never 1 x 1), up to the whole grid. */
 private val FOLDER_SPAN_CONSTRAINTS = WidgetSpanConstraints(WidgetSpan(2, 2), WidgetSpan(1, 1), WidgetSpan(GRID_COLUMNS, GRID_ROWS), true, true)
 
+/** Whether a placed widget can join a stack: an Android widget that is bound, or an Uno one (Clock, Date, or from the Uno library). */
+private fun stackable(placement: WidgetPlacement, controller: WidgetController) =
+    (placement.id >= 0 && controller.manager.getAppWidgetInfo(placement.id) != null) ||
+        placement.id == CLOCK_WIDGET || placement.id == DATE_WIDGET || UnoWidgets.byId(placement.id) != null
+
+/** The name of a stack member: an Uno widget's own name, or the Android widget's label. */
+private fun stackMemberLabel(code: Int, controller: WidgetController) =
+    if (StackRules.isUno(code)) widgetLabel(StackRules.unoWidgetId(code), controller) else widgetLabel(code, controller)
+
 private fun widgetLabel(id: Int, controller: WidgetController) = when (id) {
     CLOCK_WIDGET -> "Clock"
     DATE_WIDGET -> "Date"
@@ -2348,25 +2366,25 @@ private fun MovableWidget(id: Int, slot: Int, controller: WidgetController, drag
         .alpha(if (drag.source?.target == cell) .3f else 1f)
         .border(if (drag.active && target == cell) 2.dp else 0.dp,
             if (drag.active && target == cell) Color.White else Color.Transparent, Corner.large)
-        .semantics { onLongClick("Move or replace widget") { onAdd(); true } }, onAdd) {
-        when (id) {
+        .semantics { onLongClick("Move or replace widget") { onAdd(); true } }, onAdd) { faceId, faceSlot ->
+        when (faceId) {
             CLOCK_WIDGET -> ClockCard(onAdd)
             DATE_WIDGET -> DateCard(onAdd)
-            FOLDER_WIDGET -> LargeFolderFace(slot, onAdd)
-            INFO_WIDGET -> if (slot % 3 == 2) ExpandedCard(onAdd) else GlassCard(onClick = onAdd) {
+            FOLDER_WIDGET -> LargeFolderFace(faceSlot, onAdd)
+            INFO_WIDGET -> if (faceSlot % 3 == 2) ExpandedCard(onAdd) else GlassCard(onClick = onAdd) {
                 val ink = LocalGlassInk.current
                 Icon(Icons.Rounded.Widgets, null, tint = ink.primary, modifier = Modifier.size(28.dp))
                 Text(stringResource(com.jake.duolauncher.R.string.your_widgets), color = ink.primary, fontSize = 15.sp, maxLines = 1)
                 Text(stringResource(com.jake.duolauncher.R.string.tap_to_choose), color = ink.soft(), fontSize = 12.sp)
             }
             else -> {
-                val library = UnoWidgets.byId(id)
-                if (library != null) library.face(slot, onAdd)
+                val library = UnoWidgets.byId(faceId)
+                if (library != null) library.face(faceSlot, onAdd)
                 else Surface(Modifier.fillMaxSize().clickable(onClick = onAdd), color = Glass.copy(alpha = .18f),
                     shape = Corner.large, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .25f))) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Rounded.Add, null, tint = Color.White)
-                        Text(if (id >= 0) "Widget unavailable" else "Add widget", color = Color.White, fontSize = 12.sp)
+                        Text(if (faceId >= 0) "Widget unavailable" else "Add widget", color = Color.White, fontSize = 12.sp)
                     }
                 }
             }

@@ -11,11 +11,27 @@ import androidx.compose.runtime.setValue
 internal object StackRules {
     const val MAX_MEMBERS = 5
 
+    // A stack member is an Android widget id (0 or more), or an Uno widget (Clock, Date or one from the Uno library) coded as
+    // a negative number that carries both its kind and the Home slot it had when it joined: that slot keeps the widget's own
+    // saved data (a note's text, a counter's count), so the widget is unchanged by being stacked. Slots stay below 100,000.
+    private const val UNO_BASE = 100_000
+    fun unoCode(widgetId: Int, slot: Int): Int = -((slot + 1) * UNO_BASE) + widgetId
+    fun isUno(code: Int): Boolean = code <= -UNO_BASE
+    /** The built-in widget id (CLOCK_WIDGET, a library id, ...) inside a member code from [unoCode]. */
+    fun unoWidgetId(code: Int): Int = -((-code) % UNO_BASE)
+    /** The Home slot whose saved data the member keeps. */
+    fun unoSlot(code: Int): Int = (-code) / UNO_BASE - 1
+    fun isMember(code: Int) = code >= 0 || isUno(code)
+
+    /** The slots whose Uno widgets live inside stacks whose base is still on Home. Their saved data must be kept. */
+    fun memberSlots(stacks: Map<Int, List<Int>>, placedSlots: Set<Int>): Set<Int> =
+        stacks.filterKeys { it in placedSlots }.values.flatten().filter(::isUno).map(::unoSlot).toSet()
+
     /** "12:3,7:4,5" style storage: slot, then its member widget ids. Unreadable parts are skipped, never fatal. */
     fun parse(raw: String?): Map<Int, List<Int>> = raw.orEmpty().split(';').mapNotNull { entry ->
         val (slot, ids) = entry.split(':', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
         val s = slot.trim().toIntOrNull() ?: return@mapNotNull null
-        val members = ids.split(',').mapNotNull { it.trim().toIntOrNull() }.filter { it >= 0 }.distinct()
+        val members = ids.split(',').mapNotNull { it.trim().toIntOrNull() }.filter(::isMember).distinct()
         if (members.isEmpty()) null else s to members
     }.toMap()
 
@@ -24,7 +40,7 @@ internal object StackRules {
 
     /** Adds [id] to [slot]'s stack unless it is already anywhere, or the stack is full. Null means nothing changed. */
     fun add(stacks: Map<Int, List<Int>>, slot: Int, id: Int): Map<Int, List<Int>>? {
-        if (id < 0 || stacks.values.any { id in it } || (stacks[slot]?.size ?: 0) >= MAX_MEMBERS) return null
+        if (!isMember(id) || stacks.values.any { id in it } || (stacks[slot]?.size ?: 0) >= MAX_MEMBERS) return null
         return stacks + (slot to ((stacks[slot] ?: emptyList()) + id))
     }
 
@@ -57,6 +73,9 @@ internal object WidgetStacks {
     }
 
     fun members(slot: Int): List<Int> = stacks[slot].orEmpty()
+
+    /** Slots of Uno widgets stacked behind widgets that are placed: not free for a new widget, and their data is kept. */
+    fun unoMemberSlots(placedSlots: Set<Int>): Set<Int> = StackRules.memberSlots(stacks, placedSlots)
 
     fun add(slot: Int, id: Int): Boolean {
         val next = StackRules.add(stacks, slot, id) ?: return false

@@ -65,6 +65,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.composed
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.IntOffset
@@ -437,7 +442,15 @@ internal fun LauncherScreen(
             } ?: raw
         } else raw
         val folderApp = if (active && drag.moved) folderDropTarget(region, drag.pointer, drag.source, ::isFolderId) else null
-        DragTargets(raw, adjusted, folderApp)
+        // A widget held over the middle of another widget would stack onto it.
+        val stackSlot = if (active && drag.moved) (drag.source?.target as? DropTarget.Widget)?.let { src ->
+            drag.regions.values.firstOrNull { r ->
+                val t = r.target as? DropTarget.Widget
+                t != null && t.index != src.index && r.page in eligiblePagesNow.value && widgetCentre(r.bounds).contains(drag.pointer) &&
+                    canStackWidget(model.placement(src.index), model.placement(t.index), widgets)
+            }?.let { (it.target as DropTarget.Widget).index }
+        } else null
+        DragTargets(raw, adjusted, folderApp, stackSlot)
     } }
     val rawTarget = dragTargets.raw
     val target = dragTargets.target
@@ -447,7 +460,19 @@ internal fun LauncherScreen(
     // Held over the middle of another app: the drop makes a folder, so nothing reflows out of the way.
     val folderTargetApp = dragTargets.folderApp
     SideEffect { drag.folderIntentApp = folderTargetApp }
-    val insertionTarget = target.takeIf { drag.moved && !blockedDock && folderTargetApp == null }
+    // Held there for a moment, the widget will stack (as on iOS): a quick pass over a widget just moves it as before.
+    var stackIntent by remember { mutableStateOf<Int?>(null) }
+    val stackCandidate = dragTargets.stackSlot
+    LaunchedEffect(stackCandidate) {
+        stackIntent = null
+        if (stackCandidate != null) {
+            delay(STACK_DWELL_MS)
+            stackIntent = stackCandidate
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
+    SideEffect { drag.stackIntentSlot = stackIntent }
+    val insertionTarget = target.takeIf { drag.moved && !blockedDock && folderTargetApp == null && stackIntent == null }
     val widgetRawTarget = widgetSession?.let { session -> drag.regions.values.firstOrNull {
         it.target is DropTarget.Home && it.page in eligibleDragPages && it.bounds.contains(session.pointer)
     }?.target as? DropTarget.Home }
@@ -487,8 +512,16 @@ internal fun LauncherScreen(
             scope.launch { pager.animateScrollToPage(next) }.join()
         }
     }
+    // Folds the widget in [otherSlot] into the stack behind [baseSlot]. An Android widget is remembered as a member before its grid spot is
+    // removed (so it is not unbound); an Uno widget joins under a code that keeps its slot, so its saved data goes with it.
+    fun mergeWidgetIntoStack(baseSlot: Int, otherSlot: Int): Boolean {
+        val other = model.placement(otherSlot) ?: return false
+        return if (other.id >= 0) WidgetStacks.add(baseSlot, other.id).also { if (it) widgets.remove(other.slot) }
+        else WidgetStacks.add(baseSlot, StackRules.unoCode(other.id, other.slot)).also { if (it) model.removePlacement(DropTarget.Widget(other.slot)) }
+    }
     fun finishDrag(cancelled: Boolean) {
         val source = drag.source ?: return
+        val stackOnto = if (drag.moved && !cancelled && source.target is DropTarget.Widget) drag.stackIntentSlot else null
         val moved = drag.moved
         val rawDestination = if (moved && !cancelled) drag.destination(drag.pointer, eligibleDragPages)?.target else null
         val destination = if (rawDestination is DropTarget.Home && source.target is DropTarget.Widget) {
@@ -505,6 +538,7 @@ internal fun LauncherScreen(
         val folderOntoApp = if (moved && !cancelled && destination is DropTarget.Home)
             folderDropTarget(drag.destination(drag.pointer, eligibleDragPages), drag.pointer, source, ::isFolderId) else null
         val changed = when {
+            stackOnto != null && source.target is DropTarget.Widget -> mergeWidgetIntoStack(stackOnto, source.target.index)
             largeFolderSlot != null && source.appId != null && LargeFolders.add(largeFolderSlot, source.appId) -> {
                 if (source.target is DropTarget.Home || source.target is DropTarget.Dock) model.removePlacement(source.target)
                 true
@@ -667,6 +701,8 @@ internal fun LauncherScreen(
                         val screenPoint = point + gestureOriginInWindow +
                             Offset(rootOnScreen[0].toFloat(), rootOnScreen[1].toFloat())
                         !(region?.target is DropTarget.Dock && dockScroll.value > 0) &&
+                            // A stack takes a vertical swipe that starts on it (it switches widgets); sideways swipes still turn pages.
+                            StackBodyRegistry.bounds.values.none { it.contains(point + gestureOriginInRoot) } &&
                             !nativeWidgetConsumesVerticalGesture(launcherRootView, screenPoint)
                     }
                 },
@@ -1030,9 +1066,7 @@ internal fun LauncherScreen(
                                 .forEach { other ->
                                     ActionRow(Icons.Rounded.Widgets, "${widgetLabel(other.id, widgets)}  ·  page ${other.page + 1}", {
                                         // Remember it as a stack member first, so removing its grid spot doesn't unbind it.
-                                        if (other.id >= 0) { if (WidgetStacks.add(widgetSlot, other.id)) widgets.remove(other.slot) }
-                                        // An Uno widget joins under a code that keeps its slot, so its saved data goes with it.
-                                        else if (WidgetStacks.add(widgetSlot, StackRules.unoCode(other.id, other.slot))) model.removePlacement(DropTarget.Widget(other.slot))
+                                        mergeWidgetIntoStack(widgetSlot, other.slot)
                                         sheet = ""
                                     }, Modifier.testTag("stack-pick-${other.slot}"))
                                 }
@@ -1900,6 +1934,7 @@ private fun SharedHomeGrid(
             val cell = DropTarget.Home(globalIndex)
             val savedId = savedAt(globalIndex)
             val savedApp = appsById[savedId]
+            val folderGrow by animateFloatAsState(if (drag.folderIntentApp != null && drag.folderIntentApp == savedApp?.id) 1f else 0f, label = "folder intent")
             val savedFolder = folders.firstOrNull { it.id == savedId }
             val previewId = previewAt(globalIndex)
             val highlighted = drag.active && target == cell
@@ -1921,7 +1956,8 @@ private fun SharedHomeGrid(
                     onLongClickLabel = if (savedId == null) "Home options" else null,
                     onLongClick = { if (savedId == null && !drag.active) onEmptyWidget(globalIndex) })
                 // No frame around the cell being dragged over: only, while a drop would make a folder, a soft square behind the app below.
-                .background(if (drag.folderIntentApp != null && drag.folderIntentApp == savedApp?.id) Color.White.copy(alpha = .16f) else Color.Transparent, Corner.medium),
+                .graphicsLayer { val scale = 1f + .10f * folderGrow; scaleX = scale; scaleY = scale }
+                .background(Color.White.copy(alpha = .20f * folderGrow), Corner.medium),
                 contentAlignment = Alignment.TopCenter) {
                 if (showFree) Box(Modifier.padding(top = 2.dp).size(iconSize.dp).background(Color.White.copy(alpha = if (highlighted) .28f else .09f), Corner.icon)
                     .testTag("home-free-$globalIndex"))
@@ -2243,11 +2279,34 @@ private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifie
     fallback: @Composable (faceId: Int, faceSlot: Int) -> Unit) {
     var restoreMessage by remember(slot) { mutableStateOf<String?>(null) }
     val glass = LocalPageGlass.current
+    // A stack shows one widget at a time: the base widget, then each widget merged into it.
+    val members = WidgetStacks.stacks[slot].orEmpty()
+    var stackPage by rememberSaveable(slot) { mutableIntStateOf(0) }
+    val shown = StackRules.clampPage(stackPage, members.size)
+    val stackHaptic = LocalHapticFeedback.current
+    val rootView = LocalView.current.rootView
+    var windowTopLeft by remember { mutableStateOf(Offset.Zero) }
+    val bodyKey = remember { Any() }
+    DisposableEffect(Unit) { onDispose { StackBodyRegistry.bounds.remove(bodyKey) } }
+    SideEffect { if (members.isEmpty()) StackBodyRegistry.bounds.remove(bodyKey) }
     // Glass sits behind the provider's RemoteViews; it shows through transparent widgets
     // and is covered by widgets that paint their own opaque background.
     BoxWithConstraints(modifier.then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.large,
         glass.tint.copy(alpha = .14f), blurRadius = 1f, settings = glass.settings) else Modifier)
-        .clip(Corner.large).testTag("widget-slot-$slot")) {
+        .clip(Corner.large)
+        .onGloballyPositioned {
+            windowTopLeft = it.boundsInWindow().topLeft
+            if (members.isNotEmpty()) StackBodyRegistry.bounds[bodyKey] = it.boundsInRoot()
+        }
+        // Swiping up or down on a stack moves through its widgets, as on iOS. Sideways swipes are left to the pager, and a
+        // provider's own vertical scrolling (a list widget) keeps its touches: the dots still switch those.
+        .stackSwipe(members.isNotEmpty(), { shown }, members.size + 1, { page -> stackPage = page },
+            blockedByProvider = { down ->
+                val onScreen = IntArray(2).also(rootView::getLocationOnScreen)
+                val pageId = if (shown == 0) id else members.getOrElse(shown - 1) { 0 }
+                pageId >= 0 && nativeWidgetConsumesVerticalGesture(rootView, down + windowTopLeft + Offset(onScreen[0].toFloat(), onScreen[1].toFloat()))
+            }, onSwitched = { UnoFeedback.play(Cue.TICK, stackHaptic) })
+        .testTag("widget-slot-$slot")) {
         val displayedContentSize = WidgetContentSize(maxWidth.value, maxHeight.value)
         if (id == NEEDS_BINDING_WIDGET) {
             val restore = controller.restoreDescriptor(slot)
@@ -2272,20 +2331,27 @@ private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifie
             }
             return@BoxWithConstraints
         }
-        // A stack shows one widget at a time: the base widget, then each widget merged into it.
-        val members = WidgetStacks.stacks[slot].orEmpty()
-        var stackPage by rememberSaveable(slot) { mutableIntStateOf(0) }
-        val shown = StackRules.clampPage(stackPage, members.size)
         val shownId = if (shown == 0) id else members[shown - 1]
-        val info = remember(shownId) { if (shownId >= 0) controller.manager.getAppWidgetInfo(shownId) else null }
-        if (StackRules.isUno(shownId)) key(shownId) { fallback(StackRules.unoWidgetId(shownId), StackRules.unoSlot(shownId)) }
-        else if (info == null) { if (shown == 0) fallback(id, slot) }
-        else {
-            key(shownId) {
-                AndroidView(factory = { context -> controller.host.createView(context, shownId, info) },
-                    modifier = Modifier.fillMaxSize())
+        val pageContent: @Composable (Int) -> Unit = { page ->
+            val pageId = if (page == 0) id else members.getOrElse(page - 1) { id }
+            val info = remember(pageId) { if (pageId >= 0) controller.manager.getAppWidgetInfo(pageId) else null }
+            if (StackRules.isUno(pageId)) key(pageId) { fallback(StackRules.unoWidgetId(pageId), StackRules.unoSlot(pageId)) }
+            else if (info == null) { if (page == 0) fallback(id, slot) }
+            else {
+                key(pageId) {
+                    AndroidView(factory = { context -> controller.host.createView(context, pageId, info) },
+                        modifier = Modifier.fillMaxSize())
+                }
             }
         }
+        if (members.isEmpty()) pageContent(0)
+        else androidx.compose.animation.AnimatedContent(targetState = shown, modifier = Modifier.fillMaxSize(), label = "stack page",
+            transitionSpec = {
+                // The next widget rises in from below, the previous one comes down from above.
+                val up = targetState > initialState
+                (androidx.compose.animation.slideInVertically { if (up) it / 3 else -it / 3 } + androidx.compose.animation.fadeIn()) togetherWith
+                    (androidx.compose.animation.slideOutVertically { if (up) -it / 3 else it / 3 } + androidx.compose.animation.fadeOut())
+            }) { page -> pageContent(page) }
         var nameVisible by remember { mutableStateOf(false) }
         LaunchedEffect(shown) { if (members.isNotEmpty()) { nameVisible = true; delay(1100); nameVisible = false } }
         androidx.compose.animation.AnimatedVisibility(nameVisible && members.isNotEmpty(), Modifier.align(Alignment.TopCenter).padding(top = 6.dp),
@@ -2299,11 +2365,60 @@ private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifie
     }
 }
 
+/**
+ * Up or down on a stack steps through its widgets (up for the next, down for the previous), one step for each [STACK_SWIPE_STEP_DP]
+ * travelled. The touch is watched in the Initial pass and only claimed once it is clearly vertical, so a sideways swipe still turns the
+ * page and a tap or long press is untouched. [blockedByProvider] leaves a provider's own vertical scrolling alone.
+ */
+private fun Modifier.stackSwipe(enabled: Boolean, shown: () -> Int, count: Int, onPage: (Int) -> Unit,
+    blockedByProvider: (Offset) -> Boolean, onSwitched: () -> Unit): Modifier = composed {
+    val currentShown by rememberUpdatedState(shown)
+    val currentBlocked by rememberUpdatedState(blockedByProvider)
+    val currentSwitched by rememberUpdatedState(onSwitched)
+    val currentOnPage by rememberUpdatedState(onPage)
+    pointerInput(enabled, count) {
+        if (!enabled) return@pointerInput
+        val step = STACK_SWIPE_STEP_DP.dp.toPx()
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (currentBlocked(down.position)) return@awaitEachGesture
+            var claimed = false
+            var anchorY = down.position.y
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed || event.changes.any { it.id != down.id && it.pressed }) break
+                val delta = change.position - down.position
+                if (!claimed) {
+                    if (kotlin.math.abs(delta.x) > viewConfiguration.touchSlop && kotlin.math.abs(delta.x) >= kotlin.math.abs(delta.y)) break
+                    if (kotlin.math.abs(delta.y) > viewConfiguration.touchSlop && kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x)) {
+                        claimed = true; anchorY = down.position.y
+                    }
+                }
+                if (claimed) {
+                    change.consume()
+                    val travelled = change.position.y - anchorY
+                    if (kotlin.math.abs(travelled) >= step) {
+                        val next = (currentShown() + if (travelled < 0) 1 else -1).coerceIn(0, count - 1)
+                        if (next != currentShown()) { currentOnPage(next); currentSwitched() }
+                        anchorY = change.position.y
+                    }
+                }
+            }
+        }
+    }
+}
+
+private const val STACK_SWIPE_STEP_DP = 44
+
 /** Where each visible stack rail is, in root coordinates, so the page gestures can step aside for a touch that starts on one. */
 internal object StackRailRegistry { val bounds = mutableMapOf<Any, androidx.compose.ui.geometry.Rect>() }
 
+/** Where each widget stack is, so a vertical swipe that starts on one switches its widget instead of opening the shade, panel or settings. */
+internal object StackBodyRegistry { val bounds = mutableMapOf<Any, androidx.compose.ui.geometry.Rect>() }
+
 /** What is under the finger during a drag. */
-private data class DragTargets(val raw: DropTarget?, val target: DropTarget?, val folderApp: String?)
+private data class DragTargets(val raw: DropTarget?, val target: DropTarget?, val folderApp: String?, val stackSlot: Int? = null)
 
 /** The dots down the right edge of a widget stack. Tapping a dot, or dragging along the rail, switches widgets. It is a
  * rail and not a swipe on the widget itself because vertical swipes on Home already open the panel and notifications.
@@ -2340,6 +2455,19 @@ private fun StackRail(selected: Int, count: Int, onSelect: (Int) -> Unit, modifi
 /** A large folder may be as small as 2 x 1 or 1 x 2 (never 1 x 1), up to the whole grid. */
 private val FOLDER_SPAN_CONSTRAINTS = WidgetSpanConstraints(WidgetSpan(2, 2), WidgetSpan(1, 1), WidgetSpan(GRID_COLUMNS, GRID_ROWS), true, true)
 
+/** How long a dragged widget must rest over another's middle before it will stack onto it. */
+private const val STACK_DWELL_MS = 450L
+
+/** The middle of a widget: only a drag held there stacks, so passing over an edge still just moves the widget. */
+private fun widgetCentre(bounds: androidx.compose.ui.geometry.Rect) = bounds.deflate(minOf(bounds.width, bounds.height) * .2f)
+
+/** Whether [source] may be dropped onto [base]: both can stack, the source is not itself a stack, and the base has room. */
+private fun canStackWidget(source: WidgetPlacement?, base: WidgetPlacement?, controller: WidgetController): Boolean {
+    if (source == null || base == null || source.slot == base.slot) return false
+    return stackable(source, controller) && stackable(base, controller) &&
+        WidgetStacks.members(source.slot).isEmpty() && WidgetStacks.members(base.slot).size < StackRules.MAX_MEMBERS
+}
+
 /** Whether a placed widget can join a stack: an Android widget that is bound, or an Uno one (Clock, Date, or from the Uno library). */
 private fun stackable(placement: WidgetPlacement, controller: WidgetController) =
     (placement.id >= 0 && controller.manager.getAppWidgetInfo(placement.id) != null) ||
@@ -2362,7 +2490,19 @@ private fun widgetLabel(id: Int, controller: WidgetController) = when (id) {
 private fun MovableWidget(id: Int, slot: Int, controller: WidgetController, drag: HomeDragState,
     target: DropTarget?, modifier: Modifier, page: Int, onAdd: () -> Unit) {
     val cell = DropTarget.Widget(slot)
+    // A widget about to take another into its stack grows a little and takes a ring and a soft plate, as a folder target does on iOS.
+    val stackIntent = drag.stackIntentSlot == slot
+    val intent by animateFloatAsState(if (stackIntent) 1f else 0f, label = "stack intent")
     WidgetSlot(id, slot, controller, modifier.dropRegion(drag, cell, page = page, widgetId = id)
+        .graphicsLayer { val scale = 1f + .05f * intent; scaleX = scale; scaleY = scale }
+        .drawWithContent {
+            drawContent()
+            if (intent > 0f) {
+                drawRect(Color.White.copy(alpha = .16f * intent))
+                drawRoundRect(Color.White.copy(alpha = .9f * intent), cornerRadius = androidx.compose.ui.geometry.CornerRadius(20.dp.toPx()),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(3.dp.toPx()))
+            }
+        }
         .alpha(if (drag.source?.target == cell) .3f else 1f)
         .border(if (drag.active && target == cell) 2.dp else 0.dp,
             if (drag.active && target == cell) Color.White else Color.Transparent, Corner.large)

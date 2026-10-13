@@ -36,6 +36,8 @@ internal class HomeDragState {
     var activeSourceScope by mutableStateOf<String?>(null)
     /** The app a drop would make a folder with right now, for a soft highlight behind it. */
     var folderIntentApp by mutableStateOf<String?>(null)
+    /** The widget slot a dragged widget would stack onto if dropped now (held over its middle for a moment), for the ring around it. */
+    var stackIntentSlot by mutableStateOf<Int?>(null)
     val active get() = source != null
     fun hit(point: Offset, pages: Set<Int>) = regions.values
         .filter { (it.page == null || it.page in pages) && it.bounds.contains(point) &&

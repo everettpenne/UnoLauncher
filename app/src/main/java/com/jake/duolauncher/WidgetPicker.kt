@@ -1,5 +1,8 @@
 package com.jake.duolauncher
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
@@ -208,6 +211,8 @@ internal fun VisualWidgetPicker(
     onDrop: () -> Unit,
     onCancelDrag: () -> Unit,
     glass: PageGlass? = null,
+    /** What the preview tiles are drawn with: the wallpaper-only glass the Home widgets use, so a preview shows the wallpaper through it and not the icons behind the picker. */
+    previewGlass: PageGlass? = glass,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val latestDragStart by rememberUpdatedState(onDragStart)
@@ -264,8 +269,17 @@ internal fun VisualWidgetPicker(
                 if (words.isEmpty() && selectedProfile.isPersonal) {
                     item("duo-widgets") { Text(stringResource(com.jake.duolauncher.R.string.uno_launcher), style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 10.dp, start = 4.dp)) }
-                    items(listOf(Triple(CLOCK_WIDGET, "Clock", "2 × 2"), Triple(DATE_WIDGET, "Date", "2 × 2"),
-                        Triple(INFO_WIDGET, "Widget panel", "2 × 2"), Triple(FOLDER_WIDGET, "Large folder", "2 × 2"),
+                    // Clock and Date are drawn as they will look on Home; the rest are plain cards.
+                    item("builtin-previews") {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            PreviewTile("Clock", "2 × 2 · Tap to place", 1f, "widget-builtin-$CLOCK_WIDGET", previewGlass, { onBuiltin(CLOCK_WIDGET) },
+                                Modifier.weight(1f)) { ClockCard {} }
+                            PreviewTile("Date", "2 × 2 · Tap to place", 1f, "widget-builtin-$DATE_WIDGET", previewGlass, { onBuiltin(DATE_WIDGET) },
+                                Modifier.weight(1f)) { DateCard {} }
+                        }
+                    }
+                    items(listOf(Triple(INFO_WIDGET, "Widget panel", "2 × 2"),
+                        Triple(FOLDER_WIDGET, "Large folder", "2 × 2"),
                         Triple(FOLDER_WIDE_PICK, "Large folder, wide", "2 × 1"), Triple(FOLDER_TALL_PICK, "Large folder, tall", "1 × 2")),
                         key = { "builtin-${it.first}" }) { (id, label, size) ->
                         Surface(Modifier.fillMaxWidth().testTag("widget-builtin-$id")
@@ -279,19 +293,19 @@ internal fun VisualWidgetPicker(
                         }
                     }
                 }
-                if (words.isEmpty() && selectedProfile.isPersonal) {
+                val unoMatches = UnoWidgets.all.filter { words.isEmpty() || "${it.label} ${it.blurb}".lowercase().contains(words) }
+                if (selectedProfile.isPersonal && unoMatches.isNotEmpty()) {
                     item("uno-library") { Text(stringResource(com.jake.duolauncher.R.string.uno_widgets), style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 10.dp, start = 4.dp)) }
-                    items(UnoWidgets.all, key = { "uno-${it.id}" }) { def ->
-                        Surface(Modifier.fillMaxWidth().testTag("widget-builtin-${def.id}")
-                            .clickable { focusManager.clearFocus(); keyboard?.hide(); onBuiltin(def.id) },
-                            color = Glass.copy(alpha = .55f), border = BorderStroke(1.dp, Color.White.copy(alpha = .55f)),
-                            shape = Corner.large) {
-                            Column(Modifier.padding(16.dp)) {
-                                Text(def.label, style = MaterialTheme.typography.titleMedium)
-                                Text(def.blurb, style = MaterialTheme.typography.bodySmall)
-                                Text("${def.spanX} × ${def.spanY} · Tap to place", style = MaterialTheme.typography.labelMedium)
+                    // Each Uno widget is its own live face, drawn at the size it will have on Home, so what you tap is what you get.
+                    items(unoMatches.chunked(2), key = { row -> "uno-row-${row.first().id}" }) { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            row.forEach { def ->
+                                PreviewTile(def.label, def.blurb, def.spanX.toFloat() / def.spanY, "widget-builtin-${def.id}", previewGlass,
+                                    { focusManager.clearFocus(); keyboard?.hide(); onBuiltin(def.id) }, Modifier.weight(1f),
+                                    sizeLine = "${def.spanX} × ${def.spanY} · Tap to place") { def.face(PreviewSamples.slotFor(def.id)) {} }
                             }
+                            if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
                 }
@@ -349,5 +363,27 @@ internal fun VisualWidgetPicker(
                 if (entries != null && filtered.isEmpty()) item { Text(stringResource(com.jake.duolauncher.R.string.no_widgets_found), Modifier.padding(20.dp)) }
             }
         }
+    }
+}
+
+/** One widget in the picker: its real face as a preview at Home size, its name, and what it does. The preview is not interactive: a
+ *  tap on it places the widget. */
+@Composable
+private fun PreviewTile(label: String, detail: String, ratio: Float, tag: String, glass: PageGlass?, onPick: () -> Unit, modifier: Modifier,
+    sizeLine: String? = null, preview: @Composable () -> Unit) {
+    Column(modifier) {
+        Box(Modifier.fillMaxWidth().aspectRatio(ratio)) {
+            CompositionLocalProvider(LocalWidgetPreview provides true, LocalPageGlass provides glass) {
+                Box(Modifier.fillMaxSize()) { preview() }
+            }
+            // The tap catcher sits above the face, so the face itself never sees the touch.
+            Box(Modifier.matchParentSize().clip(Corner.large).clickable(onClick = onPick)
+                .semantics { contentDescription = "Place $label" }.testTag(tag))
+        }
+        Text(label, Modifier.padding(top = 8.dp, start = 2.dp), style = MaterialTheme.typography.titleSmall)
+        Text(sizeLine ?: detail, Modifier.padding(start = 2.dp), style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (sizeLine != null) Text(detail, Modifier.padding(start = 2.dp, top = 2.dp), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
     }
 }

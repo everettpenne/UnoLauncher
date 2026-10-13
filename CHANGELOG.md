@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.47.0-uno01
+
+- **The widget picker shows what you are choosing.** Every Uno widget (and the Clock and Date cards) is drawn as its real face at Home size, in a two-column grid with its name, size and what it does. A tap on the preview places the widget. Previews use sample data (a track playing, an alarm for tomorrow, a note, a counter at 3) and never read or save anything of yours. Search now matches widget names and descriptions.
+- **Every widget redesigned**, in the same spirit as the Media player and the battery:
+  - **Month:** an accent disc for today, dimmer weekends.
+  - **Day, month and year:** gradient bars in three colours.
+  - **Moon:** a halo and a shaded sphere with faint seas.
+  - **Countdown:** the number in the accent colour. **Note:** an accent bar and a bold first line. **Counter:** a soft glow behind the number. **Timers:** accent pills.
+  - **Sunrise and sunset:** the sun's path as a dome from sunrise to sunset, with the sun where it is now.
+  - **Analog clock:** a filled dial with an accent mark and centre.
+  - **Next alarm:** a large time and a chip for how long to go.
+  - **World clock:** a sun or moon dot for day or night at each place, and "+1" in place of "Tomorrow", which squeezed the city names.
+  - **Glance:** chips for the alarm and for sunrise and sunset, with the sun times shortened so they fit.
+  - Colours come from one shared palette and follow your wallpaper accent when "Color from wallpaper" is on.
+- **Since 0.46.0 (so you see it in one place):** the Molten metal wallpaper, icon packs, the Media player and Liquid battery redesigns, island styles shared as text, the glass UI kit for menus, the accessibility pass, and the first-run tour. See the 0.46.0 and 0.46.1 notes.
+- **"What's new" note** updated to cover this release and the last.
+- Tests: emulator tests check that the picker shows the real faces with sample data, that writes to a preview are ignored, and that tapping a preview places the widget; the widget, accessibility and "what's new" suites pass.
+
 ## 0.46.1-uno01
 
 - **Media player, redesigned.** The album art is blurred into a wash behind the card, so every track brings its own colours; text and controls are white on it with a filled play button. At 2x2 it shows title, artist, a progress bar with a knob and previous, play and next (before, the title and artwork were squeezed out entirely); at 4x2 the artwork becomes a tile beside them, with the elapsed and remaining time. The empty state is calmer. Long titles end in "…" (a scrolling title was tried and left out: it keeps Compose busy and hangs the emulator tests).

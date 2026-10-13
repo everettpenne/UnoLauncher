@@ -87,9 +87,14 @@ internal fun PhotosFace(slot: Int, onOptions: () -> Unit) {
     var previewOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     GlassCard(onClick = { previewOpen = true }, modifier = Modifier.testTag("uno-photos-$slot"),
-        padding = if (sourceUris.isEmpty()) 14.dp else 0.dp) {
+        padding = if (sourceUris.isEmpty() && !LocalWidgetPreview.current) 14.dp else 0.dp) {
         val ink = LocalGlassInk.current
         when {
+            sourceUris.isEmpty() && LocalWidgetPreview.current -> {
+                // The picker's preview: a sample picture, not an empty card.
+                val sample = remember { PreviewSamples.photo().asImageBitmap() }
+                Image(sample, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            }
             sourceUris.isEmpty() -> {
                 CardTitle(Icons.Rounded.PhotoLibrary, "Photos")
                 Text(when {

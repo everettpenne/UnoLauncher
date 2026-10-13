@@ -74,10 +74,12 @@ internal object WidgetData {
     fun reload() { values = prefs?.all?.mapNotNull { (k, v) -> (v as? String)?.let { k to it } }?.toMap().orEmpty() }
 
     private fun key(slot: Int, field: String) = "${slot}_$field"
-    fun get(slot: Int, field: String, default: String = ""): String = values[key(slot, field)] ?: default
+    fun get(slot: Int, field: String, default: String = ""): String =
+        if (PreviewSamples.isPreview(slot)) PreviewSamples.get(slot, field) ?: default else values[key(slot, field)] ?: default
     fun getInt(slot: Int, field: String): Int = get(slot, field, "0").toIntOrNull() ?: 0
 
     fun set(slot: Int, field: String, value: String) {
+        if (PreviewSamples.isPreview(slot)) return
         values = values + (key(slot, field) to value)
         prefs?.edit()?.putString(key(slot, field), value)?.apply()
     }

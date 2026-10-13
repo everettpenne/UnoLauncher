@@ -1,5 +1,8 @@
 package com.jake.duolauncher.widgets
 
+import androidx.compose.foundation.background
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.Alignment
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -25,13 +28,19 @@ internal fun ProgressFace(slot: Int, onOptions: () -> Unit) {
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-progress-$slot")) {
         val ink = LocalGlassInk.current
         CardTitle(Icons.Rounded.Timelapse, "${LocalDate.now().year} · ${progress.daysLeftInYear} days left")
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f).padding(top = 6.dp)) {
-            listOf("Day" to progress.day, "Month" to progress.month, "Year" to progress.year).forEach { (label, fraction) ->
+        Column(verticalArrangement = Arrangement.spacedBy(9.dp, Alignment.CenterVertically), modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 4.dp)) {
+            listOf(Triple("Day", progress.day, WidgetColors.Warm), Triple("Month", progress.month, WidgetColors.Teal),
+                Triple("Year", progress.year, WidgetColors.Violet)).forEach { (label, fraction, hue) ->
+                val colour = widgetAccent(hue).let { if (LocalWallpaperAccent.current != null) hue else it }
                 Column {
-                    Row { Text(label, color = ink.primary, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                        Text("${(fraction * 100).toInt()}%", color = ink.soft(), fontSize = 11.sp) }
-                    LinearProgressIndicator(progress = { fraction }, Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)),
-                        color = ink.primary, trackColor = ink.soft(.22f), gapSize = 0.dp, drawStopIndicator = {})
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(label, color = ink.primary, fontSize = 11.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                        Text("${(fraction * 100).toInt()}%", color = ink.soft(), fontSize = 11.sp)
+                    }
+                    Box(Modifier.padding(top = 3.dp).fillMaxWidth().height(7.dp).clip(RoundedCornerShape(50)).background(ink.soft(.2f))) {
+                        Box(Modifier.fillMaxWidth(fraction.coerceIn(.02f, 1f)).fillMaxHeight().clip(RoundedCornerShape(50))
+                            .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(colour.copy(alpha = .55f), colour))))
+                    }
                 }
             }
         }

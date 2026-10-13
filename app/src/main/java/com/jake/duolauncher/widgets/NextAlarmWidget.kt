@@ -1,5 +1,9 @@
 package com.jake.duolauncher.widgets
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.*
 import com.jake.duolauncher.island.*
@@ -46,16 +50,22 @@ internal fun NextAlarmFace(slot: Int, onOptions: () -> Unit) {
         val ink = LocalGlassInk.current
         CardTitle(Icons.Rounded.Alarm, "Next alarm")
         val alarm = info
-        if (alarm == null) {
+        val preview = LocalWidgetPreview.current
+        if (alarm == null && !preview) {
             Text(stringResource(com.jake.duolauncher.R.string.no_alarm_set), color = ink.primary, fontSize = 18.sp, fontWeight = FontWeight.Light, modifier = Modifier.testTag("next-alarm-none"))
             Text(stringResource(com.jake.duolauncher.R.string.set_one_in_your_clock_app), color = ink.soft(), fontSize = 12.sp)
         } else {
             val zone = ZoneId.systemDefault()
-            val parts = NextAlarmText.describe(Instant.ofEpochMilli(nowMs).atZone(zone), Instant.ofEpochMilli(alarm.triggerTime).atZone(zone),
+            // The picker's preview shows a plausible alarm (tomorrow morning) rather than the person's own, or "No alarm set".
+            val trigger = alarm?.triggerTime ?: java.time.ZonedDateTime.now(zone).plusDays(1).withHour(7).withMinute(30).withSecond(0).toInstant().toEpochMilli()
+            val parts = NextAlarmText.describe(Instant.ofEpochMilli(nowMs).atZone(zone), Instant.ofEpochMilli(trigger).atZone(zone),
                 android.text.format.DateFormat.is24HourFormat(context))
-            Text(parts.time, color = ink.primary, fontSize = 30.sp, fontWeight = FontWeight.Light, maxLines = 1, modifier = Modifier.testTag("next-alarm-time"))
-            Text(parts.day, color = ink.primary, fontSize = 13.sp, maxLines = 1)
-            Text(parts.remaining, color = ink.soft(), fontSize = 12.sp, maxLines = 1)
+            Text(parts.day, color = ink.soft(), fontSize = 12.sp, maxLines = 1)
+            Text(parts.time, color = ink.primary, fontSize = 34.sp, fontWeight = FontWeight.Light, maxLines = 1, modifier = Modifier.testTag("next-alarm-time"))
+            Box(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(widgetAccent(WidgetColors.Warm).copy(alpha = .26f))
+                .padding(horizontal = 9.dp, vertical = 3.dp)) {
+                Text(parts.remaining, color = ink.primary, fontSize = 11.sp, maxLines = 1)
+            }
         }
     }
 }

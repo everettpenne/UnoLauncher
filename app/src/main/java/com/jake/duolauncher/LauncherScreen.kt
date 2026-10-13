@@ -1068,7 +1068,7 @@ internal fun LauncherScreen(
                 val footprint: (AppWidgetProviderInfo) -> WidgetSpan? = { provider ->
                     widgets.sizing(provider, pickerSizing)?.takeIf { it.minimumFitsGrid }?.preferred
                 }
-                VisualWidgetPicker(catalog, catalogProfiles.ifEmpty { listOf(selectedProfile) }, selectedProfile, glass = controlGlass,
+                VisualWidgetPicker(catalog, catalogProfiles.ifEmpty { listOf(selectedProfile) }, selectedProfile, glass = controlGlass, previewGlass = pageGlass,
                     onSelectProfile = { widgetProfileSerial = it.userSerial; widgetPlacementMessage = null },
                     onTurnOnWork = { model.turnOnWork(it) }, hiddenForDrag = widgetSession != null,
                     footprint = footprint,
@@ -2128,15 +2128,16 @@ private fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modif
 @Composable
 internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.ui.unit.Dp = 14.dp, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val glass = LocalPageGlass.current
+    val previewing = LocalWidgetPreview.current
     // Built-in widget text follows the wallpaper behind it: white on dark, dark ink on pale.
     val ink = rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .14f else .24f)
     CompositionLocalProvider(LocalGlassInk provides ink.glassInk) {
         if (glass != null) {
             Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.large, glass.tint.copy(alpha = .14f),
-                blurRadius = 1f, settings = glass.settings).clip(Corner.large).clickable(onClick = onClick)
+                blurRadius = 1f, settings = glass.settings).clip(Corner.large).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick))
                 .padding(padding), verticalArrangement = Arrangement.SpaceBetween, content = content)
         } else {
-            Surface(modifier.fillMaxSize().then(ink.track).clip(Corner.large).clickable(onClick = onClick),
+            Surface(modifier.fillMaxSize().then(ink.track).clip(Corner.large).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)),
                 color = Glass.copy(alpha = .24f), shape = Corner.large, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .18f))) {
                 Column(Modifier.padding(padding), verticalArrangement = Arrangement.SpaceBetween, content = content)
             }
@@ -2155,7 +2156,7 @@ private fun currentTime(everyMs: Long = 60_000L): LocalDateTime {
 }
 
 @Composable
-private fun ClockCard(onClick: () -> Unit) {
+internal fun ClockCard(onClick: () -> Unit) {
     val time = currentTime()
     val format = if (android.text.format.DateFormat.is24HourFormat(LocalContext.current)) "HH:mm" else "h:mm"
     GlassCard(onClick = onClick) {
@@ -2167,7 +2168,7 @@ private fun ClockCard(onClick: () -> Unit) {
 }
 
 @Composable
-private fun DateCard(onClick: () -> Unit) {
+internal fun DateCard(onClick: () -> Unit) {
     val date = currentTime()
     GlassCard(onClick = onClick) {
         val ink = LocalGlassInk.current

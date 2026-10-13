@@ -1,5 +1,9 @@
 package com.jake.duolauncher.widgets
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.appearance.*
 
@@ -44,9 +48,14 @@ internal fun WorldClockFace(slot: Int, onOptions: () -> Unit) {
                 val row = WorldClock.row(requireNotNull(WorldClock.cityFor(zoneId)), now, is24Hour)
                 Row(Modifier.fillMaxWidth().padding(vertical = 2.dp).testTag("world-clock-row-${row.tag}"),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text(row.label, color = ink.soft(), fontSize = 12.sp, maxLines = 1, modifier = Modifier.weight(1f))
-                    row.dayNote?.let { Text(it, color = ink.soft(.7f), fontSize = 10.sp, maxLines = 1,
-                        modifier = Modifier.padding(end = 4.dp)) }
+                    // A small sun or moon: is it day or night there?
+                    Box(Modifier.padding(end = 7.dp).size(8.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(if (row.daytime) widgetAccent(WidgetColors.Gold) else WidgetColors.Violet.copy(alpha = .85f)))
+                    Text(row.label, color = ink.primary.copy(alpha = .85f), fontSize = 12.sp, maxLines = 1, softWrap = false,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    // "+1" or "-1": the place is a day ahead of, or behind, this phone (the full words took the room the name needs).
+                    row.dayNote?.let { Text(if (it == "Tomorrow") "+1" else "\u22121", color = ink.soft(.75f), fontSize = 10.sp, maxLines = 1,
+                        modifier = Modifier.padding(end = 5.dp).semantics { contentDescription = it }) }
                     Text(row.time, color = ink.primary, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                 }
             }
@@ -92,7 +101,7 @@ internal object WorldClock {
     }
 
     /** What one row of the face shows: the place, its time, and a note when it is on another day than this phone. */
-    data class Row(val label: String, val time: String, val dayNote: String?, val tag: String)
+    data class Row(val label: String, val time: String, val dayNote: String?, val tag: String, val daytime: Boolean = true)
 
     /** Well-known places across the zones, so a place can be picked by name and daylight saving stays Android's job. */
     val cities: List<City> = listOf(
@@ -172,7 +181,7 @@ internal object WorldClock {
     fun row(city: City, deviceNow: ZonedDateTime, is24Hour: Boolean): Row {
         val cityNow = deviceNow.withZoneSameInstant(ZoneId.of(city.zoneId))
         val time = cityNow.format(DateTimeFormatter.ofPattern(if (is24Hour) "HH:mm" else "h:mm a"))
-        return Row(city.label, time, dayNote(deviceNow.toLocalDate(), cityNow.toLocalDate()), city.tag)
+        return Row(city.label, time, dayNote(deviceNow.toLocalDate(), cityNow.toLocalDate()), city.tag, daytime = cityNow.hour in 6..17)
     }
 
     /** A city can only ever be a day ahead of or behind the phone. */

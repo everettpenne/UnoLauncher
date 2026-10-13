@@ -71,7 +71,12 @@ import kotlinx.coroutines.delay
 @Composable
 internal fun MediaPlayerFace(slot: Int, onOptions: () -> Unit) {
     val context = LocalContext.current
-    val np = NotificationFeed.nowPlaying
+    val previewing = LocalWidgetPreview.current
+    val live = NotificationFeed.nowPlaying
+    // The picker's preview plays a made-up track, so it shows the widget as it looks with music on, not an empty card.
+    val sample = remember(previewing) { if (previewing) MediaView("Midnight Dunes", "The Glass Orchestra", PreviewSamples.artwork(), true, 83_000L, 214_000L,
+        SystemClock.elapsedRealtime(), 1f, null) else null }
+    val np = sample ?: live?.toView()
     val playing = np?.playing == true
     // Ticks each second while playing (the seek bar advances); once when paused.
     val tick by produceState(0L, playing) {
@@ -79,7 +84,7 @@ internal fun MediaPlayerFace(slot: Int, onOptions: () -> Unit) {
         while (true) { value = System.currentTimeMillis(); delay(1_000L) }
     }
     val art = remember(np?.art) { np?.art?.asImageBitmap() }
-    GlassCard(onClick = { val controller = np?.controller; if (controller != null) openPlayer(context, controller) else onOptions() },
+    GlassCard(onClick = { val controller = live?.controller; if (controller != null) openPlayer(context, controller) else onOptions() },
         modifier = Modifier.testTag("uno-media-player-$slot"), padding = 0.dp) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val glassInk = LocalGlassInk.current
@@ -111,6 +116,12 @@ internal fun MediaPlayerFace(slot: Int, onOptions: () -> Unit) {
     }
 }
 
+/** What the widget draws about the music: the live [NowPlaying] or, in the picker's preview, a sample. [controller] is null for the sample. */
+internal data class MediaView(val title: String?, val artist: String?, val art: android.graphics.Bitmap?, val playing: Boolean, val positionMs: Long,
+    val durationMs: Long, val positionUpdatedAtMs: Long, val speed: Float, val controller: android.media.session.MediaController?)
+
+private fun NowPlaying.toView() = MediaView(title, artist, art, playing, positionMs, durationMs, positionUpdatedAtMs, speed, controller)
+
 /** The artwork, blurred and dimmed, filling the card: each track brings its own colours to the glass. */
 @Composable
 private fun ArtWash(art: ImageBitmap) {
@@ -129,7 +140,7 @@ private fun ArtTile(art: ImageBitmap?, ink: Color, modifier: Modifier) {
 }
 
 @Composable
-private fun TrackText(now: NowPlaying, ink: Color, soft: Color, titleSize: androidx.compose.ui.unit.TextUnit) {
+private fun TrackText(now: MediaView, ink: Color, soft: Color, titleSize: androidx.compose.ui.unit.TextUnit) {
     Column {
         Text(MediaWidget.displayTitle(now.title, now.playing), color = ink, fontSize = titleSize, fontWeight = FontWeight.SemiBold,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("media-title"))
@@ -168,13 +179,13 @@ private fun EmptyPlayer(context: Context, ink: Color, soft: Color) {
  *  listener last reported, moved on by the playback speed. A screen reader gets its value and can set it. With [showTimes], the elapsed
  *  and remaining time sit at its ends. */
 @Composable
-private fun SeekBar(now: NowPlaying, playing: Boolean, tick: Long, tint: Color, showTimes: Boolean) {
+private fun SeekBar(now: MediaView, playing: Boolean, tick: Long, tint: Color, showTimes: Boolean) {
     @Suppress("UNUSED_EXPRESSION") tick   // read, so the bar is redrawn each second while playing
     val duration = now.durationMs
     val fraction = MediaWidget.fraction(now.positionMs, now.positionUpdatedAtMs, now.speed, playing,
         SystemClock.elapsedRealtime(), duration) ?: return
     var width by remember { mutableIntStateOf(1) }
-    val seek = { target: Float -> runCatching { now.controller.transportControls.seekTo(MediaWidget.seekTarget(target, duration)) }; Unit }
+    val seek = { target: Float -> runCatching { now.controller?.transportControls?.seekTo(MediaWidget.seekTarget(target, duration)) }; Unit }
     Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
         if (showTimes) Text(MediaWidget.timeLabel((duration * fraction).toLong()), color = tint.copy(alpha = .8f), fontSize = 10.sp,
             modifier = Modifier.padding(end = 8.dp))

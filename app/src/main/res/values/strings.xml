@@ -317,14 +317,15 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">A new Molten metal wallpaper: contours of light that bend into one another like glass, in ice blue by day and ember by night.</string>
-    <string name="whats_new_2">Island style: pick from eight looks, or import, copy and paste one, under Dynamic island.</string>
-    <string name="whats_new_3">Icon packs: choose one under Icons. Menus across the launcher now share one glass style.</string>
-    <string name="whats_new_4">New widgets: Media player, Glance, Liquid battery, Photos and World clock.</string>
+    <string name="whats_new_1">The widget picker now shows every widget as a live preview of itself, and each Uno widget has been redesigned.</string>
+    <string name="whats_new_2">A new Media player that takes its colours from the album art, and a Liquid battery that fills its whole card.</string>
+    <string name="whats_new_3">Molten metal, a new wallpaper of glass-like contour lines that bend into one another, in ice blue by day and ember by night.</string>
+    <string name="whats_new_4">Icon packs, island styles you can copy and paste, and menus that share one glass style.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>
     <string name="island_theme_copied">Theme copied. Paste it into any message; the other person uses Paste a theme.</string>
     <string name="island_theme_clipboard_empty">The clipboard has no text to read.</string>
     <string name="battery_widget_title">Battery</string>
+    <string name="tap_to_write_a_note">Tap to write a note</string>
 </resources>

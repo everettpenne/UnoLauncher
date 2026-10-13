@@ -38,8 +38,12 @@ internal fun CounterFace(slot: Int, onOptions: () -> Unit) {
                 .clickable { WidgetData.set(slot, "count", WidgetText.clampCount(count - 1L).toString()) }.testTag("counter-minus"),
                 contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.text_6), color = ink.primary, fontSize = 16.sp) }
         }
-        Text(count.toString(), color = ink.primary, fontSize = 44.sp, fontWeight = FontWeight.Light, maxLines = 1,
-            modifier = Modifier.align(Alignment.CenterHorizontally).testTag("counter-value"))
+        val accent = widgetAccent(WidgetColors.Blue)
+        Box(Modifier.align(Alignment.CenterHorizontally), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(78.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(accent.copy(alpha = .34f), androidx.compose.ui.graphics.Color.Transparent))))
+            Text(count.toString(), color = ink.primary, fontSize = 46.sp, fontWeight = FontWeight.Light, maxLines = 1,
+                modifier = Modifier.testTag("counter-value"))
+        }
         Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_one), color = ink.soft(), fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
     if (editing) {

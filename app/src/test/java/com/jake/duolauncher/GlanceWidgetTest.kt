@@ -28,8 +28,8 @@ class GlanceWidgetTest {
     @Test fun sunLineShowsBothTimesOrThePolarTruth() {
         val normal = SolarSchedule(ZonedDateTime.of(2026, 1, 15, 6, 58, 0, 0, zone),
             ZonedDateTime.of(2026, 1, 15, 19, 2, 0, 0, zone), PolarDaylight.NORMAL)
-        assertEquals("↑ 06:58   ↓ 19:02", Glance.sunLine(normal, is24 = true))
-        assertEquals("↑ 6:58 AM   ↓ 7:02 PM", Glance.sunLine(normal, is24 = false))
+        assertEquals("↑ 06:58  ↓ 19:02", Glance.sunLine(normal, is24 = true))
+        assertEquals("↑ 6:58  ↓ 7:02", Glance.sunLine(normal, is24 = false))
         assertEquals("The sun does not set today", Glance.sunLine(SolarSchedule(null, null, PolarDaylight.DAY), true))
         assertEquals("The sun does not rise today", Glance.sunLine(SolarSchedule(null, null, PolarDaylight.NIGHT), true))
     }

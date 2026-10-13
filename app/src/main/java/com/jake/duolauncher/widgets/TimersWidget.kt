@@ -36,7 +36,7 @@ internal fun TimersFace(slot: Int, onOptions: () -> Unit) {
         val ink = LocalGlassInk.current
         CardTitle(Icons.Rounded.Timer, "Timer")
         if (IslandTools.timerActive) {
-            Text(IslandClock.countdown(IslandClock.remainingMs(now, IslandTools.timerEndAt)), color = ink.primary, fontSize = 34.sp,
+            Text(IslandClock.countdown(IslandClock.remainingMs(now, IslandTools.timerEndAt)), color = widgetAccent(WidgetColors.Warm), fontSize = 36.sp,
                 fontWeight = FontWeight.Light, maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally).testTag("timer-remaining"))
             Box(Modifier.align(Alignment.CenterHorizontally).clip(RoundedCornerShape(50)).background(ink.soft(.2f))
                 .clickable { IslandTools.cancelTimer(context) }.padding(horizontal = 18.dp, vertical = 6.dp).testTag("timer-stop")) {
@@ -47,7 +47,7 @@ internal fun TimersFace(slot: Int, onOptions: () -> Unit) {
                 TimerPresets.MINUTES.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         row.forEach { minutes ->
-                            Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(ink.soft(.18f))
+                            Box(Modifier.weight(1f).clip(RoundedCornerShape(50)).background(widgetAccent(WidgetColors.Warm).copy(alpha = .28f))
                                 .clickable { IslandTools.startTimer(context, minutes * 60_000L) }.padding(vertical = 8.dp)
                                 .testTag("timer-start-$minutes"), contentAlignment = Alignment.Center) {
                                 Text("$minutes min", color = ink.primary, fontSize = 12.sp, maxLines = 1)

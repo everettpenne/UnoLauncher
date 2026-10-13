@@ -1,5 +1,7 @@
 package com.jake.duolauncher.widgets
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -24,8 +26,18 @@ internal fun NoteFace(slot: Int, onOptions: () -> Unit) {
     GlassCard(onClick = { editing = true }, modifier = Modifier.testTag("uno-note-$slot")) {
         val ink = LocalGlassInk.current
         CardTitle(Icons.Rounded.EditNote, "Note")
-        Text(note.ifBlank { "Tap to write a note" }, color = if (note.isBlank()) ink.soft() else ink.primary, fontSize = 13.sp,
-            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 4.dp))
+        if (note.isBlank()) Text(androidx.compose.ui.res.stringResource(com.jake.duolauncher.R.string.tap_to_write_a_note), color = ink.soft(), fontSize = 13.sp, modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 4.dp))
+        else Row(Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp)) {
+            Box(Modifier.width(3.dp).fillMaxHeight().clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(widgetAccent(WidgetColors.Gold)))
+            Column(Modifier.padding(start = 9.dp)) {
+                // The first line reads as the title; the rest is the body.
+                Text(note.lineSequence().first(), color = ink.primary, fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                val body = note.lineSequence().drop(1).joinToString("\n").trim()
+                if (body.isNotEmpty()) Text(body, color = ink.primary.copy(alpha = .82f), fontSize = 12.sp, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 3.dp))
+            }
+        }
     }
     if (editing) {
         var draft by remember { mutableStateOf(note) }

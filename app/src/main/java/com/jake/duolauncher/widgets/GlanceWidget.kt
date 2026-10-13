@@ -1,5 +1,8 @@
 package com.jake.duolauncher.widgets
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 import com.jake.duolauncher.appearance.*
 
 import com.jake.duolauncher.*
@@ -38,29 +41,35 @@ internal fun GlanceFace(slot: Int, onOptions: () -> Unit) {
     val now = rememberNow(60_000).atZone(ZoneId.systemDefault())
     val is24 = android.text.format.DateFormat.is24HourFormat(context)
     // Re-read the next alarm on the same minute tick; Android announces a change, and a minute is plenty of freshness.
-    val alarm = remember(now) { readNextAlarm(context) }
-    val schedule = remember(now.toLocalDate()) {
+    val previewing = LocalWidgetPreview.current
+    val alarm = remember(now, previewing) { if (previewing) null else readNextAlarm(context) }
+    val sampleAlarm = if (previewing) now.plusDays(1).withHour(7).withMinute(30) else null
+    val schedule = remember(now.toLocalDate(), previewing) {
         val prefs = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
-        val lat = prefs.getString("lat", null)?.toDoubleOrNull()
-        val lon = prefs.getString("lon", null)?.toDoubleOrNull()
+        val lat = if (previewing) PreviewSamples.SAMPLE_LATITUDE else prefs.getString("lat", null)?.toDoubleOrNull()
+        val lon = if (previewing) PreviewSamples.SAMPLE_LONGITUDE else prefs.getString("lon", null)?.toDoubleOrNull()
         if (lat == null || lon == null) null
         else runCatching { solarSchedule(now.toLocalDate(), lat, lon, ZoneId.systemDefault()) }.getOrNull()
     }
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-glance-$slot")) {
         val ink = LocalGlassInk.current
         Text(now.format(DateTimeFormatter.ofPattern(Glance.timePattern(is24))), color = ink.primary,
-            fontSize = 30.sp, fontWeight = FontWeight.Light, maxLines = 1, modifier = Modifier.testTag("glance-time"))
+            fontSize = 34.sp, fontWeight = FontWeight.Light, maxLines = 1, modifier = Modifier.testTag("glance-time"))
         Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = ink.soft(), fontSize = 12.sp, maxLines = 1)
-        if (alarm != null) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("glance-alarm")) {
+        if (alarm != null || sampleAlarm != null) Row(verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(widgetAccent(WidgetColors.Warm).copy(alpha = .22f))
+                .padding(horizontal = 7.dp, vertical = 3.dp).testTag("glance-alarm")) {
             Icon(Icons.Rounded.Alarm, null, tint = ink.soft(), modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(5.dp))
-            Text(Glance.alarmLine(now, Instant.ofEpochMilli(alarm.triggerTime).atZone(now.zone), is24),
-                color = ink.primary, fontSize = 12.sp, maxLines = 1)
+            Text(Glance.alarmLine(now, sampleAlarm ?: Instant.ofEpochMilli(requireNotNull(alarm).triggerTime).atZone(now.zone), is24),
+                color = ink.primary, fontSize = 11.sp, maxLines = 1)
         }
-        if (schedule != null) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("glance-sun")) {
+        if (schedule != null) Row(verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(ink.soft(.14f))
+                .padding(horizontal = 8.dp, vertical = 3.dp).testTag("glance-sun")) {
             Icon(Icons.Rounded.WbSunny, null, tint = ink.soft(), modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(5.dp))
-            Text(Glance.sunLine(schedule, is24), color = ink.soft(), fontSize = 12.sp, maxLines = 1)
+            Text(Glance.sunLine(schedule, is24), color = ink.primary.copy(alpha = .85f), fontSize = 11.sp, maxLines = 1)
         }
     }
 }
@@ -70,6 +79,8 @@ private fun readNextAlarm(context: Context): AlarmManager.AlarmClockInfo? =
 
 /** The Glance widget's rules, kept apart from the drawing so each is unit-tested. */
 internal object Glance {
+    private fun shortPattern(is24: Boolean) = DateTimeFormatter.ofPattern(if (is24) "HH:mm" else "h:mm")
+
     /** The clock style the launcher uses elsewhere: 24-hour, or 12-hour with a meridiem. */
     fun timePattern(is24: Boolean): String = if (is24) "HH:mm" else "h:mm a"
 
@@ -94,7 +105,8 @@ internal object Glance {
         return when (schedule.polar) {
             PolarDaylight.DAY -> "The sun does not set today"
             PolarDaylight.NIGHT -> "The sun does not rise today"
-            else -> "↑ ${requireNotNull(schedule.sunrise).format(pattern)}   ↓ ${requireNotNull(schedule.sunset).format(pattern)}"
+            // No AM or PM here: a sunrise is in the morning and a sunset in the evening, and the room is better spent on the numbers.
+            else -> "↑ ${requireNotNull(schedule.sunrise).format(shortPattern(is24))}  ↓ ${requireNotNull(schedule.sunset).format(shortPattern(is24))}"
         }
     }
 }

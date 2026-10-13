@@ -1,5 +1,6 @@
 package com.jake.duolauncher.widgets
 
+import androidx.compose.ui.graphics.drawscope.clipPath
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -39,8 +40,10 @@ internal fun MoonFace(slot: Int, onOptions: () -> Unit) {
             Canvas(Modifier.fillMaxHeight().aspectRatio(1f)) {
                 val r = size.minDimension / 2f
                 val c = Offset(size.width / 2f, size.height / 2f)
-                drawCircle(ink.soft(.28f), r, c)
-                drawCircle(ink.soft(.5f), r, c, style = Stroke(1.dp.toPx()))
+                // A soft halo, then the dark side as a faint sphere.
+                drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color(0xFFF4F1DE).copy(alpha = .22f), Color.Transparent), c, r * 1.55f), r * 1.55f, c)
+                drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(ink.soft(.34f), ink.soft(.16f)), c - Offset(r * .3f, r * .3f), r * 1.4f), r, c)
+                drawCircle(ink.soft(.45f), r, c, style = Stroke(1.dp.toPx()))
                 val k = cos(2.0 * Math.PI * cycle).toFloat()
                 val rx = r * kotlin.math.abs(k)
                 val lit = Path().apply {
@@ -49,10 +52,17 @@ internal fun MoonFace(slot: Int, onOptions: () -> Unit) {
                     close()
                 }
                 // The lit side is on the right while the moon waxes and on the left while it wanes.
-                scale(if (MoonPhase.waxing(cycle)) 1f else -1f, 1f, pivot = c) { drawPath(lit, Color(0xFFF4F1DE), style = Fill) }
+                scale(if (MoonPhase.waxing(cycle)) 1f else -1f, 1f, pivot = c) {
+                    drawPath(lit, androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color(0xFFFFFCEB), Color(0xFFE9E3C4)), c + Offset(r * .25f, -r * .25f), r * 1.5f), style = Fill)
+                    // A few soft seas on the lit part, so it reads as a moon and not a white shape.
+                    clipPath(lit) {
+                        for ((dx, dy, rr) in listOf(Triple(.12f, -.28f, .22f), Triple(-.18f, .12f, .17f), Triple(.30f, .22f, .12f)))
+                            drawCircle(Color(0xFFB9B294).copy(alpha = .30f), r * rr, c + Offset(r * dx, r * dy))
+                    }
+                }
             }
         }
-        Text(MoonPhase.name(cycle), color = ink.primary, fontSize = 12.sp, maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text(MoonPhase.name(cycle), color = ink.primary, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally))
         Text("${(MoonPhase.illumination(at) * 100).toInt()}% lit", color = ink.soft(), fontSize = 11.sp, maxLines = 1,
             modifier = Modifier.align(Alignment.CenterHorizontally))
         // What is coming: the nearer of the next full and the next new moon.

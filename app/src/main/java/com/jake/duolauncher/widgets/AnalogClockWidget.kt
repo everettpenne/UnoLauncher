@@ -36,17 +36,19 @@ internal fun AnalogClockFace(slot: Int, onOptions: () -> Unit) {
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
             val hour = AnalogClock.hourAngle(now.toLocalTime())
             val minute = AnalogClock.minuteAngle(now.toLocalTime())
+            val accentColor = widgetAccent(WidgetColors.Warm)
             val hourColor = ink.primary; val minuteColor = ink.primary; val tick = ink.soft(.6f); val rim = ink.soft(.35f)
             Canvas(Modifier.fillMaxHeight().aspectRatio(1f)) {
                 val r = size.minDimension / 2f
                 val c = Offset(size.width / 2f, size.height / 2f)
+                drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(ink.soft(.16f), ink.soft(.06f)), c - Offset(r * .3f, r * .35f), r * 1.5f), r, c)
                 drawCircle(rim, r, c, style = Stroke(1.dp.toPx()))
                 // Twelve ticks, longer at 12, 3, 6 and 9.
                 for (i in 0 until 12) {
                     val a = Math.toRadians(i * 30.0 - 90.0)
                     val long = i % 3 == 0
                     val from = r * (if (long) .82f else .88f); val to = r * .95f
-                    drawLine(tick, Offset(c.x + cos(a).toFloat() * from, c.y + sin(a).toFloat() * from),
+                    drawLine(if (i == 0) accentColor else tick, Offset(c.x + cos(a).toFloat() * from, c.y + sin(a).toFloat() * from),
                         Offset(c.x + cos(a).toFloat() * to, c.y + sin(a).toFloat() * to),
                         strokeWidth = (if (long) 2.dp else 1.dp).toPx(), cap = StrokeCap.Round)
                 }
@@ -56,7 +58,8 @@ internal fun AnalogClockFace(slot: Int, onOptions: () -> Unit) {
                 }
                 hand(hour, .5f, 4.dp.toPx(), hourColor)
                 hand(minute, .74f, 2.5.dp.toPx(), minuteColor)
-                drawCircle(hourColor, 3.dp.toPx(), c)
+                drawCircle(accentColor, 4.dp.toPx(), c)
+                drawCircle(androidx.compose.ui.graphics.Color.White.copy(alpha = .9f), 1.5.dp.toPx(), c)
             }
         }
         Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = ink.soft(), fontSize = 11.sp, maxLines = 1,

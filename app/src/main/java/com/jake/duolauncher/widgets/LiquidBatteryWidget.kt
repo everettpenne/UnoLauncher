@@ -66,10 +66,18 @@ internal fun LiquidBatteryFace(slot: Int, onOptions: () -> Unit) {
     val tiltEnabled = remember { context.getSharedPreferences("appearance", Context.MODE_PRIVATE).getBoolean("tiltHighlight", false) }
     val tilt = rememberSurfaceTilt(tiltEnabled)
     // A slow, always-on ripple so the surface reads as liquid even when the phone is flat and tilt-following is off.
-    val transition = rememberInfiniteTransition(label = "liquid-battery")
-    val phase by transition.animateFloat(0f, 2f * PI.toFloat(),
-        infiniteRepeatable(tween(6000, easing = LinearEasing)), label = "phase")
-    val rise by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(5200, easing = LinearEasing)), label = "bubbles")
+    // The picker's preview holds still (a frozen frame is enough to show the look, and a list of animated cards is wasted work).
+    val previewing = LocalWidgetPreview.current
+    val phase: Float
+    val rise: Float
+    if (previewing) { phase = 1.1f; rise = .35f }
+    else {
+        val transition = rememberInfiniteTransition(label = "liquid-battery")
+        val ripple by transition.animateFloat(0f, 2f * PI.toFloat(),
+            infiniteRepeatable(tween(6000, easing = LinearEasing)), label = "phase")
+        val bubbling by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(5200, easing = LinearEasing)), label = "bubbles")
+        phase = ripple; rise = bubbling
+    }
     // The whole card is the vessel: the liquid fills it from the bottom, edge to edge.
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-liquid-battery-$slot"), padding = 0.dp) {
         val ink = LocalGlassInk.current

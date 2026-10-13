@@ -21,6 +21,15 @@ Copy the smallest existing widget (`NoteWidget.kt` or `ProgressWidget.kt`) and c
 6. **Do not depend on another widget's file.** Shared helpers live in `WidgetHelpers.kt` and `UnoWidgetLogic.kt`.
 7. **Keep it small.** A widget that needs hundreds of lines is two ideas.
 
+## The picker previews your widget
+
+The widget picker draws each Uno widget's **real face** as its preview, at the size it will have on Home, so what the person taps is what they get. Your face is drawn in a "preview" with two differences, and a good widget needs nothing special for either:
+
+- **It cannot be tapped.** `GlassCard` ignores its click in a preview, and the picker puts the "place this widget" tap on top. Anything else you make clickable inside a preview is covered by that tap too.
+- **Its data is a sample.** Read your data through `WidgetData` as usual: in a preview, slot numbers are the reserved preview slots, `WidgetData.get` answers from `PreviewSamples` (add your widget's sample fields there, e.g. a note's text or a counter's count), and `WidgetData.set` is ignored, so a preview never saves anything.
+
+If your face shows something that comes from the phone rather than from `WidgetData` (the next alarm, the person's place, what is playing, their photos), check `LocalWidgetPreview.current` and show a plausible sample instead of an empty state: a preview that says "No alarm set" or "Nothing playing" tells the person nothing about the widget. `NextAlarmWidget`, `SunWidget`, `PhotosWidget` and `MediaPlayerWidget` are the examples. The look follows the widgets' shared palette in `WidgetStyle.kt` (`widgetAccent`, `WidgetColors`): one splash of colour per widget, the wallpaper accent when the person has turned that on.
+
 ## What to hand in
 
 A pull request that contains:

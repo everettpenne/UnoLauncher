@@ -31,10 +31,15 @@ internal fun MonthFace(slot: Int, onOptions: () -> Unit) {
     val cells = remember(month, first) { MonthGrid.cells(month, first) }
     GlassCard(onClick = onOptions, padding = 10.dp, modifier = Modifier.testTag("uno-month-$slot")) {
         val ink = LocalGlassInk.current
-        Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy")), color = ink.primary, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        val accent = widgetAccent(WidgetColors.Rose)
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(month.format(DateTimeFormatter.ofPattern("MMMM")), color = ink.primary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text("\u00A0${month.year}", color = ink.soft(), fontSize = 11.sp, maxLines = 1)
+        }
         Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
             MonthGrid.headers(first).forEach { day ->
-                Text(day.getDisplayName(java.time.format.TextStyle.NARROW, Locale.getDefault()), color = ink.soft(.6f), fontSize = 9.sp,
+                val weekend = day == java.time.DayOfWeek.SATURDAY || day == java.time.DayOfWeek.SUNDAY
+                Text(day.getDisplayName(java.time.format.TextStyle.NARROW, Locale.getDefault()), color = ink.soft(if (weekend) .45f else .7f), fontSize = 9.sp,
                     textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
             }
         }
@@ -45,9 +50,9 @@ internal fun MonthFace(slot: Int, onOptions: () -> Unit) {
                         Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                             if (day != null) {
                                 val isToday = day == today.dayOfMonth
-                                Box(Modifier.size(15.dp).then(if (isToday) Modifier.background(ink.primary, CircleShape) else Modifier),
+                                Box(Modifier.size(17.dp).then(if (isToday) Modifier.background(accent, CircleShape) else Modifier),
                                     contentAlignment = Alignment.Center) {
-                                    Text(day.toString(), color = if (isToday) onInk(ink) else ink.primary, fontSize = 9.sp, lineHeight = 10.sp,
+                                    Text(day.toString(), color = if (isToday) androidx.compose.ui.graphics.Color.White else ink.primary, fontSize = 9.sp, lineHeight = 10.sp,
                                         fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1)
                                 }
                             }

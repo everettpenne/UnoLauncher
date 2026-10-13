@@ -1,5 +1,6 @@
 package com.jake.duolauncher.island
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.panel.*
 import com.jake.duolauncher.appearance.*
 
@@ -685,6 +686,7 @@ internal fun DynamicIsland(
                     else if (state.flashOpensSomething()) openFlash()
                     else { UnoFeedback.play(Cue.OPEN, haptic); state.toggle() }
                 })
+            .semantics { contentDescription = if (state.expanded) "Dynamic island, open. Double tap to close." else "Dynamic island. Double tap to open." }
             .testTag("dynamic-island")) {
             val hole = frame.hole
             val gap = 4.dp
@@ -726,7 +728,7 @@ internal fun DynamicIsland(
                             fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(end = 4.dp))
                     } else if (IslandTools.ringing) {
-                        Text("Timer done", color = IslandThemes.active.timer, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        Text(stringResource(com.jake.duolauncher.R.string.timer_done), color = IslandThemes.active.timer, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, modifier = Modifier.testTag("island-timer-done"))
                     } else if (plan.trailing != null) {
                         val (kind, show) = plan.trailing
@@ -886,7 +888,7 @@ private fun IslandSearchField(onSubmit: (String) -> Unit, onFullSearch: () -> Un
         Box(Modifier.size(36.dp).clip(IslandThemes.active.controlShape()).clickable(onClick = onFullSearch).semantics { contentDescription = "Search apps and more" },
             contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Search, null, tint = themeInk.copy(alpha = .85f), modifier = Modifier.size(18.dp)) }
         Box(Modifier.weight(1f).padding(start = 2.dp), contentAlignment = Alignment.CenterStart) {
-            if (text.isEmpty()) Text("Search the web", color = themeInk.copy(alpha = .55f), fontSize = 14.sp, maxLines = 1)
+            if (text.isEmpty()) Text(stringResource(com.jake.duolauncher.R.string.search_the_web), color = themeInk.copy(alpha = .55f), fontSize = 14.sp, maxLines = 1)
             androidx.compose.foundation.text.BasicTextField(text, { text = it.take(200) }, Modifier.fillMaxWidth().testTag("island-search-field"),
                 singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = themeInk, fontSize = 14.sp),
                 cursorBrush = androidx.compose.ui.graphics.SolidColor(themeInk),
@@ -1057,7 +1059,7 @@ private fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
             // The call app's own hang-up action, sent as it would be from its notification.
             Box(Modifier.padding(end = 6.dp).height(26.dp).clip(RoundedCornerShape(50)).background(Color(0xFFFF453A))
                 .clickable { runCatching { end.send() } }.padding(horizontal = 12.dp).testTag("island-call-end"),
-                contentAlignment = Alignment.Center) { Text("End", color = themeInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.end), color = themeInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
         }
         Icon(Icons.AutoMirrored.Rounded.OpenInNew, "Open call", tint = themeInk.copy(alpha = .7f),
             modifier = Modifier.size(14.dp).padding(end = 4.dp))
@@ -1162,13 +1164,13 @@ private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boo
     when (kind) {
         LiveKind.CAMERA -> if (glyph) Icon(Icons.Rounded.Videocam, "Camera in use", tint = IosGreen,
             modifier = Modifier.size(16.dp).testTag("island-camera"))
-            else Text("Camera", color = IosGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            else Text(stringResource(com.jake.duolauncher.R.string.camera), color = IosGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         LiveKind.MIC -> if (glyph) Icon(Icons.Rounded.Mic, "Microphone in use", tint = PRIVACY_MIC,
             modifier = Modifier.size(16.dp).testTag("island-mic"))
-            else Text("Mic", color = PRIVACY_MIC, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            else Text(stringResource(com.jake.duolauncher.R.string.mic), color = PRIVACY_MIC, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         LiveKind.RECORDING -> if (glyph) Icon(Icons.Rounded.FiberManualRecord, "Screen is being recorded", tint = IslandSymbol.RECORDING.tint,
             modifier = Modifier.size(16.dp).testTag("island-recording"))
-            else Text("Recording", color = IslandSymbol.RECORDING.tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            else Text(stringResource(com.jake.duolauncher.R.string.recording), color = IslandSymbol.RECORDING.tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         LiveKind.CALL -> if (glyph) Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(14.dp))
             // How long the call has lasted, in green, like the other things that count time (the timer, the stopwatch). The caller's name
             // is on the open island's call card: a name cut to five letters says little, a clock says how long.

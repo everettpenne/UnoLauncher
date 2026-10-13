@@ -45,6 +45,7 @@ enum class BuiltinBackground(val label: String) {
     DUNE_RANGE("Dune range"),
     DUNE_BLOOM("Dune bloom"),
     DUNE_FLOW("Dune flow"),
+    MOLTEN("Molten metal"),
 }
 
 /** The built-in background currently selected, read by [drawLauncherBackground] without a context.

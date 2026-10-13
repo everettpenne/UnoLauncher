@@ -1,5 +1,7 @@
 package com.jake.duolauncher.folders
 
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -170,20 +172,21 @@ internal fun LargeFolderEditor(slot: Int, apps: List<AppEntry>, onClose: () -> U
     val folder = LargeFolders.of(slot)
     Column(Modifier.fillMaxWidth().fillMaxHeight(.88f).padding(horizontal = 24.dp, vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Large folder", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = onClose, Modifier.testTag("large-folder-done")) { Text("Done") }
+            Text(stringResource(com.jake.duolauncher.R.string.large_folder), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+            GlassButton(onClick = onClose, modifier = Modifier.testTag("large-folder-done")) { Text(stringResource(com.jake.duolauncher.R.string.done)) }
         }
-        OutlinedTextField(folder.title, { LargeFolders.rename(slot, it) }, Modifier.fillMaxWidth().testTag("large-folder-name"),
-            singleLine = true, label = { Text("Name") })
+        GlassField(folder.title, { LargeFolders.rename(slot, it) }, Modifier.fillMaxWidth().testTag("large-folder-name"),
+            singleLine = true, label = { Text(stringResource(com.jake.duolauncher.R.string.name)) })
         Text("${folder.appIds.size} of ${LargeFolderRules.MAX_APPS} apps. Resize it on Home to show more icons at once.",
             Modifier.padding(vertical = 6.dp), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         LazyColumn(Modifier.weight(1f)) {
             items(apps, key = { it.id }) { app ->
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Corner.medium)
-                    .clickable { LargeFolders.toggle(slot, app.id) }.testTag("large-folder-pick-${app.id}"),
+                    .toggleable(value = app.id in folder.appIds, role = androidx.compose.ui.semantics.Role.Checkbox) { LargeFolders.toggle(slot, app.id) }
+                    .testTag("large-folder-pick-${app.id}"),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(app.id in folder.appIds, { LargeFolders.toggle(slot, app.id) })
+                    GlassCheckbox(app.id in folder.appIds, null)
                     Image(app.image, null, Modifier.size(32.dp).clip(Corner.icon))
                     Text(app.label, Modifier.padding(start = 12.dp), maxLines = 1)
                 }

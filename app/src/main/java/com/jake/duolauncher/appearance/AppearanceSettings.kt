@@ -1,5 +1,6 @@
 package com.jake.duolauncher.appearance
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 
 import com.jake.duolauncher.*
@@ -19,7 +20,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun AppearanceSettings(state: AppearanceState, onMode: (AppearanceMode) -> Unit,
-    onManual: (String, Double, Double) -> Unit, onDeviceLocation: () -> Unit, onClear: () -> Unit) {
+    onManual: (String, Double, Double) -> Unit, onDeviceLocation: () -> Unit, onClear: () -> Unit,
+    onCancelDeviceLocation: () -> Unit = {}) {
     var place by remember(state.place) { mutableStateOf(state.place) }
     var latitude by remember(state.latitude) { mutableStateOf(state.latitude?.toString().orEmpty()) }
     var longitude by remember(state.longitude) { mutableStateOf(state.longitude?.toString().orEmpty()) }
@@ -27,38 +29,50 @@ internal fun AppearanceSettings(state: AppearanceState, onMode: (AppearanceMode)
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("appearance-settings")) {
-        Text("Appearance", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(com.jake.duolauncher.R.string.appearance), style = MaterialTheme.typography.titleMedium)
         AppearanceMode.entries.forEach { mode ->
-            FilterChip(selected = state.mode == mode, onClick = { onMode(mode) }, label = { Text(when (mode) {
+            GlassChip(selected = state.mode == mode, onClick = { onMode(mode) }, label = { Text(when (mode) {
                 AppearanceMode.LIGHT -> "Light"; AppearanceMode.DARK -> "Dark"; AppearanceMode.SYSTEM -> "Follow system"
                 AppearanceMode.SUNRISE_SUNSET -> "Sunrise / sunset"
         }) }, modifier = Modifier.testTag("appearance-${mode.name.lowercase()}"))
         }
         if (state.mode == AppearanceMode.SUNRISE_SUNSET) {
             state.fallback?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            OutlinedTextField(place, { place = it }, Modifier.testTag("appearance-place"), label = { Text("Place name") }, singleLine = true)
+            GlassField(place, { place = it }, Modifier.testTag("appearance-place"), label = { Text(stringResource(com.jake.duolauncher.R.string.place_name)) }, singleLine = true)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(latitude, { latitude = it }, Modifier.weight(1f).testTag("appearance-latitude"), label = { Text("Latitude (−90 to 90)") }, singleLine = true)
-                OutlinedTextField(longitude, { longitude = it }, Modifier.weight(1f).testTag("appearance-longitude"), label = { Text("Longitude (−180 to 180)") }, singleLine = true)
+                GlassField(latitude, { latitude = it }, Modifier.weight(1f).testTag("appearance-latitude"), label = { Text(stringResource(com.jake.duolauncher.R.string.latitude_90_to_90)) }, singleLine = true)
+                GlassField(longitude, { longitude = it }, Modifier.weight(1f).testTag("appearance-longitude"), label = { Text(stringResource(com.jake.duolauncher.R.string.longitude_180_to_180)) }, singleLine = true)
             }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Button(onClick = {
+                GlassButton(prominent = true, onClick = {
                     focusManager.clearFocus(); keyboard?.hide()
-                    val lat = latitude.toDoubleOrNull(); val lon = longitude.toDoubleOrNull()
-                    if (lat != null && lon != null && lat in -90.0..90.0 && lon in -180.0..180.0) {
-                        inputError = null; onManual(place, lat, lon)
-                    } else inputError = "Enter a latitude from −90 to 90 and longitude from −180 to 180." },
-                    modifier = Modifier.fillMaxWidth().testTag("appearance-save-place")) { Text("Use this place") }
+                    when (val parsed = PlaceInput.parse(latitude, longitude)) {
+                        is PlaceInput.Result.Ok -> {
+                            // Show the cleaned-up numbers in the fields, so a pasted pair or a comma decimal is visibly understood.
+                            latitude = parsed.latitude.toString(); longitude = parsed.longitude.toString()
+                            inputError = null; onManual(place, parsed.latitude, parsed.longitude)
+                        }
+                        is PlaceInput.Result.Bad -> inputError = parsed.message
+                    } },
+                    modifier = Modifier.fillMaxWidth().testTag("appearance-save-place")) { Text(stringResource(com.jake.duolauncher.R.string.use_this_place)) }
                 AppearanceFeedback(inputError, MaterialTheme.colorScheme.error, "appearance-manual-status")
-                OutlinedButton(onClick = {
+                GlassButton(onClick = {
                     focusManager.clearFocus(); keyboard?.hide(); onDeviceLocation()
                 }, modifier = Modifier.fillMaxWidth()
-                    .testTag("appearance-device-location")) { Text("Use device location") }
+                    .testTag("appearance-device-location")) { Text(stringResource(com.jake.duolauncher.R.string.use_device_location)) }
                 AppearanceFeedback(state.locationStatus, MaterialTheme.colorScheme.onSurfaceVariant,
                     "appearance-location-status")
-                if (state.latitude != null) {
-                    Text("Kept only on this device, never sent, until you clear it.", style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = onClear, Modifier.fillMaxWidth()) { Text("Clear location") }
+                if (state.locationStatus?.startsWith("Waiting") == true) GlassButton(onClick = onCancelDeviceLocation,
+                    Modifier.fillMaxWidth().testTag("appearance-location-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
+                if (state.latitude != null && state.longitude != null) {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val saved = remember(state.place, state.latitude, state.longitude) {
+                        PlaceInput.describe(state.place, state.latitude, state.longitude, java.time.LocalDate.now(),
+                            java.time.ZoneId.systemDefault(), android.text.format.DateFormat.is24HourFormat(context))
+                    }
+                    Text(saved, Modifier.testTag("appearance-saved-place").semantics { liveRegion = LiveRegionMode.Polite })
+                    Text(stringResource(com.jake.duolauncher.R.string.kept_only_on_this_device_never), style = MaterialTheme.typography.bodySmall)
+                    GlassButton(onClick = onClear, modifier = Modifier.fillMaxWidth()) { Text(stringResource(com.jake.duolauncher.R.string.clear_location)) }
                 }
             }
         }

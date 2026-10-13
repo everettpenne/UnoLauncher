@@ -138,17 +138,21 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         val resources = getApplication<Application>().resources
         val iconStyle = IconStyle.fromPreference(getApplication<Application>().getSharedPreferences("extras", 0).getString("iconStyle", null))
         val themedDark = DuoAppearanceRuntime.dark
+        val iconPackName = getApplication<Application>().getSharedPreferences("extras", 0).getString("iconPack", "").orEmpty()
+        val iconPackVersion = if (iconPackName.isEmpty()) 0L else IconPacks.version(getApplication(), iconPackName)
         val themedAccent = if (iconStyle.usesWallpaper(getApplication<Application>().getSharedPreferences("appearance", 0).getBoolean("wallpaperColor", false)))
             runCatching { WallpaperAccents.compute(getApplication(), themedDark) }.getOrNull() else null
         // The icon style and, only while themed, the light/dark palette are part of what an icon looks
         // like, so changing either rebuilds every cached icon.
         val configuration = resources.configuration.let {
-            "${it.densityDpi}|${it.locales.toLanguageTags()}|${it.uiMode}|$iconStyle|${if (iconStyle.recolours) themedDark else ""}|${themedAccent?.accent?.toArgb() ?: ""}"
+            "${it.densityDpi}|${it.locales.toLanguageTags()}|${it.uiMode}|$iconStyle|$iconPackName:$iconPackVersion|${if (iconStyle.recolours) themedDark else ""}|${themedAccent?.accent?.toArgb() ?: ""}"
         }
         viewModelScope.launch {
             try {
                 val apps = withContext(Dispatchers.IO) {
                     if (configuration != iconConfiguration) { iconCache.clear(); iconConfiguration = configuration }
+                    // The chosen icon pack, read once per refresh (a pack that was uninstalled simply gives no icons).
+                    val iconPack = if (iconPackName.isEmpty()) null else IconPacks.load(getApplication(), iconPackName)
                     iconCache.keys.removeAll { key -> parseProfileAppId(key)?.let { identity ->
                         val serial = identity.userSerial ?: userManager.getSerialNumberForUser(Process.myUserHandle())
                         serial to (ComponentName.unflattenFromString(identity.component)?.packageName ?: "") in invalidated
@@ -188,8 +192,11 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
                             val id = profileAppId(component.flattenToString(), serial, personalSerial)
                             val label = info.label.toString()
                             iconCache[id]?.takeIf { it.label == label && it.available } ?: run {
-                                val icon = runCatching { info.getBadgedIcon(0) }.getOrElse { application.packageManager.defaultActivityIcon }
-                                AppEntry(id, label, launcherIcon(icon, iconStyle, themedDark, themedAccent), component, profile, serial, descriptor.label,
+                                // A pack's icon is used as drawn (with the work badge added); the icon style applies to apps it does not cover.
+                                val packIcon = iconPack?.drawableFor(component)?.let { packed ->
+                                    runCatching { application.packageManager.getUserBadgedIcon(packed, profile) }.getOrDefault(packed) }
+                                val icon = packIcon ?: runCatching { info.getBadgedIcon(0) }.getOrElse { application.packageManager.defaultActivityIcon }
+                                AppEntry(id, label, launcherIcon(icon, if (packIcon != null) IconStyle.ORIGINAL else iconStyle, themedDark, themedAccent), component, profile, serial, descriptor.label,
                                     descriptor.isWork, available = true).also { iconCache[id] = it }
                             }
                         }

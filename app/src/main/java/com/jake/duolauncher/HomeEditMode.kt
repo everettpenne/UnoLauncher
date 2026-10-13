@@ -1,5 +1,6 @@
 package com.jake.duolauncher
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.appearance.*
 
 import androidx.compose.animation.core.LinearEasing
@@ -97,10 +98,10 @@ internal fun HomeEditBar(onAddApps: () -> Unit, onAddWidget: () -> Unit, onDone:
                 Icon(Icons.Rounded.Add, "Add to Home")
             }
             DropdownMenu(menu, { menu = false }) {
-                DropdownMenuItem(text = { Text("Add apps") }, onClick = { menu = false; onAddApps() }, modifier = Modifier.testTag("home-edit-add-apps"))
-                DropdownMenuItem(text = { Text("Add widget") }, onClick = { menu = false; onAddWidget() }, modifier = Modifier.testTag("home-edit-add-widget"))
+                DropdownMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.add_apps)) }, onClick = { menu = false; onAddApps() }, modifier = Modifier.testTag("home-edit-add-apps"))
+                DropdownMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.add_widget)) }, onClick = { menu = false; onAddWidget() }, modifier = Modifier.testTag("home-edit-add-widget"))
             }
         }
-        FilledTonalButton(onClick = onDone, Modifier.heightIn(min = 44.dp).testTag("home-edit-done")) { Text("Done") }
+        FilledTonalButton(onClick = onDone, Modifier.heightIn(min = 44.dp).testTag("home-edit-done")) { Text(stringResource(com.jake.duolauncher.R.string.done)) }
     }
 }

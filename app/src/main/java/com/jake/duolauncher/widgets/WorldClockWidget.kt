@@ -1,5 +1,6 @@
 package com.jake.duolauncher.widgets
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.appearance.*
 
 import com.jake.duolauncher.*
@@ -37,7 +38,7 @@ internal fun WorldClockFace(slot: Int, onOptions: () -> Unit) {
     GlassCard(onClick = { editing = true }, modifier = Modifier.testTag("uno-world-clock-$slot")) {
         val ink = LocalGlassInk.current
         CardTitle(Icons.Rounded.Public, "World clock")
-        if (zones.isEmpty()) Text("Tap to add a place", color = ink.soft(), fontSize = 13.sp)
+        if (zones.isEmpty()) Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_a_place), color = ink.soft(), fontSize = 13.sp)
         else Column(Modifier.weight(1f).fillMaxWidth().padding(top = 2.dp), verticalArrangement = Arrangement.Center) {
             zones.forEach { zoneId ->
                 val row = WorldClock.row(requireNotNull(WorldClock.cityFor(zoneId)), now, is24Hour)

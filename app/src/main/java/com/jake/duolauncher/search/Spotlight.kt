@@ -1,5 +1,6 @@
 package com.jake.duolauncher.search
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.feed.*
 import com.jake.duolauncher.appearance.*
@@ -204,7 +205,7 @@ internal fun Spotlight(
                     focusedPlaceholderColor = ink.copy(alpha = .55f), unfocusedPlaceholderColor = ink.copy(alpha = .55f),
                     focusedLeadingIconColor = ink.copy(alpha = .8f), unfocusedLeadingIconColor = ink.copy(alpha = .8f),
                     focusedTrailingIconColor = ink.copy(alpha = .8f), unfocusedTrailingIconColor = ink.copy(alpha = .8f)),
-                placeholder = { Text("Search apps, answers, feeds", maxLines = 1) }, singleLine = true, shape = Corner.pill,
+                placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_apps_answers_feeds), maxLines = 1) }, singleLine = true, shape = Corner.pill,
                 // Enter opens the top app, as on iOS; with no app to open it searches the web in your browser with the words typed.
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
                 keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
@@ -256,7 +257,7 @@ internal fun Spotlight(
                     HandoffRow(target, ink, Modifier.clickable { handoff.open(target, query); onDismiss() })
                 }
                 if (query.isNotBlank() && nothing) item("none") {
-                    Text("Nothing found", Modifier.padding(12.dp), color = ink.copy(alpha = .7f))
+                    Text(stringResource(com.jake.duolauncher.R.string.nothing_found), Modifier.padding(12.dp), color = ink.copy(alpha = .7f))
                 }
             }
             }

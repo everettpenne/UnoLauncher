@@ -15,8 +15,8 @@ internal object LocationChoice {
         if (preciseAllowed && LocationManager.GPS_PROVIDER in enabled) add(LocationManager.GPS_PROVIDER)
     }
 
-    /** A GPS fix indoors can take a while; the others answer quickly. */
-    fun timeoutMs(provider: String): Long = if (provider == LocationManager.GPS_PROVIDER) 45_000L else 12_000L
+    /** A cold GPS fix can take a minute or more even outdoors; the others answer quickly. */
+    fun timeoutMs(provider: String): Long = if (provider == LocationManager.GPS_PROVIDER) 90_000L else 12_000L
 
     /** Only a fix this recent is reused without asking again. */
     const val CACHE_MAX_AGE_MS = 6 * 60 * 60_000L

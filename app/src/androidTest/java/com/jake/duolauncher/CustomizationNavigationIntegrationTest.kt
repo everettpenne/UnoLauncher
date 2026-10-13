@@ -50,7 +50,8 @@ class CustomizationNavigationIntegrationTest {
 
         compose.onNodeWithTag("home-cell-$empty").performSemanticsAction(SemanticsActions.OnLongClick)
         compose.onNodeWithTag("empty-space-wallpaper").performClick()
-        compose.onNodeWithTag("background-choose").assertIsDisplayed()
+        // The page now opens with the built-in scene picker above the photo button, so the button can be below the fold.
+        compose.onNodeWithTag("background-choose").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("wallpaper-preview").assertExists()
         assertEquals(before, model().state.value.layout)
         assertEquals(idsBefore, model().state.value.widgetPlacements.map { it.slot to it.id })

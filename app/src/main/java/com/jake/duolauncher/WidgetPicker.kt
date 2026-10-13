@@ -1,5 +1,6 @@
 package com.jake.duolauncher
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -233,15 +234,15 @@ internal fun VisualWidgetPicker(
             else Modifier.statusBarsPadding().navigationBarsPadding()).padding(horizontal = 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-                Text("Widgets", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
+                Text(stringResource(com.jake.duolauncher.R.string.widgets), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
             }
-            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(vertical = 10.dp)
-                .testTag("widget-catalog-search"), singleLine = true, placeholder = { Text("Search widgets") },
+            GlassField(query, { query = it }, Modifier.fillMaxWidth().padding(vertical = 10.dp)
+                .testTag("widget-catalog-search"), singleLine = true, placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_widgets)) },
                 leadingIcon = { Icon(Icons.Rounded.Search, null) })
             if (profiles.any { it.isWork }) Row(Modifier.fillMaxWidth().padding(bottom = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 profiles.forEach { profile ->
-                    FilterChip(selected = profile.userSerial == selectedProfile.userSerial,
+                    GlassChip(selected = profile.userSerial == selectedProfile.userSerial,
                         onClick = { onSelectProfile(profile) }, label = { Text(profile.label) })
                 }
             }
@@ -249,8 +250,8 @@ internal fun VisualWidgetPicker(
                 Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(if (selectedProfile.quiet) "${selectedProfile.label} apps are paused"
                         else "${selectedProfile.label} profile is unavailable")
-                    if (selectedProfile.isWork) Button(onClick = { onTurnOnWork(selectedProfile.userSerial) },
-                        modifier = Modifier.padding(top = 12.dp)) { Text("Turn on") }
+                    if (selectedProfile.isWork) GlassButton(prominent = true, onClick = { onTurnOnWork(selectedProfile.userSerial) },
+                        modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(com.jake.duolauncher.R.string.turn_on)) }
                 }
             }
             LazyColumn(Modifier.fillMaxSize().testTag("widget-catalog-list"), verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -261,7 +262,7 @@ internal fun VisualWidgetPicker(
                     }
                 }
                 if (words.isEmpty() && selectedProfile.isPersonal) {
-                    item("duo-widgets") { Text("Uno Launcher", style = MaterialTheme.typography.titleMedium,
+                    item("duo-widgets") { Text(stringResource(com.jake.duolauncher.R.string.uno_launcher), style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 10.dp, start = 4.dp)) }
                     items(listOf(Triple(CLOCK_WIDGET, "Clock", "2 × 2"), Triple(DATE_WIDGET, "Date", "2 × 2"),
                         Triple(INFO_WIDGET, "Widget panel", "2 × 2"), Triple(FOLDER_WIDGET, "Large folder", "2 × 2"),
@@ -279,7 +280,7 @@ internal fun VisualWidgetPicker(
                     }
                 }
                 if (words.isEmpty() && selectedProfile.isPersonal) {
-                    item("uno-library") { Text("Uno widgets", style = MaterialTheme.typography.titleMedium,
+                    item("uno-library") { Text(stringResource(com.jake.duolauncher.R.string.uno_widgets), style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 10.dp, start = 4.dp)) }
                     items(UnoWidgets.all, key = { "uno-${it.id}" }) { def ->
                         Surface(Modifier.fillMaxWidth().testTag("widget-builtin-${def.id}")
@@ -329,7 +330,7 @@ internal fun VisualWidgetPicker(
                                     Text(span?.let { "${it.width} × ${it.height}" } ?: "Doesn’t fit this layout",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = if (span == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
-                                    Text("Tap to place · Hold to drag", style = MaterialTheme.typography.bodySmall)
+                                    Text(stringResource(com.jake.duolauncher.R.string.tap_to_place_hold_to_drag), style = MaterialTheme.typography.bodySmall)
                                 }
                                 val ratio = span?.let { it.width.toFloat() / it.height } ?: 1.5f
                                 BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -345,7 +346,7 @@ internal fun VisualWidgetPicker(
                         }
                     }
                 }
-                if (entries != null && filtered.isEmpty()) item { Text("No widgets found", Modifier.padding(20.dp)) }
+                if (entries != null && filtered.isEmpty()) item { Text(stringResource(com.jake.duolauncher.R.string.no_widgets_found), Modifier.padding(20.dp)) }
             }
         }
     }

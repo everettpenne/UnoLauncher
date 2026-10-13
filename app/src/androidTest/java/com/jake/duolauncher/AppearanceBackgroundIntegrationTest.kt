@@ -74,7 +74,7 @@ class AppearanceBackgroundIntegrationTest {
             compose.onNodeWithTag("appearance-latitude").performScrollTo().performTextInput("99")
             compose.onNodeWithTag("appearance-longitude").performScrollTo().performTextInput("0")
             compose.onNodeWithTag("appearance-save-place").performScrollTo().assertIsDisplayed().performClick()
-            val coordinateError = hasText("Enter a latitude from −90 to 90 and longitude from −180 to 180.")
+            val coordinateError = hasText(com.jake.duolauncher.appearance.PlaceInput.RANGE_MESSAGE)
             try {
                 compose.waitUntil(5_000) {
                     runCatching { compose.onNode(coordinateError).assertIsDisplayed() }.isSuccess

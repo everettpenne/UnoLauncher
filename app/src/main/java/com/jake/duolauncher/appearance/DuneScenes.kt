@@ -389,6 +389,138 @@ internal object DuneLandscape {
 }
 
 /**
+ * "Molten metal": the dunes as glass. After the iPhone Pro liquid-metal wallpapers: pure black, hairline highlights, and light that
+ * pools just past a contour and falls away into deep colour.
+ *
+ * The scene is one smooth height field ([field]) seen through contour lines, not a stack of separate dunes. Its long, slow swells run
+ * across the screen like wind-sculpted dune ridges, and it is warped by a second, slower field, so neighbouring contours bend toward and
+ * away from each other, merge, and fan out, as light does through uneven glass. Each contour is a crisp bright hairline (whose width is
+ * measured in pixels from the field's own gradient, so it stays sharp wherever the lines bunch up or spread), with a bright pool of
+ * colour just past it that falls through the palette to black; a few places open into wide pools like the references. Red, green and
+ * blue see the contours a hair apart, which gives the edges a faint prismatic fringe, as in thick glass. Grain sits on the glow only.
+ *
+ * The top of the screen is kept dark (the camera cutout, the island, the clock) and the glow gets livelier down the screen, with the
+ * heaviest black in the middle so icons keep their contrast. Pure arithmetic on an IntArray, deterministic and unit-tested like the other
+ * scenes. The field is worked out on a coarse grid and interpolated, so it costs about as much as the other scenes.
+ */
+internal object MoltenMetal {
+    /** Contour lines cross the screen from top to bottom about this many times. */
+    const val CONTOURS = 8f
+    private const val CELL = 4
+    private const val TAU = 6.2831855f
+    private val dispersion = floatArrayOf(-.010f, 0f, .010f)
+
+    private class Palette(val pos: FloatArray, val band: IntArray, val rim: Int)
+    private val posAll = floatArrayOf(0f, .07f, .22f, .42f, .62f, .82f, 1f)
+    private val night = Palette(posAll, intArrayOf(0xFFF6E2, 0xFFC27A, 0xFF7A1C, 0xC0300E, 0x6A1458, 0x14103A, 0x000000), 0xFFE8C4)
+    private val day = Palette(posAll, intArrayOf(0xF8FCFF, 0xA8D8FF, 0x3A9CF0, 0x1650C0, 0x4A2CA8, 0x0C1240, 0x000000), 0xE8F6FF)
+
+    /**
+     * The height field at [nx], [ny] (each 0..1 across the screen). It rises from about 0 at the top to about 1 at the bottom, with
+     * long swells and a few smooth steps (where it flattens, the contours spread and the light pools) on top, all seen through a warp.
+     */
+    internal fun field(nx: Float, ny: Float): Float {
+        val wx = nx + .085f * sin(TAU * (.9f * ny + .15f)) + .045f * sin(TAU * (1.7f * ny - .4f * nx + .6f))
+        val wy = ny + .070f * sin(TAU * (.6f * nx + .35f)) + .045f * sin(TAU * (1.3f * nx + .9f * ny + .2f))
+        var g = wy + .085f * sin(TAU * (.55f * wx + .30f * wy) + .4f) + .060f * sin(TAU * (1.15f * wx - .45f * wy) + 2.1f) +
+            .045f * sin(TAU * (.35f * wx + 1.25f * wy) + 1f) + .030f * sin(TAU * (1.8f * wx + .2f * wy) + .3f)
+        g += .060f * tanh((wy - .60f) / .050f + .7f * sin(TAU * .8f * wx)) + .050f * tanh((wy - .86f) / .040f + .5f * sin(TAU * .6f * wx + 1f))
+        return g
+    }
+
+    /** How much of a contour period its glow spreads over at a place: narrow almost everywhere, broad in a few pools. */
+    internal fun poolSpread(nx: Float, ny: Float): Float {
+        fun blob(cx: Float, cy: Float, rx: Float, ry: Float): Float { val a = (nx - cx) / rx; val b = (ny - cy) / ry; return exp(-(a * a + b * b)) }
+        val m = blob(.35f, .64f, .30f, .10f) + blob(.55f, .93f, .34f, .07f) + .35f * blob(.70f, .30f, .25f, .07f)
+        return .14f + .86f * m.coerceIn(0f, 1f)
+    }
+
+    fun render(width: Int, height: Int, dark: Boolean): IntArray {
+        val w = width.coerceAtLeast(8); val h = height.coerceAtLeast(8)
+        val p = if (dark) night else day
+        val s = maxOf(h / 1000f, .5f)
+        // The field, its gradient and the pool spread, on a coarse grid (nodes every CELL pixels), interpolated below.
+        val gw = (w - 1) / CELL + 2; val gh = (h - 1) / CELL + 2
+        val grid = FloatArray(gw * gh); val spread = FloatArray(gw * gh)
+        for (j in 0 until gh) {
+            val ny = (j * CELL / (h - 1f)).coerceAtMost(1.2f)
+            for (i in 0 until gw) {
+                val nx = (i * CELL / (w - 1f)).coerceAtMost(1.2f)
+                grid[j * gw + i] = field(nx, ny); spread[j * gw + i] = poolSpread(nx, ny)
+            }
+        }
+        val gradX = FloatArray(gw * gh); val gradY = FloatArray(gw * gh)   // field change per pixel
+        for (j in 0 until gh) for (i in 0 until gw) {
+            val i0 = (i - 1).coerceAtLeast(0); val i1 = (i + 1).coerceAtMost(gw - 1)
+            val j0 = (j - 1).coerceAtLeast(0); val j1 = (j + 1).coerceAtMost(gh - 1)
+            gradX[j * gw + i] = (grid[j * gw + i1] - grid[j * gw + i0]) / ((i1 - i0) * CELL)
+            gradY[j * gw + i] = (grid[j1 * gw + i] - grid[j0 * gw + i]) / ((j1 - j0) * CELL)
+        }
+        // The pool of light past a contour, per colour channel, as a table over 0..1 (bright at the contour, through the palette, to black).
+        val lutSize = 1024
+        val lut = Array(3) { FloatArray(lutSize) }
+        val tmp = FloatArray(3)
+        for (k in 0 until lutSize) {
+            val t = k / (lutSize - 1f)
+            SceneMath.ramp(t, p.pos, p.band, tmp)
+            val fall = Math.pow((1f - t).toDouble(), 1.1).toFloat()
+            for (c in 0..2) lut[c][k] = tmp[c] * fall
+        }
+        val rim = floatArrayOf(SceneMath.r(p.rim), SceneMath.g(p.rim), SceneMath.b(p.rim))
+        // Down the screen: quiet and dark at the top, livelier below. One value per row.
+        val env = FloatArray(h) { y ->
+            val ny = y / (h - 1f)
+            val low = ((ny - .05f) / .45f).coerceIn(0f, 1f)
+            val top = ((ny - .01f) / .12f).coerceIn(0f, 1f)
+            (.30f + .70f * Math.pow(low.toDouble(), 1.1).toFloat()).coerceIn(0f, 1f) * Math.pow(top.toDouble(), 1.4).toFloat()
+        }
+        val out = IntArray(w * h)
+        val v = FloatArray(3)
+        val bloomAmount = .40f * .112f
+        for (y in 0 until h) {
+            val ny = y / (h - 1f)
+            val fj = y / CELL.toFloat(); val j0 = fj.toInt(); val tj = fj - j0
+            val e = env[y]
+            for (x in 0 until w) {
+                val nx = x / (w - 1f)
+                val fi = x / CELL.toFloat(); val i0 = fi.toInt(); val ti = fi - i0
+                val a = j0 * gw + i0; val b = a + gw
+                val w00 = (1f - ti) * (1f - tj); val w10 = ti * (1f - tj); val w01 = (1f - ti) * tj; val w11 = ti * tj
+                val g = grid[a] * w00 + grid[a + 1] * w10 + grid[b] * w01 + grid[b + 1] * w11
+                val gx = gradX[a] * w00 + gradX[a + 1] * w10 + gradX[b] * w01 + gradX[b + 1] * w11
+                val gy = gradY[a] * w00 + gradY[a + 1] * w10 + gradY[b] * w01 + gradY[b + 1] * w11
+                val pw = spread[a] * w00 + spread[a + 1] * w10 + spread[b] * w01 + spread[b + 1] * w11
+                val gm = sqrt(gx * gx + gy * gy) + 1e-6f
+                val u = g * CONTOURS
+                // Lit where the surface faces up and to the left.
+                val lit = .30f + .70f * (.5f + .5f * ((gx * .45f + gy * .89f) / gm)).coerceIn(0f, 1f)
+                var glow = 0f
+                for (c in 0..2) {
+                    val fv = u + dispersion[c]
+                    val f = fv - floor(fv)
+                    val dpx = minOf(f, 1f - f) / (CONTOURS * gm)
+                    val tt = (f / pw).coerceIn(0f, 1f)
+                    val pool = lut[c][(tt * (lutSize - 1)).toInt()]
+                    var hair = 0f
+                    if (dpx < 4f * s) { val q = dpx / (.95f * s); hair = exp(-q * q) }
+                    var halo = 0f
+                    if (dpx < 20f * s) { val q = dpx / (8.5f * s); halo = exp(-q * q) }
+                    v[c] = pool * lit * 1.33f * e + rim[c] * (.55f + .45f * lit) * 1.35f * e * (hair + bloomAmount * 1.5f * halo)
+                    if (c == 1) glow = (pool * lit * e * 1.5f).coerceIn(0f, 1f)
+                }
+                val vx = nx - .5f; val vy = ny - .5f
+                val vk = 1f - ((sqrt(vx * vx + vy * vy * .6f) - .35f) / .5f).coerceIn(0f, 1f) * .25f
+                val lum = (v[0] + v[1] + v[2]) / 3f * vk
+                val amount = .003f + .050f * Math.pow((lum * 1.3f).coerceIn(0f, 1f).toDouble(), 1.4).toFloat() * (glow * 1.6f).coerceIn(0f, 1f)
+                val grain = SceneMath.grain(x, y, 23) * amount
+                out[y * w + x] = SceneMath.pack(v[0] * vk + grain, v[1] * vk + grain, v[2] * vk + grain)
+            }
+        }
+        return out
+    }
+}
+
+/**
  * "Deep dunes": the original Uno dunes (the same three sweeping dunes and the same sand palette) given the depth of the glass aesthetic:
  * each ridge glows where the light catches it and spills a little light onto what is behind it, the sand falls from a bright crest into a
  * warm shadow, the far dune sits in haze, and a film of grain covers it all. The geometry is the original's, to the pixel.

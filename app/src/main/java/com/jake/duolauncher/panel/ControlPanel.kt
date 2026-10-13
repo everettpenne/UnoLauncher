@@ -1,5 +1,6 @@
 package com.jake.duolauncher.panel
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -100,8 +101,8 @@ internal fun ControlPanel(
                 Icon(Icons.Rounded.WbSunny, null, tint = ink.copy(alpha = .8f), modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Allow brightness control", color = ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                    Text("Needs “Modify system settings” access", color = ink.copy(alpha = .6f), fontSize = 12.sp)
+                    Text(stringResource(com.jake.duolauncher.R.string.allow_brightness_control), color = ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text(stringResource(com.jake.duolauncher.R.string.needs_modify_system_settings_access), color = ink.copy(alpha = .6f), fontSize = 12.sp)
                 }
                 Icon(Icons.Rounded.ChevronRight, null, tint = ink.copy(alpha = .6f))
             }
@@ -115,7 +116,7 @@ internal fun ControlPanel(
                 modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Focus", color = ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text(stringResource(com.jake.duolauncher.R.string.focus), color = ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Text(if (extras.focusHidden.isEmpty()) "Choose apps to hide in Launcher settings"
                     else if (extras.focusOn) "${extras.focusHidden.size} apps hidden" else "Hides ${extras.focusHidden.size} apps",
                     color = ink.copy(alpha = .6f), fontSize = 12.sp)
@@ -127,7 +128,7 @@ internal fun ControlPanel(
             if (chosen.isEmpty()) TileRow(ink, modifier.clickable { onCustomize() }.testTag("cp-shortcuts")) {
                 Icon(Icons.Rounded.Apps, null, tint = ink.copy(alpha = .8f), modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(12.dp))
-                Text("Add shortcuts in Launcher settings", color = ink.copy(alpha = .8f), fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text(stringResource(com.jake.duolauncher.R.string.add_shortcuts_in_launcher_settings), color = ink.copy(alpha = .8f), fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Icon(Icons.Rounded.ChevronRight, null, tint = ink.copy(alpha = .6f))
             } else Row(modifier.fillMaxWidth().clip(TileShape).background(ink.copy(alpha = .08f)).padding(vertical = 8.dp)
                 .testTag("cp-shortcuts"), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -140,7 +141,7 @@ internal fun ControlPanel(
         PanelTile.SYSTEM -> TileRow(ink, modifier.clickable { onSystemSettings() }.testTag("cp-system-settings")) {
             Icon(Icons.Rounded.Tune, null, tint = ink.copy(alpha = .8f), modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(12.dp))
-            Text("System settings", color = ink, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+            Text(stringResource(com.jake.duolauncher.R.string.system_settings), color = ink, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             Icon(Icons.Rounded.ChevronRight, null, tint = ink.copy(alpha = .6f))
         }
     }

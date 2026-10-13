@@ -7,6 +7,8 @@ Uno Launcher stores settings, Home layout, widget placement, and selected wallpa
 - Installed app names, icons, launch activities, and eligible work-profile entries populate Home and All apps.
 - Widget providers control their content, accounts, and network activity; Android hosts their widgets.
 - Battery, Wi-Fi, cellular signal, and airplane-mode readings populate the Home status rail while visible. Signal display does not require location access.
+- **Clipboard**: Uno reads the clipboard only when you tap **Paste a theme from text** in Island style, and only to look for an island theme; it keeps nothing from it. **Copy this theme as text** writes the theme (colours and shapes only) to the clipboard.
+- **Icon packs**: when you choose one under Icons, Uno reads that pack's list of icons and the pictures it names, and nothing else. Uno can see which installed apps are icon packs (they answer a launcher-theme intent).
 - Selecting a photo creates a local preview. Apply commits it; cancel preserves the previous background. Android's picker grants access to chosen images only.
 - The Photos widget shows the pictures you choose with Android's document picker, which grants read access to the chosen images only, with no photo-library permission. Optionally, **Choose an album** in the widget lists your albums and shows the pictures of the one you pick, which needs the Photos & media permission described below. Pictures are decoded and shown on this device and never uploaded; **Remove all** in the widget forgets the list.
 - The Next alarm widget asks Android for the time of the next alarm set in your clock app (a public call that needs no permission), shows it on that widget and keeps and sends nothing.

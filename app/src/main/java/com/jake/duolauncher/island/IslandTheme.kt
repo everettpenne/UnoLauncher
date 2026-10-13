@@ -201,13 +201,24 @@ internal object IslandThemes {
             timer = Color(0xFFFF2BD6), focus = Color(0xFFB388FF), panel = PanelShape.ROUND, controls = ControlShape.ROUNDED, motion = IslandMotion.BOUNCY),
         IslandTheme("Amber", fill = Color(0xFF0B0805), ink = Color(0xFFFFF3DC), playback = Color(0xFFFFB000), charging = Color(0xFFFFD166),
             timer = Color(0xFFFF7A3D), focus = Color(0xFFE0B0FF), panel = PanelShape.SOFT, controls = ControlShape.ROUNDED, motion = IslandMotion.STANDARD),
+        IslandTheme("Aurora", fill = Color(0xFF03070C), ink = Color(0xFFF0FBFF), playback = Color(0xFF5EEAD4), charging = Color(0xFF7CFFB2),
+            timer = Color(0xFFFFD580), focus = Color(0xFFA78BFA), panel = PanelShape.ROUND, controls = ControlShape.PILL, motion = IslandMotion.CALM),
+        IslandTheme("Rose", fill = Color(0xFF0C0508), ink = Color(0xFFFFEFF3), playback = Color(0xFFFF5D8F), charging = Color(0xFFFFB3C7),
+            timer = Color(0xFFFFC857), focus = Color(0xFFD8A8FF), panel = PanelShape.SOFT, controls = ControlShape.ROUNDED, motion = IslandMotion.STANDARD),
+        IslandTheme("Forest", fill = Color(0xFF040A06), ink = Color(0xFFEAFBEF), playback = Color(0xFF5BE37D), charging = Color(0xFFA6F7B4),
+            timer = Color(0xFFF2C35B), focus = Color(0xFF8FD3FF), panel = PanelShape.SOFT, controls = ControlShape.ROUNDED, motion = IslandMotion.SNAPPY),
     )
 
     fun init(context: Context) {
         if (prefs != null) return
         prefs = context.applicationContext.getSharedPreferences("uno_island_theme", Context.MODE_PRIVATE)
-        val saved = prefs?.getString("json", null)
         // A saved theme that no longer parses (a hand-edited backup, a rule that tightened) falls back to Classic.
+        reload()
+    }
+
+    /** Re-reads the saved theme (after a settings restore). */
+    fun reload() {
+        val saved = prefs?.getString("json", null)
         active = saved?.let { (IslandThemeFile.parse(it) as? IslandThemeFile.Result.Ok)?.theme } ?: IslandTheme.Classic
     }
 

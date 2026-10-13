@@ -31,6 +31,28 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.DETECT_SCREEN_RECORDING" />
     <queries>
+        <!-- Icon packs: lets Uno list installed packs (each answers one of these launcher-theme intents). -->
+        <intent>
+            <action android:name="org.adw.launcher.THEMES" />
+        </intent>
+        <intent>
+            <action android:name="com.novalauncher.THEME" />
+        </intent>
+        <intent>
+            <action android:name="com.gau.go.launcherex.theme" />
+        </intent>
+        <intent>
+            <action android:name="org.adw.launcher.icons.ACTION_PICK_ICON" />
+        </intent>
+        <intent>
+            <action android:name="com.anddoes.launcher.THEME" />
+        </intent>
+        <intent>
+            <action android:name="com.teslacoilsw.launcher.THEME" />
+        </intent>
+        <intent>
+            <action android:name="app.lawnchair.icons.THEMED_ICON" />
+        </intent>
         <package android:name="com.google.android.googlequicksearchbox" />
         <!-- Search suggestions hand a query to these apps if they are installed; Uno never contacts anything itself. -->
         <package android:name="org.fdroid.fdroid" />

@@ -2,6 +2,7 @@
 
 package com.jake.duolauncher.search
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -76,6 +77,7 @@ internal fun AppLibrary(
     // On Home the library is a liquid-glass panel over the wallpaper. Heavier blur than the
     // dock keeps the long list legible; the lens still bends the panel's rim.
     val liquid = LocalPageGlass.current?.takeIf { glass }
+    CompositionLocalProvider(LocalKitInk provides ink) {
     Surface(modifier.then(if (liquid != null) Modifier.liquidGlass(liquid.backdrop, Corner.large,
             liquid.tint.copy(alpha = .40f), blurRadius = 6f, settings = liquid.settings) else Modifier),
         shape = Corner.large,
@@ -90,22 +92,13 @@ internal fun AppLibrary(
                 Text(if (editing) "${pinned.size} pinned" else "${visibleApps.size}", color = ink, fontSize = 12.sp)
             }
             if (hasWork) Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !showWork, onClick = { showWork = false }, label = { Text("Personal") })
-                FilterChip(selected = showWork, onClick = { showWork = true }, label = { Text("Work") })
+                GlassChip(selected = !showWork, onClick = { showWork = false }, label = { Text(stringResource(com.jake.duolauncher.R.string.personal)) })
+                GlassChip(selected = showWork, onClick = { showWork = true }, label = { Text(stringResource(com.jake.duolauncher.R.string.work)) })
             }
-            OutlinedTextField(query, onQuery, Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag(if (editing) "pin-search" else "library-search"),
-                placeholder = { Text("Search apps") }, singleLine = true,
-                shape = if (liquid != null) Corner.pill else Corner.medium,
+            GlassField(query, onQuery, Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag(if (editing) "pin-search" else "library-search"),
+                placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_apps)) }, singleLine = true,
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, "Clear search") } },
-                colors = if (glass) OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = ink, unfocusedTextColor = ink, cursorColor = ink,
-                    focusedContainerColor = Color.White.copy(alpha = .18f), unfocusedContainerColor = Color.White.copy(alpha = .12f),
-                    focusedBorderColor = Color.White.copy(alpha = .8f), unfocusedBorderColor = Color.White.copy(alpha = .45f),
-                    focusedPlaceholderColor = ink, unfocusedPlaceholderColor = ink,
-                    focusedLeadingIconColor = ink, unfocusedLeadingIconColor = ink,
-                    focusedTrailingIconColor = ink, unfocusedTrailingIconColor = ink,
-                ) else OutlinedTextFieldDefaults.colors())
+                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, "Clear search") } })
             // Asking which browsers and stores are installed (and loading their icons) is a trip to the package manager, so it is done when
             // the search changes, not each time the list's content is rebuilt.
             val suggestions = remember(editing, handoff, query, visibleApps.size, smart != null) {
@@ -121,14 +114,14 @@ internal fun AppLibrary(
                         }.padding(horizontal = 16.dp, vertical = 12.dp).testTag("smart-answer")) {
                         Text(smart.detail, color = ink.copy(alpha = .7f), fontSize = 12.sp)
                         Text(smart.text, color = ink, fontSize = 26.sp, fontWeight = FontWeight.Medium)
-                        Text("Tap to copy", color = ink.copy(alpha = .55f), fontSize = 11.sp)
+                        Text(stringResource(com.jake.duolauncher.R.string.tap_to_copy), color = ink.copy(alpha = .55f), fontSize = 11.sp)
                     }
                 }
                 if (showWork && selectedProfile?.available == false) item("work-paused") {
                     Column(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(if (selectedProfile.quiet) "Work apps are paused" else "Work profile is unavailable")
-                        if (selectedProfile.quiet) Button(onClick = { onTurnOnWork(selectedProfile.userSerial) },
-                            Modifier.padding(top = 10.dp).testTag("turn-on-work")) { Text("Turn on work apps") }
+                        if (selectedProfile.quiet) GlassButton(onClick = { onTurnOnWork(selectedProfile.userSerial) }, prominent = true,
+                            modifier = Modifier.padding(top = 10.dp).testTag("turn-on-work")) { Text(stringResource(com.jake.duolauncher.R.string.turn_on_work_apps)) }
                     }
                 }
                 if (groups.isEmpty() && contacts.isEmpty() && smart == null) item { Text(if (state.loading) "Loading apps…" else "No apps found", Modifier.padding(vertical = 20.dp)) }
@@ -168,7 +161,7 @@ internal fun AppLibrary(
                 }
                 if (suggestions.isNotEmpty()) {
                     item("handoff-header") {
-                        Text("Look elsewhere", Modifier.padding(top = 14.dp, bottom = 6.dp), fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = ink)
+                        Text(stringResource(com.jake.duolauncher.R.string.look_elsewhere), Modifier.padding(top = 14.dp, bottom = 6.dp), fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = ink)
                     }
                     items(suggestions, key = { "handoff-${it.kind}-${it.packageName}" }) { target ->
                         HandoffRow(target, ink, Modifier.clickable { handoff?.open(target, query) })
@@ -176,7 +169,7 @@ internal fun AppLibrary(
                 }
                 if (contacts.isNotEmpty()) {
                     item("contacts-header") {
-                        Text("Contacts", Modifier.padding(top = 14.dp, bottom = 6.dp), fontWeight = FontWeight.SemiBold,
+                        Text(stringResource(com.jake.duolauncher.R.string.contacts), Modifier.padding(top = 14.dp, bottom = 6.dp), fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp, color = ink)
                     }
                     items(contacts, key = { "contact-${it.id}" }) { contact ->
@@ -192,5 +185,6 @@ internal fun AppLibrary(
                 }
             }
         }
+    }
     }
 }

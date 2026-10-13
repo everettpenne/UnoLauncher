@@ -33,6 +33,9 @@ internal object UnoWidgets {
     const val NEXT_ALARM = -30
     const val WORLD_CLOCK = -31
     const val PHOTOS = -32
+    const val MEDIA_PLAYER = -34
+    const val GLANCE = -35
+    const val LIQUID_BATTERY = -36
 
     val all: List<UnoWidgetDef> = listOf(
         UnoWidgetDef(BATTERY, "Battery", "A ring for the charge level, and time to full while charging.", 2, 2) { s, o -> BatteryFace(s, o) },
@@ -48,6 +51,9 @@ internal object UnoWidgets {
         UnoWidgetDef(NEXT_ALARM, "Next alarm", "When your next clock-app alarm rings, and how long until it. Tap to open the clock app.", 2, 2) { s, o -> NextAlarmFace(s, o) },
         UnoWidgetDef(WORLD_CLOCK, "World clock", "The time in up to four places you choose. Tap to pick them.", 2, 2) { s, o -> WorldClockFace(s, o) },
         UnoWidgetDef(PHOTOS, "Photos", "Your photos or an album, changing on a schedule you set. Tap to preview.", 2, 2) { s, o -> PhotosFace(s, o) },
+        UnoWidgetDef(MEDIA_PLAYER, "Media player", "Now playing, with play, pause, skip and a seek bar. Track details need notification access.", 2, 2) { s, o -> MediaPlayerFace(s, o) },
+        UnoWidgetDef(GLANCE, "Glance", "Time, date, your next alarm, and today's sunrise and sunset.", 2, 2) { s, o -> GlanceFace(s, o) },
+        UnoWidgetDef(LIQUID_BATTERY, "Liquid battery", "Battery as a liquid that ripples and tilts with the phone.", 2, 2) { s, o -> LiquidBatteryFace(s, o) },
     )
 
     fun byId(id: Int): UnoWidgetDef? = all.firstOrNull { it.id == id }

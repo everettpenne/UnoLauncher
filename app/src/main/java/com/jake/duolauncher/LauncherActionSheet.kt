@@ -1,5 +1,6 @@
 package com.jake.duolauncher
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -120,10 +121,10 @@ internal fun EmptySpaceActionSheet(onWidgets: () -> Unit, onWallpaper: () -> Uni
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
         .padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("This space", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(com.jake.duolauncher.R.string.this_space), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close empty space options") }
         }
-        Text("Rearrange Home, add a widget, change the wallpaper, or open settings.", style = MaterialTheme.typography.bodyMedium,
+        Text(stringResource(com.jake.duolauncher.R.string.rearrange_home_add_a_widget_change), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
         onEditHome?.let { ActionRow(Icons.Rounded.DragIndicator, "Edit Home", it, Modifier.testTag("empty-space-edit")) }
         ActionRow(Icons.Rounded.Widgets, "Widgets", onWidgets, Modifier.testTag("empty-space-widgets"))

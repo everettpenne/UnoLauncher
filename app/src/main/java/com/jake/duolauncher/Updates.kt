@@ -1,5 +1,6 @@
 package com.jake.duolauncher
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.feed.*
 import com.jake.duolauncher.panel.*
@@ -323,12 +324,12 @@ internal fun UpdatesPanel(
     onAutoUpdate: (Boolean) -> Unit,
 ) {
     SettingsSwitch("Auto-update", updates.autoUpdate, onAutoUpdate, "auto-update-switch")
-    Text("Checks GitHub every few hours, downloads the new release, and asks Android to install it. Android always asks you to confirm the install.",
+    Text(stringResource(com.jake.duolauncher.R.string.checks_github_every_few_hours_downloads),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedButton(onClick = onCheckNow, enabled = !updates.checking,
+        GlassButton(onClick = onCheckNow, enabled = !updates.checking,
             modifier = Modifier.testTag("update-check-now")) {
-            Icon(Icons.Rounded.Refresh, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Check for updates")
+            Icon(Icons.Rounded.Refresh, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.check_for_updates))
         }
         if (updates.checking) { Spacer(Modifier.width(10.dp)); LinearProgressIndicator(Modifier.weight(1f)) }
     }
@@ -336,8 +337,8 @@ internal fun UpdatesPanel(
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     updates.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    Text("Versions", style = MaterialTheme.typography.titleMedium)
-    Text("You can install any version, including older ones. Android may clear saved layout data when an older version can't read the newer format.",
+    Text(stringResource(com.jake.duolauncher.R.string.versions), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(com.jake.duolauncher.R.string.you_can_install_any_version_including),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     updates.releases.forEach { release ->
         val installed = release.tag == updates.installed
@@ -353,10 +354,10 @@ internal fun UpdatesPanel(
             when {
                 installed -> Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.DownloadDone, null, Modifier.size(16.dp), tint = IosGreen)
-                    Spacer(Modifier.width(4.dp)); Text("Installed", color = IosGreen, style = MaterialTheme.typography.labelMedium)
+                    Spacer(Modifier.width(4.dp)); Text(stringResource(com.jake.duolauncher.R.string.installed), color = IosGreen, style = MaterialTheme.typography.labelMedium)
                 }
-                downloading -> Text("Downloading…", style = MaterialTheme.typography.labelMedium)
-                else -> TextButton(onClick = { onInstall(release.tag) },
+                downloading -> Text(stringResource(com.jake.duolauncher.R.string.downloading), style = MaterialTheme.typography.labelMedium)
+                else -> GlassButton(onClick = { onInstall(release.tag) },
                     modifier = Modifier.testTag("install-${release.tag}")) {
                     Text(if (ready) "Install" else "Download")
                 }

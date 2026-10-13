@@ -1,5 +1,6 @@
 package com.jake.duolauncher
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -34,7 +35,7 @@ internal fun PermissionLedgerSection(actions: ExtrasActions) {
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
     val inputs = remember(refresh, actions.store.state.islandEverywhere) { ledgerInputs(context, actions) }
-    Text("Permissions & privacy", style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(com.jake.duolauncher.R.string.permissions_privacy), style = MaterialTheme.typography.titleMedium)
     Text(PermissionLedger.islandSummary(inputs), style = note, color = muted, modifier = Modifier.testTag("ledger-summary"))
     PermissionLedger.rows(inputs).forEach { row ->
         Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("ledger-${row.id}")) {
@@ -46,7 +47,7 @@ internal fun PermissionLedgerSection(actions: ExtrasActions) {
             Text("Used for: ${row.usedFor}", style = note, color = muted)
             Text("Can see: ${row.canSee}", style = note, color = muted)
             if (row.change != LedgerAction.NONE) OutlinedButton(onClick = { openLedgerAction(context, row.change) },
-                Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("ledger-open-${row.id}")) { Text("Change in Android's settings") }
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("ledger-open-${row.id}")) { Text(stringResource(com.jake.duolauncher.R.string.change_in_android_s_settings)) }
         }
     }
 }

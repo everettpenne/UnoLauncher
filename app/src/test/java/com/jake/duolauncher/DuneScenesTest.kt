@@ -4,6 +4,7 @@ import com.jake.duolauncher.appearance.DuneBloom
 import com.jake.duolauncher.appearance.DuneDeep
 import com.jake.duolauncher.appearance.DuneRange
 import com.jake.duolauncher.appearance.DuneFlow
+import com.jake.duolauncher.appearance.MoltenMetal
 import com.jake.duolauncher.appearance.SceneMath
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -18,7 +19,8 @@ class DuneScenesTest {
     private fun sd(values: List<Double>): Double { val m = values.average(); return Math.sqrt(values.sumOf { (it - m) * (it - m) } / values.size) }
 
     private val scenes: List<Pair<String, (Int, Int, Boolean) -> IntArray>> =
-        listOf("flow" to DuneFlow::render, "bloom" to DuneBloom::render, "deep" to DuneDeep::render, "range" to DuneRange::render)
+        listOf("flow" to DuneFlow::render, "bloom" to DuneBloom::render, "deep" to DuneDeep::render, "range" to DuneRange::render,
+            "molten" to MoltenMetal::render)
 
     @Test fun everySceneRendersTheRequestedSizeOpaqueAndDeterministic() {
         for ((name, render) in scenes) for (dark in listOf(false, true)) {
@@ -32,7 +34,10 @@ class DuneScenesTest {
     @Test fun dayAndNightAreDifferentPictures() {
         for ((name, render) in scenes) {
             val d = render(100, 220, false); val n = render(100, 220, true)
-            assertTrue("$name day brighter", d.map(::luma).average() > n.map(::luma).average() + 20)
+            // Molten metal is two dark OLED pictures (ice blue by day, ember by night), so it differs in colour, not brightness.
+            if (name == "molten") {
+                assertTrue("molten day bluer", d.map { b(it) - r(it) }.average() > n.map { b(it) - r(it) }.average() + 15)
+            } else assertTrue("$name day brighter", d.map(::luma).average() > n.map(::luma).average() + 20)
         }
     }
 
@@ -149,6 +154,71 @@ class DuneScenesTest {
             val c = DuneRange.crestFraction(i, x)
             assertTrue("dune $i at $x = $c", c > .5f && c < .85f)
         }
+    }
+
+    @Test fun moltenContoursFlowContinuouslyFromTopToBottom() {
+        // One smooth height field, so a contour line crosses every column: it rises through about CONTOURS lines from top to bottom everywhere.
+        for (x in listOf(0f, .2f, .5f, .8f, 1f)) {
+            val rise = MoltenMetal.field(x, 1f) - MoltenMetal.field(x, 0f)
+            assertTrue("column $x rises by $rise", rise * MoltenMetal.CONTOURS > 5f)
+        }
+        // And there are no jumps: the field is smooth, so the lines are unbroken curves.
+        var worst = 0f
+        var nx = 0f
+        while (nx < .99f) { var ny = 0f
+            while (ny < .99f) {
+                val g = MoltenMetal.field(nx, ny)
+                worst = maxOf(worst, kotlin.math.abs(MoltenMetal.field(nx + .002f, ny) - g), kotlin.math.abs(MoltenMetal.field(nx, ny + .002f) - g))
+                ny += .037f }
+            nx += .041f }
+        assertTrue("largest step between neighbours $worst", worst < .02f)
+    }
+
+    @Test fun moltenContoursBendTowardAndAwayFromEachOther() {
+        // The gaps between neighbouring contours vary a lot across the screen (they bunch and fan out), which is the light-through-glass look.
+        val gaps = (0..20).map { i ->
+            val nx = i / 20f
+            1f / maxOf(1e-3f, (MoltenMetal.field(nx, .62f) - MoltenMetal.field(nx, .58f)) / .04f)
+        }
+        assertTrue("spacing varies (${gaps.min()} to ${gaps.max()})", gaps.max() > gaps.min() * 1.6f)
+    }
+
+    @Test fun moltenPoolsAreBroadInAFewPlacesAndNarrowAlmostEverywhere() {
+        val spreads = (0..40).flatMap { i -> (0..40).map { j -> MoltenMetal.poolSpread(i / 40f, j / 40f) } }
+        assertTrue("some broad pools", spreads.count { it > .6f } > 10)
+        assertTrue("mostly narrow", spreads.count { it < .3f } > spreads.size * .6f)
+    }
+
+    @Test fun moltenDayIsIceBlueHairlinesOverBlack() {
+        val w = 160; val h = 340
+        val px = MoltenMetal.render(w, h, false)
+        assertTrue("dark at the top", (0 until 3 * w).all { luma(px[it]) < 25 })
+        val hairlines = px.count { luma(it) > 190 }
+        assertTrue("crisp bright hairlines ($hairlines)", hairlines > 120)
+        val blue = px.count { b(it) > 120 && b(it) > r(it) + 40 }
+        assertTrue("blue glow ($blue)", blue > 150)
+        val black = px.count { luma(it) < 12 }
+        assertTrue("mostly deep black, so icons keep their contrast ($black)", black > w * h * .35)
+        assertTrue("not a bright picture (mean ${px.map(::luma).average()})", px.map(::luma).average() < 55)
+    }
+
+    @Test fun moltenNightIsEmberOverPureBlack() {
+        val w = 160; val h = 340
+        val px = MoltenMetal.render(w, h, true)
+        assertTrue("black at the top", (0 until 3 * w).all { luma(px[it]) < 6 })
+        val ember = px.count { r(it) > 150 && r(it) > b(it) + 60 }
+        assertTrue("ember orange ($ember)", ember > 150)
+        val black = px.count { luma(it) < 8 }
+        assertTrue("deep OLED blacks ($black)", black > w * h * .35)
+        assertTrue("not a bright picture (mean ${px.map(::luma).average()})", px.map(::luma).average() < 55)
+    }
+
+    @Test fun moltenEdgesCarryAGlassFringe() {
+        // Red, green and blue see the contours a hair apart, so some edge pixels are tinted differently from the glow around them.
+        val w = 200; val h = 420
+        val px = MoltenMetal.render(w, h, false)
+        val fringe = px.count { luma(it) > 60 && (r(it) > g(it) + 25 || b(it) > g(it) + 45) }
+        assertTrue("prismatic fringe pixels ($fringe)", fringe > 40)
     }
 
     @Test fun nightScenesFadeToPureBlackAtTheTop() {

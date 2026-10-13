@@ -33,6 +33,7 @@ class PhotosWidgetIntegrationTest {
         resolver.openOutputStream(uri)!!.use {
             Bitmap.createBitmap(400, 300, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }.compress(Bitmap.CompressFormat.JPEG, 90, it)
         }
+        val layoutBefore = model().state.value.layout
         try {
             compose.runOnIdle {
                 model().state.value.layout.widgetPlacements.map { it.slot }.forEach { model().removePlacement(DropTarget.Widget(it)) }
@@ -46,6 +47,6 @@ class PhotosWidgetIntegrationTest {
             try { compose.waitUntil(10_000) { present("photos-image") } } catch (e: Throwable) {
                 fail("photo not drawn; data=" + WidgetData.get(0, "photos") + " card=" + present("uno-photos-0"))
             }
-        } finally { resolver.delete(uri, null, null) }
+        } finally { resolver.delete(uri, null, null); compose.runOnIdle { model().restoreLayout(layoutBefore) } }
     }
 }

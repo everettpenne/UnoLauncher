@@ -1,5 +1,6 @@
 package com.jake.duolauncher.widgets
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -39,7 +40,7 @@ internal fun TimersFace(slot: Int, onOptions: () -> Unit) {
                 fontWeight = FontWeight.Light, maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally).testTag("timer-remaining"))
             Box(Modifier.align(Alignment.CenterHorizontally).clip(RoundedCornerShape(50)).background(ink.soft(.2f))
                 .clickable { IslandTools.cancelTimer(context) }.padding(horizontal = 18.dp, vertical = 6.dp).testTag("timer-stop")) {
-                Text("Stop", color = ink.primary, fontSize = 13.sp)
+                Text(stringResource(com.jake.duolauncher.R.string.stop), color = ink.primary, fontSize = 13.sp)
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

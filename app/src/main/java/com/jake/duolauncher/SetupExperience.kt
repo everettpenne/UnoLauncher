@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -94,9 +96,9 @@ internal fun FirstRunSetupSheet(
             }
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text("Welcome to Uno Launcher", style = MaterialTheme.typography.headlineSmall)
+                Text(stringResource(com.jake.duolauncher.R.string.welcome_to_uno_launcher), style = MaterialTheme.typography.headlineSmall)
                 Text(
-                    "A quiet Home screen built for both sides of your foldable.",
+                    stringResource(com.jake.duolauncher.R.string.a_quiet_home_screen_built_for),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -117,31 +119,36 @@ internal fun FirstRunSetupSheet(
                     detail = if (isDefaultHome) "The Home button returns here."
                         else "Android will show the Home app chooser. You can switch back anytime.",
                 )
-                if (!isDefaultHome) Button(
-                    onClick = onMakeDefault,
+                if (!isDefaultHome) GlassButton(
+                    onClick = onMakeDefault, prominent = true,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("setup-make-default"),
-                ) { Text("Choose Home app") }
+                ) { Text(stringResource(com.jake.duolauncher.R.string.choose_home_app)) }
                 HorizontalDivider()
                 SetupGuideRow(
                     icon = Icons.Rounded.Widgets,
                     title = "Make the space useful",
                     detail = "Add a widget now, or long-press empty space later to open settings for that page.",
                 )
-                OutlinedButton(
+                GlassButton(
                     onClick = onAddWidget,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("setup-add-widget"),
-                ) { Text("Add a widget") }
+                ) { Text(stringResource(com.jake.duolauncher.R.string.add_a_widget)) }
+                HorizontalDivider()
+                // What is easy to miss: three things that live behind a long-press or a tap.
+                SetupGuideRow(Icons.Rounded.TouchApp, stringResource(com.jake.duolauncher.R.string.tour_edit_title), stringResource(com.jake.duolauncher.R.string.tour_edit_detail))
+                SetupGuideRow(Icons.Rounded.Widgets, stringResource(com.jake.duolauncher.R.string.tour_island_title), stringResource(com.jake.duolauncher.R.string.tour_island_detail))
+                SetupGuideRow(Icons.Rounded.Home, stringResource(com.jake.duolauncher.R.string.tour_style_title), stringResource(com.jake.duolauncher.R.string.tour_style_detail))
             }
         }
 
-        Button(
-            onClick = onExplore,
+        GlassButton(
+            onClick = onExplore, prominent = true,
             modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp).testTag("setup-explore"),
-        ) { Text("Explore Home") }
-        TextButton(
+        ) { Text(stringResource(com.jake.duolauncher.R.string.explore_home)) }
+        GlassButton(
             onClick = onSkip,
             modifier = Modifier.align(Alignment.CenterHorizontally).testTag("setup-skip"),
-        ) { Text("Not now") }
+        ) { Text(stringResource(com.jake.duolauncher.R.string.not_now)) }
     }
 }
 

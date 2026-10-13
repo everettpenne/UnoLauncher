@@ -132,6 +132,7 @@ internal fun DrawScope.drawBuiltin(builtin: BuiltinBackground, dark: Boolean = f
         BuiltinBackground.DUNE_GLASS -> drawDuneScene(BuiltinBackground.DUNE_GLASS, dark, grain = true)
         BuiltinBackground.DUNE_BLOOM -> drawDuneScene(BuiltinBackground.DUNE_BLOOM, dark, grain = false)
         BuiltinBackground.DUNE_FLOW -> drawDuneScene(BuiltinBackground.DUNE_FLOW, dark, grain = false)
+        BuiltinBackground.MOLTEN -> drawDuneScene(BuiltinBackground.MOLTEN, dark, grain = false)
     }
 }
 
@@ -172,6 +173,7 @@ internal object DuneSceneCache {
         BuiltinBackground.DUNE_FLOW -> DuneFlow.render(w, h, dark)
         BuiltinBackground.DEEP_DUNES -> DuneDeep.render(w, h, dark)
         BuiltinBackground.DUNE_RANGE -> DuneRange.render(w, h, dark)
+        BuiltinBackground.MOLTEN -> MoltenMetal.render(w, h, dark)
         BuiltinBackground.DUNES -> error("Uno dunes is drawn directly, not rendered")
     }
 
@@ -250,6 +252,7 @@ internal fun DrawScope.drawDuneScene(kind: BuiltinBackground, dark: Boolean, gra
             BuiltinBackground.DEEP_DUNES -> if (dark) listOf(Color(0xFF0C1A22), Color(0xFF3A4A52), Color(0xFF2E302B)) else listOf(Color(0xFF365E78), Color(0xFFCFD7CB), Color(0xFFD8B27C))
             BuiltinBackground.DUNE_FLOW -> if (dark) listOf(Color(0xFF06070E), Color(0xFF0B35A8), Color(0xFF2A1410)) else listOf(Color(0xFF0F3A9A), Color(0xFFBFD9F2), Color(0xFFF2D9B8))
             BuiltinBackground.DUNE_BLOOM -> if (dark) listOf(Color(0xFF0A1030), Color(0xFF1B2C8C), Color(0xFF14604A)) else listOf(Color(0xFF2556C9), Color(0xFF1848C0), Color(0xFF2C8C95))
+            BuiltinBackground.MOLTEN -> if (dark) listOf(Color(0xFF040202), Color(0xFF1C0D06), Color(0xFF5A2A0E)) else listOf(Color(0xFF101923), Color(0xFF3D5264), Color(0xFF33424E))
             else -> if (dark) listOf(Color(0xFF060A16), Color(0xFF25295A), Color(0xFF4B3F78), Color(0xFF2A2748))
                 else listOf(Color(0xFF244E73), Color(0xFF9DBFC4), Color(0xFFF3D5B1), Color(0xFFD9A06A))
         }

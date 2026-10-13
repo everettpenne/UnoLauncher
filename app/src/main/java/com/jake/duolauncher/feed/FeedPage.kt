@@ -1,5 +1,6 @@
 package com.jake.duolauncher.feed
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -73,7 +74,7 @@ private fun FeedPageBody(
     Column(modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("My feed", style = MaterialTheme.typography.headlineMedium)
+                    Text(stringResource(com.jake.duolauncher.R.string.my_feed), style = MaterialTheme.typography.headlineMedium)
                     val updated = if (feed.lastRefreshAt > 0L)
                         "Updated ${describeFeedAge(System.currentTimeMillis(), feed.lastRefreshAt)}" else "Never refreshed"
                     Text(updated, style = MaterialTheme.typography.bodySmall,
@@ -88,9 +89,9 @@ private fun FeedPageBody(
                 !feed.configured -> EmptyFeedState(onAddFeed, Modifier.weight(1f))
                 !feed.anyEnabled -> Column(Modifier.weight(1f).testTag("feed-all-off"), verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("All your feeds are switched off.", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(com.jake.duolauncher.R.string.all_your_feeds_are_switched_off), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
-                    Text("Turn one on under Launcher settings > News feed.", style = MaterialTheme.typography.bodySmall,
+                    Text(stringResource(com.jake.duolauncher.R.string.turn_one_on_under_launcher_settings), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 feed.refreshing && feed.shownEntries.isEmpty() -> {
@@ -98,18 +99,18 @@ private fun FeedPageBody(
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         LinearProgressIndicator(Modifier.fillMaxWidth(.6f))
                         Spacer(Modifier.height(14.dp))
-                        Text("Checking feeds…", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(com.jake.duolauncher.R.string.checking_feeds), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
                 feed.shownEntries.isEmpty() && feed.message != null -> {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Feeds couldn't be read.", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(com.jake.duolauncher.R.string.feeds_couldn_t_be_read), style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(8.dp))
                         Text(feed.message ?: "", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(16.dp))
-                        FilledTonalButton(onClick = onRefresh, Modifier.testTag("feed-retry")) { Text("Retry") }
+                        FilledTonalButton(onClick = onRefresh, Modifier.testTag("feed-retry")) { Text(stringResource(com.jake.duolauncher.R.string.retry)) }
                     }
                 }
                 else -> {
@@ -140,9 +141,9 @@ private fun EmptyFeedState(onAddFeed: () -> Unit, modifier: Modifier = Modifier)
         Icon(Icons.Rounded.RssFeed, null, Modifier.size(40.dp),
             tint = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(12.dp))
-        Text("Follow GrapheneOS", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(com.jake.duolauncher.R.string.follow_grapheneos), style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(6.dp))
-        Text("Nothing is contacted until you choose a feed, and each choice connects only to the server shown. Nothing is uploaded.",
+        Text(stringResource(com.jake.duolauncher.R.string.nothing_is_contacted_until_you_choose),
             style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
@@ -171,7 +172,7 @@ private fun EmptyFeedState(onAddFeed: () -> Unit, modifier: Modifier = Modifier)
             Spacer(Modifier.height(6.dp))
         }
         TextButton(onClick = onAddFeed, Modifier.heightIn(min = 48.dp).testTag("feed-add")) {
-            Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Add your own feed")
+            Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.add_your_own_feed))
         }
     }
 }

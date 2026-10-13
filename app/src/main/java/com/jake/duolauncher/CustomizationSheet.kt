@@ -1,5 +1,6 @@
 package com.jake.duolauncher
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.feed.*
 import com.jake.duolauncher.panel.*
@@ -41,6 +42,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onExportLayout: () -> Unit, onImportLayout: () -> Unit,
     appearance: AppearanceState, onAppearanceMode: (AppearanceMode) -> Unit,
     onAppearanceManual: (String, Double, Double) -> Unit, onAppearanceDeviceLocation: () -> Unit,
+    onAppearanceCancelLocation: () -> Unit = {},
     onAppearanceClear: () -> Unit, backgrounds: LauncherBackgroundController, homePage: Int = 0,
     onShadeSetup: () -> Unit = {},
     extras: ExtrasActions? = null,
@@ -101,10 +103,10 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (page) {
                 CustomizationPage.OVERVIEW -> {
-                    if (!isDefaultHome) Button(onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                        .testTag("default-home-settings")) { Text("Set as home app") }
-                    if (state.canUndoEdit) OutlinedButton(onClick = { model.undoEdit(); onClose() },
-                        Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Undo last layout change") }
+                    if (!isDefaultHome) GlassButton(prominent = true, onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("default-home-settings")) { Text(stringResource(com.jake.duolauncher.R.string.set_as_home_app)) }
+                    if (state.canUndoEdit) GlassButton(onClick = { model.undoEdit(); onClose() },
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.undo_last_layout_change)) }
                     MiniHomePreview(backgrounds.previewBitmap, state, 176.dp)
                     SettingsGroupLabel("Look")
                     CustomizationDestination(Icons.Rounded.Wallpaper, "Wallpaper & glass",
@@ -140,41 +142,41 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         "Home app, widgets, gestures, and Discover", "customization-help") {
                         onPage(CustomizationPage.HELP)
                     }
-                    if (isDefaultHome) TextButton(onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                        .testTag("default-home-settings")) { Text("Change home app") }
+                    if (isDefaultHome) GlassButton(onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("default-home-settings")) { Text(stringResource(com.jake.duolauncher.R.string.change_home_app)) }
                 }
                 CustomizationPage.WALLPAPER -> {
                     MiniHomePreview(backgrounds.previewBitmap, state, 228.dp)
-                    Text("Launcher background", style = MaterialTheme.typography.titleMedium)
-                    Text("Changes the image behind Uno Launcher’s Home screens.", style = MaterialTheme.typography.bodySmall,
+                    Text(stringResource(com.jake.duolauncher.R.string.launcher_background), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(com.jake.duolauncher.R.string.changes_the_image_behind_uno_launcher), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     SideEffect { backgrounds.dark = appearance.dark }
                     BuiltInBackgroundPicker(backgrounds.builtin, backgrounds::chooseBuiltin, appearance.dark)
-                    Button(onClick = backgrounds::choosePhoto, enabled = !backgrounds.loading,
+                    GlassButton(prominent = true, onClick = backgrounds::choosePhoto, enabled = !backgrounds.loading,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-choose")) {
                         Text(if (backgrounds.previewPending) "Choose a different photo" else "Choose a photo")
                     }
                     if (backgrounds.previewPending) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = backgrounds::cancelPreview, Modifier.weight(1f).heightIn(min = 48.dp)
-                            .testTag("background-preview-cancel")) { Text("Cancel") }
-                        Button(onClick = backgrounds::applyPreview, enabled = backgrounds.previewBitmap != null,
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("background-preview-apply")) { Text("Apply") }
+                        GlassButton(onClick = backgrounds::cancelPreview, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                            .testTag("background-preview-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
+                        GlassButton(prominent = true, onClick = backgrounds::applyPreview, enabled = backgrounds.previewBitmap != null,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("background-preview-apply")) { Text(stringResource(com.jake.duolauncher.R.string.apply)) }
                     }
-                    if (backgrounds.photoSelected && !backgrounds.previewPending) OutlinedButton(onClick = backgrounds::reset,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-reset")) { Text("Remove photo") }
+                    if (backgrounds.photoSelected && !backgrounds.previewPending) GlassButton(onClick = backgrounds::reset,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-reset")) { Text(stringResource(com.jake.duolauncher.R.string.remove_photo)) }
                     if (backgrounds.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("background-loading"))
                     (backgrounds.errorMessage ?: backgrounds.successMessage)?.let { message ->
-                        TextButton(onClick = backgrounds::clearMessage, Modifier.fillMaxWidth().testTag("background-message")) { Text(message) }
+                        GlassButton(onClick = backgrounds::clearMessage, modifier = Modifier.fillMaxWidth().testTag("background-message")) { Text(message) }
                     }
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                    Text("Android wallpaper", style = MaterialTheme.typography.titleMedium)
-                    Text("Opens Android’s preview to change the phone wallpaper. On its own it does not change Uno’s launcher background.",
+                    Text(stringResource(com.jake.duolauncher.R.string.android_wallpaper), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(com.jake.duolauncher.R.string.opens_android_s_preview_to_change),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     SettingsSwitch("Also set home and lock screen", backgrounds.systemSync, backgrounds::chooseSystemSync, "system-wallpaper-sync-switch")
-                    Text("When on, choosing a background here also sets Android’s home and lock screen wallpaper to the same picture, replacing what is there now (including a live wallpaper). Off by default; nothing leaves the phone.",
+                    Text(stringResource(com.jake.duolauncher.R.string.when_on_choosing_a_background_here),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedButton(onClick = onWallpaperPreview, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                        .testTag("wallpaper-preview")) { Icon(Icons.Rounded.Wallpaper, null); Spacer(Modifier.width(8.dp)); Text("Preview Android wallpaper") }
+                    GlassButton(onClick = onWallpaperPreview, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("wallpaper-preview")) { Icon(Icons.Rounded.Wallpaper, null); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.preview_android_wallpaper)) }
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     SettingsSwitch("Liquid glass", appearance.liquidGlass, onLiquidGlass, "liquid-glass-switch")
                     if (appearance.liquidGlass) {
@@ -187,12 +189,12 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     }
                     if (appearance.liquidGlass) {
                         SettingsSwitch("Tilt-following highlight", appearance.tiltHighlight, onTiltHighlight, "tilt-highlight-switch")
-                        Text("The glass edge light stays put in the room as you tilt the phone, so the shine moves across the glass. It reads the motion sensor only while Home is on screen. Off by default.",
+                        Text(stringResource(com.jake.duolauncher.R.string.the_glass_edge_light_stays_put),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (appearance.tiltHighlight) {
                             CustomizationSlider("Tilt strength", "${(appearance.tiltStrength * 100).toInt()}%",
                                 appearance.tiltStrength, 0f..1f, tag = "tilt-strength-slider") { onTiltStrength(it) }
-                            Text("Higher swings the light further for each degree you tilt and makes the rim brighter and thicker.",
+                            Text(stringResource(com.jake.duolauncher.R.string.higher_swings_the_light_further_for),
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             // Live readout, so you can tell whether the sensor reaches the launcher at all.
                             val samples = GlassRim.samples.intValue
@@ -203,26 +205,26 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         }
                     }
                     SettingsSwitch("Color from wallpaper", appearance.wallpaperColor, onWallpaperColor, "wallpaper-color-switch")
-                    Text("Takes one color from your wallpaper and uses it to tint the glass, and for sliders, switches and themed icons. It adapts to light and dark, and keeps text readable. Works with liquid glass on or off.",
+                    Text(stringResource(com.jake.duolauncher.R.string.takes_one_color_from_your_wallpaper),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Height widens the glass rim the lens bends; amount sets how far the view behind is displaced; chromatic adds the color fringe at the edges. Turn off liquid glass for a flat look or to save battery.",
+                    Text(stringResource(com.jake.duolauncher.R.string.height_widens_the_glass_rim_the),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                    AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear)
+                    AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear, onAppearanceCancelLocation)
                 }
                 CustomizationPage.HOME -> HomeLayoutSettings(state, wide, { wide = it }, model, homePage,
                     onEditPins, onWidget, onAddWidget, onRemoveWidget)
                 CustomizationPage.GESTURES -> {
                     SettingsSwitch("Show app names", state.labels, model::setLabels, "label-switch")
                     SettingsSwitch("Show status at upper right", state.verticalStatus, model::setVerticalStatus, "status-switch")
-                    Text("Swipe sideways anywhere on Home to change pages. Swipe down on the left for notifications, and on the right for the control panel. Swipe up anywhere to open these settings.",
+                    Text(stringResource(com.jake.duolauncher.R.string.swipe_sideways_anywhere_on_home_to),
                         style = MaterialTheme.typography.bodyMedium)
                     if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.GESTURES)
                 }
                 CustomizationPage.ICONS -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.ICONS)
                 CustomizationPage.SEARCH -> {
                     SettingsSwitch("Search button opens Google", state.googleSearch, model::setGoogleSearch, "google-search-switch")
-                    Text("All apps always keeps local app search.", style = MaterialTheme.typography.bodySmall,
+                    Text(stringResource(com.jake.duolauncher.R.string.all_apps_always_keeps_local_app), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.SEARCH)
                 }
@@ -230,12 +232,12 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                 CustomizationPage.ISLAND -> {
                     SettingsSwitch("Dynamic island", appearance.island, onIsland, "island-switch")
                     SettingsSwitch("Island everywhere", islandEverywhere, onIslandEverywhere, "island-everywhere-switch")
-                    Text("Shows the island above other apps with Android's \"display over other apps\" permission. The overlay window is exactly the island's size, never draws on the lock screen or when the screen is off, and touches outside it pass through.",
+                    Text(stringResource(com.jake.duolauncher.R.string.shows_the_island_above_other_apps),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (appearance.island) CustomizationSlider("Island size",
                         "${(appearance.islandScale * 100).toInt()}%", appearance.islandScale, 0f..1f,
                         tag = "island-scale-slider") { onIslandScale(it) }
-                    Text("A liquid capsule at the camera cutout: the time, then a tap expands battery, the top feed headline, and quick actions. It flashes app launches and charging and never overlays other apps.",
+                    Text(stringResource(com.jake.duolauncher.R.string.a_liquid_capsule_at_the_camera),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (appearance.island) IslandStyleSection(IslandThemeController.current)
                     if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.ISLAND)
@@ -245,13 +247,13 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                 CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onSourceEnabled)
                 CustomizationPage.UPDATES -> UpdatesPanel(updates, onCheckUpdates, onInstallRelease, onAutoUpdate)
                 CustomizationPage.BACKUP -> {
-                    Text("Save the current Home layout, folders, widgets, layout settings, and your Uno settings.",
+                    Text(stringResource(com.jake.duolauncher.R.string.save_the_current_home_layout_folders),
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = onExportLayout, Modifier.weight(1f).heightIn(min = 48.dp).testTag("layout-export")) { Text("Save") }
-                        Button(onClick = onImportLayout, Modifier.weight(1f).heightIn(min = 48.dp).testTag("layout-import")) { Text("Restore") }
+                        GlassButton(onClick = onExportLayout, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("layout-export")) { Text(stringResource(com.jake.duolauncher.R.string.save)) }
+                        GlassButton(prominent = true, onClick = onImportLayout, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("layout-import")) { Text(stringResource(com.jake.duolauncher.R.string.restore)) }
                     }
-                    Text("Restore shows a review before changing Home.", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(com.jake.duolauncher.R.string.restore_shows_a_review_before_changing), style = MaterialTheme.typography.bodySmall)
                 }
                 CustomizationPage.HELP -> LauncherHelp(
                     isDefaultHome = isDefaultHome,
@@ -274,7 +276,7 @@ private fun LauncherHelp(
     HelpSection(Icons.Rounded.Home, "Home app",
         if (isDefaultHome) "Uno Launcher is your Home app. You can switch launchers in Android’s Home settings."
         else "Choose Uno Launcher in Android’s Home settings to use it when you press Home.")
-    Button(onClick = onHomeSettings, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-home-settings")) {
+    GlassButton(prominent = true, onClick = onHomeSettings, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-home-settings")) {
         Text(if (isDefaultHome) "Change home app" else "Set Uno Launcher as Home")
     }
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
@@ -282,14 +284,14 @@ private fun LauncherHelp(
         "Swipe up anywhere on Home to open these settings, or long-press empty space and choose Launcher settings. If a page is full, long-press the slim area at its left edge.")
     HelpSection(Icons.Rounded.Widgets, "Widgets",
         "Add Android widgets to empty Home cells. Hold a widget to move or remove it.")
-    OutlinedButton(onClick = onAddWidget, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-add-widget")) {
-        Text("Add widget to this page")
+    GlassButton(onClick = onAddWidget, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-add-widget")) {
+        Text(stringResource(com.jake.duolauncher.R.string.add_widget_to_this_page))
     }
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
     HelpSection(Icons.Rounded.SwipeDown, "Notifications and quick settings",
         "Optional. Swiping down on Home can open the system panels, but Android only allows that through an Accessibility service you turn on yourself. It can’t read your screen or see other apps, it stays off until you enable it, and you can turn it off any time in Settings → Accessibility. If you decline, swiping down on Home just does nothing.")
-    TextButton(onClick = onShadeSetup, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-shade-setup")) {
-        Text("Set up shade gestures")
+    GlassButton(onClick = onShadeSetup, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-shade-setup")) {
+        Text(stringResource(com.jake.duolauncher.R.string.set_up_shade_gestures))
     }
     HelpSection(Icons.Rounded.Explore, "Discover",
         "Swipe right from the first Home page. If Google can't provide the feed, Uno Launcher keeps a Home return and recovery actions available. Add your own feeds under News feed to fill this slot without Google.")
@@ -362,22 +364,24 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
 
 @Composable private fun BuiltInBackgroundPicker(selected: BuiltinBackground, onSelect: (BuiltinBackground) -> Unit, dark: Boolean) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Built-in background", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(com.jake.duolauncher.R.string.built_in_background), style = MaterialTheme.typography.titleSmall)
         // Three to a row, each tall enough to show the scene itself.
         BuiltinBackground.entries.chunked(3).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { builtin ->
                     val active = builtin == selected
                     Surface(onClick = { onSelect(builtin) },
-                        modifier = Modifier.weight(1f).height(148.dp).testTag("builtin-${builtin.name.lowercase()}"),
+                        modifier = Modifier.weight(1f).heightIn(min = 148.dp).testTag("builtin-${builtin.name.lowercase()}"),
                         shape = Corner.medium,
                         color = if (active) MaterialTheme.colorScheme.primaryContainer
                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .52f),
                         border = if (active) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
                         Column(Modifier.padding(6.dp)) {
-                            Box(Modifier.fillMaxWidth().weight(1f).clip(Corner.small)) { BuiltinPreview(builtin, dark) }
-                            Text(builtin.label, Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp), maxLines = 1,
-                                style = MaterialTheme.typography.labelMedium)
+                            Box(Modifier.fillMaxWidth().height(112.dp).clip(Corner.small)) { BuiltinPreview(builtin, dark) }
+                            // Two lines, so "Dune glass" and "Dune range" stay distinct at large text sizes.
+                            Text(builtin.label, Modifier.fillMaxWidth().padding(top = 4.dp), maxLines = 2,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -398,31 +402,32 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     onAddWidget: (Int) -> Unit, onRemoveWidget: (Int) -> Unit) {
     val p = if (wide) state.expanded else state.compact
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(!wide, { onWide(false) }, label = { Text("Cover") })
-        FilterChip(wide, { onWide(true) }, label = { Text("Inner") })
+        GlassChip(!wide, { onWide(false) }, label = { Text(stringResource(com.jake.duolauncher.R.string.cover)) })
+        GlassChip(wide, { onWide(true) }, label = { Text(stringResource(com.jake.duolauncher.R.string.inner)) })
     }
-    OutlinedButton(onClick = onEditPins, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Choose Home apps") }
+    GlassButton(onClick = onEditPins, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.choose_home_apps)) }
     CustomizationSlider("App icon size", "${p.iconSize.toInt()} dp", p.iconSize, 40f..68f) { model.setPreset(wide, p.copy(iconSize = it)) }
     CustomizationSlider("Space between rows", "${p.rowGap.toInt()} dp", p.rowGap, 0f..28f) { model.setPreset(wide, p.copy(rowGap = it)) }
     CustomizationSlider("Dock width", "${p.dockWidth.toInt()} dp", p.dockWidth, 56f..84f) { model.setPreset(wide, p.copy(dockWidth = it)) }
     SettingsSwitch("Align dock with app rows", p.dockAlignToGrid, { model.setPreset(wide, p.copy(dockAlignToGrid = it)) })
     if (!p.dockAlignToGrid) CustomizationSlider("Dock height on screen", "${(p.dockPosition * 100).toInt()}%", p.dockPosition, .25f.. .75f) { model.setPreset(wide, p.copy(dockPosition = it)) }
-    TextButton(onClick = { model.setPreset(wide, LayoutPreset()) }, Modifier.fillMaxWidth()) { Text("Reset this layout") }
+    GlassButton(onClick = { model.setPreset(wide, LayoutPreset()) }, Modifier.fillMaxWidth()) { Text(stringResource(com.jake.duolauncher.R.string.reset_this_layout)) }
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
     Text("Widgets · Page ${homePage + 1}", style = MaterialTheme.typography.titleMedium)
     state.widgetPlacements.filter { it.page == homePage || (wide && it.page == -1) }.forEach { placement ->
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(if (placement.page == -1) "Unfolded-only page" else "${placement.spanX} × ${placement.spanY} widget · row ${placement.row + 1}", Modifier.weight(1f))
             IconButton(onClick = { onRemoveWidget(placement.slot) }, modifier = Modifier.semantics { contentDescription = if (placement.page == -1) "Remove widget from Unfolded-only page" else "Remove widget" }) { Icon(Icons.Rounded.DeleteOutline, null) }
-            TextButton(onClick = { onWidget(placement.slot) }) { Text("Replace") }
+            GlassButton(onClick = { onWidget(placement.slot) }) { Text(stringResource(com.jake.duolauncher.R.string.replace)) }
         }
     }
-    TextButton(onClick = { onAddWidget(homePage) }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Add widget to this page") }
+    GlassButton(onClick = { onAddWidget(homePage) }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.add_widget_to_this_page)) }
 }
 
 @Composable internal fun SettingsSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit, tag: String? = null) {
     val glass = LocalPageGlass.current
-    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
+    // The label and the switch are one control for a screen reader ("label, on, switch"), and the switch has a 48 dp touch target.
+    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f))
         LiquidSwitchControl(checked, onChecked, glass, Modifier.then(if (tag != null) Modifier.testTag(tag) else Modifier))
     }

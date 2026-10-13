@@ -55,6 +55,24 @@ internal class IslandThemeController(private val activity: ComponentActivity) {
 
     fun importTheme() { message = null; open.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
     fun exportTheme() { message = null; create.launch(IslandThemes.active.name.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "island" } + ".unoisland.json") }
+    /** Puts the current theme on the clipboard as text, to send to someone in any messaging app. */
+    fun copyTheme() {
+        val clipboard = activity.getSystemService(android.content.ClipboardManager::class.java)
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Uno island theme", IslandThemeFile.toJson(IslandThemes.active)))
+        message = activity.getString(com.jake.duolauncher.R.string.island_theme_copied)
+    }
+
+    /** Reads a theme from the clipboard text, on the person's tap only, and shows it for review like an imported file. */
+    fun pasteTheme() {
+        val clipboard = activity.getSystemService(android.content.ClipboardManager::class.java)
+        val text = clipboard.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(activity)?.toString()
+        if (text.isNullOrBlank()) { message = activity.getString(com.jake.duolauncher.R.string.island_theme_clipboard_empty); return }
+        when (val result = IslandThemeFile.parse(text.take(IslandThemeFile.MAX_BYTES + 1).toByteArray())) {
+            is IslandThemeFile.Result.Rejected -> { preview = null; message = result.reason }
+            is IslandThemeFile.Result.Ok -> { preview = result.theme; message = null }
+        }
+    }
+
     fun applyPreview() { preview?.let { IslandThemes.apply(it); message = "Applied ${it.name}." }; preview = null }
     fun cancelPreview() { preview = null }
     fun clearMessage() { message = null }

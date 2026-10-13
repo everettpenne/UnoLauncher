@@ -1,5 +1,6 @@
 package com.jake.duolauncher.island
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.*
 import com.jake.duolauncher.appearance.*
 import androidx.compose.foundation.BorderStroke
@@ -66,6 +67,8 @@ internal fun IslandStyleSection(controller: IslandThemeController?) {
         GlassHeading("SHARE")
         GlassButton("Import a theme", { controller?.importTheme() }, Modifier.fillMaxWidth(), enabled = controller != null, tag = "island-theme-import")
         GlassButton("Export this theme", { controller?.exportTheme() }, Modifier.fillMaxWidth(), enabled = controller != null, tag = "island-theme-export")
+        GlassButton(stringResource(com.jake.duolauncher.R.string.island_theme_copy), { controller?.copyTheme() }, Modifier.fillMaxWidth(), enabled = controller != null, tag = "island-theme-copy")
+        GlassButton(stringResource(com.jake.duolauncher.R.string.island_theme_paste), { controller?.pasteTheme() }, Modifier.fillMaxWidth(), enabled = controller != null, tag = "island-theme-paste")
         GlassButton("Reset to Classic", { IslandThemes.reset(); notice = null; controller?.clearMessage() }, Modifier.fillMaxWidth(), tag = "island-theme-reset")
         GlassNote("Themes are small text files. Only install ones from people you trust; a theme can change how the island looks and moves, never what it does or what it can see.")
         if (message != null) Text(message, color = ink, fontSize = 13.sp, modifier = Modifier.testTag("island-theme-message"))
@@ -91,12 +94,12 @@ private fun IslandThemePreview(theme: IslandTheme) {
         contentAlignment = Alignment.Center) {
         Row(Modifier.clip(bodyShape).background(theme.fill).padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("12:41", color = theme.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(com.jake.duolauncher.R.string.n_12_41), color = theme.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             listOf(theme.playback, theme.charging, theme.timer, theme.focus).forEach { c ->
                 Box(Modifier.size(12.dp).clip(CircleShape).background(c))
             }
             Box(Modifier.height(26.dp).clip(theme.controlShape()).background(theme.chip()).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-                Text("Open", color = theme.ink, fontSize = 12.sp)
+                Text(stringResource(com.jake.duolauncher.R.string.open), color = theme.ink, fontSize = 12.sp)
             }
         }
     }

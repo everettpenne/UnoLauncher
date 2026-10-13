@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: a one-icon "icon pack" so the emulator test can check that Uno loads a pack's appfilter and drawables.
+     It maps Chrome to a solid red square. Release builds do not contain it. -->
+<resources>
+    <item component="ComponentInfo{com.android.chrome/com.google.android.apps.chrome.Main}" drawable="debug_pack_chrome" />
+</resources>

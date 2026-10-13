@@ -1,5 +1,6 @@
 package com.jake.duolauncher.keyboard
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -459,7 +460,7 @@ private fun EmojiPanel(ui: KeyboardUiState, actions: KeyboardActions, palette: K
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(KeyGap), verticalAlignment = Alignment.CenterVertically) {
             GlassKey(palette, Modifier.weight(1.5f), KeyRole.SPECIAL, tag = "key-page", hapticDown = HapticKind.MODIFIER, onTap = { actions.page(KeyPage.LETTERS) }) {
-                Text("ABC", color = palette.ink, fontSize = 16.sp)
+                Text(stringResource(com.jake.duolauncher.R.string.abc), color = palette.ink, fontSize = 16.sp)
             }
             Row(Modifier.weight(7f).height(keyHeight), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                 val tabs = (if (hasRecents) listOf(-1 to "🕒") else emptyList()) + categories.mapIndexed { i, c -> i to c.tab }

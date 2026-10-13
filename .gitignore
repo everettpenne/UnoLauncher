@@ -21,6 +21,8 @@ docs/*
 !docs/working-together.md
 !docs/widget-development.md
 !docs/island-themes.md
+!docs/polish-checklist.md
+!docs/device-checklist.md
 !docs/releases/
 docs/releases/*
 !docs/releases/0.15.0-beta01.md

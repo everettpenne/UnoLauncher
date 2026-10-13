@@ -1,5 +1,6 @@
 package com.jake.duolauncher.widgets
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -35,11 +36,11 @@ internal fun CounterFace(slot: Int, onOptions: () -> Unit) {
             Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { editing = true }.testTag("counter-name")) { CardTitle(Icons.Rounded.Add, name) }
             Box(Modifier.size(28.dp).clip(CircleShape).background(ink.soft(.18f))
                 .clickable { WidgetData.set(slot, "count", WidgetText.clampCount(count - 1L).toString()) }.testTag("counter-minus"),
-                contentAlignment = Alignment.Center) { Text("−", color = ink.primary, fontSize = 16.sp) }
+                contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.text_6), color = ink.primary, fontSize = 16.sp) }
         }
         Text(count.toString(), color = ink.primary, fontSize = 44.sp, fontWeight = FontWeight.Light, maxLines = 1,
             modifier = Modifier.align(Alignment.CenterHorizontally).testTag("counter-value"))
-        Text("Tap to add one", color = ink.soft(), fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_one), color = ink.soft(), fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
     if (editing) {
         var draft by remember { mutableStateOf(name) }

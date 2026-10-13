@@ -1,5 +1,6 @@
 package com.jake.duolauncher
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -270,15 +271,15 @@ class DiscoverFeedActivity : DiscoverPageActivity() {
                             translationX = -(1f - progress) * DiscoverMotion.pageWidth
                         }.padding(24.dp).verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Discover", style = MaterialTheme.typography.headlineMedium)
+                            Text(stringResource(com.jake.duolauncher.R.string.discover), style = MaterialTheme.typography.headlineMedium)
                             Spacer(Modifier.height(16.dp))
                             Text(message.value ?: "Google Discover", style = MaterialTheme.typography.bodyLarge)
                             Spacer(Modifier.height(20.dp))
                             FilledTonalButton(onClick = ::connectSafely, Modifier.testTag("discover-retry")) {
-                                Icon(Icons.Rounded.Refresh, null); Spacer(Modifier.width(8.dp)); Text("Retry")
+                                Icon(Icons.Rounded.Refresh, null); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.retry))
                             }
-                            TextButton(onClick = ::openGoogle) { Text("Open Google") }
-                            TextButton(onClick = ::returnHome) { Text("Back to home") }
+                            TextButton(onClick = ::openGoogle) { Text(stringResource(com.jake.duolauncher.R.string.open_google)) }
+                            TextButton(onClick = ::returnHome) { Text(stringResource(com.jake.duolauncher.R.string.back_to_home)) }
                         }
                     }
                     Canvas(Modifier.fillMaxSize()) {

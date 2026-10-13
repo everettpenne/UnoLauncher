@@ -210,6 +210,10 @@ Any menu, dialog or settings panel that is not a launcher surface of its own is 
 | Text entry | `GlassTextField(value, onValueChange, placeholder)` | A soft well with a hairline rim. Put the test tag on it: it is the editable node. |
 | Structure | `GlassHeading` (upper case, small), `GlassDivider`, `GlassNote` (help text) | Headings name a group; notes explain a control in one sentence. |
 
+**Moving a Material screen onto the kit.** The kit also has slot-style forms with Material's shapes, so a screen can change over by renaming: `GlassButton(onClick) { content }` (for `Button`, `OutlinedButton`, `TextButton`, `FilledTonalButton`; add `prominent = true` for the primary action), `GlassChip(selected, onClick, label)` (for `FilterChip`), `GlassField(value, onValueChange, label = …, placeholder = …)` (for `OutlinedTextField`), `GlassAlertDialog(onDismissRequest, confirmButton, dismissButton, title, text)` (for `AlertDialog`), `GlassCheckbox` and `GlassRadio`. Keep the test tag on the call's `modifier`; it lands on the editable or clickable node.
+
+**Where the kit's ink applies.** Kit controls draw in the panel's `onSurface` colour, so use them on the settings sheet, in dialogs, and on panels whose text is `onSurface`. Surfaces whose text colour adapts to the wallpaper (Home widgets, the All apps panel, the spotlight) use their own adaptive ink (`LocalGlassInk`) and keep their own controls until the kit can read it; do not drop kit controls into those.
+
 Rules:
 
 - **Ink and accent come from the kit.** Text is the panel's `onSurface`; the highlight colour is the wallpaper accent (`LocalWallpaperAccent`), iOS orange when there is none. Do not hard-code colours in a menu.
@@ -225,6 +229,14 @@ The Material `DatePickerDialog` in the Countdown widget is the one remaining sto
 ## Island themes
 
 The island's look is data (`island/IslandTheme.kt`): colours, a panel shape, a control shape and a motion feel, applied by one object, `IslandThemes.active`. Island code reads its colours, shapes and springs from the active theme and never hard-codes them, with three exceptions that are deliberate: the privacy marks (camera, microphone, recording, VPN, USB), the call controls, and anything that is not the island's own surface. Rules for themes, and the file format, are in [Island themes](island-themes.md). When adding something to the island, ask which theme slot it uses; if none fits, add a slot (and a field to the file format, keeping old files valid) instead of a literal.
+
+## Non-goals for now
+
+Decided 2026-10-12, so they stop being open questions. Each says why and what would change the answer.
+
+- **Nested folders: will not build.** iOS folders do not nest, and Uno follows iOS here; a folder inside a folder makes the folder panel, drag and backup rules much harder for little gain.
+- **Folders in the dock: not now.** The dock is a fixed four-slot strip owned by the launcher lane, and a folder there needs a panel that opens from the dock's edge. Worth doing if people ask; it is a feature, not a bug.
+- **Private Space: not supported yet.** Android 15's private space is a separate user profile that can be locked. Uno handles the personal and work profiles; a private profile needs the same locked-state handling (hidden while locked, icons removed on lock, no search or backup leaks) and a way to test it that the emulator does not give. Revisit when it can be tested on a device that has one.
 
 ## Deliberate Material deviations
 
@@ -362,7 +374,7 @@ The launcher's version of iOS's jiggle mode, kept to presentation: the placement
 
 ## Built-in backgrounds (`appearance/DuneScenes.kt`, `DuneGlass.kt`, `DuneWallpaper.kt`)
 
-Six drawn backgrounds, so the liquid glass has something with depth to bend. **Uno dunes** is the original flat scene, drawn directly. The other five are rendered once into a bitmap (`DuneSceneCache`): **Deep dunes** and **Dune range** share one renderer (`DuneLandscape`: sky, optional jagged ranges, dunes far to near, each with a colour ramp from lit crest to shadow, haze with distance, wind ripples, a crest rim and a glow spilling onto what is behind); **Dune glass** (`DuneGlass`) lights seven asymmetric dunes with a slanted lit/lee face; **Dune bloom** (`DuneBloom`) is glossy pebble-domes with rim light and soft focus; **Dune flow** (`DuneFlow`) is ridges as long-exposure light trails with heavy grain. Rules: they are pure arithmetic on an `IntArray`, deterministic, and unit-tested (`DuneScenesTest`, `DuneGlassTest`); big ones are built on a background thread at 720 px wide (a flat gradient shows until ready, then a redraw), small ones (thumbnails, colour sampling, under 300 px) are built at once; by night every scene's top is faded to pure black (`SceneMath.applyTopBlack`, 5% black then a 17% fade) so the camera cutout and the island's black pill disappear into it; film grain is baked in (scaled down for small renders) except Dune glass, which gets it as an overlay at draw time. Nothing is stored on disk.
+Seven drawn backgrounds, so the liquid glass has something with depth to bend. **Uno dunes** is the original flat scene, drawn directly. The other six are rendered once into a bitmap (`DuneSceneCache`): **Deep dunes** and **Dune range** share one renderer (`DuneLandscape`: sky, optional jagged ranges, dunes far to near, each with a colour ramp from lit crest to shadow, haze with distance, wind ripples, a crest rim and a glow spilling onto what is behind); **Dune glass** (`DuneGlass`) lights seven asymmetric dunes with a slanted lit/lee face; **Dune bloom** (`DuneBloom`) is glossy pebble-domes with rim light and soft focus; **Dune flow** (`DuneFlow`) is ridges as long-exposure light trails with heavy grain; **Molten metal** (`MoltenMetal`) is abstract dune sweeps poured in liquid metal for OLED, with a specular rim on each crest that shifts hue where the metal turns to the light, bodies falling to deep glossy black, and vivid coloured light pooling in the troughs (silver and cyan over deep blue by day, copper and embers over pure black by night). Rules: they are pure arithmetic on an `IntArray`, deterministic, and unit-tested (`DuneScenesTest`, `DuneGlassTest`); big ones are built on a background thread at 720 px wide (a flat gradient shows until ready, then a redraw), small ones (thumbnails, colour sampling, under 300 px) are built at once; by night every scene's top is faded to pure black (`SceneMath.applyTopBlack`, 5% black then a 17% fade) so the camera cutout and the island's black pill disappear into it; film grain is baked in (scaled down for small renders) except Dune glass, which gets it as an overlay at draw time, and Molten metal, which trades grain for a one-code-value dither so its deep gradients do not band. Nothing is stored on disk.
 
 ## Metaphor policy
 

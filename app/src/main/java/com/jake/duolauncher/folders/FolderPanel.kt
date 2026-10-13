@@ -1,5 +1,6 @@
 package com.jake.duolauncher.folders
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -93,9 +94,9 @@ private fun FolderPanelBody(
 ) {
     Column(Modifier.padding(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(title, onTitle, Modifier.weight(1f).testTag("folder-name"),
-                singleLine = true, label = { Text("Folder name") })
-            TextButton(onClick = { if (title.isNotBlank()) onRename(title); onDismiss() }) { Text("Done") }
+            GlassField(title, onTitle, Modifier.weight(1f).testTag("folder-name"),
+                singleLine = true, label = { Text(stringResource(com.jake.duolauncher.R.string.folder_name)) })
+            GlassButton(onClick = { if (title.isNotBlank()) onRename(title); onDismiss() }) { Text(stringResource(com.jake.duolauncher.R.string.done)) }
         }
         LazyVerticalGrid(GridCells.Adaptive(88.dp), Modifier.fillMaxWidth().weight(1f).padding(top = 12.dp),
             contentPadding = PaddingValues(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -145,11 +146,11 @@ private fun FolderChild(
                     }, modifier = Modifier.testTag("folder-move-${app.id}-page-$destinationPage"))
                 }
                 dockVacancies.firstOrNull()?.let { dock ->
-                    DropdownMenuItem(text = { Text("Move to dock") }, onClick = {
+                    DropdownMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.move_to_dock)) }, onClick = {
                         menu = false; onMoveOut(app.id, DropTarget.Dock(dock))
                     }, modifier = Modifier.testTag("folder-move-${app.id}-dock"))
                 }
-                DropdownMenuItem(text = { Text("Remove shortcut") }, onClick = {
+                DropdownMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.remove_shortcut)) }, onClick = {
                     menu = false; onMoveOut(app.id, DropTarget.Remove)
                 }, modifier = Modifier.testTag("folder-remove-${app.id}"))
             }

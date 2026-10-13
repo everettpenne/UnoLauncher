@@ -1,5 +1,6 @@
 package com.jake.duolauncher.widgets
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -34,7 +35,7 @@ internal fun CountdownFace(slot: Int, onOptions: () -> Unit) {
     GlassCard(onClick = { editing = true }, modifier = Modifier.testTag("uno-countdown-$slot")) {
         val ink = LocalGlassInk.current
         CardTitle(Icons.Rounded.Event, name)
-        if (target == null) Text("Tap to set a date", color = ink.soft(), fontSize = 13.sp)
+        if (target == null) Text(stringResource(com.jake.duolauncher.R.string.tap_to_set_a_date), color = ink.soft(), fontSize = 13.sp)
         else {
             val (big, unit) = Countdown.label(today, target)
             Column {
@@ -63,12 +64,6 @@ internal fun CountdownFace(slot: Int, onOptions: () -> Unit) {
                 Modifier.fillMaxWidth(), tag = "countdown-date")
             GlassSwitchRow("Repeat every year", draftYearly, { draftYearly = it }, tag = "countdown-yearly")
         }
-        if (picking) {
-            val state = rememberDatePickerState(initialSelectedDateMillis = (draftDate ?: today).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
-            DatePickerDialog(onDismissRequest = { picking = false }, confirmButton = { TextButton(onClick = {
-                state.selectedDateMillis?.let { draftDate = java.time.Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
-                picking = false
-            }) { Text("OK") } }, dismissButton = { TextButton(onClick = { picking = false }) { Text("Cancel") } }) { DatePicker(state) }
-        }
+        if (picking) GlassDatePickerDialog(initial = draftDate ?: today, onPicked = { draftDate = it; picking = false }, onDismiss = { picking = false })
     }
 }

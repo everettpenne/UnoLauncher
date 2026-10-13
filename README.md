@@ -19,6 +19,14 @@ Uno Launcher is a personal fork of [jakesgoodapps/DuoLauncher](https://github.co
   <img src="docs/images/duo-launcher-inner-home.png" width="500" alt="Uno Home unfolded, with an extra workspace on the left">
 </p>
 
+<p align="center">
+  <img src="docs/images/uno-molten-night.webp" width="190" alt="Home over the Molten metal wallpaper at night: ember contours bending into one another over black">
+  <img src="docs/images/uno-molten-day.webp" width="190" alt="Home over the Molten metal wallpaper by day: ice-blue contours over black">
+  <img src="docs/images/uno-wallpapers.webp" width="190" alt="The built-in wallpaper picker">
+  <img src="docs/images/uno-edit-home.webp" width="190" alt="Edit Home: icons wiggle and free cells show">
+  <img src="docs/images/uno-island-style.webp" width="190" alt="Island style: presets, shapes, motion and colours">
+</p>
+
 Screenshots show sample data on an emulator sized to the reference Fold, and some predate the newest features. [Fresh-install welcome](docs/images/duo-launcher-welcome.png).
 
 ## Download and install
@@ -128,7 +136,7 @@ No launcher account, server, advertising, analytics or automatic crash upload is
 
 - Panels and widgets use circular-arc corners and only app icons get continuous corners: the glass library accepts rounded rectangles only.
 - Discover can differ across Google, Android and vendor updates; recovery controls always return you Home. The news feed works without the Google app, reads RSS 2.0 and Atom with plain summaries, and needs a browser to open stories.
-- Work apps and widgets remain subject to administrator policy. Private Space is not supported. Icon packs are not implemented. Folders cannot nest or sit in the dock.
+- Work apps and widgets remain subject to administrator policy. Private Space is not supported yet, folders do not nest (as on iOS) and are not in the dock yet; the reasons are in [Non-goals](docs/design.md#non-goals-for-now).
 - Imported Android widgets must be bound again; backups exclude widget stacks, photo backgrounds and system widget capabilities. A large folder or widget restored on another phone keeps its apps only where the same apps exist. Known problems and unverified features are listed in [future fixes needed](docs/future-fixes.md).
 - The full-screen rule is landscape only (portrait full-screen apps cannot be detected without reading other apps' windows, which Uno will not do). Moon phase is the mean cycle and can be hours off.
 - Secure lock-screen replacement and hinge-driven cross-display animation are outside scope.

@@ -39,6 +39,8 @@ docs/island-roadmap.md
 docs/working-together.md
 docs/widget-development.md
 docs/island-themes.md
+docs/polish-checklist.md
+docs/device-checklist.md
 docs/releases/0.15.0-beta01.md
 docs/releases/0.16.0-uno01.md
 docs/releases/0.16.1-uno01.md
@@ -105,3 +107,4 @@ docs/releases/0.43.0-uno01.md
 docs/releases/0.43.1-uno01.md
 docs/releases/0.44.0-uno01.md
 docs/releases/0.45.0-uno01.md
+docs/releases/0.46.0-uno01.md

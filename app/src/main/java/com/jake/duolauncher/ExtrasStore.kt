@@ -18,6 +18,8 @@ internal data class ExtrasState(
     val hiddenTiles: Set<PanelTile> = emptySet(),
     val shortcuts: List<String> = emptyList(),
     val iconStyle: IconStyle = IconStyle.ORIGINAL,
+    /** The icon pack chosen in Icons, as its package name; empty for none. */
+    val iconPack: String = "",
     val focusOn: Boolean = false,
     val focusHidden: Set<String> = emptySet(),
     /** Packages switched off for the island (Live Updates and notification peeks); see IslandLinks. */
@@ -84,6 +86,7 @@ internal class ExtrasStore(context: Context) {
         hiddenTiles = PanelLayout.parseSet(prefs.getString("hiddenTiles", null)),
         shortcuts = PanelLayout.parseIds(prefs.getString("shortcuts", null)),
         iconStyle = IconStyle.fromPreference(prefs.getString("iconStyle", null)),
+        iconPack = prefs.getString("iconPack", "") ?: "",
         focusOn = prefs.getBoolean("focusOn", false),
         focusHidden = PanelLayout.parseIds(prefs.getString("focusHidden", null)).toSet(),
         islandMuted = IslandLinks.parse(prefs.getString("islandMuted", null)),
@@ -127,6 +130,7 @@ internal class ExtrasStore(context: Context) {
             .putString("hiddenTiles", PanelLayout.serialize(next.hiddenTiles))
             .putString("shortcuts", PanelLayout.serializeIds(next.shortcuts))
             .putString("iconStyle", next.iconStyle.name)
+            .putString("iconPack", next.iconPack)
             .putBoolean("focusOn", next.focusOn)
             .putString("focusHidden", PanelLayout.serializeIds(next.focusHidden.toList()))
             .putString("islandMuted", IslandLinks.serialize(next.islandMuted))
@@ -171,6 +175,7 @@ internal class ExtrasStore(context: Context) {
         save(state.copy(hiddenTiles = if (hidden) state.hiddenTiles + tile else state.hiddenTiles - tile))
     fun toggleShortcut(id: String) = save(state.copy(shortcuts = PanelLayout.toggleShortcut(state.shortcuts, id)))
     fun setIconStyle(value: IconStyle) = save(state.copy(iconStyle = value))
+    fun setIconPack(value: String) = save(state.copy(iconPack = value.take(200)))
     fun setFocusOn(value: Boolean) = save(state.copy(focusOn = value))
     fun toggleFocusHidden(id: String) =
         save(state.copy(focusHidden = if (id in state.focusHidden) state.focusHidden - id else state.focusHidden + id))

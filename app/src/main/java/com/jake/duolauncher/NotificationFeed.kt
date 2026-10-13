@@ -56,6 +56,10 @@ internal data class NowPlaying(
     val stateCode: Int? = null,
     val positionMs: Long = -1L,
     val durationMs: Long = -1L,
+    /** When [positionMs] was reported (SystemClock.elapsedRealtime), and how fast the player moves: together they let a screen draw the
+     *  moving position without asking the player again (a binder call that must not be made while drawing). */
+    val positionUpdatedAtMs: Long = 0L,
+    val speed: Float = 1f,
 )
 
 /** Process-wide, read-only view of the listener's findings, for Compose to read. */
@@ -279,7 +283,9 @@ class UnoNotificationListener : NotificationListenerService() {
             controller = controller,
             stateCode = controller.playbackState?.state,
             positionMs = controller.playbackState?.position ?: -1L,
-            durationMs = meta?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: -1L)
+            durationMs = meta?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: -1L,
+            positionUpdatedAtMs = controller.playbackState?.lastPositionUpdateTime ?: 0L,
+            speed = controller.playbackState?.playbackSpeed ?: 1f)
     }
 
     private fun unwatchAll() {

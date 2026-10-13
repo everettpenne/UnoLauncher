@@ -1,5 +1,9 @@
 package com.jake.duolauncher.feed
 
+import androidx.compose.ui.res.stringResource
+import com.jake.duolauncher.panel.*
+import com.jake.duolauncher.appearance.*
+
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -50,8 +54,8 @@ internal fun FeedSettings(
                 Text(source.url, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             }
-            Switch(source.enabled, { onSourceEnabled(source.id, it) }, Modifier.testTag("feed-enabled-${source.id}")
-                .semantics { contentDescription = "Show ${source.label} in the feed" }, colors = IosSwitchColors)
+            LiquidSwitchControl(source.enabled, { onSourceEnabled(source.id, it) }, LocalPageGlass.current,
+                Modifier.testTag("feed-enabled-${source.id}").semantics { contentDescription = "Show ${source.label} in the feed" })
             IconButton(onClick = { onRemoveFeed(source.id) },
                 modifier = Modifier.testTag("feed-remove-${source.id}")
                     .semantics { contentDescription = "Remove ${source.label}" }) {
@@ -60,11 +64,11 @@ internal fun FeedSettings(
         }
     }
     var showAddDialog by remember { mutableStateOf(false) }
-    OutlinedButton(onClick = { showAddDialog = true },
+    GlassButton(onClick = { showAddDialog = true },
         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("feed-add")) {
-        Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Add a feed")
+        Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.add_a_feed))
     }
-    Text("Uno connects directly to the https addresses you add, and only to those servers. Entries are stored on this device. Nothing is uploaded.",
+    Text(stringResource(com.jake.duolauncher.R.string.uno_connects_directly_to_the_https),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     if (showAddDialog) AddFeedDialog(onDismiss = { showAddDialog = false },
         onAdd = { url, result -> onAddFeed(url) { addResult -> showAddDialog = addResult !is FeedAddResult.Added; result(addResult) } })
@@ -75,17 +79,17 @@ private fun AddFeedDialog(onDismiss: () -> Unit, onAdd: (String, (FeedAddResult)
     var url by remember { mutableStateOf("") }
     var pending by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
-    AlertDialog(onDismissRequest = { if (!pending) onDismiss() },
-        title = { Text("Add a feed") },
+    GlassAlertDialog(onDismissRequest = { if (!pending) onDismiss() },
+        title = { Text(stringResource(com.jake.duolauncher.R.string.add_a_feed)) },
         text = {
             Column {
-                OutlinedTextField(url, { url = it }, Modifier.fillMaxWidth().testTag("feed-url-field"),
-                    label = { Text("Feed address") }, singleLine = true, enabled = !pending,
-                    placeholder = { Text("https://example.com/feed.xml") },
+                GlassField(url, { url = it }, Modifier.fillMaxWidth().testTag("feed-url-field"),
+                    label = { Text(stringResource(com.jake.duolauncher.R.string.feed_address)) }, singleLine = true, enabled = !pending,
+                    placeholder = { Text(stringResource(com.jake.duolauncher.R.string.https_example_com_feed_xml)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
-                Text("Suggested", Modifier.padding(top = 10.dp), style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(com.jake.duolauncher.R.string.suggested), Modifier.padding(top = 10.dp), style = MaterialTheme.typography.labelMedium)
                 SUGGESTED_FEEDS.forEach { suggestion ->
-                    TextButton(onClick = { url = suggestion.url; status = null }, enabled = !pending,
+                    GlassButton(onClick = { url = suggestion.url; status = null }, enabled = !pending,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                         Column(Modifier.fillMaxWidth()) {
                             Text(suggestion.label)
@@ -98,8 +102,8 @@ private fun AddFeedDialog(onDismiss: () -> Unit, onAdd: (String, (FeedAddResult)
             }
         },
         confirmButton = {
-            TextButton(enabled = !pending, onClick = {
-                if (url.isBlank()) { status = "Enter a feed address first."; return@TextButton }
+            GlassButton(enabled = !pending, onClick = {
+                if (url.isBlank()) { status = "Enter a feed address first."; return@GlassButton }
                 pending = true
                 status = "Checking the feed…"
                 onAdd(url) { result ->
@@ -111,5 +115,5 @@ private fun AddFeedDialog(onDismiss: () -> Unit, onAdd: (String, (FeedAddResult)
                 }
             }, modifier = Modifier.testTag("feed-add-confirm")) { Text(if (pending) "Checking…" else "Test and add") }
         },
-        dismissButton = { TextButton(enabled = !pending, onClick = onDismiss) { Text("Cancel") } })
+        dismissButton = { GlassButton(enabled = !pending, onClick = onDismiss) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) } })
 }

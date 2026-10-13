@@ -1,6 +1,7 @@
 package com.jake.duolauncher
 
 import android.content.Context
+import com.jake.duolauncher.island.IslandThemeFile
 import org.json.JSONObject
 
 /**
@@ -14,6 +15,8 @@ data class SettingsSnapshot(
     val extras: Map<String, Any>, val appearance: Map<String, Any>,
     /** What the typed library widgets (note, counter, countdown) hold, and the apps and names of large folders, keyed by Home slot. */
     val widgetData: Map<String, Any> = emptyMap(), val largeFolders: Map<String, Any> = emptyMap(),
+    /** The island theme (one small JSON string under "json"); empty when the person uses Classic. Older backups simply lack it. */
+    val islandTheme: Map<String, Any> = emptyMap(),
 ) {
     val count: Int get() = extras.size + appearance.size
 }
@@ -23,11 +26,16 @@ internal object SettingsBackup {
     const val APPEARANCE = "appearance"
     const val WIDGET_DATA = "uno_widget_data"
     const val LARGE_FOLDERS = "large_folders"
+    const val ISLAND_THEME = "uno_island_theme"
     private const val MAX_KEYS = 200
     private const val MAX_STRING = 2_000
     /** A large folder's list of up to 24 app ids is longer than an ordinary setting. */
     private const val MAX_FOLDER_STRING = 20_000
-    private fun maxString(file: String) = if (file == LARGE_FOLDERS) MAX_FOLDER_STRING else MAX_STRING
+    private fun maxString(file: String) = when (file) {
+        LARGE_FOLDERS -> MAX_FOLDER_STRING
+        ISLAND_THEME -> IslandThemeFile.MAX_BYTES
+        else -> MAX_STRING
+    }
 
     private val EXCLUDED = mapOf(
         EXTRAS to setOf("webPackage"),
@@ -55,6 +63,7 @@ internal object SettingsBackup {
         fun section(values: Map<String, Any>) = JSONObject().also { json -> values.forEach { (key, value) -> json.put(key, value) } }
         return JSONObject().put(EXTRAS, section(snapshot.extras)).put(APPEARANCE, section(snapshot.appearance))
             .put(WIDGET_DATA, section(snapshot.widgetData)).put(LARGE_FOLDERS, section(snapshot.largeFolders))
+            .put(ISLAND_THEME, section(snapshot.islandTheme))
     }
 
     /** Reads the section back. Anything outside the allowed shape throws, so a damaged or hostile file is refused whole. */
@@ -81,7 +90,7 @@ internal object SettingsBackup {
             }
             return result
         }
-        return SettingsSnapshot(section(EXTRAS), section(APPEARANCE), section(WIDGET_DATA), section(LARGE_FOLDERS))
+        return SettingsSnapshot(section(EXTRAS), section(APPEARANCE), section(WIDGET_DATA), section(LARGE_FOLDERS), section(ISLAND_THEME))
     }
 
     fun capture(context: Context) = SettingsSnapshot(
@@ -89,6 +98,7 @@ internal object SettingsBackup {
         portable(APPEARANCE, context.getSharedPreferences(APPEARANCE, Context.MODE_PRIVATE).all),
         portable(WIDGET_DATA, context.getSharedPreferences(WIDGET_DATA, Context.MODE_PRIVATE).all),
         portable(LARGE_FOLDERS, context.getSharedPreferences(LARGE_FOLDERS, Context.MODE_PRIVATE).all),
+        portable(ISLAND_THEME, context.getSharedPreferences(ISLAND_THEME, Context.MODE_PRIVATE).all),
     )
 
     /** Writes the snapshot over the current preferences, converting each value to the type already stored under its key. */
@@ -120,5 +130,9 @@ internal object SettingsBackup {
         write(APPEARANCE, snapshot.appearance)
         write(WIDGET_DATA, snapshot.widgetData)
         write(LARGE_FOLDERS, snapshot.largeFolders)
+        // A theme in a backup is as untrusted as an imported file: it is written only if it passes the same checks, and
+        // a backup without one leaves the current theme alone.
+        val theme = snapshot.islandTheme["json"] as? String
+        if (theme != null && IslandThemeFile.parse(theme) is IslandThemeFile.Result.Ok) write(ISLAND_THEME, mapOf("json" to theme))
     }
 }

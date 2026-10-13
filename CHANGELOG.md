@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.46.0-uno01
+
+- **A new Molten metal wallpaper**, redone from scratch to evoke the iPhone 17 Pro wallpapers while staying dune-like: long wind-sculpted sweeps drawn as one continuous field of glass-like contour lines that bend into and through each other, crisp hairline highlights with a faint red-blue fringe like thick glass, light that pools just past a contour and falls away to black, and grain on the glow only. Ice blue by day, ember by night, and mostly black so icons stay readable, with a dark top for the camera and island.
+- **Icon packs.** Pick any installed icon pack that works with Nova, ADW or Lawnchair under Icons. Apps it covers use its icons; the rest keep your icon style. Uno reads only the pack's list of icons and its pictures.
+- **New widgets**, written by the widget lane and reviewed: **Media player** (art, title, play and skip, a seek bar), **Glance** (time, date, next alarm, sunrise and sunset), **Liquid battery** (the charge as a liquid that ripples and tilts with the phone), plus the Photos album source and World clock from earlier. Fixed on review: the media widget no longer asks the player anything while drawing (it could freeze Home), its empty state says which setting to turn on, and Glance names the day of an alarm more than a day away.
+- **One glass style for menus.** A small kit (dialogs, buttons, chips, fields, switches, a date picker) now builds the settings pages, the Home dialogs, the widget menus and the first-run sheet, so they match the rest of Home. The rules are in `docs/design.md`.
+- **Island style grows up.** Eight looks (three new: Aurora, Rose, Forest), the island theme is in settings backups, and a theme can be shared as text: **Copy this theme as text** and **Paste a theme from text** (read only when you tap Paste, checked and previewed like a file).
+- **Accessibility pass.** Every control on Home and the settings pages has a name (an audit found 379 without one; now none), switches read as one control with their label and have a 48 dp target, empty Home spaces are announced, the island has a label, and text at 200% size wraps without overlapping.
+- **Words moved out of code** (227 texts) into one resource file, with a test that stops plain text coming back; a step toward translation.
+- **A short "what's new" note** after an update (shown once), and three tips in the first-run sheet.
+- **Location fixes** for sunrise and sunset: a place can be typed with a comma decimal or pasted as "lat, lon", and the page confirms what was saved with today's times; "Use device location" waits longer for GPS, can be cancelled, and falls back to the last known place.
+- **Set Android's wallpaper too** (from 0.44): off by default.
+- Decisions written down: nested folders will not be built, folders in the dock and Private Space are "not yet" (`docs/design.md`).
+
+## Unreleased
+
+- **A seventh built-in wallpaper: Molten metal.** Abstract dune sweeps poured in liquid metal, after the iPhone Pro liquid-metal wallpapers and tuned for OLED: a specular rim along each crest that shifts hue where the metal turns to the light, bodies falling to deep glossy black, and vivid coloured light spilling off the crests and pooling electric in the troughs. Silver and cyan over a deep blue sky by day, copper and embers over pure black by night, with the same black night top as the other scenes. No grain: clean gradients with a one-code-value dither so they cannot band. Drawn on the phone like the rest; appears in the wallpaper picker with its own day and night versions.
+- Tests: unit tests that the scene keeps its broad abstract geometry on screen, renders day (deep blue sky, silver rims, cyan pools) and night (pure black sky, ember copper, deep blacks) distinctly, and stays deterministic, fast and well-formed at any size.
+
 ## 0.45.0-uno01
 
 - **Island themes.** The island's look is now data: body and text colours, four accent colours (playback, charging, timer and silent, focus), a panel shape (soft, round, square), a button shape (pill, rounded, square) and a motion feel (calm, standard, snappy, bouncy). **Launcher settings, Dynamic island, Island style** has five presets (Classic, Midnight, Graphite, Neon, Amber), a live preview, and pickers for each colour and shape. Classic is exactly the look you had before.

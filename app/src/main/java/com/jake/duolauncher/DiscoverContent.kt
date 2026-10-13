@@ -1,5 +1,6 @@
 package com.jake.duolauncher
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.feed.*
 import com.jake.duolauncher.appearance.*
@@ -48,16 +49,16 @@ internal fun DiscoverContent(modifier: Modifier = Modifier, feed: FeedState = Fe
             border = if (glass != null) null else BorderStroke(1.dp, Color.White.copy(alpha = .5f))) {
             Column(Modifier.fillMaxSize().padding(32.dp),
                 verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Discover", style = MaterialTheme.typography.headlineMedium)
+                Text(stringResource(com.jake.duolauncher.R.string.discover), style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(16.dp))
                 Text(message ?: "", style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(20.dp))
-                FilledTonalButton(onClick = LiveDiscover::retry, Modifier.testTag("discover-retry")) { Text("Retry") }
+                FilledTonalButton(onClick = LiveDiscover::retry, Modifier.testTag("discover-retry")) { Text(stringResource(com.jake.duolauncher.R.string.retry)) }
                 if (googleIntent != null) TextButton(onClick = {
                     runCatching { context.startActivity(googleIntent) }
-                }, Modifier.testTag("discover-open-google")) { Text("Open Google") }
+                }, Modifier.testTag("discover-open-google")) { Text(stringResource(com.jake.duolauncher.R.string.open_google)) }
                 TextButton(onClick = { LiveDiscover.onHomeRequest?.invoke() },
-                    Modifier.testTag("discover-return-home")) { Text("Back to Home") }
+                    Modifier.testTag("discover-return-home")) { Text(stringResource(com.jake.duolauncher.R.string.back_to_home_2)) }
             }
         }
     }

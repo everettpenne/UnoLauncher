@@ -2,6 +2,7 @@
 
 package com.jake.duolauncher
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.feed.*
 import com.jake.duolauncher.search.*
@@ -89,6 +90,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -148,8 +150,11 @@ internal fun LauncherScreen(
     onAppearanceMode: (AppearanceMode) -> Unit = {},
     onAppearanceManual: (String, Double, Double) -> Unit = { _, _, _ -> },
     onAppearanceDeviceLocation: () -> Unit = {},
+    onAppearanceCancelLocation: () -> Unit = {},
     onAppearanceClear: () -> Unit = {},
     showFirstRun: Boolean = false,
+    showWhatsNew: Boolean = false,
+    onWhatsNewDone: () -> Unit = {},
     onFinishFirstRun: () -> Unit = {},
     onShadeSetup: () -> Unit = {},
     extras: ExtrasActions? = null,
@@ -387,7 +392,8 @@ internal fun LauncherScreen(
     val themedDarkNow = iconStyleNow.recolours && appearance.dark
     var iconsSeeded by remember { mutableStateOf(false) }
     val accentKey = if (iconStyleNow.usesWallpaper(appearance.wallpaperColor)) LauncherBackgroundCache.revision.intValue else -1
-    LaunchedEffect(iconStyleNow, themedDarkNow, accentKey) { if (iconsSeeded) model.refresh() else iconsSeeded = true }
+    val iconPackNow = extras?.store?.state?.iconPack.orEmpty()
+    LaunchedEffect(iconStyleNow, themedDarkNow, accentKey, iconPackNow) { if (iconsSeeded) model.refresh() else iconsSeeded = true }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { controlPanelOpen = false }
     BackHandler(enabled = controlPanelOpen) { controlPanelOpen = false }
     BackHandler(enabled = sheet == "widgets") { widgetPickerBack() }
@@ -818,7 +824,7 @@ internal fun LauncherScreen(
             }
             Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).padding(start = 16.dp, bottom = PageIndicatorLayout.BOTTOM_MARGIN_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (!isDefaultHome) FilledTonalButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
-                    Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Set as home app")
+                    Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.set_as_home_app))
                 }
                 // The page dots ride in a small glass capsule, like iOS's page indicator, with a
                 // selection lens that follows the pager and the finger.
@@ -905,7 +911,7 @@ internal fun LauncherScreen(
                         }
                         "pins" -> Column(Modifier.fillMaxHeight(.9f).imePadding()) {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.End) {
-                                TextButton(onClick = { sheet = "" }) { Text("Done") }
+                                TextButton(onClick = { sheet = "" }) { Text(stringResource(com.jake.duolauncher.R.string.done)) }
                             }
                             AppLibrary(state, pinQuery, { pinQuery = it }, onLaunch, model::setPinned,
                                 onActions = { selectedId = it.id; sheet = "" }, editing = true, modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -921,7 +927,7 @@ internal fun LauncherScreen(
                             onExportLayout = { sheet = ""; launcherActivity.backups.startExport() },
                             onImportLayout = { sheet = ""; launcherActivity.backups.startImport() },
                             appearance = appearance, onAppearanceMode = onAppearanceMode,
-                            onAppearanceManual = onAppearanceManual, onAppearanceDeviceLocation = onAppearanceDeviceLocation,
+                            onAppearanceManual = onAppearanceManual, onAppearanceDeviceLocation = onAppearanceDeviceLocation, onAppearanceCancelLocation = onAppearanceCancelLocation,
                             onAppearanceClear = onAppearanceClear,
                             onShadeSetup = { sheet = ""; onShadeSetup() },
                             extras = extras,
@@ -992,10 +998,10 @@ internal fun LauncherScreen(
                         "stackPick" -> Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)
                             .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("Stack which widget?", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+                                Text(stringResource(com.jake.duolauncher.R.string.stack_which_widget), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
                                 IconButton(onClick = { sheet = "widgetActions" }) { Icon(Icons.Rounded.Close, "Cancel") }
                             }
-                            Text("It moves into this widget's stack and leaves its spot on Home free.",
+                            Text(stringResource(com.jake.duolauncher.R.string.it_moves_into_this_widget_s),
                                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             state.widgetPlacements.filter { it.slot != widgetSlot && it.id >= 0 && widgets.manager.getAppWidgetInfo(it.id) != null }
                                 .forEach { other ->
@@ -1009,6 +1015,9 @@ internal fun LauncherScreen(
                         }
                     }
                 }
+            }
+            if (showWhatsNew && !showFirstRun) CompositionLocalProvider(LocalPageGlass provides controlGlass) {
+                WhatsNewDialog(UpdateSecurity.appVersion, onWhatsNewDone)
             }
             if (showFirstRun) {
                 GlassModalSheet(controlGlass,
@@ -1182,8 +1191,8 @@ internal fun LauncherScreen(
                         Row(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp)
                             .background(Glass.copy(alpha = .97f), Corner.pill)
                             .testTag("widget-placement-toolbar"), verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = widgetPickerBack) { Text("Back to widgets") }
-                            if (session.candidate != null) Text("Replace here", color = Ink,
+                            TextButton(onClick = widgetPickerBack) { Text(stringResource(com.jake.duolauncher.R.string.back_to_widgets)) }
+                            if (session.candidate != null) Text(stringResource(com.jake.duolauncher.R.string.replace_here), color = Ink,
                                 modifier = Modifier.testTag("widget-replacement-locked"))
                             val targetPage = homeCellPage(session.targetIndex ?: 0)
                             if (!session.dragging && session.candidate == null) IconButton(
@@ -1209,9 +1218,9 @@ internal fun LauncherScreen(
                                         ?: session.builtinId?.let { widgets.setBuiltin(draft.copy(id = it)) }
                                     widgetSession = null; sheet = ""; widgetPackage = null
                                 }
-                            }, modifier = Modifier.testTag("widget-placement-apply")) { Text("Place") }
+                            }, modifier = Modifier.testTag("widget-placement-apply")) { Text(stringResource(com.jake.duolauncher.R.string.place)) }
                             TextButton(onClick = { leaveTemporaryWidgetPage(); widgetSession = null; sheet = ""; widgetPackage = null },
-                                modifier = Modifier.testTag("widget-placement-cancel")) { Text("Cancel") }
+                                modifier = Modifier.testTag("widget-placement-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
                         }
                         if (anchor != null) {
                             val density = LocalDensity.current
@@ -1251,7 +1260,7 @@ internal fun LauncherScreen(
                                     }
                                     if (widgetDraft == null) Box(Modifier.matchParentSize()
                                         .background(Color(0xFFB83B3B).copy(alpha = .34f)), contentAlignment = Alignment.Center) {
-                                        Text("No room here", color = Color.White, fontWeight = FontWeight.SemiBold)
+                                        Text(stringResource(com.jake.duolauncher.R.string.no_room_here), color = Color.White, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
@@ -1264,7 +1273,7 @@ internal fun LauncherScreen(
                                     if (sessionEntry != null) WidgetProviderPreview(sessionEntry, session.span,
                                         Modifier.fillMaxSize().padding(5.dp).clip(Corner.medium))
                                     Box(Modifier.matchParentSize().background(Color(0xFFB83B3B).copy(alpha = .34f)),
-                                        contentAlignment = Alignment.Center) { Text("No room here", color = Color.White) }
+                                        contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.no_room_here), color = Color.White) }
                                 }
                             }
                         }
@@ -1348,7 +1357,7 @@ internal fun LauncherScreen(
                     .padding(top = 10.dp, start = 20.dp, end = 100.dp),
                 color = Glass.copy(alpha = .96f), shape = Corner.medium
             ) {
-                Text("Dock full • Move an app out first",
+                Text(stringResource(com.jake.duolauncher.R.string.dock_full_move_an_app_out),
                     Modifier.padding(horizontal = 16.dp, vertical = 12.dp), color = Ink, fontSize = 13.sp)
             }
             if (drag.moved && drag.source?.target !is DropTarget.Library &&
@@ -1362,7 +1371,7 @@ internal fun LauncherScreen(
                 Column(Modifier.fillMaxSize().padding(vertical = 6.dp), verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Rounded.DeleteOutline, null)
-                    Text("Remove", fontSize = 11.sp, maxLines = 1)
+                    Text(stringResource(com.jake.duolauncher.R.string.remove), fontSize = 11.sp, maxLines = 1)
                 }
             }
         }
@@ -1407,12 +1416,12 @@ internal fun LauncherScreen(
                     }
                     Row(Modifier.align(Alignment.TopCenter).padding(top = 8.dp)
                         .background(Glass.copy(alpha = .96f), Corner.medium)) {
-                        TextButton(onClick = { resizeSlot = null }) { Text("Cancel") }
+                        TextButton(onClick = { resizeSlot = null }) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
                         TextButton(enabled = valid, onClick = {
                             model.resizeWidget(slot, resizeWidth, resizeHeight); resizeSlot = null
-                        }) { Text("Apply") }
+                        }) { Text(stringResource(com.jake.duolauncher.R.string.apply)) }
                     }
-                    if (!feasible) Text("Move this widget into the six-row grid before resizing.",
+                    if (!feasible) Text(stringResource(com.jake.duolauncher.R.string.move_this_widget_into_the_six),
                         color = Color.White, modifier = Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = .65f)).padding(8.dp))
                 }
             }
@@ -1460,10 +1469,10 @@ internal fun LauncherScreen(
         }
         createFolderFirstId?.let { firstId ->
             val first = appsById[firstId]
-            AlertDialog(onDismissRequest = { createFolderFirstId = null }, title = { Text("Create folder with ${first?.label ?: "app"}") },
+            GlassAlertDialog(onDismissRequest = { createFolderFirstId = null }, title = { Text("Create folder with ${first?.label ?: "app"}") },
                 text = { LazyColumn(Modifier.heightIn(max = 420.dp).testTag("folder-app-picker")) {
                     items(state.apps.filter { it.id != firstId && it.available }, key = { it.id }) { second ->
-                        TextButton(onClick = {
+                        GlassButton(onClick = {
                             val preferredPage = state.layout.indexOfShortcut(firstId)?.let(::homeCellPage)
                                 ?.takeIf { it >= 0 || expandedWorkspace } ?: lastHomePage.coerceIn(0, homePages - 1)
                             val blocked = state.widgetPlacements.flatMapTo(mutableSetOf()) { it.coveredIndices() }
@@ -1475,7 +1484,7 @@ internal fun LauncherScreen(
                             Text(second.label, Modifier.fillMaxWidth())
                         }
                     }
-                } }, confirmButton = { TextButton(onClick = { createFolderFirstId = null }) { Text("Cancel") } })
+                } }, confirmButton = { GlassButton(onClick = { createFolderFirstId = null }) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) } })
         }
         openFolderId?.let { id ->
             state.folders.firstOrNull { it.id == id }?.let { folder ->
@@ -1502,45 +1511,45 @@ internal fun LauncherScreen(
                 launcherActivity.backups.applyImport(); sheet = ""
             }, onCancel = launcherActivity.backups::cancelImport)
         }
-        if (launcherActivity.backups.pickerPending) AlertDialog(onDismissRequest = {},
-            title = { Text("Layout document") },
-            text = { Text("The system document picker is still open. Return to it to finish, or cancel this operation.") },
-            confirmButton = { TextButton(onClick = { launcherActivity.backups.resumePendingPicker() },
-                modifier = Modifier.testTag("backup-picker-resume")) { Text("Resume") } },
-            dismissButton = { TextButton(onClick = launcherActivity.backups::cancelImport,
-                modifier = Modifier.testTag("backup-picker-cancel")) { Text("Cancel") } })
-        if (launcherActivity.backgrounds.pickerPending && !launcherActivity.backgrounds.loading) AlertDialog(
-            onDismissRequest = {}, title = { Text("Background photo") },
-            text = { Text("The photo picker was interrupted. Resume choosing a photo, or cancel and keep the current background.") },
-            confirmButton = { TextButton(onClick = launcherActivity.backgrounds::choosePhoto,
-                modifier = Modifier.testTag("background-picker-resume")) { Text("Resume") } },
-            dismissButton = { TextButton(onClick = launcherActivity.backgrounds::cancelPendingSelection,
-                modifier = Modifier.testTag("background-picker-cancel")) { Text("Cancel") } })
+        if (launcherActivity.backups.pickerPending) GlassAlertDialog(onDismissRequest = {},
+            title = { Text(stringResource(com.jake.duolauncher.R.string.layout_document)) },
+            text = { Text(stringResource(com.jake.duolauncher.R.string.the_system_document_picker_is_still)) },
+            confirmButton = { GlassButton(onClick = { launcherActivity.backups.resumePendingPicker() },
+                modifier = Modifier.testTag("backup-picker-resume")) { Text(stringResource(com.jake.duolauncher.R.string.resume)) } },
+            dismissButton = { GlassButton(onClick = launcherActivity.backups::cancelImport,
+                modifier = Modifier.testTag("backup-picker-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) } })
+        if (launcherActivity.backgrounds.pickerPending && !launcherActivity.backgrounds.loading) GlassAlertDialog(
+            onDismissRequest = {}, title = { Text(stringResource(com.jake.duolauncher.R.string.background_photo)) },
+            text = { Text(stringResource(com.jake.duolauncher.R.string.the_photo_picker_was_interrupted_resume)) },
+            confirmButton = { GlassButton(onClick = launcherActivity.backgrounds::choosePhoto,
+                modifier = Modifier.testTag("background-picker-resume")) { Text(stringResource(com.jake.duolauncher.R.string.resume)) } },
+            dismissButton = { GlassButton(onClick = launcherActivity.backgrounds::cancelPendingSelection,
+                modifier = Modifier.testTag("background-picker-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) } })
         (launcherActivity.backups.errorMessage ?: launcherActivity.backups.successMessage)?.let { message ->
-            AlertDialog(onDismissRequest = launcherActivity.backups::clearMessage,
+            GlassAlertDialog(onDismissRequest = launcherActivity.backups::clearMessage,
                 title = { Text(if (launcherActivity.backups.errorMessage != null) "Layout backup problem" else "Layout backup") },
-                text = { Text(message) }, confirmButton = { TextButton(onClick = launcherActivity.backups::clearMessage) { Text("OK") } })
+                text = { Text(message) }, confirmButton = { GlassButton(onClick = launcherActivity.backups::clearMessage) { Text(stringResource(com.jake.duolauncher.R.string.ok)) } })
         }
         widgets.failureMessage?.let { message ->
-            AlertDialog(onDismissRequest = widgets::clearFailure, title = { Text("Widget not added") },
+            GlassAlertDialog(onDismissRequest = widgets::clearFailure, title = { Text(stringResource(com.jake.duolauncher.R.string.widget_not_added)) },
                 text = { Text(message, Modifier.testTag("widget-bind-error")) },
-                confirmButton = { TextButton(onClick = widgets::clearFailure) { Text("OK") } })
+                confirmButton = { GlassButton(onClick = widgets::clearFailure) { Text(stringResource(com.jake.duolauncher.R.string.ok)) } })
         }
         if (widgets.pendingPlacement != null && widgets.setupStatus != null) {
-            AlertDialog(onDismissRequest = {}, title = { Text("Finish widget setup") },
-                text = { Text("The widget is waiting at its chosen spot. Finish setup to add it, or cancel to remove the placeholder.") },
+            GlassAlertDialog(onDismissRequest = {}, title = { Text(stringResource(com.jake.duolauncher.R.string.finish_widget_setup)) },
+                text = { Text(stringResource(com.jake.duolauncher.R.string.the_widget_is_waiting_at_its)) },
                 confirmButton = { Button(onClick = widgets::finishPendingSetup,
-                    modifier = Modifier.semantics { contentDescription = "Continue widget setup" }) { Text("Finish setup") } },
-                dismissButton = { TextButton(onClick = { leaveTemporaryWidgetPage(); widgets.cancelPendingSetup() },
-                    modifier = Modifier.semantics { contentDescription = "Cancel widget setup" }) { Text("Cancel") } })
+                    modifier = Modifier.semantics { contentDescription = "Continue widget setup" }) { Text(stringResource(com.jake.duolauncher.R.string.finish_setup)) } },
+                dismissButton = { GlassButton(onClick = { leaveTemporaryWidgetPage(); widgets.cancelPendingSetup() },
+                    modifier = Modifier.semantics { contentDescription = "Cancel widget setup" }) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) } })
         }
         widgets.reconfigureWidgetId?.let {
-            AlertDialog(onDismissRequest = {}, title = { Text("Widget settings") },
-                text = { Text("Widget settings were interrupted. Resume configuration, or cancel and keep the widget unchanged.") },
+            GlassAlertDialog(onDismissRequest = {}, title = { Text(stringResource(com.jake.duolauncher.R.string.widget_settings)) },
+                text = { Text(stringResource(com.jake.duolauncher.R.string.widget_settings_were_interrupted_resume_co)) },
                 confirmButton = { Button(onClick = widgets::finishPendingReconfigure,
-                    modifier = Modifier.testTag("widget-reconfigure-resume")) { Text("Resume") } },
-                dismissButton = { TextButton(onClick = widgets::cancelPendingReconfigure,
-                    modifier = Modifier.testTag("widget-reconfigure-cancel")) { Text("Cancel") } })
+                    modifier = Modifier.testTag("widget-reconfigure-resume")) { Text(stringResource(com.jake.duolauncher.R.string.resume)) } },
+                dismissButton = { GlassButton(onClick = widgets::cancelPendingReconfigure,
+                    modifier = Modifier.testTag("widget-reconfigure-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) } })
         }
         }
     }
@@ -1865,7 +1874,13 @@ private fun SharedHomeGrid(
             Box(Modifier.offset(x = cellWidth * (localIndex % GRID_COLUMNS), y = rowTop(row).dp)
                 .width(cellWidth).height(cellHeight.dp).testTag("home-cell-$globalIndex")
                 .dropRegion(drag, cell, savedApp?.id ?: savedFolder?.id, page)
+                .semantics {
+                    // A screen reader meets only the free cells that can take something; occupied cells are described by what sits on them.
+                    if (savedId == null && globalIndex !in coveredCells) contentDescription = "Empty Home space"
+                    else hideFromAccessibility()
+                }
                 .combinedClickable(onClick = { savedFolder?.let { onFolder(it.id) } },
+                    onLongClickLabel = if (savedId == null) "Home options" else null,
                     onLongClick = { if (savedId == null && !drag.active) onEmptyWidget(globalIndex) })
                 // No frame around the cell being dragged over: only, while a drop would make a folder, a soft square behind the app below.
                 .background(if (drag.folderIntentApp != null && drag.folderIntentApp == savedApp?.id) Color.White.copy(alpha = .16f) else Color.Transparent, Corner.medium),
@@ -1935,7 +1950,7 @@ private fun SharedHomeGrid(
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
-                        Spacer(Modifier.height(8.dp)); Text("Finish widget setup", color = Ink)
+                        Spacer(Modifier.height(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.finish_widget_setup), color = Ink)
                     }
                 } else MovableWidget(placement.id, placement.slot, widgets, drag, target,
                     Modifier.offset(x = x, y = y.dp).width(width).height(height.dp), page = page) { onWidget(placement.slot) }
@@ -2147,7 +2162,7 @@ private fun ClockCard(onClick: () -> Unit) {
         val ink = LocalGlassInk.current
         Icon(Icons.Rounded.Schedule, "Clock widget; tap to replace", tint = ink.primary, modifier = Modifier.size(20.dp))
         Text(time.format(DateTimeFormatter.ofPattern(format)), color = ink.primary, fontWeight = FontWeight.Light, fontSize = 30.sp, maxLines = 1)
-        Text("Local time", color = ink.soft(), fontSize = 11.sp)
+        Text(stringResource(com.jake.duolauncher.R.string.local_time), color = ink.soft(), fontSize = 11.sp)
     }
 }
 
@@ -2174,11 +2189,11 @@ private fun ExpandedCard(onClick: () -> Unit) {
         Column {
             Icon(Icons.Rounded.Widgets, null, tint = ink.primary, modifier = Modifier.size(32.dp))
             Spacer(Modifier.height(16.dp))
-            Text("A little more room.", color = ink.primary, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Light)
+            Text(stringResource(com.jake.duolauncher.R.string.a_little_more_room), color = ink.primary, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Light)
             Spacer(Modifier.height(12.dp))
-            Text("Add a calendar, photos, or another widget.", color = ink.soft(.85f), fontSize = 14.sp)
+            Text(stringResource(com.jake.duolauncher.R.string.add_a_calendar_photos_or_another), color = ink.soft(.85f), fontSize = 14.sp)
             Spacer(Modifier.height(20.dp))
-            FilledTonalButton(onClick = onClick) { Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Add widget") }
+            FilledTonalButton(onClick = onClick) { Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(com.jake.duolauncher.R.string.add_widget)) }
         }
     }
 }
@@ -2209,8 +2224,8 @@ private fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifie
                             if (!controller.rebindRestoredWidget(slot, contentSize = displayedContentSize))
                                 restoreMessage = "That provider or profile isn’t available. Choose a replacement."
                         },
-                            modifier = Modifier.testTag("widget-restore-reconnect-$slot")) { Text("Reconnect") }
-                        TextButton(onClick = onAdd, modifier = Modifier.testTag("widget-restore-replace-$slot")) { Text("Replace") }
+                            modifier = Modifier.testTag("widget-restore-reconnect-$slot")) { Text(stringResource(com.jake.duolauncher.R.string.reconnect)) }
+                        TextButton(onClick = onAdd, modifier = Modifier.testTag("widget-restore-replace-$slot")) { Text(stringResource(com.jake.duolauncher.R.string.replace)) }
                     }
                 }
             }
@@ -2308,8 +2323,8 @@ private fun MovableWidget(id: Int, slot: Int, controller: WidgetController, drag
             INFO_WIDGET -> if (slot % 3 == 2) ExpandedCard(onAdd) else GlassCard(onClick = onAdd) {
                 val ink = LocalGlassInk.current
                 Icon(Icons.Rounded.Widgets, null, tint = ink.primary, modifier = Modifier.size(28.dp))
-                Text("Your widgets", color = ink.primary, fontSize = 15.sp, maxLines = 1)
-                Text("Tap to choose", color = ink.soft(), fontSize = 12.sp)
+                Text(stringResource(com.jake.duolauncher.R.string.your_widgets), color = ink.primary, fontSize = 15.sp, maxLines = 1)
+                Text(stringResource(com.jake.duolauncher.R.string.tap_to_choose), color = ink.soft(), fontSize = 12.sp)
             }
             else -> {
                 val library = UnoWidgets.byId(id)
@@ -2335,13 +2350,13 @@ private fun AppPicker(apps: List<AppEntry>, dockSlot: Int?, onSelect: (AppEntry)
     Column(Modifier.fillMaxWidth().fillMaxHeight(.88f).padding(horizontal = 20.dp).imePadding()) {
         Text(title ?: if (dockSlot == null) "Your apps" else "Dock position ${dockSlot + 1}", style = MaterialTheme.typography.headlineSmall)
         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(vertical = 16.dp).testTag("search-field"),
-            placeholder = { Text("Search apps") }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, singleLine = true,
+            placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_apps)) }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, singleLine = true,
             trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search") } }, shape = Corner.medium)
-        if (dockSlot != null) TextButton(onClick = onClear) { Text("Leave this position empty") }
+        if (dockSlot != null) TextButton(onClick = onClear) { Text(stringResource(com.jake.duolauncher.R.string.leave_this_position_empty)) }
         if (blockedHint != null) Text(blockedHint, color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp).testTag("dock-full-guidance"))
         LazyColumn(Modifier.weight(1f)) {
-            if (filtered.isEmpty()) item { Text("No apps found", Modifier.padding(vertical = 24.dp)) }
+            if (filtered.isEmpty()) item { Text(stringResource(com.jake.duolauncher.R.string.no_apps_found), Modifier.padding(vertical = 24.dp)) }
             items(filtered, key = { it.id }) { app ->
                 val enabled = canSelect(app)
                 Row(Modifier.fillMaxWidth().testTag("picker-app-${app.id}")
@@ -2400,7 +2415,7 @@ private fun WidgetActions(
         .padding(horizontal = 24.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Widget options", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(com.jake.duolauncher.R.string.widget_options), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close widget options") }
         }
         onEditFolder?.let { ActionRow(Icons.Rounded.Folder, "Choose folder apps", it, Modifier.testTag("widget-folder-apps-${placement.slot}")) }
@@ -2411,15 +2426,15 @@ private fun WidgetActions(
         }
         if (canConfigure) ActionRow(Icons.Rounded.Settings, "Widget settings", onConfigure,
             Modifier.testTag("widget-settings-${placement.slot}"))
-        Text("Resize", style = MaterialTheme.typography.titleMedium)
-        Button(enabled = feasible, onClick = { onStartResize(width, height) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Resize on Home") }
-        if (!feasible) Text("Move this widget into the six-row grid before resizing.", color = MaterialTheme.colorScheme.error)
+        Text(stringResource(com.jake.duolauncher.R.string.resize), style = MaterialTheme.typography.titleMedium)
+        Button(enabled = feasible, onClick = { onStartResize(width, height) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.resize_on_home)) }
+        if (!feasible) Text(stringResource(com.jake.duolauncher.R.string.move_this_widget_into_the_six), color = MaterialTheme.colorScheme.error)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
             repeat(homePages) { page -> TextButton(onClick = { onMoveToPage(page) },
                 modifier = Modifier.testTag("widget-move-${placement.slot}-page-$page")) { Text("Move to page ${page + 1}") } }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Width", Modifier.weight(1f))
+            Text(stringResource(com.jake.duolauncher.R.string.width), Modifier.weight(1f))
             IconButton(enabled = constraints?.canResizeHorizontally != false,
                 onClick = { if (feasible) width = (width - 1).coerceAtLeast(minWidth) }) {
                 Icon(Icons.Rounded.Remove, "Decrease widget width")
@@ -2431,7 +2446,7 @@ private fun WidgetActions(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Height", Modifier.weight(1f))
+            Text(stringResource(com.jake.duolauncher.R.string.height), Modifier.weight(1f))
             IconButton(enabled = constraints?.canResizeVertically != false,
                 onClick = { if (feasible) height = (height - 1).coerceAtLeast(minHeight) }) {
                 Icon(Icons.Rounded.Remove, "Decrease widget height")
@@ -2442,10 +2457,10 @@ private fun WidgetActions(
                 Icon(Icons.Rounded.Add, "Increase widget height")
             }
         }
-        Text("Sizes that overlap another item are ignored.", style = MaterialTheme.typography.bodySmall)
-        if (!valid) Text("That size overlaps another item or extends beyond the page.", color = MaterialTheme.colorScheme.error)
+        Text(stringResource(com.jake.duolauncher.R.string.sizes_that_overlap_another_item_are), style = MaterialTheme.typography.bodySmall)
+        if (!valid) Text(stringResource(com.jake.duolauncher.R.string.that_size_overlaps_another_item_or), color = MaterialTheme.colorScheme.error)
         Button(enabled = valid, onClick = { onResize(width, height); onClose() },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Apply size") }
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.apply_size)) }
         ActionRow(Icons.Rounded.FindReplace, "Replace", onReplace)
         HorizontalDivider()
         ActionRow(Icons.Rounded.DeleteOutline, "Remove", onRemove, tint = MaterialTheme.colorScheme.error)

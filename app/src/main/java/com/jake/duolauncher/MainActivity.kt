@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
     private val customizeRequests = mutableIntStateOf(0)
     private val defaultHome = mutableStateOf(false)
     private val showFirstRun = mutableStateOf(false)
+    private val showWhatsNew = mutableStateOf(false)
     private lateinit var setupExperience: SetupExperience
     private lateinit var status: DeviceStatusMonitor
     private lateinit var appearance: AppearanceStore
@@ -118,6 +119,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         IslandThemeController.current = IslandThemeController(this)
         setupExperience = SetupExperience(this)
+        showWhatsNew.value = WhatsNew.shouldShowAtStart(this, UpdateSecurity.appVersion, freshInstall = !SetupExperience.hadLauncherState(this))
         showFirstRun.value = setupExperience.entryDecision(SetupExperience.hadLauncherState(this)) ==
             SetupEntryDecision.SHOW
         returningFromShadeSettings = savedInstanceState?.getBoolean(SHADE_SETTINGS_PENDING) == true
@@ -132,7 +134,7 @@ class MainActivity : ComponentActivity() {
         }.also { it.restore(savedInstanceState) }
         backups = BackupController(this, model, widgets, onExternalResultChanged = { active ->
             LiveDiscover.setExternalResultPending(this, "main", "layout-backup", active)
-        }, onSettingsApplied = { extrasStore.reload(); appearance.reloadFromPreferences(); LargeFolders.reload(); WidgetData.reload() }).also { it.restore() }
+        }, onSettingsApplied = { extrasStore.reload(); appearance.reloadFromPreferences(); LargeFolders.reload(); WidgetData.reload(); IslandThemes.reload() }).also { it.restore() }
         backgrounds = LauncherBackgroundController(this) { active ->
             LiveDiscover.setExternalResultPending(this, "main", "launcher-background", active)
         }
@@ -176,8 +178,11 @@ class MainActivity : ComponentActivity() {
                     onAppearanceMode = { cancelAppearanceLocation(); appearance.setMode(it, systemDark()) },
                     onAppearanceManual = { place, lat, lon -> cancelAppearanceLocation(); appearance.setManual(place, lat, lon, systemDark()) },
                     onAppearanceDeviceLocation = ::useAppearanceLocation,
+                    onAppearanceCancelLocation = ::cancelAppearanceLocation,
                     onAppearanceClear = { cancelAppearanceLocation(); appearance.clearLocation(systemDark()) },
                     showFirstRun = showFirstRun.value,
+                    showWhatsNew = showWhatsNew.value,
+                    onWhatsNewDone = { showWhatsNew.value = false; WhatsNew.markSeen(this, UpdateSecurity.appVersion) },
                     onFinishFirstRun = ::finishFirstRun,
                     onShadeSetup = ::showShadeSetup,
                     extras = extrasActions,
@@ -608,8 +613,20 @@ class MainActivity : ComponentActivity() {
     /** Asks one provider and, if it gives no answer in time, the next. */
     @android.annotation.SuppressLint("MissingPermission")
     private fun tryAppearanceProvider(manager: LocationManager, providers: List<String>, index: Int, generation: Int, keep: (Double, Double) -> Unit) {
-        if (index >= providers.size) { if (generation == appearanceLocationGeneration) finishAppearanceLocation("No location answer arrived. Try outdoors, or enter a place by hand."); return }
+        if (index >= providers.size) {
+            if (generation != appearanceLocationGeneration) return
+            // Root cause of "Use device location never completes": a one-off request gives up on a cold GPS (indoors, or with no
+            // assistance data) and nothing else was tried. A place does not go stale, so the last fix the phone knows, of any age,
+            // is a better answer than none; and the wait is now stated and can be cancelled.
+            val last = runCatching { manager.getProviders(true).mapNotNull { manager.getLastKnownLocation(it) }.maxByOrNull { it.time } }.getOrNull()
+            if (last != null) {
+                keep(last.latitude, last.longitude)
+                finishAppearanceLocation("No fresh fix arrived, so Uno used the last place the phone knew. Try outdoors for a new one, or enter a place by hand.")
+            } else finishAppearanceLocation("No location answer arrived (tried ${providers.joinToString { providerName(it) }}). Try outdoors with a clear sky, or enter a place by hand.")
+            return
+        }
         val provider = providers[index]
+        appearance.locationStatus("Waiting for device location (${providerName(provider)})… this can take a minute outdoors.")
         val cancellation = CancellationSignal()
         appearanceLocationCancellation = cancellation
         window.decorView.postDelayed({
@@ -622,6 +639,10 @@ class MainActivity : ComponentActivity() {
             if (location != null) { keep(location.latitude, location.longitude); finishAppearanceLocation(null) }
             else tryAppearanceProvider(manager, providers, index + 1, generation, keep)
         } }.onFailure { if (generation == appearanceLocationGeneration) tryAppearanceProvider(manager, providers, index + 1, generation, keep) }
+    }
+
+    private fun providerName(provider: String) = when (provider) {
+        LocationManager.GPS_PROVIDER -> "GPS"; LocationManager.NETWORK_PROVIDER -> "network"; LocationManager.FUSED_PROVIDER -> "fused"; else -> provider
     }
 
     private fun cancelAppearanceLocation() {

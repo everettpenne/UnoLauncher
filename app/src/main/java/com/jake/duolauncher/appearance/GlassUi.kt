@@ -1,5 +1,6 @@
 package com.jake.duolauncher.appearance
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.*
 import com.jake.duolauncher.panel.*
 import androidx.compose.foundation.BorderStroke
@@ -11,6 +12,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.AlertDialog
@@ -58,7 +61,11 @@ import androidx.compose.ui.util.lerp
  * off, GlassDialog falls back to a stock dialog of the same content, and every control here stays legible on it.
  */
 
-private val GlassInkOnPanel: Color @Composable get() = MaterialTheme.colorScheme.onSurface
+/** The ink kit controls draw in. Null means the panel's `onSurface` (settings sheet, dialogs). A surface whose text colour adapts to the
+ *  wallpaper (the All apps panel) or is fixed (the Photos viewer's black bar) provides its own, and the kit controls follow it. */
+internal val LocalKitInk = androidx.compose.runtime.compositionLocalOf<Color?> { null }
+
+private val GlassInkOnPanel: Color @Composable get() = LocalKitInk.current ?: MaterialTheme.colorScheme.onSurface
 
 /** The wallpaper accent, or iOS orange when there is none, and the ink that reads on it. */
 @Composable private fun accentPair(): Pair<Color, Color> {
@@ -153,7 +160,7 @@ internal fun <T> GlassChips(options: List<T>, selected: T, label: (T) -> String,
             Box(Modifier.heightIn(min = 40.dp).clip(shape)
                 .background(if (on) accent.copy(alpha = .9f) else ink.copy(alpha = .10f))
                 .border(BorderStroke(1.dp, if (on) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
-                .clickable(role = Role.RadioButton) { onSelect(option) }
+                .selectable(selected = on, role = Role.RadioButton) { onSelect(option) }
                 .then(if (tagPrefix != null) Modifier.testTag("$tagPrefix-${key(option)}") else Modifier)
                 .padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
                 Text(label(option), color = if (on) accentInk else ink, fontSize = 13.sp,
@@ -167,7 +174,7 @@ internal fun <T> GlassChips(options: List<T>, selected: T, label: (T) -> String,
 @Composable
 internal fun GlassSwitchRow(label: String, checked: Boolean, onChecked: (Boolean) -> Unit, modifier: Modifier = Modifier,
     help: String? = null, tag: String? = null) {
-    Row(modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().heightIn(min = 52.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text(label, color = GlassInkOnPanel, fontSize = 15.sp)
             if (help != null) Text(help, color = GlassInkOnPanel.copy(alpha = .65f), fontSize = 12.sp)
@@ -232,4 +239,148 @@ internal fun GlassTextField(value: String, onValueChange: (String) -> Unit, modi
                 inner()
             }
         })
+}
+
+/*
+ * Slot-style overloads: the same shapes as Material's Button, FilterChip, OutlinedTextField, AlertDialog, Checkbox and
+ * RadioButton, so a screen written against Material can move onto the glass kit by changing the name. New code can use
+ * either form; the label-string forms above are shorter for simple cases.
+ */
+
+/** A pill action with arbitrary content (an icon and a label, say). [prominent] fills it with the wallpaper accent. */
+@Composable
+internal fun GlassButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, prominent: Boolean = false,
+    content: @Composable RowScope.() -> Unit) {
+    val (accent, accentInk) = accentPair()
+    val ink = GlassInkOnPanel
+    val shape = RoundedCornerShape(percent = 50)
+    val fill = if (prominent) accent.copy(alpha = if (enabled) .92f else .35f) else ink.copy(alpha = .10f)
+    val content_ = (if (prominent) accentInk else ink).copy(alpha = if (enabled) 1f else .45f)
+    Row(modifier.heightIn(min = 48.dp).clip(shape).background(fill)
+        .border(BorderStroke(1.dp, if (prominent) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
+        .clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+        CompositionLocalProvider(LocalContentColor provides content_) {
+            androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium)) { content() }
+        }
+    }
+}
+
+/** One choice among several; the selected one is filled with the wallpaper accent. */
+@Composable
+internal fun GlassChip(selected: Boolean, onClick: () -> Unit, label: @Composable () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val (accent, accentInk) = accentPair()
+    val ink = GlassInkOnPanel
+    val shape = RoundedCornerShape(percent = 50)
+    Box(modifier.heightIn(min = 40.dp).clip(shape)
+        .background(if (selected) accent.copy(alpha = .9f) else ink.copy(alpha = .10f))
+        .border(BorderStroke(1.dp, if (selected) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
+        .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick).padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center) {
+        CompositionLocalProvider(LocalContentColor provides (if (selected) accentInk else ink)) {
+            androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 13.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)) { label() }
+        }
+    }
+}
+
+/** A labelled text field in the glass style (the label sits above the well). The slot parameters match Material's field. */
+@Composable
+internal fun GlassField(value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    label: (@Composable () -> Unit)? = null, placeholder: (@Composable () -> Unit)? = null,
+    leadingIcon: (@Composable () -> Unit)? = null, trailingIcon: (@Composable () -> Unit)? = null,
+    supportingText: (@Composable () -> Unit)? = null, singleLine: Boolean = false, minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    keyboardOptions: androidx.compose.foundation.text.KeyboardOptions = androidx.compose.foundation.text.KeyboardOptions.Default,
+    keyboardActions: androidx.compose.foundation.text.KeyboardActions = androidx.compose.foundation.text.KeyboardActions.Default) {
+    val ink = GlassInkOnPanel
+    val shape = Corner.medium
+    // [modifier] (a test tag, a weight, a width) goes on the editable node itself, so tests can type into it and layout works as with
+    // Material's field; the label and supporting text are drawn inside its decoration.
+    androidx.compose.foundation.text.BasicTextField(value, onValueChange, modifier, enabled = enabled,
+        singleLine = singleLine, minLines = minLines, maxLines = maxLines, keyboardOptions = keyboardOptions, keyboardActions = keyboardActions,
+        textStyle = androidx.compose.ui.text.TextStyle(color = ink, fontSize = 15.sp),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(ink),
+        decorationBox = { inner ->
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (label != null) CompositionLocalProvider(LocalContentColor provides ink.copy(alpha = .7f)) {
+                    androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 12.sp)) { label() }
+                }
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(shape).background(ink.copy(alpha = if (enabled) .08f else .04f))
+                    .border(BorderStroke(1.dp, ink.copy(alpha = .16f)), shape).padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    if (leadingIcon != null) { CompositionLocalProvider(LocalContentColor provides ink.copy(alpha = .7f)) { leadingIcon() }; Spacer(Modifier.width(8.dp)) }
+                    Box(Modifier.weight(1f)) {
+                        if (value.isEmpty() && placeholder != null) CompositionLocalProvider(LocalContentColor provides ink.copy(alpha = .45f)) {
+                            androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 15.sp)) { placeholder() }
+                        }
+                        inner()
+                    }
+                    if (trailingIcon != null) { Spacer(Modifier.width(8.dp)); CompositionLocalProvider(LocalContentColor provides ink.copy(alpha = .7f)) { trailingIcon() } }
+                }
+                if (supportingText != null) CompositionLocalProvider(LocalContentColor provides ink.copy(alpha = .6f)) {
+                    androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 12.sp)) { supportingText() }
+                }
+            }
+        })
+}
+
+/** A glass dialog with Material's AlertDialog slots, for screens that already use them. */
+@Composable
+internal fun GlassAlertDialog(onDismissRequest: () -> Unit, confirmButton: @Composable () -> Unit, modifier: Modifier = Modifier,
+    dismissButton: (@Composable () -> Unit)? = null, title: (@Composable () -> Unit)? = null, text: (@Composable () -> Unit)? = null) {
+    val glass = LocalPageGlass.current
+    if (glass == null) {
+        AlertDialog(onDismissRequest = onDismissRequest, confirmButton = confirmButton, modifier = modifier,
+            dismissButton = dismissButton, title = title, text = text)
+        return
+    }
+    GlassDialog(onDismissRequest, "", modifier, actions = { dismissButton?.invoke(); confirmButton() }) {
+        if (title != null) androidx.compose.material3.ProvideTextStyle(MaterialTheme.typography.titleLarge) { title() }
+        if (text != null) text()
+    }
+}
+
+/** A round check that fills with the wallpaper accent. In a list, make the whole row `toggleable` and pass null here, so the label
+ *  and the check are one control for a screen reader and the whole row is the touch target. */
+@Composable
+internal fun GlassCheckbox(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val (accent, accentInk) = accentPair()
+    val ink = GlassInkOnPanel
+    Box(modifier.size(48.dp).then(if (onCheckedChange != null) Modifier.toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onCheckedChange) else Modifier),
+        contentAlignment = Alignment.Center) {
+        Box(Modifier.size(24.dp).clip(androidx.compose.foundation.shape.CircleShape)
+            .background(if (checked) accent else Color.Transparent)
+            .border(BorderStroke(1.5.dp, if (checked) accent else ink.copy(alpha = .45f)), androidx.compose.foundation.shape.CircleShape),
+            contentAlignment = Alignment.Center) {
+            if (checked) Text(stringResource(com.jake.duolauncher.R.string.text_5), color = accentInk, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+/** A round radio mark that fills with the wallpaper accent. In a list, make the row `selectable` and pass null here (see [GlassCheckbox]). */
+@Composable
+internal fun GlassRadio(selected: Boolean, onClick: (() -> Unit)?, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val (accent, _) = accentPair()
+    val ink = GlassInkOnPanel
+    Box(modifier.size(48.dp).then(if (onClick != null) Modifier.selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick) else Modifier),
+        contentAlignment = Alignment.Center) {
+        Box(Modifier.size(22.dp).clip(androidx.compose.foundation.shape.CircleShape)
+            .border(BorderStroke(1.5.dp, if (selected) accent else ink.copy(alpha = .45f)), androidx.compose.foundation.shape.CircleShape),
+            contentAlignment = Alignment.Center) {
+            if (selected) Box(Modifier.size(12.dp).clip(androidx.compose.foundation.shape.CircleShape).background(accent))
+        }
+    }
+}
+
+/** A round icon action, 48 dp, in the kit's ink. [content] is usually an `Icon` (it is tinted by the content colour). */
+@Composable
+internal fun GlassIconButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, content: @Composable () -> Unit) {
+    val ink = GlassInkOnPanel
+    val shape = androidx.compose.foundation.shape.CircleShape
+    Box(modifier.size(48.dp).clip(shape).background(ink.copy(alpha = .10f))
+        .border(BorderStroke(1.dp, ink.copy(alpha = .16f)), shape)
+        .clickable(enabled = enabled, role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) {
+        CompositionLocalProvider(LocalContentColor provides ink.copy(alpha = if (enabled) 1f else .45f)) { content() }
+    }
 }

@@ -1,5 +1,6 @@
 package com.jake.duolauncher.panel
 
+import androidx.compose.material3.minimumInteractiveComponentSize
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
@@ -157,7 +158,7 @@ internal fun LiquidSwitchControl(
     val pressed by rememberPressProgress(interaction)
     val trackColor = lerp(IosGrey.copy(alpha = .38f), LocalWallpaperAccent.current?.accent ?: IosGreen, fraction)
 
-    Box(modifier.size(width = trackWidth, height = 31.dp)
+    Box(modifier.minimumInteractiveComponentSize().size(width = trackWidth, height = 31.dp)
         .clickableToggle(interaction, checked, onCheckedChange)
         .semantics { role = Role.Switch; contentDescription = if (checked) "On" else "Off" },
         contentAlignment = Alignment.CenterStart) {

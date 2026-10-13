@@ -4,4 +4,326 @@
     <string name="keyboard_subtype">English (US)</string>
     <string name="shade_service_label">Uno Launcher shade gestures</string>
     <string name="shade_service_description">Allows Uno Launcher’s Home screen gestures to open the system notifications and Quick Settings panels. It also draws the island above other apps so it can be tapped. It does not read screen content or observe activity in other apps.</string>
+
+
+    <!-- CustomizationSheet.kt -->
+    <string name="set_as_home_app">Set as home app</string>
+    <string name="undo_last_layout_change">Undo last layout change</string>
+    <string name="change_home_app">Change home app</string>
+    <string name="launcher_background">Launcher background</string>
+    <string name="changes_the_image_behind_uno_launcher">Changes the image behind Uno Launcher’s Home screens.</string>
+    <string name="cancel">Cancel</string>
+    <string name="apply">Apply</string>
+    <string name="remove_photo">Remove photo</string>
+    <string name="android_wallpaper">Android wallpaper</string>
+    <string name="opens_android_s_preview_to_change">Opens Android’s preview to change the phone wallpaper. On its own it does not change Uno’s launcher background.</string>
+    <string name="when_on_choosing_a_background_here">When on, choosing a background here also sets Android’s home and lock screen wallpaper to the same picture, replacing what is there now (including a live wallpaper). Off by default; nothing leaves the phone.</string>
+    <string name="preview_android_wallpaper">Preview Android wallpaper</string>
+    <string name="the_glass_edge_light_stays_put">The glass edge light stays put in the room as you tilt the phone, so the shine moves across the glass. It reads the motion sensor only while Home is on screen. Off by default.</string>
+    <string name="higher_swings_the_light_further_for">Higher swings the light further for each degree you tilt and makes the rim brighter and thicker.</string>
+    <string name="takes_one_color_from_your_wallpaper">Takes one color from your wallpaper and uses it to tint the glass, and for sliders, switches and themed icons. It adapts to light and dark, and keeps text readable. Works with liquid glass on or off.</string>
+    <string name="height_widens_the_glass_rim_the">Height widens the glass rim the lens bends; amount sets how far the view behind is displaced; chromatic adds the color fringe at the edges. Turn off liquid glass for a flat look or to save battery.</string>
+    <string name="swipe_sideways_anywhere_on_home_to">Swipe sideways anywhere on Home to change pages. Swipe down on the left for notifications, and on the right for the control panel. Swipe up anywhere to open these settings.</string>
+    <string name="all_apps_always_keeps_local_app">All apps always keeps local app search.</string>
+    <string name="shows_the_island_above_other_apps">Shows the island above other apps with Android\'s \"display over other apps\" permission. The overlay window is exactly the island\'s size, never draws on the lock screen or when the screen is off, and touches outside it pass through.</string>
+    <string name="a_liquid_capsule_at_the_camera">A liquid capsule at the camera cutout: the time, then a tap expands battery, the top feed headline, and quick actions. It flashes app launches and charging and never overlays other apps.</string>
+    <string name="save_the_current_home_layout_folders">Save the current Home layout, folders, widgets, layout settings, and your Uno settings.</string>
+    <string name="save">Save</string>
+    <string name="restore">Restore</string>
+    <string name="restore_shows_a_review_before_changing">Restore shows a review before changing Home.</string>
+    <string name="add_widget_to_this_page">Add widget to this page</string>
+    <string name="set_up_shade_gestures">Set up shade gestures</string>
+    <string name="built_in_background">Built-in background</string>
+    <string name="cover">Cover</string>
+    <string name="inner">Inner</string>
+    <string name="choose_home_apps">Choose Home apps</string>
+    <string name="reset_this_layout">Reset this layout</string>
+    <string name="replace">Replace</string>
+
+    <!-- DiscoverActivity.kt -->
+    <string name="discover">Discover</string>
+    <string name="retry">Retry</string>
+    <string name="open_google">Open Google</string>
+    <string name="back_to_home">Back to home</string>
+
+    <!-- DiscoverContent.kt -->
+    <string name="back_to_home_2">Back to Home</string>
+
+    <!-- ExtrasSettings.kt -->
+    <string name="uno_keyboard">Uno Keyboard</string>
+    <string name="turn_on_uno_keyboard">Turn on Uno Keyboard</string>
+    <string name="switch_to_uno_keyboard">Switch to Uno Keyboard</string>
+    <string name="suggestions_use_a_fixed_word_list">Suggestions use a fixed word list. Nothing you type is learned or stored.</string>
+    <string name="key_haptics">Key haptics</string>
+    <string name="feel_it">Feel it</string>
+    <string name="a_light_tick_on_touch_down">A light tick on touch-down, firmer for the space bar and Return, lighter again for held delete and cursor sliding. It follows Android\'s touch-feedback setting and the Haptics switch below.</string>
+    <string name="one_handed_keyboard">One-handed keyboard</string>
+    <string name="a_glass_styled_keyboard_with_key">A glass-styled keyboard with key previews, accents on long-press, caps lock, a numbers page and a field-aware Return key. It is strictly local: nothing you type is stored, learned, logged or sent, and its code contains no network access (a test enforces that). Suggestions and autocorrect use a word list bundled in the app (English only); they never learn from what you type, never save a word, and switch themselves off in password, email, web address, name and number fields. Backspace right after a correction undoes it, and that word is left alone for the session. There is no swipe typing yet.</string>
+    <string name="feel_and_sound">Feel and sound</string>
+    <string name="haptics_tick_on_page_changes_sliders">Haptics tick on page changes, sliders, the stack rail and the control panel. Sounds are Android\'s own touch sounds: no audio files are bundled, they follow your system Touch sounds setting and volume, and they stay silent in silent mode. Sounds are off by default.</string>
+    <string name="pulling_down_on_home">Pulling down on Home</string>
+    <string name="right_hand_swipe_down">Right-hand swipe down</string>
+    <string name="control_panel_tiles">Control panel tiles</string>
+    <string name="shortcuts_in_the_panel">Shortcuts in the panel</string>
+    <string name="focus">Focus</string>
+    <string name="hides_the_apps_you_pick_from">Hides the apps you pick from Home and All apps until Focus is off. Nothing is uninstalled, and your layout is not changed; hidden apps leave an empty spot.</string>
+    <string name="icon_style">Icon style</string>
+    <string name="original">Original</string>
+    <string name="themed">Themed</string>
+    <string name="tinted">Tinted</string>
+    <string name="tinted_takes_its_colour_from_your">Tinted takes its colour from your wallpaper (change the wallpaper and the icons follow), without recolouring the rest of the launcher.</string>
+    <string name="themed_uses_each_app_s_own">Themed uses each app\'s own single-colour icon layer where it ships one (Android 13+), in the launcher\'s colours; other apps are washed to match.</string>
+    <string name="island_timer">Island timer</string>
+    <string name="allow_exact_alarms">Allow exact alarms</string>
+    <string name="search_suggestions">Search suggestions</string>
+    <string name="when_no_installed_app_matches_a">When no installed app matches a search, offer to search an app store or the web. Uno only opens the app you choose with your words in it; it never contacts anything itself, and the web search uses that browser\'s own search engine.</string>
+    <string name="app_stores">App stores</string>
+    <string name="not_installed">Not installed</string>
+    <string name="web_search_app">Web search app</string>
+    <string name="notifications_optional">Notifications (optional)</string>
+    <string name="the_island_shows_a_green_camera">The island shows a green camera dot or orange microphone dot beside the pill while any app is using that hardware, like Android\'s own privacy dots, and a red dot while the screen is being recorded (Android 15+, using the normal DETECT_SCREEN_RECORDING permission). It needs no runtime permission: Android tells every app when the camera or microphone becomes busy, without saying which app is using it. Nothing is recorded or stored.</string>
+    <string name="the_island_flashes_when_a_vpn">The island flashes when a VPN connects or drops and when a USB data connection starts or ends (plain charging is not announced here). It needs no extra permission and keeps nothing.</string>
+    <string name="paused_music_and_podcasts">Paused music and podcasts</string>
+    <string name="the_wide_pill_is_for_sound">The wide pill is for sound that is playing. Paused media stays on the pill for a few seconds, then the pill goes back to its resting size. If it is worth coming back to (it has a title, you are part-way through it and it is longer than 30 seconds), the track stays on the open island for this long. Finished videos and short clips just fade out.</string>
+    <string name="over_other_apps_the_island_normally">Over other apps the island normally shrinks to a ring round the camera when it has nothing to show, so it does not cover your status bar. With this on it stays as the wide pill, with the battery level on one side. It covers the status bar icons beside the camera.</string>
+    <string name="the_open_island_shows_the_apps">The open island shows the apps you picked under Control panel &amp; Focus, Shortcuts in the panel (up to five), one tap each, like the app shortcuts in HyperOS\'s island. Long-press the island for tools: timer, stopwatch, flashlight, and Android\'s internet and volume panels. During a call the card has an End button.</string>
+    <string name="the_island_flashes_the_name_of">The island flashes the name of Bluetooth audio, a headset or headphones when they connect or disconnect. It needs no permission and keeps nothing. Opening the island on a charging phone also shows how long until it is full.</string>
+    <string name="a_download_upload_or_install_with">A download, upload or install with a progress bar in its notification shows on the island as a ring round the app\'s icon, with its percentage; open the island for its card. Only the title and the progress are read, never the body text.</string>
+    <string name="while_a_maps_app_shows_turn">While a maps app shows turn-by-turn directions, the island carries the next instruction and the distance or arrival line under it (the navigation notification\'s own title and text). Nothing is kept.</string>
+    <string name="android_16_apps_can_post_a">Android 16 apps can post a Live Update for a ride, delivery, timer or navigation. The island shows the app\'s icon and status beside the camera and a card with its progress when open. Only the title, short status, progress and icon are read, never message text; it needs notification access.</string>
+    <string name="while_a_call_is_active_the">While a call is active, the island shows the caller name and elapsed time from the phone app\'s own call notification, and tapping it opens the call screen. The name is read only while the call is running and never stored.</string>
+    <string name="how_much_a_new_notification_shows">How much a new notification shows when the island drops down for it:</string>
+    <string name="hide_notifications_containing_these_words">Hide notifications containing these words</string>
+    <string name="separate_with_commas_a_match_shows">Separate with commas. A match shows only the app\'s name.</string>
+    <string name="everything_stays_on_this_device_badges">Everything stays on this device. Badges count unread notifications per app; the island shows the app\'s name only, never the message.</string>
+    <string name="shows_frame_times_jank_the_island">Shows frame times, jank, the island\'s window sizes and positions, and what hides it. Debug builds only; it never appears in a release.</string>
+    <string name="contacts_in_search_optional">Contacts in search (optional)</string>
+    <string name="asks_android_s_contacts_permission_names">Asks Android\'s contacts permission. Names are matched on this device and shown below the app results; nothing is stored or sent.</string>
+    <string name="widget_in_the_island">Widget in the island</string>
+    <string name="remove">Remove</string>
+    <string name="the_open_island_shows_this_widget">The open island shows this widget under its time and activities, like HyperOS island widgets. It is an ordinary Android widget that you choose and Android asks you to allow; it runs in its own host, separate from Home.</string>
+    <string name="apps_that_can_use_the_island">Apps that can use the island</string>
+    <string name="every_app_is_linked_until_you">Every app is linked until you switch it off here. A switched-off app\'s Live Updates, progress, navigation and notification cards never reach the island. The time beside an app is how long its notification card stays.</string>
+
+    <!-- HomeEditMode.kt -->
+    <string name="add_apps">Add apps</string>
+    <string name="add_widget">Add widget</string>
+    <string name="done">Done</string>
+
+    <!-- LauncherActionSheet.kt -->
+    <string name="this_space">This space</string>
+    <string name="rearrange_home_add_a_widget_change">Rearrange Home, add a widget, change the wallpaper, or open settings.</string>
+
+    <!-- LauncherScreen.kt -->
+    <string name="stack_which_widget">Stack which widget?</string>
+    <string name="it_moves_into_this_widget_s">It moves into this widget\'s stack and leaves its spot on Home free.</string>
+    <string name="back_to_widgets">Back to widgets</string>
+    <string name="replace_here">Replace here</string>
+    <string name="place">Place</string>
+    <string name="no_room_here">No room here</string>
+    <string name="dock_full_move_an_app_out">Dock full • Move an app out first</string>
+    <string name="move_this_widget_into_the_six">Move this widget into the six-row grid before resizing.</string>
+    <string name="layout_document">Layout document</string>
+    <string name="the_system_document_picker_is_still">The system document picker is still open. Return to it to finish, or cancel this operation.</string>
+    <string name="resume">Resume</string>
+    <string name="background_photo">Background photo</string>
+    <string name="the_photo_picker_was_interrupted_resume">The photo picker was interrupted. Resume choosing a photo, or cancel and keep the current background.</string>
+    <string name="ok">OK</string>
+    <string name="widget_not_added">Widget not added</string>
+    <string name="finish_widget_setup">Finish widget setup</string>
+    <string name="the_widget_is_waiting_at_its">The widget is waiting at its chosen spot. Finish setup to add it, or cancel to remove the placeholder.</string>
+    <string name="finish_setup">Finish setup</string>
+    <string name="widget_settings">Widget settings</string>
+    <string name="widget_settings_were_interrupted_resume_co">Widget settings were interrupted. Resume configuration, or cancel and keep the widget unchanged.</string>
+    <string name="local_time">Local time</string>
+    <string name="a_little_more_room">A little more room.</string>
+    <string name="add_a_calendar_photos_or_another">Add a calendar, photos, or another widget.</string>
+    <string name="reconnect">Reconnect</string>
+    <string name="your_widgets">Your widgets</string>
+    <string name="tap_to_choose">Tap to choose</string>
+    <string name="search_apps">Search apps</string>
+    <string name="leave_this_position_empty">Leave this position empty</string>
+    <string name="no_apps_found">No apps found</string>
+    <string name="widget_options">Widget options</string>
+    <string name="resize">Resize</string>
+    <string name="resize_on_home">Resize on Home</string>
+    <string name="width">Width</string>
+    <string name="height">Height</string>
+    <string name="sizes_that_overlap_another_item_are">Sizes that overlap another item are ignored.</string>
+    <string name="that_size_overlaps_another_item_or">That size overlaps another item or extends beyond the page.</string>
+    <string name="apply_size">Apply size</string>
+
+    <!-- LayoutRestorePreview.kt -->
+    <string name="review_restored_layout">Review restored layout</string>
+    <string name="includes_your_unfolded_only_page">Includes your unfolded-only page.</string>
+    <string name="this_also_restores_icon_layout_labels">This also restores icon layout, labels, search, and status settings.</string>
+    <string name="widget_stacks_are_not_included_their">Widget stacks are not included; their widgets are tied to this phone.</string>
+    <string name="your_selected_launcher_background_photo_is">Your selected launcher background photo is not included in layout backups.</string>
+    <string name="profile_attention">Profile attention</string>
+    <string name="nothing_changes_until_you_choose_restore">Nothing changes until you choose Restore.</string>
+
+    <!-- PermissionLedgerScreen.kt -->
+    <string name="permissions_privacy">Permissions &amp; privacy</string>
+    <string name="change_in_android_s_settings">Change in Android\'s settings</string>
+
+    <!-- SetupExperience.kt -->
+    <string name="welcome_to_uno_launcher">Welcome to Uno Launcher</string>
+    <string name="a_quiet_home_screen_built_for">A quiet Home screen built for both sides of your foldable.</string>
+    <string name="choose_home_app">Choose Home app</string>
+    <string name="add_a_widget">Add a widget</string>
+    <string name="explore_home">Explore Home</string>
+    <string name="not_now">Not now</string>
+
+    <!-- Updates.kt -->
+    <string name="checks_github_every_few_hours_downloads">Checks GitHub every few hours, downloads the new release, and asks Android to install it. Android always asks you to confirm the install.</string>
+    <string name="check_for_updates">Check for updates</string>
+    <string name="versions">Versions</string>
+    <string name="you_can_install_any_version_including">You can install any version, including older ones. Android may clear saved layout data when an older version can\'t read the newer format.</string>
+    <string name="installed">Installed</string>
+    <string name="downloading">Downloading…</string>
+
+    <!-- WidgetPicker.kt -->
+    <string name="widgets">Widgets</string>
+    <string name="search_widgets">Search widgets</string>
+    <string name="turn_on">Turn on</string>
+    <string name="uno_launcher">Uno Launcher</string>
+    <string name="uno_widgets">Uno widgets</string>
+    <string name="tap_to_place_hold_to_drag">Tap to place · Hold to drag</string>
+    <string name="no_widgets_found">No widgets found</string>
+
+    <!-- appearance/AppearanceSettings.kt -->
+    <string name="appearance">Appearance</string>
+    <string name="place_name">Place name</string>
+    <string name="latitude_90_to_90">Latitude (−90 to 90)</string>
+    <string name="longitude_180_to_180">Longitude (−180 to 180)</string>
+    <string name="use_this_place">Use this place</string>
+    <string name="use_device_location">Use device location</string>
+    <string name="kept_only_on_this_device_never">Kept only on this device, never sent, until you clear it.</string>
+    <string name="clear_location">Clear location</string>
+
+    <!-- appearance/GlassDatePicker.kt -->
+    <string name="text">«</string>
+    <string name="text_2">‹</string>
+    <string name="text_3">›</string>
+    <string name="text_4">»</string>
+
+    <!-- appearance/GlassUi.kt -->
+    <string name="text_5">✓</string>
+
+    <!-- feed/FeedPage.kt -->
+    <string name="my_feed">My feed</string>
+    <string name="all_your_feeds_are_switched_off">All your feeds are switched off.</string>
+    <string name="turn_one_on_under_launcher_settings">Turn one on under Launcher settings &gt; News feed.</string>
+    <string name="checking_feeds">Checking feeds…</string>
+    <string name="feeds_couldn_t_be_read">Feeds couldn\'t be read.</string>
+    <string name="follow_grapheneos">Follow GrapheneOS</string>
+    <string name="nothing_is_contacted_until_you_choose">Nothing is contacted until you choose a feed, and each choice connects only to the server shown. Nothing is uploaded.</string>
+    <string name="add_your_own_feed">Add your own feed</string>
+
+    <!-- feed/FeedSettings.kt -->
+    <string name="add_a_feed">Add a feed</string>
+    <string name="uno_connects_directly_to_the_https">Uno connects directly to the https addresses you add, and only to those servers. Entries are stored on this device. Nothing is uploaded.</string>
+    <string name="feed_address">Feed address</string>
+    <string name="https_example_com_feed_xml">https://example.com/feed.xml</string>
+    <string name="suggested">Suggested</string>
+
+    <!-- folders/FolderPanel.kt -->
+    <string name="folder_name">Folder name</string>
+    <string name="move_to_dock">Move to dock</string>
+    <string name="remove_shortcut">Remove shortcut</string>
+
+    <!-- folders/LargeFolders.kt -->
+    <string name="large_folder">Large folder</string>
+    <string name="name">Name</string>
+
+    <!-- island/DynamicIsland.kt -->
+    <string name="timer_done">Timer done</string>
+    <string name="search_the_web">Search the web</string>
+    <string name="end">End</string>
+    <string name="camera">Camera</string>
+    <string name="mic">Mic</string>
+    <string name="recording">Recording</string>
+
+    <!-- island/IslandStyleSettings.kt -->
+    <string name="n_12_41">12:41</string>
+    <string name="open">Open</string>
+
+    <!-- keyboard/KeyboardUi.kt -->
+    <string name="abc">ABC</string>
+
+    <!-- panel/ControlPanel.kt -->
+    <string name="allow_brightness_control">Allow brightness control</string>
+    <string name="needs_modify_system_settings_access">Needs “Modify system settings” access</string>
+    <string name="add_shortcuts_in_launcher_settings">Add shortcuts in Launcher settings</string>
+    <string name="system_settings">System settings</string>
+
+    <!-- search/AppLibrary.kt -->
+    <string name="personal">Personal</string>
+    <string name="work">Work</string>
+    <string name="tap_to_copy">Tap to copy</string>
+    <string name="turn_on_work_apps">Turn on work apps</string>
+    <string name="look_elsewhere">Look elsewhere</string>
+    <string name="contacts">Contacts</string>
+
+    <!-- search/Spotlight.kt -->
+    <string name="search_apps_answers_feeds">Search apps, answers, feeds</string>
+    <string name="nothing_found">Nothing found</string>
+
+    <!-- widgets/CountdownWidget.kt -->
+    <string name="tap_to_set_a_date">Tap to set a date</string>
+
+    <!-- widgets/CounterWidget.kt -->
+    <string name="text_6">−</string>
+    <string name="tap_to_add_one">Tap to add one</string>
+
+    <!-- widgets/MediaPlayerWidget.kt -->
+    <string name="nothing_playing">Nothing playing</string>
+    <string name="media_widget_needs_access">Turn on notification access (Launcher settings, Notifications &amp; privacy) to see what is playing.</string>
+    <string name="media_widget_needs_setting">Turn on "Track title and artwork in media" (Launcher settings, Notifications &amp; privacy).</string>
+    <string name="media_widget_idle">Play something and it will show here.</string>
+
+    <!-- widgets/NextAlarmWidget.kt -->
+    <string name="no_alarm_set">No alarm set</string>
+    <string name="set_one_in_your_clock_app">Set one in your clock app.</string>
+
+    <!-- widgets/SunWidget.kt -->
+    <string name="set_a_place_in_wallpaper_glass">Set a place in Wallpaper &amp; glass, Appearance, to see sunrise and sunset.</string>
+    <string name="the_sun_does_not_set_today">The sun does not set today.</string>
+    <string name="the_sun_does_not_rise_today">The sun does not rise today.</string>
+    <string name="sunrise">Sunrise</string>
+    <string name="sunset">Sunset</string>
+
+    <!-- widgets/TimersWidget.kt -->
+    <string name="stop">Stop</string>
+
+    <!-- widgets/WorldClockWidget.kt -->
+    <string name="tap_to_add_a_place">Tap to add a place</string>
+
+    <!-- Icon packs (ExtrasSettings.kt) -->
+    <string name="icon_pack">Icon pack</string>
+    <string name="icon_pack_none">None</string>
+    <string name="icon_pack_none_detail">Use each app\'s own icon</string>
+    <string name="icon_pack_none_installed">No icon pack is installed. Install one (F-Droid and other stores have many that work with Nova, ADW or Lawnchair) and it will show up here.</string>
+    <string name="icon_pack_stop_using">Stop using the removed pack</string>
+    <string name="icon_pack_note">A pack replaces the icons it has; apps it does not cover keep their own icon and the style above. Uno reads only the pack\'s list of icons and its pictures, and sends nothing.</string>
+
+    <!-- First-run tour (SetupExperience.kt) -->
+    <string name="tour_edit_title">Rearrange Home</string>
+    <string name="tour_edit_detail">Long-press empty space and choose Edit Home: icons wiggle, drag any of them to a free cell, and tap Done.</string>
+    <string name="tour_island_title">Tap the island</string>
+    <string name="tour_island_detail">The pill at the camera shows the time, music, timers and charging. Tap it to open search, the feed and quick controls.</string>
+    <string name="tour_style_title">Make it yours</string>
+    <string name="tour_style_detail">Launcher settings has six wallpapers, glass controls, icon packs, and a style for the island.</string>
+    <!-- What's new (WhatsNew.kt): rewrite these with each release -->
+    <string name="whats_new_title">What\'s new in Uno %1$s</string>
+    <string name="whats_new_done">Got it</string>
+    <string name="whats_new_1">A new Molten metal wallpaper: contours of light that bend into one another like glass, in ice blue by day and ember by night.</string>
+    <string name="whats_new_2">Island style: pick from eight looks, or import, copy and paste one, under Dynamic island.</string>
+    <string name="whats_new_3">Icon packs: choose one under Icons. Menus across the launcher now share one glass style.</string>
+    <string name="whats_new_4">New widgets: Media player, Glance, Liquid battery, Photos and World clock.</string>
+    <!-- Island theme sharing as text -->
+    <string name="island_theme_copy">Copy this theme as text</string>
+    <string name="island_theme_paste">Paste a theme from text</string>
+    <string name="island_theme_copied">Theme copied. Paste it into any message; the other person uses Paste a theme.</string>
+    <string name="island_theme_clipboard_empty">The clipboard has no text to read.</string>
 </resources>

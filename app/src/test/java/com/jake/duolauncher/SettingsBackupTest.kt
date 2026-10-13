@@ -64,4 +64,18 @@ class SettingsBackupTest {
         val huge = "x".repeat(2_001)
         try { SettingsBackup.decode(JSONObject("""{"uno_widget_data":{"1_note":"$huge"}}""")); org.junit.Assert.fail("accepted") } catch (_: Exception) { }
     }
+
+    @Test fun theIslandThemeRoundTripsAndOldBackupsLackIt() {
+        val json = com.jake.duolauncher.island.IslandThemeFile.toJson(com.jake.duolauncher.island.IslandThemes.presets[3])
+        val snapshot = SettingsSnapshot(emptyMap(), emptyMap(), islandTheme = mapOf("json" to json))
+        val back = SettingsBackup.decode(SettingsBackup.encode(snapshot))
+        assertEquals(json, back.islandTheme["json"])
+        assertTrue(SettingsBackup.decode(org.json.JSONObject("{}")).islandTheme.isEmpty())
+    }
+
+    @Test fun anOversizedIslandThemeIsRefused() {
+        val big = "x".repeat(com.jake.duolauncher.island.IslandThemeFile.MAX_BYTES + 1)
+        val root = org.json.JSONObject().put(SettingsBackup.ISLAND_THEME, org.json.JSONObject().put("json", big))
+        try { SettingsBackup.decode(root); fail("should refuse") } catch (_: IllegalArgumentException) { }
+    }
 }

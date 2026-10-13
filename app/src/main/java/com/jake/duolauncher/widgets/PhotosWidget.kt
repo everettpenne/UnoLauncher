@@ -139,11 +139,15 @@ private fun PhotoPreview(uris: List<String>, startIndex: Int, title: String,
                 Text("${pager.currentPage + 1} of ${uris.size}" + if (title.isNotEmpty()) " · $title" else "",
                     color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f).padding(start = 8.dp), maxLines = 1)
-                IconButton(onClick = onSettings, Modifier.testTag("photos-preview-settings")) {
-                    Icon(Icons.Rounded.Tune, "Photo settings", tint = Color.White)
-                }
-                IconButton(onClick = onDismiss, Modifier.testTag("photos-preview-close")) {
-                    Icon(Icons.Rounded.Close, "Close", tint = Color.White)
+                CompositionLocalProvider(LocalKitInk provides Color.White) {
+                    GlassIconButton(onClick = onSettings, modifier = Modifier.testTag("photos-preview-settings")) {
+                        Icon(Icons.Rounded.Tune, "Photo settings")
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    GlassIconButton(onClick = onDismiss, modifier = Modifier.testTag("photos-preview-close")) {
+                        Icon(Icons.Rounded.Close, "Close")
+                    }
+                    Spacer(Modifier.width(8.dp))
                 }
             }
         }

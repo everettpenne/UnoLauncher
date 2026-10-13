@@ -1,5 +1,6 @@
 package com.jake.duolauncher.widgets
 
+import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.*
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
@@ -46,8 +47,8 @@ internal fun NextAlarmFace(slot: Int, onOptions: () -> Unit) {
         CardTitle(Icons.Rounded.Alarm, "Next alarm")
         val alarm = info
         if (alarm == null) {
-            Text("No alarm set", color = ink.primary, fontSize = 18.sp, fontWeight = FontWeight.Light, modifier = Modifier.testTag("next-alarm-none"))
-            Text("Set one in your clock app.", color = ink.soft(), fontSize = 12.sp)
+            Text(stringResource(com.jake.duolauncher.R.string.no_alarm_set), color = ink.primary, fontSize = 18.sp, fontWeight = FontWeight.Light, modifier = Modifier.testTag("next-alarm-none"))
+            Text(stringResource(com.jake.duolauncher.R.string.set_one_in_your_clock_app), color = ink.soft(), fontSize = 12.sp)
         } else {
             val zone = ZoneId.systemDefault()
             val parts = NextAlarmText.describe(Instant.ofEpochMilli(nowMs).atZone(zone), Instant.ofEpochMilli(alarm.triggerTime).atZone(zone),

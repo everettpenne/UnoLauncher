@@ -34,6 +34,11 @@ class GlassMenusInstrumentedTest {
 
     @Test fun photosMenuIsGlassAndWorks() {
         ready()
+        val layoutBefore = model().state.value.layout
+        try { photosMenuBody() } finally { compose.runOnIdle { model().restoreLayout(layoutBefore) } }
+    }
+
+    private fun photosMenuBody() {
         compose.runOnIdle { model().state.value.layout.widgetPlacements.map { it.slot }.forEach { model().removePlacement(DropTarget.Widget(it)) } }
         compose.waitForIdle()
         val layout = model().state.value.layout
@@ -87,5 +92,43 @@ class GlassMenusInstrumentedTest {
         compose.onNodeWithTag("island-theme-reset", useUnmergedTree = true).performScrollTo().performClick()
         compose.waitForIdle()
         assertEquals("Classic", IslandThemes.active.name)
+    }
+
+    /** After an update the launcher shows its "what's new" note once; a second launch of the same version does not. */
+    @Test fun whatsNewAppearsOnceAfterAnUpdate() {
+        ready()
+        val prefs = compose.activity.getSharedPreferences("whats_new", 0)
+        val version = compose.activity.packageManager.getPackageInfo(compose.activity.packageName, 0).versionName!!
+        prefs.edit().putString("seen", "0.0.1-old").commit()
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(90_000) { !ViewModelProvider(compose.activity)[LauncherModel::class.java].state.value.loading }
+        compose.waitUntil(15_000) { present("whats-new") }
+        shot("whats-new")
+        compose.onNodeWithTag("whats-new-done", useUnmergedTree = true).performClick()
+        compose.waitForIdle()
+        assertFalse(present("whats-new"))
+        assertEquals(version, prefs.getString("seen", null))
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(90_000) { !ViewModelProvider(compose.activity)[LauncherModel::class.java].state.value.loading }
+        compose.waitForIdle()
+        assertFalse("not shown again for the same version", present("whats-new"))
+    }
+
+    /** A theme copied as text can be pasted back into a preview, and nothing changes until Apply. */
+    @Test fun anIslandThemeCanBeCopiedAsTextAndPastedBack() {
+        ready()
+        val controller = IslandThemeController.current!!
+        compose.runOnIdle {
+            IslandThemes.apply(IslandThemes.presets.first { it.name == "Aurora" })
+            controller.copyTheme()
+            IslandThemes.reset()
+            controller.pasteTheme()
+        }
+        compose.waitForIdle()
+        assertEquals("Aurora", controller.preview?.name)
+        assertEquals("Classic", IslandThemes.active.name)
+        compose.runOnIdle { controller.applyPreview() }
+        assertEquals("Aurora", IslandThemes.active.name)
+        compose.runOnIdle { IslandThemes.reset() }
     }
 }

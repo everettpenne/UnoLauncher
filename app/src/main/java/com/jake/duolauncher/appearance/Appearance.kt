@@ -36,20 +36,19 @@ class AppearanceStore(private val context: Context) {
         val lat = runCatching { prefs.getString("lat", null)?.toDoubleOrNull() }.getOrNull()
         val lon = runCatching { prefs.getString("lon", null)?.toDoubleOrNull() }.getOrNull()
         // One-time migration from the single refraction slider to the three lens knobs.
-        val legacyRefraction = runCatching { prefs.getFloat("refraction", .55f) }.getOrDefault(.55f).coerceIn(0f, 1f)
+        val legacyRefraction = prefs.lenientFloat("refraction", .55f).coerceIn(0f, 1f)
         return resolve(AppearanceState(mode, runCatching { prefs.getString("place", "") ?: "" }.getOrDefault(""), lat, lon,
             runCatching { prefs.getLong("locationTime", 0) }.getOrDefault(0),
             runCatching { prefs.getBoolean("deviceLocation", false) }.getOrDefault(false),
             liquidGlass = runCatching { prefs.getBoolean("liquidGlass", true) }.getOrDefault(true),
-            refractionHeight = runCatching { prefs.getFloat("refractionHeight", legacyRefraction) }.getOrDefault(legacyRefraction).coerceIn(0f, 1f),
-            refractionAmount = runCatching { prefs.getFloat("refractionAmount", legacyRefraction) }.getOrDefault(legacyRefraction).coerceIn(0f, 1f),
-            refractionChroma = runCatching { prefs.getFloat("refractionChroma", if (legacyRefraction >= .5f) legacyRefraction else 0f) }
-                .getOrDefault(if (legacyRefraction >= .5f) legacyRefraction else 0f).coerceIn(0f, 1f),
+            refractionHeight = prefs.lenientFloat("refractionHeight", legacyRefraction).coerceIn(0f, 1f),
+            refractionAmount = prefs.lenientFloat("refractionAmount", legacyRefraction).coerceIn(0f, 1f),
+            refractionChroma = prefs.lenientFloat("refractionChroma", if (legacyRefraction >= .5f) legacyRefraction else 0f).coerceIn(0f, 1f),
             wallpaperColor = runCatching { prefs.getBoolean("wallpaperColor", false) }.getOrDefault(false),
             tiltHighlight = runCatching { prefs.getBoolean("tiltHighlight", false) }.getOrDefault(false),
-            tiltStrength = runCatching { prefs.getFloat("tiltStrength", DEFAULT_STRENGTH) }.getOrDefault(DEFAULT_STRENGTH).coerceIn(0f, 1f),
+            tiltStrength = prefs.lenientFloat("tiltStrength", DEFAULT_STRENGTH).coerceIn(0f, 1f),
             island = runCatching { prefs.getBoolean("island", true) }.getOrDefault(true),
-            islandScale = runCatching { prefs.getFloat("islandScale", .5f) }.getOrDefault(.5f).coerceIn(0f, 1f)), systemDark)
+            islandScale = prefs.lenientFloat("islandScale", .5f).coerceIn(0f, 1f)), systemDark)
     }
     fun setMode(mode: AppearanceMode, systemDark: Boolean) { save(state.copy(mode = mode), systemDark) }
     fun setLiquidGlass(value: Boolean) { save(state.copy(liquidGlass = value), currentSystemDark()) }

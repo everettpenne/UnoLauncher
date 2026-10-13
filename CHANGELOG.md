@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.48.2-uno01
+
+- **Fixed a crash after restoring settings from a backup.** Root cause: Android's JSON writes a whole-number float (a keyboard haptic strength of 1.0, the island size at 1.0) as `1`, so the restore read it back as an integer and, on an install that had never saved that setting, stored it as an integer; the launcher then read it as a decimal and threw `ClassCastException` at startup. Restore now writes these settings (keyboard haptic strength, island size, tilt, and the three lens knobs) as decimals, and every place that reads them accepts a stray integer, so an install already holding the bad value starts again without reinstalling.
+- Release notes are now picked up by `.gitignore` automatically, so a new notes file no longer needs `git add -f`.
+- Tests: a unit test for the float keys and an emulator test that restores a whole-number float into a fresh install and reads it back.
+
 ## 0.48.1-uno01
 
 - **The app is now signed with a new key.** The password for the old signing key was lost, so a new key was made and its password stored safely. Android will not install an update signed with a different key, so **this release does not install over 0.47.0 or 0.48.0: uninstall Uno first.** Before you do, export a layout backup from Settings (Backup) and restore it afterwards. Future releases use this key, so this is a one-time step.

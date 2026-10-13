@@ -114,7 +114,7 @@ internal class ExtrasStore(context: Context) {
         kbNumberRow = prefs.getBoolean("kbNumberRow", false),
         kbOneHanded = prefs.getInt("kbOneHanded", 0).coerceIn(0, 2),
         kbSpaceCursor = prefs.getBoolean("kbSpaceCursor", true),
-        kbHapticStrength = prefs.getFloat("kbHapticStrength", com.jake.duolauncher.keyboard.HapticProfile.DEFAULT_STRENGTH).coerceIn(0f, 1f),
+        kbHapticStrength = prefs.lenientFloat("kbHapticStrength", com.jake.duolauncher.keyboard.HapticProfile.DEFAULT_STRENGTH).coerceIn(0f, 1f),
         handoff = prefs.getBoolean("handoff", true),
         webPackage = prefs.getString("webPackage", null)?.takeIf { it.isNotBlank() },
         handoffStores = prefs.getString("handoffStores", null)?.split(',')?.filter { it.isNotBlank() }?.toSet() ?: HandoffLogic.DEFAULT_STORES,

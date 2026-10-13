@@ -41,6 +41,16 @@ internal object SettingsBackup {
         EXTRAS to setOf("webPackage"),
         APPEARANCE to setOf("debugCutout", "debugHud", "lat", "lon", "place", "locationTime", "deviceLocation"),
     )
+    /**
+     * Settings that are read as floats. JSON cannot tell 1.0 from 1 (org.json writes a whole float without its ".0"), so a
+     * restored whole-number float came back as an Int and was stored as one on an install that had never written the key,
+     * and the later getFloat threw ClassCastException at startup. These are always written as floats.
+     */
+    private val FLOAT_KEYS = mapOf(
+        EXTRAS to setOf("kbHapticStrength"),
+        APPEARANCE to setOf("refraction", "refractionHeight", "refractionAmount", "refractionChroma", "tiltStrength", "islandScale"),
+    )
+    fun isFloatKey(file: String, key: String) = key in FLOAT_KEYS[file].orEmpty()
     private val KEY = Regex("[A-Za-z0-9_]{1,48}")
 
     fun exportable(file: String, key: String) = KEY.matches(key) && key !in EXCLUDED[file].orEmpty()
@@ -108,6 +118,7 @@ internal object SettingsBackup {
             val existing = prefs.all
             val edit = prefs.edit()
             values.forEach { (key, value) ->
+                if (isFloatKey(file, key)) { (value as? Number)?.let { edit.putFloat(key, it.toFloat()) }; return@forEach }
                 when (existing[key]) {
                     is Boolean -> (value as? Boolean)?.let { edit.putBoolean(key, it) }
                     is Int -> (value as? Number)?.let { edit.putInt(key, it.toInt()) }

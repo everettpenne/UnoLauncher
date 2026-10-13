@@ -26,6 +26,13 @@ class SettingsBackupTest {
         assertEquals(4, back.count)
     }
 
+    @Test fun floatSettingsAreRecognisedSoARestoredWholeNumberIsStillWrittenAsAFloat() {
+        // Android's org.json writes 1.0 as 1, so a restored float can arrive as an Int; these keys are always written as floats.
+        assertTrue(SettingsBackup.isFloatKey(SettingsBackup.EXTRAS, "kbHapticStrength"))
+        assertTrue(SettingsBackup.isFloatKey(SettingsBackup.APPEARANCE, "islandScale"))
+        assertFalse(SettingsBackup.isFloatKey(SettingsBackup.EXTRAS, "haptics"))
+    }
+
     @Test fun decodeIgnoresExcludedKeysEvenIfPresent() {
         val back = SettingsBackup.decode(JSONObject("""{"appearance":{"debugHud":true,"islandScale":0.5},"extras":{"webPackage":"evil"}}"""))
         assertEquals(setOf("islandScale"), back.appearance.keys)

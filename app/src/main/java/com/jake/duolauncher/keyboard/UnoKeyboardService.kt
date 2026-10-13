@@ -31,6 +31,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.jake.duolauncher.Cue
+import com.jake.duolauncher.lenientFloat
 import com.jake.duolauncher.UnoFeedback
 
 /** Uno Keyboard: a liquid-glass-styled on-screen keyboard.
@@ -85,7 +86,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         clipboard = getSystemService(ClipboardManager::class.java)
         runCatching { clipboard?.addPrimaryClipChangedListener(clipListener) }
         UnoFeedback.configure(this, prefs.getBoolean("haptics", true), prefs.getBoolean("sounds", false))
-        KeyHaptics.configure(this, if (prefs.getBoolean("haptics", true)) prefs.getFloat("kbHapticStrength", HapticProfile.DEFAULT_STRENGTH) else 0f)
+        KeyHaptics.configure(this, if (prefs.getBoolean("haptics", true)) prefs.lenientFloat("kbHapticStrength", HapticProfile.DEFAULT_STRENGTH) else 0f)
         Thread {
             // Loading the word lists is background work: it must never take the processor from the keyboard's first draw.
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
@@ -155,7 +156,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         allowAutocorrect = KeyboardModel.allowsAutocorrect(info.inputType)
         ui.showStrip = suggestionsOn && allowSuggestions
         ignored.clear(); lastFix = null; fixCache = null
-        KeyHaptics.configure(this, if (prefs.getBoolean("haptics", true)) prefs.getFloat("kbHapticStrength", HapticProfile.DEFAULT_STRENGTH) else 0f)
+        KeyHaptics.configure(this, if (prefs.getBoolean("haptics", true)) prefs.lenientFloat("kbHapticStrength", HapticProfile.DEFAULT_STRENGTH) else 0f)
         // One read of the field now; after this the mirror follows our own edits and only external changes are re-read.
         expectedCursor.clear(); cursor = info.initialSelStart
         if (info.initialSelStart == info.initialSelEnd) resyncMirror() else mirror.invalidate()

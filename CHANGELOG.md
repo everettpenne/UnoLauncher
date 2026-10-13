@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.48.1-uno01
+
+- **The app is now signed with a new key.** The password for the old signing key was lost, so a new key was made and its password stored safely. Android will not install an update signed with a different key, so **this release does not install over 0.47.0 or 0.48.0: uninstall Uno first.** Before you do, export a layout backup from Settings (Backup) and restore it afterwards. Future releases use this key, so this is a one-time step.
+- No other changes: the 0.48.0 features (several Home pages, the Spotlight revamp, exact widget resize rows) are all here.
+
 ## 0.48.0-uno01
 
 - **Several Home pages.** Edit Home's **+** menu now has **Add page**, which keeps a blank page until you fill it, and **Remove this empty page**. Pages survive restarts and undo; the cap is 12. (Before, a page existed only while something was on it.)

@@ -352,12 +352,12 @@ internal object DuneLandscape {
                     val inside = SceneMath.smooth(d / (1.6f * s * cfg.edge))
                     val t = SceneMath.smooth(facing[r][x] * .5f + .5f) * exp(-d / (h * .035f))
                     var cr = SceneMath.lerp(rbR, rlR, t); var cg = SceneMath.lerp(rbG, rlG, t); var cb = SceneMath.lerp(rbB, rlB, t)
-                    val mott = (SceneMath.noise2(x / (14f * s), y / (14f * s), 40 + r) - .5f) * (if (dark) .30f else .16f)
+                    val mott = (SceneMath.noise2(x / (14f * s), y / (14f * s), 40 + r) - .5f) * (if (dark) .20f else .09f)
                     cr *= 1f + mott; cg *= 1f + mott; cb *= 1f + mott
                     val hz = cfg.rangeHaze[r] * (1f - d / (h * .09f) * .3f).coerceIn(.6f, 1f)
                     cr = SceneMath.lerp(cr, hzR, hz); cg = SceneMath.lerp(cg, hzG, hz); cb = SceneMath.lerp(cb, hzB, hz)
                     rr = SceneMath.lerp(rr, cr, inside); gg = SceneMath.lerp(gg, cg, inside); bb = SceneMath.lerp(bb, cb, inside)
-                    land = maxOf(land, inside * .6f)
+                    land = maxOf(land, inside * .2f)
                 }
                 for (i in 0 until layers) {
                     val depth = if (layers > 1) i / (layers - 1f) else 1f

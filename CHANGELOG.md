@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.49.1-uno01
+
+- **Dune range: the distant rock ranges are cleaner too.** They keep about a third of the grain they had (the sky keeps a fifth, and the sand keeps all of it), and the soft blotchy mottling in the haze is about 45% weaker, so the ridges read as haze and rock rather than noise. The composition, colours and the sand's texture are unchanged.
+
 ## 0.49.0-uno01
 
 - **Dune range is crisper and cleaner.** Same composition, same colours; what changed is how it is drawn.

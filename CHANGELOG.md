@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.53.0-uno01
+
+- **Swipe a stack to switch it.** Swipe up on a widget stack for the next widget and down for the previous one; they slide in and out, with a tick on each step. Sideways swipes still turn the page. A swipe that starts on a stack no longer opens the shade, control panel or settings (swipe from outside it for those), and a list-style Android widget keeps its own scrolling (the dots down the edge still switch it).
+- **Drag a widget onto another to stack it.** Long-press a widget and drag it over the middle of another one. Hold it there for about half a second: the target grows a little and gets a ring, and a buzz tells you it will stack. Let go to merge. A quick pass over a widget still just moves it. A widget that already holds a stack, a folder widget, or a full stack will not take part.
+- **Folders from a drag, the iOS way.** Dragging an app over the middle of another app already made a folder; the target app now grows and glows as you hold, so you can see it will.
+- Tests: emulator tests swipe a stack up and down, hold-to-stack a Counter onto a Note, and check that a quick pass does not stack.
+
 ## 0.52.0-uno01
 
 - **Uno widgets can be stacked.** The Clock, the Date card and every widget in the Uno library (Note, Counter, Battery, Month, Moon, Timers and the rest) now stack, alone or mixed with Android widgets. Open a widget's options, choose **Stack another widget here**, and pick the one to merge in; switch between them with the dots down the stack's right edge. A stacked widget keeps its own saved data (a note's text, a counter's count), and **Remove ... from this stack** forgets it.

@@ -210,6 +210,11 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         Text(if (accessOn) "Manage notification access" else "Open notification access settings")
     }
     SettingsSwitch("Badges on app icons", s.badges, store::setBadges, "badges-switch")
+    if (s.badges) {
+        ChoiceRow("Count", "The number of unread notifications", !s.badgeDots, "badge-style-count") { store.setBadgeDots(false) }
+        ChoiceRow("Dot", "A plain dot, no number", s.badgeDots, "badge-style-dot") { store.setBadgeDots(true) }
+        Text(stringResource(com.jake.duolauncher.R.string.badge_mute_note), style = note, color = muted)
+    }
     SettingsSwitch("Track title and artwork in media", s.mediaDetails, store::setMediaDetails, "media-details-switch")
     }
     if (section == ExtrasSection.ISLAND) {

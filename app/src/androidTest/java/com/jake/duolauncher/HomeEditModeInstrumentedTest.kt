@@ -69,6 +69,40 @@ class HomeEditModeInstrumentedTest {
         } finally { compose.runOnIdle { model().restoreLayout(before) } }
     }
 
+    @Test fun aBlankPageCanBeMovedEarlierAndKeepsItsPlace() {
+        ready()
+        val before = model().state.value.layout
+        try {
+            enterEditMode(freeCell(before))
+            compose.onNodeWithTag("home-edit-add").performClick()
+            compose.onNodeWithTag("home-edit-add-page").performClick()
+            compose.waitUntil(10_000) { model().state.value.homePages == before.pageCount + 1 }
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("home-edit-add", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("home-edit-add").performClick()
+            compose.onNodeWithTag("home-edit-page-earlier").assertExists().performClick()
+            compose.waitUntil(10_000) { model().state.value.layout.pageIsEmpty(before.pageCount - 1) }
+            assertEquals(before.pageCount + 1, model().state.value.homePages)
+            assertFalse("the page that was last is now second to last", model().state.value.layout.pageIsEmpty(before.pageCount))
+        } finally { compose.runOnIdle { model().restoreLayout(before) } }
+    }
+
+    @Test fun hidingAnAppFromItsMenuTakesItOffHomeAndOutOfAllApps() {
+        ready()
+        val before = model().state.value.layout
+        val id = before.slots.firstOrNull { it != null && model().state.value.folders.none { f -> it in f.appIds } } ?: error("Home needs an app outside a folder for this test")
+        val app = model().state.value.apps.first { it.id == id }
+        try {
+            compose.onNodeWithContentDescription(app.label).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnLongClick)
+            compose.waitUntil(10_000) { present("app-hide-$id") }
+            compose.onNodeWithTag("app-hide-$id").performClick()
+            compose.waitUntil(10_000) { id in model().state.value.hiddenApps }
+            assertNull("no longer on Home", model().state.value.layout.indexOfShortcut(id))
+            assertTrue("out of the visible list", model().state.value.visibleApps.none { it.id == id })
+        } finally {
+            compose.runOnIdle { model().unhideApp(id); model().restoreLayout(before) }
+        }
+    }
+
     @Test fun theBadgeTakesTheAppOffHome() {
         ready()
         val before = model().state.value.layout

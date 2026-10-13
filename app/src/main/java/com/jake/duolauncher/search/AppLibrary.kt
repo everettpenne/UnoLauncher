@@ -55,7 +55,7 @@ internal fun AppLibrary(
     val pinned = remember(state.homeSlots, state.leadingSlots) {
         (state.homeSlots.asSequence() + state.leadingSlots.asSequence()).filterNotNull().toSet()
     }
-    val hasWork = state.profiles.any { it.isWork } || state.apps.any { it.isWork }
+    val hasWork = state.profiles.any { it.isWork } || state.visibleApps.any { it.isWork }
     // A sum or a unit conversion typed into search is answered on the spot (nothing leaves the device).
     val smart = remember(query, editing) { if (editing) null else SearchSmarts.answer(query) }
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
@@ -66,8 +66,9 @@ internal fun AppLibrary(
     LaunchedEffect(showWork, selectedProfile?.available, selectedProfile?.quiet) {
         listState.scrollToItem(0)
     }
-    val visibleApps = remember(state.apps, query, showWork, hasWork) {
-        state.apps.filter { (!hasWork || it.isWork == showWork) && it.label.contains(query.trim(), true) }
+    val visibleApps = remember(state.apps, state.hiddenApps, query, showWork, hasWork, editing) {
+        // Hidden apps are out of the list; typing one's exact name (not while choosing Home apps) brings it back.
+        HiddenApps.shown(state.apps, state.hiddenApps, if (editing) "" else query, { it.id }, { it.label }).filter { (!hasWork || it.isWork == showWork) && it.label.contains(query.trim(), true) }
     }
     val groups = remember(visibleApps) {
         visibleApps.groupBy {

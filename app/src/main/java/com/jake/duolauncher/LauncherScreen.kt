@@ -855,6 +855,12 @@ internal fun LauncherScreen(
                     onRemovePage = pager.currentPage.takeIf { it in 1 until homePages && state.layout.pageIsEmpty(it) }?.let { page ->
                         { model.removeHomePage(page); Unit }
                     },
+                    onMovePageEarlier = pager.currentPage.takeIf { it in 1 until homePages }?.let { page ->
+                        { if (model.moveHomePage(page, -1)) scope.launch { pager.animateScrollToPage(page - 1) }; Unit }
+                    },
+                    onMovePageLater = pager.currentPage.takeIf { it in 0 until homePages - 1 }?.let { page ->
+                        { if (model.moveHomePage(page, 1)) scope.launch { pager.animateScrollToPage(page + 1) }; Unit }
+                    },
                     onDone = { homeEditing = false }, modifier = Modifier.align(Alignment.TopCenter))
             }
             if (appearance.island && !islandEverywhere && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen && !spotlightOpen) {
@@ -895,7 +901,7 @@ internal fun LauncherScreen(
                         }
                     }
                     when (sheet) {
-                        "dock" -> AppPicker(state.apps, dockSlot,
+                        "dock" -> AppPicker(state.visibleApps, dockSlot,
                             onSelect = {
                                 if (canPlaceInDock(state.layout, it.id)) {
                                     model.applyDrop(it.id, DropTarget.Dock(dockSlot)); sheet = ""
@@ -908,7 +914,7 @@ internal fun LauncherScreen(
                         "split" -> {
                             val first = splitFirstId?.let(appsById::get)
                             if (first == null) LaunchedEffect(Unit) { sheet = "" }
-                            else AppPicker(state.apps.filter { it.id != first.id }, null,
+                            else AppPicker(state.visibleApps.filter { it.id != first.id }, null,
                                 onSelect = { second -> sheet = ""; splitFirstId = null; launcherActivity.launchSplit(first, second) },
                                 onClear = {}, onLongClick = {},
                                 title = "Open ${first.label} with…")
@@ -1302,7 +1308,7 @@ internal fun LauncherScreen(
                 if (targetState == androidx.compose.animation.EnterExitState.Visible) androidx.compose.animation.core.spring(dampingRatio = .78f, stiffness = 320f)
                 else androidx.compose.animation.core.tween(200)
             }, label = "search grows from the island") { if (it == androidx.compose.animation.EnterExitState.Visible) 1f else 0f }
-            Spotlight(controlGlass, state.apps, feed.shownEntries, extras?.store?.state?.contactSearch == true, handoffResolver,
+            Spotlight(controlGlass, state.apps, state.hiddenApps, feed.shownEntries, extras?.store?.state?.contactSearch == true, handoffResolver,
                 onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },
                 onOpenFeedLink = { link -> spotlightOpen = false; onFeedOpenEntry(link) },
                 onOpenContact = { contact -> spotlightOpen = false; ContactsSearch.open(launcherActivity, contact) },
@@ -1458,7 +1464,20 @@ internal fun LauncherScreen(
                     onClose = { appMoveMenu = false; selectedId = null },
                     onSplit = { splitFirstId = app.id; selectedId = null; sheet = "split" },
                     shortcuts = shortcuts, onShortcut = { AppShortcuts.start(launcherActivity, it); selectedId = null },
-                    onEditHome = { homeEditing = true; selectedId = null })
+                    onEditHome = { homeEditing = true; selectedId = null },
+                    onHide = if (state.folders.none { app.id in it.appIds }) {{ model.hideApp(app.id); selectedId = null }} else null,
+                    onUninstall = if (!isSystemApp(launcherActivity, app)) {{
+                        runCatching {
+                            launcherActivity.startActivity(android.content.Intent(android.content.Intent.ACTION_DELETE, android.net.Uri.parse("package:$packageName"))
+                                .putExtra(android.content.Intent.EXTRA_USER, app.user))
+                        }
+                        selectedId = null
+                    }} else null,
+                    badgesMuted = extras?.store?.state?.takeIf { it.badges }?.let { packageName in BadgeMute.parse(it.badgeMuted) },
+                    onToggleBadges = {
+                        extras?.store?.let { store -> store.setBadgeMuted(packageName, packageName !in BadgeMute.parse(store.state.badgeMuted)) }
+                        selectedId = null
+                    })
             }
         }
         emptyCellIndex?.let { index ->
@@ -1475,7 +1494,7 @@ internal fun LauncherScreen(
             val first = appsById[firstId]
             GlassAlertDialog(onDismissRequest = { createFolderFirstId = null }, title = { Text("Create folder with ${first?.label ?: "app"}") },
                 text = { LazyColumn(Modifier.heightIn(max = 420.dp).testTag("folder-app-picker")) {
-                    items(state.apps.filter { it.id != firstId && it.available }, key = { it.id }) { second ->
+                    items(state.visibleApps.filter { it.id != firstId && it.available }, key = { it.id }) { second ->
                         GlassButton(onClick = {
                             val preferredPage = state.layout.indexOfShortcut(firstId)?.let(::homeCellPage)
                                 ?.takeIf { it >= 0 || expandedWorkspace } ?: lastHomePage.coerceIn(0, homePages - 1)
@@ -2472,3 +2491,9 @@ private fun WidgetActions(
         Spacer(Modifier.height(12.dp))
     }
 }
+
+/** Whether [app] ships with the phone and has not been updated, so Android would refuse to uninstall it. */
+private fun isSystemApp(context: android.content.Context, app: AppEntry): Boolean = runCatching {
+    val flags = context.packageManager.getApplicationInfo(app.packageName, 0).flags
+    (flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0 && (flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0
+}.getOrDefault(!app.isWork)

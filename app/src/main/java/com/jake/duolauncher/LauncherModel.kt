@@ -62,6 +62,8 @@ data class LauncherState(
     val widgetPlacements: List<WidgetPlacement> = DEFAULT_WIDGET_PLACEMENTS,
     val widgetRestores: List<WidgetRestore> = emptyList(),
     val minPages: Int = 1,
+    /** Apps the user hid: out of All apps and search (an exact name still finds them) and off Home. */
+    val hiddenApps: Set<String> = emptySet(),
     val googleSearch: Boolean = true,
     val compact: LayoutPreset = LayoutPreset(),
     val expanded: LayoutPreset = LayoutPreset(),
@@ -74,6 +76,8 @@ data class LauncherState(
     val widgets: List<Int> get() = layout.widgets
     val layout: HomeLayout get() = HomeLayout(homeSlots, dock, widgetPlacements, folders, widgetRestores, leadingSlots, minPages)
     val homePages get() = layout.pageCount
+    /** The apps shown in All apps, pickers and search suggestions. */
+    val visibleApps: List<AppEntry> get() = if (hiddenApps.isEmpty()) apps else apps.filter { it.id !in hiddenApps }
 }
 
 class LauncherModel(application: Application) : AndroidViewModel(application) {
@@ -405,6 +409,26 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         val target = mutable.value.layout.placement(to) ?: return false
         return moveWidgetTo(from, target.page * HOME_CELLS + target.row * GRID_COLUMNS + target.column)
     }
+    /** Hides an app: gone from All apps and search, and taken off Home. An app inside a folder is left alone (take it out first). */
+    fun hideApp(id: String): Boolean {
+        if (statePayloadInvalid || mutable.value.folders.any { id in it.appIds }) return false
+        mutable.update { old ->
+            old.copy(hiddenApps = old.hiddenApps + id,
+                homeSlots = pinHomeApp(old.homeSlots, id, false, emptySet()),
+                leadingSlots = old.leadingSlots.map { it?.takeUnless(id::equals) },
+                dock = old.dock.map { it?.takeUnless(id::equals) },
+                canUndoEdit = false)
+        }
+        undoLayout = null; undoImportSettings = null
+        persist()
+        return true
+    }
+    fun unhideApp(id: String) {
+        if (statePayloadInvalid) return
+        mutable.update { it.copy(hiddenApps = it.hiddenApps - id) }
+        persist()
+    }
+    fun moveHomePage(page: Int, delta: Int): Boolean = commitLayout(mutable.value.layout.withPageMoved(page, delta))
     fun addHomePage(): Boolean = commitLayout(mutable.value.layout.withAddedPage())
     fun removeHomePage(page: Int): Boolean = commitLayout(mutable.value.layout.withoutPage(page))
     fun moveWidgetTo(slot: Int, index: Int) = commitLayout(moveWidget(mutable.value.layout, slot, index))
@@ -510,6 +534,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
             .put("folders", folders)
             .put("restores", restores)
             .put("minPages", s.minPages)
+            .put("hidden", JSONArray(s.hiddenApps.sorted()))
             .put("googleSearch", s.googleSearch)
             .put("verticalStatus", s.verticalStatus)
             .put("compact", preset(s.compact)).put("expanded", preset(s.expanded))
@@ -648,6 +673,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
             dock = loadedDock,
             widgetPlacements = placements, folders = folders, widgetRestores = restores,
             minPages = j.optInt("minPages", 1).coerceIn(1, MAX_HOME_PAGES),
+            hiddenApps = j.optJSONArray("hidden")?.let { array -> (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotBlank) }.toSet() }.orEmpty(),
             googleSearch = j.optBoolean("googleSearch", true),
             labels = j.optBoolean("labels", true), compact = preset("compact", LayoutPreset()),
             expanded = preset("expanded", LayoutPreset()), verticalStatus = j.optBoolean("verticalStatus", true))

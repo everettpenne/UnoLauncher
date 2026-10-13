@@ -67,6 +67,20 @@ data class HomeLayout(
     fun pageIsEmpty(page: Int) = page in 0 until pageCount &&
         slotsForPage(page).all { it == null } && widgetPlacements.none { it.page == page }
     fun withAddedPage(): HomeLayout = if (pageCount >= MAX_HOME_PAGES) this else copy(minPages = pageCount + 1)
+    /** Swaps home page [page] with its neighbour [delta] (-1 or 1) away, carrying apps, folders and widgets with it. */
+    fun withPageMoved(page: Int, delta: Int): HomeLayout {
+        val other = page + delta
+        if (delta !in -1..1 || delta == 0 || page !in 0 until pageCount || other !in 0 until pageCount) return this
+        val padded = slots.toMutableList().apply { while (size < pageCount * HOME_CELLS) add(null) }
+        val moved = padded.toMutableList()
+        for (local in 0 until HOME_CELLS) {
+            moved[page * HOME_CELLS + local] = padded[other * HOME_CELLS + local]
+            moved[other * HOME_CELLS + local] = padded[page * HOME_CELLS + local]
+        }
+        return copy(slots = normalizeHomeSlots(moved),
+            widgetPlacements = widgetPlacements.map { when (it.page) { page -> it.copy(page = other); other -> it.copy(page = page); else -> it } },
+            minPages = pageCount)
+    }
     /** Drops an empty page, shifting later pages (apps and widgets) down by one. Page 0 is never removed. */
     fun withoutPage(page: Int): HomeLayout {
         if (page <= 0 || pageCount <= 1 || !pageIsEmpty(page)) return this

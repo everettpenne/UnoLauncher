@@ -24,6 +24,12 @@ import androidx.compose.ui.unit.sp
 @Composable
 internal fun AppBadge(count: Int, modifier: Modifier = Modifier) {
     if (count <= 0) return
+    if (NotificationFeed.badgeDots) {
+        // The quieter style: a plain dot says "something is waiting" without a number.
+        Box(modifier.offset(x = 3.dp, y = (-3).dp).size(12.dp).background(Color(0xFFFF3B30), CircleShape)
+            .semantics { contentDescription = "$count unread" }.testTag("app-badge"))
+        return
+    }
     Box(modifier.offset(x = 5.dp, y = (-5).dp).defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
         .background(Color(0xFFFF3B30), CircleShape).padding(horizontal = 5.dp)
         .semantics { contentDescription = "$count unread" }.testTag("app-badge"),
@@ -34,3 +40,11 @@ internal fun AppBadge(count: Int, modifier: Modifier = Modifier) {
 
 /** Unread count for [packageName] from the notification listener (always 0 while it is off). */
 internal fun badgeCount(packageName: String): Int = NotificationFeed.badges[packageName] ?: 0
+
+/** The apps whose icons never carry a badge, kept as one comma-separated string in the settings. */
+internal object BadgeMute {
+    fun parse(raw: String?): Set<String> = raw.orEmpty().split(',').map(String::trim).filter(String::isNotEmpty).toSet()
+    fun encode(packages: Set<String>): String = packages.sorted().joinToString(",")
+    fun with(packages: Set<String>, packageName: String, muted: Boolean): Set<String> =
+        if (muted) packages + packageName else packages - packageName
+}

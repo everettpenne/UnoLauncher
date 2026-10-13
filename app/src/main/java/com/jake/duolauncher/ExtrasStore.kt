@@ -26,6 +26,10 @@ internal data class ExtrasState(
     val islandMuted: Set<String> = emptySet(),
     val focusVibrate: Boolean = false,
     val badges: Boolean = false,
+    /** Badges as a plain dot instead of a count. */
+    val badgeDots: Boolean = false,
+    /** Packages whose icons never get a badge, comma-separated (see [BadgeMute]). */
+    val badgeMuted: String = "",
     val mediaDetails: Boolean = false,
     val callDetails: Boolean = true,
     val privacyIndicators: Boolean = true,
@@ -92,6 +96,8 @@ internal class ExtrasStore(context: Context) {
         islandMuted = IslandLinks.parse(prefs.getString("islandMuted", null)),
         focusVibrate = prefs.getBoolean("focusVibrate", false),
         badges = prefs.getBoolean("badges", false),
+        badgeDots = prefs.getBoolean("badgeDots", false),
+        badgeMuted = prefs.getString("badgeMuted", "") ?: "",
         mediaDetails = prefs.getBoolean("mediaDetails", false),
         callDetails = prefs.getBoolean("callDetails", true),
         privacyIndicators = prefs.getBoolean("privacyIndicators", true),
@@ -136,6 +142,8 @@ internal class ExtrasStore(context: Context) {
             .putString("islandMuted", IslandLinks.serialize(next.islandMuted))
             .putBoolean("focusVibrate", next.focusVibrate)
             .putBoolean("badges", next.badges)
+            .putBoolean("badgeDots", next.badgeDots)
+            .putString("badgeMuted", next.badgeMuted)
             .putBoolean("mediaDetails", next.mediaDetails)
             .putBoolean("callDetails", next.callDetails)
             .putBoolean("privacyIndicators", next.privacyIndicators)
@@ -182,6 +190,9 @@ internal class ExtrasStore(context: Context) {
     fun toggleIslandLink(packageName: String) = save(state.copy(islandMuted = IslandLinks.toggle(state.islandMuted, packageName)))
     fun setFocusVibrate(value: Boolean) = save(state.copy(focusVibrate = value))
     fun setBadges(value: Boolean) = save(state.copy(badges = value))
+    fun setBadgeDots(value: Boolean) = save(state.copy(badgeDots = value))
+    /** Turns badges off (or back on) for one app. */
+    fun setBadgeMuted(packageName: String, muted: Boolean) = save(state.copy(badgeMuted = BadgeMute.encode(BadgeMute.with(BadgeMute.parse(state.badgeMuted), packageName, muted))))
     fun setMediaDetails(value: Boolean) = save(state.copy(mediaDetails = value))
     fun setCallDetails(value: Boolean) = save(state.copy(callDetails = value))
     fun setIslandWide(value: Boolean) = save(state.copy(islandWide = value))

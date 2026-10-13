@@ -278,6 +278,17 @@
     <string name="spotlight_tap_to_copy">Tap to copy</string>
     <string name="spotlight_copied">Copied</string>
     <string name="spotlight_search_web">Search the web for “%1$s”</string>
+    <string name="move_page_earlier">Move this page earlier</string>
+    <string name="move_page_later">Move this page later</string>
+    <string name="hide_app">Hide app</string>
+    <string name="uninstall">Uninstall</string>
+    <string name="badges_off_for_app">Turn badges off for this app</string>
+    <string name="badges_on_for_app">Turn badges back on for this app</string>
+    <string name="badge_mute_note">Long-press an app and choose "Turn badges off for this app" to silence one app.</string>
+    <string name="hidden_apps">Hidden apps</string>
+    <string name="hidden_apps_note">Hidden apps are out of All apps, suggestions and Home. Typing an app\'s exact name in search still finds it.</string>
+    <string name="hidden_apps_none">No hidden apps. Long-press an app and choose Hide app.</string>
+    <string name="show_again">Show again</string>
     <string name="nothing_found">Nothing found</string>
 
     <!-- widgets/CountdownWidget.kt -->

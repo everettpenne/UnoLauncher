@@ -171,6 +171,7 @@ internal object SpotlightEmerge {
 internal fun Spotlight(
     glass: PageGlass?,
     apps: List<AppEntry>,
+    hiddenApps: Set<String>,
     feedEntries: List<FeedEntry>,
     contactsEnabled: Boolean,
     handoff: HandoffResolver,
@@ -191,8 +192,10 @@ internal fun Spotlight(
     LaunchedEffect(Unit) { focus.requestFocus(); keyboard?.show() }
     val history = remember { SpotlightHistory(context) }
     val scores = remember { history.scores() }
-    val appResults = remember(apps, query) { SpotlightRank.apps(apps, query, { it.label }, { scores[it.id] ?: 0.0 }) }
-    val suggested = remember(apps) { SpotlightRank.suggested(apps) { scores[it.id] ?: 0.0 } }
+    // Hidden apps are never suggested or ranked; typing one's exact name finds it.
+    val searchable = remember(apps, hiddenApps, query) { HiddenApps.shown(apps, hiddenApps, query, { it.id }, { it.label }) }
+    val appResults = remember(searchable, query) { SpotlightRank.apps(searchable, query, { it.label }, { scores[it.id] ?: 0.0 }) }
+    val suggested = remember(apps, hiddenApps) { SpotlightRank.suggested(apps.filter { it.id !in hiddenApps }) { scores[it.id] ?: 0.0 } }
     val launch = { app: AppEntry -> history.record(app.id); onLaunch(app) }
     var copied by remember(query) { mutableStateOf(false) }
     val feedResults = remember(feedEntries, query) { SpotlightRank.feed(feedEntries, query) }

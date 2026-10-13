@@ -50,3 +50,47 @@ class ResizeRowsTest {
         assertEquals(6, resizeRowsFor(0, 2, 9000f, 80f, 100f, 1, 6))
     }
 }
+
+class MovePageAndHiddenAppsTest {
+    private fun layoutWithThreePages(): HomeLayout {
+        val slots = List(HOME_CELLS * 3) { index ->
+            when (index) { 0 -> "first"; HOME_CELLS -> "second"; HOME_CELLS * 2 + 3 -> "third"; else -> null }
+        }
+        return HomeLayout(slots, emptyList(), widgetPlacements = listOf(WidgetPlacement(0, 5, 1, 0, 0, 2, 2)))
+    }
+
+    @Test fun movingAPageCarriesItsAppsAndWidgets() {
+        val moved = layoutWithThreePages().withPageMoved(1, 1)
+        assertEquals("third", moved.slots[HOME_CELLS + 3])
+        assertEquals("second", moved.slots[HOME_CELLS * 2])
+        assertEquals("first", moved.slots[0])
+        assertEquals(2, moved.widgetPlacements.single().page)
+        assertEquals(3, moved.pageCount)
+    }
+
+    @Test fun movingBackAndForthIsAnIdentityAndEdgesDoNothing() {
+        val layout = layoutWithThreePages()
+        assertEquals(normalizeHomeSlots(layout.slots), layout.withPageMoved(0, 1).withPageMoved(1, -1).slots)
+        assertSame(layout, layout.withPageMoved(0, -1))
+        assertSame(layout, layout.withPageMoved(2, 1))
+        assertSame(layout, layout.withPageMoved(1, 2))
+    }
+
+    @Test fun hiddenAppsStayOutUnlessTheExactNameIsTyped() {
+        val apps = listOf("Signal" to "a", "Camera" to "b", "Calculator" to "c")
+        val shown = { q: String -> HiddenApps.shown(apps, setOf("a"), q, { it.second }, { it.first }).map { it.first } }
+        assertEquals(listOf("Camera", "Calculator"), shown(""))
+        assertEquals(listOf("Camera", "Calculator"), shown("sig"))
+        assertEquals(listOf("Signal", "Camera", "Calculator"), shown("signal"))
+        assertEquals(listOf("Signal", "Camera", "Calculator"), shown("  SIGNAL "))
+        assertEquals(apps, HiddenApps.shown(apps, emptySet(), "x", { it.second }, { it.first }))
+    }
+
+    @Test fun badgeMuteListRoundTrips() {
+        val muted = BadgeMute.with(BadgeMute.parse(""), "com.a", true)
+        assertEquals("com.a", BadgeMute.encode(muted))
+        assertEquals("com.a,com.b", BadgeMute.encode(BadgeMute.with(muted, "com.b", true)))
+        assertEquals(emptySet<String>(), BadgeMute.with(muted, "com.a", false))
+        assertEquals(setOf("x", "y"), BadgeMute.parse(" y, x ,,"))
+    }
+}

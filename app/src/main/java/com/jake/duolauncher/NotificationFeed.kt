@@ -65,6 +65,8 @@ internal data class NowPlaying(
 /** Process-wide, read-only view of the listener's findings, for Compose to read. */
 internal object NotificationFeed {
     var badges by mutableStateOf<Map<String, Int>>(emptyMap())
+    /** Whether badges draw as a dot rather than a count. Set by the listener from the settings. */
+    var badgeDots by mutableStateOf(false)
     var nowPlaying by mutableStateOf<NowPlaying?>(null)
     var ongoingCall by mutableStateOf<OngoingCall?>(null)
     /** Android 16 Live Updates currently posted, newest first. */
@@ -204,9 +206,11 @@ class UnoNotificationListener : NotificationListenerService() {
     }
 
     private fun recount() {
+        NotificationFeed.badgeDots = prefs.getBoolean("badgeDots", false)
         if (!prefs.getBoolean("badges", false)) { NotificationFeed.badges = emptyMap(); return }
         val active = runCatching { activeNotifications }.getOrNull() ?: return
-        NotificationFeed.badges = BadgeLogic.counts(active.filter { it.packageName != packageName }.map {
+        val muted = BadgeMute.parse(prefs.getString("badgeMuted", null))
+        NotificationFeed.badges = BadgeLogic.counts(active.filter { it.packageName != packageName && it.packageName !in muted }.map {
             ListedNotification(it.packageName,
                 ongoing = it.notification.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE) != 0,
                 groupSummary = it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0)

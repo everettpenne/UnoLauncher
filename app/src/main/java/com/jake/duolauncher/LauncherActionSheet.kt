@@ -58,7 +58,10 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
     onAddOrRemove: () -> Unit, onMoveFirst: () -> Unit, onMoveEarlier: () -> Unit, onMoveLater: () -> Unit,
     onMovePage: (Int) -> Unit, onInfo: () -> Unit, onWidgets: (() -> Unit)?, onCreateFolder: () -> Unit,
     onClose: () -> Unit, onSplit: (() -> Unit)? = null,
-    shortcuts: List<AppShortcut> = emptyList(), onShortcut: (AppShortcut) -> Unit = {}, onEditHome: (() -> Unit)? = null) {
+    shortcuts: List<AppShortcut> = emptyList(), onShortcut: (AppShortcut) -> Unit = {}, onEditHome: (() -> Unit)? = null,
+    onHide: (() -> Unit)? = null, onUninstall: (() -> Unit)? = null,
+    /** Null when badges are off in settings; otherwise whether this app's badges are muted. */
+    badgesMuted: Boolean? = null, onToggleBadges: () -> Unit = {}) {
     ModalDialogBackHandler { if (moving) onMoving(false) else onClose() }
     val maxHeight = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * .88f).toDp() }
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
@@ -105,6 +108,12 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
             onSplit?.let { ActionRow(Icons.Rounded.VerticalSplit, "Open in split screen", it, Modifier.testTag("app-split-${app.id}")) }
             ActionRow(Icons.Rounded.CreateNewFolder, "Create folder", onCreateFolder)
             ActionRow(Icons.Rounded.Info, "App info", onInfo)
+            if (badgesMuted != null) ActionRow(if (badgesMuted) Icons.Rounded.Notifications else Icons.Rounded.NotificationsOff,
+                stringResource(if (badgesMuted) com.jake.duolauncher.R.string.badges_on_for_app else com.jake.duolauncher.R.string.badges_off_for_app),
+                onToggleBadges, Modifier.testTag("app-toggle-badges"))
+            onHide?.let { ActionRow(Icons.Rounded.VisibilityOff, stringResource(com.jake.duolauncher.R.string.hide_app), it, Modifier.testTag("app-hide-${app.id}")) }
+            onUninstall?.let { ActionRow(Icons.Rounded.Delete, stringResource(com.jake.duolauncher.R.string.uninstall), it,
+                Modifier.testTag("app-uninstall-${app.id}"), tint = MaterialTheme.colorScheme.error) }
             if (placed) {
                 Spacer(Modifier.height(10.dp)); HorizontalDivider(); Spacer(Modifier.height(4.dp))
                 ActionRow(Icons.Rounded.RemoveCircleOutline, "Remove from Home", onAddOrRemove,

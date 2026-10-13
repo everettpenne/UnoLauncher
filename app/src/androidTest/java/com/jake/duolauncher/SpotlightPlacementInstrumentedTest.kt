@@ -31,7 +31,7 @@ class SpotlightPlacementInstrumentedTest {
             DuoTheme(false) {
                 // A parent that starts 120dp down, like a window whose content is laid out under the status bar or the cutout.
                 Box(Modifier.fillMaxSize().padding(top = 120.dp)) {
-                    Spotlight(null, emptyList(), emptyList(), false, HandoffResolver(context, ExtrasState()),
+                    Spotlight(null, emptyList(), emptySet(), emptyList(), false, HandoffResolver(context, ExtrasState()),
                         onLaunch = {}, onOpenFeedLink = {}, onOpenContact = {}, onDismiss = {}, progress = 1f, pill = pill)
                 }
             }

@@ -30,7 +30,7 @@ class SpotlightShowcaseInstrumentedTest {
         SpotlightHistory(context).also { it.record(apps[2].id); it.record(apps[2].id); it.record(apps[0].id) }
         compose.setContent {
             DuoTheme(false) {
-                Spotlight(null, apps, emptyList(), false, HandoffResolver(context, ExtrasState()),
+                Spotlight(null, apps, emptySet(), emptyList(), false, HandoffResolver(context, ExtrasState()),
                     onLaunch = {}, onOpenFeedLink = {}, onOpenContact = {}, onDismiss = {}, progress = 1f, pill = null)
             }
         }

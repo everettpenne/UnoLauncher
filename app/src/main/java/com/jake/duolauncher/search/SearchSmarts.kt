@@ -17,7 +17,26 @@ internal object SearchSmarts {
     fun answer(query: String, now: java.time.LocalDateTime = java.time.LocalDateTime.now()): SmartAnswer? {
         val q = query.trim()
         if (q.isEmpty() || q.length > 80) return null
-        return dateOrTime(q, now) ?: percentOf(q) ?: conversion(q) ?: calculation(q)
+        return easterEgg(q) ?: dateOrTime(q, now) ?: percentOf(q) ?: conversion(q) ?: calculation(q)
+    }
+
+    /**
+     * For readers of a certain desert novel. Whole phrases only (a lone "dune" or "spice" is still an app search), matched loosely, and
+     * answered in the launcher's own words: the one quoted line is four words long.
+     */
+    internal fun easterEgg(q: String): SmartAnswer? {
+        val key = q.lowercase().replace(Regex("[^a-z ]"), " ").trim().replace(Regex(" +"), " ")
+        return when (key) {
+            "the spice must flow", "spice must flow" -> SmartAnswer("The spice must flow.", "Arrakis, 10191 AG")
+            "arrakis", "planet arrakis", "go to arrakis" -> SmartAnswer("Dry, hot, and the only source of spice.", "Arrakis: bring water")
+            "shai hulud", "sandworm", "sand worm", "sandworms" -> SmartAnswer("Something large is moving under your Home screen.", "Shai-Hulud")
+            "walk without rhythm", "how to avoid sandworms" -> SmartAnswer("Then the worm will not notice you.", "Fremen advice")
+            "gom jabbar", "the gom jabbar", "hand in the box" -> SmartAnswer("Hand in the box. Hold still.", "A test of what is human")
+            "litany against fear", "fear is the mind killer", "i must not fear" -> SmartAnswer("Face it. Let it pass over you.", "Litany against fear")
+            "muad dib", "muaddib", "paul atreides", "usul" -> SmartAnswer("The mouse that jumps.", "Muad'Dib")
+            "water of life", "bene gesserit", "kwisatz haderach", "fremen" -> SmartAnswer("Not on this phone. Try the Dune range wallpaper.", "Dune")
+            else -> null
+        }
     }
 
     /** "date", "today", "time", "now": what the clock says, answered on the device. */

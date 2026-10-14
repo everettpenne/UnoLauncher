@@ -323,4 +323,32 @@ class IslandGeometryTest {
         val e = IslandEnvironment(cutout, 1080f, 120f, screenHeight = 2424f)
         for (size in listOf(0f, .5f, 1f)) IslandGeometry.frame(e, d, 0f, size, compactness = 1f)
     }
+
+    @Test fun aBounceCarriesTheIslandPastItsOpenSizeButNeverOffTheScreen() {
+        val camera = PxRect(screenW / 2f - 30f, 40f, screenW / 2f + 30f, 100f)
+        val e = env(camera)
+        val open = IslandGeometry.frame(e, 2f, 1f)
+        val over = IslandGeometry.frame(e, 2f, 1.25f)
+        assertTrue("width overshoots", over.width > open.width)
+        assertTrue("height overshoots", over.height > open.height)
+        val most = IslandGeometry.frame(e, 2f, 9f)
+        assertEquals("the overshoot is capped", IslandGeometry.frame(e, 2f, IslandGeometry.MAX_OVERSHOOT).width, most.width, .01f)
+        assertTrue("never wider than the screen", most.left >= 0f && most.left + most.width <= screenW)
+        assertEquals("a spring dipping below closed leaves the pill alone", IslandGeometry.frame(e, 2f, 0f).width, IslandGeometry.frame(e, 2f, -.4f).width, 0f)
+    }
+
+    @Test fun widthAndHeightOpenIndependentlyForStretchAndSquash() {
+        val camera = PxRect(screenW / 2f - 30f, 40f, screenW / 2f + 30f, 100f)
+        val e = env(camera)
+        val closed = IslandGeometry.frame(e, 2f, 0f)
+        val open = IslandGeometry.frame(e, 2f, 1f)
+        val drop = IslandGeometry.frame(e, 2f, 0f, heightProgress = 1f)   // tall and narrow: a drop
+        assertEquals(closed.width, drop.width, 0f)
+        assertEquals(open.height, drop.height, 0f)
+        val pancake = IslandGeometry.frame(e, 2f, 1f, heightProgress = 0f)  // wide and flat
+        assertEquals(open.width, pancake.width, 0f)
+        assertEquals(closed.height, pancake.height, 0f)
+        // Unless told otherwise the two move together, as before.
+        assertEquals(IslandGeometry.frame(e, 2f, .6f), IslandGeometry.frame(e, 2f, .6f, heightProgress = .6f))
+    }
 }

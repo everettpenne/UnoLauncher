@@ -122,6 +122,7 @@ internal fun LauncherScreen(
     onLiquidGlass: (Boolean) -> Unit = {},
     onWallpaperColor: (Boolean) -> Unit = {},
     onMaterialYou: (Boolean) -> Unit = {},
+    onWallpaperDepth: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onTiltStrength: (Float) -> Unit = {},
     island: IslandState = IslandState(),
@@ -555,8 +556,20 @@ internal fun LauncherScreen(
         val controlGlass = remember(glassEnabled, homeBackdrop, glassTint, glassSettings) {
             if (glassEnabled) PageGlass(homeBackdrop.combined, glassTint, glassSettings) else null
         }
+        // Depth: the wallpaper is drawn a little larger than the screen and drifts the other way as the pages scroll, so it sits behind
+        // them. It is recorded for the glass after the drift, so the glass bends what is really on screen.
+        val animationsOn = remember { android.provider.Settings.Global.getFloat(launcherActivity.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f }
+        val driftOn = appearance.wallpaperDepth && animationsOn
         Box(Modifier.matchParentSize().then(if (glassEnabled) Modifier.recordBackdrop(homeBackdrop.wallpaper) else Modifier)) {
-            DuneWallpaper()
+            Box(Modifier.matchParentSize().graphicsLayer {
+                if (driftOn) {
+                    val pages = nativePager.pageCount
+                    val position = nativePager.currentPage + nativePager.currentPageOffsetFraction
+                    val drift = WallpaperDepth.drift(position, pages, size.width)
+                    scaleX = drift.scale; scaleY = drift.scale; translationX = drift.translationX
+                }
+            }) { DuneWallpaper() }
         }
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             val wide = maxWidth.value >= 650f
@@ -932,6 +945,7 @@ internal fun LauncherScreen(
                             extras = extras,
                             onWallpaperColor = onWallpaperColor,
                             onMaterialYou = onMaterialYou,
+                            onWallpaperDepth = onWallpaperDepth,
                             onTiltHighlight = onTiltHighlight,
                             onTiltStrength = onTiltStrength,
                             backgrounds = launcherActivity.backgrounds,

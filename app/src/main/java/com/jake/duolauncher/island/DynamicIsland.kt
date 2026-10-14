@@ -410,10 +410,12 @@ internal fun DynamicIsland(
         environment = environmentOverride ?: readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight)
     }
 
-    // Opening is lively; closing is critically damped, so the island settles onto the camera without overshooting it.
+    // Opening is lively; closing is critically damped, so the island settles onto the camera without overshooting it. Height and width
+    // are two springs (see IslandMotion), and either may overshoot the panel's size: that is what makes a bounce, a stretch or a splash.
     val progress by animateFloatAsState(if (state.expanded) 1f else 0f,
-        if (state.expanded) IslandThemes.active.spring(0.62f, 300f) else IslandThemes.active.spring(1f, 420f, tunedDamping = false),
-        label = "island expand")
+        if (state.expanded) IslandThemes.active.heightSpring() else IslandThemes.active.closeSpring(), label = "island expand")
+    val widthProgress by animateFloatAsState(if (state.expanded) 1f else 0f,
+        if (state.expanded) IslandThemes.active.widthSpring() else IslandThemes.active.closeSpring(), label = "island expand width")
     val collapsedAlpha = (1f - progress / .5f).coerceIn(0f, 1f)
     val expandedAlpha = ((progress - .5f) / .5f).coerceIn(0f, 1f)
     val flashActive = state.flashTitle != null
@@ -493,7 +495,8 @@ internal fun DynamicIsland(
     val compactness by animateFloatAsState(compactTarget, IslandThemes.active.spring(.8f, 380f), label = "island compact")
     val extraBody = if (state.peekCard != null) 0f else (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(IslandTools.toolsOpen) +
         (if (IslandTools.toolsOpen) TOOLS_PANELS_ROW_DP else if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) - actionsTrimDp
-    val frame = IslandGeometry.frame(environment, d, progress, sizeScale, extraBodyDp = extraBody, extraWidthDp = eventWidth, compactness = compactness)
+    val frame = IslandGeometry.frame(environment, d, widthProgress, sizeScale, extraBodyDp = extraBody, extraWidthDp = eventWidth,
+        compactness = compactness, heightProgress = progress)
     // What the touch window is told. It used to follow the island's size on every animation frame, which is a call to the window
     // manager per frame while the island opens and closes. Now it is told the size the island is heading for as soon as a change
     // starts, and kept at the largest size seen until the animation has settled, then snapped to the settled size.
@@ -520,7 +523,7 @@ internal fun DynamicIsland(
     LaunchedEffect(state.flashKey) {
         if (state.flashKey > 0) {
             pulse.snapTo(1f)
-            pulse.animateTo(1.09f, IslandThemes.active.spring(.45f, 700f))
+            pulse.animateTo(IslandThemes.active.motion.pulse, IslandThemes.active.spring(.45f, 700f))
             pulse.animateTo(1f, IslandThemes.active.spring(.4f, 260f))
         }
     }
@@ -554,8 +557,9 @@ internal fun DynamicIsland(
     // that follows the island (see IslandOverlayHost), so the empty part of this one never blocks the app underneath.
     val windowRect: PxRect? = if (anchoredToWindow && frame.side == IslandSide.TOP) {
         // The biggest the island gets, in both directions: worked out once for the environment, not on every animation frame.
-        val open = remember(environment, d, sizeScale, actionsTrimDp) { IslandGeometry.frame(environment, d, 1f, sizeScale,
-            extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + UPDATE_ROW_DP + IslandWidgetState.ROW_DP + 6f + maxOf(QUICK_ROW_DP, TOOLS_PANELS_ROW_DP) - actionsTrimDp) }
+        // Sized for the island at its most overshot (a bounce carries it past the panel), so a bounce is never clipped by the window.
+        val open = remember(environment, d, sizeScale, actionsTrimDp) { IslandGeometry.frame(environment, d, IslandGeometry.MAX_OVERSHOOT, sizeScale,
+            extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + UPDATE_ROW_DP + IslandWidgetState.ROW_DP + 6f + maxOf(QUICK_ROW_DP, TOOLS_PANELS_ROW_DP) - actionsTrimDp, heightProgress = IslandGeometry.MAX_OVERSHOOT) }
         val wide = remember(environment, d, sizeScale) { IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = MAX_EVENT_EXTRA_DP) }
         val pad = 10f * d
         PxRect(
@@ -617,6 +621,13 @@ internal fun DynamicIsland(
                 LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, update = updates.firstOrNull())
             }
         }
+        // A press squashes the island wide and flat, like a thumb on a water balloon, and it springs back with the motion's own wobble
+        // (a calm theme barely moves; a jelly one jiggles).
+        val islandTouch = remember { MutableInteractionSource() }
+        val islandPressed by islandTouch.collectIsPressedAsState()
+        val squash = IslandThemes.active.motion.pulse - 1f
+        val pressX by animateFloatAsState(if (islandPressed) 1f + squash * .55f else 1f, IslandThemes.active.spring(.4f, 500f), label = "island press x")
+        val pressY by animateFloatAsState(if (islandPressed) 1f - squash * .45f else 1f, IslandThemes.active.spring(.4f, 500f), label = "island press y")
         Box(Modifier
             .offset { if (anchoredToWindow) {
                 androidx.compose.ui.unit.IntOffset(
@@ -624,7 +635,7 @@ internal fun DynamicIsland(
                     windowRect?.let { (frame.top - it.top).roundToInt() } ?: 0)
             } else androidx.compose.ui.unit.IntOffset(
                 (frame.left - origin.x).roundToInt(), (frame.top - origin.y).roundToInt()) }
-            .graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }
+            .graphicsLayer { scaleX = pulse.value * pressX; scaleY = pulse.value * pressY }
             .size(width = (frame.width / d).dp, height = (frame.height / d).dp)
             .islandBody(glass?.backdrop, corner.dp, settings = glass?.settings ?: GlassSettings.Default)
             .islandRing(ring, corner * d, 2.5f * d)
@@ -673,7 +684,7 @@ internal fun DynamicIsland(
                     }
                 }
             }
-            .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
+            .combinedClickable(interactionSource = islandTouch, indication = null,
                 onLongClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     state.dismissFlash(); IslandTools.toolsOpen = true; state.expanded = true
@@ -735,12 +746,9 @@ internal fun DynamicIsland(
                         LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, update = updates.firstOrNull())
                     } else if (deviceStatus.charging == true) {
                         Icon(Icons.Rounded.BatteryChargingFull, null, tint = IslandThemes.active.charging, modifier = Modifier.size(16.dp))
-                    } else if (deviceStatus.battery != null && !statusRailShown) {
-                        // One owner for the battery level: with the status rail on screen it shows the level, and the island
-                        // speaks about the battery only while charging (above).
-                        Text("${deviceStatus.battery}%", color = themeInk.copy(alpha = .9f), fontSize = 12.sp,
-                            maxLines = 1)
                     }
+                    // The battery level is no longer written on the pill, wide or not: the status bar owns it, and the island speaks
+                    // about the battery only while charging (above) and on the open panel.
                 }
                 if (hole != null && sideways) {
                     // Camera on a side edge: everything sits on the inward side of the hole, and only when there is room

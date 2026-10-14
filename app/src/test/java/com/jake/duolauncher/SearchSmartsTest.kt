@@ -84,4 +84,13 @@ class SearchSmartsTest {
         assertEquals("123456789", SearchSmarts.format(123456789.0))
         assertEquals("0", SearchSmarts.format(0.0))
     }
+
+    @Test fun aFewDuneLinesAreHidingInSpotlightButOrdinarySearchesAreUntouched() {
+        assertEquals("The spice must flow.", SearchSmarts.answer("The spice must flow!")?.text)
+        assertEquals("Hand in the box. Hold still.", SearchSmarts.answer("  Gom Jabbar ")?.text)
+        assertEquals("The mouse that jumps.", SearchSmarts.answer("Muad'Dib")?.text)
+        assertEquals("Face it. Let it pass over you.", SearchSmarts.answer("Fear is the mind-killer")?.text)
+        // A lone word stays an ordinary search, so an app called Dune or Spice is still found.
+        for (plain in listOf("dune", "spice", "worm", "water", "fear", "fremen app", "2048")) assertNull(plain, SearchSmarts.easterEgg(plain))
+    }
 }

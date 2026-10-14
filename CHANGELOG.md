@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.56.0-uno01
+
+- **A livelier island.** The island's width and height used to be held to the panel's size, so even the "Bouncy" setting could not visibly overshoot. They are now two separate springs that may overshoot, which is what makes stretch, squash and bounce possible.
+  - **Standard** opens smoothly with a hair of overshoot instead of stopping dead; **Calm** and **Snappy** are tuned to match.
+  - **Bouncy is properly cartoonish:** it overshoots by about a quarter, rings once or twice, and the width lags the height so the body wobbles.
+  - **Two new motions, Jelly and Droplet.** *Jelly* is springier still, the width swinging wider than the height. *Droplet* drops down narrow and tall like a water drop leaving a tap, then splashes wide and settles. Both work in theme files too (`"motion": "jelly"` or `"droplet"`).
+  - **Three new presets** to go with them: *Droplet* (water blue), *Jelly* (candy pink) and *Spice* (sand and blue).
+  - **A press squashes the island** wide and flat like a thumb on a water balloon and it springs back; **events swell it more** in the livelier motions. Closing still settles without overshoot, so it always lands on the camera.
+- **No battery percentage on the pill.** The wide island no longer writes the battery level on itself. The status bar shows it, the island speaks about the battery only while charging, and the open panel still shows it.
+- **Wallpaper depth.** The wallpaper is drawn a little larger than the screen and drifts the other way as you swipe between pages, so it sits behind them; the glass bends what is really on screen. There is a **Wallpaper depth** switch next to Material You colors, and it stays still when Android's animations are off. (Wallpapers already re-render for the new shape when a folding phone opens; this reuses that bigger-than-the-screen drawing, and the drift per page shrinks as pages are added so the edges never show.)
+- **Something hiding in Spotlight** for readers of a certain desert novel. Whole phrases only, so ordinary searches are untouched.
+- Tests: unit tests for the overshooting geometry, every motion's spring bounds and personality, the new theme values, the wallpaper drift and the easter egg; island and Spotlight emulator suites re-run.
+
 ## 0.55.0-uno01
 
 - **A much better news feed.**

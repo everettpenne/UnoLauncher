@@ -35,9 +35,29 @@ internal enum class PanelShape(val label: String, val scale: Float) {
 /** The shape of the island's buttons and chips. */
 internal enum class ControlShape(val label: String) { PILL("Pill"), ROUNDED("Rounded"), SQUARE("Square") }
 
-/** How the island moves: [damping] multiplies a spring's damping ratio (below 1 overshoots more), [stiffness] its stiffness. */
-internal enum class IslandMotion(val label: String, val damping: Float, val stiffness: Float) {
-    CALM("Calm", 1f, .75f), STANDARD("Standard", 1f, 1f), SNAPPY("Snappy", 1f, 1.4f), BOUNCY("Bouncy", .78f, 1f)
+/**
+ * How the island moves. [damping] multiplies a spring's damping ratio (below 1 overshoots more) and [stiffness] its stiffness; those
+ * tune the island's smaller springs (an event's width, the compact ring, a button's press). Opening is tuned by the per-axis numbers:
+ * the island's height and width are two separate springs, so a motion can have a personality. When they disagree (the height leads
+ * and the width wobbles behind it) the body stretches and squashes like cartoon rubber, which is all "Jelly" and "Droplet" are.
+ * Closing always settles without overshoot, so the island lands back on the camera; [closeStiffness] is how fast. [pulse] is how far
+ * the island swells when an event arrives.
+ */
+internal enum class IslandMotion(
+    val label: String, val damping: Float, val stiffness: Float,
+    val heightDamping: Float, val heightStiffness: Float,
+    val widthDamping: Float, val widthStiffness: Float,
+    val closeStiffness: Float, val pulse: Float,
+) {
+    CALM("Calm", 1f, .75f, .92f, 240f, .92f, 225f, 330f, 1.05f),
+    STANDARD("Standard", 1f, 1f, .8f, 330f, .84f, 310f, 420f, 1.09f),
+    SNAPPY("Snappy", 1f, 1.4f, .72f, 520f, .76f, 480f, 600f, 1.1f),
+    /** Overshoots a long way and rings a few times, the width a beat behind the height: a cartoon bounce. */
+    BOUNCY("Bouncy", .78f, 1f, .36f, 250f, .44f, 205f, 420f, 1.18f),
+    /** Even springier, the width swinging wider than the height: it wobbles like set jelly. */
+    JELLY("Jelly", .7f, 1f, .38f, 200f, .34f, 150f, 360f, 1.22f),
+    /** Drops down narrow and tall like a water drop leaving a tap, then splashes wide and settles with a wobble. */
+    DROPLET("Droplet", .85f, .9f, .52f, 240f, .36f, 100f, 300f, 1.14f),
 }
 
 internal data class IslandTheme(
@@ -74,6 +94,12 @@ internal data class IslandTheme(
     /** A spring tuned by [motion]. Closing springs pass [tunedDamping] = false so the island still settles without overshoot. */
     fun <T> spring(dampingRatio: Float, stiffness: Float, tunedDamping: Boolean = true): SpringSpec<T> =
         androidx.compose.animation.core.spring(if (tunedDamping) (dampingRatio * motion.damping).coerceIn(.3f, 1.2f) else dampingRatio, stiffness * motion.stiffness)
+
+    /** The springs that open the island: one for its height, one for its width (see [IslandMotion]). Not clamped to the panel's size: overshoot shows. */
+    fun heightSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(motion.heightDamping.coerceIn(.3f, 1.2f), motion.heightStiffness)
+    fun widthSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(motion.widthDamping.coerceIn(.3f, 1.2f), motion.widthStiffness)
+    /** The spring that closes it: critically damped, so it settles onto the camera without going past it. */
+    fun closeSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(1f, motion.closeStiffness)
 
     /** The chip fill: [ink] at a low alpha. */
     fun chip(alpha: Float = .14f): Color = ink.copy(alpha = alpha)
@@ -205,6 +231,13 @@ internal object IslandThemes {
             timer = Color(0xFFFFD580), focus = Color(0xFFA78BFA), panel = PanelShape.ROUND, controls = ControlShape.PILL, motion = IslandMotion.CALM),
         IslandTheme("Rose", fill = Color(0xFF0C0508), ink = Color(0xFFFFEFF3), playback = Color(0xFFFF5D8F), charging = Color(0xFFFFB3C7),
             timer = Color(0xFFFFC857), focus = Color(0xFFD8A8FF), panel = PanelShape.SOFT, controls = ControlShape.ROUNDED, motion = IslandMotion.STANDARD),
+        // The expressive ones: a motion with a personality, and colours to match.
+        IslandTheme("Droplet", fill = Color(0xFF020B14), ink = Color(0xFFE8F6FF), playback = Color(0xFF4FC3F7), charging = Color(0xFF7CF2D2),
+            timer = Color(0xFFFFD27A), focus = Color(0xFF9CB4FF), panel = PanelShape.ROUND, controls = ControlShape.PILL, motion = IslandMotion.DROPLET),
+        IslandTheme("Jelly", fill = Color(0xFF12060F), ink = Color(0xFFFFF0FA), playback = Color(0xFFFF6FB5), charging = Color(0xFF8CFFC6),
+            timer = Color(0xFFFFC857), focus = Color(0xFFC9A0FF), panel = PanelShape.ROUND, controls = ControlShape.ROUNDED, motion = IslandMotion.JELLY),
+        IslandTheme("Spice", fill = Color(0xFF0B0704), ink = Color(0xFFF7E6C8), playback = Color(0xFF3FA9FF), charging = Color(0xFFE8A24C),
+            timer = Color(0xFFFF8A3D), focus = Color(0xFF8FB8FF), panel = PanelShape.SOFT, controls = ControlShape.ROUNDED, motion = IslandMotion.DROPLET),
         IslandTheme("Forest", fill = Color(0xFF040A06), ink = Color(0xFFEAFBEF), playback = Color(0xFF5BE37D), charging = Color(0xFFA6F7B4),
             timer = Color(0xFFF2C35B), focus = Color(0xFF8FD3FF), panel = PanelShape.SOFT, controls = ControlShape.ROUNDED, motion = IslandMotion.SNAPPY),
     )

@@ -37,7 +37,7 @@ Anyone can write a theme, and you decide whether to trust it: install only files
 | `colors.focus` | `#RRGGBB` | The Focus / Do Not Disturb mark. Contrast at least 3. |
 | `shape.panel` | `soft` (default), `round`, `square` | The island body's corner radius. |
 | `shape.controls` | `pill` (default), `rounded`, `square` | Buttons and chips (circles become rounded squares). |
-| `motion` | `calm`, `standard` (default), `snappy`, `bouncy` | Stiffness and damping of the island's springs. Closing always settles without overshoot. |
+| `motion` | `calm`, `standard` (default), `snappy`, `bouncy`, `jelly`, `droplet` | How the island opens and moves. `bouncy` overshoots a long way and rings (a cartoon bounce); `jelly` is springier still, the width swinging past the height so it wobbles; `droplet` drops down narrow and tall like a water drop, then splashes wide and settles. Calm, standard and snappy barely overshoot. A press squashes the island wide and flat, by as much as the motion's personality allows. Closing always settles without overshoot. |
 
 Every field is optional except `format`, `version` and `name`; a missing one keeps the Classic value. Colours are `#RRGGBB` only (no alpha, no names). Fields Uno does not know are ignored, so a theme written for a later version still opens where it can.
 

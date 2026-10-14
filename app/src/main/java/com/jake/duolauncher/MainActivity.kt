@@ -203,6 +203,7 @@ class MainActivity : ComponentActivity() {
                     onLiquidGlass = appearance::setLiquidGlass,
                     onWallpaperColor = appearance::setWallpaperColor,
                     onMaterialYou = appearance::setMaterialYou,
+                    onWallpaperDepth = appearance::setWallpaperDepth,
                     onTiltHighlight = appearance::setTiltHighlight,
                     onTiltStrength = appearance::setTiltStrength,
                     island = island,

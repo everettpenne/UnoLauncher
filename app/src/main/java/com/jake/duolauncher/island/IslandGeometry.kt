@@ -126,10 +126,20 @@ internal object IslandGeometry {
      * ring around the hole. The overlay over other apps is compact while it has nothing to say, so it does not cover the system
      * status bar's own icons; it is 0 (full width) on Home and whenever there is content to show.
      */
+    /** How far past fully open a spring may carry the island: room for a bounce, a stretch or a splash. */
+    const val MAX_OVERSHOOT = 1.35f
+
+    /**
+     * The island's frame. [progress] is how open its width is (0 = the pill, 1 = the panel) and [heightProgress] how open its height is;
+     * they are separate so a motion can stretch and squash. Either may run a little past 1 (up to [MAX_OVERSHOOT]) for a bounce; the
+     * width never leaves the screen. A camera on a side edge ignores the overshoot.
+     */
     fun frame(env: IslandEnvironment, density: Float, progress: Float, scale: Float = .5f,
-        extraBodyDp: Float = 0f, extraWidthDp: Float = 0f, compactness: Float = 0f): IslandFrame {
+        extraBodyDp: Float = 0f, extraWidthDp: Float = 0f, compactness: Float = 0f, heightProgress: Float = progress): IslandFrame {
         val d = density
-        val p = progress.coerceIn(0f, 1f)
+        val pw = progress.coerceIn(0f, MAX_OVERSHOOT)
+        val ph = heightProgress.coerceIn(0f, MAX_OVERSHOOT)
+        val p = pw.coerceAtMost(1f)
         val size = scale.coerceIn(0f, 1f)
         val margin = EDGE_MARGIN_DP * d
         val cutout = env.cutout
@@ -171,8 +181,9 @@ internal object IslandGeometry {
         val dockClearance = env.dockWidthPx + 16f * d
         val expandedWidth = min(EXPANDED_WIDTH_DP * d,
             max(collapsedWidth, env.screenWidth - 2f * dockClearance))
-        val width = collapsedWidth + (expandedWidth - collapsedWidth) * p
-        val height = collapsedHeight + (expandedHeight - collapsedHeight) * p
+        val width = (collapsedWidth + (expandedWidth - collapsedWidth) * pw)
+            .coerceAtMost(max(collapsedWidth, env.screenWidth - 2f * margin))
+        val height = collapsedHeight + (expandedHeight - collapsedHeight) * ph
         // Keep the island off the screen edges, but never at the cost of the hole: it must always
         // wrap the camera, so a hole near (or touching) an edge pulls the island over it.
         var left = (centerX - width / 2f).coerceIn(margin, max(margin, env.screenWidth - width - margin))

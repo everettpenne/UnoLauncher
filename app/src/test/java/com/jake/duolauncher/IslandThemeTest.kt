@@ -109,4 +109,32 @@ class IslandThemeTest {
         val json = Regex("```json\\n(.*?)```", RegexOption.DOT_MATCHES_ALL).find(doc.readText())!!.groupValues[1]
         assertTrue(IslandThemeFile.parse(json) is IslandThemeFile.Result.Ok)
     }
+
+    private fun overshoot(damping: Float) = if (damping >= 1f) 0.0 else Math.exp(-Math.PI * damping / Math.sqrt(1.0 - damping * damping))
+
+    @Test fun everyMotionIsLegalAndHasItsOwnPersonality() {
+        for (motion in IslandMotion.values()) {
+            val theme = IslandTheme.Classic.copy(motion = motion)
+            assertTrue(motion.name, theme.heightSpring().dampingRatio in .3f..1.2f && theme.widthSpring().dampingRatio in .3f..1.2f)
+            assertEquals("closing never overshoots", 1f, theme.closeSpring().dampingRatio, 0f)
+            // Even the wildest bounce has to fit inside the room the island is given (see IslandGeometry.MAX_OVERSHOOT).
+            assertTrue(motion.name, 1.0 + maxOf(overshoot(motion.heightDamping), overshoot(motion.widthDamping)) <= IslandGeometry.MAX_OVERSHOOT + .02)
+            assertTrue(motion.pulse in 1f..1.3f)
+        }
+        // Calm barely overshoots, the cartoon motions overshoot a lot, and the two newest let width and height disagree.
+        assertTrue(overshoot(IslandMotion.CALM.heightDamping) < .02)
+        assertTrue(overshoot(IslandMotion.BOUNCY.heightDamping) > .15)
+        assertTrue(overshoot(IslandMotion.JELLY.widthDamping) > overshoot(IslandMotion.JELLY.heightDamping))
+        assertTrue(IslandMotion.DROPLET.widthStiffness < IslandMotion.DROPLET.heightStiffness)
+        assertTrue(IslandMotion.DROPLET.widthDamping < IslandMotion.DROPLET.heightDamping)
+    }
+
+    @Test fun jellyAndDropletAreValidInAThemeFile() {
+        for (name in listOf("jelly", "droplet", "bouncy")) {
+            val r = IslandThemeFile.parse("""{"format":"uno-island-theme","version":1,"name":"T","motion":"$name"}""")
+            assertEquals(name, ((r as IslandThemeFile.Result.Ok).theme.motion.name.lowercase()))
+        }
+        assertTrue(IslandThemeFile.parse("""{"format":"uno-island-theme","version":1,"name":"T","motion":"wobbly"}""") is IslandThemeFile.Result.Rejected)
+        assertTrue(IslandThemes.presets.any { it.motion == IslandMotion.DROPLET } && IslandThemes.presets.any { it.motion == IslandMotion.JELLY })
+    }
 }

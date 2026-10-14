@@ -275,7 +275,29 @@ internal object DuneBloom {
  */
 internal object DuneLandscape {
     class Palette(val sky: IntArray, val skyPos: FloatArray, val band: IntArray, val bandPos: FloatArray, val rim: Int, val glow: Int, val haze: Int,
-        val rangeBase: Int, val rangeLit: Int, val glowGain: Float, val rimGain: Float, val grain: Float, val vignette: Float, val mist: Float, val stars: Boolean)
+        val rangeBase: Int, val rangeLit: Int, val glowGain: Float, val rimGain: Float, val grain: Float, val vignette: Float, val mist: Float, val stars: Boolean,
+        val moons: List<Moon> = emptyList())
+
+    /**
+     * A moon in the sky: where it hangs (fractions of the width and height), how big (a fraction of the width), its colour, how bright, and how
+     * much of it the shadow takes ([phase] 0 is full, 1 a thin crescent; the shadow comes from the upper left).
+     */
+    class Moon(val x: Float, val y: Float, val radius: Float, val color: Int, val strength: Float, val phase: Float)
+
+    /** How much of [moon] covers the pixel at ([px], [py]) in a [w] by [h] picture: its disc with a soft edge, a faint halo, and its shadow. 0 far from it. */
+    internal fun moonLight(moon: Moon, px: Float, py: Float, w: Int, h: Int, soft: Float): Float {
+        val r = moon.radius * w
+        val dx = px - moon.x * w; val dy = py - moon.y * h
+        val reach = r * 8f   // far enough that the halo has faded to nothing before the box ends (a nearer edge shows as a faint square)
+        if (kotlin.math.abs(dx) > reach || kotlin.math.abs(dy) > reach) return 0f
+        val dist = sqrt(dx * dx + dy * dy)
+        val disc = SceneMath.smooth((r - dist) / soft + .5f)
+        val halo = exp(-(((dist - r).coerceAtLeast(0f)) / (r * 2.1f)).let { it * it }) * .13f
+        // The shadow is a second disc nudged toward the upper left: what it covers of the moon goes dark, leaving a crescent or a gibbous.
+        val sx = dx + r * (.30f + .55f * moon.phase); val sy = dy + r * (.20f + .30f * moon.phase)
+        val shadow = SceneMath.smooth((r * (1.02f - .08f * moon.phase) - sqrt(sx * sx + sy * sy)) / soft + .5f) * moon.phase
+        return moon.strength * (disc * (1f - .86f * shadow) + halo * (1f - disc))
+    }
 
     /** [crest] gives dune i's crest as a fraction of the height at column fraction x; [ranges] says whether jagged ranges stand behind. */
     class Config(val dunes: Int, val crest: (Int, Float) -> Float, val day: Palette, val night: Palette, val ranges: Boolean, val ripple: Float,
@@ -346,6 +368,13 @@ internal object DuneLandscape {
                 var rr = sky[0] + mist; var gg = sky[1] + mist; var bb = sky[2] + mist
                 var land = 0f   // how much of this pixel is rock or sand; the open sky keeps only [Config.skyGrain] of the grain
                 if (p.stars && y < h * .5f) { val st = starAt(x, y, starCell, h) * .9f; rr += st * .95f; gg += st * .97f; bb += st }
+                // Arrakis has two moons. Where a scene has them they hang in the sky, so the ridges and dunes drawn after them cover them.
+                for (moon in p.moons) {
+                    val m = moonLight(moon, x.toFloat(), y.toFloat(), w, h, 1.6f * s)
+                    if (m > 0f) {
+                        rr = SceneMath.lerp(rr, SceneMath.r(moon.color), m); gg = SceneMath.lerp(gg, SceneMath.g(moon.color), m); bb = SceneMath.lerp(bb, SceneMath.b(moon.color), m)
+                    }
+                }
                 for (r in 0 until ranges) {
                     val d = y - ridge[r][x]
                     if (d < -2f) continue
@@ -599,7 +628,9 @@ internal object DuneRange {
         sky = intArrayOf(0x07142A, 0x0E2140, 0x2A3354, 0x6A5266, 0x84606E, 0x463F35), skyPos = floatArrayOf(0f, .30f, .44f, .505f, .56f, 1f),
         band = intArrayOf(0x8F8C9E, 0x716E80, 0x57546A, 0x3E3B4E, 0x2A2837, 0x201E2B), bandPos = floatArrayOf(0f, .08f, .25f, .55f, .85f, 1f),
         rim = 0xC7D3EA, glow = 0x9A86A8, haze = 0x4C4862, rangeBase = 0x1B1C26, rangeLit = 0x34343F,
-        glowGain = .05f, rimGain = .09f, grain = .04f, vignette = .28f, mist = .06f, stars = true)
+        glowGain = .05f, rimGain = .09f, grain = .04f, vignette = .28f, mist = .06f, stars = true,
+        // Two small, pale moons high in the sky, a crescent and a fuller one. Quiet on purpose: you have to be looking.
+        moons = listOf(DuneLandscape.Moon(.77f, .25f, .026f, 0xD4DFF5, .82f, .72f), DuneLandscape.Moon(.61f, .315f, .0135f, 0xC9D3E8, .66f, .18f)))
     internal val config = DuneLandscape.Config(3, ::crestFraction, day, night, ranges = true, ripple = 1f,
         rangeBase = floatArrayOf(.440f, .480f, .515f), rangeHeight = floatArrayOf(.085f, .095f, .090f),
         rangeHaze = floatArrayOf(.80f, .60f, .42f), rangeSeed = intArrayOf(21, 22, 23),

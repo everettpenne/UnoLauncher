@@ -176,9 +176,42 @@ class UnoNotificationListener : NotificationListenerService() {
                     smallIconOf(n),
                     // The app's own colour if it gave one, else the colour of its icon.
                     n.color.takeIf { it != 0 } ?: AppTints.of(sbn.packageName) { runCatching { packageManager.getApplicationIcon(sbn.packageName).toBitmap(48, 48) }.getOrNull() } ?: 0,
-                    sbn.postTime, n.contentIntent)
+                    sbn.postTime, n.contentIntent,
+                    // The turn arrow of a navigation instruction is its large icon; no other kind of activity has its large icon read.
+                    largeIcon = if (source == ActivitySource.NAVIGATION) runCatching { n.getLargeIcon()?.loadDrawable(this)?.toBitmap(96, 96) }.getOrNull() else null,
+                    source = source)
             }.getOrNull() }
         NotificationFeed.liveUpdates = LiveUpdateLogic.ordered(found)
+        checkNavigationCue(found)
+    }
+
+    private var lastNavigation: NavigationCue.Snapshot? = null
+    private var lastNavigationCueAt = 0L
+
+    /** Drops the island down for a moment when the navigation instruction changed in a way worth a glance (see [NavigationCue]). The
+     * card is the one the island already uses for a notification, handed straight to the island's own state, so it works whether or not the
+     * Home screen is the thing on screen. */
+    private fun checkNavigationCue(found: List<LiveUpdate>) {
+        val nav = found.firstOrNull { it.source == ActivitySource.NAVIGATION }
+        if (nav == null || !prefs.getBoolean("navigationCues", true)) { lastNavigation = null; return }
+        val now = NavigationCue.Snapshot(nav.key, nav.text, arrowSignature(nav.largeIcon), NavigationCue.parseMeters(nav.title))
+        val elapsed = android.os.SystemClock.elapsedRealtime()
+        val reason = NavigationCue.reason(lastNavigation, now, elapsed - lastNavigationCueAt)
+        lastNavigation = now
+        if (reason == null) return
+        lastNavigationCueAt = elapsed
+        val card = PeekNotification(nav.packageName, nav.appLabel, nav.title, nav.text, nav.largeIcon ?: nav.icon, nav.openIntent,
+            NavigationCue.SECONDS, nav.color.takeIf { it != 0 })
+        Handler(android.os.Looper.getMainLooper()).post { IslandRuntime.state.showPeekCard(card) }
+    }
+
+    /** A fingerprint of an arrow image (a 16 by 16 shrink of it), so a different arrow is noticed without comparing every pixel. */
+    private fun arrowSignature(bitmap: Bitmap?): Int? = bitmap?.let {
+        runCatching {
+            val small = Bitmap.createScaledBitmap(it, 16, 16, true)
+            val pixels = IntArray(16 * 16).also { px -> small.getPixels(px, 0, 16, 0, 0, 16, 16) }
+            pixels.contentHashCode()
+        }.getOrNull()
     }
 
     /** The notification's small icon (a white glyph on transparent) as a small bitmap, or null. */

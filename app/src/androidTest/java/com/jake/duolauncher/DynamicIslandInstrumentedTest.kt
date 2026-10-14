@@ -117,6 +117,32 @@ class DynamicIslandInstrumentedTest {
         assertPresent("island-update-progress")
     }
 
+    private fun navigation() = liveUpdate(key = "nav", progress = 0, shortText = null).copy(
+        packageName = "app.organicmaps", appLabel = "Organic Maps", title = "300 m", text = "Main Street", source = ActivitySource.NAVIGATION,
+        largeIcon = android.graphics.Bitmap.createBitmap(96, 96, android.graphics.Bitmap.Config.ARGB_8888).also { it.eraseColor(0xFFFFFFFF.toInt()) })
+
+    @Test fun aNavigationInstructionShowsItsTurnArrowOnThePillAndLargeInTheOpenIsland() {
+        show()
+        compose.runOnIdle { NotificationFeed.liveUpdates = listOf(navigation()) }
+        compose.waitForIdle()
+        assertPresent("island-live-update")
+        assertPresent("island-update-arrow")
+        compose.runOnIdle { state.toggle() }
+        compose.waitForIdle()
+        assertPresent("island-update")
+        assertPresent("island-update-arrow")
+    }
+
+    @Test fun anInstructionWithoutAnArrowFallsBackToTheAppsOwnIconAndAnOrdinaryUpdateNeverShowsAnArrow() {
+        show()
+        compose.runOnIdle { NotificationFeed.liveUpdates = listOf(navigation().copy(largeIcon = null)) }
+        compose.waitForIdle()
+        assertEquals(0, compose.onAllNodesWithTag("island-update-arrow", useUnmergedTree = true).fetchSemanticsNodes().size)
+        compose.runOnIdle { NotificationFeed.liveUpdates = listOf(liveUpdate().copy(largeIcon = navigation().largeIcon)) }
+        compose.waitForIdle()
+        assertEquals(0, compose.onAllNodesWithTag("island-update-arrow", useUnmergedTree = true).fetchSemanticsNodes().size)
+    }
+
     @Test fun endingTheLiveUpdateRemovesItFromTheIsland() {
         show()
         compose.runOnIdle { NotificationFeed.liveUpdates = listOf(liveUpdate()) }

@@ -308,6 +308,7 @@
     <string name="wallpaper_depth_note">The wallpaper drifts a little the other way as you swipe between pages, so it sits behind them. It stays still when Android\'s animations are off.</string>
     <string name="easter_sleeper">The sleeper has awakened.</string>
     <string name="easter_sleeper_note">You found it. This launcher is still, as far as it knows, running on water discipline.</string>
+    <string name="navigation_cues_note">The island drops down for a few seconds with the turn arrow when a maps app gives a new instruction or the turn comes within about 200 and 50 metres. The arrow appears when the maps app sends it as its notification\'s large icon.</string>
     <string name="nothing_found">Nothing found</string>
 
     <!-- widgets/CountdownWidget.kt -->
@@ -368,10 +369,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Notification cards now glow out of the app\'s colour into the island instead of sitting on it like a cutout.</string>
-    <string name="whats_new_2">The now-playing glow rises from the bottom and sways like a flame while audio plays.</string>
-    <string name="whats_new_3">Bouncy, Jelly and Droplet are now three clearly different cartoons.</string>
-    <string name="whats_new_4">There is another hidden thing somewhere in the launcher.</string>
+    <string name="whats_new_1">The island shows a maps app\'s turn arrow, and drops down for each turn (switch it off under Navigation in the island).</string>
+    <string name="whats_new_2">Notification cards, the bottom flame glow and the cartoon motions came in 0.57.</string>
+    <string name="whats_new_3">The Dune range sky has more to look at after dark.</string>
+    <string name="whats_new_4">A better news feed, Checklist and Screen time widgets and screen-reader actions for stacks came in 0.55.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

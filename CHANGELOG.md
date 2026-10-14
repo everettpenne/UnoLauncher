@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.58.0-uno01
+
+- **Turn arrows on the island.** A maps app's navigation notification carries the turn arrow as its large icon, which the island ignored (it showed the app's logo). It now shows the arrow, in the arrow's own colours: on the pill beside the distance, and large on the open island with the distance and the street. This works for any app that sends its arrow that way; Organic Maps does (its notification was read to check). An instruction without an arrow still shows the app's icon, and no other kind of activity has its large icon read.
+- **The island drops down for each turn.** When the instruction changes in a way worth a glance, the island drops down for four seconds with the arrow, the distance and the street, then tucks away, like the iPhone's. It does so when a route starts, when the arrow or the street changes, and when the turn comes within about 200 metres and again within about 50. It never reopens more than once every six seconds. It uses the island's own card, so it works over other apps when "Island everywhere" is on. A new switch, **Drop down for each turn**, sits under "Navigation in the island" (Notifications & privacy) so it can be turned off.
+- **Something in the Dune range sky.** Look up at night. (Only the Dune range wallpaper, only after dark.)
+- Tests: unit tests for reading distances in metres, kilometres, miles, feet and yards, for every reason to drop down and for the cool-down; an emulator test shows the arrow on the pill and the open island, falls back to the app's icon without one, and never shows an arrow for an ordinary update; a unit test finds the sky's two moons and checks nothing else changed.
+
 ## 0.57.0-uno01
 
 - **Notification cards belong to the island.** The drop-down card for a new notification used to be a separate rounded panel inset in the island, with its own edge and a ripple, so it looked cut out of it. It is now part of the body: the app's colour glows out from behind its icon into the island's own black, with no card edge and no ripple (the island's own press squash is the feedback).

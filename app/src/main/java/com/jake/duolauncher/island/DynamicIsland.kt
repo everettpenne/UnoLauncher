@@ -1250,7 +1250,10 @@ private fun UpdateGlyph(update: LiveUpdate, size: androidx.compose.ui.unit.Dp) {
             }
         }, contentAlignment = Alignment.Center) {
         val icon = remember(update.icon) { update.icon?.asImageBitmap() }
-        if (icon != null) Image(icon, null, Modifier.size(size * .66f), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(tint))
+        // A navigation instruction shows its turn arrow, in the arrow's own colours, instead of the maps app's logo.
+        val arrow = remember(update.largeIcon) { update.largeIcon?.asImageBitmap() }
+        if (update.source == ActivitySource.NAVIGATION && arrow != null) Image(arrow, null, Modifier.size(size * .8f).testTag("island-update-arrow"))
+        else if (icon != null) Image(icon, null, Modifier.size(size * .66f), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(tint))
         else Icon(Icons.Rounded.RssFeed, null, tint = tint, modifier = Modifier.size(size * .6f))
     }
 }
@@ -1261,13 +1264,15 @@ private fun UpdateCard(update: LiveUpdate, clockMs: Long, onOpen: () -> Unit) {
     val tint = updateTint(update)
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onOpen).testTag("island-update")) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            UpdateGlyph(update, 34.dp)
+            val navigating = update.source == ActivitySource.NAVIGATION && update.largeIcon != null
+            UpdateGlyph(update, if (navigating) 46.dp else 34.dp)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(update.title, color = themeInk, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(update.title, color = themeInk, fontSize = if (navigating) 20.sp else 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(update.text ?: update.appLabel, color = themeInk.copy(alpha = .72f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text(LiveUpdateLogic.glance(update, clockMs), color = tint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+            // A navigation card already leads with the distance, so it does not repeat it on the right.
+            if (!navigating) Text(LiveUpdateLogic.glance(update, clockMs), color = tint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                 modifier = Modifier.padding(start = 8.dp))
         }
         LiveUpdateLogic.fraction(update.progress, update.progressMax, update.indeterminate)?.let { f ->

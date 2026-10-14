@@ -42,6 +42,8 @@ internal data class ExtrasState(
     val mediaResumeMinutes: Int = 2,
     val progressTasks: Boolean = true,
     val navigationTasks: Boolean = true,
+    /** The island drops down briefly for each turn instruction (a new arrow or street, or the turn coming close). */
+    val navigationCues: Boolean = true,
     /** How much of a new notification the island's card shows: 0 name only, 1 plus title, 2 plus text (see PeekLevel). */
     val peekLevel: Int = 0,
     /** Words that keep a notification's text off the island, comma separated. */
@@ -108,6 +110,7 @@ internal class ExtrasStore(context: Context) {
         mediaResumeMinutes = prefs.getInt("mediaResumeMinutes", 2),
         progressTasks = prefs.getBoolean("progressTasks", true),
         navigationTasks = prefs.getBoolean("navigationTasks", true),
+        navigationCues = prefs.getBoolean("navigationCues", true),
         peekLevel = prefs.getInt("peekLevel", 0).coerceIn(0, 2),
         peekBlocked = prefs.getString("peekBlocked", "") ?: "",
         peekTimeouts = prefs.getString("peekTimeouts", "") ?: "",
@@ -154,6 +157,7 @@ internal class ExtrasStore(context: Context) {
             .putInt("mediaResumeMinutes", next.mediaResumeMinutes)
             .putBoolean("progressTasks", next.progressTasks)
             .putBoolean("navigationTasks", next.navigationTasks)
+            .putBoolean("navigationCues", next.navigationCues)
             .putInt("peekLevel", next.peekLevel)
             .putString("peekBlocked", next.peekBlocked)
             .putString("peekTimeouts", next.peekTimeouts)
@@ -199,6 +203,7 @@ internal class ExtrasStore(context: Context) {
     fun setMediaResumeMinutes(value: Int) = save(state.copy(mediaResumeMinutes = value))
     fun setProgressTasks(value: Boolean) = save(state.copy(progressTasks = value))
     fun setNavigationTasks(value: Boolean) = save(state.copy(navigationTasks = value))
+    fun setNavigationCues(value: Boolean) = save(state.copy(navigationCues = value))
     fun setPeekLevel(value: Int) = save(state.copy(peekLevel = value.coerceIn(0, 2)))
     fun setPeekBlocked(value: String) = save(state.copy(peekBlocked = value.take(600)))
     fun cyclePeekTimeout(packageName: String) =

@@ -26,6 +26,9 @@ internal data class LiveUpdate(
     val color: Int,
     val postTime: Long,
     val openIntent: PendingIntent?,
+    /** A navigation instruction's turn arrow (the notification's large icon). Read only for navigation, never for other activities. */
+    val largeIcon: Bitmap? = null,
+    val source: ActivitySource = ActivitySource.PROMOTED,
 )
 
 /** What kind of thing an island activity (a [LiveUpdate]) came from. */

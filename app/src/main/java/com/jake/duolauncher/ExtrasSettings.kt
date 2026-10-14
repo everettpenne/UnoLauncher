@@ -245,6 +245,10 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     Text(stringResource(com.jake.duolauncher.R.string.a_download_upload_or_install_with),
         style = note, color = muted)
     SettingsSwitch("Navigation in the island", s.navigationTasks, store::setNavigationTasks, "navigation-tasks-switch")
+    if (s.navigationTasks) {
+        SettingsSwitch("Drop down for each turn", s.navigationCues, store::setNavigationCues, "navigation-cues-switch")
+        Text(stringResource(com.jake.duolauncher.R.string.navigation_cues_note), style = note, color = muted)
+    }
     Text(stringResource(com.jake.duolauncher.R.string.while_a_maps_app_shows_turn),
         style = note, color = muted)
     Text(stringResource(com.jake.duolauncher.R.string.android_16_apps_can_post_a),

@@ -3,6 +3,7 @@ package com.jake.duolauncher
 import com.jake.duolauncher.appearance.DuneBloom
 import com.jake.duolauncher.appearance.DuneDeep
 import com.jake.duolauncher.appearance.DuneRange
+import com.jake.duolauncher.appearance.DuneLandscape
 import com.jake.duolauncher.appearance.DuneFlow
 import com.jake.duolauncher.appearance.MoltenMetal
 import com.jake.duolauncher.appearance.SceneMath
@@ -171,7 +172,7 @@ class DuneScenesTest {
         val w = 540; val h = 1200
         for (dark in listOf(false, true)) {
             val px = DuneRange.render(w, h, dark)
-            val sky = localNoise(px, w, (h * .10).toInt(), (h * .28).toInt())
+            val sky = localNoise(px, w, (h * .10).toInt(), (h * .20).toInt())  // above the night sky's moons
             val sand = localNoise(px, w, (h * .82).toInt(), (h * .95).toInt())
             assertTrue("sky noise $sky should be well below sand noise (night includes stars) $sand (dark=$dark)", sky < sand * .6)
             assertTrue("the sand still has texture: $sand", sand > 2.0)
@@ -265,5 +266,27 @@ class DuneScenesTest {
         assertEquals(0f, SceneMath.topBlackMask(SceneMath.BLACK_TOP), 0f)
         assertEquals(1f, SceneMath.topBlackMask(SceneMath.BLACK_TOP + SceneMath.BLACK_FADE), 1e-4f)
         assertTrue(SceneMath.topBlackMask(.12f) in 0.2f..0.8f)
+    }
+
+    @Test fun theDuneRangeNightSkyHasTwoMoonsAndTheDayDoesNot() {
+        val w = 540; val h = 1200
+        val night = DuneRange.render(w, h, true)
+        val plain = DuneLandscape.render(w, h, true, DuneRange.config.let { c ->
+            DuneLandscape.Config(c.dunes, c.crest, c.day, DuneLandscape.Palette(c.night.sky, c.night.skyPos, c.night.band, c.night.bandPos, c.night.rim, c.night.glow,
+                c.night.haze, c.night.rangeBase, c.night.rangeLit, c.night.glowGain, c.night.rimGain, c.night.grain, c.night.vignette, c.night.mist, c.night.stars),
+                c.ranges, c.ripple, c.rangeBase, c.rangeHeight, c.rangeHaze, c.rangeSeed, c.edge, c.skyGrain, c.grainCell)
+        })
+        fun luma(px: IntArray, x: Int, y: Int): Int { val p = px[y * w + x]; return ((p shr 16) and 255) + ((p shr 8) and 255) + (p and 255) }
+        for (moon in DuneRange.config.night.moons) {
+            // Look at the lit side of the moon (away from the shadow, toward the lower right).
+            val x = (moon.x * w + moon.radius * w * .45f).toInt(); val y = (moon.y * h + moon.radius * w * .30f).toInt()
+            assertTrue("a moon is brighter than the bare sky at ($x, $y)", luma(night, x, y) > luma(plain, x, y) + 120)
+        }
+        assertEquals("only two", 2, DuneRange.config.night.moons.size)
+        assertTrue("the daytime sky has none", DuneRange.config.day.moons.isEmpty())
+        // The moons sit above the ridges, so no land is ever drawn under them.
+        assertTrue(DuneRange.config.night.moons.all { it.y < .44f - it.radius * w.toFloat() / h })
+        // Away from the moons nothing changed.
+        assertEquals(luma(plain, 40, 700), luma(night, 40, 700))
     }
 }

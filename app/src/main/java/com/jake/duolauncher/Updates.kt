@@ -1,5 +1,10 @@
 package com.jake.duolauncher
 
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.feed.*
@@ -337,7 +342,16 @@ internal fun UpdatesPanel(
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     updates.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    Text(stringResource(com.jake.duolauncher.R.string.versions), style = MaterialTheme.typography.titleMedium)
+    // Seven quick taps on the heading wake something (see EasterEggs.revealed).
+    var headingTaps by remember { mutableIntStateOf(0) }
+    Text(stringResource(com.jake.duolauncher.R.string.versions), style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { headingTaps++ })
+    if (EasterEggs.revealed(headingTaps)) {
+        Text(stringResource(com.jake.duolauncher.R.string.easter_sleeper), style = MaterialTheme.typography.titleSmall,
+            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, modifier = Modifier.testTag("easter-sleeper"))
+        Text(stringResource(com.jake.duolauncher.R.string.easter_sleeper_note), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
     Text(stringResource(com.jake.duolauncher.R.string.you_can_install_any_version_including),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     updates.releases.forEach { release ->
@@ -364,4 +378,12 @@ internal fun UpdatesPanel(
             }
         }
     }
+}
+
+/** Little hidden things. Kept as plain rules so they are tested and cannot grow into something that gets in the way. */
+internal object EasterEggs {
+    /** Taps on the Versions heading that reveal the line under it. */
+    const val TAPS = 7
+
+    fun revealed(taps: Int) = taps >= TAPS
 }

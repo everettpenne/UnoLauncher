@@ -416,8 +416,14 @@ internal fun DynamicIsland(
         if (state.expanded) IslandThemes.active.heightSpring() else IslandThemes.active.closeSpring(), label = "island expand")
     val widthProgress by animateFloatAsState(if (state.expanded) 1f else 0f,
         if (state.expanded) IslandThemes.active.widthSpring() else IslandThemes.active.closeSpring(), label = "island expand width")
-    val collapsedAlpha = (1f - progress / .5f).coerceIn(0f, 1f)
-    val expandedAlpha = ((progress - .5f) / .5f).coerceIn(0f, 1f)
+    // A coupled motion (jelly) takes its width from its height, the opposite way; the others spring the width on its own.
+    val motion = IslandThemes.active.motion
+    val shownWidth = if (motion.coupling > 0f) IslandMotion.coupledWidth(progress, motion.coupling) else widthProgress
+    // What is written on the body appears once the body is open in both directions, so a droplet that has dropped but not yet spread
+    // does not show a panel's worth of controls squeezed into a narrow drop.
+    val reveal = minOf(progress, shownWidth)
+    val collapsedAlpha = (1f - reveal / .5f).coerceIn(0f, 1f)
+    val expandedAlpha = ((reveal - .5f) / .5f).coerceIn(0f, 1f)
     val flashActive = state.flashTitle != null
     // Tapping a notification's flash: its own tap action, or the app when it has none. The values are read before the flash is cleared.
     val openFlash: () -> Unit = {
@@ -495,7 +501,7 @@ internal fun DynamicIsland(
     val compactness by animateFloatAsState(compactTarget, IslandThemes.active.spring(.8f, 380f), label = "island compact")
     val extraBody = if (state.peekCard != null) 0f else (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(IslandTools.toolsOpen) +
         (if (IslandTools.toolsOpen) TOOLS_PANELS_ROW_DP else if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) - actionsTrimDp
-    val frame = IslandGeometry.frame(environment, d, widthProgress, sizeScale, extraBodyDp = extraBody, extraWidthDp = eventWidth,
+    val frame = IslandGeometry.frame(environment, d, shownWidth, sizeScale, extraBodyDp = extraBody, extraWidthDp = eventWidth,
         compactness = compactness, heightProgress = progress)
     // What the touch window is told. It used to follow the island's size on every animation frame, which is a call to the window
     // manager per frame while the island opens and closes. Now it is told the size the island is heading for as soon as a change
@@ -514,6 +520,11 @@ internal fun DynamicIsland(
     val glowAlpha = animateFloatAsState(
         IslandGlow.target(mediaVisible && (state.expanded || liveKinds.take(2).contains(LiveKind.MEDIA)), isPlaying,
             flashActive || IslandTools.ringing || state.peekCard != null), tween(650), label = "island media glow")
+    // The glow's flame stirs only while audio is really playing (not paused or lingering), and not at all with Android's animations off.
+    val animationsOn = remember { android.provider.Settings.Global.getFloat(context.contentResolver,
+        android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f }
+    val flameAnimated = isPlaying && mediaVisible && animationsOn
+    val flameT by rememberFlameClock(flameAnimated)
     // A progress ring around the collapsed pill: a running timer, or the battery level while charging.
     val ring = IslandRingLogic.choose(flashActive, progress >= .5f || state.expanded, IslandTools.ringing,
         IslandTools.timerActive, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
@@ -640,11 +651,10 @@ internal fun DynamicIsland(
             .islandBody(glass?.backdrop, corner.dp, settings = glass?.settings ?: GlassSettings.Default)
             .islandRing(ring, corner * d, 2.5f * d)
             .clip(RoundedCornerShape(corner.dp))
-            // The playing track's colour fading in from the artwork side, like HyperOS's island.
+            // The playing track's colour rising from the island's bottom edge, swaying like a low flame while audio really plays.
             .drawBehind {
                 val a = glowAlpha.value
-                if (a > .01f) drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(
-                    0f to artTint.copy(alpha = a), .55f to artTint.copy(alpha = a * .35f), 1f to Color.Transparent, endX = size.width))
+                if (a > .01f) drawBottomGlow(artTint, a, flameT, flameAnimated)
             }
             .pointerInput(state.expanded, liveKinds.size, flashActive) {
                 // Swipe up closes (or dismisses a flash), and a sideways flick turns the live activities so another is in front,
@@ -710,7 +720,7 @@ internal fun DynamicIsland(
             // Only the face that is showing is composed. An invisible panel would still own its buttons'
             // touch targets, and Compose pads small targets to 48 dp, so the hidden Search button caught
             // taps meant for the pill itself.
-            if (progress < .6f && !(compactTarget == 1f && !sideways)) Row(Modifier.fillMaxSize().graphicsLayer { alpha = collapsedAlpha },
+            if (reveal < .6f && !(compactTarget == 1f && !sideways)) Row(Modifier.fillMaxSize().graphicsLayer { alpha = collapsedAlpha },
                 verticalAlignment = Alignment.CenterVertically) {
                 val leading: @Composable () -> Unit = {
                     if (flashActive) {
@@ -773,18 +783,24 @@ internal fun DynamicIsland(
                 }
             }
             // Tools face (long press): timer, stopwatch, flashlight.
-            if (progress > .4f && IslandTools.toolsOpen) Column(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
+            if (reveal > .4f && IslandTools.toolsOpen) Column(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 IslandToolsFace(clockMs, torch)
             }
             // A new notification as a card: icon, who or what, and the text if the level allows. Tap opens it; swipe up or wait to dismiss.
             state.peekCard?.let { peek ->
-                if (progress > .4f) Row(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
+                if (reveal > .4f) Row(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
+                    // The app's colour glows out from behind its icon into the island's own black. It is drawn across the whole body, before
+                    // the padding, so it has no card edge of its own: the notification is part of the island, not a panel laid on it.
+                    .then(peek.tint?.let { c -> Modifier.drawBehind {
+                        val centre = Offset(faceStart.toPx() + 22.dp.toPx(), size.height * .62f)
+                        val reach = size.width * .62f
+                        drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(
+                            listOf(Color(c).copy(alpha = .36f), Color(c).copy(alpha = .12f), Color.Transparent), centre, reach), reach, centre)
+                    } } ?: Modifier)
                     .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)
-                    .clip(RoundedCornerShape(14.dp))
-                    // A wash of the app icon's colour behind the card, fading to the island's black.
-                    .then(peek.tint?.let { c -> Modifier.background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color(c).copy(alpha = .38f), Color.Transparent))) } ?: Modifier)
-                    .clickable {
+                    // No ripple plate over the island: the island's own press squash is the feedback.
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                         // The notification's own tap action; with none, the app itself.
                         if (!sendTapAction(context, peek.open))
                             context.packageManager.getLaunchIntentForPackage(peek.packageName)?.let { runCatching { context.startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
@@ -802,7 +818,7 @@ internal fun DynamicIsland(
                 }
             }
             // Expanded face: live panel, starting below the camera hole.
-            if (progress > .4f && !IslandTools.toolsOpen && state.peekCard == null) Column(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
+            if (reveal > .4f && !IslandTools.toolsOpen && state.peekCard == null) Column(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {

@@ -38,26 +38,42 @@ internal enum class ControlShape(val label: String) { PILL("Pill"), ROUNDED("Rou
 /**
  * How the island moves. [damping] multiplies a spring's damping ratio (below 1 overshoots more) and [stiffness] its stiffness; those
  * tune the island's smaller springs (an event's width, the compact ring, a button's press). Opening is tuned by the per-axis numbers:
- * the island's height and width are two separate springs, so a motion can have a personality. When they disagree (the height leads
- * and the width wobbles behind it) the body stretches and squashes like cartoon rubber, which is all "Jelly" and "Droplet" are.
- * Closing always settles without overshoot, so the island lands back on the camera; [closeStiffness] is how fast. [pulse] is how far
- * the island swells when an event arrives.
+ * the island's height and width are two separate springs, so a motion can have a personality. Closing always settles without
+ * overshoot, so the island lands back on the camera; [closeStiffness] is how fast. [pulse] is how far the island swells when an event
+ * arrives and how hard a press squashes it.
+ *
+ * Each of the livelier motions is a different cartoon:
+ *  - **Bouncy** is a rubber ball: height and width overshoot together, a beat apart, and ring down.
+ *  - **Jelly** is a wobbling blob: only the height springs, and the width is *coupled* to it the opposite way (taller means narrower,
+ *    shorter means wider, [coupling] says how strongly), so the body breathes like squashed and stretched jelly.
+ *  - **Droplet** is a water drop: the height shoots down fast while the width barely moves, so it hangs narrow and tall, then spreads
+ *    wide, slowly and smoothly, with no wobble, as a drop does when it lands.
  */
 internal enum class IslandMotion(
     val label: String, val damping: Float, val stiffness: Float,
     val heightDamping: Float, val heightStiffness: Float,
     val widthDamping: Float, val widthStiffness: Float,
     val closeStiffness: Float, val pulse: Float,
+    val coupling: Float = 0f,
 ) {
-    CALM("Calm", 1f, .75f, .92f, 240f, .92f, 225f, 330f, 1.05f),
+    CALM("Calm", 1f, .75f, .95f, 200f, .95f, 190f, 300f, 1.05f),
     STANDARD("Standard", 1f, 1f, .8f, 330f, .84f, 310f, 420f, 1.09f),
-    SNAPPY("Snappy", 1f, 1.4f, .72f, 520f, .76f, 480f, 600f, 1.1f),
-    /** Overshoots a long way and rings a few times, the width a beat behind the height: a cartoon bounce. */
-    BOUNCY("Bouncy", .78f, 1f, .36f, 250f, .44f, 205f, 420f, 1.18f),
-    /** Even springier, the width swinging wider than the height: it wobbles like set jelly. */
-    JELLY("Jelly", .7f, 1f, .38f, 200f, .34f, 150f, 360f, 1.22f),
-    /** Drops down narrow and tall like a water drop leaving a tap, then splashes wide and settles with a wobble. */
-    DROPLET("Droplet", .85f, .9f, .52f, 240f, .36f, 100f, 300f, 1.14f),
+    SNAPPY("Snappy", 1f, 1.4f, .7f, 560f, .74f, 520f, 640f, 1.1f),
+    BOUNCY("Bouncy", .78f, 1f, .36f, 250f, .40f, 240f, 420f, 1.18f),
+    JELLY("Jelly", .7f, 1f, .33f, 170f, .33f, 170f, 360f, 1.22f, coupling = 1.4f),
+    DROPLET("Droplet", .85f, .9f, .55f, 300f, .8f, 70f, 300f, 1.14f);
+
+    companion object {
+        /**
+         * The width a coupled motion (see [coupling]) gives the body for a height progress [h]. Below half open the two move together;
+         * from there the width runs ahead of the height on the way up and comes back the other way as the height overshoots, so the body
+         * is wide and flat while it is short and narrow and tall when it is stretched. Pure, so it is unit-tested.
+         */
+        fun coupledWidth(h: Float, coupling: Float): Float {
+            val s = ((h - .5f) / .5f).coerceIn(0f, 1f)
+            return h - coupling * (h - 1f) * s
+        }
+    }
 }
 
 internal data class IslandTheme(

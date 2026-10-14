@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.57.0-uno01
+
+- **Notification cards belong to the island.** The drop-down card for a new notification used to be a separate rounded panel inset in the island, with its own edge and a ripple, so it looked cut out of it. It is now part of the body: the app's colour glows out from behind its icon into the island's own black, with no card edge and no ripple (the island's own press squash is the feedback).
+- **The now-playing glow rises from the bottom.** The track's colour now comes up from the island's bottom edge instead of in from the left, and while audio is really playing a few soft tongues sway and swell slowly like a low flame. Paused or lingering music keeps a still glow, and nothing animates when Android's animations are off.
+- **The motions are clearly different now.** Jelly and Droplet were too alike, so each is its own cartoon:
+  - **Bouncy** is a rubber ball: height and width overshoot together and ring down.
+  - **Jelly** is a wobbling blob: only its height springs, and its width is tied to it the opposite way, so the body breathes (wide and flat when short, narrow and tall when stretched).
+  - **Droplet** is a water drop: it drops down fast while the width barely moves, hangs narrow and tall, then spreads wide slowly and smoothly with no wobble. Its content appears once it has spread.
+  - **Calm, Standard and Snappy** are tuned further apart (slow and soft, smooth, quick and crisp).
+- **Another hidden thing**, somewhere in the launcher this time.
+- Tests: unit tests for the coupled jelly width, the personalities of the motions, the flame's shape and bounds, and the hidden thing; the island and Spotlight emulator suites pass; frame-by-frame captures of each motion, the card and the glow were checked on the emulator.
+
 ## 0.56.0-uno01
 
 - **A livelier island.** The island's width and height used to be held to the panel's size, so even the "Bouncy" setting could not visibly overshoot. They are now two separate springs that may overshoot, which is what makes stretch, squash and bounce possible.

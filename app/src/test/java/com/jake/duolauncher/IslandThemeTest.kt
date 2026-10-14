@@ -121,12 +121,10 @@ class IslandThemeTest {
             assertTrue(motion.name, 1.0 + maxOf(overshoot(motion.heightDamping), overshoot(motion.widthDamping)) <= IslandGeometry.MAX_OVERSHOOT + .02)
             assertTrue(motion.pulse in 1f..1.3f)
         }
-        // Calm barely overshoots, the cartoon motions overshoot a lot, and the two newest let width and height disagree.
+        // Calm barely overshoots and the cartoon motions overshoot a lot (their personalities are pinned in theLivelyMotions... below).
         assertTrue(overshoot(IslandMotion.CALM.heightDamping) < .02)
         assertTrue(overshoot(IslandMotion.BOUNCY.heightDamping) > .15)
-        assertTrue(overshoot(IslandMotion.JELLY.widthDamping) > overshoot(IslandMotion.JELLY.heightDamping))
-        assertTrue(IslandMotion.DROPLET.widthStiffness < IslandMotion.DROPLET.heightStiffness)
-        assertTrue(IslandMotion.DROPLET.widthDamping < IslandMotion.DROPLET.heightDamping)
+        assertTrue(overshoot(IslandMotion.JELLY.heightDamping) > .2)
     }
 
     @Test fun jellyAndDropletAreValidInAThemeFile() {
@@ -136,5 +134,28 @@ class IslandThemeTest {
         }
         assertTrue(IslandThemeFile.parse("""{"format":"uno-island-theme","version":1,"name":"T","motion":"wobbly"}""") is IslandThemeFile.Result.Rejected)
         assertTrue(IslandThemes.presets.any { it.motion == IslandMotion.DROPLET } && IslandThemes.presets.any { it.motion == IslandMotion.JELLY })
+    }
+
+    @Test fun jellyBreathesAndAMotionWithoutCouplingDoesNot() {
+        val k = IslandMotion.JELLY.coupling
+        assertTrue(k > 0f)
+        assertEquals("below half open the width follows the height", .3f, IslandMotion.coupledWidth(.3f, k), 1e-5f)
+        assertEquals("fully open it is fully wide", 1f, IslandMotion.coupledWidth(1f, k), 1e-5f)
+        assertTrue("taller than open means narrower", IslandMotion.coupledWidth(1.3f, k) < 1f)
+        assertTrue("shorter than open means wider than the height", IslandMotion.coupledWidth(.8f, k) > .8f)
+        assertTrue("the width never leaves the room the island is given", (0..140).all { IslandMotion.coupledWidth(it / 100f, k) in 0f..IslandGeometry.MAX_OVERSHOOT })
+        assertTrue(IslandMotion.values().filter { it != IslandMotion.JELLY }.all { it.coupling == 0f })
+    }
+
+    @Test fun theLivelyMotionsAreVisiblyDifferentFromEachOther() {
+        // A rubber ball overshoots on both axes together; jelly's width is the mirror of its height; a droplet's width is slow and calm.
+        val ball = IslandMotion.BOUNCY
+        assertTrue(Math.abs(ball.heightDamping - ball.widthDamping) < .1f && Math.abs(ball.heightStiffness - ball.widthStiffness) < 30f)
+        val drop = IslandMotion.DROPLET
+        assertTrue("droplet's width is slow", drop.widthStiffness < drop.heightStiffness / 3f)
+        assertTrue("and does not wobble", overshoot(drop.widthDamping) < .03 && overshoot(drop.heightDamping) in .05..IslandGeometry.MAX_OVERSHOOT - 1.0)
+        assertTrue("jelly rings longer than anything but is the only coupled one", overshoot(IslandMotion.JELLY.heightDamping) > overshoot(ball.heightDamping))
+        val labels = IslandMotion.values().map { it.label }
+        assertEquals(labels.size, labels.toSet().size)
     }
 }

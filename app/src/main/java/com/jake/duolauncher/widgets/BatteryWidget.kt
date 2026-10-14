@@ -1,7 +1,6 @@
 package com.jake.duolauncher.widgets
 
 import com.jake.duolauncher.island.*
-import com.jake.duolauncher.panel.*
 import com.jake.duolauncher.appearance.*
 
 import com.jake.duolauncher.*
@@ -37,6 +36,9 @@ import kotlinx.coroutines.withContext
 
 private data class BatteryReading(val level: Int, val charging: Boolean, val toFull: String?)
 
+/** A steady sample for the picker's preview, rather than whatever the phone happens to be at. */
+private val SAMPLE_READING = BatteryReading(78, charging = true, toFull = "1 h 12 min to full")
+
 private fun readBattery(context: Context): BatteryReading {
     val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
     val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
@@ -52,14 +54,15 @@ private fun readBattery(context: Context): BatteryReading {
 @Composable
 internal fun BatteryFace(slot: Int, onOptions: () -> Unit) {
     val context = LocalContext.current
-    val reading by produceState(BatteryReading(-1, false, null)) {
+    val live by produceState(BatteryReading(-1, false, null)) {
         while (true) { value = withContext(Dispatchers.Default) { readBattery(context) }; delay(30_000) }
     }
+    val reading = if (LocalWidgetPreview.current) SAMPLE_READING else live
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-battery-$slot")) {
         val ink = LocalGlassInk.current
         CardTitle(Icons.Rounded.BatteryChargingFull, "Battery")
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-            val tint = when { reading.charging -> IosGreen; reading.level in 0..20 -> IosOrange; else -> ink.primary }
+            val tint = when { reading.charging -> widgetAccent(WidgetColors.Green); reading.level in 0..20 -> widgetAccent(WidgetColors.Warm); else -> ink.primary }
             Canvas(Modifier.fillMaxHeight().aspectRatio(1f)) {
                 val stroke = 8.dp.toPx()
                 val inset = stroke * .9f

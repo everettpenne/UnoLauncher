@@ -32,16 +32,20 @@ import java.time.ZoneOffset
 internal fun MoonFace(slot: Int, onOptions: () -> Unit) {
     val now = rememberNow(10 * 60_000L)
     val at = now.atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneOffset.UTC)
-    val cycle = MoonPhase.cycle(at)
+    // The picker's preview shows a fixed, photogenic gibbous moon rather than tonight's.
+    val previewing = LocalWidgetPreview.current
+    val cycle = if (previewing) SAMPLE_CYCLE else MoonPhase.cycle(at)
+    val litFraction = if (previewing) SAMPLE_LIT else MoonPhase.illumination(at)
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-moon-$slot")) {
         val ink = LocalGlassInk.current
         CardTitle(Icons.Rounded.Bedtime, "Moon")
+        val haloColor = widgetAccent(WidgetColors.Gold)
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxHeight().aspectRatio(1f)) {
                 val r = size.minDimension / 2f
                 val c = Offset(size.width / 2f, size.height / 2f)
                 // A soft halo, then the dark side as a faint sphere.
-                drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color(0xFFF4F1DE).copy(alpha = .22f), Color.Transparent), c, r * 1.55f), r * 1.55f, c)
+                drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(haloColor.copy(alpha = .22f), Color.Transparent), c, r * 1.55f), r * 1.55f, c)
                 drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(ink.soft(.34f), ink.soft(.16f)), c - Offset(r * .3f, r * .3f), r * 1.4f), r, c)
                 drawCircle(ink.soft(.45f), r, c, style = Stroke(1.dp.toPx()))
                 val k = cos(2.0 * Math.PI * cycle).toFloat()
@@ -63,7 +67,7 @@ internal fun MoonFace(slot: Int, onOptions: () -> Unit) {
             }
         }
         Text(MoonPhase.name(cycle), color = ink.primary, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally))
-        Text("${(MoonPhase.illumination(at) * 100).toInt()}% lit", color = ink.soft(), fontSize = 11.sp, maxLines = 1,
+        Text("${(litFraction * 100).toInt()}% lit", color = ink.soft(), fontSize = 11.sp, maxLines = 1,
             modifier = Modifier.align(Alignment.CenterHorizontally))
         // What is coming: the nearer of the next full and the next new moon.
         Text(MoonPhase.nextText(MoonPhase.next(at)), color = ink.soft(), fontSize = 10.sp, maxLines = 1,
@@ -72,3 +76,7 @@ internal fun MoonFace(slot: Int, onOptions: () -> Unit) {
 }
 
 private fun cos(x: Double) = kotlin.math.cos(x)
+
+/** The preview's moon: a waxing gibbous, part lit, that always looks good. */
+private const val SAMPLE_CYCLE = 0.35
+private const val SAMPLE_LIT = 0.794

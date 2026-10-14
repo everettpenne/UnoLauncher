@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.54.0-uno01
+
+- **A new Console widget.** A live, timestamped log of events on the phone itself: screen on and off, charger connected and disconnected, battery low, airplane mode, ringer mode, Do Not Disturb, headphones and Bluetooth or USB audio, VPN connecting and dropping, USB data, apps installed, removed and updated, and a time zone change. Find it under **Uno widgets** in the picker (it stacks like the others).
+  - **Private by design:** it needs no permission, reads nothing from other apps and keeps the log only in memory (never saved, never sent), and only while the widget is on screen. Android gives a normal app no "all events" feed, so these are the public signals the phone shares.
+- **Battery and Moon previews** now show a steady sample (a charging battery, a gibbous moon) in the widget picker instead of whatever the phone is doing.
+- **A fix inside the Console before it shipped:** its app install and update events needed a "package" filter that had been combined with the screen, charger and other events, which would have silenced all of those; they are now separate. Its VPN listener also now reports on the main thread.
+- Tests: unit tests for the console's wording, timestamps and event ring; an emulator test checks that the two event filters stay apart.
+
 ## 0.53.0-uno01
 
 - **Swipe a stack to switch it.** Swipe up on a widget stack for the next widget and down for the previous one; they slide in and out, with a tick on each step. Sideways swipes still turn the page. A swipe that starts on a stack no longer opens the shade, control panel or settings (swipe from outside it for those), and a list-style Android widget keeps its own scrolling (the dots down the edge still switch it).

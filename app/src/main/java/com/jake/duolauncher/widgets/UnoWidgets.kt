@@ -36,6 +36,7 @@ internal object UnoWidgets {
     const val MEDIA_PLAYER = -34
     const val GLANCE = -35
     const val LIQUID_BATTERY = -36
+    const val CONSOLE = -37
 
     val all: List<UnoWidgetDef> = listOf(
         UnoWidgetDef(BATTERY, "Battery", "A ring for the charge level, and time to full while charging.", 2, 2) { s, o -> BatteryFace(s, o) },
@@ -54,6 +55,7 @@ internal object UnoWidgets {
         UnoWidgetDef(MEDIA_PLAYER, "Media player", "Now playing, with play, pause, skip and a seek bar. Track details need notification access.", 2, 2) { s, o -> MediaPlayerFace(s, o) },
         UnoWidgetDef(GLANCE, "Glance", "Time, date, your next alarm, and today's sunrise and sunset.", 2, 2) { s, o -> GlanceFace(s, o) },
         UnoWidgetDef(LIQUID_BATTERY, "Liquid battery", "Battery as a liquid that ripples and tilts with the phone.", 2, 2) { s, o -> LiquidBatteryFace(s, o) },
+        UnoWidgetDef(CONSOLE, "Console", "A live console of device events: screen, charging, audio, VPN, and more.", 2, 2) { s, o -> ConsoleFace(s, o) },
     )
 
     fun byId(id: Int): UnoWidgetDef? = all.firstOrNull { it.id == id }

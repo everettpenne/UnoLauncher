@@ -128,11 +128,13 @@ internal fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifi
             return@BoxWithConstraints
         }
         val shownId = if (shown == 0) id else members[shown - 1]
-        val pageContent: @Composable (Int) -> Unit = { page ->
-            val pageId = if (page == 0) id else members.getOrElse(page - 1) { id }
+        // What a page draws is decided by the widget's id, not by its position: AnimatedContent keeps the content it first made for a
+        // state, so keying it by position meant that after a widget was removed from the stack the page at that position went on
+        // drawing the removed widget (it left the list but was still in the stack). Keyed by id, a removed widget's page is torn down.
+        val pageContentFor: @Composable (Int, Boolean) -> Unit = { pageId, isBase ->
             val info = remember(pageId) { if (pageId >= 0) controller.manager.getAppWidgetInfo(pageId) else null }
             if (StackRules.isUno(pageId)) key(pageId) { fallback(StackRules.unoWidgetId(pageId), StackRules.unoSlot(pageId)) }
-            else if (info == null) { if (page == 0) fallback(id, slot) }
+            else if (info == null) { if (isBase) fallback(id, slot) }
             else {
                 key(pageId) {
                     AndroidView(factory = { context -> controller.host.createView(context, pageId, info) },
@@ -140,14 +142,15 @@ internal fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifi
                 }
             }
         }
-        if (members.isEmpty()) pageContent(0)
-        else androidx.compose.animation.AnimatedContent(targetState = shown, modifier = Modifier.fillMaxSize(), label = "stack page",
+        val order by rememberUpdatedState(listOf(id) + members)
+        if (members.isEmpty()) pageContentFor(id, true)
+        else androidx.compose.animation.AnimatedContent(targetState = shownId, modifier = Modifier.fillMaxSize(), label = "stack page",
             transitionSpec = {
                 // The next widget rises in from below, the previous one comes down from above.
-                val up = targetState > initialState
+                val up = order.indexOf(targetState) > order.indexOf(initialState)
                 (androidx.compose.animation.slideInVertically { if (up) it / 3 else -it / 3 } + androidx.compose.animation.fadeIn()) togetherWith
                     (androidx.compose.animation.slideOutVertically { if (up) -it / 3 else it / 3 } + androidx.compose.animation.fadeOut())
-            }) { page -> pageContent(page) }
+            }) { pageId -> pageContentFor(pageId, pageId == id) }
         var nameVisible by remember { mutableStateOf(false) }
         LaunchedEffect(shown) { if (members.isNotEmpty()) { nameVisible = true; delay(1100); nameVisible = false } }
         androidx.compose.animation.AnimatedVisibility(nameVisible && members.isNotEmpty(), Modifier.align(Alignment.TopCenter).padding(top = 6.dp),

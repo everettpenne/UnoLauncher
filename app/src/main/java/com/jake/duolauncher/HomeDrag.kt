@@ -1,6 +1,7 @@
 package com.jake.duolauncher
 
 import com.jake.duolauncher.island.*
+import com.jake.duolauncher.folders.isFolderId
 import com.jake.duolauncher.appearance.*
 
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -45,7 +46,8 @@ internal class HomeDragState {
         .maxByOrNull(::dragRegionPriority)
     fun destination(point: Offset, pages: Set<Int>): DragRegion? {
         regions[DropTarget.Remove]?.takeIf { source?.target !is DropTarget.Library && it.bounds.contains(point) }?.let { return it }
-        return direct(point, pages) ?: nearestHomeCell(point, pages)
+        val hit = direct(point, pages) ?: nearestHomeCell(point, pages)
+        return folderCellAsFolder(hit, point, source) ?: hit
     }
 
     /** A drop that just misses every cell (in a margin, or beside the grid) lands in the nearest Home cell instead of being lost. */
@@ -258,4 +260,23 @@ internal fun folderDropTarget(region: DragRegion?, point: Offset, source: DragRe
     val dx = kotlin.math.abs(point.x - b.center.x) / b.width
     val dy = kotlin.math.abs(point.y - b.center.y) / b.height
     return occupant.takeIf { dx <= .35f && dy <= .42f }
+}
+
+/**
+ * A plain app held over the middle of a Home cell that holds a folder is held over the folder, wherever in the cell it is: the drop
+ * adds it to the folder. Only the folder's small icon plate is registered as a folder target, so a finger on its label or just beside
+ * the plate resolved to the plain cell instead, which made the layout open a gap there and slide the folder out from under the finger
+ * while the app was being dragged to it (the symptom: apps could not be dropped into a folder). Null when [region] is not a folder's
+ * cell, when the dragged thing is a widget or a folder (folders do not nest), or when the pointer is near the cell's edge, where the
+ * drop is an ordinary move.
+ */
+internal fun folderCellAsFolder(region: DragRegion?, point: Offset, source: DragRegion?): DragRegion? {
+    if (region == null || source == null || region.target !is DropTarget.Home) return null
+    val occupant = region.appId?.takeIf(::isFolderId) ?: return null
+    val dragged = source.appId ?: return null
+    if (source.target is DropTarget.Widget || isFolderId(dragged) || source.folderId == occupant) return null
+    val b = region.bounds
+    if (b.isEmpty) return null
+    if (kotlin.math.abs(point.x - b.center.x) / b.width > .4f || kotlin.math.abs(point.y - b.center.y) / b.height > .45f) return null
+    return DragRegion(DropTarget.Folder(occupant), b, occupant, region.page, region.widgetId, occupant, region.scope)
 }

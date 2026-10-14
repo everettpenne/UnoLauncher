@@ -78,6 +78,14 @@ class DuoApplication : Application() {
         super.onCreate()
         DiscoverEmbedding.initialize(this)
         DiscoverBounds.initialize(this)
+        com.jake.duolauncher.appearance.SystemWallpaperSync.start(this)
+    }
+
+    /** The system's light/dark switch: keep Android's lock screen wallpaper in step with the launcher (see SystemWallpaperSync). */
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        com.jake.duolauncher.appearance.SystemWallpaperSync.check(this,
+            newConfig.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES)
     }
 }
 

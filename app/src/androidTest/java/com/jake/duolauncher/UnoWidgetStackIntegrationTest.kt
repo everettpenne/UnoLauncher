@@ -56,6 +56,15 @@ class UnoWidgetStackIntegrationTest {
             assertFalse(present("uno-note-$baseSlot"))
             compose.onNodeWithTag("stack-dot-0").performClick()
             compose.waitUntil(10_000) { present("uno-note-$baseSlot") }
+
+            // Removing the widget that is showing takes it out of the stack for real: its page goes and the base widget is shown.
+            compose.onNodeWithTag("stack-dot-1").performClick()
+            compose.waitUntil(10_000) { present("uno-counter-$memberSlot") }
+            compose.onNodeWithTag("widget-slot-$baseSlot").performSemanticsAction(SemanticsActions.OnLongClick)
+            compose.waitUntil(10_000) { present("widget-unstack-$code") }
+            compose.onNodeWithTag("widget-unstack-$code").performClick()
+            compose.waitUntil(10_000) { WidgetStacks.members(baseSlot).isEmpty() }
+            compose.waitUntil(10_000) { present("uno-note-$baseSlot") && !present("uno-counter-$memberSlot") }
         } finally {
             if (baseSlot >= 0) WidgetStacks.members(baseSlot).toList().forEach { WidgetStacks.remove(baseSlot, it) }
             compose.runOnIdle { model().restoreLayout(before) }

@@ -35,4 +35,24 @@ class FolderDropTest {
         assertNull(folderDropTarget(region("b", DropTarget.Dock(0)), Offset(50f, 60f), source, ::isFolder))
         assertNull(folderDropTarget(null, Offset(50f, 60f), source, ::isFolder))
     }
+
+    private val fid = "folder:" + java.util.UUID(0, 7)
+
+    @Test fun anAppHeldOverAFolderCellIsHeldOverTheFolder() {
+        val hit = folderCellAsFolder(region(fid), Offset(50f, 100f), source)
+        assertEquals(DropTarget.Folder(fid), hit?.target)
+    }
+
+    @Test fun theEdgeOfAFolderCellIsStillAMove() {
+        assertNull(folderCellAsFolder(region(fid), Offset(3f, 60f), source))
+        assertNull(folderCellAsFolder(region(fid), Offset(50f, 119f), source))
+    }
+
+    @Test fun foldersWidgetsAndPlainCellsDoNotQualify() {
+        assertNull(folderCellAsFolder(region("b"), Offset(50f, 60f), source))
+        assertNull(folderCellAsFolder(region(fid), Offset(50f, 60f), DragRegion(DropTarget.Home(1), cell, fid, 0)))
+        assertNull(folderCellAsFolder(region(fid), Offset(50f, 60f), DragRegion(DropTarget.Widget(2), cell, null, 0, widgetId = 5)))
+        assertNull(folderCellAsFolder(region(fid, DropTarget.Dock(0)), Offset(50f, 60f), source))
+        assertNull(folderCellAsFolder(region(fid), Offset(50f, 60f), DragRegion(DropTarget.Library("a"), cell, "a", 0, folderId = fid)))
+    }
 }

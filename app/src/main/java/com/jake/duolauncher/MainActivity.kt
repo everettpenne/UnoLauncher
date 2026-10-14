@@ -238,6 +238,7 @@ class MainActivity : ComponentActivity() {
             timeReceiverRegistered = true
         }
         appearance.refresh(systemDark())
+        com.jake.duolauncher.appearance.SystemWallpaperSync.check(this, systemDark())
     }
     override fun onStop() {
         // The first app of a split is now in front; give it a beat to settle, then open the second beside it.

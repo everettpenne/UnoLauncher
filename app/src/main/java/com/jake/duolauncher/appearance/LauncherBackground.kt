@@ -208,6 +208,7 @@ class LauncherBackgroundController(
     fun reset() {
         clearPhoto()
         successMessage = "Using ${builtin.label}."
+        if (systemSync) pushToSystem(null)
     }
 
     /** Chooses one of the launcher's own drawn backgrounds, replacing any committed photo. */
@@ -233,19 +234,16 @@ class LauncherBackgroundController(
      * background changes. A failure leaves the previous system wallpaper in place and says so.
      */
     private fun pushToSystem(photo: Bitmap?) {
-        val metrics = activity.resources.displayMetrics
-        val width = minOf(metrics.widthPixels, metrics.heightPixels)
-        val height = maxOf(metrics.widthPixels, metrics.heightPixels)
         val useDark = dark
         val kind = builtin
         val photoFile = launcherBackgroundFile(activity)
         val usePhoto = photo != null || (launcherBackgroundEnabled(activity) && photoFile.isFile)
         Thread {
-            val result = runCatching {
-                val bitmap = photo ?: if (usePhoto) requireNotNull(BitmapFactory.decodeFile(photoFile.path)) { "The photo could not be read." }
-                    else DuneSceneCache.systemBitmap(kind, width, height, useDark)
+            val result = if (!usePhoto) SystemWallpaperSync.push(activity, kind, useDark) else runCatching {
+                val bitmap = photo ?: requireNotNull(BitmapFactory.decodeFile(photoFile.path)) { "The photo could not be read." }
                 android.app.WallpaperManager.getInstance(activity).setBitmap(bitmap, null, true,
                     android.app.WallpaperManager.FLAG_SYSTEM or android.app.WallpaperManager.FLAG_LOCK)
+                Unit
             }
             activity.runOnUiThread {
                 result.onSuccess { successMessage = "Android home and lock screen set to match."; errorMessage = null }

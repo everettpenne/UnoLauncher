@@ -228,3 +228,18 @@ internal fun GlassModalSheet(
         }
     }
 }
+
+/**
+ * Keeps a sheet's content from closing the sheet. A modal bottom sheet takes whatever downward scroll its content has left over and
+ * drags itself down with it, so scrolling a settings page up past its top (or flinging it) closed the sheet, and it was easy to do by
+ * accident. This connection, placed around the content, consumes that leftover downward scroll and fling, so only the sheet's handle,
+ * the Back gesture, a tap outside or a Done/Close button dismiss it. Scrolling the content itself is untouched.
+ */
+internal object SheetDismissGuard : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+    override fun onPostScroll(consumed: androidx.compose.ui.geometry.Offset, available: androidx.compose.ui.geometry.Offset,
+        source: androidx.compose.ui.input.nestedscroll.NestedScrollSource) =
+        if (available.y > 0f) androidx.compose.ui.geometry.Offset(0f, available.y) else androidx.compose.ui.geometry.Offset.Zero
+
+    override suspend fun onPostFling(consumed: androidx.compose.ui.unit.Velocity, available: androidx.compose.ui.unit.Velocity) =
+        if (available.y > 0f) androidx.compose.ui.unit.Velocity(0f, available.y) else androidx.compose.ui.unit.Velocity.Zero
+}

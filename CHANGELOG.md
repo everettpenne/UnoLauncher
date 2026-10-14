@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.60.0-uno01
+
+- **Dropping an app on a folder works again.** Only the folder's small icon plate counted as "on the folder"; a finger on its label or just beside the plate counted as an ordinary Home cell, so the layout opened a gap there and slid the folder out from under the app being held. Now an app held anywhere over the middle of a folder's cell is over the folder, and nothing moves. Near the cell's edge it is still an ordinary move.
+- **Removing a widget from a stack removes it.** The stack kept drawing the removed widget at its old position (it left the list but stayed in the stack) because the stack's pages were keyed by position, and the animation held on to the first widget it drew there. Pages are now keyed by the widget, so the removed one goes and the base widget (or the next) shows at once.
+- **Settings are harder to close by accident, and remember where you were.** Scrolling a settings page past its top, or flinging it, used to hand the leftover scroll to the sheet and close it. That leftover is now absorbed; the sheet closes from its handle, the Back gesture, a tap outside, or the Close button. Closing the sheet on a page and swiping up again (or reopening from Home options) returns to that page; Back still steps up one level.
+- **The lock screen follows day and night.** With "also set Android's home and lock screen" on and a built-in background chosen, the wallpaper was sent only when you chose it, so it stayed on the old scene when the system theme or the sunrise and sunset schedule switched. Uno now notices the change, with the launcher out of sight too (the system light/dark switch, and the schedule on the minute tick) and sends the matching scene once per change. A photo background is the same day and night, so it is left alone. The screen has to be on for the schedule's switch to be noticed, so a lock screen may change when you wake the phone.
+- Tests: unit tests for the folder-cell rule, the settings guard and when the system wallpaper is re-sent; emulator tests for removing the visible widget from a stack and for reopening settings on the same page.
+
 ## 0.59.0-uno01
 
 - **Folders look and work like iOS's.** Opening a folder shows a small, translucent panel sized to what is in it (not a full-screen sheet): the name centred above it and editable in place (tap it, type, tap outside; there is no Done button), the apps as bare icons with their names in a 3 x 3 grid, and more than nine paging sideways with dots. The panel springs open from slightly small. On Home a folder's icon always shows a 3 x 3 preview.

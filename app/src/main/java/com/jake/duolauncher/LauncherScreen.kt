@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -162,7 +163,7 @@ internal fun LauncherScreen(
     var homeEditing by rememberSaveable { mutableStateOf(false) }
     var customizationPage by rememberSaveable { mutableStateOf(CustomizationPage.OVERVIEW) }
     LaunchedEffect(selectedId) { if (selectedId == null) appMoveMenu = false }
-    LaunchedEffect(sheet) { if (sheet.isEmpty()) customizationPage = CustomizationPage.OVERVIEW }
+    // The settings page is deliberately kept when the sheet closes: swiping up again reopens the page you were on.
     var openFolderId by rememberSaveable { mutableStateOf<String?>(null) }
     // The app a split screen is being set up for; the picker then chooses the one beside it.
     var splitFirstId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -677,7 +678,7 @@ internal fun LauncherScreen(
                         PullRoute.NOTIFICATIONS -> launcherActivity.openSystemShade(ShadePanel.NOTIFICATIONS)
                     }
                 },
-                onUpwardSwipe = { UnoFeedback.play(Cue.OPEN, haptic); island.collapse(); customizationPage = CustomizationPage.OVERVIEW; sheet = "settings" },
+                onUpwardSwipe = { UnoFeedback.play(Cue.OPEN, haptic); island.collapse(); sheet = "settings" },
                 onLeadingOverscroll = if (firstHome == 0) onDiscover else null,
                 ignorePress = { point -> pageStripBounds.contains(point + gestureOriginInRoot) ||
                     StackRailRegistry.bounds.values.any { it.contains(point + gestureOriginInRoot) } },
@@ -894,7 +895,6 @@ internal fun LauncherScreen(
             if (sheet.isNotEmpty() && sheet != "widgets") {
                 val activeCustomizationPage = if (sheet == "settings:wallpaper") CustomizationPage.WALLPAPER else customizationPage
                 GlassModalSheet(controlGlass, onDismissRequest = {
-                    customizationPage = CustomizationPage.OVERVIEW
                     sheet = ""; widgetPackage = null; widgetExactTarget = false
                 }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                     properties = ModalBottomSheetProperties(shouldDismissOnBackPress = false),
@@ -905,7 +905,6 @@ internal fun LauncherScreen(
                             customizationPage = CustomizationPage.OVERVIEW
                             sheet = "settings"
                         } else {
-                            customizationPage = CustomizationPage.OVERVIEW
                             sheet = ""; widgetPackage = null; widgetExactTarget = false
                         }
                     }
@@ -936,10 +935,10 @@ internal fun LauncherScreen(
                                 onActions = { selectedId = it.id; sheet = "" }, editing = true, modifier = Modifier.weight(1f).fillMaxWidth(),
                                 onTurnOnWork = { model.turnOnWork(it) })
                         }
-                        "settings", "settings:wallpaper" -> CustomizationSheet(state, wide, model, isDefaultHome,
+                        "settings", "settings:wallpaper" -> Box(Modifier.nestedScroll(remember { SheetDismissGuard })) { CustomizationSheet(state, wide, model, isDefaultHome,
                             page = activeCustomizationPage, onPage = { customizationPage = it; sheet = "settings" },
                             onMakeDefault = { sheet = ""; onMakeDefault() },
-                            onClose = { customizationPage = CustomizationPage.OVERVIEW; sheet = "" }, onEditPins = { sheet = "pins" },
+                            onClose = { sheet = "" }, onEditPins = { sheet = "pins" },
                             onWidget = { widgetSlot = it; widgetPackage = null; widgetProfileSerial = null; widgetExactTarget = false; sheet = "widgets" },
                             onAddWidget = { page -> widgetSlot = model.nextWidgetSlot(); widgetTargetIndex = page * HOME_CELLS; widgetPackage = null; widgetProfileSerial = null; widgetExactTarget = false; sheet = "widgets" },
                             onRemoveWidget = widgets::remove,
@@ -976,7 +975,7 @@ internal fun LauncherScreen(
                             updates = updates,
                             onCheckUpdates = onCheckUpdates,
                             onInstallRelease = onInstallRelease,
-                            onAutoUpdate = onAutoUpdate)
+                            onAutoUpdate = onAutoUpdate) }
                         "widgetActions" -> model.placement(widgetSlot)?.let { placement ->
                             val topPitch = (geometry.widgetHeight + 18f) / 2f
                             val gridSizing = WidgetGridSizing(GRID_COLUMNS, GRID_ROWS, geometry.gridWidth / GRID_COLUMNS,

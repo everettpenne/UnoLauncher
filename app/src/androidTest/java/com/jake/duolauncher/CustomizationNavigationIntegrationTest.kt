@@ -41,6 +41,18 @@ class CustomizationNavigationIntegrationTest {
         compose.onNodeWithTag("customization-wallpaper").assertDoesNotExist()
     }
 
+    @Test fun theSettingsPageIsKeptWhenTheSheetIsClosedAndReopened() {
+        ready()
+        compose.openHomeCustomization()
+        compose.onNodeWithTag("customization-home").performClick()
+        compose.onNodeWithTag("customization-back").assertExists()
+        // Close the sheet outright (not Back one level): the page being looked at is remembered.
+        compose.onNodeWithContentDescription("Close settings").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("customization-back").fetchSemanticsNodes(atLeastOneRootRequired = false).isEmpty() }
+        compose.openHomeCustomization()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("customization-back").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+    }
+
     @Test fun emptySpaceWallpaperOpensPhotoControlsWithoutChangingLayoutOrBindings() {
         ready()
         val before = model().state.value.layout

@@ -792,11 +792,11 @@ internal fun DynamicIsland(
                 if (reveal > .4f) Row(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
                     // The app's colour glows out from behind its icon into the island's own black. It is drawn across the whole body, before
                     // the padding, so it has no card edge of its own: the notification is part of the island, not a panel laid on it.
-                    .then(peek.tint?.let { c -> Modifier.drawBehind {
+                    .then(IslandThemes.active.wash(peek.packageName, peek.tint)?.let { c -> Modifier.drawBehind {
                         val centre = Offset(faceStart.toPx() + 22.dp.toPx(), size.height * .62f)
                         val reach = size.width * .62f
                         drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(
-                            listOf(Color(c).copy(alpha = .36f), Color(c).copy(alpha = .12f), Color.Transparent), centre, reach), reach, centre)
+                            listOf(c.copy(alpha = .36f), c.copy(alpha = .12f), Color.Transparent), centre, reach), reach, centre)
                     } } ?: Modifier)
                     .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)
                     // No ripple plate over the island: the island's own press squash is the feedback.
@@ -1230,7 +1230,15 @@ private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boo
 /** The colour a Live Update asks for, or the island's green when it asks for none or one too dark to read on black. */
 private fun updateTint(update: LiveUpdate): Color {
     val c = Color(update.color)
-    return if (update.color == 0 || c.alpha < .5f || (c.red * .299f + c.green * .587f + c.blue * .114f) < .35f) IosGreen else c.copy(alpha = 1f)
+    val requested = if (update.color == 0 || c.alpha < .5f || (c.red * .299f + c.green * .587f + c.blue * .114f) < .35f) null else c.copy(alpha = 1f)
+    return IslandThemes.active.accent(update.packageName, requested)
+}
+
+/** " 42%" after a card's status when the theme asks for percentages and the update has measurable progress; otherwise nothing. */
+private fun percentage(update: LiveUpdate): String {
+    if (!IslandThemes.active.showPercentage) return ""
+    val f = LiveUpdateLogic.fraction(update.progress, update.progressMax, update.indeterminate) ?: return ""
+    return " ${(f * 100).toInt().coerceIn(0, 100)}%"
 }
 
 /** The app's small icon in a soft circle of its colour: what stands in for the app on the pill and the card. */
@@ -1238,13 +1246,14 @@ private fun updateTint(update: LiveUpdate): Color {
 private fun UpdateGlyph(update: LiveUpdate, size: androidx.compose.ui.unit.Dp) {
     val tint = updateTint(update)
     val fraction = LiveUpdateLogic.fraction(update.progress, update.progressMax, update.indeterminate)
-    Box(Modifier.size(size).clip(CircleShape).background(tint.copy(alpha = .28f))
+    val ringColour = IslandThemes.active.progress(tint, fraction != null && fraction >= 1f)
+    Box(Modifier.size(size).clip(IslandThemes.active.iconShape.shape()).background(tint.copy(alpha = .28f))
         // A download or other task with a progress bar wears it as a ring round its icon.
         .drawWithContent {
             drawContent()
             if (fraction != null) {
                 val stroke = 2.2.dp.toPx()
-                drawArc(tint, -90f, 360f * fraction, false, androidx.compose.ui.geometry.Offset(stroke / 2, stroke / 2),
+                drawArc(ringColour, -90f, 360f * fraction, false, androidx.compose.ui.geometry.Offset(stroke / 2, stroke / 2),
                     androidx.compose.ui.geometry.Size(this.size.width - stroke, this.size.height - stroke),
                     style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
             }
@@ -1265,20 +1274,23 @@ private fun UpdateCard(update: LiveUpdate, clockMs: Long, onOpen: () -> Unit) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onOpen).testTag("island-update")) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             val navigating = update.source == ActivitySource.NAVIGATION && update.largeIcon != null
-            UpdateGlyph(update, if (navigating) 46.dp else 34.dp)
-            Spacer(Modifier.width(10.dp))
+            // A theme can put the turn arrow on the right and the distance on the left (HyperBridge's "swap sides").
+            val swapped = navigating && IslandThemes.active.swapNavigation
+            if (!swapped) { UpdateGlyph(update, if (navigating) 46.dp else 34.dp); Spacer(Modifier.width(10.dp)) }
             Column(Modifier.weight(1f)) {
-                Text(update.title, color = themeInk, fontSize = if (navigating) 20.sp else 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(update.title, color = if (navigating) IslandThemes.active.navigationColor ?: themeInk else themeInk,
+                    fontSize = if (navigating) 20.sp else 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(update.text ?: update.appLabel, color = themeInk.copy(alpha = .72f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             // A navigation card already leads with the distance, so it does not repeat it on the right.
-            if (!navigating) Text(LiveUpdateLogic.glance(update, clockMs), color = tint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+            if (!navigating) Text(LiveUpdateLogic.glance(update, clockMs) + percentage(update), color = tint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                 modifier = Modifier.padding(start = 8.dp))
+            if (swapped) { Spacer(Modifier.width(10.dp)); UpdateGlyph(update, 46.dp) }
         }
         LiveUpdateLogic.fraction(update.progress, update.progressMax, update.indeterminate)?.let { f ->
             Spacer(Modifier.height(6.dp))
             Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(themeInk.copy(alpha = .18f)).testTag("island-update-progress")) {
-                Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(tint))
+                Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(IslandThemes.active.progress(tint, f >= 1f)))
             }
         }
     }

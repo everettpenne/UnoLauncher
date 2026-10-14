@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.59.0-uno01
+
+- **Folders look and work like iOS's.** Opening a folder shows a small, translucent panel sized to what is in it (not a full-screen sheet): the name centred above it and editable in place (tap it, type, tap outside; there is no Done button), the apps as bare icons with their names in a 3 x 3 grid, and more than nine paging sideways with dots. The panel springs open from slightly small. On Home a folder's icon always shows a 3 x 3 preview.
+- **Making a folder is quicker.** After you drop one app on another (or pick "Create folder"), the new folder opens at once with its name selected, ready to type over. It starts with a sensible name: when the apps agree on a category (Social, Games, Music, Video, Photos, News, Maps, Productivity, Utilities) the folder is called that; otherwise "Folder".
+- **Island themes can do much more.** A theme file can now set a highlight colour for anything without one of its own; turn off apps' own colours so every app wears the highlight; give particular apps their own colours by package name (up to 16); choose the shape of an app's glyph (circle, squircle, rounded, square, arch); colour progress while it fills and when it is full, and show a percentage; and swap the sides of the navigation card and colour its distance. The island style page has controls for all of these except per-app colours, which live in the theme file. Old theme files still work, and a plain theme exports as small as before. See docs/island-themes.md.
+- **Make your own wallpaper.** A new guide, docs/making-a-wallpaper.md, takes you from an SVG editor to Uno's background picker: canvas size, safe areas for the island and dock, export settings and a checklist.
+- Tests: unit tests for the folder's paging and sizing rules, the folder preview, the category-based names, the accent rules (override, own colour, highlight), progress colours, glow, and every new theme field (round trip, bad values, the 16-app limit, legibility); the folder emulator suites pass, and the new folder panel was checked on the emulator.
+
 ## 0.58.0-uno01
 
 - **Turn arrows on the island.** A maps app's navigation notification carries the turn arrow as its large icon, which the island ignored (it showed the app's logo). It now shows the arrow, in the arrow's own colours: on the pill beside the distance, and large on the open island with the distance and the street. This works for any app that sends its arrow that way; Organic Maps does (its notification was read to check). An instruction without an arrow still shows the app's icon, and no other kind of activity has its large icon read.

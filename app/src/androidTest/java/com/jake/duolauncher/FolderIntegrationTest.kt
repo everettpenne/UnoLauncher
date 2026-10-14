@@ -61,11 +61,21 @@ class FolderIntegrationTest {
             compose.onNodeWithTag("folder-app-${second.id}").performScrollTo().performClick()
             compose.waitUntil(5_000) { model().state.value.folders.size == fixture.folders.size + 1 }
             val folder = model().state.value.folders.first { it.id !in before.folders.map(FolderEntry::id) }
-            compose.onNodeWithTag("home-folder-${folder.id}").performClick()
+            // A folder just made opens at once with its title ready to edit, as on iOS.
+            // A focused text field blinks its cursor forever, which keeps Compose from ever reporting idle; step the clock by hand
+            // while the field has focus (waitUntil would wait for an idle that never comes).
+            compose.mainClock.autoAdvance = false
+            repeat(40) {
+                if (compose.onAllNodesWithTag("folder-name").fetchSemanticsNodes().isEmpty()) {
+                    compose.mainClock.advanceTimeBy(250); Thread.sleep(50)
+                }
+            }
             compose.onNodeWithTag("folder-name").performTextReplacement("Travel")
-            compose.activityRule.scenario.recreate(); ready()
+            compose.mainClock.advanceTimeBy(500)
             compose.onNodeWithTag("folder-name").assertTextContains("Travel")
-            compose.onNodeWithText("Done").performClick()
+            compose.onNodeWithTag("folder-panel").performTouchInput { click(androidx.compose.ui.geometry.Offset(2f, 2f)) }
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.mainClock.autoAdvance = true
             compose.waitUntil(5_000) { model().folder(folder.id)?.title == "Travel" }
 
             compose.activityRule.scenario.recreate(); ready()

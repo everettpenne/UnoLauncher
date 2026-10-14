@@ -369,10 +369,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">The island shows a maps app\'s turn arrow, and drops down for each turn (switch it off under Navigation in the island).</string>
-    <string name="whats_new_2">Notification cards, the bottom flame glow and the cartoon motions came in 0.57.</string>
-    <string name="whats_new_3">The Dune range sky has more to look at after dark.</string>
-    <string name="whats_new_4">A better news feed, Checklist and Screen time widgets and screen-reader actions for stacks came in 0.55.</string>
+    <string name="whats_new_1">Folders open like iOS\'s: a compact panel with the name in place, three by three apps, and new folders open ready to name.</string>
+    <string name="whats_new_2">Island themes can colour single apps, reshape glyphs, colour progress and swap the navigation card.</string>
+    <string name="whats_new_3">A new guide shows how to make a wallpaper in an SVG editor.</string>
+    <string name="whats_new_4">Turn arrows on the island, notification cards and the cartoon motions came in 0.57 and 0.58.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

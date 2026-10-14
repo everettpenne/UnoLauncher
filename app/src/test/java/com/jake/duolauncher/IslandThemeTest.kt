@@ -158,4 +158,72 @@ class IslandThemeTest {
         val labels = IslandMotion.values().map { it.label }
         assertEquals(labels.size, labels.toSet().size)
     }
+
+    // --- HyperBridge-style customisation: highlight, per-app colours, icon shape, progress, navigation ---
+
+    @Test fun anAppsColourFollowsOverrideThenItsOwnThenTheHighlight() {
+        val t = IslandTheme.Classic.copy(highlight = Color(0xFF00E5FF), appOverrides = mapOf("com.a" to Color(0xFFFF375F)))
+        val own = Color(0xFF123456)
+        assertEquals(Color(0xFFFF375F), t.accent("com.a", own))
+        assertEquals(own, t.accent("com.b", own))
+        assertEquals(Color(0xFF00E5FF), t.accent("com.b", null))
+        val flat = t.copy(appColors = false)
+        assertEquals(Color(0xFF00E5FF), flat.accent("com.b", own))
+        assertEquals(Color(0xFFFF375F), flat.accent("com.a", own))
+    }
+
+    @Test fun theCardGlowFollowsTheSameRules() {
+        val t = IslandTheme.Classic.copy(appOverrides = mapOf("com.a" to Color(0xFFFF375F)))
+        assertEquals(Color(0xFFFF375F), t.wash("com.a", 0xFF112233.toInt()))
+        assertEquals(Color(0xFF112233), t.wash("com.b", 0xFF112233.toInt()))
+        assertNull(t.wash("com.b", null))
+        assertEquals(t.highlight, t.copy(appColors = false).wash("com.b", 0xFF112233.toInt()))
+    }
+
+    @Test fun progressColoursDefaultToTheAccent() {
+        val a = Color(0xFF00E5FF)
+        assertEquals(a, IslandTheme.Classic.progress(a, false)); assertEquals(a, IslandTheme.Classic.progress(a, true))
+        val t = IslandTheme.Classic.copy(progressActive = Color(0xFFFFD60A), progressFinished = Color(0xFF34C759))
+        assertEquals(Color(0xFFFFD60A), t.progress(a, false)); assertEquals(Color(0xFF34C759), t.progress(a, true))
+    }
+
+    @Test fun theNewFieldsRoundTripAndReadFromAFile() {
+        val t = ok(file(""""highlight":"#00E5FF"""", extra = ""","appColors":false,"apps":{"com.google.android.apps.maps":"#4FC3F7"},
+            "icons":{"shape":"squircle"},"progress":{"active":"#FFD60A","finished":"#34C759","showPercentage":true},
+            "navigation":{"swapSides":true,"color":"#FFFFFF"}"""))
+        assertEquals(Color(0xFF00E5FF), t.highlight); assertFalse(t.appColors)
+        assertEquals(mapOf("com.google.android.apps.maps" to Color(0xFF4FC3F7)), t.appOverrides)
+        assertEquals(IconShape.SQUIRCLE, t.iconShape)
+        assertEquals(Color(0xFFFFD60A), t.progressActive); assertEquals(Color(0xFF34C759), t.progressFinished); assertTrue(t.showPercentage)
+        assertTrue(t.swapNavigation); assertEquals(Color.White, t.navigationColor)
+        assertEquals(t, ok(IslandThemeFile.toJson(t)))
+    }
+
+    @Test fun aPlainThemeStaysSmall() {
+        val json = IslandThemeFile.toJson(IslandTheme.Classic)
+        listOf("highlight", "apps", "icons", "progress", "navigation", "appColors").forEach { assertFalse(it, json.contains("\"$it\"")) }
+    }
+
+    @Test fun badNewFieldsAreRejected() {
+        assertTrue(rejected(file(extra = ""","icons":{"shape":"star"}""")).contains("icons.shape"))
+        assertTrue(rejected(file(extra = ""","appColors":"no"""")).contains("appColors"))
+        assertTrue(rejected(file(extra = ""","apps":{"notapackage":"#FFFFFF"}""")).contains("package name"))
+        assertTrue(rejected(file(extra = ""","apps":{"com.a":"white"}""")).contains("com.a"))
+        assertTrue(rejected(file(extra = ""","apps":[1]""")).contains("apps"))
+        assertTrue(rejected(file(extra = ""","progress":{"active":"nope"}""")).contains("progress.active"))
+        assertTrue(rejected(file(extra = ""","progress":{"showPercentage":1}""")).contains("showPercentage"))
+        assertTrue(rejected(file(extra = ""","navigation":{"swapSides":"yes"}""")).contains("swapSides"))
+        assertTrue(rejected(file(extra = ""","navigation":{"color":"#abc"}""")).contains("navigation.color"))
+    }
+
+    @Test fun tooManyAppColoursAreRejected() {
+        val apps = (1..17).joinToString(",") { "\"com.app$it\":\"#FFFFFF\"" }
+        assertTrue(rejected(file(extra = ""","apps":{$apps}""")).contains("at most"))
+    }
+
+    @Test fun newColoursMustBeLegible() {
+        assertTrue(rejected(file(""""highlight":"#101010"""")).contains("highlight"))
+        assertTrue(rejected(file(extra = ""","apps":{"com.a":"#101010"}""")).contains("com.a"))
+        assertTrue(rejected(file(extra = ""","progress":{"finished":"#101010"}""")).contains("finished"))
+    }
 }

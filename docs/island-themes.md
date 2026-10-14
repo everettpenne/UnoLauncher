@@ -37,6 +37,14 @@ Anyone can write a theme, and you decide whether to trust it: install only files
 | `colors.focus` | `#RRGGBB` | The Focus / Do Not Disturb mark. Contrast at least 3. |
 | `shape.panel` | `soft` (default), `round`, `square` | The island body's corner radius. |
 | `shape.controls` | `pill` (default), `rounded`, `square` | Buttons and chips (circles become rounded squares). |
+| `colors.highlight` | `#RRGGBB` | The colour of anything with no colour of its own (and of every app when `appColors` is false). Default is the island's green. Contrast at least 3. |
+| `appColors` | `true` (default), `false` | Whether an app's own colour (taken from its notification) is used. When `false`, every app wears `colors.highlight`. |
+| `apps` | `{ "com.example.app": "#RRGGBB", ... }`, at most 16 | A colour for particular apps by package name. It wins over everything else (the app's own colour and `highlight`), for its live activity, glyph, progress and notification glow. Each contrast at least 3. |
+| `icons.shape` | `circle` (default), `squircle`, `rounded`, `square`, `arch` | The outline of an app's glyph on a live activity or navigation card. |
+| `progress.active`, `progress.finished` | `#RRGGBB` | The colour of a progress bar or ring while it fills and once it is full. Default: the app's accent. |
+| `progress.showPercentage` | `true`, `false` (default) | Adds "42%" beside a card's status when the update has measurable progress. |
+| `navigation.swapSides` | `true`, `false` (default) | Puts the turn arrow on the right and the distance on the left of a navigation card. |
+| `navigation.color` | `#RRGGBB` | The colour of a navigation card's headline (the distance). Default: the island's text colour. |
 | `motion` | `calm`, `standard` (default), `snappy`, `bouncy`, `jelly`, `droplet` | How the island opens and moves. `calm`, `standard` and `snappy` are smooth, slow to fast, with at most a hair of overshoot. The other three are cartoons: `bouncy` is a rubber ball (height and width overshoot together and ring down), `jelly` wobbles (the width is tied to the height the opposite way, so the body breathes: wide and flat when short, narrow and tall when stretched), and `droplet` is a water drop (it drops down narrow and tall, then spreads wide, slowly and smoothly, with no wobble). A press squashes the island by as much as the motion's personality allows. Closing always settles without overshoot. |
 
 Every field is optional except `format`, `version` and `name`; a missing one keeps the Classic value. Colours are `#RRGGBB` only (no alpha, no names). Fields Uno does not know are ignored, so a theme written for a later version still opens where it can.
@@ -47,7 +55,7 @@ Every field is optional except `format`, `version` and `name`; a missing one kee
 - The incoming-call controls (answer green, end red).
 - What the island shows, when, and what any tap does. A theme has no code, no scripts and no expressions.
 
-Shapes are rounded rectangles only, because the glass lens cannot bend around other outlines (a Material "cookie" or "clover" outline would crash the lens at draw time). Images are not part of version 1; if they come, they will be a new `version` with their own size limits.
+Shapes are rounded rectangles only, because the glass lens cannot bend around other outlines (a Material "cookie" or "clover" outline would crash the lens at draw time). Images are not part of the format. HyperBridge's `.hbr` packs ship PNG icons; Uno's themes are deliberately text-only so a theme can be read and checked line by line, which is why an app's glyph shape is a choice from a short list rather than an uploaded picture. The new fields above are additions to version 1: older files stay valid, and an older Uno ignores fields it does not know.
 
 ## What is checked
 

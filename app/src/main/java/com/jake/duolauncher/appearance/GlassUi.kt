@@ -65,7 +65,7 @@ import androidx.compose.ui.util.lerp
  *  wallpaper (the All apps panel) or is fixed (the Photos viewer's black bar) provides its own, and the kit controls follow it. */
 internal val LocalKitInk = androidx.compose.runtime.compositionLocalOf<Color?> { null }
 
-private val GlassInkOnPanel: Color @Composable get() = LocalKitInk.current ?: MaterialTheme.colorScheme.onSurface
+internal val GlassInkOnPanel: Color @Composable get() = LocalKitInk.current ?: MaterialTheme.colorScheme.onSurface
 
 /** The wallpaper accent, or iOS orange when there is none, and the ink that reads on it. */
 @Composable private fun accentPair(): Pair<Color, Color> {

@@ -35,6 +35,19 @@ internal enum class PanelShape(val label: String, val scale: Float) {
 /** The shape of the island's buttons and chips. */
 internal enum class ControlShape(val label: String) { PILL("Pill"), ROUNDED("Rounded"), SQUARE("Square") }
 
+/** The outline of an app's glyph on the island (the Live Update and navigation icons). Rounded shapes only, like the panel. */
+internal enum class IconShape(val label: String) {
+    CIRCLE("Circle"), SQUIRCLE("Squircle"), ROUNDED("Rounded"), SQUARE("Square"), ARCH("Arch");
+
+    fun shape(): Shape = when (this) {
+        CIRCLE -> RoundedCornerShape(percent = 50)
+        SQUIRCLE -> RoundedCornerShape(percent = 34)
+        ROUNDED -> RoundedCornerShape(percent = 22)
+        SQUARE -> RoundedCornerShape(percent = 8)
+        ARCH -> RoundedCornerShape(topStartPercent = 50, topEndPercent = 50, bottomEndPercent = 14, bottomStartPercent = 14)
+    }
+}
+
 /**
  * How the island moves. [damping] multiplies a spring's damping ratio (below 1 overshoots more) and [stiffness] its stiffness; those
  * tune the island's smaller springs (an event's width, the compact ring, a button's press). Opening is tuned by the per-axis numbers:
@@ -90,7 +103,37 @@ internal data class IslandTheme(
     val panel: PanelShape = PanelShape.SOFT,
     val controls: ControlShape = ControlShape.PILL,
     val motion: IslandMotion = IslandMotion.STANDARD,
+    /** The colour of anything that has no colour of its own, or whose own is switched off by [appColors]. */
+    val highlight: Color = Color(0xFF34C759),
+    /** Whether an app's own colour (from its notification) is used. When off, every app wears [highlight]. */
+    val appColors: Boolean = true,
+    /** Colours chosen for particular apps by package name; they win over everything else. At most [IslandThemeFile.MAX_APPS]. */
+    val appOverrides: Map<String, Color> = emptyMap(),
+    val iconShape: IconShape = IconShape.CIRCLE,
+    /** The colour of a progress bar or ring while it fills, and when it is full; null follows the app's accent. */
+    val progressActive: Color? = null,
+    val progressFinished: Color? = null,
+    /** Whether a card with progress also says "NN%". */
+    val showPercentage: Boolean = false,
+    /** Navigation: the turn arrow on the right and the distance on the left, instead of the other way round. */
+    val swapNavigation: Boolean = false,
+    /** The colour of a navigation card's distance; null follows the app's accent. */
+    val navigationColor: Color? = null,
 ) {
+    /**
+     * The one place an app's accent is decided. [requested] is the colour the app's notification asked for (null when it asked for none
+     * or one too dark to read). An override for the package wins; otherwise the app's own colour, unless [appColors] is off; otherwise [highlight].
+     */
+    fun accent(packageName: String, requested: Color?): Color =
+        appOverrides[packageName] ?: (if (appColors) requested else null) ?: highlight
+
+    /** The glow behind a notification card: the app's override, its own icon colour ([tint], ARGB; null for a grey icon), or [highlight] when app colours are off. */
+    fun wash(packageName: String, tint: Int?): Color? =
+        appOverrides[packageName] ?: if (appColors) tint?.let { Color(it).copy(alpha = 1f) } else highlight
+
+    /** The colour of progress that is [done] (full) or still filling, for the app whose accent is [accent]. */
+    fun progress(accent: Color, done: Boolean): Color = (if (done) progressFinished else progressActive) ?: accent
+
     /** The colour an event's symbol is drawn in. Symbols that are privacy or safety signals keep their own. */
     fun tint(symbol: IslandSymbol): Color = when (symbol) {
         IslandSymbol.CHARGING -> charging
@@ -144,7 +187,13 @@ internal object IslandThemeMath {
     fun problem(theme: IslandTheme): String? {
         if (luminance(theme.fill) > MAX_FILL_LUMINANCE) return "The island fill is too bright. It must be dark so the camera hole stays hidden."
         if (contrast(theme.ink, theme.fill) < MIN_INK_CONTRAST) return "The text colour does not stand out enough from the fill (it needs a contrast ratio of at least 4.5)."
-        for ((label, c) in listOf("playback" to theme.playback, "charging" to theme.charging, "timer" to theme.timer, "focus" to theme.focus))
+        val extras = buildList {
+            add("highlight" to theme.highlight)
+            theme.progressActive?.let { add("progress" to it) }; theme.progressFinished?.let { add("finished progress" to it) }
+            theme.navigationColor?.let { add("navigation" to it) }
+            theme.appOverrides.forEach { (pkg, c) -> add("$pkg" to c) }
+        }
+        for ((label, c) in listOf("playback" to theme.playback, "charging" to theme.charging, "timer" to theme.timer, "focus" to theme.focus) + extras)
             if (contrast(c, theme.fill) < MIN_ACCENT_CONTRAST) return "The $label colour does not stand out enough from the fill (it needs a contrast ratio of at least 3)."
         return null
     }
@@ -159,7 +208,9 @@ internal object IslandThemeFile {
 
     sealed interface Result { data class Ok(val theme: IslandTheme) : Result; data class Rejected(val reason: String) : Result }
 
-    private val colourKeys = listOf("fill", "ink", "playback", "charging", "timer", "focus")
+    private val colourKeys = listOf("fill", "ink", "playback", "charging", "timer", "focus", "highlight")
+    const val MAX_APPS = 16
+    private val PACKAGE = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
 
     fun parse(bytes: ByteArray): Result {
         if (bytes.size > MAX_BYTES) return Result.Rejected("That file is too large for an island theme (the limit is ${MAX_BYTES / 1024} KB).")
@@ -186,11 +237,33 @@ internal object IslandThemeFile {
         val motion = if (!root.has("motion")) IslandMotion.STANDARD
             else IslandMotion.values().firstOrNull { it.name.equals(root.optString("motion"), ignoreCase = true) }
                 ?: return Result.Rejected("motion must be one of: ${IslandMotion.values().joinToString { it.name.lowercase() }}.")
+        val appColors = if (!root.has("appColors")) true else (root.opt("appColors") as? Boolean) ?: return Result.Rejected("appColors must be true or false.")
+        val overrides = LinkedHashMap<String, Color>()
+        if (root.has("apps") && root.optJSONObject("apps") == null) return Result.Rejected("apps must map package names to colours.")
+        root.optJSONObject("apps")?.let { apps ->
+            if (apps.length() > MAX_APPS) return Result.Rejected("A theme can colour at most $MAX_APPS apps.")
+            for (pkg in apps.keys()) {
+                if (pkg.length > 100 || !PACKAGE.matches(pkg)) return Result.Rejected("\"$pkg\" is not an app's package name (like com.example.app).")
+                overrides[pkg] = parseColour(apps.opt(pkg)) ?: return Result.Rejected("The colour for $pkg must be written like \"#RRGGBB\".")
+            }
+        }
+        val icons = root.optJSONObject("icons") ?: JSONObject()
+        val iconShape = if (!icons.has("shape")) IconShape.CIRCLE else IconShape.values().firstOrNull { it.name.equals(icons.optString("shape"), ignoreCase = true) }
+            ?: return Result.Rejected("icons.shape must be one of: ${IconShape.values().joinToString { it.name.lowercase() }}.")
+        val progress = root.optJSONObject("progress") ?: JSONObject()
+        val active = if (progress.has("active")) parseColour(progress.opt("active")) ?: return Result.Rejected("progress.active must be written like \"#RRGGBB\".") else null
+        val finished = if (progress.has("finished")) parseColour(progress.opt("finished")) ?: return Result.Rejected("progress.finished must be written like \"#RRGGBB\".") else null
+        val percent = if (!progress.has("showPercentage")) false else (progress.opt("showPercentage") as? Boolean) ?: return Result.Rejected("progress.showPercentage must be true or false.")
+        val navigation = root.optJSONObject("navigation") ?: JSONObject()
+        val swap = if (!navigation.has("swapSides")) false else (navigation.opt("swapSides") as? Boolean) ?: return Result.Rejected("navigation.swapSides must be true or false.")
+        val navColour = if (navigation.has("color")) parseColour(navigation.opt("color")) ?: return Result.Rejected("navigation.color must be written like \"#RRGGBB\".") else null
         val base = IslandTheme.Classic
         val theme = IslandTheme(name = name, author = author,
             fill = parsed["fill"] ?: base.fill, ink = parsed["ink"] ?: base.ink, playback = parsed["playback"] ?: base.playback,
             charging = parsed["charging"] ?: base.charging, timer = parsed["timer"] ?: base.timer, focus = parsed["focus"] ?: base.focus,
-            panel = panel, controls = controls, motion = motion)
+            panel = panel, controls = controls, motion = motion,
+            highlight = parsed["highlight"] ?: base.highlight, appColors = appColors, appOverrides = overrides, iconShape = iconShape,
+            progressActive = active, progressFinished = finished, showPercentage = percent, swapNavigation = swap, navigationColor = navColour)
         IslandThemeMath.problem(theme)?.let { return Result.Rejected(it) }
         return Result.Ok(theme)
     }
@@ -203,6 +276,16 @@ internal object IslandThemeFile {
         })
         put("shape", JSONObject().apply { put("panel", theme.panel.name.lowercase()); put("controls", theme.controls.name.lowercase()) })
         put("motion", theme.motion.name.lowercase())
+        // The newer fields are written only when they differ from the defaults, so a plain theme stays as small and readable as before.
+        if (theme.highlight != IslandTheme.Classic.highlight) (get("colors") as JSONObject).put("highlight", hex(theme.highlight))
+        if (!theme.appColors) put("appColors", false)
+        if (theme.appOverrides.isNotEmpty()) put("apps", JSONObject().apply { theme.appOverrides.forEach { (k, v) -> put(k, hex(v)) } })
+        if (theme.iconShape != IconShape.CIRCLE) put("icons", JSONObject().put("shape", theme.iconShape.name.lowercase()))
+        if (theme.progressActive != null || theme.progressFinished != null || theme.showPercentage) put("progress", JSONObject().apply {
+            theme.progressActive?.let { put("active", hex(it)) }; theme.progressFinished?.let { put("finished", hex(it)) }
+            if (theme.showPercentage) put("showPercentage", true) })
+        if (theme.swapNavigation || theme.navigationColor != null) put("navigation", JSONObject().apply {
+            if (theme.swapNavigation) put("swapSides", true); theme.navigationColor?.let { put("color", hex(it)) } })
     }.toString(2)
 
     private fun hex(c: Color) = "#%02X%02X%02X".format((c.red * 255f + .5f).toInt(), (c.green * 255f + .5f).toInt(), (c.blue * 255f + .5f).toInt())

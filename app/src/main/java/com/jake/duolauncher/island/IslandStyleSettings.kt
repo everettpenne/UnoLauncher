@@ -62,6 +62,22 @@ internal fun IslandStyleSection(controller: IslandThemeController?) {
         SwatchRow("Charging", theme.charging, ACCENTS, "charging") { change(theme.copy(charging = it)) }
         SwatchRow("Timer and silent", theme.timer, ACCENTS, "timer") { change(theme.copy(timer = it)) }
         SwatchRow("Focus", theme.focus, ACCENTS, "focus") { change(theme.copy(focus = it)) }
+        SwatchRow("Highlight (apps with no colour)", theme.highlight, ACCENTS, "highlight") { change(theme.copy(highlight = it)) }
+        GlassHeading("APP COLOURS")
+        GlassChips(listOf(true, false), theme.appColors, { if (it) "Each app's own" else "One highlight" }, { change(theme.copy(appColors = it)) },
+            tagPrefix = "island-appcolors", key = { it.toString() })
+        GlassNote(if (theme.appOverrides.isEmpty()) "Colours for single apps can be set in a theme file (see the island themes guide)."
+            else "${theme.appOverrides.size} app colour${if (theme.appOverrides.size == 1) "" else "s"} set by this theme.")
+        GlassHeading("APP ICON SHAPE")
+        GlassChips(IconShape.values().toList(), theme.iconShape, { it.label }, { change(theme.copy(iconShape = it)) }, tagPrefix = "island-iconshape", key = { it.name })
+        GlassHeading("PROGRESS")
+        SwatchRow("While filling", theme.progressActive ?: theme.highlight, ACCENTS, "progress") { change(theme.copy(progressActive = it)) }
+        SwatchRow("When full", theme.progressFinished ?: theme.highlight, ACCENTS, "finished") { change(theme.copy(progressFinished = it)) }
+        GlassChips(listOf(false, true), theme.showPercentage, { if (it) "Show percentage" else "Bar only" }, { change(theme.copy(showPercentage = it)) },
+            tagPrefix = "island-percent", key = { it.toString() })
+        GlassHeading("NAVIGATION")
+        GlassChips(listOf(false, true), theme.swapNavigation, { if (it) "Arrow on the right" else "Arrow on the left" }, { change(theme.copy(swapNavigation = it)) },
+            tagPrefix = "island-navswap", key = { it.toString() })
         GlassNote("The body stays dark so the camera hole is hidden, and every colour must stay readable on it. Camera, microphone, recording, VPN and USB marks and the call buttons keep their own colours so they are always recognisable.")
 
         GlassHeading("SHARE")

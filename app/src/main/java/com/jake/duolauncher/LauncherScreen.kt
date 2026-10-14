@@ -167,6 +167,8 @@ internal fun LauncherScreen(
     // The app a split screen is being set up for; the picker then chooses the one beside it.
     var splitFirstId by rememberSaveable { mutableStateOf<String?>(null) }
     var createFolderFirstId by rememberSaveable { mutableStateOf<String?>(null) }
+    /** The folder that was only just made, opened with its title ready to type over (iOS opens a new folder the same way). */
+    var newFolderId by rememberSaveable { mutableStateOf<String?>(null) }
     var savedPage by rememberSaveable { mutableIntStateOf(0) }
     var lastHomePage by rememberSaveable { mutableIntStateOf(0) }
     var libraryQuery by rememberSaveable { mutableStateOf("") }
@@ -477,6 +479,7 @@ internal fun LauncherScreen(
             (source.target is DropTarget.Home || source.target is DropTarget.Dock || source.target is DropTarget.Library))
             drag.regions.values.firstOrNull { it.target is DropTarget.Widget && it.widgetId == FOLDER_WIDGET && it.page in eligibleDragPages &&
                 it.bounds.contains(drag.pointer) }?.let { (it.target as DropTarget.Widget).index } else null
+        var madeFolderId: String? = null
         val folderOntoApp = if (moved && !cancelled && destination is DropTarget.Home)
             folderDropTarget(drag.destination(drag.pointer, eligibleDragPages), drag.pointer, source, ::isFolderId) else null
         val changed = when {
@@ -485,8 +488,11 @@ internal fun LauncherScreen(
                 if (source.target is DropTarget.Home || source.target is DropTarget.Dock) model.removePlacement(source.target)
                 true
             }
-            folderOntoApp != null && destination is DropTarget.Home && source.folderId == null ->
-                model.createFolder(folderOntoApp, source.appId ?: "", destination.index) != null
+            folderOntoApp != null && destination is DropTarget.Home && source.folderId == null -> {
+                val name = suggestedFolderName(context, listOfNotNull(appsById[folderOntoApp], appsById[source.appId]))
+                madeFolderId = model.createFolder(folderOntoApp, source.appId ?: "", destination.index, name)
+                madeFolderId != null
+            }
             source.folderId != null && destination is DropTarget.Folder ->
                 model.addAppToFolder(destination.id, source.appId ?: "")
             source.folderId != null && destination != null && source.appId != null ->
@@ -511,6 +517,7 @@ internal fun LauncherScreen(
             drag.clear()
             withFrameNanos { }
             pager.scrollToPage(if (returnToLibrary) model.state.value.homePages else page.coerceIn(0, model.state.value.homePages - 1))
+            if (moved && !cancelled && madeFolderId != null) { newFolderId = madeFolderId; openFolderId = madeFolderId }
             if (!moved && !cancelled) {
                 if (source.target is DropTarget.Dock) { dockSlot = source.target.index; sheet = "dock" }
                 else if (source.target is DropTarget.Widget) { widgetSlot = source.target.index; sheet = "widgetActions" }
@@ -1509,7 +1516,8 @@ internal fun LauncherScreen(
                             val blocked = state.widgetPlacements.flatMapTo(mutableSetOf()) { it.coveredIndices() }
                             val targetIndex = (0 until HOME_CELLS).map { homeCellIndex(preferredPage, it) }
                                 .firstOrNull { it !in blocked && state.layout.slotAt(it) in listOf(null, firstId, second.id) }
-                            if (targetIndex != null) model.createFolder(firstId, second.id, targetIndex)
+                            if (targetIndex != null) model.createFolder(firstId, second.id, targetIndex,
+                                suggestedFolderName(context, listOfNotNull(first, second)))?.let { newFolderId = it; openFolderId = it }
                             createFolderFirstId = null
                         }, modifier = Modifier.fillMaxWidth().testTag("folder-app-${second.id}")) {
                             Text(second.label, Modifier.fillMaxWidth())
@@ -1527,14 +1535,14 @@ internal fun LauncherScreen(
                 }
                 FolderPanel(folder, appsById, drag, pager.currentPage, homeDestinations,
                     dockVacancies = state.dock.indices.filter { state.dock[it] == null },
-                    onDismiss = { openFolderId = null }, onRename = { model.renameFolder(id, it) },
+                    onDismiss = { openFolderId = null; newFolderId = null }, onRename = { model.renameFolder(id, it) },
                     onLaunch = onLaunchFrom,
                     onMoveOut = { appId, destination ->
                         if (model.removeAppFromFolder(id, appId, destination)) openFolderId = model.folder(id)?.id
                     },
                     glassBackdrop = homeBackdrop.combined.takeIf { glassEnabled },
                     glassTint = glassTint.copy(alpha = .90f),
-                    settings = glassSettings)
+                    settings = glassSettings, editTitle = newFolderId == id)
             } ?: LaunchedEffect(id) { openFolderId = null }
         }
         launcherActivity.backups.preview?.let { preview ->

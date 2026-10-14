@@ -64,6 +64,7 @@ private fun ledgerInputs(context: Context, actions: ExtrasActions): LedgerInputs
         notificationAccess = actions.hasNotificationAccess(),
         contactsAllowed = actions.hasContactsPermission(),
         photosAllowed = com.jake.duolauncher.widgets.PhotoAlbums.hasAccess(context),
+        usageAccess = com.jake.duolauncher.widgets.hasUsageAccess(context),
         islandEverywhere = actions.store.state.islandEverywhere,
     )
 }
@@ -73,6 +74,7 @@ private fun openLedgerAction(context: Context, action: LedgerAction) {
         LedgerAction.OVERLAY_SETTINGS -> Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
         LedgerAction.ACCESSIBILITY_SETTINGS -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         LedgerAction.NOTIFICATION_ACCESS -> Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+        LedgerAction.USAGE_ACCESS_SETTINGS -> Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
         LedgerAction.APP_INFO -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
         LedgerAction.NONE -> return
     }

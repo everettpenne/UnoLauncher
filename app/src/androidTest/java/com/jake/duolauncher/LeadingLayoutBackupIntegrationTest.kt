@@ -79,6 +79,25 @@ class LeadingLayoutBackupIntegrationTest {
         assertNull("an older backup leaves hidden apps alone", decodeLayoutBackup(older, state.apps, profiles, "same-scope").hiddenApps)
     }
 
+    @Test fun feedsRoundTripAndAnOlderBackupLeavesYoursAlone() {
+        val state = mixedState()
+        val feeds = listOf(com.jake.duolauncher.feed.FeedSource("a", "https://a.example/feed", "A"), com.jake.duolauncher.feed.FeedSource("b", "https://b.example/rss", "B", enabled = false))
+        val settings = SettingsSnapshot(emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap())
+        val raw = encodeLayoutBackup(state, emptyList(), "same-scope", settings, feeds)
+        val preview = decodeLayoutBackup(raw, state.apps, profiles, "same-scope")
+        assertEquals(listOf("https://a.example/feed", "https://b.example/rss"), preview.feeds?.map { it.url })
+        assertEquals(listOf(true, false), preview.feeds?.map { it.enabled })
+        assertTrue(BackupCheck.verifyExport(state, raw, "same-scope", feeds).joinToString(), BackupCheck.verifyExport(state, raw, "same-scope", feeds).isEmpty())
+        assertTrue("a feed missing from the file is noticed", BackupCheck.verifyExport(state, raw, "same-scope", feeds + com.jake.duolauncher.feed.FeedSource("c", "https://c.example/f", "C")).any { "feeds" in it })
+        assertTrue(BackupCheck.restoreSummary(preview).any { it.label == "Feeds" && it.status == BackupLine.Status.OK })
+        val older = JSONObject(raw).apply { remove("feeds") }.toString()
+        assertNull("an older backup says nothing about feeds", decodeLayoutBackup(older, state.apps, profiles, "same-scope").feeds)
+        assertTrue(BackupCheck.restoreSummary(decodeLayoutBackup(older, state.apps, profiles, "same-scope")).any { it.label == "Feeds" && it.status == BackupLine.Status.NOTE })
+        // Bad entries are skipped, not fatal.
+        val dirty = JSONObject(raw).apply { put("feeds", org.json.JSONArray().put(JSONObject().put("url", "http://plain.example/x")).put(JSONObject().put("url", "https://ok.example/x"))) }.toString()
+        assertEquals(listOf("https://ok.example/x"), decodeLayoutBackup(dirty, state.apps, profiles, "same-scope").feeds?.map { it.url })
+    }
+
     @Test fun theCheckNoticesWhatDidNotSurviveAndTheSummaryListsWhatComesBack() {
         val state = mixedState()
         val raw = encodeLayoutBackup(state, emptyList(), "same-scope")

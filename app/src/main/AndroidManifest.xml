@@ -16,6 +16,8 @@
          needed until they reach for brightness or the Silent ringer mode. -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <!-- Lets Uno appear in Android's "Usage access" list for the Screen time widget. The grant is the person's, in Settings, and revocable there. -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <!-- Opt-in contact search in All apps; asked for only when the user turns it on. Names only. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Wallpaper page, "Also set home and lock screen": lets the launcher set the Android wallpaper when the person turns that on.

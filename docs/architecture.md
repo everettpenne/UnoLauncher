@@ -11,6 +11,7 @@ All paths below are relative to `app/src/main/java/com/jake/duolauncher/`. Featu
 | Activity and setup | `MainActivity.kt`, `SetupExperience.kt` | Android intents/results, Home selection, fresh-install setup and optional access |
 | App catalog and saved layout | `LauncherModel.kt`, `LayoutModel.kt`, `ProfileSupport.kt` | Observable launcher state, profile-aware identities, package changes and persistence |
 | Home and navigation | `LauncherScreen.kt`, `LauncherPager.kt`, `PageGestures.kt`, `WorkspacePageMotion.kt` | Page composition, shared gestures, unfolded pairs and page motion |
+| Home pieces (split out of `LauncherScreen.kt`, behavior unchanged) | `HomeGrid.kt` (workspace, pages, grid, dock, tiles), `WidgetSlots.kt` (widget slot, stacks, stack swipe and rail, drag-to-stack rules), `WidgetCards.kt` (clock, date and glass card), `LauncherSheets.kt` (app picker, widget options, sliders), `DuoTheme.kt` (the theme) | `LauncherScreen` itself stays the one composable that owns Home's state and wires these together |
 | Editing | `HomeEditing.kt`, `HomeDrag.kt` | Placement rules, drag previews, insertion and cancellation |
 | Folders | `folders/` | Large folders, the folder panel, folder editing and previews |
 | Android widgets | `WidgetController.kt`, `WidgetPicker.kt`, `WidgetSizing.kt`, `ZeroPaddingWidgetHost.kt`, `WidgetVerticalGestures.kt`, `WidgetStacks.kt` | Provider catalog, binding/configuration, geometry, stacks and native touch arbitration |

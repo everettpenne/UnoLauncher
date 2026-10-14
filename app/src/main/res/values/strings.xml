@@ -221,6 +221,19 @@
     <string name="follow_grapheneos">Follow GrapheneOS</string>
     <string name="nothing_is_contacted_until_you_choose">Nothing is contacted until you choose a feed, and each choice connects only to the server shown. Nothing is uploaded.</string>
     <string name="add_your_own_feed">Add your own feed</string>
+    <string name="feed_saved_chip">Saved (%1$d)</string>
+    <string name="feed_nothing_saved">Nothing saved yet. Long-press a story to keep it.</string>
+    <string name="feed_save">Save for later</string>
+    <string name="feed_unsave">Remove from saved</string>
+    <string name="feed_keep_title">Stories to keep per feed</string>
+    <string name="feed_keep_note">Saved stories are always kept, whatever you choose. Choosing less trims what is stored right away.</string>
+    <string name="feed_backup_none">Not in this backup; your feeds stay as they are</string>
+    <string name="stack_position">Widget %1$d of %2$d: %3$s</string>
+    <string name="stack_next_widget">Next widget in stack</string>
+    <string name="stack_previous_widget">Previous widget in stack</string>
+    <string name="search_feed">Search titles and summaries</string>
+    <string name="feed_all">All</string>
+    <string name="no_matching_entries">No matching entries.</string>
 
     <!-- feed/FeedSettings.kt -->
     <string name="add_a_feed">Add a feed</string>
@@ -327,6 +340,13 @@
     <!-- widgets/SystemEventsWidget.kt -->
     <string name="no_events_yet">No events yet.</string>
 
+    <!-- widgets/ChecklistWidget.kt -->
+    <string name="tap_to_add_a_task">Tap to add a task</string>
+
+    <!-- widgets/ScreenTimeWidget.kt -->
+    <string name="screen_time_allow">Allow usage access to see your screen time.</string>
+    <string name="screen_time_today">today</string>
+
     <!-- Icon packs (ExtrasSettings.kt) -->
     <string name="icon_pack">Icon pack</string>
     <string name="icon_pack_none">None</string>
@@ -345,10 +365,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">A new Console widget logs device events (screen, charger, headphones, VPN, installs) as they happen, with no permissions.</string>
-    <string name="whats_new_2">Swipe a widget stack up or down, and drag one widget over another to stack them.</string>
-    <string name="whats_new_3">Uno widgets stack too; Material You colors, Spotlight settings and timers came in 0.51.</string>
-    <string name="whats_new_4">Hidden apps, page reordering and dot badges came in 0.50.</string>
+    <string name="whats_new_1">The news feed can mark stories read, save them, filter and search, and move your list in and out with OPML.</string>
+    <string name="whats_new_2">New Checklist and Screen time widgets. Screen time needs Android's Usage access, which you grant yourself.</string>
+    <string name="whats_new_3">Widget stacks read out their position and offer next and previous actions for screen readers.</string>
+    <string name="whats_new_4">A Console widget, swipe-to-switch stacks and Material You colors came in recent releases.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

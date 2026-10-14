@@ -17,7 +17,7 @@ How the work is organised now that more than one person may contribute. Short ve
 4. Say **what you ran** and attach a **screenshot** for anything visible, on sample data only.
 5. The owner reviews. Small, focused pull requests are merged quickly; large ones that move files around are not, so ask first.
 
-Set up the commit hook once per clone (`git config core.hooksPath scripts/git-hooks`) and run `./scripts/gradle.sh :app:assembleDebug :app:testDebugUnitTest :app:lintDebug` before you push. See [Contributing](../CONTRIBUTING.md).
+Set up the commit hook once per clone (`git config core.hooksPath scripts/git-hooks`) and use `./scripts/quick-check.sh` while you work: it compiles and runs the unit tests in a few seconds. You do not have to run lint or the release build yourself before a push: CI runs the build, unit tests, lint and the public-source check on every push, and a release is only published when the same checks pass on its tag. CI does not run the emulator suites; run `scripts/emulator-tests.sh` for the parts you changed. See [Contributing](../CONTRIBUTING.md).
 
 ## The areas
 

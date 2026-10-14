@@ -51,6 +51,8 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onAddFeed: (String, (FeedAddResult) -> Unit) -> Unit = { _, _ -> },
     onRemoveFeed: (String) -> Unit = {},
     onSourceEnabled: (String, Boolean) -> Unit = { _, _ -> },
+    onImportOpml: (String) -> FeedOpmlResult = { _ -> FeedOpmlResult(0, 0) },
+    onKeepPerFeed: (Int) -> Unit = {},
     glassBackdrop: com.kyant.backdrop.Backdrop? = null,
     glassTint: Color = Glass.copy(alpha = .62f),
     settings: GlassSettings = GlassSettings.Default,
@@ -252,7 +254,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     val hiddenState = model.state.collectAsState().value
                     HiddenAppsSetting(hiddenState.apps.filter { it.id in hiddenState.hiddenApps }) { model.unhideApp(it.id) }
                 }
-                CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onSourceEnabled)
+                CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onSourceEnabled, onImportOpml, onKeepPerFeed)
                 CustomizationPage.UPDATES -> UpdatesPanel(updates, onCheckUpdates, onInstallRelease, onAutoUpdate)
                 CustomizationPage.BACKUP -> {
                     Text(stringResource(com.jake.duolauncher.R.string.save_the_current_home_layout_folders),

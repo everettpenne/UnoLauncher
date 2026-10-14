@@ -17,6 +17,8 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.SystemClock
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material3.Icon
@@ -55,7 +57,7 @@ internal fun ConsoleFace(slot: Int, onOptions: () -> Unit) {
     val revision = SystemEventLog.revision
     val previewing = LocalWidgetPreview.current
     val events = remember(revision, previewing) {
-        if (previewing) sampleConsoleEvents() else SystemEventLog.latest()
+        if (previewing) sampleConsoleEvents() else SystemEventLog.latest(SystemEventLog.MAX)
     }
     val is24 = android.text.format.DateFormat.is24HourFormat(context)
     val zone = ZoneId.systemDefault()
@@ -65,14 +67,20 @@ internal fun ConsoleFace(slot: Int, onOptions: () -> Unit) {
         CardTitle(Icons.Rounded.Terminal, "Console")
         if (events.isEmpty()) {
             Text(stringResource(com.jake.duolauncher.R.string.no_events_yet), color = ink.soft(), fontSize = 12.sp)
-        } else Column(Modifier.weight(1f).fillMaxWidth().padding(top = 2.dp), verticalArrangement = Arrangement.Bottom) {
-            events.forEachIndexed { index, event ->
-                Row(Modifier.fillMaxWidth().testTag("console-line-$index"), verticalAlignment = Alignment.CenterVertically) {
-                    Text(ConsoleTime.format(event.atMs, is24, zone), color = accent, fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace, maxLines = 1)
-                    Spacer(Modifier.width(6.dp))
-                    Text(event.text, color = ink.primary, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+        } else {
+            // Newest at the bottom, scrollable up to the older lines. reverseLayout keeps the newest line
+            // visible when a new event lands, and the bottom padding stops the last line's descenders
+            // from being clipped by the card's rounded edge.
+            LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("console-log"),
+                reverseLayout = true, contentPadding = PaddingValues(top = 2.dp, bottom = 4.dp)) {
+                itemsIndexed(events.asReversed()) { index, event ->
+                    Row(Modifier.fillMaxWidth().testTag("console-line-$index"), verticalAlignment = Alignment.CenterVertically) {
+                        Text(ConsoleTime.format(event.atMs, is24, zone), color = accent, fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace, maxLines = 1)
+                        Spacer(Modifier.width(6.dp))
+                        Text(event.text, color = ink.primary, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }

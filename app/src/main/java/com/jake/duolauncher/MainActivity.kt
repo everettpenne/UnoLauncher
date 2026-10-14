@@ -134,7 +134,8 @@ class MainActivity : ComponentActivity() {
         }.also { it.restore(savedInstanceState) }
         backups = BackupController(this, model, widgets, onExternalResultChanged = { active ->
             LiveDiscover.setExternalResultPending(this, "main", "layout-backup", active)
-        }, onSettingsApplied = { extrasStore.reload(); appearance.reloadFromPreferences(); LargeFolders.reload(); WidgetData.reload(); IslandThemes.reload() }).also { it.restore() }
+        }, onSettingsApplied = { extrasStore.reload(); appearance.reloadFromPreferences(); LargeFolders.reload(); WidgetData.reload(); IslandThemes.reload() },
+            feedSources = { feeds.state.value.sources }, onFeedsRestored = { feeds.restoreFeeds(it) }).also { it.restore() }
         backgrounds = LauncherBackgroundController(this) { active ->
             LiveDiscover.setExternalResultPending(this, "main", "launcher-background", active)
         }
@@ -192,10 +193,13 @@ class MainActivity : ComponentActivity() {
                     customizeRequests = customizeRequests.intValue,
                     onFeedRefresh = feeds::refresh,
                     onFeedOpenEntry = ::openFeedEntry,
+                    onFeedToggleSave = feeds::toggleSaved,
                     onFeedVisible = { feeds.refreshIfStale() },
                     onAddFeed = feeds::addFeed,
                     onRemoveFeed = feeds::removeFeed,
                     onSourceEnabled = feeds::setSourceEnabled,
+                    onImportOpml = feeds::importOpml,
+                    onKeepPerFeed = feeds::setKeepPerFeed,
                     onLiquidGlass = appearance::setLiquidGlass,
                     onWallpaperColor = appearance::setWallpaperColor,
                     onMaterialYou = appearance::setMaterialYou,
@@ -541,6 +545,7 @@ class MainActivity : ComponentActivity() {
 
     private fun openFeedEntry(link: String) {
         if (!FeedParser.isWebLink(link)) return
+        feeds.markRead(link)
         try {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
         } catch (_: android.content.ActivityNotFoundException) {

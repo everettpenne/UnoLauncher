@@ -24,8 +24,26 @@ internal object FeedRedirectPolicy {
     }
 }
 
+/** Conditional-fetch state for one feed: the validators a well-behaved server returned, sent back as
+ *  If-None-Match and If-Modified-Since so an unchanged feed answers 304 instead of re-downloading. */
+internal data class FeedValidator(val etag: String? = null, val lastModified: String? = null)
+
+/** The conditional request headers for [validator], or none when there is nothing to compare. */
+internal fun conditionalHeaders(validator: FeedValidator): Map<String, String> = buildMap {
+    validator.etag?.let { put("If-None-Match", it) }
+    validator.lastModified?.let { put("If-Modified-Since", it) }
+}
+
+/** The validator to keep after a fetch: the one the server sent on success, the old one on 304 or failure. */
+internal fun mergeValidator(existing: FeedValidator?, result: FeedFetchResult): FeedValidator? = when (result) {
+    is FeedFetchResult.Success -> result.validator
+    is FeedFetchResult.NotModified -> existing
+    is FeedFetchResult.Failure -> existing
+}
+
 internal sealed interface FeedFetchResult {
-    data class Success(val feed: ParsedFeed) : FeedFetchResult
+    data class Success(val feed: ParsedFeed, val validator: FeedValidator) : FeedFetchResult
+    data object NotModified : FeedFetchResult
     data class Failure(val message: String) : FeedFetchResult
 }
 
@@ -39,7 +57,7 @@ internal object FeedFetcher {
     private const val TIMEOUT_MS = 10_000
     private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
 
-    fun fetch(urlString: String): FeedFetchResult {
+    fun fetch(urlString: String, validator: FeedValidator = FeedValidator()): FeedFetchResult {
         try {
             var uri = URI(urlString)
             if (uri.scheme?.lowercase() != "https") return FeedFetchResult.Failure("Only https feeds are supported.")
@@ -54,6 +72,7 @@ internal object FeedFetcher {
                 connection.setRequestProperty("User-Agent", UpdateSecurity.userAgent("personal-feed"))
                 connection.setRequestProperty("Accept",
                     "application/rss+xml, application/atom+xml, application/xml, text/xml, */*")
+                conditionalHeaders(validator).forEach { (name, value) -> connection.setRequestProperty(name, value) }
                 val code = connection.responseCode
                 if (code !in REDIRECT_CODES) break
                 val target = FeedRedirectPolicy.target(uri, connection.getHeaderField("Location"))
@@ -65,15 +84,18 @@ internal object FeedFetcher {
                 uri = target
             }
             val code = connection.responseCode
-            if (code !in 200..299) return FeedFetchResult.Failure("The server answered HTTP $code.")
-            if (connection.contentLengthLong > MAX_BYTES) return FeedFetchResult.Failure("The feed is too large to read.")
+            if (code == 304) { connection.disconnect(); return FeedFetchResult.NotModified }
+            if (code !in 200..299) { connection.disconnect(); return FeedFetchResult.Failure("The server answered HTTP $code.") }
+            if (connection.contentLengthLong > MAX_BYTES) { connection.disconnect(); return FeedFetchResult.Failure("The feed is too large to read.") }
             // Counted as it arrives, so a server that sends more than the cap is cut off rather than held in memory.
             val bytes = connection.inputStream.use { BoundedRead.readCapped(it, MAX_BYTES) }
                 ?: return FeedFetchResult.Failure("The feed is too large to read.")
             val text = decodeBody(bytes, connection.contentType)
             val feed = FeedParser.parse(text.byteInputStream(Charsets.UTF_8))
             return if (feed.entries.isEmpty()) FeedFetchResult.Failure("This feed has no readable entries.")
-            else FeedFetchResult.Success(feed)
+            else FeedFetchResult.Success(feed, FeedValidator(
+                etag = connection.getHeaderField("ETag"),
+                lastModified = connection.getHeaderField("Last-Modified")))
         } catch (e: SecurityException) {
             return FeedFetchResult.Failure("Network access is turned off for Uno Launcher.")
         } catch (e: UnknownHostException) {

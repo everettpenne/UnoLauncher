@@ -24,6 +24,10 @@ class BackupController(
     private val widgets: WidgetController,
     private val onExternalResultChanged: (Boolean) -> Unit,
     private val onSettingsApplied: () -> Unit = {},
+    /** The feeds followed now, saved with the layout. */
+    private val feedSources: () -> List<com.jake.duolauncher.feed.FeedSource> = { emptyList() },
+    /** Adds the feeds of a restored backup that are not followed yet; returns how many were added. */
+    private val onFeedsRestored: (List<com.jake.duolauncher.feed.FeedSpec>) -> Int = { 0 },
 ) {
     var preview by mutableStateOf<LayoutImportPreview?>(null)
         private set
@@ -78,12 +82,13 @@ class BackupController(
 
     fun startExport(fileName: String = "duo-launcher-layout.json") {
         val state = model.state.value
-        val raw = runCatching { encodeLayoutBackup(state, widgetDescriptors(state), scope, SettingsBackup.capture(activity)) }.getOrElse {
+        val raw = runCatching { encodeLayoutBackup(state, widgetDescriptors(state), scope, SettingsBackup.capture(activity), feedSources()) }.getOrElse {
             errorMessage = it.message ?: "Layout backup could not be prepared."; return
         }
         // Read the file back as a restore would, so anything that would not survive is reported now, while the phone is still set up.
-        val problems = BackupCheck.verifyExport(state, raw, scope)
-        exportSummary = if (problems.isEmpty()) "Layout backup saved and checked: ${BackupCheck.savedSummary(state)}."
+        val feeds = feedSources()
+        val problems = BackupCheck.verifyExport(state, raw, scope, feeds)
+        exportSummary = if (problems.isEmpty()) "Layout backup saved and checked: ${BackupCheck.savedSummary(state, feeds.size)}."
             else "Layout backup saved, but the check found problems: ${problems.joinToString("; ")}."
         begin(OP_EXPORT, raw)
         try { createDocument.launch(fileName) }
@@ -109,7 +114,8 @@ class BackupController(
             result.onSuccess {
                 val changed = model.applyImportedLayout(it)
                 val restoredSettings = it.settings?.also { settings -> SettingsBackup.apply(activity, settings); onSettingsApplied() } != null
-                successMessage = if (changed || restoredSettings) "Layout restored. Widgets are ready to reconnect." else "This layout is already active."
+                val feedsAdded = it.feeds?.let(onFeedsRestored) ?: 0
+                successMessage = if (changed || restoredSettings || feedsAdded > 0) "Layout restored. Widgets are ready to reconnect." else "This layout is already active."
                 clearTransaction(clearMessages = false)
             }.onFailure { errorMessage = it.message ?: "This layout backup is no longer valid." }
         }

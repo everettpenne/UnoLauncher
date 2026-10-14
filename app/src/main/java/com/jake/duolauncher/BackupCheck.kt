@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.feed.*
+
 /** One line of the "what comes back" list: [status] decides the mark shown beside it. */
 internal data class BackupLine(val label: String, val detail: String, val status: Status) {
     enum class Status { OK, ATTENTION, NOTE }
@@ -28,6 +30,8 @@ internal object BackupCheck {
             preview.hiddenUnavailable > 0 -> BackupLine("Hidden apps", "${preview.hiddenApps.size} restored; ${preview.hiddenUnavailable} not installed here", BackupLine.Status.ATTENTION)
             else -> BackupLine("Hidden apps", plural(preview.hiddenApps.size, "app"), BackupLine.Status.OK)
         }
+        lines += preview.feeds?.let { BackupLine("Feeds", "${plural(it.size, "feed")}; any you don't follow yet are added, none are removed", BackupLine.Status.OK) }
+            ?: BackupLine("Feeds", "Not in this backup; your feeds stay as they are", BackupLine.Status.NOTE)
         lines += preview.settings?.let { BackupLine("Settings", plural(it.count, "Uno setting"), BackupLine.Status.OK) }
             ?: BackupLine("Settings", "Not in this backup; your current settings stay as they are", BackupLine.Status.NOTE)
         lines += BackupLine("Not saved by backups", "Widget stacks and your background photo", BackupLine.Status.NOTE)
@@ -35,7 +39,7 @@ internal object BackupCheck {
     }
 
     /** What did not survive writing [raw] and reading it back, as plain sentences; empty means the backup is complete. */
-    fun verifyExport(state: LauncherState, raw: String, scope: String): List<String> {
+    fun verifyExport(state: LauncherState, raw: String, scope: String, feeds: List<FeedSource>? = null): List<String> {
         val read = runCatching { decodeLayoutBackup(raw, state.apps, state.profiles, scope) }
             .getOrElse { return listOf("the file could not be read back (${it.message})") }
         val before = state.layout; val after = read.layout
@@ -51,11 +55,13 @@ internal object BackupCheck {
         val hidden = state.hiddenApps.filter { id -> state.apps.any { it.id == id } }.toSet()
         if (read.hiddenApps != hidden) problems += "the hidden apps differ"
         if (read.settings == null) problems += "the settings were not saved"
+        if (feeds != null && read.feeds?.map { it.url }?.toSet() != feeds.map { it.url }.toSet()) problems += "the feeds differ"
         return problems
     }
 
-    fun savedSummary(state: LauncherState): String {
+    fun savedSummary(state: LauncherState, feedCount: Int = 0): String {
         val layout = state.layout
-        return "${plural(layout.pageCount, "page")}, ${plural(state.hiddenApps.size, "hidden app")}, ${plural(layout.folders.size, "folder")}, ${plural(layout.widgetPlacements.size, "widget")}"
+        return "${plural(layout.pageCount, "page")}, ${plural(state.hiddenApps.size, "hidden app")}, ${plural(layout.folders.size, "folder")}, " +
+            "${plural(layout.widgetPlacements.size, "widget")}, ${plural(feedCount, "feed")}"
     }
 }

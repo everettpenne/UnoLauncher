@@ -31,6 +31,7 @@ internal object PreviewSamples {
         UnoWidgets.COUNTDOWN to "name" -> "Trip to Lisbon"
         UnoWidgets.COUNTDOWN to "date" -> LocalDate.now().plusDays(23).toString()
         UnoWidgets.WORLD_CLOCK to "zones" -> "Europe/London,Asia/Tokyo,America/New_York"
+        UnoWidgets.CHECKLIST to "items" -> "1|Buy oat milk\n0|Book the train to Lisbon\n0|Call Sam about Friday"
         else -> null
     }
 

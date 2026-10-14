@@ -1,6 +1,7 @@
 package com.jake.duolauncher
 
 import com.jake.duolauncher.folders.*
+import com.jake.duolauncher.feed.*
 
 import com.jake.duolauncher.widgets.*
 
@@ -40,6 +41,8 @@ data class LayoutImportPreview(
     val hiddenApps: Set<String>? = null,
     /** Hidden apps in the backup that are not installed on this phone. */
     val hiddenUnavailable: Int = 0,
+    /** The feeds the backup lists (address, name, on or off); null when it predates feed backups, which leaves yours alone. */
+    val feeds: List<FeedSpec>? = null,
 )
 
 fun layoutBackupScope(context: Context): String {
@@ -48,7 +51,7 @@ fun layoutBackupScope(context: Context): String {
 }
 
 internal fun encodeLayoutBackup(state: LauncherState, widgetDescriptors: List<BackupWidgetDescriptor>, sourceScope: String,
-    settings: SettingsSnapshot? = null): String {
+    settings: SettingsSnapshot? = null, feeds: List<FeedSource>? = null): String {
     require(sourceScope.isNotBlank())
     require(state.leadingSlots.size == HOME_CELLS) { "Unfolded-only page must contain exactly $HOME_CELLS cells" }
     val descriptorBySlot = widgetDescriptors.associateBy(BackupWidgetDescriptor::slot)
@@ -83,7 +86,11 @@ internal fun encodeLayoutBackup(state: LauncherState, widgetDescriptors: List<Ba
         .put("dock", JSONArray(state.dock)).put("folders", folders).put("widgets", widgets)
         .put("labels", state.labels).put("googleSearch", state.googleSearch).put("verticalStatus", state.verticalStatus)
         .put("compact", preset(state.compact)).put("expanded", preset(state.expanded))
-        .also { root -> settings?.let { root.put("settings", SettingsBackup.encode(it)) } }.toString(2)
+        .also { root -> settings?.let { root.put("settings", SettingsBackup.encode(it)) } }
+        // The list only: what each feed has published is fetched again, and what you read or saved is not carried.
+        .also { root -> feeds?.let { list -> root.put("feeds", JSONArray().also { array -> list.forEach { feed ->
+            array.put(JSONObject().put("url", feed.url).put("label", feed.label).put("enabled", feed.enabled)) } }) } }
+        .toString(2)
 }
 
 internal fun exportedWidgetScope(restore: WidgetRestore, currentScope: String) = restore.sourceScope ?: currentScope
@@ -207,13 +214,23 @@ internal fun decodeLayoutBackup(raw: String, currentApps: List<AppEntry>, curren
         require(array.length() <= 2_000)
         List(array.length()) { array.getString(it) }.also { ids -> require(ids.all { it in appMetadata }) { "Hidden app without metadata" } }
     }
+    // Optional, like "hidden": a backup from before feeds were saved carries none. Bad entries are skipped, never fatal, and the list is capped.
+    val feeds = root.optJSONArray("feeds")?.let { array ->
+        buildList {
+            for (index in 0 until minOf(array.length(), MAX_FEED_SOURCES)) {
+                val item = array.optJSONObject(index) ?: continue
+                val url = normalizeFeedUrl(item.optString("url", "")) ?: continue
+                add(FeedSpec(url, item.optString("label", "").take(200).ifBlank { url }, item.optBoolean("enabled", true)))
+            }
+        }
+    }
     return LayoutImportPreview(layout, missing.toList(), profileIssues.toList(),
         appCount = (slots + leadingSlots).count { it != null && !isReservedFolderId(it) } +
             dock.count { it != null } + folders.sumOf { it.appIds.size },
         folderCount = folders.size, widgetCount = layout.widgetPlacements.size,
         compact = compact, expanded = expanded, labels = labels, googleSearch = googleSearch, verticalStatus = verticalStatus,
         settings = settings, hiddenApps = hiddenIds?.filter { it in available }?.toSet(),
-        hiddenUnavailable = hiddenIds?.count { it !in available } ?: 0)
+        hiddenUnavailable = hiddenIds?.count { it !in available } ?: 0, feeds = feeds)
 }
 
 internal fun validBackupPlacement(value: WidgetPlacement): Boolean {

@@ -18,7 +18,7 @@ internal object UsbState {
 /** What each permission or capability the launcher uses is for, what it can see, and how it is turned off. Pure data, so the
  * wording is tested and the screen only draws it.
  */
-internal enum class LedgerAction { OVERLAY_SETTINGS, ACCESSIBILITY_SETTINGS, NOTIFICATION_ACCESS, APP_INFO, NONE }
+internal enum class LedgerAction { OVERLAY_SETTINGS, ACCESSIBILITY_SETTINGS, NOTIFICATION_ACCESS, USAGE_ACCESS_SETTINGS, APP_INFO, NONE }
 
 internal data class LedgerRow(
     val id: String,
@@ -38,6 +38,7 @@ internal data class LedgerInputs(
     val contactsAllowed: Boolean,
     val islandEverywhere: Boolean,
     val photosAllowed: Boolean = false,
+    val usageAccess: Boolean = false,
 )
 
 internal object PermissionLedger {
@@ -75,6 +76,11 @@ internal object PermissionLedger {
                 "The Photos widget, to rotate through an album you choose.",
                 "Album names and the images of the album you pick, read only while the widget is on screen. Nothing is copied out, stored or sent.",
                 LedgerAction.APP_INFO),
+            LedgerRow("usage", "Usage access",
+                if (i.usageAccess) "Allowed" else "Not allowed", i.usageAccess,
+                "The Screen time widget, to show today's screen time and the apps you used most. Nothing asks for it unless you place that widget and tap it.",
+                "How long each app was on screen today, as Android's own usage statistics report it. It is worked out on the phone for the widget and never stored (only the daily goal you type is) or sent.",
+                LedgerAction.USAGE_ACCESS_SETTINGS),
             LedgerRow("indicators", "Camera, microphone, recording, VPN, USB and audio marks",
                 "No permission needed", true,
                 "The island's camera, microphone and screen-recording marks, and VPN, USB-data and audio-device alerts. Screen recording uses Android's install-time DETECT_SCREEN_RECORDING permission.",

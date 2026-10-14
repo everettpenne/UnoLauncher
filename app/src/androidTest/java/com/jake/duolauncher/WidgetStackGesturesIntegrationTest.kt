@@ -103,4 +103,30 @@ class WidgetStackGesturesIntegrationTest {
             assertTrue("no stack was made", WidgetStacks.members(note).isEmpty())
         } finally { cleanUp(before, base) }
     }
+
+    @Test fun aScreenReaderCanSwitchAStackWithoutTheSwipeOrTheDots() {
+        ready()
+        val before = model().state.value.layout
+        var base = -1
+        try {
+            val (note, counter) = place()
+            base = note
+            compose.runOnIdle {
+                WidgetStacks.add(note, StackRules.unoCode(UnoWidgets.COUNTER, counter))
+                model().removePlacement(DropTarget.Widget(counter))
+            }
+            compose.waitUntil(10_000) { present("stack-rail") }
+            fun node() = compose.onNodeWithTag("widget-slot-$note").fetchSemanticsNode()
+            assertEquals("Widget 1 of 2: Note", node().config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription])
+            var actions = node().config[androidx.compose.ui.semantics.SemanticsActions.CustomActions]
+            assertEquals(listOf("Next widget in stack"), actions.map { it.label })
+            compose.runOnUiThread { actions.first().action() }
+            compose.waitUntil(10_000) { present("uno-counter-$counter") }
+            assertEquals("Widget 2 of 2: Counter", node().config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription])
+            actions = node().config[androidx.compose.ui.semantics.SemanticsActions.CustomActions]
+            assertEquals(listOf("Previous widget in stack"), actions.map { it.label })
+            compose.runOnUiThread { actions.first().action() }
+            compose.waitUntil(10_000) { present("uno-note-$note") }
+        } finally { cleanUp(before, base) }
+    }
 }

@@ -71,6 +71,10 @@
     <string name="original">Original</string>
     <string name="themed">Themed</string>
     <string name="tinted">Tinted</string>
+    <string name="icon_lighting">Icon lighting</string>
+    <string name="icon_lighting_on">Lit</string>
+    <string name="icon_lighting_off">Flat</string>
+    <string name="icon_lighting_note">Lit adds a soft light along the top and bottom edges and a gentle shading across original icons, so they look raised like iOS icons. It does not change themed or icon-pack icons.</string>
     <string name="tinted_takes_its_colour_from_your">Tinted takes its colour from your wallpaper (change the wallpaper and the icons follow), without recolouring the rest of the launcher.</string>
     <string name="themed_uses_each_app_s_own">Themed uses each app\'s own single-colour icon layer where it ships one (Android 13+), in the launcher\'s colours; other apps are washed to match.</string>
     <string name="island_timer">Island timer</string>
@@ -369,9 +373,9 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Apps drop into folders reliably, and removing a widget from a stack removes it.</string>
-    <string name="whats_new_2">Settings are harder to close by accident and reopen on the page you left.</string>
-    <string name="whats_new_3">The lock screen wallpaper follows day and night when it is synced.</string>
+    <string name="whats_new_1">App icons are lit like iOS\'s (change it under Icon lighting in the icon settings).</string>
+    <string name="whats_new_2">The row of feed titles scrolls sideways again.</string>
+    <string name="whats_new_3">Dropping onto folders, stack removal, sticky settings and a lock screen that follows day and night came in 0.60.</string>
     <string name="whats_new_4">iOS-style folders and richer island themes came in 0.59.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>

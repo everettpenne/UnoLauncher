@@ -353,7 +353,8 @@ internal fun LauncherScreen(
     var iconsSeeded by remember { mutableStateOf(false) }
     val accentKey = if (iconStyleNow.usesWallpaper(appearance.wallpaperColor)) LauncherBackgroundCache.revision.intValue else -1
     val iconPackNow = extras?.store?.state?.iconPack.orEmpty()
-    LaunchedEffect(iconStyleNow, themedDarkNow, accentKey, iconPackNow) { if (iconsSeeded) model.refresh() else iconsSeeded = true }
+    val iconLightingNow = extras?.store?.state?.iconLighting ?: true
+    LaunchedEffect(iconStyleNow, themedDarkNow, accentKey, iconPackNow, iconLightingNow) { if (iconsSeeded) model.refresh() else iconsSeeded = true }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { controlPanelOpen = false }
     BackHandler(enabled = controlPanelOpen) { controlPanelOpen = false }
     BackHandler(enabled = sheet == "widgets") { widgetPickerBack() }
@@ -681,7 +682,8 @@ internal fun LauncherScreen(
                 onUpwardSwipe = { UnoFeedback.play(Cue.OPEN, haptic); island.collapse(); sheet = "settings" },
                 onLeadingOverscroll = if (firstHome == 0) onDiscover else null,
                 ignorePress = { point -> pageStripBounds.contains(point + gestureOriginInRoot) ||
-                    StackRailRegistry.bounds.values.any { it.contains(point + gestureOriginInRoot) } },
+                    StackRailRegistry.bounds.values.any { it.contains(point + gestureOriginInRoot) } ||
+                    HorizontalScrollerRegistry.bounds.values.any { it.contains(point + gestureOriginInRoot) } },
             )) {
             val pagerModifier = Modifier.fillMaxHeight().width(pagerWidth + pagerEndInset)
                 .drawWithContent {

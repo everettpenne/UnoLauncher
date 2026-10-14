@@ -154,6 +154,14 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     }
     Text(stringResource(com.jake.duolauncher.R.string.tinted_takes_its_colour_from_your),
         style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.icon_lighting), style = MaterialTheme.typography.titleMedium)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        GlassChip(s.iconLighting, { store.setIconLighting(true) }, { Text(stringResource(com.jake.duolauncher.R.string.icon_lighting_on)) },
+            Modifier.testTag("icons-lit"))
+        GlassChip(!s.iconLighting, { store.setIconLighting(false) }, { Text(stringResource(com.jake.duolauncher.R.string.icon_lighting_off)) },
+            Modifier.testTag("icons-flat"))
+    }
+    Text(stringResource(com.jake.duolauncher.R.string.icon_lighting_note), style = note, color = muted)
     Text(stringResource(com.jake.duolauncher.R.string.themed_uses_each_app_s_own),
         style = note, color = muted)
     IconPackSettings(s.iconPack, store::setIconPack)

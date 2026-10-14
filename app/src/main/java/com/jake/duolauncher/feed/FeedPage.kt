@@ -22,6 +22,9 @@ import androidx.compose.material.icons.rounded.RssFeed
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.composed
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -233,7 +236,7 @@ private fun FeedFilters(
         OutlinedTextField(query, onQuery, Modifier.fillMaxWidth().testTag("feed-search"),
             singleLine = true, placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_feed)) },
             leadingIcon = { Icon(Icons.Rounded.Search, null) })
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.ownsHorizontalDrag().horizontalScroll(rememberScrollState()).testTag("feed-filters"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             FilterChip(selected = selected == null, onClick = { onSelect(null) },
                 label = { Text(stringResource(com.jake.duolauncher.R.string.feed_all)) },
                 modifier = Modifier.testTag("feed-filter-all"))
@@ -283,4 +286,17 @@ private fun FeedEntryCard(entry: FeedEntry, read: Boolean, saved: Boolean, modif
             }
         }
     }
+}
+
+/**
+ * Where a sideways-scrolling strip sits, in root coordinates, so the Home pager leaves a touch that starts on it alone. The pager
+ * watches every touch before its children and takes any mostly-horizontal drag as a page turn, which left no way to scroll the feed's
+ * row of feed titles: the page turned instead. (The stack rail uses [StackRailRegistry] the same way.)
+ */
+internal object HorizontalScrollerRegistry { val bounds = mutableMapOf<Any, androidx.compose.ui.geometry.Rect>() }
+
+internal fun Modifier.ownsHorizontalDrag(): Modifier = composed {
+    val key = remember { Any() }
+    DisposableEffect(Unit) { onDispose { HorizontalScrollerRegistry.bounds.remove(key) } }
+    onGloballyPositioned { HorizontalScrollerRegistry.bounds[key] = it.boundsInRoot() }
 }

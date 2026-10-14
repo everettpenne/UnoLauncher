@@ -143,6 +143,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         val resources = getApplication<Application>().resources
         val iconStyle = IconStyle.fromPreference(getApplication<Application>().getSharedPreferences("extras", 0).getString("iconStyle", null))
         val themedDark = DuoAppearanceRuntime.dark
+        val iconLighting = getApplication<Application>().getSharedPreferences("extras", 0).getBoolean("iconLighting", true)
         val iconPackName = getApplication<Application>().getSharedPreferences("extras", 0).getString("iconPack", "").orEmpty()
         val iconPackVersion = if (iconPackName.isEmpty()) 0L else IconPacks.version(getApplication(), iconPackName)
         val themedAccent = if (iconStyle.usesWallpaper(getApplication<Application>().getSharedPreferences("appearance", 0).getBoolean("wallpaperColor", false)))
@@ -150,7 +151,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         // The icon style and, only while themed, the light/dark palette are part of what an icon looks
         // like, so changing either rebuilds every cached icon.
         val configuration = resources.configuration.let {
-            "${it.densityDpi}|${it.locales.toLanguageTags()}|${it.uiMode}|$iconStyle|$iconPackName:$iconPackVersion|${if (iconStyle.recolours) themedDark else ""}|${themedAccent?.accent?.toArgb() ?: ""}"
+            "${it.densityDpi}|${it.locales.toLanguageTags()}|${it.uiMode}|$iconStyle|$iconLighting|$iconPackName:$iconPackVersion|${if (iconStyle.recolours) themedDark else ""}|${themedAccent?.accent?.toArgb() ?: ""}"
         }
         viewModelScope.launch {
             try {
@@ -201,7 +202,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
                                 val packIcon = iconPack?.drawableFor(component)?.let { packed ->
                                     runCatching { application.packageManager.getUserBadgedIcon(packed, profile) }.getOrDefault(packed) }
                                 val icon = packIcon ?: runCatching { info.getBadgedIcon(0) }.getOrElse { application.packageManager.defaultActivityIcon }
-                                AppEntry(id, label, launcherIcon(icon, if (packIcon != null) IconStyle.ORIGINAL else iconStyle, themedDark, themedAccent), component, profile, serial, descriptor.label,
+                                AppEntry(id, label, launcherIcon(icon, if (packIcon != null) IconStyle.ORIGINAL else iconStyle, themedDark, themedAccent, lit = iconLighting && packIcon == null), component, profile, serial, descriptor.label,
                                     descriptor.isWork, available = true).also { iconCache[id] = it }
                             }
                         }
@@ -698,7 +699,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
  * than hard-clipping, so the curved edge is smooth at every size.
  */
 private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGINAL, dark: Boolean = false,
-    accent: WallpaperAccent? = null): Bitmap {
+    accent: WallpaperAccent? = null, lit: Boolean = false): Bitmap {
     if (drawable !is AdaptiveIconDrawable) return drawable.toBitmap(144, 144)
     val bitmap = Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
@@ -713,6 +714,8 @@ private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGIN
     canvas.drawPath(outside, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR)
     })
+    // Themed icons are painted as glass with their own light; original icons get the raised look here, inside the same silhouette.
+    if (lit && !style.recolours) drawIconLighting(canvas, 144f)
     return bitmap
 }
 

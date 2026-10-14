@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.61.0-uno01
+
+- **You can scroll the feed titles sideways again.** The Home pager watches every touch before the page under it and takes any mostly-sideways drag as a page turn, so a swipe along the row of feed titles (All, Saved, each feed) turned the page instead of scrolling the row. The row now registers itself, as the widget-stack rail does, and a touch that starts on it scrolls it.
+- **App icons look lit, like iOS's.** Original icons now get a soft light along the top edge and a fainter glint along the bottom, a glow spilling down from the top and a gentle shading toward the lower edge, so they look slightly raised. It is painted into each icon inside its silhouette, so the corners stay clean, and it is meant to be subtle: the app's own artwork is not recoloured. That is what lets you use the apps' default icons. A new **Icon lighting** choice (Lit or Flat) sits under Icon style in the icon settings, on by default. Themed icons (which already have their own glass lighting) and icon-pack icons are left as they were.
+- Tests: the existing unit and feed suites pass; the lighting was checked by eye on the emulator.
+
 ## 0.60.0-uno01
 
 - **Dropping an app on a folder works again.** Only the folder's small icon plate counted as "on the folder"; a finger on its label or just beside the plate counted as an ordinary Home cell, so the layout opened a gap there and slid the folder out from under the app being held. Now an app held anywhere over the middle of a folder's cell is over the folder, and nothing moves. Near the cell's edge it is still an ordinary move.

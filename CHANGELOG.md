@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.64.0-uno01
+
+- **A real type scale.** Uno now follows Apple's HIG / SF Pro rhythm — sizes 34 down to 11, iOS line heights and iOS tracking — set in the bundled Inter variable font. `UnoType` in `appearance/DuoTypography.kt` is the single source of truth; the glass UI kit reads from it too instead of hard-coding sizes.
+- **Regular body, semibold headers.** Body and footnote text are Regular and section headers are Semibold, matching SF Pro instead of Material's "medium everywhere".
+- **Consistent glass text.** Buttons, rows, chips, fields and dialogs pull from the scale, so every menu follows the same rhythm as Home.
+- **What moved on screen:** section headers 16→17 semibold, help and note text 12→13, sheet titles 24→22, dialog titles 22→20 semibold, body and guidance 14/16→16/17, page titles 28 medium→28 regular, kit buttons 14 medium→15 semibold.
+- Tests: the full unit-test suite and lint run clean.
+
 ## 0.63.0-uno01
 
 - **Glass looks thicker.** Glass surfaces (widgets, the dock, cards, the status rail) now carry the Backdrop library's own default shadow, so they sit on the page like slabs of glass instead of flat tinted panes.

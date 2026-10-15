@@ -125,7 +125,7 @@ internal fun GlassMenuItem(
         .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         leadingIcon?.invoke()
-        androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 16.sp)) {
+        androidx.compose.material3.ProvideTextStyle(UnoType.callout) {
             CompositionLocalProvider(LocalContentColor provides LocalContentColor.current.copy(alpha = if (enabled) 1f else .45f)) { text() }
         }
     }

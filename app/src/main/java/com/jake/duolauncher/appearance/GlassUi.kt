@@ -191,8 +191,8 @@ internal fun GlassSwitchRow(label: String, checked: Boolean, onChecked: (Boolean
     help: String? = null, tag: String? = null) {
     Row(modifier.fillMaxWidth().heightIn(min = 52.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(label, color = GlassInkOnPanel, fontSize = 15.sp)
-            if (help != null) Text(help, color = GlassInkOnPanel.copy(alpha = .65f), fontSize = 12.sp)
+            Text(label, color = GlassInkOnPanel, style = UnoType.subheadline)
+            if (help != null) Text(help, color = GlassInkOnPanel.copy(alpha = .65f), style = UnoType.caption1)
         }
         LiquidSwitchControl(checked, onChecked, LocalPageGlass.current,
             if (tag != null) Modifier.testTag(tag) else Modifier)
@@ -207,8 +207,8 @@ internal fun GlassRow(title: String, onClick: () -> Unit, modifier: Modifier = M
         .padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (leading != null) { leading(); Spacer(Modifier.width(10.dp)) }
         Column(Modifier.weight(1f)) {
-            Text(title, color = GlassInkOnPanel, fontSize = 15.sp, maxLines = 1)
-            if (subtitle != null) Text(subtitle, color = GlassInkOnPanel.copy(alpha = .65f), fontSize = 12.sp, maxLines = 2)
+            Text(title, color = GlassInkOnPanel, style = UnoType.subheadline, maxLines = 1)
+            if (subtitle != null) Text(subtitle, color = GlassInkOnPanel.copy(alpha = .65f), style = UnoType.caption1, maxLines = 2)
         }
         if (trailing != null) trailing()
     }
@@ -217,8 +217,7 @@ internal fun GlassRow(title: String, onClick: () -> Unit, modifier: Modifier = M
 /** A section title inside a menu. */
 @Composable
 internal fun GlassHeading(text: String, modifier: Modifier = Modifier) {
-    Text(text, modifier, color = GlassInkOnPanel.copy(alpha = .72f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-        letterSpacing = .6.sp)
+    Text(text, modifier, color = GlassInkOnPanel.copy(alpha = .72f), style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold, letterSpacing = .6.sp))
 }
 
 /** A hairline between sections. */
@@ -230,7 +229,7 @@ internal fun GlassDivider(modifier: Modifier = Modifier) {
 /** A small explanatory line under a control. */
 @Composable
 internal fun GlassNote(text: String, modifier: Modifier = Modifier) {
-    Text(text, modifier, color = GlassInkOnPanel.copy(alpha = .62f), fontSize = 12.sp)
+    Text(text, modifier, color = GlassInkOnPanel.copy(alpha = .62f), style = UnoType.caption1)
 }
 
 /** A text field in the glass style: a soft translucent well with a hairline rim, [placeholder] shown while empty. Put
@@ -244,13 +243,13 @@ internal fun GlassTextField(value: String, onValueChange: (String) -> Unit, modi
     androidx.compose.foundation.text.BasicTextField(value, onValueChange,
         modifier.fillMaxWidth().heightIn(min = minHeight).then(if (tag != null) Modifier.testTag(tag) else Modifier),
         singleLine = singleLine, maxLines = maxLines,
-        textStyle = androidx.compose.ui.text.TextStyle(color = ink, fontSize = 15.sp),
+        textStyle = UnoType.subheadline.copy(color = ink),
         cursorBrush = androidx.compose.ui.graphics.SolidColor(ink),
         decorationBox = { inner ->
             Box(Modifier.fillMaxWidth().heightIn(min = minHeight).clip(shape).background(ink.copy(alpha = .08f))
                 .border(BorderStroke(1.dp, ink.copy(alpha = .16f)), shape).padding(horizontal = 14.dp, vertical = 12.dp),
                 contentAlignment = if (singleLine) Alignment.CenterStart else Alignment.TopStart) {
-                if (value.isEmpty() && placeholder.isNotEmpty()) Text(placeholder, color = ink.copy(alpha = .45f), fontSize = 15.sp)
+                if (value.isEmpty() && placeholder.isNotEmpty()) Text(placeholder, color = ink.copy(alpha = .45f), style = UnoType.subheadline)
                 inner()
             }
         })
@@ -283,7 +282,7 @@ internal fun GlassButton(onClick: () -> Unit, modifier: Modifier = Modifier, ena
         .clickable(interactionSource = null, indication = null, enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 18.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
         CompositionLocalProvider(LocalContentColor provides content_) {
-            androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium)) { content() }
+            androidx.compose.material3.ProvideTextStyle(UnoType.subheadline.copy(fontWeight = FontWeight.SemiBold)) { content() }
         }
     }
 }
@@ -306,7 +305,7 @@ internal fun GlassChip(selected: Boolean, onClick: () -> Unit, label: @Composabl
         .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center) {
         CompositionLocalProvider(LocalContentColor provides (if (selected) accentInk else ink)) {
-            androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 13.sp,
+            androidx.compose.material3.ProvideTextStyle(UnoType.footnote.copy(
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)) { label() }
         }
     }
@@ -327,12 +326,12 @@ internal fun GlassField(value: String, onValueChange: (String) -> Unit, modifier
     // Material's field; the label and supporting text are drawn inside its decoration.
     androidx.compose.foundation.text.BasicTextField(value, onValueChange, modifier, enabled = enabled,
         singleLine = singleLine, minLines = minLines, maxLines = maxLines, keyboardOptions = keyboardOptions, keyboardActions = keyboardActions,
-        textStyle = androidx.compose.ui.text.TextStyle(color = ink, fontSize = 15.sp),
+        textStyle = UnoType.subheadline.copy(color = ink),
         cursorBrush = androidx.compose.ui.graphics.SolidColor(ink),
         decorationBox = { inner ->
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (label != null) CompositionLocalProvider(LocalContentColor provides ink.copy(alpha = .7f)) {
-                    androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 12.sp)) { label() }
+                    androidx.compose.material3.ProvideTextStyle(UnoType.caption1) { label() }
                 }
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(shape).background(ink.copy(alpha = if (enabled) .08f else .04f))
                     .border(BorderStroke(1.dp, ink.copy(alpha = .16f)), shape).padding(horizontal = 14.dp, vertical = 10.dp),
@@ -340,14 +339,14 @@ internal fun GlassField(value: String, onValueChange: (String) -> Unit, modifier
                     if (leadingIcon != null) { CompositionLocalProvider(LocalContentColor provides ink.copy(alpha = .7f)) { leadingIcon() }; Spacer(Modifier.width(8.dp)) }
                     Box(Modifier.weight(1f)) {
                         if (value.isEmpty() && placeholder != null) CompositionLocalProvider(LocalContentColor provides ink.copy(alpha = .45f)) {
-                            androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 15.sp)) { placeholder() }
+                            androidx.compose.material3.ProvideTextStyle(UnoType.subheadline) { placeholder() }
                         }
                         inner()
                     }
                     if (trailingIcon != null) { Spacer(Modifier.width(8.dp)); CompositionLocalProvider(LocalContentColor provides ink.copy(alpha = .7f)) { trailingIcon() } }
                 }
                 if (supportingText != null) CompositionLocalProvider(LocalContentColor provides ink.copy(alpha = .6f)) {
-                    androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 12.sp)) { supportingText() }
+                    androidx.compose.material3.ProvideTextStyle(UnoType.caption1) { supportingText() }
                 }
             }
         })

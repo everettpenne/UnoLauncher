@@ -63,11 +63,41 @@ grey `IosGrey 0xFF787880`. Green = affirmative state; orange = adjustable value.
 
 **Inter** (SIL OFL 1.1, bundled as one variable font, `res/font/inter_variable.ttf`) is the
 typeface everywhere, so the launcher reads the same on every Pixel and needs no font download.
-`DuoTypography` is Material's type scale with Inter as its family (`DuoTypography.kt`); weights
-300-700 come from the variable weight axis. Sizes stay Material's; the status rail sets its own:
-time up to 18 sp, detail up to 11 sp, both respecting the system font scale. Inter runs wider than
-the system font, so tight spots (the island's action buttons) drop to icon-only when a label
-doesn't fit. All body text keeps ≥ 4.5:1 contrast against its glass tint.
+Weights 300-700 come from the variable weight axis.
+
+The scale is **Apple's HIG / SF Pro rhythm, in Inter** (`appearance/DuoTypography.kt`). `UnoType`
+is the one source of truth; screens pull from it (or from the `DuoTypography` mapping) instead of
+inventing sizes. Sizes are sp (they respect the system font scale) and tracking is in em so it
+scales with size.
+
+| Token | Size | Weight | Line | Tracking | iOS role |
+| --- | --- | --- | --- | --- | --- |
+| `largeTitle` | 34 | Regular 400 | 41 | +0.011 | Large Title |
+| `title1` | 28 | Regular 400 | 34 | +0.013 | Title 1 |
+| `title2` | 22 | Regular 400 | 28 | +0.016 | Title 2 |
+| `title3` | 20 | Regular 400 | 25 | +0.019 | Title 3 |
+| `headline` | 17 | Semibold 600 | 22 | −0.024 | Headline |
+| `body` | 17 | Regular 400 | 22 | −0.024 | Body |
+| `callout` | 16 | Regular 400 | 21 | −0.020 | Callout |
+| `subheadline` | 15 | Regular 400 | 20 | −0.016 | Subheadline |
+| `footnote` | 13 | Regular 400 | 18 | −0.006 | Footnote |
+| `caption1` | 12 | Regular 400 | 16 | 0 | Caption 1 |
+| `caption2` | 11 | Regular 400 | 13 | +0.007 | Caption 2 |
+
+iOS weights are Regular for almost everything except Headline (Semibold); the medium (500) and
+semibold (600) forms used for compact labels and buttons are taken from a token with
+`copy(fontWeight = …)`. `DuoTypography` maps the scale onto Material's slots so existing
+`MaterialTheme.typography.*` references keep working: `headlineMedium` → title1 (page title),
+`headlineSmall` → title2 (sheet title), `titleLarge` → title3 semibold (dialog title),
+`titleMedium` → headline (section header), `titleSmall` → subheadline medium (group label),
+`bodyLarge` → body, `bodyMedium` → callout, `bodySmall` → footnote, `labelMedium` → caption1
+medium (eyebrow), `labelSmall` → caption2 medium. Large titles track looser (positive), body and
+headline track tighter (negative), matching SF Pro.
+
+The status rail sets its own sizes (time up to 18 sp, detail up to 11 sp, both respecting the
+system font scale), as does the clock. Inter runs wider than the system font, so tight spots (the
+island's action buttons) drop to icon-only when a label doesn't fit. All body text keeps ≥ 4.5:1
+contrast against its glass tint.
 
 ## Touch and interaction
 

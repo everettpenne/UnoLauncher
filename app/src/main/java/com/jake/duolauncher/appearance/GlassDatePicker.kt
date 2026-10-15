@@ -60,12 +60,12 @@ internal fun GlassDatePickerDialog(initial: LocalDate, onPicked: (LocalDate) -> 
             GlassIconButton(onClick = { month = MonthGrid.shift(month, -12) }, modifier = Modifier.testTag("date-prev-year")) { Text(stringResource(com.jake.duolauncher.R.string.text)) }
             GlassIconButton(onClick = { month = MonthGrid.shift(month, -1) }, modifier = Modifier.testTag("date-prev-month")) { Text(stringResource(com.jake.duolauncher.R.string.text_2)) }
             Text("${month.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${month.year}", Modifier.weight(1f).testTag("date-title"),
-                fontSize = 16.sp, fontWeight = FontWeight.Medium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                style = UnoType.callout.copy(fontWeight = FontWeight.Medium), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             GlassIconButton(onClick = { month = MonthGrid.shift(month, 1) }, modifier = Modifier.testTag("date-next-month")) { Text(stringResource(com.jake.duolauncher.R.string.text_3)) }
             GlassIconButton(onClick = { month = MonthGrid.shift(month, 12) }, modifier = Modifier.testTag("date-next-year")) { Text(stringResource(com.jake.duolauncher.R.string.text_4)) }
         }
         Row(Modifier.fillMaxWidth()) {
-            MonthGrid.weekdayLabels(firstDay).forEach { Text(it, Modifier.weight(1f), fontSize = 12.sp,
+            MonthGrid.weekdayLabels(firstDay).forEach { Text(it, Modifier.weight(1f), style = UnoType.caption1,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
         }
         MonthGrid.weeks(month, firstDay).forEach { week ->
@@ -81,7 +81,7 @@ internal fun GlassDatePickerDialog(initial: LocalDate, onPicked: (LocalDate) -> 
                                 .semantics { contentDescription = day.toString() }.testTag("date-day-$day"),
                                 contentAlignment = Alignment.Center) {
                                 Text(day.dayOfMonth.toString(), color = if (on) accentInk else androidx.compose.ui.graphics.Color.Unspecified,
-                                    fontSize = 15.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
+                                    style = UnoType.subheadline.copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal))
                             }
                         }
                     }

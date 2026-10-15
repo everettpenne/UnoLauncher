@@ -499,8 +499,16 @@ internal fun DynamicIsland(
     val hasLiveContent = flashActive || IslandTools.ringing || liveKinds.isNotEmpty()
     val compactTarget = if (anchoredToWindow && !hasLiveContent && !alwaysWide) 1f else 0f
     val compactness by animateFloatAsState(compactTarget, IslandThemes.active.spring(.8f, 380f), label = "island compact")
-    val extraBody = if (state.peekCard != null) 0f else (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(IslandTools.toolsOpen) +
-        (if (IslandTools.toolsOpen) TOOLS_PANELS_ROW_DP else if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) - actionsTrimDp
+    // What the open island is showing, held while it closes. collapse() clears the card and the tools flag at once, but the island takes a
+    // moment to shrink; reading them live made the face (and the body's height) switch to the ordinary open island, with the app shortcuts
+    // and settings, for that moment before it reached the camera. While closing, the face and size it had when it was open are kept.
+    var heldPeek by remember { mutableStateOf<PeekNotification?>(null) }
+    var heldTools by remember { mutableStateOf(false) }
+    if (state.expanded) { heldPeek = state.peekCard; heldTools = IslandTools.toolsOpen }
+    val peekShown = if (state.expanded) state.peekCard else heldPeek
+    val toolsShown = if (state.expanded) IslandTools.toolsOpen else heldTools
+    val extraBody = if (peekShown != null) 0f else (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(toolsShown) +
+        (if (toolsShown) TOOLS_PANELS_ROW_DP else if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) - actionsTrimDp
     val frame = IslandGeometry.frame(environment, d, shownWidth, sizeScale, extraBodyDp = extraBody, extraWidthDp = eventWidth,
         compactness = compactness, heightProgress = progress)
     // What the touch window is told. It used to follow the island's size on every animation frame, which is a call to the window
@@ -519,7 +527,7 @@ internal fun DynamicIsland(
     // The colour fade for music: while the music is one of the things the pill shows (or the panel is open), and nothing else has the island.
     val glowAlpha = animateFloatAsState(
         IslandGlow.target(mediaVisible && (state.expanded || liveKinds.take(2).contains(LiveKind.MEDIA)), isPlaying,
-            flashActive || IslandTools.ringing || state.peekCard != null), tween(650), label = "island media glow")
+            flashActive || IslandTools.ringing || peekShown != null), tween(650), label = "island media glow")
     // The glow's flame stirs only while audio is really playing (not paused or lingering), and not at all with Android's animations off.
     val animationsOn = remember { android.provider.Settings.Global.getFloat(context.contentResolver,
         android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f }
@@ -783,12 +791,12 @@ internal fun DynamicIsland(
                 }
             }
             // Tools face (long press): timer, stopwatch, flashlight.
-            if (reveal > .4f && IslandTools.toolsOpen) Column(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
+            if (reveal > .4f && toolsShown) Column(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 IslandToolsFace(clockMs, torch)
             }
             // A new notification as a card: icon, who or what, and the text if the level allows. Tap opens it; swipe up or wait to dismiss.
-            state.peekCard?.let { peek ->
+            peekShown?.let { peek ->
                 if (reveal > .4f) Row(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
                     // The app's colour glows out from behind its icon into the island's own black. It is drawn across the whole body, before
                     // the padding, so it has no card edge of its own: the notification is part of the island, not a panel laid on it.
@@ -818,8 +826,8 @@ internal fun DynamicIsland(
                 }
             }
             // Expanded face: live panel, starting below the camera hole.
-            if (reveal > .4f && !IslandTools.toolsOpen && state.peekCard == null) Column(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
-                .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
+            if (reveal > .4f && !toolsShown && peekShown == null) Column(Modifier.fillMaxSize().graphicsLayer { alpha = expandedAlpha }
+                .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop).testTag("island-main-face")) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(now.format(timeFormatter), color = themeInk,
@@ -845,7 +853,7 @@ internal fun DynamicIsland(
                     Spacer(Modifier.height(6.dp))
                     UpdateCard(u, clockMs, onOpen = { sendTapAction(context, u.openIntent); state.collapse() })
                 }
-                if (IslandWidgetState.id >= 0 && !IslandTools.toolsOpen) {
+                if (IslandWidgetState.id >= 0 && !toolsShown) {
                     Spacer(Modifier.height(6.dp))
                     IslandWidgetPanel(Modifier.fillMaxWidth().height(IslandWidgetState.ROW_DP.dp))
                 }

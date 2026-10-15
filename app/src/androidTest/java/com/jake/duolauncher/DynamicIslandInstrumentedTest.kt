@@ -231,6 +231,23 @@ class DynamicIslandInstrumentedTest {
         assertEquals(null, state.peekCard)
     }
 
+    @Test fun aClosingCardDoesNotTurnIntoTheOrdinaryOpenIslandOnTheWayOut() {
+        compose.mainClock.autoAdvance = false
+        show()
+        compose.runOnIdle { state.showPeekCard(card("Ada", "hi", seconds = 60)) }
+        compose.mainClock.advanceTimeBy(1_500)
+        assertPresent("island-peek-card")
+        compose.runOnIdle { state.collapse() }
+        // Frame by frame while it shrinks: the card stays until it has faded, and the shortcuts and settings face never appears.
+        repeat(12) {
+            compose.mainClock.advanceTimeBy(16)
+            assertEquals("the ordinary open face must not show while closing", 0,
+                compose.onAllNodesWithTag("island-main-face", useUnmergedTree = true).fetchSemanticsNodes().size)
+        }
+        compose.mainClock.advanceTimeBy(2_000)
+        assertEquals(0, compose.onAllNodesWithTag("island-peek-card", useUnmergedTree = true).fetchSemanticsNodes().size)
+    }
+
     @Test fun aCardDoesNotInterruptAnIslandThePersonOpened() {
         show()
         compose.runOnIdle { state.toggle() }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.62.0-uno01
+
+- **Navigation directions stay up longer.** The island's drop-down for a maps instruction now stays for nine seconds (it was four), and the least time between two drop-downs is ten seconds (it was six), so each one can be read before the next replaces it.
+- **No more flash of the full island on the way out.** When a notification card or the tools face closed, the island cleared what it was showing at once while it was still shrinking, so for a moment it drew the ordinary open island (the clock, app shortcuts and settings) at the card's size before reaching the camera. The island now keeps the face it had, and its size, until it has finished closing. This was in the closing code, not in the maps notification, so it applied to every card and to the tools face.
+- Tests: an emulator test steps the closing frame by frame and checks the ordinary open face never appears (it fails without the fix); the island suite passes.
+
 ## 0.61.0-uno01
 
 - **You can scroll the feed titles sideways again.** The Home pager watches every touch before the page under it and takes any mostly-sideways drag as a page turn, so a swipe along the row of feed titles (All, Saved, each feed) turned the page instead of scrolling the row. The row now registers itself, as the widget-stack rail does, and a touch that starts on it scrolls it.

@@ -8,10 +8,10 @@ package com.jake.duolauncher.island
  */
 internal object NavigationCue {
     /** How long the island stays dropped down for a cue. */
-    const val SECONDS = 4
+    const val SECONDS = 9
 
     /** The least time between two cues, so a chatty app cannot keep the island open (the first sight of a route is exempt). */
-    const val MIN_GAP_MS = 6_000L
+    const val MIN_GAP_MS = 10_000L
 
     /** Distances, in metres, that raise a cue when the turn comes within them. */
     val NEAR_METERS = listOf(200, 50)

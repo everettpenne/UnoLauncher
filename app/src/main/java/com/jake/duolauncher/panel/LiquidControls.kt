@@ -8,8 +8,28 @@ import com.jake.duolauncher.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
+import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.util.lerp
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.backdrop.shadow.Shadow
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -46,9 +66,46 @@ internal val IosGreenDark = Color(0xFF30D158)
 internal val IosOrange = Color(0xFFFF9500)
 internal val IosGrey = Color(0xFF787880)
 
+/**
+ * The glass thumb of the switch and the slider, as on iOS: at rest a plain white pill, and while it is held it grows, turns clear and
+ * bends the track beneath it like a lens, with a soft inner shadow and an all-round edge light. [press] is 0..1 and [velocity] the
+ * thumb's speed across the track (it stretches along the motion and squashes across it, so it feels like a drop of liquid).
+ * The track is recorded into [trackBackdrop] by the caller; the thumb sees it (slightly magnified while held) over [glass]'s backdrop.
+ */
+@Composable
+private fun Modifier.liquidThumb(glass: PageGlass, trackBackdrop: com.kyant.backdrop.backdrops.LayerBackdrop,
+    press: () -> Float, velocity: () -> Float, lensHeightDp: Float = 5f, lensAmountDp: Float = 10f): Modifier {
+    val seen = rememberCombinedBackdrop(glass.backdrop, rememberBackdrop(trackBackdrop) { drawTrack ->
+        val p = press()
+        scale(lerp(2f / 3f, .75f, p), lerp(0f, .75f, p)) { drawTrack() }
+    })
+    return drawBackdrop(
+        backdrop = seen,
+        shape = { RoundedCornerShape(percent = 50) },
+        effects = {
+            val p = press()
+            blur(8f.dp.toPx() * (1f - p))
+            lens(lensHeightDp.dp.toPx() * p, lensAmountDp.dp.toPx() * p, chromaticAberration = true)
+        },
+        highlight = {
+            val p = press()
+            Highlight.Ambient.copy(width = Highlight.Ambient.width / 1.5f, blurRadius = Highlight.Ambient.blurRadius / 1.5f, alpha = p)
+        },
+        shadow = { Shadow(radius = 4f.dp, color = Color.Black.copy(alpha = .08f)) },
+        innerShadow = { val p = press(); InnerShadow(radius = 4f.dp * p, alpha = p) },
+        layerBlock = {
+            val p = press()
+            val grown = lerp(1f, 1.5f, p)
+            val v = velocity() / 50f
+            scaleX = grown / (1f - (v * .75f).coerceIn(-.2f, .2f))
+            scaleY = grown * (1f - (v * .25f).coerceIn(-.2f, .2f))
+        },
+        onDrawSurface = { drawRect(Color.White.copy(alpha = 1f - press())) })
+}
+
 /** iOS-style slider: an orange-tinted Material slider when glass is off, and a liquid
- * track with a glass thumb when [glass] is available. The thumb refracts whatever is
- * behind it; dragging or tapping sets the value like a stock slider.
+ * track with a glass thumb when [glass] is available. The thumb is white until it is held,
+ * then turns into clear glass that bends the track; dragging or tapping sets the value.
  */
 @Composable
 internal fun LiquidSliderControl(
@@ -83,59 +140,62 @@ internal fun LiquidSliderControl(
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
     var width by remember { mutableStateOf(0) }
     val fraction = ((value - valueRange.start) / (valueRange.endInclusive - valueRange.start)).coerceIn(0f, 1f)
-    val progress by animateFloatAsState(fraction, label = "slider fraction")
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by rememberPressProgress(interaction)
-    val thumbSize = 28.dp
+    val progressAnim = remember { Animatable(fraction, .0005f) }
+    LaunchedEffect(fraction) { progressAnim.animateTo(fraction, spring(.8f, 700f, .0005f)) }
+    val progress = progressAnim.value
+    val scope = rememberCoroutineScope()
+    val press = remember { Animatable(0f, .001f) }
+    val trackBackdrop = rememberLayerBackdrop()
+    val thumbWidth = 40.dp
+    val thumbHeight = 24.dp
     val trackHeight = 6.dp
-    val thumbPx = with(LocalDensity.current) { thumbSize.toPx() }
+    val thumbPx = with(LocalDensity.current) { thumbWidth.toPx() }
     // Dragging past an end stretches the thumb a little and springs it back on release.
     var pull by remember { mutableFloatStateOf(0f) }
     val stretch by animateFloatAsState(pull, spring(dampingRatio = .45f, stiffness = 500f), label = "slider stretch")
     val maxStretchPx = with(LocalDensity.current) { 10.dp.toPx() }
+    val accent = (LocalWallpaperAccent.current?.accent ?: IosOrange).copy(alpha = .9f)
 
     Box(modifier.fillMaxWidth().height(40.dp).onSizeChanged { width = it.width }
-        .pointerInput(valueRange, width) {
+        .pointerInput(valueRange, width, isLtr) {
             if (width <= 0) return@pointerInput
-            detectTapGestures { tap ->
-                val fx = (tap.x / width).coerceIn(0f, 1f)
-                val raw = if (isLtr) fx else 1f - fx
-                reportChange(valueRange.start + raw * (valueRange.endInclusive - valueRange.start))
+            fun valueAt(x: Float): Float {
+                val raw = (x / width).coerceIn(0f, 1f).let { if (isLtr) it else 1f - it }
+                return valueRange.start + raw * (valueRange.endInclusive - valueRange.start)
             }
-        }
-        .pointerInput(valueRange, width) {
-            if (width <= 0) return@pointerInput
-            detectDragGestures(onDragEnd = { pull = 0f }, onDragCancel = { pull = 0f }) { change, _ ->
-                val unclamped = change.position.x / width
-                val fx = unclamped.coerceIn(0f, 1f)
-                // How far the finger is past the track, with resistance so it never runs away.
-                pull = ((unclamped - fx) * width * .35f).coerceIn(-maxStretchPx, maxStretchPx) * (if (isLtr) 1f else -1f)
-                val raw = if (isLtr) fx else 1f - fx
-                reportChange(valueRange.start + raw * (valueRange.endInclusive - valueRange.start))
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                scope.launch { press.animateTo(1f, spring(.5f, 300f, .001f)) }
+                reportChange(valueAt(down.position.x))
+                drag(down.id) { change ->
+                    val unclamped = change.position.x / width
+                    val fx = unclamped.coerceIn(0f, 1f)
+                    // How far the finger is past the track, with resistance so it never runs away.
+                    pull = ((unclamped - fx) * width * .35f).coerceIn(-maxStretchPx, maxStretchPx) * (if (isLtr) 1f else -1f)
+                    reportChange(valueAt(change.position.x))
+                    change.consume()
+                }
+                pull = 0f
+                scope.launch { press.animateTo(0f, spring(.5f, 300f, .001f)) }
             }
         }
         .semantics(mergeDescendants = true) { contentDescription = "Slider ${(progress * 100).roundToInt()} percent" },
         contentAlignment = Alignment.CenterStart) {
-        // Track: quiet grey under an orange active run.
-        Box(Modifier.fillMaxWidth().height(trackHeight).clip(RoundedCornerShape(percent = 50))
-            .background(IosGrey.copy(alpha = .28f)))
-        Box(Modifier.fillMaxWidth(progress).height(trackHeight).clip(RoundedCornerShape(percent = 50))
-            .background((LocalWallpaperAccent.current?.accent ?: IosOrange).copy(alpha = .9f)))
-        // Thumb: a glass circle over the recorded backdrop.
-        Box(Modifier.graphicsLayer {
-                translationX = progress * width - thumbPx / 2f + stretch
-                scaleX = 1f + .12f * pressed + kotlin.math.abs(stretch) / maxStretchPx * .18f; scaleY = 1f + .12f * pressed
-            }
-            .liquidGlass(glass.backdrop, CircleShape, glass.tint.copy(alpha = .4f),
-                blurRadius = 4f, settings = glass.settings)
-            .pressGlow(pressed, CircleShape)
-            .size(thumbSize)
+        // Track: quiet grey under an accent active run. Recorded, so the held thumb can bend it.
+        Box(Modifier.fillMaxWidth().height(trackHeight).layerBackdrop(trackBackdrop).clip(RoundedCornerShape(percent = 50))) {
+            Box(Modifier.fillMaxSize().background(IosGrey.copy(alpha = .28f)))
+            Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(accent))
+        }
+        // Thumb: white at rest, clear liquid glass while held.
+        Box(Modifier.graphicsLayer { translationX = progress * (width - thumbPx) + stretch }
+            .liquidThumb(glass, trackBackdrop, { press.value }, { progressAnim.velocity * 5f }, lensHeightDp = 10f, lensAmountDp = 14f)
+            .size(thumbWidth, thumbHeight)
             .testTag("liquid-slider-thumb"))
     }
 }
 
-/** iOS-style toggle: a green Material switch when glass is off, and a liquid track with
- * a sliding glass thumb when [glass] is available. Tap or drag the thumb to flip it.
+/** iOS-style toggle: a green Material switch when glass is off, and with glass a track and a pill thumb that is white at rest and,
+ * while held, grows and turns into a clear lens over the track and stretches as it moves. Tap it, or drag the thumb and let go.
  */
 @Composable
 internal fun LiquidSwitchControl(
@@ -150,37 +210,62 @@ internal fun LiquidSwitchControl(
     }
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
     val density = LocalDensity.current
-    val trackWidth = 51.dp
-    val thumbSize = 27.dp
-    val travel = with(density) { (trackWidth - thumbSize - 4.dp).toPx() }
-    val fraction by animateFloatAsState(if (checked) 1f else 0f, label = "switch fraction")
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by rememberPressProgress(interaction)
-    val trackColor = lerp(IosGrey.copy(alpha = .38f), LocalWallpaperAccent.current?.accent ?: IosGreen, fraction)
+    val trackWidth = 64.dp; val trackHeight = 28.dp
+    val thumbWidth = 40.dp; val thumbHeight = 24.dp
+    val inset = (trackHeight - thumbHeight) / 2
+    val travel = with(density) { (trackWidth - thumbWidth - inset * 2).toPx() }
+    val scope = rememberCoroutineScope()
+    val position = remember { Animatable(if (checked) 1f else 0f, .001f) }
+    val press = remember { Animatable(0f, .001f) }
+    var dragging by remember { mutableStateOf(false) }
+    val latestChecked by rememberUpdatedState(checked)
+    val latestChange by rememberUpdatedState(onCheckedChange)
+    LaunchedEffect(checked) { if (!dragging) position.animateTo(if (checked) 1f else 0f, spring(.7f, 380f, .001f)) }
+    val accent = LocalWallpaperAccent.current?.accent ?: IosGreen
+    val trackOff = IosGrey.copy(alpha = .38f)
+    val trackBackdrop = rememberLayerBackdrop()
 
-    Box(modifier.minimumInteractiveComponentSize().size(width = trackWidth, height = 31.dp)
-        .clickableToggle(interaction, checked, onCheckedChange)
-        .semantics { role = Role.Switch; contentDescription = if (checked) "On" else "Off" },
-        contentAlignment = Alignment.CenterStart) {
-        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(percent = 50)).background(trackColor))
-        Box(Modifier.graphicsLayer {
-                translationX = if (isLtr) 2.dp.toPx() + fraction * travel else 0f
-                scaleX = 1f + .08f * pressed; scaleY = 1f + .08f * pressed
+    Box(modifier.minimumInteractiveComponentSize().size(width = trackWidth, height = trackHeight)
+        .pointerInput(isLtr, travel) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                scope.launch { press.animateTo(1f, spring(.5f, 300f, .001f)) }
+                var moved = false
+                dragging = true
+                drag(down.id) { change ->
+                    val dx = (change.position - change.previousPosition).x
+                    if (dx != 0f) {
+                        moved = true
+                        val next = (position.value + (if (isLtr) dx else -dx) / travel).coerceIn(0f, 1f)
+                        scope.launch { position.snapTo(next) }
+                    }
+                    change.consume()
+                }
+                dragging = false
+                val target = if (moved) (if (position.value >= .5f) 1f else 0f) else (if (latestChecked) 0f else 1f)
+                scope.launch {
+                    press.animateTo(0f, spring(.5f, 300f, .001f))
+                }
+                scope.launch { position.animateTo(target, spring(.7f, 380f, .001f)) }
+                if ((target == 1f) != latestChecked) latestChange(target == 1f)
             }
-            .liquidGlass(glass.backdrop, CircleShape, Color.White.copy(alpha = .92f),
-                blurRadius = 3f, settings = glass.settings)
-            .pressGlow(pressed, CircleShape)
-            .size(thumbSize)
+        }
+        .semantics {
+            role = Role.Switch
+            toggleableState = if (checked) ToggleableState.On else ToggleableState.Off
+            contentDescription = if (checked) "On" else "Off"
+            onClick { onCheckedChange(!checked); true }
+        },
+        contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.fillMaxSize().layerBackdrop(trackBackdrop).clip(RoundedCornerShape(percent = 50))
+            .drawBehind { drawRect(lerp(trackOff, accent, position.value)) })
+        Box(Modifier.graphicsLayer {
+                val pad = inset.toPx()
+                val x = pad + position.value * travel
+                translationX = if (isLtr) x else -x
+            }
+            .liquidThumb(glass, trackBackdrop, { press.value }, { position.velocity * travel / 1000f * 20f })
+            .size(thumbWidth, thumbHeight)
             .testTag("liquid-switch-thumb"))
     }
 }
-
-private fun Modifier.clickableToggle(
-    interaction: MutableInteractionSource,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-): Modifier = clickable(
-    interactionSource = interaction,
-    indication = null,
-    role = Role.Switch,
-    onClick = { onCheckedChange(!checked) })

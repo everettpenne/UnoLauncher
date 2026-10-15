@@ -856,7 +856,7 @@ internal fun LauncherScreen(
                 }
             }
             if (homeEditing && sheet.isEmpty() && !drag.active && !controlPanelOpen && !spotlightOpen && !showFirstRun) {
-                HomeEditBar(
+                HomeEditBar(controlGlass,
                     onAddApps = { homeEditing = false; sheet = "pins" },
                     onAddWidget = {
                         val page = pager.currentPage.coerceIn(0, homePages - 1)

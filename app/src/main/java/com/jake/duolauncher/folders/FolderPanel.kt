@@ -79,6 +79,7 @@ internal fun FolderPanel(
     val open = remember { Animatable(.86f) }
     LaunchedEffect(Unit) { open.animateTo(1f, spring(dampingRatio = .72f, stiffness = 420f)) }
     val glass = glassBackdrop != null
+    val pageGlass = remember(glassBackdrop, glassTint, settings) { glassBackdrop?.let { PageGlass(it, glassTint, settings) } }
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .28f * ((open.value - .86f) / .14f).coerceIn(0f, 1f)))
         .clickable(
             interactionSource = remember { MutableInteractionSource() },
@@ -99,7 +100,7 @@ internal fun FolderPanel(
             .testTag("folder-panel-content")
         val content: @Composable () -> Unit = {
             FolderPanelBody(fieldValue, { fieldValue = it }, folder, apps, drag, page, homeDestinations, dockVacancies,
-                onLaunch, onMoveOut, commitAndClose, editTitle, rows, glass)
+                onLaunch, onMoveOut, commitAndClose, editTitle, rows, glass, pageGlass)
         }
         if (glassBackdrop != null) {
             Box(panelModifier.liquidGlass(glassBackdrop, Corner.xlarge, glassTint, blurRadius = 4f, settings = settings)) { content() }
@@ -129,6 +130,7 @@ private fun FolderPanelBody(
     editTitle: Boolean,
     rows: Int,
     glass: Boolean,
+    pageGlass: PageGlass?,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = remember { FocusRequester() }
@@ -159,7 +161,7 @@ private fun FolderPanelBody(
                         row.forEach { appId ->
                             Box(Modifier.weight(1f)) {
                                 apps[appId]?.let { app -> FolderChild(app, folder.id, drag, page, homeDestinations, dockVacancies,
-                                    onLaunch = onLaunch, onMoveOut = onMoveOut) }
+                                    onLaunch = onLaunch, onMoveOut = onMoveOut, glass = pageGlass) }
                             }
                         }
                         repeat(FolderPages.COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
@@ -180,6 +182,7 @@ private fun FolderChild(
     app: AppEntry, folderId: String, drag: HomeDragState, page: Int,
     homeDestinations: List<Int>, dockVacancies: List<Int>,
     onLaunch: (AppEntry, android.graphics.Rect?) -> Unit, onMoveOut: (String, DropTarget) -> Unit,
+    glass: PageGlass?,
 ) {
     var menu by remember { mutableStateOf(false) }
     // iOS shows a folder's apps as bare icons with labels on the panel, no cards. The move menu is a small dot at the icon's corner
@@ -199,20 +202,20 @@ private fun FolderChild(
         }
         IconButton(onClick = { menu = true }, Modifier.align(Alignment.TopStart).size(32.dp)
             .testTag("folder-options-${app.id}")) { Icon(Icons.Rounded.MoreVert, "Move ${app.label}", Modifier.size(16.dp), tint = GlassInkOnPanel.copy(alpha = .55f)) }
-        DropdownMenu(menu, onDismissRequest = { menu = false }) {
+        GlassDropdownMenu(menu, onDismissRequest = { menu = false }, glass = glass) {
             homeDestinations.distinctBy(::homeCellPage).forEach { destination ->
                 val destinationPage = homeCellPage(destination)
                 val label = if (destinationPage == -1) "Move to Unfolded-only page" else "Move to page ${destinationPage + 1}"
-                DropdownMenuItem(text = { Text(label) }, onClick = {
+                GlassMenuItem(text = { Text(label) }, onClick = {
                     menu = false; onMoveOut(app.id, DropTarget.Home(destination))
                 }, modifier = Modifier.testTag("folder-move-${app.id}-page-$destinationPage"))
             }
             dockVacancies.firstOrNull()?.let { dock ->
-                DropdownMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.move_to_dock)) }, onClick = {
+                GlassMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.move_to_dock)) }, onClick = {
                     menu = false; onMoveOut(app.id, DropTarget.Dock(dock))
                 }, modifier = Modifier.testTag("folder-move-${app.id}-dock"))
             }
-            DropdownMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.remove_shortcut)) }, onClick = {
+            GlassMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.remove_shortcut)) }, onClick = {
                 menu = false; onMoveOut(app.id, DropTarget.Remove)
             }, modifier = Modifier.testTag("folder-remove-${app.id}"))
         }

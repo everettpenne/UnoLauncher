@@ -38,6 +38,8 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.effects.colorControls
+import com.kyant.backdrop.BackdropEffectScope
 import com.kyant.backdrop.highlight.Highlight
 
 /** Home's glass sources. A [LayerBackdrop] holds exactly one recorded layer and one set of
@@ -121,6 +123,79 @@ internal object GlassRim {
         }
 }
 
+/**
+ * The depth every glass surface shares: the library's own default shadow (a soft 24 dp shadow, nudged down), which is what its catalog
+ * uses under its panels, so the surface sits on the page as a thick piece of glass and not a flat tinted pane. The library draws an
+ * inner shadow only on a held control (see the switch and slider thumbs), never on a resting panel, so this adds none. One definition,
+ * so panels, docks and widgets agree; change it here to retune them all.
+ */
+internal object GlassDepth {
+    fun shadow() = com.kyant.backdrop.shadow.Shadow.Default
+}
+
+/** How much a glass surface lifts or dims, and flattens, the picture behind it so its ink stays readable. */
+internal data class GlassTone(val brightness: Float, val contrast: Float) {
+    companion object { val Neutral = GlassTone(0f, 1f) }
+}
+
+/**
+ * Adapts glass to the wallpaper, as the Backdrop library's adaptive-luminance example does. Our glass text is dark in the light theme and
+ * light in the dark theme, so glass only needs help when the picture behind it is the wrong way round: a dark wallpaper under dark ink
+ * (light theme), or a bright one under light ink (dark theme). Then the picture under the glass is lifted or dimmed and its contrast
+ * eased, a frosted look that holds the text up; on a wallpaper that already suits the theme nothing changes. Pure, so it is unit-tested.
+ */
+internal object BackdropTone {
+    private const val SIDE = 5
+
+    /** [luminance] is the wallpaper's average relative luminance, 0 (black) to 1 (white). */
+    fun tone(luminance: Float, darkTheme: Boolean): GlassTone {
+        val wrongWay = (if (darkTheme) luminance - .45f else .55f - luminance).coerceAtLeast(0f)
+        val strength = (wrongWay / .45f).coerceIn(0f, 1f)
+        return GlassTone(brightness = (if (darkTheme) -1f else 1f) * .20f * strength + 0f, contrast = 1f - .15f * strength)
+    }
+
+    /** The average luminance of [bitmap], from a 5 x 5 shrink of it. */
+    fun luminance(bitmap: Bitmap): Float {
+        val small = Bitmap.createScaledBitmap(bitmap, SIDE, SIDE, true)
+        var sum = 0.0
+        for (y in 0 until SIDE) for (x in 0 until SIDE) {
+            val c = small.getPixel(x, y)
+            sum += .2126 * android.graphics.Color.red(c) / 255.0 + .7152 * android.graphics.Color.green(c) / 255.0 +
+                .0722 * android.graphics.Color.blue(c) / 255.0
+        }
+        if (small !== bitmap) small.recycle()
+        return (sum / (SIDE * SIDE)).toFloat()
+    }
+
+    /** The built-in scenes are sky and sand by day and deep blue by night; this is how bright each reads on average. */
+    fun builtinLuminance(dark: Boolean): Float = if (dark) .22f else .62f
+
+    private var cachedIdentity: String? = null
+    private var cachedLuminance = .5f
+    fun photoLuminance(bitmap: Bitmap, identity: String?): Float {
+        if (identity != null && identity == cachedIdentity) return cachedLuminance
+        return luminance(bitmap).also { cachedIdentity = identity; cachedLuminance = it }
+    }
+}
+
+/** The tone glass should take now, from the wallpaper (the photo, or the built-in scene) and the theme. Recomputed only when either changes. */
+@Composable
+internal fun rememberGlassTone(): GlassTone {
+    val context = LocalContext.current
+    val revision = LauncherBackgroundCache.revision.intValue
+    val dark = DuoAppearanceRuntime.dark
+    return remember(revision, dark) {
+        val photo = cachedLauncherBackground(context)
+        val luminance = if (photo != null) BackdropTone.photoLuminance(photo, LauncherBackgroundCache.identity)
+            else BackdropTone.builtinLuminance(dark)
+        BackdropTone.tone(luminance, dark)
+    }
+}
+
+/** Vibrancy (the library's 1.5 saturation) together with the wallpaper-adaptive [tone]. */
+internal fun BackdropEffectScope.glassColor(tone: GlassTone) =
+    colorControls(brightness = tone.brightness, contrast = tone.contrast, saturation = 1.5f)
+
 /** Liquid-glass surface: vibrancy, blur, and lens refraction over the recorded backdrop,
  * tuned by the three [GlassSettings] knobs so every surface reads as one family.
  */
@@ -131,11 +206,15 @@ internal fun Modifier.liquidGlass(
     tint: Color = Glass.copy(alpha = .3f),
     blurRadius: Float = 2f,
     settings: GlassSettings = GlassSettings.Default,
-): Modifier = drawBackdrop(
+    /** The shared shadow (see [GlassDepth]); off for tiny controls that draw their own. */
+    depth: Boolean = true,
+): Modifier {
+    val tone = rememberGlassTone()
+    return drawBackdrop(
     backdrop = backdrop,
     shape = { shape },
     effects = {
-        vibrancy()
+        glassColor(tone)
         blur(blurRadius.dp.toPx())
         lens(
             refractionHeight = lerp(8f, 44f, settings.height).coerceAtMost(72f).dp.toPx(),
@@ -145,8 +224,10 @@ internal fun Modifier.liquidGlass(
         )
     },
     highlight = { GlassRim.Light },
+    shadow = { if (depth) GlassDepth.shadow() else null },
     onDrawSurface = { drawRect(tint) },
-)
+    )
+}
 
 /** A glass tint derived from the committed launcher background: the photo's muted
  * palette color blended into the theme glass, or the theme glass itself for the
@@ -196,6 +277,7 @@ internal fun GlassModalSheet(
     }
     val shape = Corner.xlarge
     val sheetBackdrop = rememberLayerBackdrop()
+    val sheetTone = rememberGlassTone()
     val accent = LocalWallpaperAccent.current
     val sheetSurface = MaterialTheme.colorScheme.surface.let { base ->
         if (accent != null) androidx.compose.ui.graphics.lerp(base, accent.glass, .5f) else base
@@ -210,7 +292,7 @@ internal fun GlassModalSheet(
                 backdrop = glass.backdrop,
                 shape = { shape },
                 effects = {
-                    vibrancy()
+                    glassColor(sheetTone)
                     blur(8f.dp.toPx())
                     lens(lerp(8f, 44f, glass.settings.height).dp.toPx(),
                         lerp(16f, 132f, glass.settings.amount).dp.toPx(),

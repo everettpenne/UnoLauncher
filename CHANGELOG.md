@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.63.0-uno01
+
+- **Glass looks thicker.** Glass surfaces (widgets, the dock, cards, the status rail) now carry the Backdrop library's own default shadow, so they sit on the page like slabs of glass instead of flat tinted panes.
+- **Toggles and sliders work like iOS 26's.** The thumb is a white pill at rest. While you hold it, it grows to about 1.5 times its size, turns clear and bends the track beneath it with a faint colour fringe, and stretches as it moves. You can tap a toggle, or drag its thumb across and let go. The slider's press animation never ran before (nothing drove it); it now follows your finger, and dragging past an end still stretches the thumb.
+- **Buttons and chips respond to your finger.** With liquid glass on, a button is a small lens capsule that swells, drifts slightly towards where you drag and stretches along the drag, with a soft light that follows your finger and a spring back on release. A prominent button is tinted with the wallpaper accent. The selected chip is lit accent glass; the others stay flat but swell and glow. With liquid glass off they are the flat pills they were.
+- **Glass menus.** The Home edit "+" menu and the folder app menu are now liquid glass panels that bend and blur what is behind them, spring open from the corner nearest what you tapped, flip above when there is no room, and light up the row under your finger. With glass off they are Material's menus.
+- **Glass adapts to the wallpaper.** Glass text is dark in the light theme and light in the dark theme, so when the wallpaper is the wrong way round for that (a dark photo in the light theme, a bright one in the dark theme), the picture under the glass is lifted or dimmed and eased in contrast so the text stays readable. A wallpaper that already suits the theme is left as it is.
+- Tests: unit tests for the wallpaper tone rule; emulator tests for the switch (tap, drag both ways, a tiny drag, screen-reader action) and the slider (tap, drag, ends).
+
 ## 0.62.0-uno01
 
 - **Navigation directions stay up longer.** The island's drop-down for a maps instruction now stays for nine seconds (it was four), and the least time between two drop-downs is ten seconds (it was six), so each one can be read before the next replaces it.

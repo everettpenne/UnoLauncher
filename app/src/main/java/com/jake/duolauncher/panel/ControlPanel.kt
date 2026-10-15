@@ -73,6 +73,7 @@ internal fun ControlPanel(
     val haptic = LocalHapticFeedback.current
     val tick = { UnoFeedback.play(Cue.TICK, haptic) }
     val shape = Corner.xlarge
+    val panelTone = rememberGlassTone()
     // The panel's surface takes the wallpaper hue too when "Color from wallpaper" is on, like every other glass surface.
     val accent = LocalWallpaperAccent.current
     val surface = MaterialTheme.colorScheme.surface.let { base ->
@@ -161,7 +162,7 @@ internal fun ControlPanel(
                 backdrop = glass.backdrop,
                 shape = { shape },
                 effects = {
-                    vibrancy()
+                    glassColor(panelTone)
                     blur(8f.dp.toPx())
                     lens(lerp(8f, 44f, glass.settings.height).dp.toPx(),
                         lerp(16f, 132f, glass.settings.amount).dp.toPx(),

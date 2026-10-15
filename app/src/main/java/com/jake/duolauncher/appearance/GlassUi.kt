@@ -21,6 +21,14 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.graphicsLayer
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.shadow.Shadow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -92,6 +100,7 @@ internal fun GlassDialog(
     }
     val shape = Corner.xlarge
     val panelBackdrop = rememberLayerBackdrop()
+    val dialogTone = rememberGlassTone()
     val accent = LocalWallpaperAccent.current
     val surface = MaterialTheme.colorScheme.surface.let { base ->
         if (accent != null) androidx.compose.ui.graphics.lerp(base, accent.glass, .5f) else base
@@ -107,7 +116,7 @@ internal fun GlassDialog(
                     backdrop = glass.backdrop,
                     shape = { shape },
                     effects = {
-                        vibrancy()
+                        glassColor(dialogTone)
                         blur(8f.dp.toPx())
                         lens(lerp(8f, 44f, glass.settings.height).dp.toPx(), lerp(16f, 132f, glass.settings.amount).dp.toPx(),
                             depthEffect = true, chromaticAberration = glass.settings.chromatic > 0.05f)
@@ -132,18 +141,35 @@ internal fun GlassDialog(
 @Composable
 internal fun GlassButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, prominent: Boolean = false,
     enabled: Boolean = true, tag: String? = null) {
-    val (accent, accentInk) = accentPair()
-    val ink = GlassInkOnPanel
-    val shape = RoundedCornerShape(percent = 50)
-    val fill = if (prominent) accent.copy(alpha = if (enabled) .92f else .35f) else ink.copy(alpha = .10f)
-    Box(modifier.heightIn(min = 48.dp).clip(shape).background(fill)
-        .border(BorderStroke(1.dp, if (prominent) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
-        .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-        .then(if (tag != null) Modifier.testTag(tag) else Modifier).padding(horizontal = 18.dp),
-        contentAlignment = Alignment.Center) {
-        Text(text, color = (if (prominent) accentInk else ink).copy(alpha = if (enabled) 1f else .45f), fontSize = 14.sp,
-            fontWeight = FontWeight.Medium, maxLines = 1)
+    GlassButton(onClick, modifier.then(if (tag != null) Modifier.testTag(tag) else Modifier), enabled, prominent) {
+        Text(text, maxLines = 1)
     }
+}
+
+/**
+ * The surface of a glass button or selected chip, as in the Backdrop library's own button: a capsule of the panel behind it, bent by a
+ * small lens and tinted, that swells and drifts under the finger with a light that follows it (see [GlassPressState]). [tint], when
+ * given, colours it (the wallpaper accent for a prominent button); [surface] is a plain wash for the resting look.
+ */
+@Composable
+private fun Modifier.glassControlSurface(glass: PageGlass, press: GlassPressState, tint: Color?, surface: Color?, shadowed: Boolean): Modifier {
+    val tone = rememberGlassTone()
+    return drawBackdrop(
+        backdrop = glass.backdrop,
+        shape = { RoundedCornerShape(percent = 50) },
+        effects = {
+            glassColor(tone)
+            blur(2f.dp.toPx())
+            lens(10f.dp.toPx(), 20f.dp.toPx())
+        },
+        highlight = { GlassRim.Light },
+        shadow = { if (shadowed) Shadow(radius = 8f.dp, color = Color.Black.copy(alpha = .10f)) else null },
+        layerBlock = { with(press) { deform() } },
+        onDrawSurface = {
+            if (tint != null) { drawRect(tint, blendMode = BlendMode.Hue); drawRect(tint.copy(alpha = .75f)) }
+            if (surface != null) drawRect(surface)
+        }
+    ).then(press.light).then(press.watcher)
 }
 
 /** A row of mutually exclusive pill choices; the selected one is filled with the wallpaper accent. Scrolls sideways
@@ -151,21 +177,10 @@ internal fun GlassButton(text: String, onClick: () -> Unit, modifier: Modifier =
 @Composable
 internal fun <T> GlassChips(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit,
     modifier: Modifier = Modifier, tagPrefix: String? = null, key: (T) -> String = { label(it) }) {
-    val (accent, accentInk) = accentPair()
-    val ink = GlassInkOnPanel
-    val shape = RoundedCornerShape(percent = 50)
     Row(modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { option ->
-            val on = option == selected
-            Box(Modifier.heightIn(min = 40.dp).clip(shape)
-                .background(if (on) accent.copy(alpha = .9f) else ink.copy(alpha = .10f))
-                .border(BorderStroke(1.dp, if (on) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
-                .selectable(selected = on, role = Role.RadioButton) { onSelect(option) }
-                .then(if (tagPrefix != null) Modifier.testTag("$tagPrefix-${key(option)}") else Modifier)
-                .padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
-                Text(label(option), color = if (on) accentInk else ink, fontSize = 13.sp,
-                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1)
-            }
+            GlassChip(option == selected, { onSelect(option) }, { Text(label(option), maxLines = 1) },
+                if (tagPrefix != null) Modifier.testTag("$tagPrefix-${key(option)}") else Modifier)
         }
     }
 }
@@ -254,11 +269,18 @@ internal fun GlassButton(onClick: () -> Unit, modifier: Modifier = Modifier, ena
     val (accent, accentInk) = accentPair()
     val ink = GlassInkOnPanel
     val shape = RoundedCornerShape(percent = 50)
-    val fill = if (prominent) accent.copy(alpha = if (enabled) .92f else .35f) else ink.copy(alpha = .10f)
+    val glass = LocalPageGlass.current
+    val press = rememberGlassPress()
     val content_ = (if (prominent) accentInk else ink).copy(alpha = if (enabled) 1f else .45f)
-    Row(modifier.heightIn(min = 48.dp).clip(shape).background(fill)
-        .border(BorderStroke(1.dp, if (prominent) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
-        .clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 18.dp),
+    // With glass on, the button is a lensed glass capsule that responds to the finger; with it off, the flat pill it always was.
+    val look = if (glass != null) Modifier.glassControlSurface(glass, press,
+            tint = if (prominent) accent.copy(alpha = if (enabled) 1f else .45f) else null,
+            surface = if (prominent) null else ink.copy(alpha = if (enabled) .10f else .05f), shadowed = true)
+        else Modifier.clip(shape).background(if (prominent) accent.copy(alpha = if (enabled) .92f else .35f) else ink.copy(alpha = .10f))
+            .border(BorderStroke(1.dp, if (prominent) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
+            .graphicsLayer { with(press) { swell() } }.then(press.watcher)
+    Row(modifier.heightIn(min = 48.dp).then(look)
+        .clickable(interactionSource = null, indication = null, enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 18.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
         CompositionLocalProvider(LocalContentColor provides content_) {
             androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium)) { content() }
@@ -266,16 +288,22 @@ internal fun GlassButton(onClick: () -> Unit, modifier: Modifier = Modifier, ena
     }
 }
 
-/** One choice among several; the selected one is filled with the wallpaper accent. */
+/** One choice among several. The selected one is a lit glass capsule in the wallpaper accent; the others are flat and quiet,
+ *  and every one swells and glows under the finger. (A lens on every chip would be costly where a row has many.) */
 @Composable
 internal fun GlassChip(selected: Boolean, onClick: () -> Unit, label: @Composable () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val (accent, accentInk) = accentPair()
     val ink = GlassInkOnPanel
     val shape = RoundedCornerShape(percent = 50)
-    Box(modifier.heightIn(min = 40.dp).clip(shape)
-        .background(if (selected) accent.copy(alpha = .9f) else ink.copy(alpha = .10f))
-        .border(BorderStroke(1.dp, if (selected) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
-        .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick).padding(horizontal = 14.dp),
+    val glass = LocalPageGlass.current
+    val press = rememberGlassPress()
+    val look = if (selected && glass != null) Modifier.glassControlSurface(glass, press, tint = accent.copy(alpha = .95f), surface = null, shadowed = false)
+        else Modifier.clip(shape).background(if (selected) accent.copy(alpha = .9f) else ink.copy(alpha = .10f))
+            .border(BorderStroke(1.dp, if (selected) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
+            .graphicsLayer { with(press) { swell() } }.then(press.light).then(press.watcher)
+    Box(modifier.heightIn(min = 40.dp).then(look)
+        .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, interactionSource = null, indication = null, onClick = onClick)
+        .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center) {
         CompositionLocalProvider(LocalContentColor provides (if (selected) accentInk else ink)) {
             androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 13.sp,

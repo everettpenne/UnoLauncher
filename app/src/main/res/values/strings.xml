@@ -373,10 +373,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Toggles, sliders, buttons and menus are liquid glass that responds to your finger.</string>
-    <string name="whats_new_2">Glass is thicker and adapts to light and dark wallpapers.</string>
-    <string name="whats_new_3">Longer navigation cards and no flash while the island closes came in 0.62.</string>
-    <string name="whats_new_4">Lit app icons and scrollable feed titles came in 0.61.</string>
+    <string name="whats_new_1">The island opens and closes more smoothly, and its open panel is never too short for the feed headline.</string>
+    <string name="whats_new_2">The open island shows your next alarm and the time played and left on a song, and a screen reader hears what is live on it.</string>
+    <string name="whats_new_3">Text everywhere follows Apple\'s type scale, set in Inter.</string>
+    <string name="whats_new_4">Liquid glass controls and menus came in 0.63.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

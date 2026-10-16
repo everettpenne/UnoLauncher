@@ -1,12 +1,18 @@
 # Changelog
 
-## 0.64.0-uno01
+## 0.65.0-uno01
 
-- **A real type scale.** Uno now follows Apple's HIG / SF Pro rhythm — sizes 34 down to 11, iOS line heights and iOS tracking — set in the bundled Inter variable font. `UnoType` in `appearance/DuoTypography.kt` is the single source of truth; the glass UI kit reads from it too instead of hard-coding sizes.
-- **Regular body, semibold headers.** Body and footnote text are Regular and section headers are Semibold, matching SF Pro instead of Material's "medium everywhere".
-- **Consistent glass text.** Buttons, rows, chips, fields and dialogs pull from the scale, so every menu follows the same rhythm as Home.
-- **What moved on screen:** section headers 16→17 semibold, help and note text 12→13, sheet titles 24→22, dialog titles 22→20 semibold, body and guidance 14/16→16/17, page titles 28 medium→28 regular, kit buttons 14 medium→15 semibold.
-- Tests: the full unit-test suite and lint run clean.
+- **The island opens and closes more smoothly.** The island used to recompose on every frame of its morph, and its panel text was wrapped again each frame while the body grew. Now the animated size is read only when the island lays out and draws, and the open panel is laid out once at its final size and revealed by the growing body. A test holds opening or closing to a handful of compositions (it was about one per frame).
+- **The open panel is tall enough.** With a feed headline showing, the panel was short by the headline's two lines and the Search / Feed / Settings row was cut off the bottom; the headline's room is now counted, and so is a larger system font. Text on the island also uses its font's own line height instead of the theme's 22 sp, so rows are as tall as their text.
+- **Next alarm.** The open island shows the next alarm beside the date ("7:30 AM", or with the weekday when it is more than a day away). It reads the system's alarm clock; no permission is needed.
+- **Song times.** The seek bar has the time played on its left and the time left on its right, in digits of equal width so they do not shimmer.
+- **Screen reader.** The island is a button with a stated open or closed state and "open" / "close" click labels; its description says what is live on it (a call, a timer, music); and a new event or notification card is announced once, without re-reading the ticking times.
+- **Reduced motion.** With Android's animations switched off the island snaps open and shut instead of springing.
+- **Includes 0.64.0 (never published on its own):**
+  - **A real type scale.** Uno follows Apple's HIG / SF Pro rhythm: sizes 34 down to 11, iOS line heights and tracking, set in the bundled Inter variable font. `UnoType` in `appearance/DuoTypography.kt` is the single source of truth; the glass UI kit reads from it too.
+  - **Regular body, semibold headers**, as in SF Pro, instead of Material's "medium everywhere".
+  - **What moved on screen:** section headers 16→17 semibold, help and note text 12→13, sheet titles 24→22, dialog titles 22→20 semibold, body and guidance 14/16→16/17, page titles 28 medium→28 regular, kit buttons 14 medium→15 semibold.
+
 
 ## 0.63.0-uno01
 

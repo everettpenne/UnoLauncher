@@ -45,12 +45,13 @@ internal object IslandRingLogic {
 }
 
 /** Draws [ring] as a progress arc hugging the island's outline, clockwise from the top centre, over a faint track. */
-internal fun Modifier.islandRing(ring: RingState?, cornerPx: Float, strokePx: Float): Modifier =
+/** [cornerPx] is read as the ring draws, so a morphing island's ring follows its corner without recomposing. */
+internal fun Modifier.islandRing(ring: RingState?, cornerPx: () -> Float, strokePx: Float): Modifier =
     if (ring == null) this else drawWithContent {
         val inset = strokePx / 2f + 1f
         val w = size.width - inset * 2; val h = size.height - inset * 2
         if (w <= 0f || h <= 0f) { drawContent(); return@drawWithContent }
-        val radius = (cornerPx - inset).coerceIn(0f, minOf(w, h) / 2f)
+        val radius = (cornerPx() - inset).coerceIn(0f, minOf(w, h) / 2f)
         // Built by hand so it starts at the top centre and runs clockwise (a library round-rect starts elsewhere).
         val outline = Path().apply {
             val cx = inset + w / 2f; val l = inset; val t = inset; val rt = inset + w; val bt = inset + h; val d = radius * 2f

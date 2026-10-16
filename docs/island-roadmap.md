@@ -12,6 +12,7 @@ What is built, and what is still to do. This is a working list, not a promise.
 - **Over other apps.** An overlay with a bounds-exact touch window, optional permanent wide pill, hiding in landscape, never on the lock screen; plain overlay or the optional accessibility-hosted island above the status bar.
 - **Quick apps and a hosted widget** in the open panel; a search field and **search that grows out of the island**.
 - **Event flashes** for ringer, airplane, Do Not Disturb, charging, VPN, USB data and audio devices, queued so two quick events are both seen.
+- **Next alarm and song times** on the open panel, a screen reader that hears what is live (and each new event or card once), and a snap instead of a spring when Android's animations are off.
 - **A permission ledger** (Launcher settings, Notifications & privacy): every permission, what it is for, what it can see, and a link to turn it off, and a plain line saying which island you actually have.
 
 ## To do

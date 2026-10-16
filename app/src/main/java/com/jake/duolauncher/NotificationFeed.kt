@@ -274,8 +274,25 @@ class UnoNotificationListener : NotificationListenerService() {
         val seconds = PeekTimeouts.seconds(PeekTimeouts.parse(prefs.getString("peekTimeouts", null)), sbn.packageName)
         val icon = runCatching { packageManager.getApplicationIcon(sbn.packageName).toBitmap(96, 96) }.getOrNull()
         val tint = AppTints.of(sbn.packageName) { icon }
+        // The notification's own buttons go on the card only where its words do: a card that is just the app's name stays just that.
+        val actions = if (shown != null && prefs.getBoolean("peekActions", true)) peekActions(sbn.notification) else emptyList()
         NotificationFeed.onPeek?.invoke(PeekNotification(sbn.packageName, label, shown?.first, shown?.second, icon,
-            sbn.notification.contentIntent, seconds, tint))
+            sbn.notification.contentIntent, seconds, tint, actions))
+    }
+
+    /** The buttons a notification offers, as card actions: a reply with free-form text first, then the others (see [PeekActionRules]). */
+    private fun peekActions(n: Notification): List<PeekAction> {
+        val all = n.actions.orEmpty()
+        val raw = all.map { a ->
+            val inputs = a.remoteInputs.orEmpty()
+            val typed = inputs.any { it.allowFreeFormInput }
+            // A button that asks for a choice rather than text cannot be sent from here, so it is left out.
+            RawAction(a.title?.toString(), a.actionIntent != null && (inputs.isEmpty() || typed), typed, a.isContextual)
+        }
+        return PeekActionRules.pick(raw).map { i ->
+            val a = all[i]
+            PeekAction(PeekActionRules.label(a.title.toString()), a.actionIntent, a.remoteInputs.orEmpty().firstOrNull { it.allowFreeFormInput })
+        }
     }
 
     private fun syncMedia(list: List<MediaController>? = null) {

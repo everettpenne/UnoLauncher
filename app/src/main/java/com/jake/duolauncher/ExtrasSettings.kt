@@ -248,6 +248,11 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     SettingsSwitch("Headphone and Bluetooth audio alerts", s.audioAlerts, store::setAudioAlerts, "audio-alerts-switch")
     Text(stringResource(com.jake.duolauncher.R.string.the_island_flashes_the_name_of),
         style = note, color = muted)
+    SettingsSwitch("Bluetooth device alerts", s.bluetoothAlerts, { on ->
+        if (on) { store.setBluetoothAlerts(true); if (!actions.hasBluetoothPermission()) actions.requestBluetooth() }
+        else store.setBluetoothAlerts(false)
+    }, "bluetooth-alerts-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.bluetooth_alerts_note), style = note, color = muted)
     SettingsSwitch("Live Updates in the island", s.liveUpdates, store::setLiveUpdates, "live-updates-switch")
     SettingsSwitch("Downloads and other progress", s.progressTasks, store::setProgressTasks, "progress-tasks-switch")
     Text(stringResource(com.jake.duolauncher.R.string.a_download_upload_or_install_with),
@@ -268,6 +273,10 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         style = note, color = muted)
     SettingsSwitch("Show new notifications in the island", s.notificationPeek, store::setNotificationPeek, "peek-switch")
     Text(stringResource(com.jake.duolauncher.R.string.how_much_a_new_notification_shows), style = note, color = muted)
+    if (s.notificationPeek) {
+        SettingsSwitch("Action buttons on the card", s.peekActions, store::setPeekActions, "peek-actions-switch")
+        Text(stringResource(com.jake.duolauncher.R.string.peek_actions_note), style = note, color = muted)
+    }
     ChoiceRow("App name only", "A flash of the app's icon and name, never what it says", s.peekLevel == 0, "peek-level-name") { store.setPeekLevel(0) }
     ChoiceRow("Name and title", "A card with the sender or subject; tap it to open the notification", s.peekLevel == 1, "peek-level-title") { store.setPeekLevel(1) }
     ChoiceRow("Name, title and text", "The card also shows the first lines of the text. Uno reads that text to show it, and keeps nothing",

@@ -33,6 +33,8 @@
     <!-- The island timer buzzes while it rings. -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.DETECT_SCREEN_RECORDING" />
+    <!-- Nearby devices: only to read the name of a Bluetooth device that connects, for the island's alert. Asked for when that alert is switched on. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <queries>
         <!-- Icon packs: lets Uno list installed packs (each answers one of these launcher-theme intents). -->
         <intent>

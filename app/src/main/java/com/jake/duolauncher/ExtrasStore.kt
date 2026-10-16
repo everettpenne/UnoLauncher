@@ -37,6 +37,10 @@ internal data class ExtrasState(
     val privacyIndicators: Boolean = true,
     val securityAlerts: Boolean = true,
     val audioAlerts: Boolean = true,
+    /** Bluetooth devices connecting (a watch, a keyboard, a car) as island events. Off until the person allows the Nearby devices permission. */
+    val bluetoothAlerts: Boolean = false,
+    /** Action buttons (Reply, Archive...) on the notification card, taken from the notification itself. */
+    val peekActions: Boolean = true,
     val islandShortcuts: Boolean = true,
     /** Keep the island's pill wide when idle over other apps, instead of shrinking to a ring round the camera. */
     val islandWide: Boolean = false,
@@ -108,6 +112,8 @@ internal class ExtrasStore(context: Context) {
         privacyIndicators = prefs.getBoolean("privacyIndicators", true),
         securityAlerts = prefs.getBoolean("securityAlerts", true),
         audioAlerts = prefs.getBoolean("audioAlerts", true),
+        bluetoothAlerts = prefs.getBoolean("bluetoothAlerts", false),
+        peekActions = prefs.getBoolean("peekActions", true),
         islandShortcuts = prefs.getBoolean("islandShortcuts", true),
         islandWide = prefs.getBoolean("islandWide", false),
         mediaResumeMinutes = prefs.getInt("mediaResumeMinutes", 2),
@@ -156,6 +162,8 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("privacyIndicators", next.privacyIndicators)
             .putBoolean("securityAlerts", next.securityAlerts)
             .putBoolean("audioAlerts", next.audioAlerts)
+            .putBoolean("bluetoothAlerts", next.bluetoothAlerts)
+            .putBoolean("peekActions", next.peekActions)
             .putBoolean("islandShortcuts", next.islandShortcuts)
             .putBoolean("islandWide", next.islandWide)
             .putInt("mediaResumeMinutes", next.mediaResumeMinutes)
@@ -215,6 +223,8 @@ internal class ExtrasStore(context: Context) {
         save(state.copy(peekTimeouts = PeekTimeouts.serialize(PeekTimeouts.cycle(PeekTimeouts.parse(state.peekTimeouts), packageName))))
     fun setIslandShortcuts(value: Boolean) = save(state.copy(islandShortcuts = value))
     fun setAudioAlerts(value: Boolean) = save(state.copy(audioAlerts = value))
+    fun setBluetoothAlerts(value: Boolean) = save(state.copy(bluetoothAlerts = value))
+    fun setPeekActions(value: Boolean) = save(state.copy(peekActions = value))
     fun setPrivacyIndicators(value: Boolean) = save(state.copy(privacyIndicators = value))
     fun setSecurityAlerts(value: Boolean) = save(state.copy(securityAlerts = value))
     fun setLiveUpdates(value: Boolean) = save(state.copy(liveUpdates = value))
@@ -242,6 +252,8 @@ internal class ExtrasActions(
     val store: ExtrasStore,
     val requestContacts: () -> Unit = {},
     val hasContactsPermission: () -> Boolean = { false },
+    val requestBluetooth: () -> Unit = {},
+    val hasBluetoothPermission: () -> Boolean = { false },
     val openNotificationAccess: () -> Unit = {},
     val hasNotificationAccess: () -> Boolean = { false },
     val toggleFocus: () -> Unit = {},

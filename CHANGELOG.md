@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.66.0-uno01
+
+- **Liquid motion.** The island stretches taller as it opens and squashes as it closes, by its own speed (calm themes barely, jelly ones more), so it moves like a body of liquid with volume. What is written on it blurs and grows in as the body opens around it, and out as it closes. A bubble leaving the pill (a third live activity) starts inside the pill's end, overshoots on a spring and stays joined by a neck that stretches thin and pinches off (`Metaball`). With Android's animations off none of this runs.
+- **Buttons on notification cards.** The card shows the notification's own buttons (up to three: a reply first, then Mark as read, Archive and so on), only where the card shows a title. Tapping one does what it does in the shade. A reply is typed in a field in the island itself (on Home; over other apps it opens the notification, since that window cannot take the keyboard) and is sent through the notification's own reply input; the card waits while you type. Switch: Notifications, Action buttons on the card.
+- **Camera and microphone row.** The open island has a privacy row while the camera, microphone or screen recording is on: which, for how long, a Review button for Android's privacy settings and, if you have already allowed usage access, which app was in front when it started. Android does not tell any app which app is using the camera or microphone (checked against the public API), so the island does not claim to know.
+- **Bluetooth connect alerts.** A watch, keyboard or car connecting or disconnecting flashes its name, using Android's Nearby devices permission, which is asked for only when you switch Bluetooth device alerts on. Headphones and speakers keep their own alert, so they are not said twice. The permission ledger lists it.
+- **Sized for the Pixel 10a.** On a punch-hole phone the island keeps 4 dp from the top edge (was 6) and at least 4 dp round the hole (was 3), so the pill is 27 dp or more tall instead of a thin capsule; the open panel is 92 % of the screen's width, up to 372 dp (was 336 dp), and its corners are 34 dp (was 30). The panel still clears the dock. All of it follows the camera hole the phone reports.
+
 ## 0.65.0-uno01
 
 - **The island opens and closes more smoothly.** The island used to recompose on every frame of its morph, and its panel text was wrapped again each frame while the body grew. Now the animated size is read only when the island lays out and draws, and the open panel is laid out once at its final size and revealed by the growing body. A test holds opening or closing to a handful of compositions (it was about one per frame).

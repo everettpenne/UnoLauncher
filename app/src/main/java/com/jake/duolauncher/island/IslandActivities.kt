@@ -33,6 +33,7 @@ internal enum class IslandSymbol(val tint: Color) {
     VPN(Color(0xFF30D158)),
     USB(Color(0xFFFF9F0A)),
     HEADPHONES(Color.White),
+    BLUETOOTH(Color(0xFF0A84FF)),
     RECORDING(Color(0xFFFF453A)),
 }
 
@@ -389,6 +390,31 @@ internal fun IslandSystemEvents(state: IslandState) {
                     handler, ContextCompat.RECEIVER_NOT_EXPORTED)
             }
         }
+        // Bluetooth devices connecting or disconnecting (a watch, a keyboard, a car). Needs the Nearby devices permission to read a device's
+        // name, so it is only registered when the person switched it on and Android has granted it. Audio devices keep their own alert above.
+        val extrasPrefs = context.getSharedPreferences("extras", Context.MODE_PRIVATE)
+        val bluetoothOn = extrasPrefs.getBoolean("bluetoothAlerts", false) &&
+            context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val bluetoothShownAt = HashMap<String, Long>()
+        val bluetoothReceiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) {
+                val device = intent?.getParcelableExtra(android.bluetooth.BluetoothDevice.EXTRA_DEVICE, android.bluetooth.BluetoothDevice::class.java) ?: return
+                val connected = intent.action == android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED
+                val major = runCatching { device.bluetoothClass?.majorDeviceClass }.getOrNull() ?: 0
+                if (!BluetoothEvents.shouldShow(major, extrasPrefs.getBoolean("audioAlerts", true))) return
+                val key = runCatching { device.address }.getOrNull() ?: return
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (BluetoothEvents.isRepeat(bluetoothShownAt[key], now)) return
+                bluetoothShownAt[key] = now
+                state.showEvent(BluetoothEvents.event(connected, runCatching { device.name }.getOrNull()))
+            }
+        }
+        if (bluetoothOn) runCatching {
+            ContextCompat.registerReceiver(context, bluetoothReceiver, IntentFilter().apply {
+                addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED)
+                addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_DISCONNECTED)
+            }, null, handler, ContextCompat.RECEIVER_NOT_EXPORTED)
+        }
         // Headphones and Bluetooth audio connecting. AudioDeviceCallback needs no permission; Android replays the devices already
         // connected the moment a callback is registered, which is not an event, so anything in the first moments is ignored.
         val audioAlertsOn = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("audioAlerts", true)
@@ -440,6 +466,7 @@ internal fun IslandSystemEvents(state: IslandState) {
             state.recheckPlayback = null
             context.unregisterReceiver(receiver)
             runCatching { context.unregisterReceiver(usbReceiver) }
+            runCatching { context.unregisterReceiver(bluetoothReceiver) }
             runCatching { connectivity?.unregisterNetworkCallback(vpnCallback) }
             handler.removeCallbacksAndMessages(null)
             handler.post {

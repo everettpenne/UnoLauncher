@@ -63,6 +63,7 @@ private fun ledgerInputs(context: Context, actions: ExtrasActions): LedgerInputs
         accessibilityRunning = SystemShadeAccessibilityService.isConnected(),
         notificationAccess = actions.hasNotificationAccess(),
         contactsAllowed = actions.hasContactsPermission(),
+        bluetoothAllowed = actions.hasBluetoothPermission(),
         photosAllowed = com.jake.duolauncher.widgets.PhotoAlbums.hasAccess(context),
         usageAccess = com.jake.duolauncher.widgets.hasUsageAccess(context),
         islandEverywhere = actions.store.state.islandEverywhere,

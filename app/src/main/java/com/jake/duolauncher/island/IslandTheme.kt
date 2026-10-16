@@ -140,7 +140,7 @@ internal data class IslandTheme(
         IslandSymbol.TIMER, IslandSymbol.SILENT, IslandSymbol.AIRPLANE -> timer
         IslandSymbol.FOCUS -> focus
         IslandSymbol.APP, IslandSymbol.RINGER, IslandSymbol.VIBRATE, IslandSymbol.NOTIFICATION, IslandSymbol.HEADPHONES -> ink
-        IslandSymbol.VPN, IslandSymbol.USB, IslandSymbol.RECORDING -> symbol.tint
+        IslandSymbol.VPN, IslandSymbol.USB, IslandSymbol.RECORDING, IslandSymbol.BLUETOOTH -> symbol.tint
     }
 
     /** The shape of a button or chip. Circle controls become rounded squares when [controls] is not [ControlShape.PILL]. */

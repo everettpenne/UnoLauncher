@@ -62,6 +62,22 @@ internal object IslandGeometry {
     /** Clearance between the hole and the island's edge that the island must keep at all times. */
     private const val WRAP_DP = 4f
     private const val EXPANDED_WIDTH_DP = 336f
+    /** A punch-hole camera: the hole is at most this wide, in dp. Phones like the Pixel 10a have one, centred and high on the screen. */
+    private const val PUNCH_HOLE_MAX_DP = 28f
+    /** On a punch-hole phone the island may sit this close to the top edge (a little closer than the 6 dp kept elsewhere) and keeps this much
+     * island round the hole. The hole is small and close to the top, so the old margins left a pill barely taller than the hole: a thin,
+     * hard-to-read and hard-to-hit capsule.
+     */
+    private const val PUNCH_TOP_MARGIN_DP = 4f
+    private const val PUNCH_MIN_RING_DP = 4f
+    /** The open panel takes this share of the screen's width (as the iOS island does), between the old fixed width and [MAX_EXPANDED_DP]. */
+    private const val EXPANDED_SHARE = .92f
+    private const val MAX_EXPANDED_DP = 372f
+    /** The corner radius an open panel is capped at, in dp: round enough to echo the phone's own corners and the hole, without a pill's full round. */
+    const val CORNER_CAP_DP = 34f
+
+    /** How wide the open panel may be on a screen [screenDp] wide: 92 % of it, never narrower than it was and never wider than [MAX_EXPANDED_DP]. */
+    fun expandedWidthDp(screenDp: Float): Float = (EXPANDED_SHARE * screenDp).coerceIn(EXPANDED_WIDTH_DP, MAX_EXPANDED_DP)
     private const val EDGE_MARGIN_DP = 8f
     private const val NO_CUTOUT_WIDTH_DP = 120f
     private const val NO_CUTOUT_HEIGHT_DP = 34f
@@ -157,8 +173,9 @@ internal object IslandGeometry {
             // TOP_MARGIN_DP clear above it, so the slider always has an effect and the pill never
             // runs to the top edge. A hole already close to the top simply gets the least ring.
             val holeHalf = cutout.height / 2f
-            val room = max(0f, (cutout.centerY - TOP_MARGIN_DP * d) - holeHalf)
-            val ring = mix(min(MIN_RING_DP * d, room), room, size)
+            val punch = max(cutout.width, cutout.height) <= PUNCH_HOLE_MAX_DP * d
+            val room = max(0f, (cutout.centerY - (if (punch) PUNCH_TOP_MARGIN_DP else TOP_MARGIN_DP) * d) - holeHalf)
+            val ring = mix(min((if (punch) PUNCH_MIN_RING_DP else MIN_RING_DP) * d, room), room, size)
             val half = holeHalf + ring
             top = cutout.centerY - half
             collapsedHeight = half * 2f
@@ -179,7 +196,7 @@ internal object IslandGeometry {
         // The expanded panel must clear the dock/rail strip: cap its width so it can never
         // reach the glass column on the right, whatever the dock-width preset.
         val dockClearance = env.dockWidthPx + 16f * d
-        val expandedWidth = min(EXPANDED_WIDTH_DP * d,
+        val expandedWidth = min(expandedWidthDp(env.screenWidth / d) * d,
             max(collapsedWidth, env.screenWidth - 2f * dockClearance))
         val width = (collapsedWidth + (expandedWidth - collapsedWidth) * pw)
             .coerceAtMost(max(collapsedWidth, env.screenWidth - 2f * margin))
@@ -213,7 +230,7 @@ internal object IslandGeometry {
         val inward = (extraWidthDp + mix(44f, 80f, size) * min(1f, extraWidthDp / 24f)) * d
         val collapsedWidth = abs(innerEdge - outerEdge) + inward
         val dockClearance = env.dockWidthPx + 16f * d
-        val expandedWidth = min(EXPANDED_WIDTH_DP * d, max(collapsedWidth, env.screenWidth - 2f * dockClearance))
+        val expandedWidth = min(expandedWidthDp(env.screenWidth / d) * d, max(collapsedWidth, env.screenWidth - 2f * dockClearance))
         val expandedHeight = max(collapsedHeight, (mix(96f, 128f, size) + extraBodyDp + 24f) * d)
         val width = collapsedWidth + (expandedWidth - collapsedWidth) * p
         val height = collapsedHeight + (expandedHeight - collapsedHeight) * p

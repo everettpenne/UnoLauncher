@@ -17,6 +17,8 @@ internal data class PeekNotification(
     val icon: Bitmap?, val open: PendingIntent?, val seconds: Int,
     /** The app icon's colour (ARGB), used to wash the card and ring the pill; null for a grey icon. */
     val tint: Int? = null,
+    /** The buttons the notification offers (Reply, Archive...), when the card shows a title; empty otherwise. */
+    val actions: List<PeekAction> = emptyList(),
 )
 
 /** Pure rules for what the drop-down card shows, kept apart so they are unit-tested. */

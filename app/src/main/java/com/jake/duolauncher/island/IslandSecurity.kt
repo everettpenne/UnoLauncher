@@ -39,6 +39,7 @@ internal data class LedgerInputs(
     val islandEverywhere: Boolean,
     val photosAllowed: Boolean = false,
     val usageAccess: Boolean = false,
+    val bluetoothAllowed: Boolean = false,
 )
 
 internal object PermissionLedger {
@@ -79,12 +80,17 @@ internal object PermissionLedger {
             LedgerRow("usage", "Usage access",
                 if (i.usageAccess) "Allowed" else "Not allowed", i.usageAccess,
                 "The Screen time widget, to show today's screen time and the apps you used most. Nothing asks for it unless you place that widget and tap it.",
-                "How long each app was on screen today, as Android's own usage statistics report it. It is worked out on the phone for the widget and never stored (only the daily goal you type is) or sent.",
+                "How long each app was on screen today, as Android's own usage statistics report it. It is worked out on the phone for the widget and never stored (only the daily goal you type is) or sent. If you have allowed it, the open island's privacy row also uses it to name the app that was in front when the camera or microphone came on; Uno never asks for it for that.",
                 LedgerAction.USAGE_ACCESS_SETTINGS),
+            LedgerRow("bluetooth", "Nearby devices (Bluetooth)",
+                if (i.bluetoothAllowed) "Allowed" else "Not allowed", i.bluetoothAllowed,
+                "Reading the name of a Bluetooth device that connects or disconnects, for the island's alert. Asked for only when you switch Bluetooth device alerts on.",
+                "The name and kind of the device that just connected. Nothing is stored or sent, and Uno does not scan, pair or connect to anything.",
+                LedgerAction.APP_INFO),
             LedgerRow("indicators", "Camera, microphone, recording, VPN, USB and audio marks",
                 "No permission needed", true,
                 "The island's camera, microphone and screen-recording marks, and VPN, USB-data and audio-device alerts. Screen recording uses Android's install-time DETECT_SCREEN_RECORDING permission.",
-                "Only that something is happening, never which app or what was captured. Android reports these to every app.",
+                "Only that something is happening, never what was captured. Android does not tell any app which app is using the camera or microphone, so the island says how long, and (if you have allowed usage access) which app was in front. Android reports these to every app.",
                 LedgerAction.NONE),
         )
     }

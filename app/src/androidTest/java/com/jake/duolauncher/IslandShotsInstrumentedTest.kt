@@ -2,6 +2,9 @@ package com.jake.duolauncher
 
 import com.jake.duolauncher.island.*
 
+import android.app.PendingIntent
+import android.app.RemoteInput
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.media.MediaMetadata
@@ -84,5 +87,36 @@ class IslandShotsInstrumentedTest {
         compose.runOnIdle { state.collapse() }
         compose.runOnIdle { state.showPeekCard(PeekNotification("com.example.chat", "Messages", "Ada Lovelace", "Are we still on for lunch? I found the place with the good noodles.", null, null, 6)) }
         shot("6-card")
+    }
+
+    @Test fun newThings() {
+        show()
+        val pi = PendingIntent.getBroadcast(context, 0, Intent("uno.shot").setPackage(context.packageName), PendingIntent.FLAG_MUTABLE)
+        val reply = RemoteInput.Builder("k").setLabel("Reply to Ada").build()
+        openShot("7-card-actions") { state.showPeekCard(PeekNotification("com.example.chat", "Messages", "Ada Lovelace", "Are we still on for lunch?", null, null, 20, 0xFF30D158.toInt(),
+            listOf(PeekAction("Reply", pi, reply), PeekAction("Mark as read", pi), PeekAction("Mute", pi)))) }
+        compose.runOnIdle { state.collapse() }
+        compose.runOnIdle { state.cameraActive = true; state.micActive = true }
+        openShot("8-privacy") { state.toggle() }
+        compose.runOnIdle { state.collapse(); state.cameraActive = false; state.micActive = false }
+        compose.waitForIdle(); Thread.sleep(1_500)
+        // A bubble leaving the pill, caught part-way: the call and the timer are on the pill, the music is the bubble.
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle {
+            NotificationFeed.ongoingCall = OngoingCall("Ada Lovelace", "com.example.phone", System.currentTimeMillis() - 83_000, null)
+            IslandTools.startTimer(context, 5 * 60_000L)
+            state.setPlaying(System.currentTimeMillis(), true)
+        }
+        compose.mainClock.advanceTimeBy(60)
+        Thread.sleep(700)
+        takeShot("9-bubble-early")
+        compose.mainClock.advanceTimeBy(70)
+        Thread.sleep(700)
+        takeShot("10-bubble-mid")
+        compose.mainClock.advanceTimeBy(1_200)
+        Thread.sleep(700)
+        takeShot("11-bubble-settled")
+        compose.mainClock.autoAdvance = true
+        compose.runOnIdle { IslandTools.cancelTimer(context) }
     }
 }

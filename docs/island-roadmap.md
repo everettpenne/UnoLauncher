@@ -13,6 +13,7 @@ What is built, and what is still to do. This is a working list, not a promise.
 - **Quick apps and a hosted widget** in the open panel; a search field and **search that grows out of the island**.
 - **Event flashes** for ringer, airplane, Do Not Disturb, charging, VPN, USB data and audio devices, queued so two quick events are both seen.
 - **Next alarm and song times** on the open panel, a screen reader that hears what is live (and each new event or card once), and a snap instead of a spring when Android's animations are off.
+- **Buttons on notification cards** (a reply typed in the island on Home), a **camera and microphone row** with how long and, when usage access is already allowed, the app that was in front, **Bluetooth connect alerts**, **liquid motion** (stretch and squash, blur-in faces, a bubble that pulls away on a neck), and a size made for the Pixel 10a.
 - **A permission ledger** (Launcher settings, Notifications & privacy): every permission, what it is for, what it can see, and a link to turn it off, and a plain line saying which island you actually have.
 
 ## To do
@@ -20,11 +21,10 @@ What is built, and what is still to do. This is a working list, not a promise.
 1. **One owner for the island's state and effects.** Home and the overlay share one `IslandState` and each composable still runs its own effects against it. Move the policy and effects into one controller, behind tests that pin today's behaviour (the first of these, `IslandStateTest`, exists).
 2. **Hide over apps the person chooses.** An optional list, off by default, with its own consent. It needs the accessibility service to learn which app is in front, so it must not be on by default and its consent copy must say exactly what the service then receives.
 3. **Per-profile awareness.** Work profile, Private Space and secondary users: say whose notification or app an event is, and keep profiles from mixing in search and peeks.
-4. **Which app is using the camera or microphone,** only where Android allows it without privileged permissions.
+4. **Which app is using the camera or microphone.** Checked: Android's public API does not say (no package on the camera callback or on an audio recording), so the island shows how long, and the app that was in front when it started only as context.
 5. **Sensors switched off.** Show GrapheneOS's Sensors permission state if it can be read without privileges.
 6. **Be honest about what it is.** A drawn pill, not hardware; no hosts contacted; documenting exactly what each permission does.
 
 ## Ideas
 
-- Bluetooth device connect events (opt-in; needs the Bluetooth permission).
 - A fully fixed-size window with a proper touch region, if a clean way appears.

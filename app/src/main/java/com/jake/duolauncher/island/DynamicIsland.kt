@@ -21,6 +21,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.rounded.Usb
 import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.BluetoothConnected
 import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -68,6 +69,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
@@ -146,6 +149,10 @@ internal class IslandState {
     var cameraActive by mutableStateOf(false)
     /** The screen is being recorded (Android 15+), shown as a red mark. */
     var recordingActive by mutableStateOf(false)
+    /** When the camera, microphone or screen recording last became in use (0 when none is), for the privacy row's "For 0:42". */
+    var privacySince by mutableLongStateOf(0L)
+    /** A reply is being typed on the notification card: the card waits for it instead of tucking away on its timer. */
+    var peekEditing by mutableStateOf(false)
     /** How far a flick has turned the order of the live activities, so a different one can be put in front. */
     var activityShift by mutableIntStateOf(0)
         private set
@@ -263,8 +270,8 @@ internal class IslandState {
         peekCard = peek; peekKey++; expanded = true
     }
 
-    fun toggle() { expanded = !expanded; peekCard = null; dismissFlash(); IslandTools.toolsOpen = false }
-    fun collapse() { expanded = false; peekCard = null; IslandTools.toolsOpen = false }
+    fun toggle() { expanded = !expanded; peekCard = null; peekEditing = false; dismissFlash(); IslandTools.toolsOpen = false }
+    fun collapse() { expanded = false; peekCard = null; peekEditing = false; IslandTools.toolsOpen = false }
 }
 
 private fun IslandSymbol.icon(): ImageVector = when (this) {
@@ -278,6 +285,7 @@ private fun IslandSymbol.icon(): ImageVector = when (this) {
     IslandSymbol.VPN -> Icons.Rounded.VpnKey
     IslandSymbol.USB -> Icons.Rounded.Usb
     IslandSymbol.HEADPHONES -> Icons.Rounded.Headphones
+    IslandSymbol.BLUETOOTH -> Icons.Rounded.BluetoothConnected
     IslandSymbol.RECORDING -> Icons.Rounded.FiberManualRecord
     IslandSymbol.NOTIFICATION -> Icons.Rounded.NotificationsActive
 }
@@ -399,7 +407,7 @@ internal fun DynamicIsland(
     val clockMs by produceState(System.currentTimeMillis()) {
         while (true) {
             value = System.currentTimeMillis()
-            delay(if (IslandTools.swRunning) 100L else if (IslandTools.timerActive) 500L else if (state.expanded && state.playing) 1_000L else if (LiveUpdateLogic.needsSecondTick(NotificationFeed.liveUpdates) || NotificationFeed.ongoingCall != null) 1_000L else 5_000L)
+            delay(if (IslandTools.swRunning) 100L else if (IslandTools.timerActive) 500L else if (state.expanded && (state.playing || state.cameraActive || state.micActive || state.recordingActive)) 1_000L else if (LiveUpdateLogic.needsSecondTick(NotificationFeed.liveUpdates) || NotificationFeed.ongoingCall != null) 1_000L else 5_000L)
         }
     }
     // How long until the battery is full, asked of the system only while the island is open on a charging phone.
@@ -418,6 +426,14 @@ internal fun DynamicIsland(
             runCatching { context.getSystemService(android.app.AlarmManager::class.java).nextAlarmClock?.triggerTime }.getOrNull()
                 ?.let { NextAlarmText.format(it, System.currentTimeMillis(), is24Hour) }
         }
+    }
+    // How long the camera, microphone or screen recording has been in use, and the app that was in front when it started. Android does not say which
+    // app is using them; the app in front is only context, and only when the person has allowed usage access (Uno never asks for it for this).
+    val anyPrivacy = state.cameraActive || state.micActive || state.recordingActive
+    LaunchedEffect(anyPrivacy) { state.privacySince = if (anyPrivacy) System.currentTimeMillis() else 0L }
+    val inFront by produceState<String?>(null, anyPrivacy) {
+        value = null
+        if (anyPrivacy) value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching { ForegroundNow.label(context) }.getOrNull() }
     }
     // The apps picked for the control panel's shortcuts, one tap from the open island. Looked up ahead of time (at start and whenever the
     // island is closed), never while it is opening: loading icons mid-animation made opening stutter and changed the island's height half way.
@@ -560,7 +576,7 @@ internal fun DynamicIsland(
     if (state.expanded) { heldPeek = state.peekCard; heldTools = IslandTools.toolsOpen }
     val peekShown = if (state.expanded) state.peekCard else heldPeek
     val toolsShown = if (state.expanded) IslandTools.toolsOpen else heldTools
-    val extraBody = if (peekShown != null) 0f else (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(toolsShown) +
+    val extraBody = if (peekShown != null) (if (peekShown.actions.isNotEmpty()) PEEK_ACTIONS_ROW_DP else 0f) else (if (anyPrivacy && !toolsShown) PRIVACY_ROW_DP else 0f) + (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) UPDATE_ROW_DP else 0f) + widgetRowDp(toolsShown) +
         (if (toolsShown) TOOLS_PANELS_ROW_DP else if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) +
         // The headline and a larger system font need room the panel's base height does not have; without it the Search / Feed / Settings row
         // was cut off the bottom of the open island whenever the feed had a headline to show.
@@ -581,12 +597,14 @@ internal fun DynamicIsland(
         IslandGeometry.frame(environment, d, if (state.expanded) 1f else 0f, sizeScale, extraBodyDp = extraBody,
             extraWidthDp = eventTargetDp, compactness = compactTarget) }
     val reported = remember { arrayOfNulls<IslandFrame>(1) }
+    val morphSpeed = remember { MorphVelocity() }
+    val squashGain = ((theme.motion.pulse - 1f).coerceIn(0f, .3f) / .1f).coerceAtLeast(.25f)
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
     val panelScale = theme.panel.scale
     val cornerPx = remember(panelScale, d) { derivedStateOf {
         val f = frameState.value
         val half = minOf(f.width, f.height) / 2f
-        if (panelScale < 1f) minOf(half, 30f * d) * panelScale else minOf(half, 30f * d * panelScale)
+        if (panelScale < 1f) minOf(half, IslandGeometry.CORNER_CAP_DP * d) * panelScale else minOf(half, IslandGeometry.CORNER_CAP_DP * d * panelScale)
     } }
     val sideways = openFrame.side != IslandSide.TOP
     // The colour fade for music: while the music is one of the things the pill shows (or the panel is open), and nothing else has the island.
@@ -614,12 +632,12 @@ internal fun DynamicIsland(
         if (state.flashTitle != null) { delay(2600); state.advanceFlash() }
     }
     // An idle expanded island tucks itself back in.
-    LaunchedEffect(state.expanded, IslandTools.toolsOpen, IslandTools.interactions, isPlaying, state.peekKey) {
+    LaunchedEffect(state.expanded, IslandTools.toolsOpen, IslandTools.interactions, isPlaying, state.peekKey, state.peekEditing) {
         // Longer while music plays, since that is when the buttons are being used; any button press restarts the wait. A notification card
         // stays for the time chosen for its app.
         if (state.expanded) {
             val peek = state.peekCard
-            delay(if (peek != null) peek.seconds * 1000L else if (IslandTools.toolsOpen) 20_000L else if (isPlaying) 12_000L else 5000L)
+            delay(if (peek != null && state.peekEditing) 30_000L else if (peek != null) peek.seconds * 1000L else if (IslandTools.toolsOpen) 20_000L else if (isPlaying) 12_000L else 5000L)
             state.collapse()
         }
     }
@@ -641,7 +659,7 @@ internal fun DynamicIsland(
         // The biggest the island gets, in both directions: worked out once for the environment, not on every animation frame.
         // Sized for the island at its most overshot (a bounce carries it past the panel), so a bounce is never clipped by the window.
         val open = remember(environment, d, sizeScale, actionsTrimDp) { IslandGeometry.frame(environment, d, IslandGeometry.MAX_OVERSHOOT, sizeScale,
-            extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + UPDATE_ROW_DP + IslandWidgetState.ROW_DP + 6f + maxOf(QUICK_ROW_DP, TOOLS_PANELS_ROW_DP) + PanelHeight.MAX_EXTRA_DP - actionsTrimDp, heightProgress = IslandGeometry.MAX_OVERSHOOT) }
+            extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + UPDATE_ROW_DP + IslandWidgetState.ROW_DP + 6f + maxOf(QUICK_ROW_DP, TOOLS_PANELS_ROW_DP) + PanelHeight.MAX_EXTRA_DP + PRIVACY_ROW_DP - actionsTrimDp, heightProgress = IslandGeometry.MAX_OVERSHOOT) }
         val wide = remember(environment, d, sizeScale) { IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = MAX_EVENT_EXTRA_DP) }
         val pad = 10f * d
         // The live frame is always inside the open and the widest pill, so it needs no say here (and the rectangle does not change per frame).
@@ -704,19 +722,48 @@ internal fun DynamicIsland(
                 .testTag(when (kind) { LiveKind.CAMERA -> "island-camera"; LiveKind.MIC -> "island-mic"; else -> "island-recording" }))
         }
         bubbleKinds.forEachIndexed { index, kind ->
-            Box(Modifier
-                .offset {
-                    val frame = frameState.value
-                    val x = frame.left + frame.width + (dotsDp + IslandBubbles.GAP_DP + index * (IslandBubbles.SIZE_DP + IslandBubbles.GAP_DP)) * d
-                    val y = frame.top + (frame.height - IslandBubbles.SIZE_DP * d) / 2f
-                    androidx.compose.ui.unit.IntOffset(
-                        (x - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
+            key(kind) {
+                // A bubble leaves the pill like a drop pulling away: it starts inside the pill's end, travels out on a springy overshoot, and for a
+                // moment stays joined to the pill by a neck that stretches thin and pinches off (see Metaball).
+                val appear = remember { Animatable(if (animationsOn) 0f else 1f) }
+                LaunchedEffect(Unit) { if (animationsOn) appear.animateTo(1f, theme.spring(.5f, 240f)) }
+                val bubblePx = IslandBubbles.SIZE_DP * d
+                val fill = themeFill
+                fun bubbleX(frame: IslandFrame): Float {
+                    val finalX = frame.left + frame.width + (dotsDp + IslandBubbles.GAP_DP + index * (IslandBubbles.SIZE_DP + IslandBubbles.GAP_DP)) * d
+                    val startX = frame.left + frame.width - frame.height / 2f - bubblePx / 2f
+                    return startX + (finalX - startX) * appear.value
                 }
-                .size(IslandBubbles.SIZE_DP.dp).clip(CircleShape).background(themeFill)
-                .clickable { UnoFeedback.play(Cue.TICK, haptic); state.rotateBy(IslandBubbles.shiftFor(liveKinds, index)) }
-                .semantics { contentDescription = "Show ${kind.name.lowercase()}" }
-                .testTag("island-bubble-${kind.name.lowercase()}"), contentAlignment = Alignment.Center) {
-                LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, update = updates.firstOrNull())
+                Box(Modifier
+                    .offset {
+                        val frame = frameState.value
+                        val y = frame.top + (frame.height - bubblePx) / 2f
+                        androidx.compose.ui.unit.IntOffset(
+                            (bubbleX(frame) - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
+                    }
+                    .drawBehind {
+                        val t = appear.value
+                        if (t < .99f) {
+                            val frame = frameState.value
+                            val r1 = frame.height / 2f
+                            val c1 = Metaball.Pt(frame.left + frame.width - r1 - bubbleX(frame), bubblePx / 2f)
+                            val c2 = Metaball.Pt(bubblePx / 2f, bubblePx / 2f)
+                            val grow = (.55f + .45f * t).coerceAtLeast(.4f)
+                            Metaball.neck(c1, r1, c2, bubblePx / 2f * grow, reach = ((1f - t) * 2f).coerceIn(0f, 1.5f))?.let { n ->
+                                drawPath(androidx.compose.ui.graphics.Path().apply {
+                                    moveTo(n.p1a.x, n.p1a.y); cubicTo(n.h1.x, n.h1.y, n.h2.x, n.h2.y, n.p2a.x, n.p2a.y)
+                                    lineTo(n.p2b.x, n.p2b.y); cubicTo(n.h3.x, n.h3.y, n.h4.x, n.h4.y, n.p1b.x, n.p1b.y); close()
+                                }, fill)
+                            }
+                        }
+                    }
+                    .graphicsLayer { val sc = (.55f + .45f * appear.value).coerceAtLeast(.4f); scaleX = sc; scaleY = sc }
+                    .size(IslandBubbles.SIZE_DP.dp).clip(CircleShape).background(themeFill)
+                    .clickable { UnoFeedback.play(Cue.TICK, haptic); state.rotateBy(IslandBubbles.shiftFor(liveKinds, index)) }
+                    .semantics { contentDescription = "Show ${kind.name.lowercase()}" }
+                    .testTag("island-bubble-${kind.name.lowercase()}"), contentAlignment = Alignment.Center) {
+                    LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, update = updates.firstOrNull())
+                }
             }
         }
         // What a screen reader is told when something new shows on the island (an event, or a notification card): its own node, so that
@@ -737,7 +784,13 @@ internal fun DynamicIsland(
                     windowRect?.let { (frame.top - it.top).roundToInt() } ?: 0)
             } else androidx.compose.ui.unit.IntOffset(
                 (frame.left - origin.x).roundToInt(), (frame.top - origin.y).roundToInt()) }
-            .graphicsLayer { scaleX = pulse.value * pressX; scaleY = pulse.value * pressY }
+            .graphicsLayer {
+                // The morph's own speed stretches it a little as it opens (taller, narrower) and squashes it as it closes, so it moves like a
+                // body of liquid with volume rather than a rectangle being resized. Calm themes barely move; jelly ones wobble.
+                val settledAt = if (state.expanded) 1f else 0f
+                val stretch = if (animationsOn) MorphVelocity.stretch(morphSpeed.update(progressState.value, System.nanoTime(), settledAt), squashGain) else 0f
+                scaleX = pulse.value * pressX * (1f - stretch * .8f); scaleY = pulse.value * pressY * (1f + stretch)
+            }
             .islandSized { frameState.value }
             .islandBody(glass?.backdrop, { cornerPx.value }, settings = glass?.settings ?: GlassSettings.Default)
             .islandRing(ring, { cornerPx.value }, 2.5f * d)
@@ -856,16 +909,16 @@ internal fun DynamicIsland(
                     // The battery level is no longer written on the pill, wide or not: the status bar owns it, and the island speaks
                     // about the battery only while charging (above) and on the open panel.
                 }
-                CollapsedFace(frameState, d, collapsedAlpha, leading, trailing)
+                CollapsedFace(frameState, d, collapsedAlpha, animationsOn, leading, trailing)
             }
             // Tools face (long press): timer, stopwatch, flashlight.
-            if (showOpenFace && toolsShown) Column(Modifier.openSizedFace(openFrame) { frameState.value }.graphicsLayer { alpha = expandedAlpha() }
+            if (showOpenFace && toolsShown) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn)
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 IslandToolsFace(clockMs, torch)
             }
             // A new notification as a card: icon, who or what, and the text if the level allows. Tap opens it; swipe up or wait to dismiss.
             peekShown?.let { peek ->
-                if (showOpenFace) Row(Modifier.openSizedFace(openFrame) { frameState.value }.graphicsLayer { alpha = expandedAlpha() }
+                if (showOpenFace) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn)
                     // The app's colour glows out from behind its icon into the island's own black. It is drawn across the whole body, before
                     // the padding, so it has no card edge of its own: the notification is part of the island, not a panel laid on it.
                     .then(IslandThemes.active.wash(peek.packageName, peek.tint)?.let { c -> Modifier.drawBehind {
@@ -874,27 +927,31 @@ internal fun DynamicIsland(
                         drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(
                             listOf(c.copy(alpha = .36f), c.copy(alpha = .12f), Color.Transparent), centre, reach), reach, centre)
                     } } ?: Modifier)
-                    .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)
-                    // No ripple plate over the island: the island's own press squash is the feedback.
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                        // The notification's own tap action; with none, the app itself.
-                        if (!sendTapAction(context, peek.open))
-                            context.packageManager.getLaunchIntentForPackage(peek.packageName)?.let { runCatching { context.startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
-                        state.collapse()
-                    }.testTag("island-peek-card"), verticalAlignment = Alignment.CenterVertically) {
-                    peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) }
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(peek.appLabel, color = themeInk.copy(alpha = .65f), fontSize = 11.sp, maxLines = 1)
-                        peek.title?.let { Text(it, color = themeInk, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
-                            overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-peek-title")) }
-                        peek.text?.let { Text(it, color = themeInk.copy(alpha = .85f), fontSize = 13.sp, maxLines = 2,
-                            overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-peek-text")) }
+                    .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
+                    Row(Modifier.weight(1f).fillMaxWidth()
+                        // No ripple plate over the island: the island's own press squash is the feedback.
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                            // The notification's own tap action; with none, the app itself.
+                            if (!sendTapAction(context, peek.open))
+                                context.packageManager.getLaunchIntentForPackage(peek.packageName)?.let { runCatching { context.startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+                            state.collapse()
+                        }.testTag("island-peek-card"), verticalAlignment = Alignment.CenterVertically) {
+                        peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(peek.appLabel, color = themeInk.copy(alpha = .65f), fontSize = 11.sp, maxLines = 1)
+                            peek.title?.let { Text(it, color = themeInk, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-peek-title")) }
+                            peek.text?.let { Text(it, color = themeInk.copy(alpha = .85f), fontSize = 13.sp, maxLines = 2,
+                                overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-peek-text")) }
+                        }
                     }
+                    // The notification's own buttons. A reply is typed here only on Home: the window over other apps cannot take the keyboard.
+                    if (peek.actions.isNotEmpty()) PeekActionsRow(peek, state, canReply = !anchoredToWindow)
                 }
             }
             // Expanded face: live panel, starting below the camera hole.
-            if (showOpenFace && !toolsShown && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.graphicsLayer { alpha = expandedAlpha() }
+            if (showOpenFace && !toolsShown && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn)
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop).testTag("island-main-face")) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -918,6 +975,14 @@ internal fun DynamicIsland(
                         chargeLeft?.let { Text(it, color = IslandThemes.active.charging.copy(alpha = .85f), fontSize = 11.sp, maxLines = 1,
                             modifier = Modifier.testTag("island-charge-left")) }
                     }
+                }
+                PrivacyLine.describe(state.cameraActive, state.micActive, state.recordingActive, state.privacySince, clockMs, inFront)?.let { line ->
+                    Spacer(Modifier.height(6.dp))
+                    PrivacyRow(line, state.cameraActive, state.micActive, state.recordingActive, onReview = {
+                        runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_PRIVACY_SETTINGS)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        state.collapse()
+                    })
                 }
                 NotificationFeed.ongoingCall?.let { call ->
                     Spacer(Modifier.height(6.dp))
@@ -990,13 +1055,13 @@ internal fun DynamicIsland(
  * composed only while the island is collapsed or part way open, and is small.
  */
 @Composable
-private fun CollapsedFace(frameState: State<IslandFrame>, d: Float, alphaOf: () -> Float,
+private fun CollapsedFace(frameState: State<IslandFrame>, d: Float, alphaOf: () -> Float, blurOk: Boolean,
     leading: @Composable () -> Unit, trailing: @Composable () -> Unit) {
     val frame = frameState.value
     val hole = frame.hole
     val gap = 4.dp
     val sideways = frame.side != IslandSide.TOP
-    Row(Modifier.fillMaxSize().graphicsLayer { alpha = alphaOf() }, verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxSize().morphFace(alphaOf, blurOk), verticalAlignment = Alignment.CenterVertically) {
                 if (hole != null && sideways) {
                     // Camera on a side edge: everything sits on the inward side of the hole, and only when there is room
                     // (an event has widened the pill). The idle pill is just the black capsule and its ring.
@@ -1018,6 +1083,106 @@ private fun CollapsedFace(frameState: State<IslandFrame>, d: Float, alphaOf: () 
                         leading(); trailing()
                     }
                 }
+    }
+}
+
+/** Brings a face in and out of the island as it morphs: it fades, grows from a little smaller and sharpens out of a blur as the body opens around it,
+ * and does the reverse as it closes. (iOS does the same: the content is part of the liquid, not a picture laid over it.) With animations off it only fades.
+ */
+private fun Modifier.morphFace(alphaOf: () -> Float, blurOk: Boolean): Modifier = graphicsLayer {
+    val a = alphaOf()
+    alpha = a
+    val scale = if (blurOk) .94f + .06f * a else 1f
+    scaleX = scale; scaleY = scale
+    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, .2f)
+    renderEffect = if (blurOk && a > .01f && a < .98f) {
+        val radius = (1f - a) * 12.dp.toPx()
+        androidx.compose.ui.graphics.BlurEffect(radius, radius, androidx.compose.ui.graphics.TileMode.Decal)
+    } else null
+}
+
+/** The notification's own buttons, under its card. A reply opens a text field in place; any other button is sent as the notification would send it. */
+@Composable
+private fun PeekActionsRow(peek: PeekNotification, state: IslandState, canReply: Boolean) {
+    val context = LocalContext.current
+    var replying by remember(peek) { mutableStateOf<PeekAction?>(null) }
+    DisposableEffect(replying) { state.peekEditing = replying != null; onDispose { state.peekEditing = false } }
+    val target = replying
+    Spacer(Modifier.height(6.dp))
+    if (target != null) {
+        PeekReplyField(target) { text -> if (sendReply(context, target, text)) UnoFeedback.play(Cue.OPEN, null); state.collapse() }
+        return
+    }
+    Row(Modifier.fillMaxWidth().height(PEEK_ACTIONS_ROW_DP.dp - 6.dp).testTag("island-peek-actions"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        peek.actions.forEach { action ->
+            Box(Modifier.weight(1f).fillMaxHeight().clip(IslandThemes.active.controlShape()).background(themeInk.copy(alpha = .14f))
+                .clickable {
+                    IslandTools.touch()
+                    if (action.reply != null) {
+                        // Over other apps the island cannot take the keyboard, so a reply opens the notification instead.
+                        if (canReply) replying = action else { sendTapAction(context, peek.open); state.collapse() }
+                    } else { sendTapAction(context, action.intent); state.collapse() }
+                }
+                .semantics { role = androidx.compose.ui.semantics.Role.Button; contentDescription = action.title }
+                .testTag("island-peek-action"), contentAlignment = Alignment.Center) {
+                Text(action.title, color = themeInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PeekReplyField(action: PeekAction, onSend: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    Row(Modifier.fillMaxWidth().height(PEEK_ACTIONS_ROW_DP.dp - 6.dp).clip(IslandThemes.active.controlShape()).background(themeInk.copy(alpha = .14f))
+        .padding(start = 14.dp, end = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (text.isEmpty()) Text(action.reply?.label?.toString() ?: "Reply", color = themeInk.copy(alpha = .55f), fontSize = 14.sp, maxLines = 1)
+            androidx.compose.foundation.text.BasicTextField(text, { text = it.take(500); IslandTools.touch() },
+                Modifier.fillMaxWidth().focusRequester(focus).testTag("island-reply-field"), singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(color = themeInk, fontSize = 14.sp),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(themeInk),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Send),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSend = { if (text.isNotBlank()) onSend(text.trim()) }))
+        }
+        Box(Modifier.size(34.dp).clip(CircleShape).clickable(enabled = text.isNotBlank()) { onSend(text.trim()) }
+            .semantics { contentDescription = "Send reply" }.testTag("island-reply-send"), contentAlignment = Alignment.Center) {
+            Icon(Icons.AutoMirrored.Rounded.Send, null, tint = themeInk.copy(alpha = if (text.isNotBlank()) 1f else .35f), modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+/** Sends [text] through [action]'s reply input, as the notification's own reply box would. */
+internal fun sendReply(context: android.content.Context, action: PeekAction, text: String): Boolean {
+    val input = action.reply ?: return false
+    return runCatching {
+        val fill = android.content.Intent()
+        android.app.RemoteInput.addResultsToIntent(arrayOf(input), fill, android.os.Bundle().apply { putCharSequence(input.resultKey, text) })
+        android.app.RemoteInput.setResultsSource(fill, android.app.RemoteInput.SOURCE_FREE_FORM_INPUT)
+        action.intent.send(context, 0, fill)
+    }.isSuccess
+}
+
+/** The open island's privacy row: which of the camera, microphone and screen recording are in use, for how long, and a way to review them. */
+@Composable
+private fun PrivacyRow(line: PrivacyLine.Line, camera: Boolean, mic: Boolean, recording: Boolean, onReview: () -> Unit) {
+    Row(Modifier.fillMaxWidth().height(PRIVACY_ROW_DP.dp - 6.dp).testTag("island-privacy-row"), verticalAlignment = Alignment.CenterVertically) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (camera) Icon(Icons.Rounded.Videocam, null, tint = IosGreen, modifier = Modifier.size(18.dp))
+            if (mic) Icon(Icons.Rounded.Mic, null, tint = PRIVACY_MIC, modifier = Modifier.size(18.dp))
+            if (recording) Icon(Icons.Rounded.FiberManualRecord, null, tint = IslandSymbol.RECORDING.tint, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(line.title, color = themeInk, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (line.subtitle.isNotEmpty()) Text(line.subtitle, color = themeInk.copy(alpha = .72f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Box(Modifier.padding(start = 8.dp).height(30.dp).clip(IslandThemes.active.controlShape()).background(themeInk.copy(alpha = .14f))
+            .clickable(onClick = onReview).padding(horizontal = 12.dp).semantics { contentDescription = "Review privacy settings" }.testTag("island-privacy-review"),
+            contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.island_review), color = themeInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
     }
 }
 
@@ -1060,6 +1225,9 @@ internal const val MAX_QUEUED_FLASHES = 3
 
 /** Extra panel height, in dp, when the music card is showing: artwork and track above, the controls below. */
 internal const val MEDIA_ROW_DP = 126f
+/** Extra panel height, in dp, for the notification card's buttons (or its reply field), and for the privacy row. */
+internal const val PEEK_ACTIONS_ROW_DP = 42f
+internal const val PRIVACY_ROW_DP = 46f
 /** The height the open panel reserves for its action buttons, in dp; taken back where they are not shown. */
 internal const val ACTIONS_ROW_DP = 44f
 /** The quick-launch strip of apps in the open island, and the row of system panels in the tools face. */

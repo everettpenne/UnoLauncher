@@ -65,10 +65,14 @@ class MainActivity : ComponentActivity() {
     private val notificationAccess = mutableStateOf(false)
     private val contactsPermission = activityResultRegistry.register("duo.extras.contacts", this,
         ActivityResultContracts.RequestPermission()) { granted -> if (!granted) extrasStore.setContactSearch(false) }
+    private val bluetoothPermission = activityResultRegistry.register("duo.extras.bluetooth", this,
+        ActivityResultContracts.RequestPermission()) { granted -> if (!granted) extrasStore.setBluetoothAlerts(false) }
     private val extrasActions by lazy {
         ExtrasActions(extrasStore,
             requestContacts = { contactsPermission.launch(android.Manifest.permission.READ_CONTACTS) },
             hasContactsPermission = { checkSelfPermission(android.Manifest.permission.READ_CONTACTS) == android.content.pm.PackageManager.PERMISSION_GRANTED },
+            requestBluetooth = { bluetoothPermission.launch(android.Manifest.permission.BLUETOOTH_CONNECT) },
+            hasBluetoothPermission = { checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED },
             openNotificationAccess = { startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
             hasNotificationAccess = { notificationAccess.value },
             toggleFocus = ::toggleFocus, islandWidget = islandWidget)

@@ -397,7 +397,11 @@ internal fun IslandSystemEvents(state: IslandState) {
             context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val bluetoothShownAt = HashMap<String, Long>()
         val bluetoothReceiver = object : BroadcastReceiver() {
+            // The permission is checked here on every broadcast (it can be revoked while the island is up); a device's name, class and address
+            // are only read after that.
+            @android.annotation.SuppressLint("MissingPermission")
             override fun onReceive(c: Context?, intent: Intent?) {
+                if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
                 val device = intent?.getParcelableExtra(android.bluetooth.BluetoothDevice.EXTRA_DEVICE, android.bluetooth.BluetoothDevice::class.java) ?: return
                 val connected = intent.action == android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED
                 val major = runCatching { device.bluetoothClass?.majorDeviceClass }.getOrNull() ?: 0

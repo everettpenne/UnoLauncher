@@ -402,7 +402,7 @@ internal fun IslandSystemEvents(state: IslandState) {
             @android.annotation.SuppressLint("MissingPermission")
             override fun onReceive(c: Context?, intent: Intent?) {
                 if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
-                val device = intent?.getParcelableExtra(android.bluetooth.BluetoothDevice.EXTRA_DEVICE, android.bluetooth.BluetoothDevice::class.java) ?: return
+                val device = intent?.let { androidx.core.content.IntentCompat.getParcelableExtra(it, android.bluetooth.BluetoothDevice.EXTRA_DEVICE, android.bluetooth.BluetoothDevice::class.java) } ?: return
                 val connected = intent.action == android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED
                 val major = runCatching { device.bluetoothClass?.majorDeviceClass }.getOrNull() ?: 0
                 if (!BluetoothEvents.shouldShow(major, extrasPrefs.getBoolean("audioAlerts", true))) return

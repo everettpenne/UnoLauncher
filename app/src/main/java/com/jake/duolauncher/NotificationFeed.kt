@@ -178,7 +178,7 @@ class UnoNotificationListener : NotificationListenerService() {
                     n.color.takeIf { it != 0 } ?: AppTints.of(sbn.packageName) { runCatching { packageManager.getApplicationIcon(sbn.packageName).toBitmap(48, 48) }.getOrNull() } ?: 0,
                     sbn.postTime, n.contentIntent,
                     // The turn arrow of a navigation instruction is its large icon; no other kind of activity has its large icon read.
-                    largeIcon = if (source == ActivitySource.NAVIGATION) runCatching { n.getLargeIcon()?.loadDrawable(this)?.toBitmap(96, 96) }.getOrNull() else null,
+                    largeIcon = if (source == ActivitySource.NAVIGATION) runCatching { n.getLargeIcon()?.loadDrawable(this)?.toBitmap(NavigationText.ARROW_PX, NavigationText.ARROW_PX) }.getOrNull() else null,
                     source = source)
             }.getOrNull() }
         NotificationFeed.liveUpdates = LiveUpdateLogic.ordered(found)
@@ -201,7 +201,7 @@ class UnoNotificationListener : NotificationListenerService() {
         if (reason == null) return
         lastNavigationCueAt = elapsed
         val card = PeekNotification(nav.packageName, nav.appLabel, nav.title, nav.text, nav.largeIcon ?: nav.icon, nav.openIntent,
-            NavigationCue.SECONDS, nav.color.takeIf { it != 0 })
+            NavigationCue.SECONDS, nav.color.takeIf { it != 0 }, navigation = true)
         Handler(android.os.Looper.getMainLooper()).post { IslandRuntime.state.showPeekCard(card) }
     }
 

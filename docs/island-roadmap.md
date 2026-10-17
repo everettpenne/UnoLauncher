@@ -14,6 +14,7 @@ What is built, and what is still to do. This is a working list, not a promise.
 - **Event flashes** for ringer, airplane, Do Not Disturb, charging, VPN, USB data and audio devices, queued so two quick events are both seen.
 - **Next alarm and song times** on the open panel, a screen reader that hears what is live (and each new event or card once), and a snap instead of a spring when Android's animations are off.
 - **Buttons on notification cards** (a reply typed in the island on Home), a **camera and microphone row** with how long and, when usage access is already allowed, the app that was in front, **Bluetooth connect alerts**, **liquid motion** (stretch and squash, blur-in faces, a bubble that pulls away on a neck), and a size made for the Pixel 10a.
+- **Pull to peek, hold open, and a recent notification held for 30 seconds** (see the changelog), and **navigation set large enough to read while driving**.
 - **A permission ledger** (Launcher settings, Notifications & privacy): every permission, what it is for, what it can see, and a link to turn it off, and a plain line saying which island you actually have.
 
 ## To do

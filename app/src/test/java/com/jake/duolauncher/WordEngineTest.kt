@@ -125,4 +125,79 @@ class WordEngineTest {
         assertEquals(Suggest.suggestions(engine, ctx, emptySet(), false), Suggest.suggestions(engine, ctx, emptySet(), false, fix))
         assertEquals("the", fix)
     }
+
+    // ---- smarter autocorrect: the sentence, the hand, and the habits of typing ----
+    private fun fixAfter(before: String) = Suggest.autocorrect(engine, Suggest.parse(before), emptySet())
+
+    @Test fun theWordBeforeSettlesATieByWhatUsuallyFollowsIt() {
+        // Two real words are one slip from "wich"-like input; the sentence picks. With synthetic data the pick is exact.
+        val scores = mapOf("form" to 90, "from" to 90, "farm" to 80, "this" to 100, "that" to 100)
+        val e = WordEngine(scores, mapOf("went" to listOf("from"), "filled" to listOf("form"), "the" to listOf("farm")))
+        assertEquals("from", e.correction("frm", "went"))
+        assertEquals("form", e.correction("frm", "filled"))
+    }
+
+    @Test fun aRareRealWordThatDoesNotFitIsFixedToTheCommonOneThatDoes() {
+        val e = WordEngine(mapOf("to" to 120, "ro" to 20, "the" to 130, "he" to 110), mapOf("went" to listOf("to", "back"), "said" to listOf("he", "the")))
+        assertEquals("to", e.correction("ro", "went"))
+        assertNull("with nothing before it a real word is left alone", e.correction("ro", null))
+        assertNull("and so is a real word that does fit", e.correction("to", "went"))
+        assertNull("and a real word that is not one slip from a fitting one", e.correction("ro", "said"))
+    }
+
+    @Test fun anExtraLetterFromAFingerOnTwoKeysCostsLessThanAnyOther() {
+        // 'k' sits next to 'l' and 'o'; 'x' is nowhere near. The slip with the neighbour is the cheaper way to reach "hello".
+        assertTrue(engine.editCost("hellko", "hello", 3.0) < engine.editCost("hellxo", "hello", 3.0))
+        assertEquals("hello", fix("hellko"))
+        assertNull("a real word", fix("there"))
+    }
+
+    @Test fun habitualMisspellingsAreFixedOutright() {
+        assertEquals("a lot", fix("alot")); assertEquals("tomorrow", fix("tommorow")); assertEquals("until", fix("untill"))
+        assertEquals("weird", fix("wierd")); assertEquals("necessary", fix("neccessary")); assertEquals("A lot", fix("Alot"))
+        assertEquals("Tomorrow", fix("Tommorow"))
+        assertEquals("separate", fix("seperate"))
+    }
+
+    @Test fun moreContractionsGetTheirApostrophes() {
+        assertEquals("would've", fix("wouldve")); assertEquals("it'll", fix("itll")); assertEquals("there's", fix("theres"))
+        assertEquals("you'd", fix("youd")); assertEquals("who's", fix("whos"))
+        assertNull("lets is a word on its own", fix("lets"))
+    }
+
+    @Test fun informalWordsAreLeftAlone() {
+        listOf("lol", "omg", "tbh", "idk", "btw", "thx", "ok", "gonna", "wanna", "nvm").forEach { assertNull(it, fix(it)) }
+        assertNull(fix("LOL"))
+    }
+
+    @Test fun aNameInTheMiddleOfASentenceIsNotMistakenForATypo() {
+        assertNull(fixAfter("I saw Zorbo"))
+        assertNull(fixAfter("we met Kowalczyk"))
+        assertEquals("The", fixAfter("Teh")); assertEquals("The", fixAfter("Hello. Teh"))
+        assertEquals("the", fixAfter("see you in teh"))
+    }
+
+    @Test fun completionsPreferWhatFollowsThePreviousWord() {
+        val e = WordEngine(mapOf("state" to 100, "station" to 80, "stay" to 90), mapOf("the" to listOf("state"), "at" to listOf("station")))
+        assertEquals("station", e.completionsAfter("sta", "at", 3).first())
+        assertEquals("state", e.completionsAfter("sta", "the", 3).first())
+        assertEquals("with nothing before it the commonest comes first", "state", e.completionsAfter("sta", null, 3).first())
+    }
+
+    @Test fun commonWordsSurviveEveryPrecedingWordUnchanged() {
+        // The sentence-aware fix must stay rare: take the commonest words after the commonest words and count what it would change.
+        val words = File(listOf("src/main/assets/keyboard", "app/src/main/assets/keyboard").map(::File).first { it.isDirectory }, "en_words.txt")
+            .readLines().mapNotNull { l -> l.split(' ').takeIf { it.size == 2 }?.let { it[0] to (it[1].toIntOrNull() ?: 0) } }
+            .sortedByDescending { it.second }.map { it.first }
+        val typed = words.take(3000).filter { it.length >= 2 }
+        val before = words.take(60)
+        var changed = 0; var total = 0
+        val examples = ArrayList<String>()
+        for (p in before) for (t in typed) {
+            total++
+            val fix = engine.correction(t, p)
+            if (fix != null && fix != t && t !in WordEngine.MISSPELLINGS && t !in WordEngine.CONTRACTIONS) { changed++; if (examples.size < 8) examples += "$p $t -> $fix" }
+        }
+        assertTrue("$changed of $total common words changed after a common word: $examples", changed.toDouble() / total < .002)
+    }
 }

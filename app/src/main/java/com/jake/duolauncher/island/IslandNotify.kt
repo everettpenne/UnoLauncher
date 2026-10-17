@@ -19,6 +19,8 @@ internal data class PeekNotification(
     val tint: Int? = null,
     /** The buttons the notification offers (Reply, Archive...), when the card shows a title; empty otherwise. */
     val actions: List<PeekAction> = emptyList(),
+    /** A turn-by-turn instruction, drawn large (the arrow, the distance and the street) so it can be read while driving. */
+    val navigation: Boolean = false,
 )
 
 /** Pure rules for what the drop-down card shows, kept apart so they are unit-tested. */

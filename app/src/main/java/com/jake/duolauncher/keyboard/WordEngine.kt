@@ -49,11 +49,27 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
         return (own + STARTERS).distinct().take(limit)
     }
 
-    /** The word [typed] should be corrected to, or null to leave it alone. Case is not handled here (see [matchCase]). */
-    fun correction(typed: String): String? {
+    /** Completions of [prefix] with the ones that often follow [previous] put first: "see you at the sta" offers "station" before "state". */
+    fun completionsAfter(prefix: String, previous: String?, limit: Int = 3): List<String> {
+        val follow = previous?.lowercase()?.let { followers[it] }.orEmpty()
+        if (follow.isEmpty()) return completions(prefix, limit)
+        val pool = completions(prefix, limit + 6)
+        return (pool.filter { it in follow }.sortedBy { follow.indexOf(it) } + pool.filter { it !in follow }).take(limit)
+    }
+
+    /** The word [typed] should be corrected to, or null to leave it alone. Case is not handled here (see [matchCase]).
+     * [previous] is the word before it in the sentence, if any: a candidate that often follows it is preferred, which settles
+     * "form"/"from" style ties by what the sentence is about, and a rare real word that is one slip from a word that fits
+     * is fixed too ("i went to hte" is caught by the first rule; "ro the" by this one).
+     */
+    fun correction(typed: String, previous: String? = null): String? {
         val t = typed.lowercase()
+        if (t in INFORMAL) return null
         CONTRACTIONS[t]?.let { return it }
-        if (t.length < 2 || t in score) return null
+        MISSPELLINGS[t]?.let { return it }
+        val follow = previous?.lowercase()?.let { followers[it] }.orEmpty()
+        if (t in score) return contextFix(t, follow)
+        if (t.length < 2) return null
         val maxCost = when { t.length <= 3 -> 1.0; t.length <= 5 -> 1.7; else -> 2.4 }
         val buckets = listOfNotNull(byFirst[t[0]], if (t.length > 1) byFirst[t[1]] else null).distinct()
         var best: String? = null
@@ -62,11 +78,24 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
             if (abs(cand.length - t.length) > 2) continue
             val cost = editCost(t, cand, maxCost)
             if (cost > maxCost) continue
-            // Commoner words win, and every bit of edit cost counts against a candidate.
-            val value = (score[cand] ?: 0) / 10.0 - COST_WEIGHT * cost
+            // Commoner words win, and every bit of edit cost counts against a candidate. A word that often follows the previous one
+            // gets a bonus that is larger the nearer the top of that list it is.
+            val rank = follow.indexOf(cand)
+            val value = (score[cand] ?: 0) / 10.0 - COST_WEIGHT * cost + (if (rank >= 0) BIGRAM_BONUS - rank * .4 else 0.0)
             if (value > bestValue) { bestValue = value; best = cand }
         }
         return best
+    }
+
+    /** A real word that is a single slip from a word that both fits the sentence and is far commoner: "ro the" for "to the". Never fires
+     * without a previous word, and only on slips of a neighbouring key, a swap or a doubled letter, so rare real words stay as typed.
+     */
+    private fun contextFix(t: String, follow: List<String>): String? {
+        if (follow.isEmpty() || t in follow || t.length > 6) return null
+        val own = score[t] ?: 0
+        return follow.firstOrNull { cand ->
+            cand != t && (score[cand] ?: 0) >= own + REAL_WORD_GAP && abs(cand.length - t.length) <= 1 && editCost(t, cand, .9) <= .9
+        }
     }
 
     /** Damerau-Levenshtein distance where a slip to a neighbouring key and a swap of two letters are cheaper than a
@@ -84,7 +113,12 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
                 // A letter missing from the typed word that doubles one next to it ("helo" for "hello") is the commonest
                 // slip of all, so it costs less than a missing letter elsewhere.
                 val missing = if ((j >= 2 && b[j - 1] == b[j - 2]) || (j < m && b[j - 1] == b[j])) 0.5 else 1.0
-                var v = min(min(prev[j] + 1.0, cur[j - 1] + missing), prev[j - 1] + sub)
+                // A letter typed that was not meant: a finger that touched two keys at once (it sits next to the letter before or after it)
+                // or a doubled letter is a likelier slip than any other extra letter.
+                val extra = if (a[i - 1] == a.getOrNull(i - 2) || a[i - 1] == a.getOrNull(i)) .5
+                    else if ((i > 1 && NEIGHBOURS[a[i - 1]]?.contains(a[i - 2]) == true) || (i < n && NEIGHBOURS[a[i - 1]]?.contains(a[i]) == true)) .6
+                    else 1.0
+                var v = min(min(prev[j] + extra, cur[j - 1] + missing), prev[j - 1] + sub)
                 if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) v = min(v, prevPrev[j - 2] + 0.8)
                 cur[j] = v
                 if (v < rowMin) rowMin = v
@@ -97,6 +131,10 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
 
     companion object {
         private const val COST_WEIGHT = 4.0
+        /** What a word that follows the previous one is worth, in the same units as the score divided by ten (the first of five is worth most). */
+        private const val BIGRAM_BONUS = 2.4
+        /** How much commoner (in score points, tenths of a log) a word must be to replace a real word that does not fit the sentence. */
+        private const val REAL_WORD_GAP = 35
         private const val CACHED_PREFIX = 3
         private const val CACHED_LIMIT = 4
         /** Swapping a letter for one far away on the keyboard is a less likely slip than leaving a letter out, so it costs more. */
@@ -109,7 +147,32 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
             "wouldnt" to "wouldn't", "shouldnt" to "shouldn't", "hasnt" to "hasn't", "havent" to "haven't", "hadnt" to "hadn't",
             "im" to "I'm", "ive" to "I've", "youre" to "you're", "theyre" to "they're", "thats" to "that's", "whats" to "what's",
             "youve" to "you've", "weve" to "we've", "theyve" to "they've", "hes" to "he's", "shes" to "she's", "i" to "I",
-            "id" to "I'd")
+            "id" to "I'd", "youd" to "you'd", "theyd" to "they'd", "wouldve" to "would've", "couldve" to "could've", "shouldve" to "should've",
+            "mightve" to "might've", "mustve" to "must've", "itll" to "it'll", "youll" to "you'll", "theyll" to "they'll", "thatll" to "that'll",
+            "theres" to "there's", "heres" to "here's", "wheres" to "where's", "whos" to "who's", "mustnt" to "mustn't", "neednt" to "needn't",
+            "yall" to "y'all")
+
+        /** Slips that edit distance cannot reach, or reaches the wrong word for, and the habitual misspellings that are two or three keys
+         * off. These are fixed outright; they are all words nobody types on purpose.
+         */
+        val MISSPELLINGS = mapOf(
+            "alot" to "a lot", "tommorow" to "tomorrow", "tomorow" to "tomorrow", "tommorrow" to "tomorrow", "untill" to "until", "wierd" to "weird",
+            "adress" to "address", "beleive" to "believe", "calender" to "calendar", "collegue" to "colleague", "comming" to "coming",
+            "concious" to "conscious", "definatly" to "definitely", "definitly" to "definitely", "diffrent" to "different",
+            "enviroment" to "environment", "excercise" to "exercise", "existance" to "existence", "foriegn" to "foreign", "goverment" to "government",
+            "gaurd" to "guard", "happend" to "happened", "immediatly" to "immediately", "independant" to "independent", "knowlege" to "knowledge",
+            "libary" to "library", "lisence" to "license", "maintainance" to "maintenance", "neccessary" to "necessary", "necesary" to "necessary",
+            "noticable" to "noticeable", "occassion" to "occasion", "ocurred" to "occurred", "persistant" to "persistent", "posession" to "possession",
+            "prefered" to "preferred", "publically" to "publicly", "realy" to "really", "reccomend" to "recommend", "recomend" to "recommend",
+            "refered" to "referred", "relevent" to "relevant", "resturant" to "restaurant", "rythm" to "rhythm", "scedule" to "schedule",
+            "sieze" to "seize", "succesful" to "successful", "sucessful" to "successful", "supress" to "suppress", "tendancy" to "tendency",
+            "truely" to "truly", "usualy" to "usually", "wether" to "whether", "whereever" to "wherever", "writting" to "writing", "yeild" to "yield",
+            "thankyou" to "thank you", "infact" to "in fact", "incase" to "in case", "aswell" to "as well", "eachother" to "each other", "atleast" to "at least")
+
+        /** Informal words people type on purpose that the word list may not have; never "corrected" into something else. */
+        val INFORMAL: Set<String> = setOf("lol", "omg", "tbh", "idk", "btw", "imo", "imho", "thx", "pls", "plz", "ok", "okay", "yeah", "yep", "yup", "nope",
+            "hmm", "wow", "ugh", "ya", "gonna", "wanna", "gotta", "kinda", "sorta", "lemme", "gimme", "dunno", "ty", "np", "brb", "irl", "fyi", "asap",
+            "wtf", "lmao", "rofl", "smh", "ikr", "afaik", "eta", "diy", "faq", "pov", "rn", "ofc", "nvm", "jk", "bff", "yw")
 
         private val CONTRACTION_WORDS: Set<String> = CONTRACTIONS.values.mapTo(HashSet()) { it.lowercase() }
 

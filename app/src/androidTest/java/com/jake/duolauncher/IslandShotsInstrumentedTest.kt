@@ -119,4 +119,48 @@ class IslandShotsInstrumentedTest {
         compose.mainClock.autoAdvance = true
         compose.runOnIdle { IslandTools.cancelTimer(context) }
     }
+
+    @Test fun peekHoldRecentAndNavigation() {
+        show()
+        val pi = PendingIntent.getBroadcast(context, 0, Intent("uno.shot").setPackage(context.packageName), PendingIntent.FLAG_MUTABLE)
+        val reply = RemoteInput.Builder("k").setLabel("Reply to Ada").build()
+        // A pull that has been let go: the peek.
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { state.peeked = true }
+        compose.mainClock.advanceTimeBy(2_500); Thread.sleep(900); takeShot("12-peek")
+        compose.runOnIdle { state.collapse() }
+        compose.mainClock.advanceTimeBy(1_500)
+        // A notification that arrived a little while ago, held on the open island.
+        compose.runOnIdle {
+            state.showPeekCard(PeekNotification("com.example.chat", "Messages", "Ada Lovelace", "Are we still on for lunch? I found the noodle place.", null, null, 6, 0xFF30D158.toInt(),
+                listOf(PeekAction("Reply", pi, reply), PeekAction("Mark as read", pi))))
+            state.collapse()
+        }
+        compose.mainClock.advanceTimeBy(1_500)
+        Thread.sleep(500); takeShot("13-recent-dot")
+        compose.runOnIdle { state.peeked = true }
+        compose.mainClock.advanceTimeBy(2_500); Thread.sleep(900); takeShot("14-peek-recent")
+        compose.runOnIdle { state.toggle() }
+        compose.mainClock.advanceTimeBy(1_200); Thread.sleep(700); takeShot("15-open-recent")
+        compose.runOnIdle { state.clearRecent(); state.collapse() }
+        compose.mainClock.advanceTimeBy(1_500)
+        // Navigation, set large.
+        val arrow = Bitmap.createBitmap(224, 224, Bitmap.Config.ARGB_8888).also { b ->
+            val c = Canvas(b); val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt(); style = android.graphics.Paint.Style.STROKE; strokeWidth = 30f; strokeCap = android.graphics.Paint.Cap.ROUND }
+            c.drawLine(60f, 200f, 60f, 90f, paint); c.drawLine(60f, 90f, 160f, 90f, paint); c.drawLine(120f, 50f, 160f, 90f, paint); c.drawLine(120f, 130f, 160f, 90f, paint)
+        }
+        compose.runOnIdle {
+            NotificationFeed.liveUpdates = listOf(LiveUpdate("nav", "app.organicmaps", "Organic Maps", "300 m", "Turn right onto Rue de Rivoli", null, 0, 0, false, null, false,
+                null, 0xFF30D158.toInt(), System.currentTimeMillis(), null, arrow, ActivitySource.NAVIGATION))
+        }
+        compose.mainClock.advanceTimeBy(800); Thread.sleep(600); takeShot("16-nav-pill")
+        compose.runOnIdle { state.toggle() }
+        compose.mainClock.advanceTimeBy(1_200); Thread.sleep(700); takeShot("17-nav-open")
+        compose.runOnIdle { state.collapse() }
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.runOnIdle { state.showPeekCard(PeekNotification("app.organicmaps", "Organic Maps", "300 m", "Turn right onto Rue de Rivoli", arrow, null, 9, 0xFF30D158.toInt(), navigation = true)) }
+        compose.mainClock.advanceTimeBy(1_200); Thread.sleep(700); takeShot("18-nav-cue")
+        compose.mainClock.autoAdvance = true
+        compose.runOnIdle { NotificationFeed.liveUpdates = emptyList() }
+    }
 }

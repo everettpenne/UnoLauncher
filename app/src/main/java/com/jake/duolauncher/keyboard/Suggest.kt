@@ -55,7 +55,11 @@ internal object Suggest {
         // Names and brands like "iPhone" or "McDonald" and acronyms typed deliberately are left alone; plain Title or ALL CAPS get fixed.
         val interior = typed.drop(1)
         if (interior.any { it.isUpperCase() } && !typed.all { it.isUpperCase() || !it.isLetter() }) return null
-        val fix = engine.correction(typed) ?: return null
+        // A capitalised word in the middle of a sentence that is not in the word list is most likely a name or a place, not a slip.
+        val midSentenceName = typed.first().isUpperCase() && typed.length > 1 && typed.drop(1).none { it.isUpperCase() } &&
+            !ctx.atSentenceStart && ctx.previous != null && !engine.contains(typed.lowercase())
+        if (midSentenceName) return null
+        val fix = engine.correction(typed, ctx.previous) ?: return null
         val cased = WordEngine.matchCase(typed, fix)
         return cased.takeIf { it != typed }
     }
@@ -72,7 +76,7 @@ internal object Suggest {
         val out = ArrayList<Suggestion>(3)
         out += Suggestion(typed, SuggestionKind.TYPED)
         if (fix != null) out += Suggestion(fix, SuggestionKind.CORRECTION)
-        for (c in engine.completions(typed.lowercase(), 4)) {
+        for (c in engine.completionsAfter(typed.lowercase(), ctx.previous, 4)) {
             if (out.size >= 3) break
             val shown = WordEngine.matchCase(typed, c)
             if (out.none { it.text.equals(shown, ignoreCase = true) }) out += Suggestion(shown, SuggestionKind.COMPLETION)

@@ -376,10 +376,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">The island moves like liquid: it stretches as it opens, content blurs in with it, and bubbles pull away from the pill on a thin neck.</string>
-    <string name="whats_new_2">Notification cards have the app\'s own buttons (Reply, Mark as read, Archive), and you can type a reply in the island.</string>
-    <string name="whats_new_3">The open island shows how long the camera or microphone has been in use, and Bluetooth devices announce when they connect.</string>
-    <string name="whats_new_4">The island is sized for the Pixel 10a: a thicker pill and a wider, rounder panel.</string>
+    <string name="whats_new_1">Pull the small island down to peek inside it, and rest a finger on the bottom of the open island to keep it open for as long as you hold it.</string>
+    <string name="whats_new_2">A notification from the last 30 seconds is one tap away on the open island, with its buttons, after its card has gone.</string>
+    <string name="whats_new_3">Navigation instructions are much larger: a big arrow, distance and street you can read while driving.</string>
+    <string name="whats_new_4">The keyboard\'s autocorrect is smarter: it reads the sentence, catches fat-finger slips and knows more contractions and habitual misspellings.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

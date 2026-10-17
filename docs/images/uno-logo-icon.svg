@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="28 28 456 456" width="512" height="512">
+  <defs>
+    <clipPath id="frame"><rect x="28" y="28" width="456" height="456"/></clipPath>
+    <clipPath id="litface"><path d="M28,424 C120,404 230,330 330,236 C318,300 292,420 262,520 L28,520 Z"/></clipPath>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8fc8d6"/><stop offset=".55" stop-color="#d3ebe0"/><stop offset="1" stop-color="#f6e8c0"/>
+    </linearGradient>
+    <linearGradient id="lit" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fdecbd"/><stop offset="1" stop-color="#f2c97c"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d4843f"/><stop offset="1" stop-color="#a9552a"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="512" height="512" fill="url(#sky)"/>
+    <!-- Arrakis's two moons, and a few stars -->
+    <circle cx="124" cy="110" r="21" fill="#f7f1dc"/>
+    <circle cx="190" cy="152" r="9" fill="#f7f1dc" opacity=".9"/>
+    <g fill="#ffffff" opacity=".85"><circle cx="312" cy="92" r="3"/><circle cx="404" cy="128" r="2.5"/><circle cx="64" cy="186" r="2.5"/><circle cx="252" cy="116" r="2"/></g>
+
+    <!-- far dunes, pale and soft -->
+    <path d="M28,352 C90,320 150,318 200,340 C250,362 300,330 360,326 C420,322 450,330 484,346 L484,520 L28,520 Z" fill="#ecdcb0"/>
+    <path d="M360,326 C400,300 440,296 484,312 L484,346 C450,330 420,322 360,326 Z" fill="#dcc48c" opacity=".7"/>
+
+    <!-- the great dune: one knife-edge, lit on the left, shaded on the right -->
+    <path d="M28,424 C120,404 230,330 330,236 C318,300 292,420 262,520 L28,520 Z" fill="url(#lit)"/>
+    <path d="M330,236 C390,282 440,310 484,316 L484,520 L262,520 C292,420 318,300 330,236 Z" fill="url(#shade)"/>
+
+    <!-- contour ripples following the lit slope -->
+    <g clip-path="url(#litface)" fill="none" stroke="#dfa752" stroke-width="5" stroke-linecap="round" opacity=".9">
+      <path d="M28,424 C120,404 230,330 330,236" transform="translate(-10,38)"/>
+      <path d="M28,424 C120,404 230,330 330,236" transform="translate(-20,78)"/>
+      <path d="M28,424 C120,404 230,330 330,236" transform="translate(-30,118)"/>
+    </g>
+    <!-- hatching down the shaded slip face -->
+    <g fill="none" stroke="#7e3a1b" stroke-width="5" stroke-linecap="round" opacity=".8">
+      <path d="M352,300 L322,368"/><path d="M384,314 L350,396"/><path d="M416,326 L384,420"/><path d="M448,334 L420,440"/>
+      <path d="M330,392 L312,444"/>
+    </g>
+
+    <!-- ink: the crest and the edge -->
+    <g fill="none" stroke="#47301c" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M28,424 C120,404 230,330 330,236 C390,282 440,310 484,316" stroke-width="11"/>
+      <path d="M330,236 C318,300 292,420 262,520" stroke-width="9"/>
+    </g>
+
+    <!-- a lone figure on the crest -->
+    <g fill="#2a190b" transform="translate(330,232) rotate(8) scale(.95)">
+      <path d="M0,-36 C-5,-36 -8,-32 -8,-27 C-8,-23 -6,-21 -4,-19 L-9,3 L9,3 L4,-19 C6,-21 8,-23 8,-27 C8,-32 5,-36 0,-36 Z"/>
+      <rect x="10" y="-32" width="3" height="36" rx="1.5"/>
+    </g>
+  </g>
+</svg>

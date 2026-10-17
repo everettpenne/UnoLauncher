@@ -101,4 +101,59 @@ class IslandExtrasTest {
         assertEquals(-.06f, MorphVelocity.stretch(-100f, 1f), 0f)
         assertEquals(0f, MorphVelocity.stretch(5f, 0f), 0f)
     }
+
+    @Test fun pullingTheIslandDownReachesThePeekThenTheWholePanel() {
+        val d = 2.625f; val peek = .5f
+        assertEquals(0f, PeekPull.fraction(0f, d, peek), 0f)
+        assertEquals("half way to the peek", peek / 2f, PeekPull.fraction(PeekPull.TO_PEEK_DP / 2f * d, d, peek), .001f)
+        assertEquals("at the peek", peek, PeekPull.fraction(PeekPull.TO_PEEK_DP * d, d, peek), .001f)
+        assertEquals("all the way", 1f, PeekPull.fraction(PeekPull.TO_FULL_DP * d, d, peek), .001f)
+        assertEquals("never past it", 1f, PeekPull.fraction(1000f * d, d, peek), 0f)
+        assertEquals("pulling up never goes below nothing", 0f, PeekPull.fraction(-50f * d, d, peek), 0f)
+        // On a peek, pulling down takes it on, and pulling up takes it back.
+        assertTrue(PeekPull.fraction(30f * d, d, peek, from = peek) > peek)
+        assertTrue(PeekPull.fraction(-30f * d, d, peek, from = peek) < peek)
+    }
+
+    @Test fun lettingGoDecidesBetweenDroppingBackPeekingAndOpening() {
+        val peek = .5f
+        assertEquals(PeekPull.Outcome.COLLAPSE, PeekPull.outcome(.02f, peek))
+        assertEquals(PeekPull.Outcome.PEEK, PeekPull.outcome(.3f, peek))
+        assertEquals(PeekPull.Outcome.PEEK, PeekPull.outcome(peek, peek))
+        assertEquals(PeekPull.Outcome.OPEN, PeekPull.outcome(.95f, peek))
+        // A pull that Android cuts short at the edge of the status bar (about 35 dp) still lands in the peek, not in the bin.
+        val cut = PeekPull.fraction(35f * 2.625f, 2.625f, peek)
+        assertEquals(PeekPull.Outcome.PEEK, PeekPull.outcome(cut, peek))
+    }
+
+    @Test fun onlyTheBottomStripHoldsTheIslandOpen() {
+        val d = 2.625f; val h = 600f
+        assertTrue(HoldOpen.inZone(h - 10f, h, d))
+        assertTrue(HoldOpen.inZone(h - HoldOpen.ZONE_DP * d, h, d))
+        assertTrue(!HoldOpen.inZone(h - HoldOpen.ZONE_DP * d - 5f, h, d))
+        assertTrue(!HoldOpen.inZone(20f, h, d))
+        assertTrue(!HoldOpen.inZone(h + 5f, h, d))
+        assertTrue(!HoldOpen.inZone(10f, 0f, d))
+    }
+
+    @Test fun aNotificationStaysAvailableForThirtySeconds() {
+        assertTrue(RecentNotice.live(1_000L, 1_000L))
+        assertTrue(RecentNotice.live(1_000L, 30_999L))
+        assertTrue(!RecentNotice.live(1_000L, 31_000L))
+        assertTrue(!RecentNotice.live(0L, 5_000L))
+        assertTrue("a clock that went backwards is not live", !RecentNotice.live(10_000L, 5_000L))
+        assertEquals(30, RecentNotice.secondsLeft(1_000L, 1_000L))
+        assertEquals(1, RecentNotice.secondsLeft(1_000L, 30_500L))
+        assertEquals(0, RecentNotice.secondsLeft(1_000L, 40_000L))
+    }
+
+    @Test fun navigationIsSetFarLargerThanTheIslandsOtherText() {
+        // The distance and the street were 20 sp and 12 sp, with a 46 dp arrow, on the open island.
+        assertTrue(NavigationText.DISTANCE_SP >= 32)
+        assertTrue(NavigationText.INSTRUCTION_SP >= 18)
+        assertTrue(NavigationText.ARROW_DP >= 64f)
+        assertTrue("the arrow is read at more than twice the pixels of the old 96 px bitmap", NavigationText.ARROW_PX >= 192)
+        assertTrue("and the pill's distance is not the 12 sp of the other slots", NavigationText.PILL_SP >= 14)
+        assertTrue(NavigationText.CARD_ROW_DP > UPDATE_ROW_DP)
+    }
 }

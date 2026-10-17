@@ -91,9 +91,10 @@ internal fun FeedSettings(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    feed.sources.forEach { source ->
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
+    feed.sources.forEachIndexed { index, source ->
+        if (index > 0) GlassDivider()
+        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(end = 12.dp)) {
                 Text(source.label, style = MaterialTheme.typography.titleSmall, maxLines = 1)
                 Text(source.url, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
@@ -105,8 +106,8 @@ internal fun FeedSettings(
             }
             LiquidSwitchControl(source.enabled, { onSourceEnabled(source.id, it) }, LocalPageGlass.current,
                 Modifier.testTag("feed-enabled-${source.id}").semantics { contentDescription = "Show ${source.label} in the feed" })
-            IconButton(onClick = { onRemoveFeed(source.id) },
-                modifier = Modifier.testTag("feed-remove-${source.id}")
+            GlassIconButton(onClick = { onRemoveFeed(source.id) },
+                Modifier.testTag("feed-remove-${source.id}")
                     .semantics { contentDescription = "Remove ${source.label}" }) {
                 Icon(Icons.Rounded.DeleteOutline, null)
             }

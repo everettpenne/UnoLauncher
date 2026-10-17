@@ -208,6 +208,15 @@ internal fun describeFeedAge(nowMillis: Long, publishedAt: Long): String {
     }
 }
 
+/** The byline a card shows under the headline: "Source · 5m ago". Parts that are blank (a missing
+ *  source label, an entry with no date) drop out rather than leaving a stray separator, so the
+ *  line never reads "Source · " or "· 5m ago". */
+internal fun describeEntryMeta(sourceLabel: String, nowMillis: Long, publishedAt: Long): String =
+    listOfNotNull(
+        sourceLabel.trim().takeIf { it.isNotBlank() },
+        describeFeedAge(nowMillis, publishedAt).takeIf { it.isNotBlank() },
+    ).joinToString(" · ")
+
 /** A feed to add, from an OPML file or a layout backup: its address, its name, and whether it is switched on. */
 data class FeedSpec(val url: String, val label: String, val enabled: Boolean = true)
 

@@ -944,7 +944,9 @@ internal fun DynamicIsland(
                     val tracker = VelocityTracker().apply { addPointerInputChange(down) }
                     val canPull = !state.expanded && !flashActive && state.peekCard == null
                     val canHold = (state.expanded || state.peeked) && HoldOpen.inZone(down.position.y, size.height.toFloat(), d)
-                    val pullFrom = if (state.peeked) peekState.floatValue else 0f
+                    // Set when the pull actually engages, below: where the island is right now, so a pull that lands
+                    // mid-collapse (or mid-peek) continues from its current height instead of jumping to the start.
+                    var pullFrom = 0f
                     var moved = false
                     var pulling = false
                     var holding = false
@@ -966,7 +968,13 @@ internal fun DynamicIsland(
                             val delta = last - down.position
                             if (holding) { change.consume(); if (!change.pressed) break; continue }
                             if (!moved && (abs(delta.x) > slop || abs(delta.y) > slop)) moved = true
-                            if (canPull && moved && !pulling && delta.y > pullSlop && delta.y > abs(delta.x)) pulling = true
+                            if (canPull && moved && !pulling && delta.y > pullSlop && delta.y > abs(delta.x)) {
+                                pulling = true
+                                // Continue from wherever the island is right now, so a grab mid-collapse re-opens
+                                // from its current height (and a grab on a peek from the peek). The release spring is
+                                // still seeded with the finger's own velocity, so both directions carry momentum.
+                                pullFrom = progress.value
+                            }
                             if (pulling) {
                                 state.pullFraction = PeekPull.fraction(delta.y, d, peekState.floatValue, from = pullFrom)
                                 change.consume()

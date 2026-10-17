@@ -62,6 +62,26 @@ class SpotlightRankSmartTest {
         assertEquals(listOf("a", "c"), suggested)
     }
 
+    @Test fun oneLetterTyposStillFindTheApp() {
+        val labels = listOf("Gmail", "Maps", "Calendar", "Google")
+        assertEquals(listOf("Gmail"), rank(labels, "gmial"))      // a swapped pair of letters
+        assertEquals(listOf("Google"), rank(labels, "gooogle"))   // a held (doubled) letter
+        assertEquals(listOf("Calendar"), rank(labels, "calndar")) // a dropped letter
+    }
+
+    @Test fun aTypoIsItsOwnTierAndAnExactMatchStillWins() {
+        assertEquals(SpotlightRank.Tier.TYPO, SpotlightRank.tier("Gmail", "gmial"))
+        assertEquals(SpotlightRank.Tier.PREFIX, SpotlightRank.tier("Gmail", "gma"))
+        assertNotEquals(SpotlightRank.Tier.TYPO, SpotlightRank.tier("Gmail", "gm"))
+    }
+
+    @Test fun highlightRangeFindsTheLiteralSpanOnly() {
+        assertEquals(0 until 3, SpotlightRank.highlightRange("Signal", "sig"))
+        assertEquals(7 until 10, SpotlightRank.highlightRange("Google Maps", "map"))
+        assertNull(SpotlightRank.highlightRange("YouTube Music", "ytm")) // initials: no literal span
+        assertNull(SpotlightRank.highlightRange("Signal", ""))
+    }
+
     @Test fun dateAndTimeAnswersComeFromTheClock() {
         val now = java.time.LocalDateTime.of(2026, 10, 12, 9, 5)
         assertEquals("09:05", SearchSmarts.answer("time", now)?.text)

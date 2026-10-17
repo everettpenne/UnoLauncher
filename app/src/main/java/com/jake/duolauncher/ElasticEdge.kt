@@ -55,6 +55,19 @@ internal object ElasticEdgeMath {
         val resisted = (1f - 1f / (d * RESISTANCE / dimension + 1f)) * dimension
         return resisted * kotlin.math.sign(distance)
     }
+
+    /**
+     * The un-resisted distance that produces [offset]: the inverse of [resist]. A drag that interrupts the
+     * spring-back re-anchors on this, so the curve continues from the visible offset rather than restarting
+     * from zero. The magnitude is capped just under [dimension] (the curve's asymptote), where the inverse
+     * runs away.
+     */
+    fun unresist(offset: Float, dimension: Float): Float {
+        if (dimension <= 0f) return 0f
+        val magnitude = kotlin.math.abs(offset).coerceIn(0f, dimension * .999f)
+        val distance = dimension / RESISTANCE * (1f / (1f - magnitude / dimension) - 1f)
+        return distance * kotlin.math.sign(offset)
+    }
 }
 
 /** Holds the live rubber-band offset (pixels; positive = pulled past the top, negative = past the bottom). */
@@ -72,7 +85,11 @@ internal class ElasticOverscrollState internal constructor(
 
     /** Applies [delta] (pixels, sign-carrying) to the rubber band and returns how much of it was resisted. */
     internal fun applyDrag(delta: Float, dimension: Float): Float {
-        raw += delta
+        // Re-anchor from the visible offset, not the accumulated raw distance. If the finger lands again while the
+        // spring-back is still running, the previous release() reset raw to zero while the offset was still part-way
+        // back, so `raw += delta` alone would snap the edge to the small resisted value of a fresh pull. Continuing
+        // from the current offset keeps the curve (and the finger's grip) continuous.
+        raw = ElasticEdgeMath.unresist(offsetState.floatValue, dimension) + delta
         val next = ElasticEdgeMath.resist(raw, dimension)
         val consumed = next - offsetState.floatValue
         offsetState.floatValue = next

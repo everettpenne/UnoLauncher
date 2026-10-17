@@ -115,6 +115,19 @@ class IslandExtrasTest {
         assertTrue(PeekPull.fraction(-30f * d, d, peek, from = peek) < peek)
     }
 
+    @Test fun aGrabMidCollapseContinuesFromWhereTheIslandIs() {
+        val d = 2.625f; val peek = .5f
+        // The island is part-way collapsed (0.6 open) when the finger lands. With the pull anchored there,
+        // a zero-movement frame keeps it at 0.6 instead of snapping to the collapsed start.
+        assertEquals(.6f, PeekPull.fraction(0f, d, peek, from = .6f), .001f)
+        // Pulling down re-opens it further, and pulling up closes it, both from the same place.
+        assertTrue(PeekPull.fraction(20f * d, d, peek, from = .6f) > .6f)
+        assertTrue(PeekPull.fraction(-20f * d, d, peek, from = .6f) < .6f)
+        // It never leaves 0..1 even when grabbed from a mid value.
+        assertEquals(0f, PeekPull.fraction(-1000f * d, d, peek, from = .6f), 0f)
+        assertEquals(1f, PeekPull.fraction(1000f * d, d, peek, from = .6f), 0f)
+    }
+
     @Test fun lettingGoDecidesBetweenDroppingBackPeekingAndOpening() {
         val peek = .5f
         assertEquals(PeekPull.Outcome.COLLAPSE, PeekPull.outcome(.02f, peek))

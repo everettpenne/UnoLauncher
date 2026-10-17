@@ -62,6 +62,13 @@ internal fun AppLibrary(
     val toastContext = androidx.compose.ui.platform.LocalContext.current
     var showWork by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    // iOS-style rubber-banding at the list's ends. The 0.70.0 motion pass reached the feed but not All apps;
+    // the shared modifier below both draws the resisted offset and springs it back (snapping with animations off).
+    val animationsOn = remember {
+        android.provider.Settings.Global.getFloat(toastContext.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
+    }
+    val elastic = rememberElasticOverscrollState(animationsOn)
     val selectedProfile = if (showWork) state.profiles.firstOrNull { it.isWork } else state.profiles.firstOrNull { it.isPersonal }
     LaunchedEffect(showWork, selectedProfile?.available, selectedProfile?.quiet) {
         listState.scrollToItem(0)
@@ -105,7 +112,9 @@ internal fun AppLibrary(
             val suggestions = remember(editing, handoff, query, visibleApps.size, smart != null) {
                 if (editing || handoff == null) emptyList() else handoff.targets(query, visibleApps.size, smart != null)
             }
-            LazyColumn(Modifier.weight(1f).testTag("all-apps-list"), state = listState,
+            LazyColumn(Modifier.weight(1f).testTag("all-apps-list")
+                .elasticVerticalEdges(elastic, atStart = { !listState.canScrollBackward }, atEnd = { !listState.canScrollForward }),
+                state = listState,
                 contentPadding = PaddingValues(bottom = 12.dp)) {
                 if (smart != null) item("smart-answer") {
                     Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(Corner.medium).background(ink.copy(alpha = .10f))

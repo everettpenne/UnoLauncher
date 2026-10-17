@@ -52,6 +52,9 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -71,7 +74,7 @@ internal object SpotlightRank {
     const val MAX_SUGGESTED = 4
 
     /** How a label matches a query, best first. [NONE] drops the app from the results. */
-    enum class Tier { PREFIX, WORD_PREFIX, INITIALS, CONTAINS, FUZZY, NONE }
+    enum class Tier { PREFIX, WORD_PREFIX, INITIALS, CONTAINS, FUZZY, TYPO, NONE }
 
     private fun words(label: String): List<String> {
         // "YouTube Music" -> you, tube, music: split on separators and on lower-to-upper humps.
@@ -83,17 +86,28 @@ internal object SpotlightRank {
         val q = query.trim().lowercase().replace(" ", "")
         if (q.isEmpty()) return Tier.NONE
         val l = label.lowercase()
+        val squashed = l.replace(" ", "")
         val parts = words(label)
         return when {
-            l.startsWith(query.trim().lowercase()) || l.replace(" ", "").startsWith(q) -> Tier.PREFIX
+            l.startsWith(query.trim().lowercase()) || squashed.startsWith(q) -> Tier.PREFIX
             parts.any { it.startsWith(q) } -> Tier.WORD_PREFIX
             // "ytm" finds YouTube Music, "gm" Google Maps: the query is a run of leading letters of the words.
             q.length >= 2 && parts.size >= 2 && initialsMatch(parts, q) -> Tier.INITIALS
-            l.contains(q) || l.replace(" ", "").contains(q) -> Tier.CONTAINS
+            l.contains(q) || squashed.contains(q) -> Tier.CONTAINS
             // Only for longer queries, or two letters would match half the drawer.
-            q.length >= 3 && isSubsequence(q, l.replace(" ", "")) -> Tier.FUZZY
+            q.length >= 3 && isSubsequence(q, squashed) -> Tier.FUZZY
+            // A single slip still finds the app: "gogle" for Google, "calndar" for Calendar. Short queries stay strict.
+            typo(q, parts, squashed) -> Tier.TYPO
             else -> Tier.NONE
         }
+    }
+
+    /** The span of [query] that appears literally in [label], to bold in the row; null when the match is initials/fuzzy/typo. */
+    fun highlightRange(label: String, query: String): IntRange? {
+        val q = query.trim()
+        if (q.isEmpty()) return null
+        val at = label.lowercase().indexOf(q.lowercase())
+        return if (at >= 0) at until (at + q.length) else null
     }
 
     private fun initialsMatch(parts: List<String>, q: String): Boolean {
@@ -112,6 +126,39 @@ internal object SpotlightRank {
         var at = 0
         for (c in text) if (at < q.length && c == q[at]) at++
         return at == q.length
+    }
+
+    /** Whether [q] is a near-miss of the label: one cheap slip (a swap, a doubled letter, one edit) for short queries,
+     * a little more for longer ones. Kept here rather than in the keyboard package so Search does not depend on the
+     * dictionary-backed [com.jake.duolauncher.keyboard.WordEngine]. */
+    private fun typo(q: String, parts: List<String>, squashed: String): Boolean {
+        if (q.length < 4) return false
+        val budget = if (q.length <= 5) 1.0 else 1.5
+        return parts.any { editCost(q, it, budget) <= budget } || editCost(q, squashed, budget) <= budget
+    }
+
+    /** Damerau-Levenshtein distance favouring the same cheap slips the keyboard does (a swap of two letters, a doubled or
+     * undoubled letter) with plain substitution costs. Returns above [limit] as soon as it cannot finish within it. */
+    private fun editCost(a: String, b: String, limit: Double): Double {
+        val n = a.length; val m = b.length
+        if (kotlin.math.abs(n - m) > limit) return limit + 1
+        var prevPrev = DoubleArray(m + 1); var prev = DoubleArray(m + 1) { it.toDouble() }; var cur = DoubleArray(m + 1)
+        for (i in 1..n) {
+            cur[0] = i.toDouble()
+            var rowMin = cur[0]
+            for (j in 1..m) {
+                val sub = if (a[i - 1] == b[j - 1]) 0.0 else 1.0
+                val missing = if ((j >= 2 && b[j - 1] == b[j - 2]) || (j < m && b[j - 1] == b[j])) 0.5 else 1.0
+                val extra = if (a[i - 1] == a.getOrNull(i - 2) || a[i - 1] == a.getOrNull(i)) 0.5 else 1.0
+                var v = minOf(minOf(prev[j] + extra, cur[j - 1] + missing), prev[j - 1] + sub)
+                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) v = minOf(v, prevPrev[j - 2] + 0.8)
+                cur[j] = v
+                if (v < rowMin) rowMin = v
+            }
+            if (rowMin > limit) return limit + 1
+            val t = prevPrev; prevPrev = prev; prev = cur; cur = t
+        }
+        return prev[m]
     }
 
     /** Frecency: launches count for more when recent. A launch loses half its weight every [HALF_LIFE_DAYS] days. */
@@ -170,6 +217,19 @@ internal object SpotlightEmerge {
 
     /** The fields and results fade in during the second half of the growth, so they are never seen squashed. */
     fun contentAlpha(progress: Float) = ((progress - .45f) / .55f).coerceIn(0f, 1f)
+}
+
+/** What the search key should do, decided pure so it is unit-tested: the top app (as on iOS), else the typed action,
+ * else the first contact for "call"/"text", else a web search of the words. */
+internal object SpotlightEnter {
+    enum class Route { APP, QUICK, CONTACT, WEB, NONE }
+    fun route(hasApps: Boolean, hasQuick: Boolean, hasContacts: Boolean, queryBlank: Boolean): Route = when {
+        hasApps -> Route.APP
+        hasQuick -> Route.QUICK
+        hasContacts -> Route.CONTACT
+        !queryBlank -> Route.WEB
+        else -> Route.NONE
+    }
 }
 
 /** Search from anywhere on Home: a panel that grows out of the island over whatever page you are on. One box finds apps, contacts (if you
@@ -307,9 +367,14 @@ internal fun Spotlight(
                 // Enter opens the top app, as on iOS; with no app to open it searches the web in your browser with the words typed.
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
                 keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
-                    when {
-                        appResults.isNotEmpty() -> launch(appResults.first())
-                        query.isNotBlank() -> if (handoff.searchWeb(query)) onDismiss()
+                    when (SpotlightEnter.route(appResults.isNotEmpty(), singleQuick != null, actionContacts.isNotEmpty(), query.isBlank())) {
+                        SpotlightEnter.Route.APP -> launch(appResults.first())
+                        SpotlightEnter.Route.QUICK -> singleQuick?.let { actions.run(it, focusOn(), onToggleFocus); onDismiss() }
+                        SpotlightEnter.Route.CONTACT -> actionContacts.firstOrNull()?.let {
+                            actions.openContact(contactKind ?: ContactActionKind.DIAL, it.number); onDismiss()
+                        }
+                        SpotlightEnter.Route.WEB -> if (handoff.searchWeb(query)) onDismiss()
+                        SpotlightEnter.Route.NONE -> Unit
                     }
                 }),
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
@@ -331,6 +396,9 @@ internal fun Spotlight(
                         Text(stringResource(if (copied) com.jake.duolauncher.R.string.spotlight_copied else com.jake.duolauncher.R.string.spotlight_tap_to_copy),
                             color = ink.copy(alpha = .5f), fontSize = 11.sp)
                     }
+                }
+                if (singleQuick != null) item("quick-header") {
+                    SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_actions), ink)
                 }
                 if (singleQuick != null) item("quick") {
                     SpotlightRow(singleQuick.label, singleQuick.detail, "spotlight-quick", true, ink, {
@@ -369,7 +437,8 @@ internal fun Spotlight(
                 itemsIndexed(appResults, key = { _, app -> "app-${app.id}" }) { index, app ->
                     // The first result is what Enter opens, so it is marked as the top hit.
                     SpotlightRow(app.label, if (index == 0) stringResource(com.jake.duolauncher.R.string.spotlight_top_hit) else null,
-                        "spotlight-app-${app.id}", index == 0, ink, { launch(app) }) {
+                        "spotlight-app-${app.id}", index == 0, ink, { launch(app) },
+                        match = SpotlightRank.highlightRange(app.label, query)) {
                         Image(app.image, null, Modifier.size(40.dp).clip(Corner.icon))
                     }
                 }
@@ -402,6 +471,11 @@ internal fun Spotlight(
                 }
                 if (typed && nothing) item("none") {
                     Text(stringResource(com.jake.duolauncher.R.string.nothing_found), Modifier.padding(12.dp), color = ink.copy(alpha = .7f))
+                }
+                // Before anything is typed (and with no launch history yet) the panel would otherwise be an empty void; teach instead.
+                if (!typed && nothing) item("hint") {
+                    Text(stringResource(com.jake.duolauncher.R.string.spotlight_try), Modifier.padding(12.dp),
+                        color = ink.copy(alpha = .6f), fontSize = 13.sp)
                 }
                 if (suggestions.isNotEmpty()) item("elsewhere-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_elsewhere), ink) }
                 items(suggestions, key = { "handoff-${it.kind}-${it.packageName}" }) { target ->
@@ -461,15 +535,29 @@ private fun actionIcon(action: QuickAction): ImageVector = when (action) {
 /** One result: a 40 dp leading mark, a title, an optional second line; the top hit sits on a faint plate. */
 @Composable
 private fun SpotlightRow(title: String, subtitle: String?, tag: String, highlighted: Boolean, ink: Color, onClick: () -> Unit,
-    titleLines: Int = 1, leading: @Composable () -> Unit) {
+    titleLines: Int = 1, match: IntRange? = null, leading: @Composable () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.small)
         .then(if (highlighted) Modifier.background(ink.copy(alpha = .09f)) else Modifier)
         .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
         .padding(horizontal = 6.dp, vertical = 6.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically) {
         leading()
         Column(Modifier.padding(start = 12.dp)) {
-            Text(title, maxLines = titleLines, overflow = TextOverflow.Ellipsis, fontSize = if (titleLines > 1) 14.sp else 16.sp)
+            val size = if (titleLines > 1) 14.sp else 16.sp
+            if (match == null) Text(title, maxLines = titleLines, overflow = TextOverflow.Ellipsis, fontSize = size)
+            else Text(highlightMatch(title, match), maxLines = titleLines, overflow = TextOverflow.Ellipsis, fontSize = size)
             if (subtitle != null) Text(subtitle, fontSize = 11.sp, color = ink.copy(alpha = .6f), maxLines = 1)
         }
+    }
+}
+
+/** Bolds the matched part of [title] so the eye lands on why it matched. */
+private fun highlightMatch(title: String, match: IntRange?): AnnotatedString {
+    if (match == null || match.isEmpty() || match.first !in title.indices || match.last !in title.indices) return AnnotatedString(title)
+    return buildAnnotatedString {
+        append(title.substring(0, match.first))
+        pushStyle(SpanStyle(fontWeight = FontWeight.SemiBold))
+        append(title.substring(match.first, match.last + 1))
+        pop()
+        append(title.substring(match.last + 1))
     }
 }

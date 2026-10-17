@@ -49,4 +49,17 @@ class SpotlightSourcesTest {
         assertNull(SpotlightSources.quickAction("clock"))
         assertTrue(SpotlightSources.quickAction("stopwatch") is QuickAction.Stopwatch)
     }
+
+    @Test fun settingsMatchWhenYouAppendSettings() {
+        assertEquals("Wi-Fi", labels("wifi settings").first())
+        assertEquals("Bluetooth", labels("bluetooth settings").first())
+        assertEquals("Display", labels("screen brightness").first())
+        assertTrue(labels("settings").isEmpty())
+    }
+
+    @Test fun timerAcceptsCountdownAndStart() {
+        assertEquals(300L, SpotlightSources.timer("countdown 5")?.seconds)
+        assertEquals(300L, SpotlightSources.timer("start timer 5")?.seconds)
+        assertEquals(600L, SpotlightSources.timer("10 min countdown")?.seconds)
+    }
 }

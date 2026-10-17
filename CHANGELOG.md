@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.71.0-uno01
+
+- **The news feed, restyled.** Story cards were grey Material slabs with a blue byline; they are now ink-tinted glass with the headline in 17 sp semibold, the summary at 15 sp, and the source and time in a muted 12 sp that no longer competes with the headline. Unread stories carry a small accent dot (read stories dim their text, not the whole card), the "new" count is a proper pill, a feed that fails to load shows its error in a tinted callout with a glass retry, and the search field and empty-page buttons are glass instead of stock Material. Feed settings rows get separators and a glass delete button.
+- **Spotlight learns to spell.** App names forgive a typo: "gmial" finds Gmail, "calndar" finds Calendar (ranked below exact and prefix matches, so good spelling still wins). "wifi settings", "bluetooth settings" and "screen brightness" now reach their settings pages, "countdown 5" starts the timer, and **Enter** does the smart thing — the top app if there is one, else your typed action, else the first matching contact, else a web search (Enter on "timer 10" used to web-search it). The action row sits under an "Action" header, an empty Spotlight teaches "Try 'timer 10', 'note buy milk', or '12+3'", and the letters you typed are bolded in app names. The All apps list rubber-bands at its ends like the feed.
+- **Grabs that land mid-flight.** Catching the island while it was collapsing snapped it back to collapsed; it now re-opens from the height you caught it at. Re-grabbing the rubber band at a list's edge while it sprang back snapped it to the edge; the curve now continues from where your finger met it.
+
 ## 0.70.0-uno01
 
 - **Uno Actions: type a command, the launcher does it.** In the island's search field, type `timer 10`, `stopwatch`, `note buy milk` (writes straight into your Note widget), `alarm in 20` or `alarm 7:30` (your clock app opens with the time filled in), `torch`, `focus` (or `focus on` / `focus off`), and — if you've turned on contacts in search — `call Mom` or `text Sam`, which show the matching contacts and open the dialer or messages app (the dialer is shown, never a call placed). Each action says what it will do before you tap it; everything runs on the phone, nothing is sent anywhere, and nothing new needs a permission.

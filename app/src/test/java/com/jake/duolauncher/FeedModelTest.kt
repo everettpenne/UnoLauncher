@@ -55,6 +55,28 @@ class FeedModelTest {
         assertTrue(Regex("[A-Z][a-z]{2} \\d{1,2}").matches(describeFeedAge(now, now - 20 * 86_400_000L)))
     }
 
+    @Test fun agesDescribeExactBoundaries() {
+        val now = 1_000_000_000_000L
+        assertEquals("59m ago", describeFeedAge(now, now - 59 * 60_000L))
+        assertEquals("1h ago", describeFeedAge(now, now - 60 * 60_000L))
+        assertEquals("23h ago", describeFeedAge(now, now - 23 * 3_600_000L))
+        assertEquals("yesterday", describeFeedAge(now, now - 24 * 3_600_000L))
+        assertEquals("yesterday", describeFeedAge(now, now - 47 * 3_600_000L))
+        assertEquals("2d ago", describeFeedAge(now, now - 48 * 3_600_000L))
+        assertEquals("6d ago", describeFeedAge(now, now - 6 * 86_400_000L))
+        // A week or more falls back to a calendar date, not a day count.
+        assertTrue(Regex("[A-Z][a-z]{2} \\d{1,2}").matches(describeFeedAge(now, now - 7 * 86_400_000L)))
+    }
+
+    @Test fun entryMetaDropsBlankPartsWithoutAStraySeparator() {
+        val now = 1_000_000_000_000L
+        assertEquals("Example News · 5m ago", describeEntryMeta("Example News", now, now - 5 * 60_000L))
+        assertEquals("Example News", describeEntryMeta("Example News", now, 0L))
+        assertEquals("5m ago", describeEntryMeta("   ", now, now - 5 * 60_000L))
+        assertEquals("Example News · just now", describeEntryMeta(" Example News ", now, now - 30_000L))
+        assertEquals("", describeEntryMeta("", now, 0L))
+    }
+
     @Test fun readLinksMoveNewestFirstDedupeAndCap() {
         assertEquals(listOf("b", "a"), mergeReadLinks(listOf("a"), "b"))
         assertEquals("a repeat stays put", listOf("a", "b"), mergeReadLinks(listOf("a", "b"), "a"))

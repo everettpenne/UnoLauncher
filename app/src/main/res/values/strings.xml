@@ -294,6 +294,8 @@
     <string name="spotlight_top_hit">Top hit · Enter opens it</string>
     <string name="spotlight_tap_to_copy">Tap to copy</string>
     <string name="spotlight_copied">Copied</string>
+    <string name="spotlight_actions">Action</string>
+    <string name="spotlight_try">Try “timer 10”, “note buy milk”, or “12+3”.</string>
     <string name="spotlight_search_web">Search the web for “%1$s”</string>
     <string name="move_page_earlier">Move this page earlier</string>
     <string name="move_page_later">Move this page later</string>

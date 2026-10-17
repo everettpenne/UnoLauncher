@@ -55,17 +55,27 @@ internal object SpotlightSources {
 
     private fun squash(text: String) = text.lowercase().filter { it.isLetterOrDigit() }
 
-    /** Settings pages whose name or alternative words start with what was typed (three letters or more), best matches first. */
+    /** Settings pages whose name or alternative words match what was typed (three letters or more), best matches first.
+     * Forgiving about how people phrase it: "wifi settings" finds Wi-Fi, "screen brightness" finds Display. */
     fun settings(query: String): List<SettingsShortcut> {
-        val q = squash(query)
+        val raw = query.trim().lowercase()
+        val q = squash(raw)
         if (q.length < 3) return emptyList()
+        // People append "settings"/"options" to a page name; drop the suffix so "wifi settings" finds Wi-Fi.
+        val core = q.removeSuffix("settings").removeSuffix("setting").removeSuffix("options")
+            .removeSuffix("preferences").removeSuffix("panel").removeSuffix("page")
+        if (core.length < 3) return emptyList()
+        val coreWords = raw.split(' ', '-').filter { it.length >= 2 }
         fun score(shortcut: SettingsShortcut): Int {
             val label = squash(shortcut.label)
+            val keywords = shortcut.keywords.map(::squash)
             return when {
-                label.startsWith(q) -> 0
-                shortcut.keywords.any { squash(it).startsWith(q) } -> 1
+                label.startsWith(core) -> 0
+                keywords.any { it.startsWith(core) } -> 1
+                // Every word of the query is a prefix of the name or one of its words ("screen brightness" -> Display).
+                coreWords.size >= 2 && coreWords.all { w -> label.startsWith(w) || keywords.any { it.startsWith(w) } } -> 1
                 // A typed phrase such as "screen lock" or "dark mode" matches as words, not as a run of letters.
-                shortcut.keywords.any { squash(it).contains(q) && q.length >= 4 } -> 2
+                keywords.any { it.contains(q) && q.length >= 4 } -> 2
                 else -> 3
             }
         }
@@ -74,8 +84,8 @@ internal object SpotlightSources {
 
     private val unit = """(s|sec|secs|seconds?|m|min|mins|minutes?|h|hr|hrs|hours?)"""
     private val number = """(\d+(?:\.\d+)?)"""
-    private val timerFirst = Regex("""^(?:set\s+)?(?:a\s+)?timer(?:\s+(?:for|of))?\s+$number\s*$unit?$""", RegexOption.IGNORE_CASE)
-    private val timerLast = Regex("""^(?:set\s+)?(?:a\s+)?$number\s*$unit\s+timer$""", RegexOption.IGNORE_CASE)
+    private val timerFirst = Regex("""^(?:(?:set|start|begin)\s+)?(?:a\s+)?(?:timer|countdown)(?:\s+(?:for|of))?\s+$number\s*$unit?$""", RegexOption.IGNORE_CASE)
+    private val timerLast = Regex("""^(?:(?:set|start|begin)\s+)?(?:a\s+)?$number\s*$unit\s+(?:timer|countdown)$""", RegexOption.IGNORE_CASE)
 
     /** "timer 5", "set a timer for 90 s", "10 min timer": minutes unless a unit is given. Null for anything else, or a length that makes no sense. */
     fun timer(query: String): QuickAction.Timer? {

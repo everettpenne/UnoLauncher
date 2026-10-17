@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.69.0-uno01
+
+- **Peek without the jitter.** Pulling the island down recomposed the whole island (faces and all) on nearly every touch event: 14 times for a 16-move pull, which is what stuttered. The island's height and width are now driven outside composition (a collector turns the pull, the peek and the open state into targets for two animations), so a pull changes layout and drawing only (a test holds it to six compositions for sixteen moves). Also fixed in the peek and the pull:
+  - the body no longer stretches and squashes with the finger's uneven speed, and does not press-squash under the finger while it is pulled (it jumped back when the drag took over the touch);
+  - the charging or timer ring no longer rings the whole peek panel, and the pop-out bubbles stay away from a peek (they hung off the panel's edge) and come back when it closes;
+  - while the body is narrower than the panel its text no longer shows cut off at the sides and blurred (the face waits until the body is nearly panel-wide), and while it is only part open the bottom of what is shown fades out instead of a line of text being cut in half;
+  - the peek rests with a little less space under its content, so no sliver of the next row shows.
+- **One accent.** Switches were iOS green while checkmarks, radios, sliders, buttons and chips were orange, and the chosen wallpaper card was lavender with a teal ring. They all take the launcher's one accent now (the wallpaper's, or orange), as do the News feed's chips and its "new" count. Status colours (charging, camera, a call) stay what they mean.
+- **No foldable references.** The README, the user guide, troubleshooting, the contributing notes, the design and architecture docs and the release-validation notes describe a phone and, where the layout differs, "a wide window"; the welcome sheet no longer says "foldable"; the Home layout presets are "Single page" and "Wide" (they were "Cover" and "Inner") and the extra left page is the "wide-screen page". The unfolded screenshot and the old welcome screenshot are gone from `docs/images`. Past changelog entries are left as they were.
+
 ## 0.68.0-uno01
 
 - **App names you can read.** On Home, an icon's name was white with a faint shadow and measured about 2.2:1 against the lighter parts of the dune wallpaper (the sand under Play Store, YouTube, Contacts). It is now 12 sp medium (was 11 regular) with a soft dark halo blurred behind it and a tighter shadow on top, and measures 2.9:1 at worst and 3.3:1 on average (was 2.6:1 average) on the same screen. Folder names use the same label. The halo copy is hidden from screen readers.

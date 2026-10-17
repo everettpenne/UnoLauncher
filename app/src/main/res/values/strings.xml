@@ -34,8 +34,8 @@
     <string name="add_widget_to_this_page">Add widget to this page</string>
     <string name="set_up_shade_gestures">Set up shade gestures</string>
     <string name="built_in_background">Built-in background</string>
-    <string name="cover">Cover</string>
-    <string name="inner">Inner</string>
+    <string name="cover">Single page</string>
+    <string name="inner">Wide</string>
     <string name="choose_home_apps">Choose Home apps</string>
     <string name="reset_this_layout">Reset this layout</string>
     <string name="replace">Replace</string>
@@ -161,7 +161,7 @@
 
     <!-- LayoutRestorePreview.kt -->
     <string name="review_restored_layout">Review restored layout</string>
-    <string name="includes_your_unfolded_only_page">Includes your unfolded-only page.</string>
+    <string name="includes_your_unfolded_only_page">Includes your wide-screen page.</string>
     <string name="this_also_restores_icon_layout_labels">This also restores icon layout, labels, search, and status settings.</string>
     <string name="widget_stacks_are_not_included_their">Widget stacks are not included; their widgets are tied to this phone.</string>
     <string name="your_selected_launcher_background_photo_is">Your selected launcher background photo is not included in layout backups.</string>
@@ -174,7 +174,7 @@
 
     <!-- SetupExperience.kt -->
     <string name="welcome_to_uno_launcher">Welcome to Uno Launcher</string>
-    <string name="a_quiet_home_screen_built_for">A quiet Home screen built for both sides of your foldable.</string>
+    <string name="a_quiet_home_screen_built_for">A quiet Home screen with liquid glass, a Dynamic island and a keyboard that keeps what you type to itself.</string>
     <string name="choose_home_app">Choose Home app</string>
     <string name="add_a_widget">Add a widget</string>
     <string name="explore_home">Explore Home</string>
@@ -378,10 +378,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">App names on Home are easier to read over any wallpaper, and the small text in the clock and date widgets is clearer.</string>
-    <string name="whats_new_2">New: double-tap an empty spot on Home to lock the screen (Launcher settings, Gestures &amp; feel).</string>
-    <string name="whats_new_3">Pull the small island down to peek, hold its bottom to keep it open, and find the notification you just missed for 30 seconds.</string>
-    <string name="whats_new_4">Navigation is large enough to read while driving, and the keyboard\'s autocorrect is smarter.</string>
+    <string name="whats_new_1">Pulling the island down to peek is smooth: it follows your finger with no jitter, and no cut-off text or stray ring.</string>
+    <string name="whats_new_2">Switches, chips and the chosen wallpaper now share one accent colour instead of green, teal and lavender beside orange.</string>
+    <string name="whats_new_3">Home layout presets are called Single page and Wide, and the welcome and docs no longer talk about foldables.</string>
+    <string name="whats_new_4">Double-tap an empty spot on Home to lock the screen, and app names are easier to read (0.68).</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

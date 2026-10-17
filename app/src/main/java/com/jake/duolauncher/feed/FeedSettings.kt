@@ -79,7 +79,7 @@ internal fun FeedSettings(
     Text(stringResource(com.jake.duolauncher.R.string.feed_keep_title), style = MaterialTheme.typography.titleSmall)
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         FEED_KEEP_CHOICES.forEach { keep ->
-            FilterChip(selected = feed.keepPerFeed == keep, onClick = { onKeepPerFeed(keep) }, label = { Text("$keep") },
+            GlassChip(selected = feed.keepPerFeed == keep, onClick = { onKeepPerFeed(keep) }, label = { Text("$keep") },
                 modifier = Modifier.testTag("feed-keep-$keep"))
         }
     }

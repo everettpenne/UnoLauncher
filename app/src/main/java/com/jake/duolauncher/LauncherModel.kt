@@ -645,20 +645,20 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         if (schema >= 8) {
             val leadingIds = rawLeadingSlots.filterNotNull()
             require(leadingIds.distinct().size == leadingIds.size) {
-                "An unfolded-only shortcut appears more than once"
+                "An wide-screen shortcut appears more than once"
             }
             val leadingApps = leadingIds.filterNot(::isReservedFolderId)
             val otherApps = rawSlots.filterNotNull().filterNot(::isReservedFolderId) +
                 loadedDock.filterNotNull() + folders.flatMap(FolderEntry::appIds)
             require(leadingApps.none { it in otherApps }) {
-                "An unfolded-only app shortcut appears on another surface"
+                "An wide-screen app shortcut appears on another surface"
             }
             val occupiedLeadingCells = rawLeadingSlots.indices
                 .filterTo(mutableSetOf()) { rawLeadingSlots[it] != null }
                 .mapTo(mutableSetOf()) { homeCellIndex(-1, it) }
             require(placements.filter { it.page == -1 }.none { placement ->
                 placement.coveredIndices().any { it in occupiedLeadingCells }
-            }) { "An unfolded-only shortcut overlaps a widget" }
+            }) { "An wide-screen shortcut overlaps a widget" }
         }
         val restores = if (schema >= 7) {
             val array = j.optJSONArray("restores") ?: JSONArray()

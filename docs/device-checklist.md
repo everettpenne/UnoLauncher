@@ -26,6 +26,8 @@ Build under test: the latest release (see Launcher settings, Updates).
 - [ ] **Camera and microphone row.** Open the camera app, then open the island. *Expect:* a green camera mark and "Camera in use" with how long. If Usage access is allowed, "Started with <app> in front". Tap Review. *Expect:* Android's privacy settings.
 - [ ] **Bluetooth alerts.** Switch on Bluetooth device alerts and allow Nearby devices. Connect a watch or a car. *Expect:* its name flashes, "connected". Headphones should be announced once, by the audio alert.
 - [ ] **Pull to peek (Pixel 10a).** Tap and hold the small island, drag down. *Expect:* it follows your finger, and when you let go it holds as a peek showing the time. Drag the peek further down to open it; swipe up to close it; wait five seconds and it tucks away. Tell us if Android's shade takes the drag from you.
+- [ ] **A smooth pull.** Drag the small island down slowly, then quickly, and let go at different heights. *Expect:* the island follows your finger without shaking, nothing stretches or squashes under it, no ring or bubbles ride the peek, and on release it settles into the peek without a jump. Tell us if anything still twitches.
+- [ ] **One accent.** Open a settings page with switches, checkboxes and chips. *Expect:* they share one accent colour (orange unless your wallpaper gives another).
 - [ ] **Hold it open.** Open the island, then rest a finger on its bottom edge (the handle). *Expect:* a tick, and it stays open for as long as you hold, then closes a few seconds after you let go. It must not open the timer tools or press the Search / Feed / Settings button under your finger.
 - [ ] **A recent notification.** With card notifications on, message yourself, let the card go away, then tap the island within 30 seconds. *Expect:* a dot in the app's colour on the pill, and the notification (with Reply) under the time. After 30 seconds it is gone.
 - [ ] **Navigation while driving.** Start a route in Organic Maps. *Expect:* a very large arrow, distance and street on the open island and on each turn's card, and a larger arrow and distance on the pill. Tell us if it is still too small, or too big, from where your phone sits in the car.
@@ -53,7 +55,7 @@ Build under test: the latest release (see Launcher settings, Updates).
 ## D. Wallpapers
 
 - [ ] **Each built-in wallpaper, day and night.** Wallpaper & glass, pick each of the six. *Expect:* it appears within a couple of seconds; tell us if any takes long. At night the very top should be pure black around the camera, with the island emerging from it.
-- [ ] **Also set home and lock screen.** Turn it on. *Expect:* your Android home and lock screens change to the same picture, cropped sensibly on the cover and inner screens of the Fold.
+- [ ] **Also set home and lock screen.** Turn it on. *Expect:* your Android home and lock screens change to the same picture, cropped sensibly.
 
 ## E. Backup and updates
 

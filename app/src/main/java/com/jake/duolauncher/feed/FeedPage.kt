@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.RssFeed
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.jake.duolauncher.panel.IosOrange
 import androidx.compose.ui.composed
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
@@ -99,10 +100,11 @@ private fun FeedPageBody(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (feed.unreadCount > 0) {
-                    Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primary,
+                    val accent = LocalWallpaperAccent.current
+                    Surface(shape = RoundedCornerShape(50), color = accent?.accent ?: IosOrange,
                         modifier = Modifier.testTag("feed-new-count")) {
                         Text("${feed.unreadCount} new", Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall)
+                            color = accent?.ink ?: Color.Black, style = MaterialTheme.typography.labelSmall)
                     }
                     Spacer(Modifier.width(8.dp))
                 }
@@ -237,15 +239,16 @@ private fun FeedFilters(
             singleLine = true, placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_feed)) },
             leadingIcon = { Icon(Icons.Rounded.Search, null) })
         Row(Modifier.ownsHorizontalDrag().horizontalScroll(rememberScrollState()).testTag("feed-filters"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            FilterChip(selected = selected == null, onClick = { onSelect(null) },
+            GlassChip(selected = selected == null, onClick = { onSelect(null) },
                 label = { Text(stringResource(com.jake.duolauncher.R.string.feed_all)) },
                 modifier = Modifier.testTag("feed-filter-all"))
-            if (savedCount > 0 || savedOnly) FilterChip(selected = savedOnly, onClick = { onSavedOnly(!savedOnly) },
-                label = { Text(stringResource(com.jake.duolauncher.R.string.feed_saved_chip, savedCount)) },
-                leadingIcon = { Icon(Icons.Rounded.Bookmark, null, Modifier.size(16.dp)) },
+            if (savedCount > 0 || savedOnly) GlassChip(selected = savedOnly, onClick = { onSavedOnly(!savedOnly) },
+                label = { Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Bookmark, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp))
+                    Text(stringResource(com.jake.duolauncher.R.string.feed_saved_chip, savedCount)) } },
                 modifier = Modifier.testTag("feed-filter-saved"))
             sources.forEach { source ->
-                FilterChip(selected = selected == source.id, onClick = { onSelect(source.id) },
+                GlassChip(selected = selected == source.id, onClick = { onSelect(source.id) },
                     label = { Text(source.label) },
                     modifier = Modifier.testTag("feed-filter-${source.id}"))
             }

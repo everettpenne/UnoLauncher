@@ -46,7 +46,7 @@ internal object BackupCheck {
         val problems = mutableListOf<String>()
         if (read.missingApps.isNotEmpty()) problems += "${plural(read.missingApps.size, "app")} could not be matched when read back"
         if (normalizeHomeSlots(before.slots) != normalizeHomeSlots(after.slots)) problems += "the Home apps differ"
-        if (before.slotsForPage(-1) != after.slotsForPage(-1)) problems += "the unfolded-only page differs"
+        if (before.slotsForPage(-1) != after.slotsForPage(-1)) problems += "the wide-screen page differs"
         if (before.dock != after.dock) problems += "the dock differs"
         if (before.folders != after.folders) problems += "the folders differ"
         fun shape(p: WidgetPlacement) = listOf(p.slot, p.page, p.column, p.row, p.spanX, p.spanY)

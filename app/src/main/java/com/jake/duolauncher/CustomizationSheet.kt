@@ -385,12 +385,14 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { builtin ->
                     val active = builtin == selected
+                    // The chosen wallpaper wears the launcher's one accent (it was Material's lavender container and a teal ring).
+                    val accent = LocalWallpaperAccent.current?.accent ?: IosOrange
                     Surface(onClick = { onSelect(builtin) },
                         modifier = Modifier.weight(1f).heightIn(min = 148.dp).testTag("builtin-${builtin.name.lowercase()}"),
                         shape = Corner.medium,
-                        color = if (active) MaterialTheme.colorScheme.primaryContainer
+                        color = if (active) accent.copy(alpha = .16f)
                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .52f),
-                        border = if (active) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
+                        border = if (active) BorderStroke(2.dp, accent) else null) {
                         Column(Modifier.padding(6.dp)) {
                             Box(Modifier.fillMaxWidth().height(112.dp).clip(Corner.small)) { BuiltinPreview(builtin, dark) }
                             // Two lines, so "Dune glass" and "Dune range" stay distinct at large text sizes.
@@ -431,8 +433,8 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     Text("Widgets · Page ${homePage + 1}", style = MaterialTheme.typography.titleMedium)
     state.widgetPlacements.filter { it.page == homePage || (wide && it.page == -1) }.forEach { placement ->
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (placement.page == -1) "Unfolded-only page" else "${placement.spanX} × ${placement.spanY} widget · row ${placement.row + 1}", Modifier.weight(1f))
-            IconButton(onClick = { onRemoveWidget(placement.slot) }, modifier = Modifier.semantics { contentDescription = if (placement.page == -1) "Remove widget from Unfolded-only page" else "Remove widget" }) { Icon(Icons.Rounded.DeleteOutline, null) }
+            Text(if (placement.page == -1) "Wide-screen page" else "${placement.spanX} × ${placement.spanY} widget · row ${placement.row + 1}", Modifier.weight(1f))
+            IconButton(onClick = { onRemoveWidget(placement.slot) }, modifier = Modifier.semantics { contentDescription = if (placement.page == -1) "Remove widget from Wide-screen page" else "Remove widget" }) { Icon(Icons.Rounded.DeleteOutline, null) }
             GlassButton(onClick = { onWidget(placement.slot) }) { Text(stringResource(com.jake.duolauncher.R.string.replace)) }
         }
     }

@@ -74,6 +74,7 @@ import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -106,7 +107,10 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import kotlin.math.roundToInt
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -347,6 +351,9 @@ private fun Modifier.islandBody(
     )
 }
 
+/** What the island is heading for: a finger's pull, the open panel, the peek (and how far it rests). The animation follows changes in this. */
+private data class IslandTarget(val pull: Float?, val expanded: Boolean, val peeked: Boolean, val peek: Float)
+
 /** Counts how often the island composes, so a test can hold the morph to a handful of compositions instead of one per frame. */
 internal object IslandDiagnostics { @Volatile var compositions = 0 }
 
@@ -494,18 +501,34 @@ internal fun DynamicIsland(
     // These are kept as State and read only where the island lays out and draws (see frameState below), never in composition. Reading them
     // here recomposed the whole island, with all its faces, on every frame of the morph.
     //
-    // The target is the whole panel (1), the peek (a fraction, worked out from what the panel holds), nothing (0), or wherever the finger has pulled
-    // it. The peek's size is known only once the panel's content is, further down; the last value is carried here in [peekAt] (a plain holder, not
-    // state, so reading it recomposes nothing). The widths come out sooner than the heights: a peek is already panel-wide, only not as tall.
-    val peekAt = remember { floatArrayOf(.5f) }
-    val pull = state.pullFraction
-    val heightTarget = pull ?: if (state.expanded) 1f else if (state.peeked) peekAt[0] else 0f
-    val widthTarget = if (pull != null) (pull * 2.5f).coerceAtMost(1f) else if (state.expanded || state.peeked) 1f else 0f
-    val opening = state.expanded || state.peeked
-    val progressState = animateFloatAsState(heightTarget,
-        if (!animationsOn || pull != null) snap() else if (opening) theme.heightSpring() else theme.closeSpring(), label = "island expand")
-    val widthState = animateFloatAsState(widthTarget,
-        if (!animationsOn || pull != null) snap() else if (opening) theme.widthSpring() else theme.closeSpring(), label = "island expand width")
+    // The target is the whole panel (1), the peek (a fraction, worked out from what the panel holds), nothing (0), or wherever the finger has
+    // pulled it. The peek's size is known only once the panel's content is, further down, so it arrives through [peekState] (set after composition).
+    // The widths come out sooner than the heights: a peek is already panel-wide, only not as tall.
+    //
+    // The animation runs outside composition: a collector turns the state (a pull, expanded, peeked) into targets and drives two Animatables, so a
+    // finger dragging the island changes layout and drawing only. Reading the pull in composition (as this did) recomposed the whole island,
+    // faces and all, on nearly every touch event, which is what made a pull stutter.
+    val peekState = remember { mutableFloatStateOf(.5f) }
+    val progress = remember { Animatable(if (state.expanded) 1f else 0f) }
+    val widthAnim = remember { Animatable(if (state.expanded) 1f else 0f) }
+    val progressState = progress.asState()
+    val widthState = widthAnim.asState()
+    LaunchedEffect(theme, animationsOn) {
+        snapshotFlow { IslandTarget(state.pullFraction, state.expanded, state.peeked, peekState.floatValue) }.collectLatest { t ->
+            val height = t.pull ?: if (t.expanded) 1f else if (t.peeked) t.peek else 0f
+            val wide = if (t.pull != null) (t.pull * 2.5f).coerceAtMost(1f) else if (t.expanded || t.peeked) 1f else 0f
+            if (!animationsOn || t.pull != null) { progress.snapTo(height); widthAnim.snapTo(wide) }
+            else {
+                val opening = t.expanded || t.peeked
+                coroutineScope {
+                    launch { progress.animateTo(height, if (opening) theme.heightSpring() else theme.closeSpring()) }
+                    launch { widthAnim.animateTo(wide, if (opening) theme.widthSpring() else theme.closeSpring()) }
+                }
+            }
+        }
+    }
+    // True while a finger is pulling the island; read in composition, it changes twice per pull instead of on every move.
+    val pulling by remember { derivedStateOf { state.pullFraction != null } }
     // A coupled motion (jelly) takes its width from its height, the opposite way; the others spring the width on its own.
     val coupling = theme.motion.coupling
     // What is written on the body appears once the body is open in both directions, so a droplet that has dropped but not yet spread
@@ -519,9 +542,15 @@ internal fun DynamicIsland(
     val showOpenFace by remember(coupling) { derivedStateOf { revealState.value > .08f } }
     val collapsedAlpha = remember(coupling) { { (1f - revealState.value / .3f).coerceIn(0f, 1f) } }
     // The face is fully there by the time the body is as open as the peek rests (and no later than 40 %), so a held peek is never half faded.
+    //
+    // The face is also held back until the body is nearly as wide as the panel: it is laid out at the panel's width, so in a narrower body its
+    // first words were cut off at the sides (and blurred), as the island opened.
     val expandedAlpha = remember(coupling) { {
-        val end = minOf(.4f, peekAt[0] * .92f)
-        ((revealState.value - (end - .2f)) / .2f).coerceIn(0f, 1f)
+        val end = minOf(.4f, peekState.floatValue * .92f)
+        val tall = ((revealState.value - (end - .2f)) / .2f).coerceIn(0f, 1f)
+        val p = progressState.value
+        val wide = ((if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value) - .72f) / .28f
+        tall * wide.coerceIn(0f, 1f)
     } }
     val pastHalfOpen by remember { derivedStateOf { progressState.value >= .5f } }
     val flashActive = state.flashTitle != null
@@ -638,7 +667,7 @@ internal fun DynamicIsland(
             extraBodyDp = extraBody, extraWidthDp = eventWidthState.value, compactness = compactnessState.value, heightProgress = p)
     } }
     // How far open the peek rests: enough of the open panel to read its top (the time, then its first row, if it has one). The animation above
-    // reads this through [peekAt], so the panel's own content decides how much a peek shows.
+    // reads this through [peekState], so the panel's own content decides how much a peek shows.
     run {
         val collapsedHeight = IslandGeometry.frame(environment, d, 0f, sizeScale).height
         val firstRowDp = when {
@@ -651,15 +680,17 @@ internal fun DynamicIsland(
         }
         val faceTopPx = openFrame.hole?.bottom ?: collapsedHeight
         val wanted = (faceTopPx / d + 6f + 44f + firstRowDp + 10f) * d
-        peekAt[0] = ((wanted - collapsedHeight) / (openFrame.height - collapsedHeight).coerceAtLeast(1f)).coerceIn(.25f, .85f)
+        val fraction = ((wanted - collapsedHeight) / (openFrame.height - collapsedHeight).coerceAtLeast(1f)).coerceIn(.25f, .85f)
+        SideEffect { peekState.floatValue = fraction }
     }
     // What the touch window is told. It used to follow the island's size on every animation frame, which is a call to the window
     // manager per frame while the island opens and closes. Now it is told the size the island is heading for as soon as a change
     // starts, and kept at the largest size seen until the animation has settled, then snapped to the settled size.
     val headingFor = remember(environment, d, sizeScale, extraBody, state.expanded, state.peeked, eventTargetDp, compactTarget) {
-        IslandGeometry.frame(environment, d, if (state.expanded) 1f else if (state.peeked) peekAt[0] else 0f, sizeScale, extraBodyDp = extraBody,
+        IslandGeometry.frame(environment, d, if (state.expanded) 1f else if (state.peeked) peekState.floatValue else 0f, sizeScale, extraBodyDp = extraBody,
             extraWidthDp = eventTargetDp, compactness = compactTarget) }
     val reported = remember { arrayOfNulls<IslandFrame>(1) }
+    val bodyFade = remember(openFrame, d) { BodyFade({ frameState.value.height }, openFrame.height, 10f * d) }
     val morphSpeed = remember { MorphVelocity() }
     val squashGain = ((theme.motion.pulse - 1f).coerceIn(0f, .3f) / .1f).coerceAtLeast(.25f)
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
@@ -678,7 +709,7 @@ internal fun DynamicIsland(
     val flameAnimated = isPlaying && mediaVisible && animationsOn
     val flameT by rememberFlameClock(flameAnimated)
     // A progress ring around the collapsed pill: a running timer, or the battery level while charging.
-    val ring = IslandRingLogic.choose(flashActive, pastHalfOpen || state.expanded, IslandTools.ringing,
+    val ring = IslandRingLogic.choose(flashActive, pastHalfOpen || state.expanded || state.peeked || pulling, IslandTools.ringing,
         IslandTools.timerActive, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
         deviceStatus.charging == true, deviceStatus.battery, IslandThemes.active.timer, IslandThemes.active.charging, state.flashTint)
     // A new event gives the island a small spring pulse, like iOS's.
@@ -695,8 +726,8 @@ internal fun DynamicIsland(
         if (state.flashTitle != null) { delay(2600); state.advanceFlash() }
     }
     // An idle open island tucks itself back in. A finger resting on its bottom holds it open, and a pull in progress is not idle.
-    LaunchedEffect(state.expanded, state.peeked, state.pullFraction == null, state.holdingOpen, IslandTools.toolsOpen, IslandTools.interactions, isPlaying, state.peekKey, state.peekEditing) {
-        if (state.holdingOpen || state.pullFraction != null) return@LaunchedEffect
+    LaunchedEffect(state.expanded, state.peeked, pulling, state.holdingOpen, IslandTools.toolsOpen, IslandTools.interactions, isPlaying, state.peekKey, state.peekEditing) {
+        if (state.holdingOpen || pulling) return@LaunchedEffect
         // The peek is only a glance: it goes by itself after a few seconds.
         if (state.peeked && !state.expanded) { delay(PeekPull.HOLD_MS); state.peeked = false; return@LaunchedEffect }
         // Longer while music plays, since that is when the buttons are being used; any button press restarts the wait. A notification card
@@ -766,7 +797,7 @@ internal fun DynamicIsland(
         // The island's window-pixel position, translated into this parent's own frame. The
         // everywhere-overlay positions its window itself and renders the island at the origin.
         // Pop-out bubbles beside the collapsed pill for the live activities that do not fit in it.
-        val bubbleKinds = if (state.expanded || flashActive || IslandTools.ringing) emptyList() else IslandBubbles.extras(liveKinds)
+        val bubbleKinds = if (state.expanded || state.peeked || pulling || flashActive || IslandTools.ringing) emptyList() else IslandBubbles.extras(liveKinds)
         // Camera, microphone and screen recording are dots beside the pill, always, and not activities: the pill and the bubbles show what
         // the person is doing, the dots show what the phone is doing. The bubbles start after the dots.
         val privacyKinds = IslandLive.privacy(state.cameraActive, state.micActive, state.recordingActive)
@@ -841,8 +872,8 @@ internal fun DynamicIsland(
         val islandTouch = remember { MutableInteractionSource() }
         val islandPressed by islandTouch.collectIsPressedAsState()
         val squash = IslandThemes.active.motion.pulse - 1f
-        val pressX by animateFloatAsState(if (islandPressed) 1f + squash * .55f else 1f, IslandThemes.active.spring(.4f, 500f), label = "island press x")
-        val pressY by animateFloatAsState(if (islandPressed) 1f - squash * .45f else 1f, IslandThemes.active.spring(.4f, 500f), label = "island press y")
+        val pressX by animateFloatAsState(if (islandPressed && !pulling) 1f + squash * .55f else 1f, IslandThemes.active.spring(.4f, 500f), label = "island press x")
+        val pressY by animateFloatAsState(if (islandPressed && !pulling) 1f - squash * .45f else 1f, IslandThemes.active.spring(.4f, 500f), label = "island press y")
         Box(Modifier
             .offset { val frame = frameState.value; if (anchoredToWindow) {
                 androidx.compose.ui.unit.IntOffset(
@@ -854,7 +885,11 @@ internal fun DynamicIsland(
                 // The morph's own speed stretches it a little as it opens (taller, narrower) and squashes it as it closes, so it moves like a
                 // body of liquid with volume rather than a rectangle being resized. Calm themes barely move; jelly ones wobble.
                 val settledAt = if (state.expanded) 1f else 0f
-                val stretch = if (animationsOn) MorphVelocity.stretch(morphSpeed.update(progressState.value, System.nanoTime(), settledAt), squashGain) else 0f
+                // A finger drives the morph while pulling, and its speed is the finger's (uneven from one touch event to the next), so there is
+                // no stretch then; the speed is told to rest so it does not carry into the release.
+                val fingerDriven = state.pullFraction != null
+                val stretch = if (animationsOn && !fingerDriven) MorphVelocity.stretch(morphSpeed.update(progressState.value, System.nanoTime(), settledAt), squashGain)
+                    else { morphSpeed.update(progressState.value, System.nanoTime(), progressState.value); 0f }
                 scaleX = pulse.value * pressX * (1f - stretch * .8f); scaleY = pulse.value * pressY * (1f + stretch)
             }
             .islandSized { frameState.value }
@@ -883,7 +918,7 @@ internal fun DynamicIsland(
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val canPull = !state.expanded && !flashActive && state.peekCard == null
                     val canHold = (state.expanded || state.peeked) && HoldOpen.inZone(down.position.y, size.height.toFloat(), d)
-                    val pullFrom = if (state.peeked) peekAt[0] else 0f
+                    val pullFrom = if (state.peeked) peekState.floatValue else 0f
                     var moved = false
                     var pulling = false
                     var holding = false
@@ -906,7 +941,7 @@ internal fun DynamicIsland(
                             if (!moved && (abs(delta.x) > slop || abs(delta.y) > slop)) moved = true
                             if (canPull && moved && !pulling && delta.y > pullSlop && delta.y > abs(delta.x)) pulling = true
                             if (pulling) {
-                                state.pullFraction = PeekPull.fraction(delta.y, d, peekAt[0], from = pullFrom)
+                                state.pullFraction = PeekPull.fraction(delta.y, d, peekState.floatValue, from = pullFrom)
                                 change.consume()
                             } else if (moved && !(state.expanded && abs(delta.x) > abs(delta.y))) change.consume()
                             if (!change.pressed) break
@@ -916,7 +951,7 @@ internal fun DynamicIsland(
                         if (pulling) {
                             val fraction = state.pullFraction ?: 0f
                             state.pullFraction = null
-                            when (PeekPull.outcome(fraction, peekAt[0])) {
+                            when (PeekPull.outcome(fraction, peekState.floatValue)) {
                                 PeekPull.Outcome.COLLAPSE -> state.collapse()
                                 PeekPull.Outcome.PEEK -> { UnoFeedback.play(Cue.TICK, haptic); state.peeked = true }
                                 PeekPull.Outcome.OPEN -> { UnoFeedback.play(Cue.OPEN, haptic); state.peeked = false; state.expanded = true }
@@ -1016,13 +1051,13 @@ internal fun DynamicIsland(
                 CollapsedFace(frameState, d, collapsedAlpha, animationsOn, leading, trailing)
             }
             // Tools face (long press): timer, stopwatch, flashlight.
-            if (showOpenFace && toolsShown) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn)
+            if (showOpenFace && toolsShown) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
                 IslandToolsFace(clockMs, torch)
             }
             // A new notification as a card: icon, who or what, and the text if the level allows. Tap opens it; swipe up or wait to dismiss.
             peekShown?.let { peek ->
-                if (showOpenFace) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn)
+                if (showOpenFace) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)
                     // The app's colour glows out from behind its icon into the island's own black. It is drawn across the whole body, before
                     // the padding, so it has no card edge of its own: the notification is part of the island, not a panel laid on it.
                     .then(IslandThemes.active.wash(peek.packageName, peek.tint)?.let { c -> Modifier.drawBehind {
@@ -1060,7 +1095,7 @@ internal fun DynamicIsland(
             if (state.expanded || state.peeked) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp).size(width = 34.dp, height = 4.dp)
                 .clip(CircleShape).background(themeInk.copy(alpha = if (state.holdingOpen) .85f else .22f)).testTag("island-hold-handle"))
             // Expanded face: live panel, starting below the camera hole.
-            if (showOpenFace && !toolsShown && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn)
+            if (showOpenFace && !toolsShown && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop).testTag("island-main-face")) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -1233,10 +1268,31 @@ private fun RecentNotificationRow(peek: PeekNotification, state: IslandState, ca
     }
 }
 
+/** Where the island's body ends while it is only part open (a pull, a peek): the face is laid out at its full size and the body clips it, which cuts
+ * a line of text in half at the edge. [bodyHeightPx] is the body's height now, [fullHeightPx] its height fully open, [fadePx] how far above the
+ * edge the face fades out.
+ */
+private class BodyFade(val bodyHeightPx: () -> Float, val fullHeightPx: Float, val fadePx: Float)
+
+/** Fades what is drawn out over the last [BodyFade.fadePx] above the body's bottom edge, only while the body is shorter than its full height. */
+private fun Modifier.fadeAtBodyBottom(fade: BodyFade): Modifier = drawWithContent {
+    val bottom = fade.bodyHeightPx()
+    if (bottom >= fade.fullHeightPx - 1f) { drawContent(); return@drawWithContent }
+    drawIntoCanvas { canvas ->
+        val bounds = androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height)
+        canvas.saveLayer(bounds, androidx.compose.ui.graphics.Paint())
+        drawContent()
+        drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(
+            0f to Color.Black, ((bottom - fade.fadePx) / size.height).coerceIn(0f, 1f) to Color.Black, (bottom / size.height).coerceIn(0f, 1f) to Color.Transparent,
+            1f to Color.Transparent), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+        canvas.restore()
+    }
+}
+
 /** Brings a face in and out of the island as it morphs: it fades, grows from a little smaller and sharpens out of a blur as the body opens around it,
  * and does the reverse as it closes. (iOS does the same: the content is part of the liquid, not a picture laid over it.) With animations off it only fades.
  */
-private fun Modifier.morphFace(alphaOf: () -> Float, blurOk: Boolean): Modifier = graphicsLayer {
+private fun Modifier.morphFace(alphaOf: () -> Float, blurOk: Boolean, fade: BodyFade? = null): Modifier = then(if (fade == null) Modifier else Modifier.fadeAtBodyBottom(fade)).graphicsLayer {
     val a = alphaOf()
     alpha = a
     val scale = if (blurOk) .94f + .06f * a else 1f

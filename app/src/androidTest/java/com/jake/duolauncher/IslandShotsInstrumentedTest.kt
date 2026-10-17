@@ -163,4 +163,16 @@ class IslandShotsInstrumentedTest {
         compose.mainClock.autoAdvance = true
         compose.runOnIdle { NotificationFeed.liveUpdates = emptyList() }
     }
+
+    @Test fun pullFrames() {
+        show()
+        compose.mainClock.autoAdvance = false
+        for ((i, f) in listOf(.05f, .12f, .2f, .3f, .4f, .55f, .8f).withIndex()) {
+            compose.runOnIdle { state.pullFraction = f }
+            compose.mainClock.advanceTimeBy(100); Thread.sleep(500)
+            takeShot("20-pull-$i")
+        }
+        compose.runOnIdle { state.pullFraction = null; state.collapse() }
+        compose.mainClock.autoAdvance = true
+    }
 }

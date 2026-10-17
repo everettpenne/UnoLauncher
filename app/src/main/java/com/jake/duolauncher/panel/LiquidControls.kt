@@ -221,7 +221,9 @@ internal fun LiquidSwitchControl(
     val latestChecked by rememberUpdatedState(checked)
     val latestChange by rememberUpdatedState(onCheckedChange)
     LaunchedEffect(checked) { if (!dragging) position.animateTo(if (checked) 1f else 0f, spring(.7f, 380f, .001f)) }
-    val accent = LocalWallpaperAccent.current?.accent ?: IosGreen
+    // The same accent as every other selected control (buttons, chips, checkboxes, sliders): the wallpaper's, or orange. It was iOS green here,
+    // so a settings page showed green switches beside orange checkmarks.
+    val accent = LocalWallpaperAccent.current?.accent ?: IosOrange
     val trackOff = IosGrey.copy(alpha = .38f)
     val trackBackdrop = rememberLayerBackdrop()
 

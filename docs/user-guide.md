@@ -1,6 +1,6 @@
 # Uno Launcher user guide
 
-Uno Launcher is an experimental Android launcher designed around a foldable phone, a four-column Home grid, and a four-position dock on the right. The cover shows one Home page at a time. Unfolding adds an editable workspace on the left: the first view pairs that workspace with Home 1, followed by Home 1 + Home 2, Home 2 + Home 3, and so on.
+Uno Launcher is an experimental Android launcher designed around a phone, a four-column Home grid, and a four-position dock on the right. A phone shows one Home page at a time. On a wide window it adds an editable workspace on the left: the first view pairs that workspace with Home 1, followed by Home 1 + Home 2, Home 2 + Home 3, and so on.
 
 ## Start and switch launchers
 
@@ -14,7 +14,7 @@ To make Uno Launcher the launcher, choose **Set as home app** in Launcher settin
 - Swipe right from Home 1 for **My feed** (or Google Discover where the Google app is installed and you haven't chosen the feed). On a fresh install the feed page is empty: it offers the GrapheneOS announcements and release feeds, and nothing is contacted until you tap one. Swipe left, press Back, or use its right-pointing arrow to return.
 - Swipe past the last Home page for **All apps**. Its **Search apps** field always searches installed apps locally.
 - The dock and its search control stay on the right. The page controls also open Discover or All apps.
-- Pressing the system Home control from an app returns to the Home page or unfolded pair you last had visible. From All apps, search, or Discover it returns to the last Home view.
+- Pressing the system Home control from an app returns to the Home page or pair of pages you last had visible. From All apps, search, or Discover it returns to the last Home view.
 
 ## Customize Home
 

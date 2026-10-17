@@ -91,25 +91,25 @@ packages intact so users can identify exactly what they installed.
 
 ## Beta 0.15.0-beta01 validation
 
-This is an experimental Fold beta, not a general Android compatibility certification.
+This is an experimental beta, not a general Android compatibility certification.
 
 | Environment | Checked scope |
 | --- | --- |
-| Galaxy Fold8, Android 17, inner display | Same-signer personal upgrade, actual live Discover and return to Home; all 12 widget bindings and launcher preferences preserved |
-| Pixel Fold emulator, Android 17, cover and inner Fold dimensions | 44 focused checks covering setup, customization, photo recovery, native widget gestures, Home return, and retained Discover motion; all passed |
+| A physical phone, Android 17, in a wide window | Same-signer personal upgrade, actual live Discover and return to Home; all 12 widget bindings and launcher preferences preserved |
+| Phone emulator, Android 17, single-page and wide window sizes | 44 focused checks covering setup, customization, photo recovery, native widget gestures, Home return, and retained Discover motion; all passed |
 | Fresh Android 15 emulator, signed release | Populated 0.14.7-to-beta upgrade, native Clock setup/binding preservation, cold start and reboot, welcome at larger text size, Android Home selection, large-font Help, shade-access cancellation, and local search/Discover recovery with Google disabled |
 
 The Android 15 emulator's bundled Google app did not supply a Discover feed. The recovery view
 and return to Home worked; this environment establishes fallback behavior, not live-feed support.
-The physical Fold uses a developer-signed build to preserve its existing installation. The public
+The physical phone uses a developer-signed build to preserve its existing installation. The public
 signer's optimized APK was exercised separately on the disposable Android 15 emulator.
 
 The source passed 136 local unit tests and lint with no errors (75 warnings). A clean allowlisted
 export built independently without the private workspace's SDK configuration or research module.
 The GitHub workflow is supplied but has not yet run remotely.
 
-Still needed: another physical Fold/vendor combination, a real SIM-equipped device, and longer
-release performance and battery testing. The reference Fold has no SIM, so its unavailable cellular
+Still needed: another physical device and vendor, a real SIM-equipped device, and longer
+release performance and battery testing. The reference phone has no SIM, so its unavailable cellular
 indicator is expected. Emulator results do not establish physical animation smoothness.
 
 ## Automated CI releases

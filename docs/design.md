@@ -5,7 +5,7 @@ single source of truth for the numbers. When a new surface or control is added, 
 pull from these scales instead of inventing its own values — ad-hoc numbers are how
 overlaps happen.
 
-- **Behavior follows Android:** window insets, display cutouts, foldable posture, 48 dp
+- **Behavior follows Android:** window insets, display cutouts, window size, 48 dp
   touch targets, edge-to-edge. These are not style choices.
 - **Look follows Apple's HIG:** continuous corners, the dynamic island, iOS control
   colors, liquid glass. Deviations from Material are intentional and listed here.
@@ -117,7 +117,7 @@ the feed page and the native Google Discover window all use `PageIndicatorLayout
 ## Home geometry
 
 - Grid: 4 columns × 6 rows; dock: 4 slots.
-- Presets (Launcher settings → Home layout, per cover/inner):
+- Presets (Launcher settings → Home layout, per single-page and wide layout):
   icon size 40–68 dp, row gap 0–28 dp, dock width 56–84 dp, dock height on screen
   25–75% (or aligned to rows).
 - Pager inset math: `pagerWidth = maxWidth - dockWidth - 28 dp`; the pager runs under
@@ -149,7 +149,7 @@ Per-surface tint and blur (alpha over the theme/derived tint):
 
 ## Island geometry (`IslandGeometry.kt`)
 
-Window-pixel pure layout, re-read from live insets on every layout (rotation/fold safe).
+Window-pixel pure layout, re-read from live insets on every layout (rotation safe).
 Cutout = the camera hole nearest the top-center, **tightened to the visible hole** using
 `DisplayCutout.cutoutPath`. Android reports a bounding *rectangle* that is often much taller
 than the hole and starts at y = 0; sizing from it made the pill run to the top of the screen
@@ -289,9 +289,9 @@ Audited against: 16 dp edge margins, ≥ 8 dp sibling gaps, 8 dp grid.
 | Feed entry spacing | `spacedBy(10.dp)` | off-grid; use 8 or 12 dp |
 | Sheet body | `horizontal 20 dp, spacedBy(10.dp)` | off-grid; use 16 / 8 dp |
 | No-cutout island top | `statusBarHeight + 4.dp` | below the 8 dp rule; use 8 dp |
-| Island expanded width | 336 dp fixed | overlaps the rail on cover widths (see below) |
+| Island expanded width | 336 dp fixed | overlaps the rail on phone widths (see below) |
 
-**Top-strip collision:** on a 411 dp cover display the expanded island spans
+**Top-strip collision:** on a 411 dp phone display the expanded island spans
 ≈ 37–374 dp while the rail starts at ≈ 315 dp — a ≈ 30–58 dp overlap (depending on dock width). Fix when next
 editing `IslandGeometry`: cap the expanded width at
 `screenWidth − 2 × (dockWidth + 16 dp)`, or fade the rail while the island is expanded.
@@ -370,7 +370,7 @@ Showing results from F-Droid, Aurora or the web inside Uno would mean Uno contac
 
 ## Uno Keyboard
 
-`keyboard/KeyboardModel.kt` holds every typing rule with no Android classes (pages and rows, shift off/once/locked, caps from the editor's cursor-caps mode, double-space full stop, Return kind from the IME action, password and number-field detection, accent sets) and is unit-tested. `UnoKeyboardService` is an `InputMethodService` that hosts Compose: an input method has no lifecycle owner, so the service itself implements `LifecycleOwner`, `SavedStateRegistryOwner` and `ViewModelStoreOwner` and attaches them to the window's decor view and the `ComposeView`. `KeyboardUi.kt` paints the keys flat, close to iOS (the keyboard lives in its own window and cannot sample what is behind it): white letter keys and grey special keys on a pale panel in light mode, the dark equivalents at night, a thin darker line under each key, an iOS-style hollow shift arrow, a lowercase "return" and a blue action key. The keys are 46 dp tall in portrait and 36 dp in landscape, and the keyboard is capped at 640 dp wide so an unfolded screen does not stretch it. The magnified key (a balloon rising out of the key, with the key hidden under it) and the alternatives strip for a held key are drawn in layers inside the keyboard's own window, not as popups, and a long press tracks the pointer across the strip. The strip of suggestions above the keys is a lane that is always present (except in password fields, which never preview keys), so the balloon over the top row always has room and is never clipped. `onEvaluateInputViewShown` is overridden to honour Android's "show on-screen keyboard with a physical keyboard" setting: the stock rule hides the keyboard whenever a hardware keyboard is configured, as the emulator reports.
+`keyboard/KeyboardModel.kt` holds every typing rule with no Android classes (pages and rows, shift off/once/locked, caps from the editor's cursor-caps mode, double-space full stop, Return kind from the IME action, password and number-field detection, accent sets) and is unit-tested. `UnoKeyboardService` is an `InputMethodService` that hosts Compose: an input method has no lifecycle owner, so the service itself implements `LifecycleOwner`, `SavedStateRegistryOwner` and `ViewModelStoreOwner` and attaches them to the window's decor view and the `ComposeView`. `KeyboardUi.kt` paints the keys flat, close to iOS (the keyboard lives in its own window and cannot sample what is behind it): white letter keys and grey special keys on a pale panel in light mode, the dark equivalents at night, a thin darker line under each key, an iOS-style hollow shift arrow, a lowercase "return" and a blue action key. The keys are 46 dp tall in portrait and 36 dp in landscape, and the keyboard is capped at 640 dp wide so a wide screen does not stretch it. The magnified key (a balloon rising out of the key, with the key hidden under it) and the alternatives strip for a held key are drawn in layers inside the keyboard's own window, not as popups, and a long press tracks the pointer across the strip. The strip of suggestions above the keys is a lane that is always present (except in password fields, which never preview keys), so the balloon over the top row always has room and is never clipped. `onEvaluateInputViewShown` is overridden to honour Android's "show on-screen keyboard with a physical keyboard" setting: the stock rule hides the keyboard whenever a hardware keyboard is configured, as the emulator reports.
 
 Because an input method sees everything and the APK holds the internet permission, `KeyboardPrivacyTest` scans every file in the package and fails on network, logging and file-writing APIs, and on anything that writes the clipboard. The keyboard may read the clipboard in exactly one place, the paste action, which runs on a tap: a listener learns only that the clipboard changed and what type it is (never its content) so the Paste button can appear, and a test pins that.
 

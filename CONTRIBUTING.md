@@ -20,6 +20,6 @@ Do not commit signing keys, passwords, SDK paths, user layouts, device captures,
 
 `PUBLIC-FILES` explicitly defines what ships in source archives and what CI builds. When adding a new public document or root file, update that allowlist and `.gitignore` as needed, then export to a new temporary directory with `scripts/export-public-source.sh`. Existing public application source trees are already included. The exporter validates a pristine tree, excludes private material and strips macOS metadata. See [release preparation](docs/public-release.md).
 
-Bug reports should include app version, phone/Android version, folded/unfolded state, navigation mode, relevant widget/provider, and reproduction steps. Redact personal/work attachments. Do not post credentials or sensitive exploit details publicly; use the repository's private vulnerability reporting channel if available.
+Bug reports should include app version, phone/Android version, navigation mode, relevant widget/provider, and reproduction steps. Redact personal/work attachments. Do not post credentials or sensitive exploit details publicly; use the repository's private vulnerability reporting channel if available.
 
 Contributions use the project's MIT license. Retain notices for third-party material and identify its source.

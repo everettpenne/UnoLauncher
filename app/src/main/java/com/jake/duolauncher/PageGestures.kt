@@ -196,7 +196,7 @@ internal fun Modifier.onePageGestures(
                                             }
                                             val velocity = if (canceled) 0f else releaseVelocity
                                             // A relaxed thumb swipe should commit even if the finger
-                                            // slows before lifting. Cap the distance on the unfolded
+                                            // slows before lifting. Cap the distance on the wide
                                             // display so it never requires a half-screen hand stretch.
                                             val releaseDirection = when {
                                                 position() > anchor -> 1

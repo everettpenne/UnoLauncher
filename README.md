@@ -2,7 +2,7 @@
 
 A private, iOS-inspired Android launcher for Google Pixel phones running [GrapheneOS](https://grapheneos.org): a glass home screen with a right-side dock, a dynamic island at the camera, a local keyboard, a library of built-in widgets, and no accounts, servers or tracking of its own.
 
-Uno Launcher is a personal fork of [jakesgoodapps/DuoLauncher](https://github.com/jakesgoodapps/DuoLauncher) (MIT). It started as a foldable-first launcher (a home screen that makes room when you unfold your phone) and has grown a dynamic island, widgets, folders, a keyboard and a private news feed. The primary design target is still the Pixel Fold (2023); other Pixels use the same single-screen layout as its cover display.
+Uno Launcher is a personal fork of [jakesgoodapps/DuoLauncher](https://github.com/jakesgoodapps/DuoLauncher) (MIT). It has grown a dynamic island, widgets, folders, a keyboard and a private news feed. The primary design target is the Pixel 10a; other Pixels use the same layout.
 
 ## Contents
 
@@ -15,8 +15,7 @@ Uno Launcher is a personal fork of [jakesgoodapps/DuoLauncher](https://github.co
 - [Documentation, feedback and licence](#documentation-feedback-and-licence)
 
 <p>
-  <img src="docs/images/duo-launcher-cover-home.png" width="240" alt="Uno Home on a cover-sized emulator, with its right-side dock">
-  <img src="docs/images/duo-launcher-inner-home.png" width="500" alt="Uno Home unfolded, with an extra workspace on the left">
+  <img src="docs/images/duo-launcher-cover-home.png" width="240" alt="Uno Home on a phone-sized emulator, with its right-side dock">
 </p>
 
 <p align="center">
@@ -27,13 +26,13 @@ Uno Launcher is a personal fork of [jakesgoodapps/DuoLauncher](https://github.co
   <img src="docs/images/uno-island-style.webp" width="190" alt="Island style: presets, shapes, motion and colours">
 </p>
 
-Screenshots show sample data on an emulator sized to the reference Fold, and some predate the newest features. [Fresh-install welcome](docs/images/duo-launcher-welcome.png).
+Screenshots show sample data on a phone-sized emulator, and some predate the newest features.
 
 ## Download and install
 
 **[Download the latest APK](https://github.com/everettpenne/UnoLauncher/releases/latest)**: on the release page expand **Assets** and tap the `.apk`. Every release also carries `SHA256SUMS.txt` and its release notes. Browse [all releases](https://github.com/everettpenne/UnoLauncher/releases).
 
-**Status: experimental, for Pixel phones on GrapheneOS.** It builds for Android 12 or later (minSdk 31, targetSdk 36), but only current GrapheneOS releases are the target. Development and testing use emulators (the Fold's cover display, 1080 × 2092, and inner display, 2208 × 1840, plus a phone-sized one); **it has not been verified on a physical GrapheneOS device**, and emulator results do not establish compatibility with real hardware. Each release's notes list what was and was not tried.
+**Status: experimental, for Pixel phones on GrapheneOS.** It builds for Android 12 or later (minSdk 31, targetSdk 36), but only current GrapheneOS releases are the target. Development and testing use emulators (a 1080 × 2400 phone, close to the Pixel 10a, and a wide 2208 × 1840 window); **it has not been verified on a physical GrapheneOS device**, and emulator results do not establish compatibility with real hardware. Each release's notes list what was and was not tried.
 
 1. Open the downloaded APK, allow installation from that source if Android asks, and open **Uno Launcher**.
 2. Look around before choosing **Set as home app**; when ready, select Uno Launcher in Android's Home app settings. Installing it does not select it automatically.
@@ -68,7 +67,7 @@ The ring around the clock shows battery, the arcs inside it show Wi-Fi strength,
 Open **Launcher settings** (swipe up on Home). It is grouped like iOS Settings:
 
 - **Look:** *Wallpaper & glass* (a private launcher photo, the Android wallpaper, liquid glass and its refraction, colour from your wallpaper, light, dark or sunrise-to-sunset) and *App icons* (original, themed in the launcher's colours, or tinted by your wallpaper).
-- **Home:** *Home layout* (icon size, row spacing, dock position, which apps sit on Home, widgets per page, separate cover and inner layouts), *Gestures & feel* (app names, the status display, what the pull-downs do, haptics and sounds), *Search*, and *Control panel & Focus* (tile order, panel shortcuts, apps Focus hides).
+- **Home:** *Home layout* (icon size, row spacing, dock position, which apps sit on Home, widgets per page, separate layouts for a single page and for a wide window), *Gestures & feel* (app names, the status display, what the pull-downs do, haptics and sounds), *Search*, and *Control panel & Focus* (tile order, panel shortcuts, apps Focus hides).
 - **Island & keyboard:** *Dynamic island* and *Keyboard*.
 - **Privacy:** *Notifications & privacy* (notification access, badges, and a ledger of every permission, what it is for and what it can see).
 - **More:** *News feed*, *Backup*, *Updates*, *Help & setup*.
@@ -111,7 +110,7 @@ Pulling down for Android's own notification and Quick Settings panels needs an a
 
 ## Features
 
-- A persistent right-side dock, vertical status indicators, and overlapping page pairs when unfolded.
+- A persistent right-side dock, vertical status indicators, and, on a wide window, two pages side by side.
 - Android widgets with visual picking, resizing and native scrolling; widget stacks; large folders; and a library of nine built-in widgets.
 - App dragging, drop-to-make-folder, edge-drag page creation, Home folders, and separate personal and work catalogs where device policy permits.
 - A dynamic island with Live Updates, music, calls, timers, privacy marks, system alerts, bubbles, a hosted widget and per-app control.
@@ -157,6 +156,6 @@ The project is Kotlin and Jetpack Compose with native widget hosting. Unit tests
 
 [User guide](docs/user-guide.md) · [Troubleshooting](docs/troubleshooting.md) · [Island roadmap](docs/island-roadmap.md) · [Future fixes needed](docs/future-fixes.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Data and permissions](PRIVACY.md)
 
-Use the issue templates with version, phone model, Android version, folded or unfolded state and reproduction steps, and review screenshots and logs for personal and work information first.
+Use the issue templates with version, phone model, Android version and reproduction steps, and review screenshots and logs for personal and work information first.
 
 Source is under the [MIT licence](LICENSE); dependency notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). This independent project is unaffiliated with Apple, Google, Samsung or GrapheneOS. The default wallpaper is drawn locally and app icons come from installed apps. Apple research media and Google application code are excluded from the public source and APK.

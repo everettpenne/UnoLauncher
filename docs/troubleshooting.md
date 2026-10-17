@@ -1,6 +1,6 @@
 # Troubleshooting Uno Launcher
 
-Uno Launcher is an experimental Fold beta. Device vendors, Android releases, the Google app, widget providers, and work-profile policy can all affect behavior. These steps preserve the current installation wherever possible.
+Uno Launcher is an experimental beta. Device vendors, Android releases, the Google app, widget providers, and work-profile policy can all affect behavior. These steps preserve the current installation wherever possible.
 
 ## Uno Launcher is not the Home app
 
@@ -77,7 +77,7 @@ Layout backups exclude photos and cannot restore a photo deleted from its source
 
 ## Cellular status says unavailable
 
-The lower status dots represent cellular strength. **Cellular signal unavailable** is expected on a device without a SIM, including the reference Fold used for this beta. SIM-equipped no-service, airplane-mode, and signal transitions have not yet been broadly validated. Battery is the surrounding arc; Wi-Fi uses the inner arcs.
+The lower status dots represent cellular strength. **Cellular signal unavailable** is expected on a device without a SIM, including the reference device used for this beta. SIM-equipped no-service, airplane-mode, and signal transitions have not yet been broadly validated. Battery is the surrounding arc; Wi-Fi uses the inner arcs.
 
 ## My feed will not load
 
@@ -90,4 +90,4 @@ Uno connects directly to the feed addresses you added; it has no feed service of
 
 ## Before reporting a problem
 
-Include the Uno Launcher version, phone model, Android version, folded or unfolded state, the page and gesture involved, and exact reproduction steps. Review screenshots and logs before sharing them: widgets, account names, work data, and app lists may be visible. Uno Launcher does not upload diagnostics automatically.
+Include the Uno Launcher version, phone model, Android version, the page and gesture involved, and exact reproduction steps. Review screenshots and logs before sharing them: widgets, account names, work data, and app lists may be visible. Uno Launcher does not upload diagnostics automatically.

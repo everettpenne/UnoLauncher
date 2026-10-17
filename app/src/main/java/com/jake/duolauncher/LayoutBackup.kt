@@ -53,7 +53,7 @@ fun layoutBackupScope(context: Context): String {
 internal fun encodeLayoutBackup(state: LauncherState, widgetDescriptors: List<BackupWidgetDescriptor>, sourceScope: String,
     settings: SettingsSnapshot? = null, feeds: List<FeedSource>? = null): String {
     require(sourceScope.isNotBlank())
-    require(state.leadingSlots.size == HOME_CELLS) { "Unfolded-only page must contain exactly $HOME_CELLS cells" }
+    require(state.leadingSlots.size == HOME_CELLS) { "Wide-screen page must contain exactly $HOME_CELLS cells" }
     val descriptorBySlot = widgetDescriptors.associateBy(BackupWidgetDescriptor::slot)
     val apps = JSONArray().also { array -> state.apps.forEach { app -> array.put(JSONObject()
         .put("id", app.id).put("label", app.label).put("component", app.component.flattenToString())
@@ -125,7 +125,7 @@ internal fun decodeLayoutBackup(raw: String, currentApps: List<AppEntry>, curren
     val rawSlots = List(slotsArray.length()) { index -> if (slotsArray.isNull(index)) null else slotsArray.getString(index) }
     val rawLeadingSlots = if (version == 1) List(HOME_CELLS) { null } else {
         val array = root.getJSONArray("leadingSlots")
-        require(array.length() == HOME_CELLS) { "Unfolded-only page must contain exactly $HOME_CELLS cells" }
+        require(array.length() == HOME_CELLS) { "Wide-screen page must contain exactly $HOME_CELLS cells" }
         List(HOME_CELLS) { index -> if (array.isNull(index)) null else array.getString(index) }
     }
     val folderArray = root.getJSONArray("folders")

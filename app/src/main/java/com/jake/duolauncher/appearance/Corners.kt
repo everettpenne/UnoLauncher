@@ -146,11 +146,11 @@ internal object Corner {
     fun inside(outer: Dp, inset: Dp): Shape = RoundedCornerShape((outer - inset).coerceAtLeast(4.dp))
 }
 
-/** iOS-style switch: a green track when on, a quiet grey one when off, and a white thumb in both. */
+/** iOS-style switch: a track in the launcher's one accent (the wallpaper's, or orange) when on, a quiet grey one when off, and a white thumb in both. */
 internal val IosSwitchColors: androidx.compose.material3.SwitchColors
     @androidx.compose.runtime.Composable get() = androidx.compose.material3.SwitchDefaults.colors(
         checkedThumbColor = androidx.compose.ui.graphics.Color.White,
-        checkedTrackColor = LocalWallpaperAccent.current?.accent ?: androidx.compose.ui.graphics.Color(0xFF34C759),
+        checkedTrackColor = LocalWallpaperAccent.current?.accent ?: com.jake.duolauncher.panel.IosOrange,
         checkedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
         uncheckedThumbColor = androidx.compose.ui.graphics.Color.White,
         uncheckedTrackColor = androidx.compose.ui.graphics.Color(0xFF787880).copy(alpha = .4f),

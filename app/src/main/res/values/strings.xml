@@ -370,16 +370,18 @@
     <string name="tour_island_detail">The pill at the camera shows the time, music, timers and charging. Tap it to open search, the feed and quick controls.</string>
     <string name="tour_style_title">Make it yours</string>
     <string name="tour_style_detail">Launcher settings has six wallpapers, glass controls, icon packs, and a style for the island.</string>
+    <string name="lock_needs_service">To lock with a double tap, turn on Uno\'s accessibility service (Launcher settings, Notifications &amp; privacy).</string>
+    <string name="double_tap_lock_note">Double-tap an empty spot on Home to lock the screen, like pressing the power button. Android only lets an app do this through its accessibility service, which you turn on yourself in Android\'s settings; Uno\'s uses it for nothing else but opening the notification and quick settings panels, drawing the island above other apps, and this. It reads nothing from the screen.</string>
     <string name="island_review">Review</string>
     <string name="bluetooth_alerts_note">The island flashes the name of a Bluetooth device when it connects or disconnects (a watch, a keyboard, a car). Android calls the permission this needs Nearby devices; Uno uses it only to read that name, and it is asked for when you switch this on. Headphones and speakers keep their own alert above, so they are not said twice.</string>
     <string name="peek_actions_note">Shows the buttons the app put on the notification (Reply, Mark as read, Archive) under the card, when the card shows a title. Tapping one does exactly what it does in the notification shade. A reply is typed in the island itself, on Home; over other apps it opens the notification instead. Hidden for apps and words you have blocked.</string>
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Pull the small island down to peek inside it, and rest a finger on the bottom of the open island to keep it open for as long as you hold it.</string>
-    <string name="whats_new_2">A notification from the last 30 seconds is one tap away on the open island, with its buttons, after its card has gone.</string>
-    <string name="whats_new_3">Navigation instructions are much larger: a big arrow, distance and street you can read while driving.</string>
-    <string name="whats_new_4">The keyboard\'s autocorrect is smarter: it reads the sentence, catches fat-finger slips and knows more contractions and habitual misspellings.</string>
+    <string name="whats_new_1">App names on Home are easier to read over any wallpaper, and the small text in the clock and date widgets is clearer.</string>
+    <string name="whats_new_2">New: double-tap an empty spot on Home to lock the screen (Launcher settings, Gestures &amp; feel).</string>
+    <string name="whats_new_3">Pull the small island down to peek, hold its bottom to keep it open, and find the notification you just missed for 30 seconds.</string>
+    <string name="whats_new_4">Navigation is large enough to read while driving, and the keyboard\'s autocorrect is smarter.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

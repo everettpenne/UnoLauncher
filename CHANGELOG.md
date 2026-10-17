@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.68.0-uno01
+
+- **App names you can read.** On Home, an icon's name was white with a faint shadow and measured about 2.2:1 against the lighter parts of the dune wallpaper (the sand under Play Store, YouTube, Contacts). It is now 12 sp medium (was 11 regular) with a soft dark halo blurred behind it and a tighter shadow on top, and measures 2.9:1 at worst and 3.3:1 on average (was 2.6:1 average) on the same screen. Folder names use the same label. The halo copy is hidden from screen readers.
+- **Clearer widget text.** The small line under the clock and date widgets ("Local time", "October") is 12 and 13 sp medium at 92 % ink (was 11 and 12 sp at 80 %).
+- **Double-tap to lock.** New switch under Gestures & feel: a double tap on an empty spot on Home locks the screen, like the power button. Android only allows an app to do that through an accessibility service, so it uses Uno's optional one (the one that opens the shade and hosts the island over other apps), and says what is needed when it is not running. Off by default; a single tap, a folder and every occupied cell are unchanged (only empty cells wait for a second tap). The permission ledger names it.
+- **A proper icon for the Dynamic island** in Launcher settings: a capsule, not the plain circle it had.
+
 ## 0.67.0-uno01
 
 - **Peek.** Pull the small island down (a drag that starts on it) and it opens part-way; let go and it holds as a peek, panel-wide and as tall as the top of the panel and its first row (the time, then what is most relevant: a held notification, a call, a Live Update, the music). Pull the peek on to open it fully, swipe up to close it, tap it to open it; left alone it tucks away after five seconds. The pull follows the finger, and a pull that Android cancels part-way at the very top of the screen still lands in the peek.

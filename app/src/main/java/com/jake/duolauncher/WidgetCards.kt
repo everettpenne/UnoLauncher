@@ -66,7 +66,7 @@ internal fun ClockCard(onClick: () -> Unit) {
         val ink = LocalGlassInk.current
         Icon(Icons.Rounded.Schedule, "Clock widget; tap to replace", tint = ink.primary, modifier = Modifier.size(20.dp))
         Text(time.format(DateTimeFormatter.ofPattern(format)), color = ink.primary, fontWeight = FontWeight.Light, fontSize = 30.sp, maxLines = 1)
-        Text(stringResource(com.jake.duolauncher.R.string.local_time), color = ink.soft(), fontSize = 11.sp)
+        Text(stringResource(com.jake.duolauncher.R.string.local_time), color = ink.soft(.92f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -77,7 +77,7 @@ internal fun DateCard(onClick: () -> Unit) {
         val ink = LocalGlassInk.current
         Text(date.format(DateTimeFormatter.ofPattern("EEEE")), color = ink.primary, fontSize = 12.sp, maxLines = 1)
         Text(date.dayOfMonth.toString(), color = ink.primary, fontWeight = FontWeight.Light, fontSize = 40.sp, lineHeight = 42.sp)
-        Text(date.format(DateTimeFormatter.ofPattern("MMMM")), color = ink.soft(), fontSize = 12.sp)
+        Text(date.format(DateTimeFormatter.ofPattern("MMMM")), color = ink.soft(.92f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
 }
 

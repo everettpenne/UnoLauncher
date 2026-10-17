@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -128,7 +129,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     if (extras != null) CustomizationDestination(Icons.Rounded.Tune, "Control panel & Focus",
                         "Panel tiles, shortcuts, Focus", "customization-panel") { onPage(CustomizationPage.PANEL) }
                     SettingsGroupLabel("Island & keyboard")
-                    if (extras != null) CustomizationDestination(Icons.Rounded.Circle, "Dynamic island",
+                    if (extras != null) CustomizationDestination(IslandPillIcon, "Dynamic island",
                         "Size, live activities, bubbles, widget, timer", "customization-island") { onPage(CustomizationPage.ISLAND) }
                     if (extras != null) CustomizationDestination(Icons.Rounded.Keyboard, "Keyboard",
                         "Uno Keyboard: suggestions, autocorrect, one-handed", "customization-keyboard") { onPage(CustomizationPage.KEYBOARD) }
@@ -455,3 +456,13 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
         LiquidSliderControl(value, range, onChange, glass, Modifier.semantics { contentDescription = label })
     }
 }
+
+
+/** The Dynamic island's own shape (a capsule), for its row in settings: a plain circle said nothing about it. */
+private val IslandPillIcon: ImageVector = ImageVector.Builder("IslandPill", 24.dp, 24.dp, 24f, 24f).path(fill = androidx.compose.ui.graphics.SolidColor(Color.Black)) {
+    moveTo(8f, 8.5f); horizontalLineTo(16f)
+    arcTo(3.5f, 3.5f, 0f, false, true, 16f, 15.5f)
+    horizontalLineTo(8f)
+    arcTo(3.5f, 3.5f, 0f, false, true, 8f, 8.5f)
+    close()
+}.build()

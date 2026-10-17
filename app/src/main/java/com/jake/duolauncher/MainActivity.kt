@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
     internal lateinit var feeds: FeedStore
         private set
     internal val island get() = IslandRuntime.state
-    private val extrasStore by lazy { ExtrasStore(applicationContext) }
+    internal val extrasStore by lazy { ExtrasStore(applicationContext) }
     private val notificationAccess = mutableStateOf(false)
     private val contactsPermission = activityResultRegistry.register("duo.extras.contacts", this,
         ActivityResultContracts.RequestPermission()) { granted -> if (!granted) extrasStore.setContactSearch(false) }

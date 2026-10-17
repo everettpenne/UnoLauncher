@@ -773,7 +773,8 @@ internal fun LauncherScreen(
                                 onWidget = { widgetSlot = it; sheet = "widgetActions" },
                                 onFolder = { openFolderId = it },
                                 onEmptyWidget = { emptyCellIndex = it },
-                                onRefresh = model::refresh)
+                                onRefresh = model::refresh,
+                                onDoubleTapEmpty = if (extras?.store?.state?.doubleTapLock == true) ({ lockFromHome(context) }) else null)
                         }
                     }
                     }

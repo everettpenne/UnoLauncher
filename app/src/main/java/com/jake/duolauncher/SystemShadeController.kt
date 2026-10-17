@@ -69,6 +69,13 @@ class SystemShadeAccessibilityService : AccessibilityService() {
         /** True while this service is connected, in which case it, not [IslandOverlayService], draws the island. */
         internal fun hostsIsland() = instance.get() != null
 
+        /** Locks the screen, as the power button would (a double tap on empty Home space). */
+        internal fun lock(context: Context): ShadeOpenResult {
+            val service = instance.get()
+            if (service != null) return if (service.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)) ShadeOpenResult.OPENED else ShadeOpenResult.ACTION_REJECTED
+            return if (isEnabled(context)) ShadeOpenResult.SERVICE_STARTING else ShadeOpenResult.SERVICE_DISABLED
+        }
+
         internal fun open(context: Context, panel: ShadePanel): ShadeOpenResult {
             val service = instance.get()
             if (service != null) {
@@ -95,3 +102,13 @@ class SystemShadeAccessibilityService : AccessibilityService() {
         }
     }
 }
+
+/** The double tap on empty Home space: locks the screen, or says what is needed when the optional accessibility service is not running. */
+internal fun lockFromHome(context: Context) {
+    LockRequests.count++
+    if (SystemShadeAccessibilityService.lock(context) != ShadeOpenResult.OPENED)
+        android.widget.Toast.makeText(context, R.string.lock_needs_service, android.widget.Toast.LENGTH_LONG).show()
+}
+
+/** How many times Home has asked to lock the screen (a double tap), so a test can tell a double tap from a tap. */
+internal object LockRequests { @Volatile var count = 0 }

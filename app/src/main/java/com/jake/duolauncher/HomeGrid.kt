@@ -42,6 +42,10 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -248,6 +252,8 @@ internal fun HomePagePane(
     onEmptyWidget: (Int) -> Unit = {},
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
+    /** A double tap on empty Home space, when the person has asked for one to do something (lock the screen); null leaves it a plain tap. */
+    onDoubleTapEmpty: (() -> Unit)? = null,
 ) {
     val homeScroll = rememberScrollState()
     var paneBounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
@@ -290,7 +296,7 @@ internal fun HomePagePane(
             SharedHomeGrid(page, state.homeSlots, state.leadingSlots, previewSlots, previewLeadingSlots, previewWidgetPlacements,
                 appsById, geometry, state.labels, widgets, drag, target,
                 folders = state.folders, onLaunch = onLaunch, onActions = onActions, onWidget = onWidget,
-                onFolder = onFolder, onEmptyWidget = onEmptyWidget)
+                onFolder = onFolder, onEmptyWidget = onEmptyWidget, onDoubleTapEmpty = onDoubleTapEmpty)
             if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
             if (state.error != null) Text(state.error, color = Color.White,
                 modifier = Modifier.clickable(onClick = onRefresh).padding(12.dp))
@@ -332,6 +338,7 @@ internal fun SharedHomeGrid(
     onWidget: (Int) -> Unit,
     onFolder: (String) -> Unit,
     onEmptyWidget: (Int) -> Unit,
+    onDoubleTapEmpty: (() -> Unit)? = null,
 ) {
     val rowHeight = geometry.rowHeight
     val iconSize = geometry.iconSize
@@ -393,6 +400,8 @@ internal fun SharedHomeGrid(
                     else hideFromAccessibility()
                 }
                 .combinedClickable(onClick = { savedFolder?.let { onFolder(it.id) } },
+                    // Only an empty cell takes a double tap: waiting for a second tap would hold up opening a folder.
+                    onDoubleClick = if (savedId == null && globalIndex !in coveredCells) onDoubleTapEmpty else null,
                     onLongClickLabel = if (savedId == null) "Home options" else null,
                     onLongClick = { if (savedId == null && !drag.active) onEmptyWidget(globalIndex) })
                 // No frame around the cell being dragged over: only, while a drop would make a folder, a soft square behind the app below.
@@ -611,8 +620,7 @@ internal fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: 
             // One badge for the whole folder: everything unread inside it.
             AppBadge(FolderPreview.unread(folder.appIds.mapNotNull { apps[it]?.packageName }.map(::badgeCount)), Modifier.align(Alignment.TopEnd))
         }
-        if (labels) Text(folder.title, color = Color.White, fontSize = 11.sp, maxLines = 1,
-            overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+        if (labels) HomeLabel(folder.title)
     }
 }
 
@@ -633,8 +641,25 @@ internal fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modi
                 .pressGlow(progress, Corner.icon))
             AppBadge(badgeCount(app.packageName), Modifier.align(Alignment.TopEnd))
         }
-        if (labels) Text(app.label, color = Color.White, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1,
-            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-            style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .55f), Offset(0f, 1f), 3f)), modifier = Modifier.padding(top = 4.dp))
+        if (labels) HomeLabel(app.label)
     }
 }
+
+/** An icon's name on Home. White on the wallpaper, so it has to stay readable over sand and sky alike: a soft dark halo is blurred behind the
+ * letters (it darkens the wallpaper locally, which a text shadow alone barely does at this size), and a tight shadow keeps the edges crisp. It
+ * measured about 2:1 against a light wallpaper with the shadow alone. The halo copy is hidden from screen readers.
+ */
+@Composable
+internal fun HomeLabel(text: String, modifier: Modifier = Modifier) {
+    Box(modifier.padding(top = 4.dp), contentAlignment = Alignment.Center) {
+        Text(text, color = Color.Black.copy(alpha = .78f), fontSize = LABEL_SP.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+            modifier = Modifier.blur(3.5.dp, BlurredEdgeTreatment.Unbounded).clearAndSetSemantics { })
+        Text(text, color = Color.White, fontSize = LABEL_SP.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+            style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .7f), Offset(0f, 1f), 2.5f)))
+    }
+}
+
+/** Icon names are 12 sp (they were 11) and medium weight, which carries better over a busy wallpaper. */
+internal const val LABEL_SP = 12

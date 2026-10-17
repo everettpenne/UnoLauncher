@@ -58,7 +58,7 @@ internal object PermissionLedger {
                     else -> "Off"
                 },
                 i.accessibilityRunning,
-                "Opening the notifications and Quick Settings panels from Home gestures, and drawing the island above the status bar (as an accessibility overlay window) so it can be tapped over other apps." +
+                "Opening the notifications and Quick Settings panels from Home gestures, locking the screen when you double-tap empty Home space (only if you switch that on), and drawing the island above the status bar (as an accessibility overlay window) so it can be tapped over other apps." +
                     if (blocked) " Android is not running it. Advanced Protection or a restricted-settings block can do this; the plain overlay is used instead." else "",
                 "Nothing. It subscribes to no events and cannot read the screen or other apps.",
                 LedgerAction.ACCESSIBILITY_SETTINGS),

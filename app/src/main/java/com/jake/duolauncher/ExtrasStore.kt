@@ -37,6 +37,8 @@ internal data class ExtrasState(
     val privacyIndicators: Boolean = true,
     val securityAlerts: Boolean = true,
     val audioAlerts: Boolean = true,
+    /** Double-tapping empty Home space locks the screen (through the optional accessibility service, which can do nothing else with it). */
+    val doubleTapLock: Boolean = false,
     /** Bluetooth devices connecting (a watch, a keyboard, a car) as island events. Off until the person allows the Nearby devices permission. */
     val bluetoothAlerts: Boolean = false,
     /** Action buttons (Reply, Archive...) on the notification card, taken from the notification itself. */
@@ -112,6 +114,7 @@ internal class ExtrasStore(context: Context) {
         privacyIndicators = prefs.getBoolean("privacyIndicators", true),
         securityAlerts = prefs.getBoolean("securityAlerts", true),
         audioAlerts = prefs.getBoolean("audioAlerts", true),
+        doubleTapLock = prefs.getBoolean("doubleTapLock", false),
         bluetoothAlerts = prefs.getBoolean("bluetoothAlerts", false),
         peekActions = prefs.getBoolean("peekActions", true),
         islandShortcuts = prefs.getBoolean("islandShortcuts", true),
@@ -162,6 +165,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("privacyIndicators", next.privacyIndicators)
             .putBoolean("securityAlerts", next.securityAlerts)
             .putBoolean("audioAlerts", next.audioAlerts)
+            .putBoolean("doubleTapLock", next.doubleTapLock)
             .putBoolean("bluetoothAlerts", next.bluetoothAlerts)
             .putBoolean("peekActions", next.peekActions)
             .putBoolean("islandShortcuts", next.islandShortcuts)
@@ -223,6 +227,7 @@ internal class ExtrasStore(context: Context) {
         save(state.copy(peekTimeouts = PeekTimeouts.serialize(PeekTimeouts.cycle(PeekTimeouts.parse(state.peekTimeouts), packageName))))
     fun setIslandShortcuts(value: Boolean) = save(state.copy(islandShortcuts = value))
     fun setAudioAlerts(value: Boolean) = save(state.copy(audioAlerts = value))
+    fun setDoubleTapLock(value: Boolean) = save(state.copy(doubleTapLock = value))
     fun setBluetoothAlerts(value: Boolean) = save(state.copy(bluetoothAlerts = value))
     fun setPeekActions(value: Boolean) = save(state.copy(peekActions = value))
     fun setPrivacyIndicators(value: Boolean) = save(state.copy(privacyIndicators = value))

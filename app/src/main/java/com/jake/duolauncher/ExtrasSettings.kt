@@ -112,6 +112,9 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         s.rightSwipe == RightSwipe.PANEL, "swipe-panel") { store.setRightSwipe(RightSwipe.PANEL) }
     ChoiceRow("Android mode", "Opens Android's own Quick Settings instead; needs the optional shade accessibility service",
         s.rightSwipe == RightSwipe.SYSTEM, "swipe-system") { store.setRightSwipe(RightSwipe.SYSTEM) }
+    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    SettingsSwitch("Double-tap to lock", s.doubleTapLock, store::setDoubleTapLock, "double-tap-lock-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.double_tap_lock_note), style = note, color = muted)
     }
 
     if (section == ExtrasSection.PANEL) {

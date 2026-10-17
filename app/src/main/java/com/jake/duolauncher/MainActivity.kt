@@ -146,13 +146,21 @@ class MainActivity : ComponentActivity() {
         status = DeviceStatusMonitor(this).also { lifecycle.addObserver(it) }
         IslandTools.load(this)
         NotificationFeed.onPeek = { peek ->
-            // With a title or text to show, the island drops down into a card; otherwise it flashes the app's icon and name.
+            // One owner per event (docs/design.md): the card when the user opted into one, else a name-only
+            // pill flash — and neither while a card is already down or the shade just presented it.
             val app = model.state.value.apps.firstOrNull { it.packageName == peek.packageName }
             runOnUiThread {
-                when {
-                    peek.title != null || peek.text != null -> island.showPeekCard(peek)
-                    app != null -> island.showPeek(app, peek.appLabel, peek.open)
-                    else -> island.showEvent(IslandEvent(peek.appLabel, IslandSymbol.NOTIFICATION))
+                when (IslandEventArbiter.notificationSurface(
+                    hasTitleOrText = peek.title != null || peek.text != null,
+                    cardAlreadyDown = island.peekCard != null,
+                    shadeOpenedAtMs = IslandRuntime.shadeOpenedAtMs,
+                    nowMs = System.currentTimeMillis(),
+                )) {
+                    IslandEventArbiter.NotificationSurface.CARD -> island.showPeekCard(peek)
+                    IslandEventArbiter.NotificationSurface.PILL ->
+                        if (app != null) island.showPeek(app, peek.appLabel, peek.open)
+                        else island.showEvent(IslandEvent(peek.appLabel, IslandSymbol.NOTIFICATION))
+                    IslandEventArbiter.NotificationSurface.NONE -> Unit
                 }
             }
         }
@@ -283,7 +291,8 @@ class MainActivity : ComponentActivity() {
 
     internal fun openSystemShade(panel: ShadePanel) {
         when (SystemShadeAccessibilityService.open(this, panel)) {
-            ShadeOpenResult.OPENED -> Unit
+            ShadeOpenResult.OPENED -> if (panel == ShadePanel.NOTIFICATIONS)
+                IslandRuntime.shadeOpenedAtMs = System.currentTimeMillis()
             // The service is optional and denial must stick: a declined or dismissed prompt is
             // never shown again by the gesture itself (Help & setup still offers it on request),
             // so a swipe on Home is simply a no-op until the user opts in.

@@ -732,9 +732,11 @@ internal fun DynamicIsland(
             center = Offset.Zero, radius = 1f)
     }
     // A progress ring around the collapsed pill: a running timer, or the battery level while charging.
+    // The status rail owns the battery level when it is shown, so the island draws a level ring only while
+    // charging with the rail off (IslandEventArbiter.chargingRingSurface); the charging icon stays either way.
     val ring = IslandRingLogic.choose(flashActive, pastHalfOpen || state.expanded || state.peeked || pulling, IslandTools.ringing,
         IslandTools.timerActive, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
-        deviceStatus.charging == true, deviceStatus.battery, IslandThemes.active.timer, IslandThemes.active.charging, state.flashTint)
+        IslandEventArbiter.chargingRingSurface(statusRailShown, deviceStatus.charging == true), deviceStatus.battery, IslandThemes.active.timer, IslandThemes.active.charging, state.flashTint)
     // A new event gives the island a small spring pulse, like iOS's.
     val pulse = remember { Animatable(1f) }
     LaunchedEffect(state.flashKey) {
@@ -935,7 +937,9 @@ internal fun DynamicIsland(
                 //
                 // Android can take a downward drag that starts at the very top of the screen for the notification shade and cancel it for us (seen
                 // on the emulator: the touch is cancelled where the status bar strip ends). A cancel arrives here as a release at the last place the
-                // finger was, and [PeekPull.outcome] reads that, so a pull cut short that way still lands in the peek.
+                // finger was, and [PeekPull.outcome] reads that, so a pull cut short that way still lands in the peek. The launcher's own top-edge
+                // pull is kept off the pill separately: LauncherScreen's canStartDownwardSwipe excludes it (IslandEventArbiter.pressOnIslandPill), so
+                // a pill drag is never also a shade/panel/search pull. The status bar strip itself belongs to the system and cannot be suppressed.
                 val slop = viewConfiguration.touchSlop
                 val threshold = 26.dp.toPx()
                 val pullSlop = PeekPull.SLOP_DP.dp.toPx()
@@ -1067,7 +1071,8 @@ internal fun DynamicIsland(
                     } else plan.leading?.let { (kind, show) ->
                         LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, update = updates.firstOrNull())
                     }
-                    // Idle: nothing here. The time is in the status bar and on the expanded panel.
+                    // Idle: nothing here. The time is in the status bar and on the expanded panel
+                    // (IslandEventArbiter.timeOwner); the collapsed island never shows it.
                 }
                 val trailing: @Composable () -> Unit = {
                     if (flashActive) {

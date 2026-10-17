@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.72.0-uno01
+
+- **The island and the status bar stop competing.** Every event now has exactly one visible owner, by rule (`IslandEventArbiter`, unit-tested): an ongoing activity (call, timer, music, Live Update) lives in the island; a new notification shows the island's card only if you opted into titles and text, otherwise the short name flash — and neither fires while a card is already down, nor for three seconds after you just opened the notification shade (you saw it there). When the status rail is on, it owns the battery level, so the island no longer draws a second battery-level ring beside it. The Android status bar itself is untouched: a launcher has no honest way to hide another app's icons, and Uno won't fake one.
+- **A pull on the island is only a pull on the island.** Dragging the pill down into a peek could also fire the launcher's top-edge pull (opening the shade, the control panel or search at the same time), because nothing excluded the pill from that gesture. A drag that starts on the pill is now the island's alone; the shade's own pull-down everywhere else is unchanged. (Android's system status-bar strip still owns any touch that begins inside the strip itself — no app may change that — and the peek still lands even when Android cancels the drag at the very top.)
+
 ## 0.71.0-uno01
 
 - **The news feed, restyled.** Story cards were grey Material slabs with a blue byline; they are now ink-tinted glass with the headline in 17 sp semibold, the summary at 15 sp, and the source and time in a muted 12 sp that no longer competes with the headline. Unread stories carry a small accent dot (read stories dim their text, not the whole card), the "new" count is a proper pill, a feed that fails to load shows its error in a tinted callout with a glass retry, and the search field and empty-page buttons are glass instead of stock Material. Feed settings rows get separators and a glass delete button.

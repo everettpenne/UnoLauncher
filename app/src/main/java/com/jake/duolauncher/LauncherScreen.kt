@@ -669,10 +669,14 @@ internal fun LauncherScreen(
                         val rootOnScreen = IntArray(2).also(launcherRootView::getLocationOnScreen)
                         val screenPoint = point + gestureOriginInWindow +
                             Offset(rootOnScreen[0].toFloat(), rootOnScreen[1].toFloat())
+                        val windowPoint = point + gestureOriginInWindow
                         !(region?.target is DropTarget.Dock && dockScroll.value > 0) &&
                             // A stack takes a vertical swipe that starts on it (it switches widgets); sideways swipes still turn pages.
                             StackBodyRegistry.bounds.values.none { it.contains(point + gestureOriginInRoot) } &&
-                            !nativeWidgetConsumesVerticalGesture(launcherRootView, screenPoint)
+                            !nativeWidgetConsumesVerticalGesture(launcherRootView, screenPoint) &&
+                            // A downward drag that starts on the island pill is the island's pull (the peek) alone, never also a
+                            // launcher shade/panel/search pull (docs/design.md: one owner per event).
+                            !IslandEventArbiter.pressOnIslandPill(IslandRuntime.state.restPill, windowPoint.x, windowPoint.y)
                     }
                 },
                 // The right-hand swipe opens the launcher's own control panel; Notifications still use the system shade.

@@ -24,6 +24,9 @@ internal object IslandRuntime {
     /** Room the pop-out bubbles need to the right of the pill, in pixels, so the touch window covers them. */
     @Volatile var bubbleExtraPx = 0
     var statusBarVisible by mutableStateOf(true)
+    /** When the launcher last opened the notification shade (0 if never), so the island does not re-announce a
+     * notification the shade has just presented (see [IslandEventArbiter.notificationSurface]). */
+    @Volatile var shadeOpenedAtMs = 0L
     
     fun updateOverlay(active: Boolean) {
         overlayActive = active

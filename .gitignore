@@ -31,7 +31,6 @@ docs/releases/*
 docs/images/*
 !docs/images/*.png
 !docs/images/*.webp
-!docs/images/*.svg
 .env
 .env.*
 *.jks

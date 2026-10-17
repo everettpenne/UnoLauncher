@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -30,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -88,6 +90,15 @@ private fun FeedPageBody(
     var selectedSource by remember { mutableStateOf<String?>(null) }
     var savedOnly by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    // iOS-style rubber-banding at the list's ends. The state owns the resisted offset; the modifier below both
+    // draws it and springs it back on release, snapping instead when Android's animations are switched off.
+    val context = LocalContext.current
+    val animationsOn = remember {
+        android.provider.Settings.Global.getFloat(context.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
+    }
+    val elastic = rememberElasticOverscrollState(animationsOn)
+    val listState = rememberLazyListState()
     // A chip for a feed that has since been removed or switched off must not leave the page filtered to nothing.
     val activeSource = selectedSource?.takeIf { id -> feed.sources.any { it.id == id && it.enabled } }
     Column(modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 12.dp)) {
@@ -160,7 +171,9 @@ private fun FeedPageBody(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     } else {
-                        LazyColumn(Modifier.weight(1f).padding(top = 10.dp),
+                        LazyColumn(Modifier.weight(1f).padding(top = 10.dp)
+                            .elasticVerticalEdges(elastic, atStart = { !listState.canScrollBackward }, atEnd = { !listState.canScrollForward }),
+                            state = listState,
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             contentPadding = PaddingValues(end = 8.dp, bottom = 8.dp)) {
                             // Keyed by feed and link: two feeds can carry the same story, and a repeated key crashes a LazyColumn.

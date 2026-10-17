@@ -400,6 +400,12 @@ internal fun LauncherScreen(
     } }
     val rawTarget = dragTargets.raw
     val target = dragTargets.target
+    // A tick each time the dragged icon crosses into a different Home cell, the reorder feel of iOS. The drag must
+    // actually be moving (not the initial placement), and only a Home-cell change fires, so a drag within one cell stays quiet.
+    val dragCell = (target as? DropTarget.Home)?.index
+    LaunchedEffect(dragCell) {
+        if (drag.active && drag.moved && dragCell != null) UnoFeedback.play(Cue.DETENT, haptic)
+    }
     val blockedDock = drag.moved && target is DropTarget.Dock &&
         if (drag.source?.folderId != null) state.dock.none { it == null }
         else drag.source?.appId?.let { !canPlaceInDock(state.layout, it) } == true
@@ -542,7 +548,7 @@ internal fun LauncherScreen(
     }.onSizeChanged { LiveDiscover.fullSize = androidx.compose.ui.geometry.Size(it.width.toFloat(), it.height.toFloat()) }.testTag("launcher-root").homeDragInput(drag,
         enabled = sheet.isEmpty() && !showFirstRun && selectedId == null && resizeSlot == null && pager.currentPage >= 0,
         page = pager.currentPage, eligiblePages = eligibleDragPages, instant = homeEditing, onStart = {
-            focus.clearFocus(); keyboard?.hide(); haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            focus.clearFocus(); keyboard?.hide(); UnoFeedback.play(Cue.LONG_PRESS, haptic)
             if (drag.source?.folderId != null) openFolderId = null
             if (drag.source?.target is DropTarget.Library) scope.launch {
                 withFrameNanos { }
@@ -671,6 +677,8 @@ internal fun LauncherScreen(
                 },
                 // The right-hand swipe opens the launcher's own control panel; Notifications still use the system shade.
                 onDownwardSwipeAt = { panel, startFraction ->
+                    // A detent tick the moment the pull crosses its activation threshold, before the panel opens.
+                    UnoFeedback.play(Cue.DETENT, haptic)
                     when (PullDownRouting.route(extras?.store?.state?.pullDown ?: PullDown.SMART, panel, startFraction)) {
                         PullRoute.SEARCH -> { UnoFeedback.play(Cue.OPEN, haptic); spotlightOpen = true }
                         PullRoute.QUICK_SETTINGS ->
@@ -938,7 +946,9 @@ internal fun LauncherScreen(
                                 onActions = { selectedId = it.id; sheet = "" }, editing = true, modifier = Modifier.weight(1f).fillMaxWidth(),
                                 onTurnOnWork = { model.turnOnWork(it) })
                         }
-                        "settings", "settings:wallpaper" -> Box(Modifier.nestedScroll(remember { SheetDismissGuard })) { CustomizationSheet(state, wide, model, isDefaultHome,
+                        "settings", "settings:wallpaper" -> Box(Modifier.nestedScroll(
+                            SheetDismissGuard(with(LocalDensity.current) { SheetMotion.FLING_DISMISS_VELOCITY_DP.dp.toPx() })
+                        )) { CustomizationSheet(state, wide, model, isDefaultHome,
                             page = activeCustomizationPage, onPage = { customizationPage = it; sheet = "settings" },
                             onMakeDefault = { sheet = ""; onMakeDefault() },
                             onClose = { sheet = "" }, onEditPins = { sheet = "pins" },
@@ -1329,7 +1339,10 @@ internal fun LauncherScreen(
                 onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },
                 onOpenFeedLink = { link -> spotlightOpen = false; onFeedOpenEntry(link) },
                 onOpenContact = { contact -> spotlightOpen = false; ContactsSearch.open(launcherActivity, contact) },
-                onDismiss = { spotlightOpen = false }, progress = grow, pill = spotlightPill)
+                onDismiss = { spotlightOpen = false }, progress = grow, pill = spotlightPill,
+                noteSlot = state.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
+                focusOn = { extras?.store?.state?.focusOn == true },
+                onToggleFocus = { extras?.toggleFocus?.invoke() })
         }
         androidx.compose.animation.AnimatedVisibility(controlPanelOpen,
             enter = androidx.compose.animation.slideInVertically { -it / 2 } + androidx.compose.animation.fadeIn(),

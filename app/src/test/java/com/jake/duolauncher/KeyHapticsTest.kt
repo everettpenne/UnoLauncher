@@ -12,10 +12,32 @@ class KeyHapticsTest {
         HapticKind.entries.forEach { k ->
             val p = HapticProfile.plan(k, HapticProfile.DEFAULT_STRENGTH)!!
             assertTrue("$k", p.scale in .06f..1f)
-            if (k != HapticKind.CURSOR && k != HapticKind.DELETE_REPEAT) assertTrue("$k not lighter than letters", p.scale >= letter.scale)
+            if (k != HapticKind.CURSOR && k != HapticKind.DELETE_REPEAT && k != HapticKind.PREVIEW) assertTrue("$k not lighter than letters", p.scale >= letter.scale)
         }
         assertTrue(HapticProfile.plan(HapticKind.DELETE_REPEAT, .6f)!!.scale < HapticProfile.plan(HapticKind.DELETE, .6f)!!.scale)
         assertTrue(HapticProfile.plan(HapticKind.RETURN, .6f)!!.scale >= HapticProfile.plan(HapticKind.LETTER, .6f)!!.scale)
+    }
+
+    @Test fun eachKindOfKeyHasItsOwnFeel() {
+        val letter = HapticProfile.plan(HapticKind.LETTER, .6f)!!
+        val delete = HapticProfile.plan(HapticKind.DELETE, .6f)!!
+        val space = HapticProfile.plan(HapticKind.SPACE, .6f)!!
+        val ret = HapticProfile.plan(HapticKind.RETURN, .6f)!!
+        val modifier = HapticProfile.plan(HapticKind.MODIFIER, .6f)!!
+        val preview = HapticProfile.plan(HapticKind.PREVIEW, .6f)!!
+        // Letters use the softest primitive; delete is the sharper tick.
+        assertEquals(HapticProfile.LOW_TICK, letter.primitive)
+        assertEquals(HapticProfile.TICK, delete.primitive)
+        assertTrue(delete.scale >= letter.scale)
+        // Space and Return are a deeper click than the letter tick.
+        assertEquals(HapticProfile.CLICK, space.primitive)
+        assertEquals(HapticProfile.CLICK, ret.primitive)
+        assertTrue(ret.scale >= space.scale)
+        // Shift / page / symbol-layer switches feel like a soft two-tick toggle.
+        assertEquals(HapticProfile.TICK, modifier.primitive)
+        assertTrue(modifier.secondScale > 0f && modifier.secondDelayMs > 0)
+        // A popup appearing (the accent strip) pops softer than a letter.
+        assertTrue(preview.scale < letter.scale)
     }
 
     @Test fun strengthScalesTheFeelAndZeroTurnsItOff() {

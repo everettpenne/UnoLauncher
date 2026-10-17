@@ -104,6 +104,17 @@ class KeyboardModelTest {
         assertTrue(KeyboardModel.alternates("q").isEmpty())
     }
 
+    @Test fun aFlingDownOrUpOnAKeyTypesPunctuation() {
+        val slop = 22f
+        assertNull(KeyboardModel.flingSymbol(0f, slop))
+        assertNull(KeyboardModel.flingSymbol(10f, slop))
+        assertNull(KeyboardModel.flingSymbol(-10f, slop))
+        assertEquals(",", KeyboardModel.flingSymbol(22f, slop))
+        assertEquals(",", KeyboardModel.flingSymbol(40f, slop))
+        assertEquals("'", KeyboardModel.flingSymbol(-22f, slop))
+        assertEquals("'", KeyboardModel.flingSymbol(-40f, slop))
+    }
+
     @Test fun aSymbolTypedFromTheNumbersPageReturnsToLetters() {
         assertEquals(KeyPage.LETTERS, KeyboardModel.pageAfterTyping(KeyPage.NUMBERS, "'"))
         assertEquals(KeyPage.LETTERS, KeyboardModel.pageAfterTyping(KeyPage.NUMBERS, "@"))

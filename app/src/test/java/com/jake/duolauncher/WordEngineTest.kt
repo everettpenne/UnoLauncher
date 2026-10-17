@@ -163,6 +163,8 @@ class WordEngineTest {
         assertEquals("would've", fix("wouldve")); assertEquals("it'll", fix("itll")); assertEquals("there's", fix("theres"))
         assertEquals("you'd", fix("youd")); assertEquals("who's", fix("whos"))
         assertNull("lets is a word on its own", fix("lets"))
+        assertEquals("ain't", fix("aint")); assertEquals("who'll", fix("wholl")); assertEquals("there'll", fix("therell"))
+        assertEquals("what're", fix("whatre")); assertEquals("who've", fix("whove")); assertEquals("why're", fix("whyre"))
     }
 
     @Test fun informalWordsAreLeftAlone() {
@@ -182,6 +184,45 @@ class WordEngineTest {
         assertEquals("station", e.completionsAfter("sta", "at", 3).first())
         assertEquals("state", e.completionsAfter("sta", "the", 3).first())
         assertEquals("with nothing before it the commonest comes first", "state", e.completionsAfter("sta", null, 3).first())
+    }
+
+    @Test fun aCorrectionAtASentenceStartGetsACapitalWhenAsked() {
+        assertEquals("The", Suggest.autocorrect(engine, Suggest.parse("teh"), emptySet(), capitalise = true))
+        assertEquals("The", Suggest.autocorrect(engine, Suggest.parse("Hello. teh"), emptySet(), capitalise = true))
+        assertEquals("the", Suggest.autocorrect(engine, Suggest.parse("teh"), emptySet(), capitalise = false))
+        // A word that is already capitalised or all caps keeps its own case.
+        assertEquals("The", Suggest.autocorrect(engine, Suggest.parse("Teh"), emptySet(), capitalise = true))
+        assertEquals("THE", Suggest.autocorrect(engine, Suggest.parse("TEH"), emptySet(), capitalise = true))
+    }
+
+    @Test fun parsingFindsTheWordTwoBackAcrossSpacesOnly() {
+        val a = Suggest.parse("see you at the sta")
+        assertEquals("sta", a.current); assertEquals("the", a.previous); assertEquals("at", a.previous2)
+        val b = Suggest.parse("one two ")
+        assertEquals("", b.current); assertEquals("two", b.previous); assertEquals("one", b.previous2)
+        val c = Suggest.parse("Hello. wor")
+        assertNull("a full stop ends the sentence", c.previous2)
+        val d = Suggest.parse("the ")
+        assertNull("only one word before the cursor", d.previous2)
+    }
+
+    @Test fun theWordTwoBackBreaksATie() {
+        val e = WordEngine(mapOf("form" to 90, "from" to 90), mapOf("at" to listOf("from")))
+        // With only "the" before, the two candidates cost the same and are equally common, so the earlier word wins.
+        assertEquals("form", e.correction("frm", "the"))
+        // With "at" two words back, "from" (its follower) earns the nudge and the tie settles its way.
+        assertEquals("from", e.correction("frm", "the", "at"))
+    }
+
+    @Test fun completionsAlsoPreferWhatFollowsTheWordTwoBack() {
+        val e = WordEngine(mapOf("state" to 100, "station" to 80, "stay" to 90), mapOf("at" to listOf("station")))
+        assertEquals("state", e.completionsAfter("sta", "the", 3).first())
+        assertEquals("station", e.completionsAfter("sta", "the", 3, previous2 = "at").first())
+    }
+
+    @Test fun aCommonCompletionOutranksARareOneAndNeverTheExactTypedWord() {
+        val e = WordEngine(mapOf("the" to 240, "thee" to 30, "there" to 100, "their" to 90), emptyMap())
+        assertEquals(listOf("there", "their", "thee"), e.completions("the", 3))
     }
 
     @Test fun commonWordsSurviveEveryPrecedingWordUnchanged() {

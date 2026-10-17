@@ -26,10 +26,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.EditNote
+import androidx.compose.material.icons.rounded.FlashlightOn
 import androidx.compose.material.icons.rounded.RssFeed
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,6 +46,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -186,6 +193,12 @@ internal fun Spotlight(
     progress: Float = 1f,
     /** The collapsed pill the panel grows from (null without an island: the panel then grows from the top edge). */
     pill: IslandFrame? = null,
+    /** The slot of a Note widget on Home, if one is placed; the "note" action writes to it. */
+    noteSlot: Int? = null,
+    /** Whether Focus is on right now, for "focus on"/"focus off" to know if there is anything to do. */
+    focusOn: () -> Boolean = { false },
+    /** Flips Focus (and its ringer change), as the control panel does. */
+    onToggleFocus: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
@@ -203,8 +216,31 @@ internal fun Spotlight(
     val feedResults = remember(feedEntries, query) { SpotlightRank.feed(feedEntries, query) }
     val smart = remember(query) { SearchSmarts.answer(query) }
     val quick = remember(query) { SpotlightSources.quickAction(query) }
+    val actions = rememberActionResolver(noteSlot)
+    // "call"/"text" resolve to contact rows (one per number found) rather than a single row; a "note" action needs a
+    // Note widget on Home to write to. Everything else is one row, the top hit.
+    val contactKind = remember(quick) {
+        when (quick) { is QuickAction.Call -> ContactActionKind.DIAL; is QuickAction.Text -> ContactActionKind.TEXT; else -> null }
+    }
+    val singleQuick = remember(quick, noteSlot) {
+        quick?.takeUnless { it is QuickAction.Call || it is QuickAction.Text }?.takeUnless { it is QuickAction.Note && noteSlot == null }
+    }
+    val actionName = remember(quick) {
+        when (quick) { is QuickAction.Call -> quick.name; is QuickAction.Text -> quick.name; else -> null }
+    }
+    var actionContacts by remember { mutableStateOf(emptyList<ContactPhone>()) }
+    LaunchedEffect(actionName, contactsEnabled) {
+        if (!contactsEnabled || actionName == null || actionName.trim().length < ContactMatch.MIN_QUERY) {
+            actionContacts = emptyList(); return@LaunchedEffect
+        }
+        delay(120)
+        actionContacts = withContext(Dispatchers.IO) { ContactActions.search(context, actionName) }
+    }
     val settingsHits = remember(query) { SpotlightSources.settings(query) }
-    val suggestions = remember(query, appResults.size, smart, handoff) { handoff.targets(query, appResults.size, smart != null) }
+    // A recognised quick action is itself an answer, so it also keeps the "search elsewhere" rows away.
+    val suggestions = remember(query, appResults.size, smart, quick, handoff) {
+        handoff.targets(query, appResults.size, smart != null || quick != null)
+    }
     var contacts by remember { mutableStateOf(emptyList<ContactResult>()) }
     LaunchedEffect(query, contactsEnabled) {
         if (!contactsEnabled || query.trim().length < ContactMatch.MIN_QUERY) { contacts = emptyList(); return@LaunchedEffect }
@@ -278,7 +314,7 @@ internal fun Spotlight(
                 }),
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search") } })
-            val nothing = smart == null && quick == null && settingsHits.isEmpty() && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()
+            val nothing = smart == null && singleQuick == null && actionContacts.isEmpty() && settingsHits.isEmpty() && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()
             val typed = query.isNotBlank()
             val webOffered = suggestions.any { it.kind == HandoffKind.WEB }
             LazyColumn(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -296,16 +332,28 @@ internal fun Spotlight(
                             color = ink.copy(alpha = .5f), fontSize = 11.sp)
                     }
                 }
-                if (quick != null) item("quick") {
-                    SpotlightRow(quick.label, quick.detail, "spotlight-quick", true, ink, {
-                        when (quick) {
-                            is QuickAction.Timer -> com.jake.duolauncher.island.IslandTools.startTimer(context, quick.seconds * 1000L)
-                            is QuickAction.Stopwatch -> com.jake.duolauncher.island.IslandTools.toggleStopwatch(context)
-                        }
+                if (singleQuick != null) item("quick") {
+                    SpotlightRow(singleQuick.label, singleQuick.detail, "spotlight-quick", true, ink, {
+                        actions.run(singleQuick, focusOn(), onToggleFocus)
                         onDismiss()
                     }) {
                         Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.Timer, null, Modifier.size(22.dp))
+                            Icon(actionIcon(singleQuick), null, Modifier.size(22.dp))
+                        }
+                    }
+                }
+                if (actionContacts.isNotEmpty()) {
+                    item("actions-header") {
+                        SpotlightHeader(if (contactKind == ContactActionKind.DIAL) "Call" else "Message", ink)
+                    }
+                    items(actionContacts, key = { "action-${it.name}-${it.number}" }) { contact ->
+                        SpotlightRow(contact.name, contact.number, "spotlight-action-${contact.number}", false, ink, {
+                            actions.openContact(contactKind ?: ContactActionKind.DIAL, contact.number)
+                            onDismiss()
+                        }) {
+                            Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
+                                Icon(if (contactKind == ContactActionKind.DIAL) Icons.Rounded.Call else Icons.Rounded.Sms, null, Modifier.size(22.dp))
+                            }
                         }
                     }
                 }
@@ -396,6 +444,18 @@ internal fun HandoffRow(target: HandoffTarget, ink: Color, modifier: Modifier = 
 private fun SpotlightHeader(text: String, ink: Color) {
     Text(text.uppercase(), Modifier.padding(start = 8.dp, top = 10.dp, bottom = 2.dp), color = ink.copy(alpha = .5f),
         fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = .8.sp)
+}
+
+/** The leading mark for a quick action row. */
+private fun actionIcon(action: QuickAction): ImageVector = when (action) {
+    is QuickAction.Timer -> Icons.Rounded.Timer
+    is QuickAction.Stopwatch -> Icons.Rounded.Timer
+    is QuickAction.Note -> Icons.Rounded.EditNote
+    is QuickAction.Alarm -> Icons.Rounded.Alarm
+    is QuickAction.Torch -> Icons.Rounded.FlashlightOn
+    is QuickAction.Focus -> Icons.Rounded.Bedtime
+    is QuickAction.Call -> Icons.Rounded.Call
+    is QuickAction.Text -> Icons.Rounded.Sms
 }
 
 /** One result: a 40 dp leading mark, a title, an optional second line; the top hit sits on a faint plate. */

@@ -193,6 +193,16 @@ internal object KeyboardModel {
         if (letter.first().isUpperCase()) alts.map { it.uppercase() } else alts
     } ?: emptyList()
 
+    /** A quick vertical swipe on a letter key types a comma (down) or an apostrophe (up) instead of the letter, so both stay
+     * one gesture away without leaving the letters. [dy] is how far the finger has moved from its touch-down; below [slop] it
+     * is just a tap.
+     */
+    fun flingSymbol(dy: Float, slop: Float): String? = when {
+        dy >= slop -> ","
+        dy <= -slop -> "'"
+        else -> null
+    }
+
     private val ALTERNATES = mapOf(
         "a" to listOf("à", "á", "â", "ä", "ã", "å", "æ"), "e" to listOf("è", "é", "ê", "ë", "ē"),
         "i" to listOf("ì", "í", "î", "ï"), "o" to listOf("ò", "ó", "ô", "ö", "õ", "ø", "œ"),

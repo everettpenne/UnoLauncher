@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -374,7 +375,11 @@ internal fun GlassAlertDialog(onDismissRequest: () -> Unit, confirmButton: @Comp
 internal fun GlassCheckbox(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val (accent, accentInk) = accentPair()
     val ink = GlassInkOnPanel
-    Box(modifier.size(48.dp).then(if (onCheckedChange != null) Modifier.toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onCheckedChange) else Modifier),
+    // A checkbox flip carries the same toggle haptic as the liquid switch. Null [onCheckedChange] marks a display-only
+    // check (the row owns the toggle), so no haptic fires here.
+    val haptic = LocalHapticFeedback.current
+    Box(modifier.size(48.dp).then(if (onCheckedChange != null) Modifier.toggleable(value = checked, enabled = enabled, role = Role.Checkbox,
+        onValueChange = { new -> UnoFeedback.play(Cue.TOGGLE, haptic); onCheckedChange(new) }) else Modifier),
         contentAlignment = Alignment.Center) {
         Box(Modifier.size(24.dp).clip(androidx.compose.foundation.shape.CircleShape)
             .background(if (checked) accent else Color.Transparent)

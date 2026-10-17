@@ -25,6 +25,8 @@ import androidx.compose.material.icons.rounded.BluetoothConnected
 import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
 import kotlin.math.abs
@@ -156,6 +158,9 @@ internal class IslandState {
     var recordingActive by mutableStateOf(false)
     /** While the small island is being pulled down: how open it is (0..1), following the finger; null when nothing is pulling it. */
     var pullFraction by mutableStateOf<Float?>(null)
+    /** The finger's release velocity (px/s, down = positive) from the last pull or swipe-up; seeds the open/close spring and is
+     * consumed once by the animation collector, so the island keeps the flick's momentum instead of starting each spring cold. */
+    var settleVelocity by mutableFloatStateOf(0f)
     /** Held part-way open after a pull (the peek): enough of the panel to glance at, tucked away again by itself after a few seconds. */
     var peeked by mutableStateOf(false)
     /** A finger is resting on the bottom of the open island, which keeps it open for as long as it stays there. */
@@ -513,15 +518,21 @@ internal fun DynamicIsland(
     val widthAnim = remember { Animatable(if (state.expanded) 1f else 0f) }
     val progressState = progress.asState()
     val widthState = widthAnim.asState()
+    // The open panel's height in px, to turn the finger's release velocity (px/s) into the 0..1 progress-per-second the spring wants.
+    val openHeightPx = remember(environment, d, sizeScale) { IslandGeometry.frame(environment, d, 1f, sizeScale).height }.coerceAtLeast(1f)
     LaunchedEffect(theme, animationsOn) {
         snapshotFlow { IslandTarget(state.pullFraction, state.expanded, state.peeked, peekState.floatValue) }.collectLatest { t ->
             val height = t.pull ?: if (t.expanded) 1f else if (t.peeked) t.peek else 0f
             val wide = if (t.pull != null) (t.pull * 2.5f).coerceAtMost(1f) else if (t.expanded || t.peeked) 1f else 0f
+            // The finger's release velocity (px/s, down = positive) is consumed once and seeds the height spring, so a fast
+            // swipe-up tucks the island away with momentum and a pull released mid-motion carries on instead of starting cold.
+            val releaseVelocity = state.settleVelocity
+            state.settleVelocity = 0f
             if (!animationsOn || t.pull != null) { progress.snapTo(height); widthAnim.snapTo(wide) }
             else {
                 val opening = t.expanded || t.peeked
                 coroutineScope {
-                    launch { progress.animateTo(height, if (opening) theme.heightSpring() else theme.closeSpring()) }
+                    launch { progress.animateTo(height, if (opening) theme.heightSpring() else theme.closeSpring(), initialVelocity = releaseVelocity / openHeightPx) }
                     launch { widthAnim.animateTo(wide, if (opening) theme.widthSpring() else theme.closeSpring()) }
                 }
             }
@@ -708,6 +719,18 @@ internal fun DynamicIsland(
     // The glow's flame stirs only while audio is really playing (not paused or lingering), and not at all with Android's animations off.
     val flameAnimated = isPlaying && mediaVisible && animationsOn
     val flameT by rememberFlameClock(flameAnimated)
+    // The glow's two gradients are cached for the track's lifetime. The animated alpha is applied at draw time (never baked into the
+    // colours), and the tongue is a unit gradient scaled at draw time, so its moving centre and breathing height never rebuild it.
+    // Building both brushes (and their colour lists) on every frame while audio played is what this replaces.
+    val glowWash = remember(artTint) {
+        androidx.compose.ui.graphics.Brush.verticalGradient(
+            listOf(Color.Transparent, artTint.copy(alpha = .16f), artTint.copy(alpha = .55f)))
+    }
+    val glowTongue = remember(artTint, flameAnimated) {
+        androidx.compose.ui.graphics.Brush.radialGradient(
+            listOf(artTint.copy(alpha = .5f * if (flameAnimated) 1f else .6f), Color.Transparent),
+            center = Offset.Zero, radius = 1f)
+    }
     // A progress ring around the collapsed pill: a running timer, or the battery level while charging.
     val ring = IslandRingLogic.choose(flashActive, pastHalfOpen || state.expanded || state.peeked || pulling, IslandTools.ringing,
         IslandTools.timerActive, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
@@ -826,6 +849,8 @@ internal fun DynamicIsland(
                 LaunchedEffect(Unit) { if (animationsOn) appear.animateTo(1f, theme.spring(.5f, 240f)) }
                 val bubblePx = IslandBubbles.SIZE_DP * d
                 val fill = themeFill
+                // The neck's path is made once and rewound each frame, instead of allocating a Path per frame while the bubble pulls away.
+                val neckPath = remember { androidx.compose.ui.graphics.Path() }
                 fun bubbleX(frame: IslandFrame): Float {
                     val finalX = frame.left + frame.width + (dotsDp + IslandBubbles.GAP_DP + index * (IslandBubbles.SIZE_DP + IslandBubbles.GAP_DP)) * d
                     val startX = frame.left + frame.width - frame.height / 2f - bubblePx / 2f
@@ -847,10 +872,10 @@ internal fun DynamicIsland(
                             val c2 = Metaball.Pt(bubblePx / 2f, bubblePx / 2f)
                             val grow = (.55f + .45f * t).coerceAtLeast(.4f)
                             Metaball.neck(c1, r1, c2, bubblePx / 2f * grow, reach = ((1f - t) * 2f).coerceIn(0f, 1.5f))?.let { n ->
-                                drawPath(androidx.compose.ui.graphics.Path().apply {
-                                    moveTo(n.p1a.x, n.p1a.y); cubicTo(n.h1.x, n.h1.y, n.h2.x, n.h2.y, n.p2a.x, n.p2a.y)
-                                    lineTo(n.p2b.x, n.p2b.y); cubicTo(n.h3.x, n.h3.y, n.h4.x, n.h4.y, n.p1b.x, n.p1b.y); close()
-                                }, fill)
+                                neckPath.rewind()
+                                neckPath.moveTo(n.p1a.x, n.p1a.y); neckPath.cubicTo(n.h1.x, n.h1.y, n.h2.x, n.h2.y, n.p2a.x, n.p2a.y)
+                                neckPath.lineTo(n.p2b.x, n.p2b.y); neckPath.cubicTo(n.h3.x, n.h3.y, n.h4.x, n.h4.y, n.p1b.x, n.p1b.y); neckPath.close()
+                                drawPath(neckPath, fill)
                             }
                         }
                     }
@@ -899,7 +924,7 @@ internal fun DynamicIsland(
             // The playing track's colour rising from the island's bottom edge, swaying like a low flame while audio really plays.
             .drawBehind {
                 val a = glowAlpha.value
-                if (a > .01f) drawBottomGlow(artTint, a, flameT, flameAnimated)
+                if (a > .01f) drawBottomGlow(glowWash, glowTongue, a, flameT, flameAnimated)
             }
             .pointerInput(state.expanded, state.peeked, liveKinds.size, flashActive) {
                 // Pulling the small island down (a drag that starts on it) opens it part-way, and letting go holds that peek; pulling on a peek takes
@@ -916,6 +941,7 @@ internal fun DynamicIsland(
                 val pullSlop = PeekPull.SLOP_DP.dp.toPx()
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val tracker = VelocityTracker().apply { addPointerInputChange(down) }
                     val canPull = !state.expanded && !flashActive && state.peekCard == null
                     val canHold = (state.expanded || state.peeked) && HoldOpen.inZone(down.position.y, size.height.toFloat(), d)
                     val pullFrom = if (state.peeked) peekState.floatValue else 0f
@@ -935,6 +961,7 @@ internal fun DynamicIsland(
                                 continue
                             }
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            tracker.addPointerInputChange(change)
                             last = change.position
                             val delta = last - down.position
                             if (holding) { change.consume(); if (!change.pressed) break; continue }
@@ -951,6 +978,8 @@ internal fun DynamicIsland(
                         if (pulling) {
                             val fraction = state.pullFraction ?: 0f
                             state.pullFraction = null
+                            // The pull's own speed seeds the spring that lands the island, so letting go mid-pull carries on instead of starting cold.
+                            state.settleVelocity = tracker.calculateVelocity().y
                             when (PeekPull.outcome(fraction, peekState.floatValue)) {
                                 PeekPull.Outcome.COLLAPSE -> state.collapse()
                                 PeekPull.Outcome.PEEK -> { UnoFeedback.play(Cue.TICK, haptic); state.peeked = true }
@@ -962,7 +991,11 @@ internal fun DynamicIsland(
                     val dx = last.x - down.position.x; val dy = last.y - down.position.y
                     when {
                         abs(dy) >= abs(dx) && dy <= -threshold -> {
-                            if (state.expanded || state.peeked) { UnoFeedback.play(Cue.TICK, haptic); state.collapse() }
+                            if (state.expanded || state.peeked) {
+                                // A fast swipe-up closes with the flick's momentum; the spring below is seeded with this velocity.
+                                state.settleVelocity = tracker.calculateVelocity().y
+                                UnoFeedback.play(Cue.TICK, haptic); state.collapse()
+                            }
                             else if (flashActive) { UnoFeedback.play(Cue.TICK, haptic); state.advanceFlash() }
                         }
                         abs(dx) > abs(dy) && abs(dx) >= threshold && !state.expanded -> {
@@ -1275,17 +1308,21 @@ private fun RecentNotificationRow(peek: PeekNotification, state: IslandState, ca
 private class BodyFade(val bodyHeightPx: () -> Float, val fullHeightPx: Float, val fadePx: Float)
 
 /** Fades what is drawn out over the last [BodyFade.fadePx] above the body's bottom edge, only while the body is shorter than its full height. */
-private fun Modifier.fadeAtBodyBottom(fade: BodyFade): Modifier = drawWithContent {
-    val bottom = fade.bodyHeightPx()
-    if (bottom >= fade.fullHeightPx - 1f) { drawContent(); return@drawWithContent }
-    drawIntoCanvas { canvas ->
-        val bounds = androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height)
-        canvas.saveLayer(bounds, androidx.compose.ui.graphics.Paint())
-        drawContent()
-        drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(
-            0f to Color.Black, ((bottom - fade.fadePx) / size.height).coerceIn(0f, 1f) to Color.Black, (bottom / size.height).coerceIn(0f, 1f) to Color.Transparent,
-            1f to Color.Transparent), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
-        canvas.restore()
+private fun Modifier.fadeAtBodyBottom(fade: BodyFade): Modifier {
+    // The layer paint is made once for the modifier's lifetime, not per frame while the body is shorter than its full height.
+    val layerPaint = androidx.compose.ui.graphics.Paint()
+    return drawWithContent {
+        val bottom = fade.bodyHeightPx()
+        if (bottom >= fade.fullHeightPx - 1f) { drawContent(); return@drawWithContent }
+        drawIntoCanvas { canvas ->
+            val bounds = androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height)
+            canvas.saveLayer(bounds, layerPaint)
+            drawContent()
+            drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(
+                0f to Color.Black, ((bottom - fade.fadePx) / size.height).coerceIn(0f, 1f) to Color.Black, (bottom / size.height).coerceIn(0f, 1f) to Color.Transparent,
+                1f to Color.Transparent), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+            canvas.restore()
+        }
     }
 }
 

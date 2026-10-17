@@ -6,9 +6,9 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
 import kotlin.math.sin
 
 /**
@@ -23,28 +23,43 @@ internal object FlameShape {
      * Where tongue [i] stands and how tall it is at time [t] (seconds), as fractions of the island's width (left to right) and of its
      * height. Each tongue sways and swells on its own periods, so they drift in and out of step and never repeat in lockstep.
      */
-    fun tongue(i: Int, t: Float): Pair<Float, Float> {
+    fun tongue(i: Int, t: Float): Pair<Float, Float> = tongueX(i, t) to tongueH(i, t)
+
+    /** The tongue's centre along the island's width, as a fraction. Split from [tongue] so the draw loop reads it without a Pair per frame. */
+    fun tongueX(i: Int, t: Float): Float {
         val phase = i * 1.3f
-        val x = (i + .5f) / TONGUES + .035f * sin(t * (.9f + .17f * i) + phase)
-        val h = .42f + .14f * sin(t * (1.3f + .21f * i) + phase * 1.7f) + .06f * sin(t * 2.9f + i)
-        return x to h
+        return (i + .5f) / TONGUES + .035f * sin(t * (.9f + .17f * i) + phase)
+    }
+
+    /** The tongue's height, as a fraction of the island's height. */
+    fun tongueH(i: Int, t: Float): Float {
+        val phase = i * 1.3f
+        return .42f + .14f * sin(t * (1.3f + .21f * i) + phase * 1.7f) + .06f * sin(t * 2.9f + i)
     }
 }
 
-/** Draws the glow in [color] at [alpha]; [t] moves the tongues when [animated], otherwise they rest at a gentler strength. */
-internal fun DrawScope.drawBottomGlow(color: Color, alpha: Float, t: Float, animated: Boolean) {
+/**
+ * Draws the glow with [wash] (the bottom wash) and [tongue] (a unit radial gradient), cached by the caller for the track's lifetime.
+ * [t] moves the tongues when [animated], otherwise they rest at a gentler strength. The animated [alpha] is applied at draw time, so
+ * neither brush bakes it, and the tongue is a unit gradient scaled out to the tongue's radius and height, so its centre and radius
+ * (which move and breathe every frame) never rebuild the brush.
+ */
+internal fun DrawScope.drawBottomGlow(wash: Brush, tongue: Brush, alpha: Float, t: Float, animated: Boolean) {
     // The base: a soft wash rising from the bottom edge.
-    drawRect(Brush.verticalGradient(listOf(Color.Transparent, color.copy(alpha = alpha * .16f), color.copy(alpha = alpha * .55f))))
+    drawRect(wash, alpha = alpha)
     val radius = size.width / FlameShape.TONGUES * .95f
-    val strength = if (animated) 1f else .6f
     for (i in 0 until FlameShape.TONGUES) {
-        val (fx, fh) = FlameShape.tongue(i, if (animated) t else 0f)
+        val fx = FlameShape.tongueX(i, if (animated) t else 0f)
+        val fh = FlameShape.tongueH(i, if (animated) t else 0f)
         val cx = fx * size.width
         val height = (fh * size.height).coerceAtLeast(radius * .2f)
         val base = Offset(cx, size.height)
-        // A circle of light squashed into a tongue: stretched up from the edge by the tongue's height.
-        scale(1f, height / radius, pivot = base) {
-            drawCircle(Brush.radialGradient(listOf(color.copy(alpha = alpha * .5f * strength), Color.Transparent), base, radius), radius, base)
+        // A circle of light squashed into a tongue: the unit gradient drawn at the tongue's base and scaled out to its radius and
+        // height, which stretches it up from the edge by the tongue's height.
+        translate(base.x, base.y) {
+            scale(radius, height, pivot = Offset.Zero) {
+                drawCircle(tongue, 1f, Offset.Zero, alpha = alpha)
+            }
         }
     }
 }

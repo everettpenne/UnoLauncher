@@ -49,25 +49,33 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
         return (own + STARTERS).distinct().take(limit)
     }
 
-    /** Completions of [prefix] with the ones that often follow [previous] put first: "see you at the sta" offers "station" before "state". */
-    fun completionsAfter(prefix: String, previous: String?, limit: Int = 3): List<String> {
+    /** Completions of [prefix] with the ones that often follow [previous] put first (and then the ones that follow [previous2]):
+     * "see you at the sta" offers "station" before "state".
+     */
+    fun completionsAfter(prefix: String, previous: String?, limit: Int = 3, previous2: String? = null): List<String> {
         val follow = previous?.lowercase()?.let { followers[it] }.orEmpty()
-        if (follow.isEmpty()) return completions(prefix, limit)
+        val follow2 = previous2?.lowercase()?.let { followers[it] }.orEmpty()
+        if (follow.isEmpty() && follow2.isEmpty()) return completions(prefix, limit)
         val pool = completions(prefix, limit + 6)
-        return (pool.filter { it in follow }.sortedBy { follow.indexOf(it) } + pool.filter { it !in follow }).take(limit)
+        val inFollow = pool.filter { it in follow }.sortedBy { follow.indexOf(it) }
+        val inFollow2 = pool.filter { it !in follow && it in follow2 }.sortedBy { follow2.indexOf(it) }
+        val rest = pool.filter { it !in follow && it !in follow2 }
+        return (inFollow + inFollow2 + rest).take(limit)
     }
 
     /** The word [typed] should be corrected to, or null to leave it alone. Case is not handled here (see [matchCase]).
      * [previous] is the word before it in the sentence, if any: a candidate that often follows it is preferred, which settles
      * "form"/"from" style ties by what the sentence is about, and a rare real word that is one slip from a word that fits
-     * is fixed too ("i went to hte" is caught by the first rule; "ro the" by this one).
+     * is fixed too ("i went to hte" is caught by the first rule; "ro the" by this one). [previous2] is the word before that,
+     * a cheap trigram signal from the two bigram lists together (no extra dictionary data is needed).
      */
-    fun correction(typed: String, previous: String? = null): String? {
+    fun correction(typed: String, previous: String? = null, previous2: String? = null): String? {
         val t = typed.lowercase()
         if (t in INFORMAL) return null
         CONTRACTIONS[t]?.let { return it }
         MISSPELLINGS[t]?.let { return it }
         val follow = previous?.lowercase()?.let { followers[it] }.orEmpty()
+        val follow2 = previous2?.lowercase()?.let { followers[it] }.orEmpty()
         if (t in score) return contextFix(t, follow)
         if (t.length < 2) return null
         val maxCost = when { t.length <= 3 -> 1.0; t.length <= 5 -> 1.7; else -> 2.4 }
@@ -79,9 +87,12 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
             val cost = editCost(t, cand, maxCost)
             if (cost > maxCost) continue
             // Commoner words win, and every bit of edit cost counts against a candidate. A word that often follows the previous one
-            // gets a bonus that is larger the nearer the top of that list it is.
+            // gets a bonus that is larger the nearer the top of that list it is; following both previous words earns a small extra.
             val rank = follow.indexOf(cand)
-            val value = (score[cand] ?: 0) / 10.0 - COST_WEIGHT * cost + (if (rank >= 0) BIGRAM_BONUS - rank * .4 else 0.0)
+            val rank2 = follow2.indexOf(cand)
+            val value = (score[cand] ?: 0) / 10.0 - COST_WEIGHT * cost +
+                (if (rank >= 0) BIGRAM_BONUS - rank * .4 else 0.0) +
+                (if (rank2 >= 0) TRIGRAM_BONUS - rank2 * .3 else 0.0)
             if (value > bestValue) { bestValue = value; best = cand }
         }
         return best
@@ -133,6 +144,8 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
         private const val COST_WEIGHT = 4.0
         /** What a word that follows the previous one is worth, in the same units as the score divided by ten (the first of five is worth most). */
         private const val BIGRAM_BONUS = 2.4
+        /** The smaller extra a word earns for following the word before the previous one too (a two-word context, no new data). */
+        private const val TRIGRAM_BONUS = 1.2
         /** How much commoner (in score points, tenths of a log) a word must be to replace a real word that does not fit the sentence. */
         private const val REAL_WORD_GAP = 35
         private const val CACHED_PREFIX = 3
@@ -150,7 +163,8 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
             "id" to "I'd", "youd" to "you'd", "theyd" to "they'd", "wouldve" to "would've", "couldve" to "could've", "shouldve" to "should've",
             "mightve" to "might've", "mustve" to "must've", "itll" to "it'll", "youll" to "you'll", "theyll" to "they'll", "thatll" to "that'll",
             "theres" to "there's", "heres" to "here's", "wheres" to "where's", "whos" to "who's", "mustnt" to "mustn't", "neednt" to "needn't",
-            "yall" to "y'all")
+            "yall" to "y'all", "aint" to "ain't", "wholl" to "who'll", "therell" to "there'll", "whatre" to "what're", "whove" to "who've",
+            "whyre" to "why're")
 
         /** Slips that edit distance cannot reach, or reaches the wrong word for, and the habitual misspellings that are two or three keys
          * off. These are fixed outright; they are all words nobody types on purpose.

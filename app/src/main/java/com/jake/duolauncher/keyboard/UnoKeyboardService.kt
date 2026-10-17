@@ -68,6 +68,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
     private val suggestSeq = java.util.concurrent.atomic.AtomicInteger()
     private var autocorrectOn = true
     private var suggestionsOn = true
+    private var doubleSpaceOn = true
     private var allowSuggestions = false
     private var allowAutocorrect = false
     private val recents = EmojiRecents()
@@ -145,6 +146,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         val prefs = getSharedPreferences("extras", Context.MODE_PRIVATE)
         autocorrectOn = prefs.getBoolean("kbAutocorrect", true)
         suggestionsOn = prefs.getBoolean("kbSuggestions", true)
+        doubleSpaceOn = prefs.getBoolean("kbDoubleSpace", true)
         ui.numberRow = prefs.getBoolean("kbNumberRow", false)
         ui.oneHanded = prefs.getInt("kbOneHanded", 0).coerceIn(0, 2)
         // The switcher key is only worth having when Android has another keyboard to go to.
@@ -203,11 +205,12 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         val e = engine
         if (!ui.showStrip || e == null) { ui.suggestions = emptyList(); return }
         val before = textBefore(); val shift = ui.shift != ShiftState.OFF; val skip = ignored.toSet()
+        val sentenceCaps = inputType and 0x4000 != 0
         val seq = suggestSeq.incrementAndGet()
         suggestWorker.execute {
             val ctx = Suggest.parse(before)
             // The correction is worked out here, once, and kept for the space bar to use without scanning the dictionary itself.
-            val fix = if (ctx.current.isEmpty()) null else Suggest.autocorrect(e, ctx, skip)
+            val fix = if (ctx.current.isEmpty()) null else Suggest.autocorrect(e, ctx, skip, capitalise = sentenceCaps && ctx.atSentenceStart)
             fixCache = ctx.current to fix
             val result = Suggest.suggestions(e, ctx, skip, capitalise = shift || (ctx.atSentenceStart && ctx.current.isEmpty()), fix = fix)
             main.post { if (seq == suggestSeq.get()) ui.suggestions = result }
@@ -223,7 +226,9 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         if (ctx.current.isEmpty()) return false
         // Use what the worker already found for this word; only if it has not caught up is the dictionary scanned here.
         val cached = fixCache
-        val fix = (if (cached != null && cached.first == ctx.current) cached.second else Suggest.autocorrect(e, ctx, ignored)) ?: return false
+        val sentenceCaps = inputType and 0x4000 != 0
+        val fix = (if (cached != null && cached.first == ctx.current) cached.second
+            else Suggest.autocorrect(e, ctx, ignored, capitalise = sentenceCaps && ctx.atSentenceStart)) ?: return false
         ic.deleteSurroundingText(ctx.current.length, 0)
         ic.commitText(fix, 1)
         editedText(fix, removed = ctx.current.length)
@@ -278,7 +283,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         override fun space() {
             val ic = currentInputConnection ?: return
             val corrected = applyAutocorrect()
-            val change = KeyboardModel.doubleSpace(textBefore())
+            val change = if (doubleSpaceOn) KeyboardModel.doubleSpace(textBefore()) else null
             if (change != null && !corrected) { ic.deleteSurroundingText(change.first + 1, 0); ic.commitText(change.second, 1); editedText(change.second, removed = change.first + 1); lastFix = null }
             else { ic.commitText(" ", 1); editedText(" ") }
             refreshShift(); refreshSuggestions()

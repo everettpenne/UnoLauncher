@@ -218,6 +218,7 @@ private fun LetterKey(key: Key.Char, ui: KeyboardUiState, actions: KeyboardActio
     var accenting by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val cell = with(density) { 40.dp.toPx() }
+    val flingSlop = with(density) { 22.dp.toPx() }
     // The key's label changes with shift. Reading the latest through State keeps the touch handler alive across that change:
     // keying it on the label restarted every key's handler on the first keystroke after shift, dropping an overlapping tap.
     val current by rememberUpdatedState(key)
@@ -234,10 +235,33 @@ private fun LetterKey(key: Key.Char, ui: KeyboardUiState, actions: KeyboardActio
                     actions.type(typed.output)
                     if (!passwordField && typed.label.length == 1) ui.preview = KeyPreview(typed.label, bounds[0])
                     val options = if (typed.label.length == 1) KeyboardModel.alternates(typed.label) else emptyList()
-                    val quick = withTimeoutOrNull(if (options.isEmpty()) 60_000L else 380L) { waitForUpOrCancellation() }
-                    if (quick != null || options.isEmpty()) { pressed = false; ui.preview = null; return@awaitEachGesture }
+                    // A quick vertical swipe on a letter turns the key into a comma (down) or an apostrophe (up) instead of the
+                    // letter; otherwise a release ends the tap, and holding a key with alternatives opens the accent strip.
+                    val flingable = typed.label.length == 1 && typed.label[0].isLetter()
+                    val startY = down.position.y
+                    var fling: String? = null
+                    var ended = false
+                    withTimeoutOrNull(if (options.isEmpty()) 60_000L else 380L) {
+                        while (true) {
+                            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id }
+                            if (change == null || !change.pressed) { ended = true; break }        // released or cancelled
+                            if (flingable) {
+                                fling = KeyboardModel.flingSymbol(change.position.y - startY, flingSlop)
+                                if (fling != null) change.consume()
+                            }
+                        }
+                    }
+                    val symbol = fling
+                    if (symbol != null) {
+                        actions.replaceLast(symbol)                                  // the letter already typed becomes the punctuation
+                        ui.preview = null; pressed = false
+                        return@awaitEachGesture
+                    }
+                    if (ended || options.isEmpty()) { ui.preview = null; pressed = false; return@awaitEachGesture }
+                    // Held still past the delay with alternatives: open the strip, with a soft pop.
                     ui.preview = null
                     accenting = true
+                    actions.haptic(HapticKind.PREVIEW)
                     var chosen = -1
                     ui.accents = AccentState(options, chosen, bounds[0])
                     val layout = accentLayout(bounds[0], ui.width, options.size, cell)

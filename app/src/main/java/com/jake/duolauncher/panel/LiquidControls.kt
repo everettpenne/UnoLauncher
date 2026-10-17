@@ -204,8 +204,15 @@ internal fun LiquidSwitchControl(
     glass: PageGlass?,
     modifier: Modifier = Modifier,
 ) {
+    // The toggle's own haptic lives here (not at every call site), so a switch anywhere in settings flips with one
+    // consistent feel. It fires only when the value actually changes — a tap that lands on the current state stays quiet.
+    val haptic = LocalHapticFeedback.current
+    val report = { new: Boolean ->
+        if (new != checked) UnoFeedback.play(Cue.TOGGLE, haptic)
+        onCheckedChange(new)
+    }
     if (glass == null) {
-        Switch(checked, onCheckedChange, modifier, colors = IosSwitchColors)
+        Switch(checked, report, modifier, colors = IosSwitchColors)
         return
     }
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
@@ -249,14 +256,14 @@ internal fun LiquidSwitchControl(
                     press.animateTo(0f, spring(.5f, 300f, .001f))
                 }
                 scope.launch { position.animateTo(target, spring(.7f, 380f, .001f)) }
-                if ((target == 1f) != latestChecked) latestChange(target == 1f)
+                if ((target == 1f) != latestChecked) { UnoFeedback.play(Cue.TOGGLE, haptic); latestChange(target == 1f) }
             }
         }
         .semantics {
             role = Role.Switch
             toggleableState = if (checked) ToggleableState.On else ToggleableState.Off
             contentDescription = if (checked) "On" else "Off"
-            onClick { onCheckedChange(!checked); true }
+            onClick { report(!checked); true }
         },
         contentAlignment = Alignment.CenterStart) {
         Box(Modifier.fillMaxSize().layerBackdrop(trackBackdrop).clip(RoundedCornerShape(percent = 50))

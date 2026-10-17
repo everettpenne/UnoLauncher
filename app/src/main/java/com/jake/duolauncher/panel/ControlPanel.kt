@@ -122,7 +122,7 @@ internal fun ControlPanel(
                     else if (extras.focusOn) "${extras.focusHidden.size} apps hidden" else "Hides ${extras.focusHidden.size} apps",
                     color = ink.copy(alpha = .6f), fontSize = 12.sp)
             }
-            LiquidSwitchControl(extras.focusOn, { UnoFeedback.play(Cue.TOGGLE, haptic); onToggleFocus() }, panelGlass)
+            LiquidSwitchControl(extras.focusOn, { onToggleFocus() }, panelGlass)
         }
         PanelTile.SHORTCUTS -> {
             val chosen = extras.shortcuts.mapNotNull { id -> apps.firstOrNull { it.id == id } }

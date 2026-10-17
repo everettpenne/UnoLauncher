@@ -3,10 +3,22 @@ package com.jake.duolauncher.search
 /** A page of Android's own settings that Spotlight can open: what to call it, what else to type for it, and the intent action. */
 internal class SettingsShortcut(val label: String, val keywords: List<String>, val action: String)
 
-/** A quick action typed into Spotlight, such as "timer 5". [run] says what it does; [label] and [detail] are what the row shows. */
+/** A quick action typed into Spotlight, such as "timer 5". [label] and [detail] are what the row shows. */
 internal sealed class QuickAction(val label: String, val detail: String) {
     class Timer(val seconds: Long, label: String) : QuickAction(label, "Starts the timer in the island")
     class Stopwatch : QuickAction("Start or stop the stopwatch", "Uses the island's stopwatch")
+    class Note(val text: String, label: String) : QuickAction(label, "Saves it to the Note widget on Home")
+    class Alarm(val target: AlarmTarget, label: String) : QuickAction(label, "Opens your clock app to set the alarm")
+    class Torch : QuickAction("Turn the torch on or off", "Uses the island's flashlight")
+    class Focus(val desired: Boolean?, label: String, detail: String) : QuickAction(label, detail)
+    class Call(val name: String, label: String) : QuickAction(label, "Shows the dialer with their number — no call is placed")
+    class Text(val name: String, label: String) : QuickAction(label, "Opens your messages app to text them")
+}
+
+/** What an alarm action asks for: a clock time, or a number of minutes from now. */
+internal sealed interface AlarmTarget {
+    data class In(val minutes: Int) : AlarmTarget
+    data class At(val hour: Int, val minute: Int) : AlarmTarget
 }
 
 /**
@@ -17,6 +29,7 @@ internal sealed class QuickAction(val label: String, val detail: String) {
 internal object SpotlightSources {
     const val MAX_SETTINGS = 3
     const val MAX_TIMER_SECONDS = 24 * 3600L
+    const val MAX_ALARM_MINUTES = 24 * 60
 
     // The action strings are Android's Settings.ACTION_* constants, written out so this stays testable without Android.
     val settings: List<SettingsShortcut> = listOf(
@@ -84,9 +97,100 @@ internal object SpotlightSources {
         return QuickAction.Timer(seconds, label)
     }
 
+    // "note buy milk", "note remember to call Sam": everything after "note" is the note text.
+    private val notePattern = Regex("""^note\s+(.+)$""", RegexOption.IGNORE_CASE)
+
+    /** "note <text>" saves the text into the Note widget. Null for a bare "note" (no text) or anything else. */
+    fun note(query: String): QuickAction.Note? {
+        val text = notePattern.matchEntire(query.trim())?.groupValues?.get(1)?.trim().orEmpty()
+        if (text.isEmpty()) return null
+        return QuickAction.Note(text, "Save note")
+    }
+
+    // "alarm in 20" (minutes, with an optional unit), or "alarm 7:30", "alarm 7am", "alarm 19:00".
+    private val alarmInPattern = Regex("""^alarm\s+in\s+(\d+)\s*(min|mins|minute|minutes|m|hr|hrs|hour|hours|h)?$""", RegexOption.IGNORE_CASE)
+    private val alarmAtPattern = Regex("""^alarm\s+(\d{1,2})(?::(\d{1,2}))?\s*(am|pm|a\.m\.|p\.m\.)?$""", RegexOption.IGNORE_CASE)
+
+    /** "alarm in 20", "alarm 7:30", "alarm 7am": a clock time or a delay, turned into the clock app's SET_ALARM fields. */
+    fun alarm(query: String): QuickAction.Alarm? {
+        val q = query.trim()
+        alarmInPattern.matchEntire(q)?.let { m ->
+            val amount = m.groupValues[1].toIntOrNull() ?: return null
+            val unit = m.groupValues[2].lowercase()
+            val minutes = if (unit.startsWith("h")) amount * 60 else amount
+            if (minutes !in 1..MAX_ALARM_MINUTES) return null
+            return QuickAction.Alarm(AlarmTarget.In(minutes), alarmInLabel(minutes))
+        }
+        return alarmAtPattern.matchEntire(q)?.let(::alarmAt)
+    }
+
+    private fun alarmAt(m: MatchResult): QuickAction.Alarm? {
+        val hourRaw = m.groupValues[1].toIntOrNull() ?: return null
+        val minute = m.groupValues[2].takeIf { it.isNotEmpty() }?.toIntOrNull() ?: 0
+        val meridiem = m.groupValues[3].lowercase().firstOrNull() // 'a', 'p' or null
+        if (minute !in 0..59) return null
+        val hour = when (meridiem) {
+            null -> hourRaw
+            'p' -> when (hourRaw) { in 1..11 -> hourRaw + 12; 12 -> 12; else -> return null }
+            else -> when (hourRaw) { 12 -> 0; in 1..11 -> hourRaw; else -> return null }
+        }
+        if (hour !in 0..23) return null
+        return QuickAction.Alarm(AlarmTarget.At(hour, minute), alarmClockLabel(hour, minute))
+    }
+
+    private fun alarmInLabel(minutes: Int): String = when {
+        minutes % 60 == 0 -> "Alarm in ${minutes / 60} h"
+        minutes >= 60 -> "Alarm in ${minutes / 60} h ${minutes % 60} min"
+        else -> "Alarm in $minutes min"
+    }
+
+    private fun alarmClockLabel(hour: Int, minute: Int): String {
+        val h12 = if (hour % 12 == 0) 12 else hour % 12
+        val meridiem = if (hour < 12) "AM" else "PM"
+        return "Alarm at $h12:%02d $meridiem".format(minute)
+    }
+
+    /** "torch" or "flashlight": toggle the island's flashlight. */
+    fun torch(query: String): QuickAction.Torch? {
+        val q = query.trim().lowercase()
+        return if (q == "torch" || q == "flashlight") QuickAction.Torch() else null
+    }
+
+    /** "focus", "focus on", "focus off": turn Focus (the apps it hides) on, off, or toggle it. */
+    fun focus(query: String): QuickAction.Focus? = when (query.trim().lowercase()) {
+        "focus" -> QuickAction.Focus(null, "Toggle Focus", "Hides or shows the apps you picked")
+        "focus on", "turn focus on" -> QuickAction.Focus(true, "Turn Focus on", "Hides the apps you picked")
+        "focus off", "turn focus off" -> QuickAction.Focus(false, "Turn Focus off", "Shows the apps Focus hid")
+        else -> null
+    }
+
+    private val callPattern = Regex("""^call\s+(.+)$""", RegexOption.IGNORE_CASE)
+    private val textPattern = Regex("""^(?:text|message|sms)\s+(.+)$""", RegexOption.IGNORE_CASE)
+
+    /** "call <name>": show the dialer for a matching contact. Resolved to a number only while contacts are on. */
+    fun call(query: String): QuickAction.Call? {
+        val name = callPattern.matchEntire(query.trim())?.groupValues?.get(1)?.trim().orEmpty()
+        if (name.isEmpty()) return null
+        return QuickAction.Call(name, "Call $name")
+    }
+
+    /** "text <name>", "message <name>", "sms <name>": open messages for a matching contact. */
+    fun text(query: String): QuickAction.Text? {
+        val name = textPattern.matchEntire(query.trim())?.groupValues?.get(1)?.trim().orEmpty()
+        if (name.isEmpty()) return null
+        return QuickAction.Text(name, "Text $name")
+    }
+
     /** The quick action a query asks for, if any. */
     fun quickAction(query: String): QuickAction? {
         val q = query.trim().lowercase()
-        return timer(query) ?: if (q == "stopwatch" || q == "start stopwatch" || q == "stop stopwatch") QuickAction.Stopwatch() else null
+        return timer(query)
+            ?: alarm(query)
+            ?: note(query)
+            ?: torch(q)
+            ?: focus(q)
+            ?: call(query)
+            ?: text(query)
+            ?: if (q == "stopwatch" || q == "start stopwatch" || q == "stop stopwatch") QuickAction.Stopwatch() else null
     }
 }

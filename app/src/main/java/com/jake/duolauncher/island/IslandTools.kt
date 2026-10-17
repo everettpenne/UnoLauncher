@@ -147,6 +147,43 @@ internal object IslandTools {
     }
 
     fun resetStopwatch(context: Context) { swBase = 0L; swRunning = false; swStartedAt = 0L; save(context); touch() }
+
+    /** Turns the flashlight on or off once, for a one-shot request such as the "torch" search action, with no tools
+     * face open. The camera's torch callback reports the current state only when it is already on, so a short fallback
+     * turns it on when it was off. One private worker thread lives for the length of the toggle.
+     */
+    fun toggleTorch(context: Context) {
+        val app = context.applicationContext
+        val cameras = app.getSystemService(CameraManager::class.java)
+        val worker = HandlerThread("uno-torch").apply { start() }
+        val handler = Handler(worker.looper)
+        handler.post {
+            val id = runCatching {
+                ControlLogic.pickTorchCamera(cameras.cameraIdList.map { cam ->
+                    val c = cameras.getCameraCharacteristics(cam)
+                    TorchCamera(cam, c.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true,
+                        c.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK)
+                })
+            }.getOrNull()
+            if (id == null) { worker.quitSafely(); return@post }
+            var settled = false
+            lateinit var callback: CameraManager.TorchCallback
+            fun finish(next: Boolean?) {
+                if (settled) return
+                settled = true
+                if (next != null) runCatching { cameras.setTorchMode(id, next) }
+                runCatching { cameras.unregisterTorchCallback(callback) }
+                worker.quitSafely()
+            }
+            callback = object : CameraManager.TorchCallback() {
+                override fun onTorchModeChanged(cameraId: String, enabled: Boolean) { if (cameraId == id) finish(!enabled) }
+                override fun onTorchModeUnavailable(cameraId: String) { if (cameraId == id) finish(null) }
+            }
+            runCatching { cameras.registerTorchCallback(callback, handler) }
+            // The torch is off when no initial callback reports it; after a beat, turn it on.
+            handler.postDelayed({ finish(true) }, 120L)
+        }
+    }
 }
 
 class TimerReceiver : BroadcastReceiver() {

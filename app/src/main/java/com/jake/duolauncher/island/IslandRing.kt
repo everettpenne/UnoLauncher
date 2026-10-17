@@ -47,31 +47,37 @@ internal object IslandRingLogic {
 /** Draws [ring] as a progress arc hugging the island's outline, clockwise from the top centre, over a faint track. */
 /** [cornerPx] is read as the ring draws, so a morphing island's ring follows its corner without recomposing. */
 internal fun Modifier.islandRing(ring: RingState?, cornerPx: () -> Float, strokePx: Float): Modifier =
-    if (ring == null) this else drawWithContent {
-        val inset = strokePx / 2f + 1f
-        val w = size.width - inset * 2; val h = size.height - inset * 2
-        if (w <= 0f || h <= 0f) { drawContent(); return@drawWithContent }
-        val radius = (cornerPx() - inset).coerceIn(0f, minOf(w, h) / 2f)
-        // Built by hand so it starts at the top centre and runs clockwise (a library round-rect starts elsewhere).
-        val outline = Path().apply {
+    if (ring == null) this else {
+        // The ring's three paths are made once for the modifier's lifetime and rewound on each draw. Building them inside the draw
+        // lambda allocated a Path, a PathMeasure and a segment Path on every animation frame while the ring's corner followed a morph.
+        val outline = Path()
+        val measure = PathMeasure()
+        val piece = Path()
+        drawWithContent {
+            val inset = strokePx / 2f + 1f
+            val w = size.width - inset * 2; val h = size.height - inset * 2
+            if (w <= 0f || h <= 0f) { drawContent(); return@drawWithContent }
+            val radius = (cornerPx() - inset).coerceIn(0f, minOf(w, h) / 2f)
+            // Built by hand so it starts at the top centre and runs clockwise (a library round-rect starts elsewhere).
+            outline.rewind()
             val cx = inset + w / 2f; val l = inset; val t = inset; val rt = inset + w; val bt = inset + h; val d = radius * 2f
-            moveTo(cx, t)
-            lineTo(rt - radius, t)
-            arcTo(androidx.compose.ui.geometry.Rect(rt - d, t, rt, t + d), -90f, 90f, false)
-            lineTo(rt, bt - radius)
-            arcTo(androidx.compose.ui.geometry.Rect(rt - d, bt - d, rt, bt), 0f, 90f, false)
-            lineTo(l + radius, bt)
-            arcTo(androidx.compose.ui.geometry.Rect(l, bt - d, l + d, bt), 90f, 90f, false)
-            lineTo(l, t + radius)
-            arcTo(androidx.compose.ui.geometry.Rect(l, t, l + d, t + d), 180f, 90f, false)
-            close()
-        }
-        drawContent()
-        val measure = PathMeasure().apply { setPath(outline, false) }
-        drawPath(outline, ring.color.copy(alpha = .22f), style = Stroke(strokePx))
-        IslandRingLogic.arc(measure.length, ring.fraction)?.let { range ->
-            val piece = Path()
-            if (measure.getSegment(range.start, range.endInclusive, piece, true))
-                drawPath(piece, ring.color, style = Stroke(strokePx, cap = StrokeCap.Round))
+            outline.moveTo(cx, t)
+            outline.lineTo(rt - radius, t)
+            outline.arcTo(androidx.compose.ui.geometry.Rect(rt - d, t, rt, t + d), -90f, 90f, false)
+            outline.lineTo(rt, bt - radius)
+            outline.arcTo(androidx.compose.ui.geometry.Rect(rt - d, bt - d, rt, bt), 0f, 90f, false)
+            outline.lineTo(l + radius, bt)
+            outline.arcTo(androidx.compose.ui.geometry.Rect(l, bt - d, l + d, bt), 90f, 90f, false)
+            outline.lineTo(l, t + radius)
+            outline.arcTo(androidx.compose.ui.geometry.Rect(l, t, l + d, t + d), 180f, 90f, false)
+            outline.close()
+            drawContent()
+            measure.setPath(outline, false)
+            drawPath(outline, ring.color.copy(alpha = .22f), style = Stroke(strokePx))
+            IslandRingLogic.arc(measure.length, ring.fraction)?.let { range ->
+                piece.rewind()
+                if (measure.getSegment(range.start, range.endInclusive, piece, true))
+                    drawPath(piece, ring.color, style = Stroke(strokePx, cap = StrokeCap.Round))
+            }
         }
     }

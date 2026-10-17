@@ -20,9 +20,13 @@ class SystemWallpaperSyncTest {
     }
 
     @Test fun theSheetGuardSwallowsOnlyDownwardLeftovers() = runBlocking {
-        assertEquals(Offset(0f, 40f), SheetDismissGuard.onPostScroll(Offset.Zero, Offset(5f, 40f), NestedScrollSource.UserInput))
-        assertEquals(Offset.Zero, SheetDismissGuard.onPostScroll(Offset.Zero, Offset(0f, -40f), NestedScrollSource.UserInput))
-        assertEquals(Velocity(0f, 900f), SheetDismissGuard.onPostFling(Velocity.Zero, Velocity(10f, 900f)))
-        assertEquals(Velocity.Zero, SheetDismissGuard.onPostFling(Velocity.Zero, Velocity(0f, -900f)))
+        val guard = SheetDismissGuard(flingDismissVelocity = 1000f)
+        assertEquals(Offset(0f, 40f), guard.onPostScroll(Offset.Zero, Offset(5f, 40f), NestedScrollSource.UserInput))
+        assertEquals(Offset.Zero, guard.onPostScroll(Offset.Zero, Offset(0f, -40f), NestedScrollSource.UserInput))
+        // A slow leftover fling is absorbed (a lazy scroll-past-top never closes the sheet) ...
+        assertEquals(Velocity(0f, 900f), guard.onPostFling(Velocity.Zero, Velocity(10f, 900f)))
+        // ... but a decisive downward flick passes through to dismiss the sheet.
+        assertEquals(Velocity.Zero, guard.onPostFling(Velocity.Zero, Velocity(10f, 1500f)))
+        assertEquals(Velocity.Zero, guard.onPostFling(Velocity.Zero, Velocity(0f, -900f)))
     }
 }

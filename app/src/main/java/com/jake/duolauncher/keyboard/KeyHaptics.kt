@@ -14,37 +14,47 @@ import android.os.VibratorManager
 import android.provider.Settings
 
 /** What a key press should feel like. iOS gives each kind of key a slightly different, always light, tick. */
-internal enum class HapticKind { LETTER, SPACE, DELETE, DELETE_REPEAT, MODIFIER, RETURN, SELECT, CURSOR }
+internal enum class HapticKind { LETTER, SPACE, DELETE, DELETE_REPEAT, MODIFIER, RETURN, SELECT, CURSOR, PREVIEW }
 
-/** One haptic: a vibrator primitive at a strength from 0 to 1, or (on a motor without primitives) a predefined effect. */
-internal data class HapticPlan(val primitive: Int, val scale: Float, val fallbackEffect: Int)
+/** One haptic: a vibrator primitive at a strength from 0 to 1, or (on a motor without primitives) a predefined effect.
+ * A second primitive after a short delay (when [secondScale] is above zero) turns one tick into a soft "toggle" feel.
+ */
+internal data class HapticPlan(
+    val primitive: Int, val scale: Float, val fallbackEffect: Int,
+    val secondPrimitive: Int = -1, val secondScale: Float = 0f, val secondDelayMs: Int = 0,
+)
 
 /** The feel of each key, with no Android calls beyond constants, so it is unit-tested. */
 internal object HapticProfile {
     const val DEFAULT_STRENGTH = .6f
     private const val MIN_AUDIBLE = .06f
     // android.os.VibrationEffect.Composition primitive ids and VibrationEffect predefined ids (inlined constants).
-    private const val CLICK = 1; private const val TICK = 7; private const val LOW_TICK = 8
+    internal const val CLICK = 1; internal const val TICK = 7; internal const val LOW_TICK = 8
     private const val EFFECT_TICK = 2; private const val EFFECT_CLICK = 0
 
-    /** Letters are the lightest, since they are tapped most; the space bar and Return are a touch firmer, like iOS. */
-    private fun base(kind: HapticKind): Triple<Int, Float, Int> = when (kind) {
-        HapticKind.LETTER -> Triple(LOW_TICK, .55f, EFFECT_TICK)
-        HapticKind.SPACE -> Triple(TICK, .62f, EFFECT_TICK)
-        HapticKind.DELETE -> Triple(TICK, .55f, EFFECT_TICK)
-        HapticKind.DELETE_REPEAT -> Triple(LOW_TICK, .40f, EFFECT_TICK)
-        HapticKind.MODIFIER -> Triple(TICK, .70f, EFFECT_TICK)
-        HapticKind.RETURN -> Triple(CLICK, .60f, EFFECT_CLICK)
-        HapticKind.SELECT -> Triple(TICK, .60f, EFFECT_TICK)
-        HapticKind.CURSOR -> Triple(LOW_TICK, .35f, EFFECT_TICK)
+    /** Letters are the lightest, since they are tapped most. Delete is a shade sharper, its held repeat lighter again and
+     * faster (the cadence is in the key's repeat loop); space and Return are a marginally deeper click; shift, page and
+     * symbol-layer switches feel like a soft toggle; a popup (the accent strip) pops very softly. */
+    private fun base(kind: HapticKind): HapticPlan = when (kind) {
+        HapticKind.LETTER -> HapticPlan(LOW_TICK, .55f, EFFECT_TICK)
+        HapticKind.DELETE -> HapticPlan(TICK, .60f, EFFECT_TICK)
+        HapticKind.DELETE_REPEAT -> HapticPlan(LOW_TICK, .48f, EFFECT_TICK)
+        HapticKind.SPACE -> HapticPlan(CLICK, .58f, EFFECT_CLICK)
+        HapticKind.RETURN -> HapticPlan(CLICK, .64f, EFFECT_CLICK)
+        HapticKind.MODIFIER -> HapticPlan(TICK, .62f, EFFECT_TICK, secondPrimitive = TICK, secondScale = .50f, secondDelayMs = 18)
+        HapticKind.SELECT -> HapticPlan(TICK, .60f, EFFECT_TICK)
+        HapticKind.CURSOR -> HapticPlan(LOW_TICK, .35f, EFFECT_TICK)
+        HapticKind.PREVIEW -> HapticPlan(LOW_TICK, .42f, EFFECT_TICK)
     }
 
     /** The plan for [kind] at [strength] (0 is off; the default setting reproduces the base feel), or null for silence. */
     fun plan(kind: HapticKind, strength: Float): HapticPlan? {
         if (strength <= 0.01f) return null
-        val (primitive, scale, effect) = base(kind)
-        val s = (scale * strength / DEFAULT_STRENGTH).coerceAtMost(1f)
-        return if (s < MIN_AUDIBLE) null else HapticPlan(primitive, s, effect)
+        val b = base(kind)
+        val s = (b.scale * strength / DEFAULT_STRENGTH).coerceAtMost(1f)
+        if (s < MIN_AUDIBLE) return null
+        val s2 = (b.secondScale * strength / DEFAULT_STRENGTH).coerceAtMost(1f)
+        return b.copy(scale = s, secondScale = s2)
     }
 
     /** Fast typing can overlap two fingers; two vibrations within [MIN_GAP_NS] blur into one, so the second is skipped. */
@@ -79,6 +89,9 @@ internal object KeyHaptics {
         }
     }
 
+    // WrongConstant: the plans carry HapticProfile's inlined primitive ids (TICK/LOW_TICK/CLICK), which lint cannot
+    // prove are Composition constants; they are the same three ids validated by areAllPrimitivesSupported in configure().
+    @android.annotation.SuppressLint("WrongConstant")
     fun fire(kind: HapticKind) {
         if (!systemAllows) return
         val plan = HapticProfile.plan(kind, strength) ?: return
@@ -88,8 +101,11 @@ internal object KeyHaptics {
         handler?.post {
             val v = vibrator ?: return@post
             runCatching {
-                val effect = if (primitives) VibrationEffect.startComposition().addPrimitive(plan.primitive, plan.scale).compose()
-                else VibrationEffect.createPredefined(plan.fallbackEffect)
+                val effect = if (primitives) {
+                    val composition = VibrationEffect.startComposition().addPrimitive(plan.primitive, plan.scale)
+                    if (plan.secondScale > 0f) composition.addPrimitive(plan.secondPrimitive, plan.secondScale, plan.secondDelayMs)
+                    composition.compose()
+                } else VibrationEffect.createPredefined(plan.fallbackEffect)
                 if (Build.VERSION.SDK_INT >= 33) v.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_TOUCH))
                 else v.vibrate(effect)
             }

@@ -3,7 +3,10 @@ package com.jake.duolauncher
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
@@ -56,6 +59,21 @@ internal class PageGestureLimits(private val pager: PagerState) : NestedScrollCo
 
 internal fun boundedPagePosition(position: Float, anchor: Int, count: Int): Float =
     position.coerceIn((anchor - 1).coerceAtLeast(0).toFloat(), (anchor + 1).coerceAtMost(count - 1).coerceAtLeast(0).toFloat())
+
+/** The one place the Home pager's snap feel is tuned. */
+internal object PageSnapMotion {
+    /** Fling velocity (dp/s) that commits an adjacent page even from a small drag. A fast small swipe turns the page;
+     * below this, a slow drag must carry the finger past the distance threshold instead. */
+    const val FLING_VELOCITY_DP = 250f
+
+    /**
+     * The settle spring, seeded with the finger's release velocity by the caller. Near-critically damped and
+     * moderately stiff, so a page glides home with the drag's speed and stops without a long tail — an iOS snap,
+     * not a fixed easing. [Spring.StiffnessMedium] matches the stock default but is named here so the whole
+     * pager is tuned from one number.
+     */
+    fun settleSpring(): SpringSpec<Float> = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+}
 
 internal fun releasePage(position: Float, anchor: Int, count: Int, velocity: Float, threshold: Float,
     distanceThreshold: Float = .2f): Int {
@@ -209,7 +227,7 @@ internal fun Modifier.onePageGestures(
                                             val releaseStride = motion?.stride(anchor, adjacent)
                                                 ?.takeIf { it > 0f } ?: stride()
                                             val target = if (canceled) position().roundToInt() else releasePage(
-                                                position(), anchor, pager.pageCount, velocity, 250f * density,
+                                                position(), anchor, pager.pageCount, velocity, PageSnapMotion.FLING_VELOCITY_DP * density,
                                                 distanceThreshold = minOf(.2f, 72f * density / releaseStride)
                                             )
                                             trace?.release(position(), velocity, target, canceled)
@@ -217,7 +235,11 @@ internal fun Modifier.onePageGestures(
                                             val startVisualOffset = visualOffset()
                                             val targetVisualOffset = motion?.offset(target.toFloat()) ?: target * stride()
                                             val distanceToPage = targetVisualOffset - startVisualOffset
-                                            animate(0f, distanceToPage, initialVelocity = (-velocity).coerceIn(-stride() * 5f, stride() * 5f)) { value, _ ->
+                                            // The settle spring is seeded with the finger's release velocity (clamped so a
+                                            // violent fling cannot throw the page more than a few strides), and retargets the
+                                            // running scroll rather than restarting it: interruptible, like iOS.
+                                            animate(0f, distanceToPage, initialVelocity = (-velocity).coerceIn(-stride() * 5f, stride() * 5f),
+                                                animationSpec = PageSnapMotion.settleSpring()) { value, _ ->
                                                 // Springs can overshoot the one-page bound. Base every
                                                 // frame on the pager's actual position so a rejected delta
                                                 // cannot become a persistent settling offset.

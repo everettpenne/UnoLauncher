@@ -13,6 +13,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 internal enum class Cue(val haptic: HapticFeedbackType?, val sound: Int?) {
     /** A light tick: sliders, rails, small controls. */
     TICK(HapticFeedbackType.TextHandleMove, null),
+    /** A detent: a gesture crossing its activation threshold (a pull-down engaging, an icon crossing into the next cell). */
+    DETENT(HapticFeedbackType.TextHandleMove, null),
     /** A page settled. */
     PAGE(HapticFeedbackType.TextHandleMove, AudioManager.FX_KEY_CLICK),
     /** Something opened or closed: the control panel, the island. */
@@ -25,6 +27,8 @@ internal enum class Cue(val haptic: HapticFeedbackType?, val sound: Int?) {
     KEY(HapticFeedbackType.TextHandleMove, AudioManager.FX_KEYPRESS_STANDARD),
     /** A finished timer, a confirmation. */
     CONFIRM(HapticFeedbackType.Confirm, AudioManager.FX_KEYPRESS_RETURN),
+    /** A long press engaged (picking an icon up, entering a hold). */
+    LONG_PRESS(HapticFeedbackType.LongPress, null),
 }
 
 /** Haptics are on by default and sounds are off. Sounds are Android's own touch sound effects, played through the
@@ -54,9 +58,10 @@ internal object UnoFeedback {
         val (feels, sounds) = plays(cue, hapticsOn, soundsOn)
         if (feels) view.performHapticFeedback(when (cue) {
             Cue.KEY -> android.view.HapticFeedbackConstants.KEYBOARD_TAP
-            Cue.TICK, Cue.PAGE, Cue.OPEN -> android.view.HapticFeedbackConstants.CLOCK_TICK
+            Cue.TICK, Cue.DETENT, Cue.PAGE, Cue.OPEN -> android.view.HapticFeedbackConstants.CLOCK_TICK
             Cue.TOGGLE, Cue.LAUNCH -> android.view.HapticFeedbackConstants.CONTEXT_CLICK
             Cue.CONFIRM -> android.view.HapticFeedbackConstants.CONFIRM
+            Cue.LONG_PRESS -> android.view.HapticFeedbackConstants.LONG_PRESS
         })
         if (sounds) cue.sound?.let { fx -> worker?.post { runCatching { audio?.playSoundEffect(fx, .6f) } } }
     }

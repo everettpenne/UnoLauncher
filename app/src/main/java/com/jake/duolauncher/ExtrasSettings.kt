@@ -65,6 +65,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     SettingsSwitch("Suggestions", s.kbSuggestions, store::setKbSuggestions, "kb-suggestions-switch")
     SettingsSwitch("Autocorrect", s.kbAutocorrect, store::setKbAutocorrect, "kb-autocorrect-switch")
     SettingsSwitch("Number row", s.kbNumberRow, store::setKbNumberRow, "kb-number-row-switch")
+    SettingsSwitch("Double-space to type a period", s.kbDoubleSpace, store::setKbDoubleSpace, "kb-double-space-switch")
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(com.jake.duolauncher.R.string.key_haptics), Modifier.weight(1f))
         Text(if (s.kbHapticStrength <= .01f) "Off" else "${(s.kbHapticStrength * 100).toInt()}%", color = muted)

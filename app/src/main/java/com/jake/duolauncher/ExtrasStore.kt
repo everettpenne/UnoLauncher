@@ -65,6 +65,7 @@ internal data class ExtrasState(
     val kbAutocorrect: Boolean = true,
     val kbSuggestions: Boolean = true,
     val kbNumberRow: Boolean = false,
+    val kbDoubleSpace: Boolean = true,
     val kbOneHanded: Int = 0,
     val kbSpaceCursor: Boolean = true,
     val kbHapticStrength: Float = com.jake.duolauncher.keyboard.HapticProfile.DEFAULT_STRENGTH,
@@ -133,6 +134,7 @@ internal class ExtrasStore(context: Context) {
         kbAutocorrect = prefs.getBoolean("kbAutocorrect", true),
         kbSuggestions = prefs.getBoolean("kbSuggestions", true),
         kbNumberRow = prefs.getBoolean("kbNumberRow", false),
+        kbDoubleSpace = prefs.getBoolean("kbDoubleSpace", true),
         kbOneHanded = prefs.getInt("kbOneHanded", 0).coerceIn(0, 2),
         kbSpaceCursor = prefs.getBoolean("kbSpaceCursor", true),
         kbHapticStrength = prefs.lenientFloat("kbHapticStrength", com.jake.duolauncher.keyboard.HapticProfile.DEFAULT_STRENGTH).coerceIn(0f, 1f),
@@ -184,6 +186,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("kbAutocorrect", next.kbAutocorrect)
             .putBoolean("kbSuggestions", next.kbSuggestions)
             .putBoolean("kbNumberRow", next.kbNumberRow)
+            .putBoolean("kbDoubleSpace", next.kbDoubleSpace)
             .putInt("kbOneHanded", next.kbOneHanded)
             .putBoolean("kbSpaceCursor", next.kbSpaceCursor)
             .putFloat("kbHapticStrength", next.kbHapticStrength)
@@ -239,6 +242,7 @@ internal class ExtrasStore(context: Context) {
     fun setKbAutocorrect(value: Boolean) = save(state.copy(kbAutocorrect = value))
     fun setKbSuggestions(value: Boolean) = save(state.copy(kbSuggestions = value))
     fun setKbNumberRow(value: Boolean) = save(state.copy(kbNumberRow = value))
+    fun setKbDoubleSpace(value: Boolean) = save(state.copy(kbDoubleSpace = value))
     fun setKbOneHanded(value: Int) = save(state.copy(kbOneHanded = value.coerceIn(0, 2)))
     fun setKbSpaceCursor(value: Boolean) = save(state.copy(kbSpaceCursor = value))
     fun setKbHapticStrength(value: Float) = save(state.copy(kbHapticStrength = value.coerceIn(0f, 1f)))

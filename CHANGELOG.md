@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.80.0-uno01
+
+- **Live Activities, as a first-class contract.** The island's reading of Android 16's promoted ongoing notifications is now a named, tested contract: a pure `LiveUpdateLogic.build` maps the notification's fields (title, short status, body, progress, color, …) into the island's model, with reference tests for the ride-share and delivery cases. PRIVACY.md now names the exact closed set of fields read, and a test fails if the code and the doc ever drift.
+- **Compact Live Update text.** A new setting under the island chooses how much a Live Update says on the pill: glyph only, glyph plus the short status (the default), or glyph plus the title — mirroring the notification-card level control.
+
 ## 0.79.0-uno01
 
 - **The island, simplified like Apple's.** The long-press tools face (torch, timer, stopwatch grid) is gone, and with it one hidden gesture and one surface. Running timers and stopwatches still live in the island; you start them from search ("timer 10", "stopwatch"), the Timers widget, or the control panel's torch. The compact island is now passive, as Apple intends: tap to open, touch-and-hold to expand.

@@ -2,6 +2,7 @@ package com.jake.duolauncher
 
 import com.jake.duolauncher.island.*
 
+import java.io.File
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -120,5 +121,87 @@ class ActivityClassifyTest {
         org.junit.Assert.assertTrue(LiveUpdateLogic.isOngoing(0x2))
         org.junit.Assert.assertTrue(LiveUpdateLogic.isOngoing(0x40))
         org.junit.Assert.assertFalse(LiveUpdateLogic.isOngoing(0x10))
+    }
+}
+
+/** The reference parser: the spec's notification examples mapped through [LiveUpdateLogic.build], asserting every field lands in the
+ * right place. These run on the JVM, apart from the Android notification service. */
+class LiveUpdateParseTest {
+    private fun parse(
+        key: String = "k",
+        packageName: String = "com.example.ride",
+        appLabel: String = "Ride",
+        postTime: Long = 1_700_000_000_000L,
+        source: ActivitySource = ActivitySource.PROMOTED,
+        promoted: Boolean = true,
+        category: String? = null,
+        title: String = "Ride to the airport",
+        shortCriticalText: String? = "4 min",
+        text: String? = "Driver is 4 minutes away",
+        progress: Int = 40,
+        progressMax: Int = 100,
+        indeterminate: Boolean = false,
+        chronometerBase: Long? = null,
+        countDown: Boolean = false,
+        color: Int = 0xFF1FA84A.toInt(),
+    ) = LiveUpdateLogic.build(key, packageName, appLabel, postTime, source, promoted, category, title,
+        shortCriticalText, text, progress, progressMax, indeterminate, chronometerBase, countDown, color)
+
+    @Test fun theRideShareExampleMapsEveryFieldToTheRightPlace() {
+        val u = parse()
+        assertEquals("k", u.key)
+        assertEquals("com.example.ride", u.packageName)
+        assertEquals("Ride", u.appLabel)
+        assertEquals("Ride to the airport", u.title)
+        assertEquals("4 min", u.shortText)
+        assertEquals("Driver is 4 minutes away", u.text)
+        assertEquals(40, u.progress)
+        assertEquals(100, u.progressMax)
+        assertFalse(u.indeterminate)
+        assertEquals(ActivitySource.PROMOTED, u.source)
+        assertEquals(0xFF1FA84A.toInt(), u.color)
+        assertEquals(1_700_000_000_000L, u.postTime)
+        // Context-derived values stay out of the pure path; the caller fills them in.
+        assertNull(u.icon); assertNull(u.openIntent); assertNull(u.largeIcon)
+    }
+
+    @Test fun theDeliveryExampleMapsItsOwnFields() {
+        val u = parse(
+            key = "d", packageName = "com.example.delivery", appLabel = "Courier",
+            title = "Order arriving", shortCriticalText = "2 stops", text = "Your order is next",
+            progress = 2, progressMax = 5, color = 0xFFE02020.toInt(),
+        )
+        assertEquals("Order arriving", u.title)
+        assertEquals("2 stops", u.shortText)
+        assertEquals("Your order is next", u.text)
+        assertEquals(2, u.progress)
+        assertEquals(5, u.progressMax)
+        assertEquals(ActivitySource.PROMOTED, u.source)
+        assertEquals(0xFFE02020.toInt(), u.color)
+    }
+
+    @Test fun theBodyAndShortStatusAreKeptOnlyForTheirOwnKinds() {
+        // A progress task shows its percentage, not the app's body text (which may name a file), and has no short status.
+        val task = parse(source = ActivitySource.PROGRESS, promoted = false, category = "progress", shortCriticalText = null, text = "firmware.zip")
+        assertNull(task.text); assertNull(task.shortText); assertEquals(ActivitySource.PROGRESS, task.source)
+        // A navigation instruction keeps its body line (the instruction under the arrow) but has no short status.
+        val nav = parse(source = ActivitySource.NAVIGATION, promoted = false, category = "navigation", shortCriticalText = null, text = "Main St")
+        assertEquals("Main St", nav.text); assertNull(nav.shortText); assertEquals(ActivitySource.NAVIGATION, nav.source)
+    }
+
+    @Test fun promotedIsRecognisedByTheFlagAndClassifiedAsALiveUpdate() {
+        assertTrue(LiveUpdateLogic.isLiveUpdate(LiveUpdateLogic.PROMOTED_FLAG))
+        assertFalse(LiveUpdateLogic.isLiveUpdate(0))
+        assertEquals(ActivitySource.PROMOTED,
+            LiveUpdateLogic.classify(true, null, true, 0, 0, false, liveUpdatesOn = true, navigationOn = true, tasksOn = true))
+    }
+
+    @Test fun everyReadFieldNameAppearsInPrivacyDotMd() {
+        val doc = File("../PRIVACY.md").takeIf { it.exists() } ?: File("PRIVACY.md")
+        assertTrue("PRIVACY.md not found from ${System.getProperty("user.dir")}", doc.isFile)
+        val text = doc.readText()
+        LiveUpdateLogic.READ_FIELDS.forEach { field ->
+            assertTrue("\"$field\" is missing from PRIVACY.md", text.contains(field))
+        }
     }
 }

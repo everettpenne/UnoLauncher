@@ -79,6 +79,8 @@ internal data class ExtrasState(
     /** Per-app seconds a notification card stays (see PeekTimeouts). */
     val peekTimeouts: String = "",
     val liveUpdates: Boolean = true,
+    /** How much the collapsed pill writes beside a Live Update's glyph: 0 glyph only, 1 the short status, 2 the title (see LiveCompactText). */
+    val liveCompactLevel: Int = 1,
     val islandEverywhere: Boolean = false,
     val notificationPeek: Boolean = false,
     val contactSearch: Boolean = false,
@@ -150,6 +152,7 @@ internal class ExtrasStore(context: Context) {
         peekBlocked = prefs.getString("peekBlocked", "") ?: "",
         peekTimeouts = prefs.getString("peekTimeouts", "") ?: "",
         liveUpdates = prefs.getBoolean("liveUpdates", true),
+        liveCompactLevel = prefs.getInt("liveCompactLevel", 1).coerceIn(0, 2),
         islandEverywhere = prefs.getBoolean("islandEverywhere", false),
         notificationPeek = prefs.getBoolean("notificationPeek", false),
         contactSearch = prefs.getBoolean("contactSearch", false),
@@ -203,6 +206,7 @@ internal class ExtrasStore(context: Context) {
             .putString("peekBlocked", next.peekBlocked)
             .putString("peekTimeouts", next.peekTimeouts)
             .putBoolean("liveUpdates", next.liveUpdates)
+            .putInt("liveCompactLevel", next.liveCompactLevel)
             .putBoolean("islandEverywhere", next.islandEverywhere)
             .putBoolean("notificationPeek", next.notificationPeek)
             .putBoolean("contactSearch", next.contactSearch)
@@ -259,6 +263,7 @@ internal class ExtrasStore(context: Context) {
     fun setPrivacyIndicators(value: Boolean) = save(state.copy(privacyIndicators = value))
     fun setSecurityAlerts(value: Boolean) = save(state.copy(securityAlerts = value))
     fun setLiveUpdates(value: Boolean) = save(state.copy(liveUpdates = value))
+    fun setLiveCompactLevel(value: Int) = save(state.copy(liveCompactLevel = value.coerceIn(0, 2)))
     fun setIslandEverywhere(value: Boolean) = save(state.copy(islandEverywhere = value))
     fun setNotificationPeek(value: Boolean) = save(state.copy(notificationPeek = value))
     fun setContactSearch(value: Boolean) = save(state.copy(contactSearch = value))

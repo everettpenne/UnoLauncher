@@ -54,6 +54,18 @@ internal object IslandLive {
     }
 }
 
+/** What text the collapsed pill writes beside a Live Update's glyph, at the level the person chose: 0 nothing (the glyph alone, so
+ *  the slot stays small), 1 the app's own short status (the pill's behaviour today), 2 the title instead. Pure, so the rule is unit-tested.
+ */
+internal object LiveCompactText {
+    /** The text to show for [level] (0..2): null for none, [shortStatus] for 1, [title] for 2. Out-of-range levels are clamped. */
+    fun choose(level: Int, shortStatus: String?, title: String): String? = when (level.coerceIn(0, 2)) {
+        0 -> null
+        2 -> title
+        else -> shortStatus
+    }
+}
+
 /** Pop-out bubbles: as on newer dynamic islands, live activities beyond the two the pill can carry come out as small round
  * bubbles beside it. Tapping one brings its activity to the front of the pill. Pure, so the rules are unit-tested.
  */

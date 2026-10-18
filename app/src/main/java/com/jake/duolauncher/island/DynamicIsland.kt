@@ -5,6 +5,7 @@ import com.jake.duolauncher.panel.*
 import com.jake.duolauncher.appearance.*
 
 import com.jake.duolauncher.*
+import android.content.Context
 import android.view.KeyEvent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -629,6 +630,18 @@ internal fun DynamicIsland(
     }
     val callActive = NotificationFeed.ongoingCall != null
     val updates = NotificationFeed.liveUpdates
+    // How much the collapsed pill shows of a Live Update: 0 glyph only, 1 the short status, 2 the title (see ExtrasStore.liveCompactLevel).
+    // Read straight from the extras prefs, the way the overlay host reads the other island choices, so it follows a settings change.
+    val liveCompactLevel by produceState(initialValue = 1) {
+        val prefs = context.getSharedPreferences("extras", Context.MODE_PRIVATE)
+        fun read() = prefs.getInt("liveCompactLevel", 1).coerceIn(0, 2)
+        value = read()
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "liveCompactLevel") value = read()
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     // Everything live on the collapsed pill, most important first, and which goes in which slot (see IslandLive).
     val liveKinds = IslandLive.rotated(IslandLive.active(call = callActive,
         timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaOnPill,
@@ -910,7 +923,7 @@ internal fun DynamicIsland(
                     .clickable { UnoFeedback.play(Cue.TICK, haptic); state.rotateBy(IslandBubbles.shiftFor(liveKinds, index)) }
                     .semantics { contentDescription = "Show ${kind.name.lowercase()}" }
                     .testTag("island-bubble-${kind.name.lowercase()}"), contentAlignment = Alignment.Center) {
-                    LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, update = updates.firstOrNull())
+                    LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
                 }
             }
         }
@@ -1153,7 +1166,7 @@ internal fun DynamicIsland(
                     } else if (IslandTools.ringing) {
                         Icon(Icons.Rounded.Alarm, null, tint = IslandThemes.active.timer, modifier = Modifier.size(18.dp))
                     } else plan.leading?.let { (kind, show) ->
-                        LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, update = updates.firstOrNull())
+                        LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
                     }
                     // Idle: nothing here. The time is in the status bar and on the expanded panel
                     // (IslandEventArbiter.timeOwner); the collapsed island never shows it.
@@ -1168,7 +1181,7 @@ internal fun DynamicIsland(
                             maxLines = 1, modifier = Modifier.testTag("island-timer-done"))
                     } else if (plan.trailing != null) {
                         val (kind, show) = plan.trailing
-                        LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, update = updates.firstOrNull())
+                        LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
                     } else if (recentLive) {
                         // A notification came in the last half minute: a dot in its app's colour says it can still be looked at.
                         Box(Modifier.size(7.dp).clip(CircleShape).background(recent?.tint?.let { Color(it) } ?: themeInk).testTag("island-recent-dot"))
@@ -1781,7 +1794,7 @@ private val PRIVACY_MIC = Color(0xFFFF9F0A)
 /** One live activity as it appears in a side of the collapsed pill: its small glyph, or its detail (text or bars). */
 @Composable
 private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boolean, tint: Color,
-    art: androidx.compose.ui.graphics.ImageBitmap?, multi: Boolean, update: LiveUpdate? = null) {
+    art: androidx.compose.ui.graphics.ImageBitmap?, multi: Boolean, liveCompactLevel: Int, update: LiveUpdate? = null) {
     val glyph = show == SlotShow.GLYPH
     when (kind) {
         LiveKind.CAMERA -> if (glyph) Icon(Icons.Rounded.Videocam, "Camera in use", tint = IosGreen,
@@ -1808,9 +1821,13 @@ private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boo
         LiveKind.UPDATE -> if (update != null) {
             val driving = update.source == ActivitySource.NAVIGATION
             if (glyph) UpdateGlyph(update, if (driving) NavigationText.PILL_ARROW_DP.dp else 22.dp)
-            else Text(LiveUpdateLogic.glance(update, clockMs), color = updateTint(update), fontSize = (if (driving) NavigationText.PILL_SP else SLOT_TEXT_SP).sp,
-                fontWeight = if (driving) FontWeight.Bold else FontWeight.SemiBold,
-                maxLines = 1, modifier = Modifier.padding(end = 4.dp).testTag("island-live-update"))
+            else {
+                // The words beside the glyph, as the person chose: none (glyph alone), the short status, or the title.
+                val text = LiveCompactText.choose(liveCompactLevel, LiveUpdateLogic.glance(update, clockMs), update.title)
+                if (text != null) Text(text, color = updateTint(update), fontSize = (if (driving) NavigationText.PILL_SP else SLOT_TEXT_SP).sp,
+                    fontWeight = if (driving) FontWeight.Bold else FontWeight.SemiBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(end = 4.dp).testTag("island-live-update"))
+            }
         }
         LiveKind.MEDIA -> if (glyph) {
             // The artwork when there is any; otherwise the bars stand in on the left when something else holds the right.

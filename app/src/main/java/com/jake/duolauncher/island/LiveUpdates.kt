@@ -52,6 +52,60 @@ internal object LiveUpdateLogic {
         else -> null
     }
 
+    /** The pure notification → [LiveUpdate] field mapping, so it is unit-tested apart from the notification service. It takes the raw
+     * values the listener already reads from a notification and reduces them to the island's model. Context-derived values — the
+     * small icon, the content intent and a navigation instruction's large (turn-arrow) icon — are not taken here: the returned
+     * update leaves them null and the caller fills them in.
+     *
+     * [promoted] is the Android 16 flag and [category] the notification's category; together with the ongoing flag and the progress
+     * fields they drive [classify] in the caller to produce [source], which then steers this mapping: the short status is kept only for a
+     * promoted Live Update, and the body text is dropped for a progress task (which shows its percentage, not a file name).
+     */
+    fun build(
+        key: String,
+        packageName: String,
+        appLabel: String,
+        postTime: Long,
+        source: ActivitySource,
+        promoted: Boolean,
+        category: String?,
+        title: String,
+        shortCriticalText: String?,
+        text: String?,
+        progress: Int,
+        progressMax: Int,
+        indeterminate: Boolean,
+        chronometerBase: Long?,
+        countDown: Boolean,
+        color: Int,
+    ): LiveUpdate = LiveUpdate(
+        key = key,
+        packageName = packageName,
+        appLabel = appLabel,
+        title = title,
+        text = if (source == ActivitySource.PROGRESS) null else text,
+        shortText = if (source == ActivitySource.PROMOTED) shortCriticalText else null,
+        progress = progress,
+        progressMax = progressMax,
+        indeterminate = indeterminate,
+        chronometerBase = chronometerBase,
+        countDown = countDown,
+        icon = null,
+        color = color,
+        postTime = postTime,
+        openIntent = null,
+        largeIcon = null,
+        source = source,
+    )
+
+    /** The exact set of notification fields the island reads for a Live Update, named as they are in PRIVACY.md. A test pins this
+     * list to that document, so the wording cannot drift: change one and you must change the other.
+     */
+    val READ_FIELDS: List<String> = listOf(
+        "title", "short status", "body text", "progress", "progress max", "indeterminate",
+        "chronometer base", "count-down", "small icon", "color", "content intent", "category", "large icon",
+    )
+
     /** [android.app.Notification.FLAG_PROMOTED_ONGOING], repeated so this file's logic needs no Android classes. */
     const val PROMOTED_FLAG = 0x40000
     const val MAX_SHOWN = 3

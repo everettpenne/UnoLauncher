@@ -273,6 +273,10 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     }, "bluetooth-alerts-switch")
     Text(stringResource(com.jake.duolauncher.R.string.bluetooth_alerts_note), style = note, color = muted)
     SettingsSwitch("Live Updates in the island", s.liveUpdates, store::setLiveUpdates, "live-updates-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.compact_live_update_text), style = MaterialTheme.typography.titleSmall)
+    ChoiceRow("Glyph only", "Just the app's icon or turn arrow on the pill", s.liveCompactLevel == 0, "live-compact-glyph") { store.setLiveCompactLevel(0) }
+    ChoiceRow("Short status", "The app's own short line, like “4 min”", s.liveCompactLevel == 1, "live-compact-status") { store.setLiveCompactLevel(1) }
+    ChoiceRow("Title", "The update's title instead of the short status", s.liveCompactLevel == 2, "live-compact-title") { store.setLiveCompactLevel(2) }
     SettingsSwitch("Downloads and other progress", s.progressTasks, store::setProgressTasks, "progress-tasks-switch")
     Text(stringResource(com.jake.duolauncher.R.string.a_download_upload_or_install_with),
         style = note, color = muted)

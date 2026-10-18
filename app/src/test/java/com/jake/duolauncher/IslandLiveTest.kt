@@ -68,6 +68,28 @@ class IslandLiveTest {
         assertEquals(kinds(timer = true), IslandLive.rotated(kinds(timer = true), 5))
     }
 
+    // ---- compact Live Update text ----
+    @Test fun compactTextLevelsChooseGlyphOnlyShortStatusOrTitle() {
+        assertEquals(null, LiveCompactText.choose(0, "4 min", "Ride home"))
+        assertEquals("4 min", LiveCompactText.choose(1, "4 min", "Ride home"))
+        assertEquals("Ride home", LiveCompactText.choose(2, "4 min", "Ride home"))
+    }
+
+    @Test fun compactTextClampsOddLevelsToTheNearestValidOne() {
+        assertEquals(null, LiveCompactText.choose(-1, "4 min", "Ride home"))
+        assertEquals(null, LiveCompactText.choose(-9, "4 min", "Ride home"))
+        assertEquals("Ride home", LiveCompactText.choose(9, "4 min", "Ride home"))
+        assertEquals("Ride home", LiveCompactText.choose(3, "4 min", "Ride home"))
+    }
+
+    @Test fun compactTextKeepsTheChosenTextEvenWhenTheOtherIsBlank() {
+        // Level 2 always shows the title, and level 1 the short status, whatever the other field holds.
+        assertEquals(null, LiveCompactText.choose(0, null, ""))
+        assertEquals(null, LiveCompactText.choose(1, null, "Ride home"))
+        assertEquals("Ride home", LiveCompactText.choose(2, null, "Ride home"))
+        assertEquals("", LiveCompactText.choose(2, "4 min", ""))
+    }
+
     // ---- album-art tint ----
     private fun solid(argb: Int, n: Int = 64) = IntArray(n) { argb }
     private fun channels(c: Int) = Triple(c shr 16 and 0xFF, c shr 8 and 0xFF, c and 0xFF)

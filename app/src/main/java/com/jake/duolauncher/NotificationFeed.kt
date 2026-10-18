@@ -166,7 +166,8 @@ class UnoNotificationListener : NotificationListenerService() {
         val found = active.filter { IslandLinks.allowed(it.packageName, muted) && (debuggable || it.packageName != packageName) }
             .mapNotNull { sbn -> runCatching {
                 val n = sbn.notification; val e = n.extras
-                val source = LiveUpdateLogic.classify(LiveUpdateLogic.isLiveUpdate(n.flags), n.category, LiveUpdateLogic.isOngoing(n.flags),
+                val promoted = LiveUpdateLogic.isLiveUpdate(n.flags)
+                val source = LiveUpdateLogic.classify(promoted, n.category, LiveUpdateLogic.isOngoing(n.flags),
                     e.getInt(Notification.EXTRA_PROGRESS, 0), e.getInt(Notification.EXTRA_PROGRESS_MAX, 0),
                     e.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false), liveOn, navOn, tasksOn) ?: return@runCatching null
                 val title = e.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
@@ -174,21 +175,32 @@ class UnoNotificationListener : NotificationListenerService() {
                 val label = runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString() }
                     .getOrDefault(sbn.packageName)
                 val chrono = if (e.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false)) n.`when` else null
-                // A progress task shows its percentage, not the app's body text (which may name a file); a navigation card is the instruction
-                // and what is under it (distance, arrival); a Live Update keeps its own status text.
-                val text = if (source == ActivitySource.PROGRESS) null else e.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-                LiveUpdate(sbn.key, sbn.packageName, label, title, text,
-                    if (source == ActivitySource.PROMOTED && android.os.Build.VERSION.SDK_INT >= 36) n.shortCriticalText else null,
-                    e.getInt(Notification.EXTRA_PROGRESS, 0), e.getInt(Notification.EXTRA_PROGRESS_MAX, 0),
-                    e.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false), chrono,
-                    e.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN, false),
-                    smallIconOf(n),
+                // The short status exists only on Android 16; older versions have no such field to read.
+                val shortCritical = if (android.os.Build.VERSION.SDK_INT >= 36) n.shortCriticalText else null
+                LiveUpdateLogic.build(
+                    key = sbn.key,
+                    packageName = sbn.packageName,
+                    appLabel = label,
+                    postTime = sbn.postTime,
+                    source = source,
+                    promoted = promoted,
+                    category = n.category,
+                    title = title,
+                    shortCriticalText = shortCritical,
+                    text = e.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
+                    progress = e.getInt(Notification.EXTRA_PROGRESS, 0),
+                    progressMax = e.getInt(Notification.EXTRA_PROGRESS_MAX, 0),
+                    indeterminate = e.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false),
+                    chronometerBase = chrono,
+                    countDown = e.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN, false),
                     // The app's own colour if it gave one, else the colour of its icon.
-                    n.color.takeIf { it != 0 } ?: AppTints.of(sbn.packageName) { runCatching { packageManager.getApplicationIcon(sbn.packageName).toBitmap(48, 48) }.getOrNull() } ?: 0,
-                    sbn.postTime, n.contentIntent,
+                    color = n.color.takeIf { it != 0 } ?: AppTints.of(sbn.packageName) { runCatching { packageManager.getApplicationIcon(sbn.packageName).toBitmap(48, 48) }.getOrNull() } ?: 0,
+                ).copy(
+                    icon = smallIconOf(n),
+                    openIntent = n.contentIntent,
                     // The turn arrow of a navigation instruction is its large icon; no other kind of activity has its large icon read.
                     largeIcon = if (source == ActivitySource.NAVIGATION) runCatching { n.getLargeIcon()?.loadDrawable(this)?.toBitmap(NavigationText.ARROW_PX, NavigationText.ARROW_PX) }.getOrNull() else null,
-                    source = source)
+                )
             }.getOrNull() }
         NotificationFeed.liveUpdates = LiveUpdateLogic.present(found, presentKeys)
         checkNavigationCue(found)

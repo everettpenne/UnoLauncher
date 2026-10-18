@@ -2,7 +2,9 @@ package com.jake.duolauncher
 
 import com.jake.duolauncher.island.*
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -49,5 +51,20 @@ class IslandPanelLogicTest {
         assertEquals("Dynamic island", IslandSpeech.describe(null, false, false, false, false, false))
         assertEquals("Dynamic island, Silent, on a call, music playing", IslandSpeech.describe("Silent", false, true, false, false, true))
         assertEquals("Dynamic island, timer finished", IslandSpeech.describe(null, true, false, true, false, false))
+        assertEquals("Dynamic island, charging", IslandSpeech.describe(null, false, false, false, false, false, charging = true))
+        assertEquals("Dynamic island, stopwatch running, charging, music playing",
+            IslandSpeech.describe(null, false, false, false, true, true, charging = true))
+    }
+
+    @Test fun actionLabelsFitOnlyWhenThePanelIsWideEnoughForTheFont() {
+        assertTrue(PanelHeight.actionsFit(336f, 1f))
+        assertTrue(PanelHeight.actionsFit(306f, 1f))
+        assertFalse(PanelHeight.actionsFit(305f, 1f))
+        // A larger system font needs a wider panel; below the threshold the labels drop to icons.
+        assertTrue(PanelHeight.actionsFit(336f, 1.1f))
+        assertFalse(PanelHeight.actionsFit(336f, 1.2f))
+        assertFalse(PanelHeight.actionsFit(336f, 1.6f))
+        // Font scales past the cap do not keep raising the bar (the text is clipped instead).
+        assertEquals(PanelHeight.actionsFit(336f, 1.6f), PanelHeight.actionsFit(336f, 3f))
     }
 }

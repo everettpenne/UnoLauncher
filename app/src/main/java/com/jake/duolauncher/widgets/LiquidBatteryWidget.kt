@@ -66,11 +66,16 @@ internal fun LiquidBatteryFace(slot: Int, onOptions: () -> Unit) {
     val tiltEnabled = remember { context.getSharedPreferences("appearance", Context.MODE_PRIVATE).getBoolean("tiltHighlight", false) }
     val tilt = rememberSurfaceTilt(tiltEnabled)
     // A slow, always-on ripple so the surface reads as liquid even when the phone is flat and tilt-following is off.
-    // The picker's preview holds still (a frozen frame is enough to show the look, and a list of animated cards is wasted work).
+    // The picker's preview holds still (a frozen frame is enough to show the look, and a list of animated cards is wasted work);
+    // with Android's animations off (developer "remove animations") the surface holds the same still frame instead of rippling.
     val previewing = LocalWidgetPreview.current
+    val animationsOn = remember {
+        android.provider.Settings.Global.getFloat(context.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
+    }
     val phase: Float
     val rise: Float
-    if (previewing) { phase = 1.1f; rise = .35f }
+    if (previewing || !animationsOn) { phase = 1.1f; rise = .35f }
     else {
         val transition = rememberInfiniteTransition(label = "liquid-battery")
         val ripple by transition.animateFloat(0f, 2f * PI.toFloat(),

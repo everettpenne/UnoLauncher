@@ -1368,8 +1368,7 @@ internal fun LauncherScreen(
             enter = androidx.compose.animation.EnterTransition.None,
             exit = androidx.compose.animation.ExitTransition.None) {
             val grow by transition.animateFloat(transitionSpec = {
-                if (targetState == androidx.compose.animation.EnterExitState.Visible) androidx.compose.animation.core.spring(dampingRatio = .78f, stiffness = 320f)
-                else androidx.compose.animation.core.tween(200)
+                androidx.compose.animation.core.spring(dampingRatio = .78f, stiffness = 320f)
             }, label = "search grows from the island") { if (it == androidx.compose.animation.EnterExitState.Visible) 1f else 0f }
             Spotlight(controlGlass, state.apps, state.hiddenApps, feed.shownEntries, extras?.store?.state?.contactSearch == true, handoffResolver,
                 onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },

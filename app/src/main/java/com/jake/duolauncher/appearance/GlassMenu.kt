@@ -122,7 +122,7 @@ internal fun GlassMenuItem(
     Row(modifier.fillMaxWidth().heightIn(min = 48.dp)
         .background(if (pressed) LocalContentColor.current.copy(alpha = .12f) else Color.Transparent)
         .clickable(interactionSource = interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
-        .padding(horizontal = 18.dp),
+        .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         leadingIcon?.invoke()
         androidx.compose.material3.ProvideTextStyle(UnoType.callout) {

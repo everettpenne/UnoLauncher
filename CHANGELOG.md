@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.78.0-uno01
+
+- **A quieter island.** The peek and morph fade no longer build a gradient on every frame (it draws from a once-made ramp instead), the Search/Feed/Settings labels drop to icons before they clip at larger system fonts, a long event title like "Do Not Disturb" gets room instead of truncating, and TalkBack now says when the phone is charging.
+- **The feed that refreshes itself.** Pull the news feed down past a short distance and it refreshes (the rubber band shows the progress as it does); the header shows a spinner while it refreshes, stale feeds (over a day old) mark their "Updated" line in the accent, a page with every feed off offers a Manage feeds button, and a partial failure names the feeds that couldn't load. Text that used to slip under 4.5:1 now clears it, and big feeds sort themselves off the main thread so scrolling never stutters.
+- **The launcher, squared away.** One press spring everywhere (the menu, buttons and widgets no longer disagree), Spotlight closes with the same spring it opens with, folders animate closed as well as open, a scatter of sub-48 dp buttons grew, off-grid paddings are back on the 8 dp grid, a couple of hardcoded corner radii became tokens, and the Home-edit wiggle and battery ripple respect reduced motion.
+
 ## 0.77.0-uno01
 
 - **Spotlight is the island's size.** The search panel is now exactly as wide as the open island (they share one width source: 92% of the screen, 336–372dp), so the panel reads as the pill grown larger instead of a wider sheet.

@@ -16,9 +16,18 @@ internal object PanelHeight {
     const val MAX_FONT_SCALE = 1.6f
     /** The most [extraDp] can add, for the overlay window that has to be big enough for the open island in every case. */
     const val MAX_EXTRA_DP = HEADLINE_ROW_DP + TEXT_BUDGET_DP * (MAX_FONT_SCALE - 1f)
+    /** The open panel's horizontal padding (18 dp each side), which the action row must fit between. */
+    const val FACE_PADDING_DP = 36f
+    /** The usable width, in dp, at which all three action labels (Search / Feed / Settings) fit in Inter. */
+    const val ACTION_LABELS_MIN_DP = 270f
 
     fun extraDp(hasHeadline: Boolean, fontScale: Float): Float =
         (if (hasHeadline) HEADLINE_ROW_DP else 0f) + TEXT_BUDGET_DP * (fontScale.coerceIn(1f, MAX_FONT_SCALE) - 1f)
+
+    /** Whether the three action labels fit across a panel [panelWidthDp] wide at the system [fontScale]. Inter runs wider than the
+     * system font, and the labels scale with it, so below the threshold the buttons drop to icon-only instead of clipping. */
+    fun actionsFit(panelWidthDp: Float, fontScale: Float): Boolean =
+        panelWidthDp - FACE_PADDING_DP >= ACTION_LABELS_MIN_DP * fontScale.coerceIn(1f, MAX_FONT_SCALE)
 }
 
 /** The next alarm, in a few characters, for the open panel: "7:30 AM" when it rings within a day, otherwise with the weekday ("Mon 7:30 AM"). */
@@ -49,13 +58,15 @@ internal object MediaTimes {
 
 /** What a screen reader says for the island at rest: its name, then what is live on it, most urgent first. */
 internal object IslandSpeech {
-    fun describe(flash: String?, ringing: Boolean, onCall: Boolean, timer: Boolean, stopwatch: Boolean, playing: Boolean): String = buildList {
+    fun describe(flash: String?, ringing: Boolean, onCall: Boolean, timer: Boolean, stopwatch: Boolean, playing: Boolean,
+        charging: Boolean = false): String = buildList {
         add("Dynamic island")
         if (flash != null) add(flash)
         if (ringing) add("timer finished")
         if (onCall) add("on a call")
         if (timer && !ringing) add("timer running")
         if (stopwatch) add("stopwatch running")
+        if (charging) add("charging")
         if (playing) add("music playing")
     }.joinToString(", ")
 }

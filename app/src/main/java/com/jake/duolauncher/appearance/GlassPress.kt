@@ -36,7 +36,7 @@ import kotlin.math.tanh
  * control's own click and semantics are untouched. The numbers are the library's.
  */
 internal class GlassPressState(private val scope: CoroutineScope) {
-    private val spec = spring<Float>(.5f, 300f, .001f)
+    private val spec = PressSpring.float()
     private val press = Animatable(0f, .001f)
     private val position = Animatable(Offset.Zero, Offset.VectorConverter, Offset.VisibilityThreshold)
     private var start = Offset.Zero
@@ -71,7 +71,7 @@ internal class GlassPressState(private val scope: CoroutineScope) {
                 scope.launch { position.snapTo(change.position) }
             }
             scope.launch { press.animateTo(0f, spec) }
-            scope.launch { position.animateTo(start, spring(.5f, 300f, Offset.VisibilityThreshold)) }
+            scope.launch { position.animateTo(start, spring(PressSpring.DAMPING_RATIO, PressSpring.STIFFNESS, Offset.VisibilityThreshold)) }
         }
     }
 

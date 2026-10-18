@@ -71,6 +71,13 @@ internal object HomeEditLogic {
 @Composable
 internal fun Modifier.homeWiggle(active: Boolean, seed: Int): Modifier {
     if (!active) return this
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val animationsOn = remember {
+        android.provider.Settings.Global.getFloat(context.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
+    }
+    // With Android's animations off (developer "remove animations"), the icons sit still instead of jiggling.
+    if (!animationsOn) return this
     val transition = rememberInfiniteTransition(label = "home wiggle")
     val phase = transition.animateFloat(0f, 1f, infiniteRepeatable(tween(240 + Math.floorMod(seed, 5) * 25, easing = LinearEasing), RepeatMode.Restart), label = "wiggle")
     return graphicsLayer { rotationZ = HomeEditLogic.wiggleAngle(phase.value, seed) }
@@ -94,7 +101,7 @@ internal fun HomeEditBar(glass: PageGlass?, onAddApps: () -> Unit, onAddWidget: 
     Row(modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Box {
-            FilledTonalIconButton(onClick = { menu = true }, Modifier.size(44.dp).testTag("home-edit-add")) {
+            FilledTonalIconButton(onClick = { menu = true }, Modifier.size(48.dp).testTag("home-edit-add")) {
                 Icon(Icons.Rounded.Add, "Add to Home")
             }
             GlassDropdownMenu(menu, { menu = false }, glass = glass) {
@@ -106,6 +113,6 @@ internal fun HomeEditBar(glass: PageGlass?, onAddApps: () -> Unit, onAddWidget: 
                 if (onRemovePage != null) GlassMenuItem(text = { Text(stringResource(com.jake.duolauncher.R.string.remove_empty_page)) }, onClick = { menu = false; onRemovePage() }, modifier = Modifier.testTag("home-edit-remove-page"))
             }
         }
-        FilledTonalButton(onClick = onDone, Modifier.heightIn(min = 44.dp).testTag("home-edit-done")) { Text(stringResource(com.jake.duolauncher.R.string.done)) }
+        FilledTonalButton(onClick = onDone, Modifier.heightIn(min = 48.dp).testTag("home-edit-done")) { Text(stringResource(com.jake.duolauncher.R.string.done)) }
     }
 }

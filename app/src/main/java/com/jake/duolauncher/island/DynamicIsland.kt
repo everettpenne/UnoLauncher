@@ -624,8 +624,10 @@ internal fun DynamicIsland(
     LaunchedEffect(pendingPlaying) { if (pendingPlaying != null) { delay(1_500L); pendingPlaying = null } }
     val shownPlaying = pendingPlaying ?: isPlaying
     // Whether the actions have room for their text labels at this panel width (Inter runs wider than the
-    // system font); narrower panels get icon-only buttons, with the label kept for accessibility.
-    val actionLabelsFit = remember(environment, d, sizeScale) { IslandGeometry.frame(environment, d, 1f, sizeScale).width / d - 36f >= ACTION_LABELS_MIN_DP }
+    // system font); narrower panels, or a larger system font, get icon-only buttons, with the label kept for accessibility.
+    val actionLabelsFit = remember(environment, d, sizeScale, configuration.fontScale) {
+        PanelHeight.actionsFit(IslandGeometry.frame(environment, d, 1f, sizeScale).width / d, configuration.fontScale)
+    }
     val callActive = NotificationFeed.ongoingCall != null
     val updates = NotificationFeed.liveUpdates
     // Everything live on the collapsed pill, most important first, and which goes in which slot (see IslandLive).
@@ -636,7 +638,7 @@ internal fun DynamicIsland(
     // A camera on a side edge has no room beside it unless the pill widens, so live content asks for some.
     val cameraOnSide = environment.cutout?.let {
         IslandGeometry.sideOf(it, environment.screenWidth, environment.screenHeight) != IslandSide.TOP } == true
-    val eventTargetDp = if (flashActive) IslandGeometry.eventExtraWidthDp((state.flashTitle ?: "").length, sizeScale)
+    val eventTargetDp = if (flashActive) IslandGeometry.eventExtraWidthDp((state.flashTitle ?: "").length, sizeScale, configuration.fontScale)
         else if (cameraOnSide && liveKinds.isNotEmpty()) 60f else 0f
     val eventWidthState = animateFloatAsState(eventTargetDp,
         if (!animationsOn) snap() else theme.spring(.6f, 420f), label = "island event width")
@@ -1088,7 +1090,7 @@ internal fun DynamicIsland(
                 role = androidx.compose.ui.semantics.Role.Button
                 stateDescription = if (state.expanded) "Open" else "Closed"
                 contentDescription = IslandSpeech.describe(state.flashTitle, IslandTools.ringing, callActive, IslandTools.timerActive,
-                    IslandTools.swRunning, isPlaying)
+                    IslandTools.swRunning, isPlaying, charging = deviceStatus.charging == true)
             }
             .testTag("dynamic-island")) {
             val openHole = openFrame.hole
@@ -1374,6 +1376,11 @@ private class BodyFade(val bodyHeightPx: () -> Float, val fullHeightPx: Float, v
 private fun Modifier.fadeAtBodyBottom(fade: BodyFade): Modifier {
     // The layer paint is made once for the modifier's lifetime, not per frame while the body is shorter than its full height.
     val layerPaint = androidx.compose.ui.graphics.Paint()
+    // The fade is the same vertical black→transparent ramp over the body's bottom [BodyFade.fadePx]; only where that ramp sits
+    // moves as the body grows. Building a four-stop gradient on every frame allocated a Brush and a Shader per animation frame
+    // (the one remaining per-frame allocation in the morph path), so the ramp is built once and the mask is drawn as a solid span
+    // plus this fixed ramp.
+    val fadeBrush = androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Black, 1f to Color.Transparent)
     return drawWithContent {
         val bottom = fade.bodyHeightPx()
         if (bottom >= fade.fullHeightPx - 1f) { drawContent(); return@drawWithContent }
@@ -1381,9 +1388,11 @@ private fun Modifier.fadeAtBodyBottom(fade: BodyFade): Modifier {
             val bounds = androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height)
             canvas.saveLayer(bounds, layerPaint)
             drawContent()
-            drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(
-                0f to Color.Black, ((bottom - fade.fadePx) / size.height).coerceIn(0f, 1f) to Color.Black, (bottom / size.height).coerceIn(0f, 1f) to Color.Transparent,
-                1f to Color.Transparent), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+            val fadeTop = (bottom - fade.fadePx).coerceAtLeast(0f)
+            drawRect(Color.Black, topLeft = Offset(0f, 0f), size = Size(size.width, fadeTop),
+                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+            drawRect(fadeBrush, topLeft = Offset(0f, fadeTop), size = Size(size.width, (bottom - fadeTop).coerceAtLeast(0f)),
+                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
             canvas.restore()
         }
     }
@@ -1513,9 +1522,6 @@ private fun IslandSearchField(onSubmit: (String) -> Unit, onFullSearch: () -> Un
         }
     }
 }
-
-/** Inner panel width, in dp, needed to show all three action labels in Inter. */
-private const val ACTION_LABELS_MIN_DP = 270f
 
 /** How long after a Focus change a ringer change is treated as its side effect. */
 internal const val FOCUS_SIDE_EFFECT_MS = 1_500L

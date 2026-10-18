@@ -217,6 +217,23 @@ internal fun describeEntryMeta(sourceLabel: String, nowMillis: Long, publishedAt
         describeFeedAge(nowMillis, publishedAt).takeIf { it.isNotBlank() },
     ).joinToString(" · ")
 
+/** How old the last fetch can be before the feed page flags its content as stale. Longer than the
+ *  page's 15-minute auto-refresh window, so "stale" never flashes on a feed the user just opened. */
+internal const val STALE_AFTER_MILLIS = 24L * 60L * 60L * 1000L
+
+/** Whether the cached content is old enough to flag. A feed that has never been fetched is shown
+ *  as "Never refreshed" rather than stale, so this is false when [lastRefreshAt] is unset. */
+internal fun isFeedStale(nowMillis: Long, lastRefreshAt: Long, staleAfterMillis: Long = STALE_AFTER_MILLIS): Boolean =
+    lastRefreshAt > 0L && nowMillis - lastRefreshAt > staleAfterMillis
+
+/** The one-line callout for a partial fetch: names the first feed that failed and counts the rest,
+ *  so the user knows which subscription is down without a wall of names. */
+internal fun describeSourceErrors(labels: List<String>): String = when (labels.size) {
+    0 -> "A feed couldn't be read."
+    1 -> "${labels.first()} couldn't be read."
+    else -> "${labels.first()} and ${labels.size - 1} other${if (labels.size - 1 == 1) "" else "s"} couldn't be read."
+}
+
 /** A feed to add, from an OPML file or a layout backup: its address, its name, and whether it is switched on. */
 data class FeedSpec(val url: String, val label: String, val enabled: Boolean = true)
 
@@ -327,8 +344,12 @@ class FeedStore(private val context: Context, private val scope: CoroutineScope)
                 // A feed that names itself differently now is renamed here, on the state as it is now (a rename applied to a copy taken
                 // before the fetch would be thrown away by the line above).
                 labels.forEach { (id, label) -> updated = relabel(updated, id, label) }
-                val merged = mergeFeedEntries(updated.entries, collected, perSourceLimit = updated.keepPerFeed,
-                    totalLimit = updated.keepTotal, savedLinks = updated.savedLinks.toSet())
+                // Merging sorts and bounds the whole cache (up to a few thousand entries across 200 feeds); it runs off the main
+                // thread so a large refresh never janks the page while the results arrive.
+                val merged = withContext(Dispatchers.Default) {
+                    mergeFeedEntries(updated.entries, collected, perSourceLimit = updated.keepPerFeed,
+                        totalLimit = updated.keepTotal, savedLinks = updated.savedLinks.toSet())
+                }
                 val succeeded = results.count { it.second !is FeedFetchResult.Failure }
                 _state.value = updated.copy(entries = merged, refreshing = false, sourceErrors = sourceErrors,
                     lastRefreshAt = if (succeeded > 0) System.currentTimeMillis() else updated.lastRefreshAt)

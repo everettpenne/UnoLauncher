@@ -95,7 +95,7 @@ internal fun GlassDialog(
     val glass = LocalPageGlass.current
     if (glass == null) {
         AlertDialog(onDismissRequest = onDismissRequest, modifier = modifier, title = { Text(title) },
-            text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp), content = content) },
+            text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp), content = content) },
             confirmButton = { Row(horizontalArrangement = Arrangement.spacedBy(8.dp), content = actions) })
         return
     }
@@ -125,7 +125,7 @@ internal fun GlassDialog(
                     highlight = { GlassRim.Light },
                     exportedBackdrop = panelBackdrop,
                     onDrawSurface = { drawRect(surface) })
-                .padding(20.dp)) {
+                .padding(16.dp)) {
                 CompositionLocalProvider(LocalPageGlass provides panelGlass, LocalContentColor provides GlassInkOnPanel) {
                     Text(title, style = MaterialTheme.typography.titleLarge, color = GlassInkOnPanel)
                     Column(Modifier.weight(1f, fill = false).padding(top = 12.dp).verticalScroll(rememberScrollState()),
@@ -206,7 +206,7 @@ internal fun GlassRow(title: String, onClick: () -> Unit, modifier: Modifier = M
     leading: (@Composable () -> Unit)? = null, trailing: (@Composable () -> Unit)? = null) {
     Row(modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.medium).clickable(role = Role.Button, onClick = onClick)
         .padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (leading != null) { leading(); Spacer(Modifier.width(10.dp)) }
+        if (leading != null) { leading(); Spacer(Modifier.width(8.dp)) }
         Column(Modifier.weight(1f)) {
             Text(title, color = GlassInkOnPanel, style = UnoType.subheadline, maxLines = 1)
             if (subtitle != null) Text(subtitle, color = GlassInkOnPanel.copy(alpha = .65f), style = UnoType.caption1, maxLines = 2)
@@ -248,7 +248,7 @@ internal fun GlassTextField(value: String, onValueChange: (String) -> Unit, modi
         cursorBrush = androidx.compose.ui.graphics.SolidColor(ink),
         decorationBox = { inner ->
             Box(Modifier.fillMaxWidth().heightIn(min = minHeight).clip(shape).background(ink.copy(alpha = .08f))
-                .border(BorderStroke(1.dp, ink.copy(alpha = .16f)), shape).padding(horizontal = 14.dp, vertical = 12.dp),
+                .border(BorderStroke(1.dp, ink.copy(alpha = .16f)), shape).padding(horizontal = 12.dp, vertical = 12.dp),
                 contentAlignment = if (singleLine) Alignment.CenterStart else Alignment.TopStart) {
                 if (value.isEmpty() && placeholder.isNotEmpty()) Text(placeholder, color = ink.copy(alpha = .45f), style = UnoType.subheadline)
                 inner()
@@ -280,7 +280,7 @@ internal fun GlassButton(onClick: () -> Unit, modifier: Modifier = Modifier, ena
             .border(BorderStroke(1.dp, if (prominent) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
             .graphicsLayer { with(press) { swell() } }.then(press.watcher)
     Row(modifier.heightIn(min = 48.dp).then(look)
-        .clickable(interactionSource = null, indication = null, enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 18.dp),
+        .clickable(interactionSource = null, indication = null, enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
         CompositionLocalProvider(LocalContentColor provides content_) {
             androidx.compose.material3.ProvideTextStyle(UnoType.subheadline.copy(fontWeight = FontWeight.SemiBold)) { content() }
@@ -301,9 +301,9 @@ internal fun GlassChip(selected: Boolean, onClick: () -> Unit, label: @Composabl
         else Modifier.clip(shape).background(if (selected) accent.copy(alpha = .9f) else ink.copy(alpha = .10f))
             .border(BorderStroke(1.dp, if (selected) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
             .graphicsLayer { with(press) { swell() } }.then(press.light).then(press.watcher)
-    Box(modifier.heightIn(min = 40.dp).then(look)
+    Box(modifier.heightIn(min = 48.dp).then(look)
         .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, interactionSource = null, indication = null, onClick = onClick)
-        .padding(horizontal = 14.dp),
+        .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center) {
         CompositionLocalProvider(LocalContentColor provides (if (selected) accentInk else ink)) {
             androidx.compose.material3.ProvideTextStyle(UnoType.footnote.copy(
@@ -335,7 +335,7 @@ internal fun GlassField(value: String, onValueChange: (String) -> Unit, modifier
                     androidx.compose.material3.ProvideTextStyle(UnoType.caption1) { label() }
                 }
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(shape).background(ink.copy(alpha = if (enabled) .08f else .04f))
-                    .border(BorderStroke(1.dp, ink.copy(alpha = .16f)), shape).padding(horizontal = 14.dp, vertical = 10.dp),
+                    .border(BorderStroke(1.dp, ink.copy(alpha = .16f)), shape).padding(horizontal = 12.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     if (leadingIcon != null) { CompositionLocalProvider(LocalContentColor provides ink.copy(alpha = .7f)) { leadingIcon() }; Spacer(Modifier.width(8.dp)) }
                     Box(Modifier.weight(1f)) {

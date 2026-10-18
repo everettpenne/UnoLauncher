@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -40,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.collect
 
 /** Follows a suggested feed after the user taps it. Provided by the activity; the default does
  * nothing, so previews and tests never reach the network.
@@ -102,28 +104,50 @@ private fun FeedPageBody(
     val listState = rememberLazyListState()
     // A chip for a feed that has since been removed or switched off must not leave the page filtered to nothing.
     val activeSource = selectedSource?.takeIf { id -> feed.sources.any { it.id == id && it.enabled } }
+    val wallpaperAccent = LocalWallpaperAccent.current
+    val accent = wallpaperAccent?.accent ?: IosOrange
+    val accentInk = wallpaperAccent?.ink ?: Color.Black
+    // Pull-to-refresh rides the existing rubber band: past a threshold the page arms, and releasing at the top
+    // refreshes. It never fires while a refresh is already running or when nothing is switched on.
+    val refreshThresholdPx = with(LocalDensity.current) { 64.dp.toPx() }
+    val currentOnRefresh by rememberUpdatedState(onRefresh)
+    val currentRefreshing by rememberUpdatedState(feed.refreshing)
+    val currentAnyEnabled by rememberUpdatedState(feed.anyEnabled)
+    var pulledPastThreshold by remember { mutableStateOf(false) }
+    LaunchedEffect(elastic) {
+        snapshotFlow { elastic.offset }.collect { offset ->
+            if (offset >= refreshThresholdPx) pulledPastThreshold = true
+            else if (pulledPastThreshold && offset <= 0f) {
+                pulledPastThreshold = false
+                if (!currentRefreshing && currentAnyEnabled) currentOnRefresh()
+            }
+        }
+    }
     Column(modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(com.jake.duolauncher.R.string.my_feed), style = MaterialTheme.typography.headlineMedium)
                     Spacer(Modifier.height(4.dp))
-                    val muted = LocalContentColor.current.copy(alpha = .62f)
+                    val muted = LocalContentColor.current.copy(alpha = .74f)
+                    val now = System.currentTimeMillis()
                     val updated = if (feed.lastRefreshAt > 0L)
-                        "Updated ${describeFeedAge(System.currentTimeMillis(), feed.lastRefreshAt)}" else "Never refreshed"
-                    Text(updated, style = UnoType.caption1.copy(color = muted))
+                        "Updated ${describeFeedAge(now, feed.lastRefreshAt)}" else "Never refreshed"
+                    // A feed that hasn't been fetched in a while takes the accent so "Updated yesterday" reads as
+                    // "there may be more now" rather than as freshness.
+                    Text(updated, style = UnoType.caption1.copy(color = if (isFeedStale(now, feed.lastRefreshAt)) accent else muted))
                 }
                 if (feed.unreadCount > 0) {
-                    val accent = LocalWallpaperAccent.current
-                    Surface(shape = Corner.pill, color = accent?.accent ?: IosOrange,
+                    Surface(shape = Corner.pill, color = accent,
                         modifier = Modifier.testTag("feed-new-count")) {
-                        Text("${feed.unreadCount} new", Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                            color = accent?.ink ?: Color.Black, style = MaterialTheme.typography.labelSmall)
+                        Text("${feed.unreadCount} new", Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            color = accentInk, style = MaterialTheme.typography.labelSmall)
                     }
                     Spacer(Modifier.width(8.dp))
                 }
-                IconButton(onClick = onRefresh, enabled = !feed.refreshing && feed.configured,
+                IconButton(onClick = onRefresh, enabled = !feed.refreshing && feed.anyEnabled,
                     modifier = Modifier.testTag("feed-refresh")) {
-                    Icon(Icons.Rounded.Refresh, "Refresh feed")
+                    if (feed.refreshing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = accent)
+                    else Icon(Icons.Rounded.Refresh, "Refresh feed")
                 }
             }
             when {
@@ -133,7 +157,11 @@ private fun FeedPageBody(
                     Text(stringResource(com.jake.duolauncher.R.string.all_your_feeds_are_switched_off), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
                     Text(stringResource(com.jake.duolauncher.R.string.turn_one_on_under_launcher_settings),
-                        style = UnoType.footnote.copy(color = LocalContentColor.current.copy(alpha = .62f)))
+                        style = UnoType.footnote.copy(color = LocalContentColor.current.copy(alpha = .74f)))
+                    Spacer(Modifier.height(16.dp))
+                    // One tap opens the feed settings (the same place "Add your own feed" leads) so a switched-off feed
+                    // can be turned back on from the page instead of hunting through Launcher settings.
+                    GlassButton("Manage feeds", onAddFeed, Modifier.heightIn(min = 48.dp).testTag("feed-manage"))
                 }
                 feed.refreshing && feed.shownEntries.isEmpty() -> {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center,
@@ -149,7 +177,7 @@ private fun FeedPageBody(
                         Text(stringResource(com.jake.duolauncher.R.string.feeds_couldn_t_be_read), style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(8.dp))
                         Text(feed.sourceErrors.values.joinToString("\n"),
-                            style = UnoType.footnote.copy(color = LocalContentColor.current.copy(alpha = .62f)))
+                            style = UnoType.footnote.copy(color = LocalContentColor.current.copy(alpha = .74f)))
                         Spacer(Modifier.height(16.dp))
                         GlassButton(stringResource(com.jake.duolauncher.R.string.retry), onRefresh, Modifier.testTag("feed-retry"))
                     }
@@ -158,14 +186,23 @@ private fun FeedPageBody(
                     if (feed.sourceErrors.isNotEmpty()) {
                         val errorColor = MaterialTheme.colorScheme.error
                         Surface(color = errorColor.copy(alpha = .12f), shape = Corner.small, modifier = Modifier.fillMaxWidth()) {
-                            Text("${feed.sourceErrors.size} feed${if (feed.sourceErrors.size == 1) "" else "s"} couldn't be read.",
+                            Text(describeSourceErrors(feed.sources.filter { it.id in feed.sourceErrors }.map { it.label }),
                                 style = UnoType.caption1.copy(color = errorColor),
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                 maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                         Spacer(Modifier.height(8.dp))
                     }
-                    val filtered = filterFeedEntries(feed.shownEntries, activeSource, query, if (savedOnly) feed.savedLinks.toSet() else null)
+                    // The shown list, the saved set and the filtered result are each derived once per state change rather than
+                    // rebuilt on every recomposition, so typing in the search field does not re-filter the whole cache.
+                    val shown = remember(feed.sources, feed.entries) {
+                        val on = feed.sources.filter { it.enabled }.mapTo(mutableSetOf()) { it.id }
+                        feed.entries.filter { it.sourceId in on }
+                    }
+                    val savedSet = remember(feed.savedLinks, savedOnly) { if (savedOnly) feed.savedLinks.toSet() else null }
+                    val filtered = remember(shown, activeSource, query, savedSet) {
+                        filterFeedEntries(shown, activeSource, query, savedSet)
+                    }
                     FeedFilters(feed.sources.filter { it.enabled }, activeSource, { selectedSource = it }, query, { query = it },
                         savedOnly = savedOnly, savedCount = feed.savedShownCount, onSavedOnly = { savedOnly = it })
                     if (filtered.isEmpty()) {
@@ -174,19 +211,29 @@ private fun FeedPageBody(
                             Text(stringResource(if (savedOnly && query.isBlank()) com.jake.duolauncher.R.string.feed_nothing_saved
                                 else com.jake.duolauncher.R.string.no_matching_entries),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = LocalContentColor.current.copy(alpha = .62f))
+                                color = LocalContentColor.current.copy(alpha = .74f))
                         }
                     } else {
-                        LazyColumn(Modifier.weight(1f).padding(top = 12.dp)
-                            .elasticVerticalEdges(elastic, atStart = { !listState.canScrollBackward }, atEnd = { !listState.canScrollForward }),
-                            state = listState,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(end = 8.dp, bottom = 8.dp)) {
-                            // Keyed by feed and link: two feeds can carry the same story, and a repeated key crashes a LazyColumn.
-                            itemsIndexed(filtered, key = { _, entry -> "${entry.sourceId}|${entry.link}" }) { index, entry ->
-                                FeedEntryCard(entry, read = feed.isRead(entry.link), saved = feed.isSaved(entry.link),
-                                    Modifier.testTag("feed-entry-$index"), onClick = { onOpenEntry(entry.link) },
-                                    onToggleSave = { onToggleSave(entry.link) })
+                        Box(Modifier.weight(1f)) {
+                            LazyColumn(Modifier.fillMaxSize().padding(top = 12.dp)
+                                .elasticVerticalEdges(elastic, atStart = { !listState.canScrollBackward }, atEnd = { !listState.canScrollForward }),
+                                state = listState,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                contentPadding = PaddingValues(end = 8.dp, bottom = 8.dp)) {
+                                // Keyed by feed and link: two feeds can carry the same story, and a repeated key crashes a LazyColumn.
+                                itemsIndexed(filtered, key = { _, entry -> "${entry.sourceId}|${entry.link}" }) { index, entry ->
+                                    FeedEntryCard(entry, read = feed.isRead(entry.link), saved = feed.isSaved(entry.link),
+                                        Modifier.testTag("feed-entry-$index"), onClick = { onOpenEntry(entry.link) },
+                                        onToggleSave = { onToggleSave(entry.link) })
+                                }
+                            }
+                            // The pull-to-refresh arc appears in the gap the rubber band opens above the list and fills as the
+                            // finger pulls toward the threshold.
+                            val pull = elastic.offset
+                            if (pull > 0f && !feed.refreshing) {
+                                CircularProgressIndicator(progress = { (pull / refreshThresholdPx).coerceIn(0f, 1f) },
+                                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp).size(20.dp),
+                                    strokeWidth = 2.dp, color = accent)
                             }
                         }
                     }
@@ -203,7 +250,7 @@ private fun EmptyFeedState(onAddFeed: () -> Unit, modifier: Modifier = Modifier)
     Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally) {
         val accent = LocalWallpaperAccent.current?.accent ?: IosOrange
-        val muted = LocalContentColor.current.copy(alpha = .62f)
+        val muted = LocalContentColor.current.copy(alpha = .74f)
         Icon(Icons.Rounded.RssFeed, null, Modifier.size(40.dp), tint = accent)
         Spacer(Modifier.height(12.dp))
         Text(stringResource(com.jake.duolauncher.R.string.follow_grapheneos), style = MaterialTheme.typography.titleMedium)
@@ -222,7 +269,7 @@ private fun EmptyFeedState(onAddFeed: () -> Unit, modifier: Modifier = Modifier)
             val content: @Composable RowScope.() -> Unit = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(if (pendingUrl == suggestion.url) "Checking…" else suggestion.label, maxLines = 1)
-                    Text(suggestion.host, style = UnoType.caption1.copy(color = LocalContentColor.current.copy(alpha = .68f)), maxLines = 1)
+                    Text(suggestion.host, style = UnoType.caption1.copy(color = LocalContentColor.current.copy(alpha = .74f)), maxLines = 1)
                 }
             }
             GlassButton(onClick, Modifier.fillMaxWidth(.9f).heightIn(min = 48.dp).testTag("feed-suggested-$index"),
@@ -288,12 +335,14 @@ private fun FeedEntryCard(entry: FeedEntry, read: Boolean, saved: Boolean, modif
         color = ink.copy(alpha = .08f),
         shape = Corner.medium,
         border = BorderStroke(1.dp, ink.copy(alpha = .14f))) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-            Text(entry.title, style = UnoType.headline.copy(color = ink.copy(alpha = if (read) .5f else 1f)),
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(entry.title, style = UnoType.headline.copy(color = ink.copy(alpha = if (read) .62f else 1f)),
                 maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (entry.summary.isNotBlank()) {
                 Spacer(Modifier.height(4.dp))
-                Text(entry.summary, style = UnoType.subheadline.copy(color = ink.copy(alpha = if (read) .35f else .62f)),
+                // Muted, not faint: unread body and meta hold ≥ 4.5:1 against the card, and read text dims enough to
+                // stay obviously read without becoming illegible.
+                Text(entry.summary, style = UnoType.subheadline.copy(color = ink.copy(alpha = if (read) .48f else .74f)),
                     maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.height(8.dp))
@@ -301,14 +350,14 @@ private fun FeedEntryCard(entry: FeedEntry, read: Boolean, saved: Boolean, modif
                 if (!read) {
                     // The one accent marks a story as unread; opened stories dim instead.
                     Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(8.dp))
                 }
                 if (saved) {
                     Icon(Icons.Rounded.Bookmark, "Saved", tint = accent, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
                 }
                 Text(describeEntryMeta(entry.sourceLabel, System.currentTimeMillis(), entry.publishedAt),
-                    style = UnoType.caption1.copy(color = ink.copy(alpha = .58f)),
+                    style = UnoType.caption1.copy(color = ink.copy(alpha = if (read) .48f else .74f)),
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }

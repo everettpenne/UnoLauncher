@@ -133,7 +133,7 @@ private fun ArtWash(art: ImageBitmap) {
 
 @Composable
 private fun ArtTile(art: ImageBitmap?, ink: Color, modifier: Modifier) {
-    Box(modifier.clip(RoundedCornerShape(16.dp)).background(ink.copy(alpha = .14f)), contentAlignment = Alignment.Center) {
+    Box(modifier.clip(Corner.medium).background(ink.copy(alpha = .14f)), contentAlignment = Alignment.Center) {
         if (art != null) Image(art, "Album art", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else Icon(Icons.Rounded.MusicNote, null, tint = ink, modifier = Modifier.size(34.dp))
     }
@@ -162,7 +162,7 @@ private fun Controls(context: Context, playing: Boolean, ink: Color, onArt: Bool
 private fun EmptyPlayer(context: Context, ink: Color, soft: Color) {
     val detailsOn = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("mediaDetails", false)
     Column(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.Center) {
-        Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(ink.copy(alpha = .10f)), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(40.dp).clip(Corner.small).background(ink.copy(alpha = .10f)), contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.MusicNote, null, tint = soft, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.height(10.dp))

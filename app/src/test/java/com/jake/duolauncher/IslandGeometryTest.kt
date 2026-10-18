@@ -204,6 +204,16 @@ class IslandGeometryTest {
         assertTrue(IslandGeometry.eventExtraWidthDp(14, 1f) < IslandGeometry.eventExtraWidthDp(14, 0f))
     }
 
+    @Test fun eventTitlesGetMoreRoomAtALargerFontButNeverNarrow() {
+        val chars = "Do Not Disturb".length
+        // A larger system font needs more room for the same title, so it truncates less.
+        assertTrue(IslandGeometry.eventExtraWidthDp(chars, .5f, 1.5f) > IslandGeometry.eventExtraWidthDp(chars, .5f))
+        // A smaller font never narrows the pill below its base width.
+        assertEquals(IslandGeometry.eventExtraWidthDp(chars, .5f), IslandGeometry.eventExtraWidthDp(chars, .5f, .8f), 0f)
+        // The cap still holds at any font scale.
+        assertTrue(IslandGeometry.eventExtraWidthDp(chars, .5f, 2f) <= 140f)
+    }
+
     // ---- phone turned sideways: the camera is on a left or right edge ----
     private val landscapeW = 2424f; private val landscapeH = 1080f
     private fun sideEnv(cutout: PxRect?, dock: Float = 0f) = IslandEnvironment(cutout, landscapeW, 63f, dock, landscapeH)

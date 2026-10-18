@@ -43,7 +43,7 @@ internal fun AppearanceSettings(state: AppearanceState, onMode: (AppearanceMode)
                 GlassField(latitude, { latitude = it }, Modifier.weight(1f).testTag("appearance-latitude"), label = { Text(stringResource(com.jake.duolauncher.R.string.latitude_90_to_90)) }, singleLine = true)
                 GlassField(longitude, { longitude = it }, Modifier.weight(1f).testTag("appearance-longitude"), label = { Text(stringResource(com.jake.duolauncher.R.string.longitude_180_to_180)) }, singleLine = true)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassButton(prominent = true, onClick = {
                     focusManager.clearFocus(); keyboard?.hide()
                     when (val parsed = PlaceInput.parse(latitude, longitude)) {

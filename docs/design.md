@@ -103,9 +103,11 @@ contrast against its glass tint.
 
 - Minimum target 48 dp: buttons use `heightIn(min = 48.dp)`, circle controls
   `size(...).coerceAtLeast(48.dp)`.
-- Press feedback: spring (damping 0.45, stiffness 260), scale to 0.92, white bloom
-  `alpha 0.18` (`PressGlow.kt`). Drag gestures must never fight press feedback.
-- Island springs: damping 0.5, stiffness 300; auto-collapse after 5 s.
+- Press feedback: one spring everywhere — `PressSpring` (damping 0.45, stiffness 260)
+  in `appearance/PressGlow.kt`, shared by `PressGlow` and `GlassPress` — scale to 0.92,
+  white bloom `alpha 0.18`. Drag gestures must never fight press feedback.
+- Island springs: damping 0.5, stiffness 300; auto-collapse after 5 s. The island
+  themes its own press feel from `island/IslandTheme.kt`, a separate motion system.
 
 ## Bottom strip (`PageIndicatorLayout.kt`)
 

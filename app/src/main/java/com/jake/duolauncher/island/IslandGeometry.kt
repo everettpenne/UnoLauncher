@@ -87,10 +87,12 @@ internal object IslandGeometry {
     /** Extra collapsed width, in dp, for an event title of [titleChars] characters to fit beside the
      * hole: the text (about 6.4 dp a character at 12 sp semibold, plus padding) minus the slot the
      * capsule already has on that side at this size setting. Never less than a small, readable grow.
+     * [fontScale] widens the estimate with the system font, so a larger font gets more room rather than
+     * truncating a title like "Do Not Disturb"; a smaller font never narrows the pill below the base.
      */
-    fun eventExtraWidthDp(titleChars: Int, scale: Float): Float {
+    fun eventExtraWidthDp(titleChars: Int, scale: Float, fontScale: Float = 1f): Float {
         val slot = mix(44f, 80f, scale.coerceIn(0f, 1f))
-        return max(24f, 2f * (6.4f * titleChars + 8f - slot)).coerceAtMost(140f)
+        return max(24f, 2f * (6.4f * fontScale.coerceAtLeast(1f) * titleChars + 8f - slot)).coerceAtMost(140f)
     }
 
     /** The cutout that holds the front camera: a rectangle near the top of the screen, and the one

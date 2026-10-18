@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 /**
  * The open folder, laid out like iOS: a compact translucent panel sized to its contents (not a full-screen sheet), the title centred
@@ -68,16 +69,29 @@ internal fun FolderPanel(
             selection = if (editTitle) androidx.compose.ui.text.TextRange(0, folder.title.length)
                 else androidx.compose.ui.text.TextRange(folder.title.length))) }
     val title = fieldValue.text
+    // Spring open from the icon's scale, as iOS does; a plain fade would feel like a different feature.
+    val open = remember { Animatable(.86f) }
+    LaunchedEffect(Unit) { open.animateTo(1f, spring(dampingRatio = .72f, stiffness = 420f)) }
+    val scope = rememberCoroutineScope()
+    var closing by remember { mutableStateOf(false) }
     // Closing from any route (the scrim, Back, the keyboard's Done) keeps what was typed; an emptied title keeps the old name.
-    val commitAndClose = { if (title.isNotBlank()) onRename(title.trim()); onDismiss() }
+    // The title is committed at once, then the panel shrinks back into the icon with the same spring it opened with, so opening
+    // and closing feel matched, and only then is it dismissed.
+    val commitAndClose = {
+        if (title.isNotBlank()) onRename(title.trim())
+        if (!closing) {
+            closing = true
+            scope.launch {
+                open.animateTo(.86f, spring(dampingRatio = .72f, stiffness = 420f))
+                onDismiss()
+            }
+        }
+    }
     BackHandler { commitAndClose() }
     DisposableEffect(drag, folder.id) {
         drag.activeSourceScope = folder.id
         onDispose { if (drag.activeSourceScope == folder.id) drag.activeSourceScope = null }
     }
-    // Spring open from the icon's scale, as iOS does; a plain fade would feel like a different feature.
-    val open = remember { Animatable(.86f) }
-    LaunchedEffect(Unit) { open.animateTo(1f, spring(dampingRatio = .72f, stiffness = 420f)) }
     val glass = glassBackdrop != null
     val pageGlass = remember(glassBackdrop, glassTint, settings) { glassBackdrop?.let { PageGlass(it, glassTint, settings) } }
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .28f * ((open.value - .86f) / .14f).coerceIn(0f, 1f)))

@@ -49,4 +49,24 @@ class SliderMathTest {
             assertEquals(f * 360f, SliderMath.thumbX(f, 400f, 40f), .0001f)
         }
     }
+
+    @Test fun velocityFractionIsPixelsPerTrackPerSecond() {
+        // Crossing the whole track in one second is 1.0 fraction/s.
+        assertEquals(1f, SliderMath.velocityFraction(400f, 1000L, 400f, true), .0001f)
+        // Half the track in one second is .5 fraction/s.
+        assertEquals(.5f, SliderMath.velocityFraction(200f, 1000L, 400f, true), .0001f)
+        // Half the track in a quarter second is 2 fraction/s.
+        assertEquals(2f, SliderMath.velocityFraction(200f, 250L, 400f, true), .0001f)
+        assertEquals(0f, SliderMath.velocityFraction(0f, 250L, 400f, true), 0f)
+    }
+
+    @Test fun velocityFractionMirrorsForRtl() {
+        assertEquals(-1f, SliderMath.velocityFraction(400f, 1000L, 400f, false), .0001f)
+        assertEquals(1f, SliderMath.velocityFraction(-400f, 1000L, 400f, false), .0001f)
+    }
+
+    @Test fun velocityFractionNeverDividesByZero() {
+        assertEquals(0f, SliderMath.velocityFraction(100f, 0L, 400f, true), 0f)
+        assertEquals(0f, SliderMath.velocityFraction(100f, 1000L, 0f, true), 0f)
+    }
 }

@@ -965,8 +965,10 @@ internal fun DynamicIsland(
                     // Set when the pull actually engages, below: where the island is right now, so a pull that lands
                     // mid-collapse (or mid-peek) continues from its current height instead of jumping to the start.
                     var pullFrom = 0f
+                    var closeFrom = 0f
                     var moved = false
                     var pulling = false
+                    var closing = false
                     var holding = false
                     var last = down.position
                     var lastEventTime = down.uptimeMillis
@@ -999,9 +1001,25 @@ internal fun DynamicIsland(
                                 pullFrom = progress.value
                                 if (animationsOn) fingerFilter = LowPass()
                             }
+                            // A slow, deliberate swipe up on the open island (or a peek) closes it by following the finger: the
+                            // bottom edge tracks the drag, so closing no longer depends on a fast flick past a fixed distance. The
+                            // hold below only claims a finger that stays within the slop, so a drag that starts on the handle and
+                            // moves up reaches this instead of being swallowed by the hold.
+                            if ((state.expanded || state.peeked) && moved && !pulling && !closing && -delta.y > pullSlop && abs(delta.y) > abs(delta.x)) {
+                                closing = true
+                                closeFrom = progress.value
+                                if (animationsOn) fingerFilter = LowPass()
+                            }
                             if (pulling) {
                                 val dy = fingerFilter?.step(dt, delta.y) ?: delta.y
                                 state.pullFraction = PeekPull.fraction(dy, d, peekState.floatValue, from = pullFrom)
+                                change.consume()
+                            } else if (closing) {
+                                // The finger's upward travel is low-passed, as the pull-down is, so the bottom edge follows without
+                                // the sub-frame twitch; the release decision below reads the raw tracker, so a short, fast flick is
+                                // not misread as slow by the filter.
+                                val dy = fingerFilter?.step(dt, delta.y) ?: delta.y
+                                state.pullFraction = SwipeCloseLogic.fraction(-dy, openHeightPx, from = closeFrom)
                                 change.consume()
                             } else if (moved && !(state.expanded && abs(delta.x) > abs(delta.y))) change.consume()
                             if (!change.pressed) break
@@ -1019,18 +1037,27 @@ internal fun DynamicIsland(
                                 PeekPull.Outcome.PEEK -> { UnoFeedback.play(Cue.TICK, haptic); state.peeked = true }
                                 PeekPull.Outcome.OPEN -> { UnoFeedback.play(Cue.OPEN, haptic); state.peeked = false; state.expanded = true }
                             }
-                        }
-                    }
-                    if (holding || pulling || !moved) return@awaitEachGesture
-                    val dx = last.x - down.position.x; val dy = last.y - down.position.y
-                    when {
-                        abs(dy) >= abs(dx) && dy <= -threshold -> {
-                            if (state.expanded || state.peeked) {
-                                // A fast swipe-up closes with the flick's momentum; the spring below is seeded with this velocity.
-                                state.settleVelocity = tracker.calculateVelocity().y
+                        } else if (closing) {
+                            // The upward travel since touch-down and the raw release speed (positive = up) decide the release: a slow
+                            // drag past the distance closes, and so does a short flick with speed; anything short and slow springs back.
+                            val upPx = down.position.y - last.y
+                            val velocityY = tracker.calculateVelocity().y
+                            state.pullFraction = null
+                            if (SwipeCloseLogic.decide(upPx / d, -velocityY, slop / d) == SwipeCloseLogic.Outcome.CLOSE) {
+                                state.settleVelocity = velocityY
                                 UnoFeedback.play(Cue.TICK, haptic); state.collapse()
                             }
-                            else if (flashActive) { UnoFeedback.play(Cue.TICK, haptic); state.advanceFlash() }
+                            // Otherwise the island springs back to open: expanded/peeked is left as it was, so the collector below
+                            // animates from the finger's height back up to the open target.
+                        }
+                    }
+                    if (holding || pulling || closing || !moved) return@awaitEachGesture
+                    val dx = last.x - down.position.x; val dy = last.y - down.position.y
+                    when {
+                        // An upward flick that never engaged tracking: a flash on the collapsed pill (the open island's swipe-up is
+                        // handled by the tracked close above, so it never reaches this release check).
+                        abs(dy) >= abs(dx) && dy <= -threshold && flashActive -> {
+                            UnoFeedback.play(Cue.TICK, haptic); state.advanceFlash()
                         }
                         abs(dx) > abs(dy) && abs(dx) >= threshold && !state.expanded -> {
                             if (flashActive) { UnoFeedback.play(Cue.TICK, haptic); state.advanceFlash() }
@@ -1914,5 +1941,33 @@ internal class LowPass(private val tauSeconds: Float = DEFAULT_TAU_S) {
         /** The filter time constant: short enough to feel instant, long enough to swallow per-touch jitter (30–60 ms). */
         const val DEFAULT_TAU_S = 0.04f
         private const val GAP_SECONDS = 0.5f
+    }
+}
+
+/**
+ * A slow, deliberate swipe up on the open island closes it by following the finger, mirroring the pull-down peek in the other
+ * direction. Pure and unit-tested: how far up the finger travelled and how fast it was going when it let go decide between closing
+ * and springing back. A touch that never leaves the slop is a tap or a hold, never a close.
+ */
+internal object SwipeCloseLogic {
+    /** Upward travel (dp) past which a release closes the open island, however slowly it got there. */
+    const val CLOSE_DP = 32f
+    /** Release speed upward (px/s) past which a release closes before it has travelled [CLOSE_DP] (a flick). */
+    const val CLOSE_VELOCITY_PX_S = 600f
+
+    enum class Outcome { STAY, CLOSE }
+
+    /** The island's open fraction (1 = fully open) for a finger that has moved up [upPx] pixels from the height [from] it was
+     * grabbed at, over a full-close travel of [travelPx] pixels, so the bottom edge follows the finger one-to-one. */
+    fun fraction(upPx: Float, travelPx: Float, from: Float = 1f): Float =
+        if (travelPx <= 0f) from else (from - upPx / travelPx).coerceIn(0f, 1f)
+
+    /** What letting go does. [upDp] is the upward travel in dp (positive = up); [upVelocityPx] is the release speed in px/s
+     * (positive = up); [slopDp] is the touch slop in dp. A movement within the slop is a tap or a hold and never closes. */
+    fun decide(upDp: Float, upVelocityPx: Float, slopDp: Float): Outcome = when {
+        upDp <= slopDp -> Outcome.STAY
+        upDp >= CLOSE_DP -> Outcome.CLOSE
+        upVelocityPx >= CLOSE_VELOCITY_PX_S -> Outcome.CLOSE
+        else -> Outcome.STAY
     }
 }

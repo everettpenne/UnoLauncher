@@ -17,4 +17,11 @@ internal object SliderMath {
     /** The thumb's horizontal offset so its whole pill sits at [fraction] inside a [trackWidth] track. */
     fun thumbX(fraction: Float, trackWidth: Float, thumbWidth: Float): Float =
         fraction.coerceIn(0f, 1f) * (trackWidth - thumbWidth)
+
+    /** The thumb's speed in fractions of the track per second when a finger moved [dxPx] pixels in [dtMillis]
+     * milliseconds across a [trackWidth]-pixel track. Mirrored for right-to-left so a positive result always means
+     * "toward the top of [valueAt]'s range" (the same sign the liquid stretch expects). */
+    fun velocityFraction(dxPx: Float, dtMillis: Long, trackWidth: Float, isLtr: Boolean): Float =
+        if (trackWidth <= 0f || dtMillis <= 0L) 0f
+        else (dxPx / trackWidth) * 1000f / dtMillis * (if (isLtr) 1f else -1f)
 }

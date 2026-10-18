@@ -30,6 +30,7 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -141,12 +142,18 @@ internal fun LiquidSliderControl(
     var width by remember { mutableStateOf(0) }
     val fraction = SliderMath.fraction(value, valueRange)
     val progressAnim = remember { Animatable(fraction, .0005f) }
-    // The thumb must follow the finger 1:1. Keying the effect on the value restarts (and cancels) the running
-    // spring on every drag event, so the thumb never advanced even though the value itself was updating. Instead,
-    // animate toward the latest value from a single effect whose lifetime does not depend on the value.
+    // While the finger is down the thumb tracks the value 1:1 (a slider under a finger must not lag); only a tap or an
+    // outside change of [value] spring-settles. Plain `collect` ran each spring to full settlement before reading the
+    // next target, so the thumb advanced in discrete stair-steps; `collectLatest` cancels the running animation the
+    // moment a new value arrives instead. The settle passes the current velocity so retargeting never loses momentum.
+    var dragging by remember { mutableStateOf(false) }
+    val latestDragging = rememberUpdatedState(dragging)
     val latestFraction = rememberUpdatedState(fraction)
     LaunchedEffect(progressAnim) {
-        snapshotFlow { latestFraction.value }.collect { progressAnim.animateTo(it, spring(.8f, 700f, .0005f)) }
+        snapshotFlow { latestFraction.value }.collectLatest { target ->
+            if (latestDragging.value) progressAnim.snapTo(target)
+            else progressAnim.animateTo(target, spring(.8f, 700f, .0005f), initialVelocity = progressAnim.velocity)
+        }
     }
     val progress = progressAnim.value
     val scope = rememberCoroutineScope()
@@ -158,6 +165,8 @@ internal fun LiquidSliderControl(
     val thumbPx = with(LocalDensity.current) { thumbWidth.toPx() }
     // Dragging past an end stretches the thumb a little and springs it back on release.
     var pull by remember { mutableFloatStateOf(0f) }
+    // The finger's speed in fractions of the track per second, for the liquid stretch while held.
+    var dragVelocity by remember { mutableFloatStateOf(0f) }
     val stretch by animateFloatAsState(pull, spring(dampingRatio = .45f, stiffness = 500f), label = "slider stretch")
     val maxStretchPx = with(LocalDensity.current) { 10.dp.toPx() }
     val accent = (LocalWallpaperAccent.current?.accent ?: IosOrange).copy(alpha = .9f)
@@ -176,12 +185,19 @@ internal fun LiquidSliderControl(
                 drag(down.id) { change ->
                     val unclamped = change.position.x / width
                     val fx = unclamped.coerceIn(0f, 1f)
+                    dragVelocity = SliderMath.velocityFraction(
+                        change.position.x - change.previousPosition.x,
+                        change.uptimeMillis - change.previousUptimeMillis,
+                        width.toFloat(), isLtr)
+                    dragging = true
                     // How far the finger is past the track, with resistance so it never runs away.
                     pull = ((unclamped - fx) * width * .35f).coerceIn(-maxStretchPx, maxStretchPx) * (if (isLtr) 1f else -1f)
                     reportChange(valueAt(change.position.x))
                     change.consume()
                 }
                 pull = 0f
+                dragging = false
+                dragVelocity = 0f
                 scope.launch { press.animateTo(0f, spring(.5f, 300f, .001f)) }
             }
         }
@@ -194,7 +210,7 @@ internal fun LiquidSliderControl(
         }
         // Thumb: white at rest, clear liquid glass while held.
         Box(Modifier.graphicsLayer { translationX = SliderMath.thumbX(progress, width.toFloat(), thumbPx) + stretch }
-            .liquidThumb(glass, trackBackdrop, { press.value }, { progressAnim.velocity * 5f }, lensHeightDp = 10f, lensAmountDp = 14f)
+            .liquidThumb(glass, trackBackdrop, { press.value }, { (if (dragging) dragVelocity else progressAnim.velocity) * 5f }, lensHeightDp = 10f, lensAmountDp = 14f)
             .size(thumbWidth, thumbHeight)
             .testTag("liquid-slider-thumb"))
     }

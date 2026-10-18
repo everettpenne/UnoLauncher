@@ -251,6 +251,10 @@ internal fun Spotlight(
     modifier: Modifier = Modifier,
     /** 0 = the collapsed island pill, 1 = fully open; driven by the caller's enter/exit transition. */
     progress: Float = 1f,
+    /** True from the moment Spotlight is opened until the moment its close begins (the open/close
+     *  decision, not the animation progress). Drives focus and the keyboard, so the keyboard is
+     *  requested on the same frame the emerge starts and hidden as the dismiss starts. */
+    visible: Boolean = true,
     /** The collapsed pill the panel grows from (null without an island: the panel then grows from the top edge). */
     pill: IslandFrame? = null,
     /** The slot of a Note widget on Home, if one is placed; the "note" action writes to it. */
@@ -264,7 +268,13 @@ internal fun Spotlight(
     var query by remember { mutableStateOf("") }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    LaunchedEffect(Unit) { focus.requestFocus(); keyboard?.show() }
+    // Request/hide the keyboard in lock-step with the open/close decision (not after the emerge
+    // completes). On open the field is focused and the IME shown on the same frame the island
+    // begins to grow; on close the IME is hidden the moment the dismiss begins, rather than when
+    // the field is disposed at the end of the exit transition.
+    LaunchedEffect(visible) {
+        if (visible) { focus.requestFocus(); keyboard?.show() } else keyboard?.hide()
+    }
     val history = remember { SpotlightHistory(context) }
     val scores = remember { history.scores() }
     // Hidden apps are never suggested or ranked; typing one's exact name finds it.
@@ -333,7 +343,10 @@ internal fun Spotlight(
         .background(Color.Black.copy(alpha = .38f * progress.coerceIn(0f, 1f)))
         .clickable(interactionSource = quiet, indication = null, onClick = onDismiss).testTag("spotlight-scrim"),
         contentAlignment = Alignment.TopCenter) {
-        Column(Modifier.then(if (pill == null) Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(top = 8.dp) else Modifier)
+        // Without an island the panel opens from the top, inside the safe area. It pads for the
+        // system bars and cutout only; the IME is handled by the imePadding below, so the keyboard
+        // is never double-counted.
+        Column(Modifier.then(if (pill == null) Modifier.windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout)).padding(top = 8.dp) else Modifier)
             .padding(top = with(density) { pillTop.toDp() })
             .imePadding().padding(horizontal = 12.dp)
             .widthIn(max = 460.dp).fillMaxWidth().heightIn(max = 560.dp)

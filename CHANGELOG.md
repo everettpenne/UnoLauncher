@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.74.0-uno01
+
+- **Spotlight and the keyboard move as one.** Opening search used to happen in three beats — the island grew, then the keyboard popped, then the whole home screen jumped up to make room. The keyboard is now asked for on the very frame the island begins to open and dismissed the frame the close begins; the window no longer resizes for the keyboard (it was `adjustResize`, and the home container was padding for the IME through `safeDrawing`), so Home, the dock and the rail never move; and the page dots and search button ride the keyboard's top edge frame by frame, up and back down.
+- **Sliders glide.** Settings sliders moved in stair-steps: the thumb's spring was run to a full stop before the next finger position was even read. The thumb now tracks your finger 1:1 while you drag (the liquid stretch still reads your speed), and springs — carrying your velocity — only when you tap or the value changes on its own.
+- **A slow swipe up closes the island.** Two things blocked it: resting a finger on the bottom handle claimed the touch as a "hold it open" before a gentle swipe could start, and the close itself was a release-time flick that never followed your finger. A drag up from the open island (or a peek) now tracks your finger — bottom edge and all, through the same low-pass as the pull-down — and letting go closes it past 32 dp of travel or with a quick flick; a finger that doesn't move is still the hold.
+
 ## 0.73.0-uno01
 
 - **The peek no longer fights the status bar.** A pull on the pill used to land the peek AND open Android's shade at the same time, because the pill wraps the camera inside the system's status-bar strip and SystemUI claims swipes that begin there. Now each gesture has one owner: a pull that starts below the strip is the island's (peek, shade stays closed); a pull that starts inside the strip is the system's (shade). With "Island everywhere" and the shade accessibility service on, the island floats above the status bar and the whole pill is yours — that remains the way to drag from anywhere on the pill.

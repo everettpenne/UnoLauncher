@@ -586,7 +586,11 @@ internal fun LauncherScreen(
                 }
             }) { DuneWallpaper() }
         }
-        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        // Home is deliberately IME-agnostic: it pads for the system bars and the display cutout
+        // only, never for the soft keyboard. Spotlight's panel and the bottom glass consume the
+        // IME themselves (and track it smoothly), so a keyboard never reflows the pager, dock,
+        // rail, icons or wallpaper.
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))) {
             val wide = maxWidth.value >= 650f
             val preset = if (wide) state.expanded else state.compact
             val density = LocalDensity.current
@@ -795,7 +799,8 @@ internal fun LauncherScreen(
             }
             // Soft blur toward the top and bottom edges, beneath the island, rail, dock and page dots.
             if (glassEnabled) {
-                val insets = WindowInsets.safeDrawing.asPaddingValues()
+                // The edge blur hugs the screen edges (system bars + cutout), never the keyboard.
+                val insets = WindowInsets.systemBars.union(WindowInsets.displayCutout).asPaddingValues()
                 val topInset = insets.calculateTopPadding()
                 val bottomInset = insets.calculateBottomPadding()
                 ScrollEdgeBlur(homeBackdrop.combined, atTop = true, height = topInset + EdgeBlur.TOP_EXTRA,
@@ -847,7 +852,7 @@ internal fun LauncherScreen(
                         onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" })
                 }
             }
-            Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).padding(start = 16.dp, bottom = PageIndicatorLayout.BOTTOM_MARGIN_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).imePadding().padding(start = 16.dp, bottom = PageIndicatorLayout.BOTTOM_MARGIN_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (!isDefaultHome) FilledTonalButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
                     Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.set_as_home_app))
                 }
@@ -856,7 +861,7 @@ internal fun LauncherScreen(
                 PageStrip(pager, homePages, visibleHomePages, showCompass = !drag.active, glass = controlGlass,
                     onDiscover = openDiscover, onLibrary = openLibrary, onBounds = { pageStripBounds = it })
             }
-            if (!inLibrary && !drag.active) Column(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 8.dp)
+            if (!inLibrary && !drag.active) Column(Modifier.align(Alignment.BottomEnd).imePadding().padding(end = 16.dp, bottom = 8.dp)
                 .width(preset.dockWidth.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val controlSize = dockIconSize(geometry.iconSize).dp
@@ -1345,7 +1350,7 @@ internal fun LauncherScreen(
                 onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },
                 onOpenFeedLink = { link -> spotlightOpen = false; onFeedOpenEntry(link) },
                 onOpenContact = { contact -> spotlightOpen = false; ContactsSearch.open(launcherActivity, contact) },
-                onDismiss = { spotlightOpen = false }, progress = grow, pill = spotlightPill,
+                onDismiss = { spotlightOpen = false }, progress = grow, visible = spotlightOpen, pill = spotlightPill,
                 noteSlot = state.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
                 focusOn = { extras?.store?.state?.focusOn == true },
                 onToggleFocus = { extras?.toggleFocus?.invoke() })

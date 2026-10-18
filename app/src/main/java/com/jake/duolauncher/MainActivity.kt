@@ -16,6 +16,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.UserManager
 import android.provider.Settings
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -133,6 +134,13 @@ class MainActivity : ComponentActivity() {
         updates = UpdateStore(this, lifecycleScope) { release -> promptInstall(release) }
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
+        // The manifest's `adjustNothing` stops the system from animating the IME insets into this
+        // window, so WindowInsets.ime only ever snaps between its start and end values (that is the
+        // jump the bottom glass showed). With edge-to-edge on API 30+, `adjustResize` restores the
+        // frame-by-frame IME inset animation WITHOUT resizing the window: only composables that
+        // consume the IME insets move, so the pager/dock/rail stay put while the floating bottom
+        // glass tracks the keyboard's top edge.
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         widgets = WidgetController(this, model) { active ->
             LiveDiscover.setExternalResultPending(this, "main", "widget-setup", active)
         }.also { it.restore(savedInstanceState) }

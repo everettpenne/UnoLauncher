@@ -78,6 +78,17 @@ internal val Ink: Color
 internal val Glass: Color
     @Composable get() = LocalDuoPalette.current.glass
 
+/**
+ * How far (in px, negative = up) the floating bottom glass must translate so its bottom edge rests
+ * just above the keyboard's top edge, while still clearing the navigation bar when the keyboard is
+ * closed. The glass already sits above the navigation bar (the screen content is padded for the
+ * system bars), so only the part of the IME inset that exceeds the navigation bar lifts it. On
+ * API 30+ the IME inset is measured from the very bottom of the window, so it already includes the
+ * navigation bar region; subtracting it avoids double-counting.
+ */
+internal fun imeLiftPx(imeBottom: Int, navBarBottom: Int): Int =
+    -(imeBottom - navBarBottom).coerceAtLeast(0)
+
 private fun findFreeWidgetIndex(layout: HomeLayout, page: Int, spanX: Int, spanY: Int): Int? {
     val blocked = layout.widgetPlacements.flatMapTo(mutableSetOf()) { it.coveredIndices() }
     for (row in 0..GRID_ROWS - spanY) for (column in 0..GRID_COLUMNS - spanX) {
@@ -855,7 +866,14 @@ internal fun LauncherScreen(
                         onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" })
                 }
             }
-            Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).imePadding().padding(start = 16.dp, bottom = PageIndicatorLayout.BOTTOM_MARGIN_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // The floating bottom glass tracks the keyboard's top edge frame-by-frame. The inset is
+            // read inside each offset lambda (re-evaluated every frame as the IME slides), instead
+            // of imePadding(), which only updates at the discrete start/end of the animation.
+            val imeInset = WindowInsets.ime
+            val navBarInset = WindowInsets.navigationBars
+            Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).offset {
+                IntOffset(0, imeLiftPx(imeInset.getBottom(this), navBarInset.getBottom(this)))
+            }.padding(start = 16.dp, bottom = PageIndicatorLayout.BOTTOM_MARGIN_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (!isDefaultHome) FilledTonalButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
                     Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.set_as_home_app))
                 }
@@ -864,7 +882,9 @@ internal fun LauncherScreen(
                 PageStrip(pager, homePages, visibleHomePages, showCompass = !drag.active, glass = controlGlass,
                     onDiscover = openDiscover, onLibrary = openLibrary, onBounds = { pageStripBounds = it })
             }
-            if (!inLibrary && !drag.active) Column(Modifier.align(Alignment.BottomEnd).imePadding().padding(end = 16.dp, bottom = 8.dp)
+            if (!inLibrary && !drag.active) Column(Modifier.align(Alignment.BottomEnd).offset {
+                IntOffset(0, imeLiftPx(imeInset.getBottom(this), navBarInset.getBottom(this)))
+            }.padding(end = 16.dp, bottom = 8.dp)
                 .width(preset.dockWidth.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val controlSize = dockIconSize(geometry.iconSize).dp

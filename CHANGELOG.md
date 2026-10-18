@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.77.0-uno01
+
+- **Spotlight is the island's size.** The search panel is now exactly as wide as the open island (they share one width source: 92% of the screen, 336–372dp), so the panel reads as the pill grown larger instead of a wider sheet.
+- **It collapses, not slides.** Swiping up on Spotlight shrinks it back into the island under your finger — the whole panel scales and fades into the pill, and letting go past a short distance or with a flick finishes the collapse. It no longer flies off the top of the screen.
+- **The glass rides the keyboard both ways.** The page dots and search button now follow the keyboard's top edge smoothly while it opens AND while it closes (they used to hold still on close and snap down at the end). The keyboard's own slide animation is restored to the window — edge-to-edge, so nothing else moves.
+
 ## 0.76.0-uno01
 
 - **Spotlight is the island's search, through and through.** The search panel now shares the island's 34 dp corner radius (one constant, so they can't drift), sits 24 dp lower, and closes the way a peek does — swipe up from its bottom and it follows your finger, letting go past 32 dp or with a quick flick. While Spotlight is open the island keeps to itself: tapping the camera cutout does nothing (no island pops up underneath), and an incoming notification shows only its dot rather than expanding the island — including a turn-by-turn cue. Close Spotlight and the island owns notifications again.

@@ -48,6 +48,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -57,6 +58,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -86,9 +88,10 @@ private const val SPOTLIGHT_MAX_HEIGHT_DP = 536f
 /** The bottom strip of the panel where a swipe up closes it (a 48 dp touch target, mirroring the island's swipe-up-close). */
 private val SPOTLIGHT_SWIPE_CLOSE_ZONE = 48.dp
 
-/** What the swipe-up-close is heading for: the panel's upward translation in px, and whether the finger is driving it
- * (dragging snaps 1:1; releasing springs back to 0). One value so the gesture can change both without an intermediate state. */
-private data class SpotlightSwipe(val px: Float, val dragging: Boolean)
+/** What the swipe-up-close is heading for: the panel's emerge progress (1 = fully open, 0 = collapsed into the pill), and
+ * whether the finger is driving it (dragging snaps 1:1; releasing springs back to 1 = open, or is held where the finger left it
+ * when the swipe closes). One value so the gesture can change both without an intermediate state. */
+private data class SpotlightSwipe(val progress: Float, val dragging: Boolean)
 
 /** Ranking for Spotlight's app results. Pure, so it is unit-tested. */
 internal object SpotlightRank {
@@ -368,9 +371,11 @@ internal fun Spotlight(
     val ink = Color.White
     val quiet = remember { MutableInteractionSource() }
     val density = LocalDensity.current
-    // Swipe-up-to-close, mirroring the island's peek swipe-up-close: the panel follows the finger up 1:1 (through the same
-    // LowPass), and on release closes past the distance or a flick (SwipeCloseLogic); a short slow swipe springs back. With
-    // Android's animations off, tracking is raw and the spring-back snaps, as the island does.
+    // Swipe-up-to-close, mirroring the island's swipe-up-close: the finger's upward travel is low-passed and mapped to a reduced
+    // emerge progress (SwipeCloseLogic.fraction), so the panel shrinks back into the pill as the finger moves instead of sliding off
+    // the top. On release it closes past the distance or a flick (SwipeCloseLogic.decide) and the exit transition finishes the
+    // collapse from where the finger left it; a short slow swipe springs back open. With Android's animations off, tracking is raw
+    // and the spring-back snaps, as the island does.
     val viewConfiguration = LocalViewConfiguration.current
     val animationsOn = remember {
         android.provider.Settings.Global.getFloat(context.contentResolver,
@@ -378,14 +383,18 @@ internal fun Spotlight(
     }
     // The gesture writes this plain state (no suspension, so it works in the pointerInput's restricted scope); the collector
     // below drives the Animatable outside composition (the island's peek-jitter contract), so a drag never recomposes the panel.
-    var swipeTarget by remember { mutableStateOf(SpotlightSwipe(0f, dragging = false)) }
-    val swipe = remember { Animatable(0f) }
+    var swipeTarget by remember { mutableStateOf(SpotlightSwipe(1f, dragging = false)) }
+    val swipeProgress = remember { Animatable(1f) }
     LaunchedEffect(animationsOn) {
         snapshotFlow { swipeTarget }.collectLatest { target ->
-            if (target.dragging || !animationsOn) swipe.snapTo(target.px)
-            else swipe.animateTo(target.px, spring(dampingRatio = 1f, stiffness = 600f))
+            if (target.dragging || !animationsOn) swipeProgress.snapTo(target.progress)
+            else swipeProgress.animateTo(target.progress, spring(dampingRatio = 1f, stiffness = 600f))
         }
     }
+    // The collapse under the finger takes the smaller of the parent's enter/exit progress and the gesture's own 1 → 0 progress,
+    // so the panel shrinks into the pill even while the parent transition still reads fully open. Read only in draw lambdas
+    // (graphicsLayer / drawBehind), never in composition, so a swipe changes drawing and not the panel's composition.
+    val effectiveProgress: () -> Float = { minOf(progress, swipeProgress.value) }
     var panelSize by remember { mutableStateOf(IntSize.Zero) }
     var panelLeft by remember { mutableFloatStateOf(0f) }
     val pillTop = pill?.top ?: 0f
@@ -403,7 +412,7 @@ internal fun Spotlight(
             val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(view.rootView.width, view.rootView.height))
             layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(-origin.x.roundToInt(), -origin.y.roundToInt()) }
         }
-        .background(Color.Black.copy(alpha = .38f * progress.coerceIn(0f, 1f)))
+        .drawBehind { drawRect(Color.Black.copy(alpha = .38f * effectiveProgress().coerceIn(0f, 1f))) }
         .clickable(interactionSource = quiet, indication = null, onClick = onDismiss).testTag("spotlight-scrim"),
         contentAlignment = Alignment.TopCenter) {
         // Without an island the panel opens from the top, inside the safe area. It pads for the
@@ -412,34 +421,38 @@ internal fun Spotlight(
         Column(Modifier.then(if (pill == null) Modifier.windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout)).padding(top = 8.dp) else Modifier)
             .padding(top = with(density) { pillTop.toDp() })
             .imePadding().padding(horizontal = 12.dp)
-            .widthIn(max = 460.dp).fillMaxWidth().heightIn(max = SPOTLIGHT_MAX_HEIGHT_DP.dp)
+            .widthIn(max = IslandGeometry.expandedWidthDp(LocalConfiguration.current.screenWidthDp.toFloat()).dp)
+            .fillMaxWidth().heightIn(max = SPOTLIGHT_MAX_HEIGHT_DP.dp)
             .onGloballyPositioned { panelSize = it.size; panelLeft = it.positionInWindow().x }
             .graphicsLayer {
                 transformOrigin = TransformOrigin(.5f, 0f)
-                translationY = -swipe.value
+                val p = effectiveProgress()
                 if (pill != null) {
-                    scaleX = SpotlightEmerge.scaleX(progress, pill.width, panelSize.width.toFloat())
-                    scaleY = SpotlightEmerge.scaleY(progress, pill.height, panelSize.height.toFloat())
-                    translationX = SpotlightEmerge.shiftX(progress, pill.left + pill.width / 2f, panelLeft + panelSize.width / 2f)
+                    scaleX = SpotlightEmerge.scaleX(p, pill.width, panelSize.width.toFloat())
+                    scaleY = SpotlightEmerge.scaleY(p, pill.height, panelSize.height.toFloat())
+                    translationX = SpotlightEmerge.shiftX(p, pill.left + pill.width / 2f, panelLeft + panelSize.width / 2f)
                 } else {
-                    alpha = progress.coerceIn(0f, 1f)
-                    scaleX = .9f + .1f * progress; scaleY = .9f + .1f * progress
+                    alpha = p.coerceIn(0f, 1f)
+                    scaleX = .9f + .1f * p; scaleY = .9f + .1f * p
                 }
             }
             .clip(shape).background(Color.Black).border(1.dp, Color.White.copy(alpha = .10f), shape)
             .clickable(interactionSource = quiet, indication = null) {}
             .pointerInput(Unit) {
-                // A swipe up from the bottom of the panel closes it, like the island's swipe-up-close: the finger is tracked in
-                // the Initial pass (so the panel owns the drag before the result list can scroll it), consumed once past the slop,
-                // and the release decision reuses the island's pure SwipeCloseLogic. A tap within the slop is left alone, so rows
-                // and the field still receive it.
+                // A swipe up from the bottom of the panel collapses it back into the island, like the island's swipe-up-close: the
+                // finger is tracked in the Initial pass (so the panel owns the drag before the result list can scroll it), its upward
+                // travel is mapped to a reduced emerge progress (SwipeCloseLogic.fraction), and the release decision reuses the
+                // island's pure SwipeCloseLogic. A tap within the slop is left alone, so rows and the field still receive it.
                 val slop = viewConfiguration.touchSlop
                 val zonePx = SPOTLIGHT_SWIPE_CLOSE_ZONE.toPx()
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val tracker = VelocityTracker().apply { addPointerInputChange(down) }
                     val fromBottom = down.position.y >= size.height - zonePx
+                    // Full-close travel is the panel's height, so the emerge tracks the finger one-to-one, as the island's does.
+                    val travelPx = size.height.toFloat().coerceAtLeast(1f)
                     var closing = false
+                    var closeFrom = 1f
                     var moved = false
                     var last = down.position
                     var lastEventTime = down.uptimeMillis
@@ -456,11 +469,12 @@ internal fun Spotlight(
                             if (!moved && (abs(delta.x) > slop || abs(delta.y) > slop)) moved = true
                             if (fromBottom && moved && !closing && -delta.y > slop && abs(delta.y) > abs(delta.x)) {
                                 closing = true
+                                closeFrom = swipeProgress.value
                                 if (animationsOn) fingerFilter = LowPass()
                             }
                             if (closing) {
                                 val dy = fingerFilter?.step(dt, delta.y) ?: delta.y
-                                swipeTarget = SpotlightSwipe((-dy).coerceAtLeast(0f), dragging = true)
+                                swipeTarget = SpotlightSwipe(SwipeCloseLogic.fraction(-dy, travelPx, from = closeFrom), dragging = true)
                                 change.consume()
                             }
                             if (!change.pressed) break
@@ -469,10 +483,14 @@ internal fun Spotlight(
                         if (closing) {
                             val upPx = down.position.y - last.y
                             val velocityY = tracker.calculateVelocity().y
-                            // Springs back to open unless the island's own threshold says this swipe closes it.
-                            swipeTarget = SpotlightSwipe(0f, dragging = false)
                             if (SwipeCloseLogic.decide(upPx / density.density, -velocityY, slop / density.density) == SwipeCloseLogic.Outcome.CLOSE) {
+                                // Hold the panel where the finger left it, so the parent's exit tween (progress 1 → 0) finishes the
+                                // collapse from there rather than snapping back open first.
+                                swipeTarget = SpotlightSwipe(swipeProgress.value, dragging = false)
                                 onDismiss()
+                            } else {
+                                // Spring back to fully open.
+                                swipeTarget = SpotlightSwipe(1f, dragging = false)
                             }
                         }
                     }
@@ -480,7 +498,7 @@ internal fun Spotlight(
             }
             .padding(14.dp).testTag("spotlight")) {
           // Everything inside fades in once the panel is big enough to hold it; the top is kept clear of the camera hole.
-          Column(Modifier.graphicsLayer { alpha = if (pill != null) SpotlightEmerge.contentAlpha(progress) else 1f }) {
+          Column(Modifier.graphicsLayer { alpha = if (pill != null) SpotlightEmerge.contentAlpha(effectiveProgress()) else 1f }) {
             if (pill != null) Spacer(Modifier.height(with(density) { (pillBottom - pillTop).toDp() }.coerceAtLeast(0.dp)))
             CompositionLocalProvider(LocalContentColor provides ink) {
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().focusRequester(focus).testTag("spotlight-field"),

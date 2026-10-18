@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.76.0-uno01
+
+- **Spotlight is the island's search, through and through.** The search panel now shares the island's 34 dp corner radius (one constant, so they can't drift), sits 24 dp lower, and closes the way a peek does — swipe up from its bottom and it follows your finger, letting go past 32 dp or with a quick flick. While Spotlight is open the island keeps to itself: tapping the camera cutout does nothing (no island pops up underneath), and an incoming notification shows only its dot rather than expanding the island — including a turn-by-turn cue. Close Spotlight and the island owns notifications again.
+
 ## 0.75.0-uno01
 
 - **Settings, reorganized around you.** Thirteen destinations became nine: **Appearance** (wallpaper, glass and app icons together), **Home layout**, **The island** (everything island in one place), **Notifications & privacy** (access, badges, notification cards, Focus, hidden apps and the permission ledger end to end), **Gestures & feel** (now with the control panel's tiles and shortcuts, next to the swipe that opens it), **Search**, **News feed**, **Keyboard**, and **Backup & about** (backup, updates and help). Every switch is two taps away; nothing moved in meaning, defaults or storage.

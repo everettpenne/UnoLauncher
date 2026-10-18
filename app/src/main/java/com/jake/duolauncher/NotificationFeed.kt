@@ -211,7 +211,9 @@ class UnoNotificationListener : NotificationListenerService() {
         lastNavigationCueAt = elapsed
         val card = PeekNotification(nav.packageName, nav.appLabel, nav.title, nav.text, nav.largeIcon ?: nav.icon, nav.openIntent,
             NavigationCue.SECONDS, nav.color.takeIf { it != 0 }, navigation = true)
-        Handler(android.os.Looper.getMainLooper()).post { IslandRuntime.state.showPeekCard(card) }
+        // Spotlight is the island's search function; while it is open the island stays closed, so a turn cue is held off rather than
+        // dropped into an island that isn't there (the arbiter covers notification cards; this path bypasses it, so guard it the same way).
+        Handler(android.os.Looper.getMainLooper()).post { if (!IslandRuntime.spotlightOpen) IslandRuntime.state.showPeekCard(card) }
     }
 
     /** A fingerprint of an arrow image (a 16 by 16 shrink of it), so a different arrow is noticed without comparing every pixel. */

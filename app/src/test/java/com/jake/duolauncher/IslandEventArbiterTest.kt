@@ -43,6 +43,22 @@ class IslandEventArbiterTest {
             IslandEventArbiter.notificationSurface(hasTitleOrText = false, cardAlreadyDown = false, shadeOpenedAtMs = opened, nowMs = now))
     }
 
+    @Test fun whileSpotlightIsOpenNoNotificationDropsACardOrFlashes() {
+        // Spotlight owns the screen: neither a titled card (which would auto-expand the island) nor a name-only flash
+        // fires underneath the search.
+        assertEquals(IslandEventArbiter.NotificationSurface.NONE,
+            IslandEventArbiter.notificationSurface(hasTitleOrText = true, cardAlreadyDown = false, shadeOpenedAtMs = 0L, nowMs = 1_000L, spotlightOpen = true))
+        assertEquals(IslandEventArbiter.NotificationSurface.NONE,
+            IslandEventArbiter.notificationSurface(hasTitleOrText = false, cardAlreadyDown = false, shadeOpenedAtMs = 0L, nowMs = 1_000L, spotlightOpen = true))
+    }
+
+    @Test fun whenSpotlightClosesTheIslandOwnsNotificationsAgain() {
+        assertEquals(IslandEventArbiter.NotificationSurface.CARD,
+            IslandEventArbiter.notificationSurface(hasTitleOrText = true, cardAlreadyDown = false, shadeOpenedAtMs = 0L, nowMs = 1_000L, spotlightOpen = false))
+        assertEquals(IslandEventArbiter.NotificationSurface.PILL,
+            IslandEventArbiter.notificationSurface(hasTitleOrText = false, cardAlreadyDown = false, shadeOpenedAtMs = 0L, nowMs = 1_000L, spotlightOpen = false))
+    }
+
     // --- clock and battery owners ---
 
     @Test fun theRailOwnsTimeWhenShownElseTheOpenPanelElseNothing() {

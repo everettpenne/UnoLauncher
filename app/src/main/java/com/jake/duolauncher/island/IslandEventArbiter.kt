@@ -41,9 +41,14 @@ internal object IslandEventArbiter {
      * @param cardAlreadyDown whether the island is already presenting a notification card.
      * @param shadeOpenedAtMs when the launcher last opened the notification shade, 0 if never.
      * @param nowMs now.
+     * @param spotlightOpen whether Spotlight (the search grown out of the island) is open. While it is, the island
+     *   holds off: no card drops and no name-only flash fires underneath the search, so a notification never
+     *   auto-expands the island while the user is typing.
      */
-    fun notificationSurface(hasTitleOrText: Boolean, cardAlreadyDown: Boolean, shadeOpenedAtMs: Long, nowMs: Long): NotificationSurface = when {
+    fun notificationSurface(hasTitleOrText: Boolean, cardAlreadyDown: Boolean, shadeOpenedAtMs: Long, nowMs: Long,
+        spotlightOpen: Boolean = false): NotificationSurface = when {
         shadeOpenedAtMs > 0L && nowMs - shadeOpenedAtMs in 0 until SHADE_ANNOUNCE_COOLDOWN_MS -> NotificationSurface.NONE
+        spotlightOpen -> NotificationSurface.NONE
         hasTitleOrText -> NotificationSurface.CARD
         cardAlreadyDown -> NotificationSurface.NONE
         else -> NotificationSurface.PILL

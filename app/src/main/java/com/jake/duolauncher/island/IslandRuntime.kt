@@ -27,6 +27,10 @@ internal object IslandRuntime {
     /** When the launcher last opened the notification shade (0 if never), so the island does not re-announce a
      * notification the shade has just presented (see [IslandEventArbiter.notificationSurface]). */
     @Volatile var shadeOpenedAtMs = 0L
+    /** True while Spotlight (the search grown out of the island) is open. While it is, the island holds off: a
+     * notification does not drop a card or auto-expand under the search (IslandEventArbiter.notificationSurface),
+     * and the island itself is not composed (LauncherScreen), so its cutout tap cannot expand it either. */
+    @Volatile var spotlightOpen = false
     
     fun updateOverlay(active: Boolean) {
         overlayActive = active

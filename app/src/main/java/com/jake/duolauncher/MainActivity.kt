@@ -155,6 +155,7 @@ class MainActivity : ComponentActivity() {
                     cardAlreadyDown = island.peekCard != null,
                     shadeOpenedAtMs = IslandRuntime.shadeOpenedAtMs,
                     nowMs = System.currentTimeMillis(),
+                    spotlightOpen = IslandRuntime.spotlightOpen,
                 )) {
                     IslandEventArbiter.NotificationSurface.CARD -> island.showPeekCard(peek)
                     IslandEventArbiter.NotificationSurface.PILL ->

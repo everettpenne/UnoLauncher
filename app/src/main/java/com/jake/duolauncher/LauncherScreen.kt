@@ -343,6 +343,9 @@ internal fun LauncherScreen(
     }
     var controlPanelOpen by remember { mutableStateOf(false) }
     var spotlightOpen by remember { mutableStateOf(false) }
+    // The island reads this process-wide flag (through IslandEventArbiter) so a notification never auto-expands it
+    // while Spotlight is open; see the "no auto-expand" rule in docs/design.md's Metaphor policy.
+    LaunchedEffect(spotlightOpen) { IslandRuntime.spotlightOpen = spotlightOpen }
     BackHandler(enabled = spotlightOpen) { spotlightOpen = false }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { spotlightOpen = false }
     // A soft tick as each page settles (not on the first composition).
@@ -893,6 +896,8 @@ internal fun LauncherScreen(
                     },
                     onDone = { homeEditing = false }, modifier = Modifier.align(Alignment.TopCenter))
             }
+            // The island is not composed while Spotlight is open, so a tap on the camera cutout can never expand it
+            // underneath the search: the Spotlight scrim/panel owns that touch (it does nothing there).
             if (appearance.island && !islandEverywhere && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen && !spotlightOpen) {
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.shownEntries.firstOrNull()?.title,

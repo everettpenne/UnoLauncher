@@ -85,6 +85,17 @@ internal object LiveUpdateLogic {
     fun ordered(updates: List<LiveUpdate>): List<LiveUpdate> =
         updates.distinctBy { it.key }.sortedByDescending { it.postTime }.take(MAX_SHOWN)
 
+    /** How often the listener re-reads the active notifications even when no post or removal event arrived. A Live
+     * Update whose app ends or dies without a cancellation event reaching the listener (or whose notification is
+     * removed while the listener is re-binding) is dropped on the next sweep instead of lingering forever. */
+    const val SAFETY_SWEEP_MS = 60_000L
+
+    /** The updates whose notification is still among [presentKeys], newest first. Anything whose notification has
+     * gone is dropped: the single rule that clears a navigation icon once its app ends or dies without a removal
+     * event reaching us. */
+    fun present(updates: List<LiveUpdate>, presentKeys: Set<String>): List<LiveUpdate> =
+        ordered(updates.filter { it.key in presentKeys })
+
     /** True while any shown update has a clock that needs a once-a-second redraw. */
     fun needsSecondTick(updates: List<LiveUpdate>): Boolean = updates.any { it.chronometerBase != null && it.shortText.isNullOrBlank() }
 }

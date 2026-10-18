@@ -892,6 +892,8 @@ internal fun LauncherScreen(
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.shownEntries.firstOrNull()?.title,
                     sizeScale = appearance.islandScale,
+                    wideFactor = extras?.store?.state?.islandWideMode?.wideFactor ?: 1f,
+                    belowStatusBar = true,
                     statusRailShown = state.verticalStatus,
                     resumeWindowMs = IslandPlayback.resumeWindowMs(extras?.store?.state?.mediaResumeMinutes ?: 2),
                     dockWidthPx = with(density) { preset.dockWidth.dp.toPx() },

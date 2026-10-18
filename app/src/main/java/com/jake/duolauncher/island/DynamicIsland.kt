@@ -109,6 +109,7 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import kotlin.math.roundToInt
+import kotlin.math.exp
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -417,6 +418,11 @@ internal fun DynamicIsland(
     onWebSearch: ((String) -> Unit)? = null,
     /** Keep the pill wide when idle, instead of shrinking to a ring round the camera over other apps. */
     alwaysWide: Boolean = false,
+    /** Scales the collapsed pill's wide side slots (1f = today's width, 1.5f = Extra wide); see IslandGeometry.frame. */
+    wideFactor: Float = 1f,
+    /** True when this island renders *below* the system status bar, so the strip's touches belong to SystemUI and a pill pull
+     *  must only engage from the part of the pill below the strip. False for the accessibility overlay, which sits above it. */
+    belowStatusBar: Boolean = false,
     /** How long paused media worth returning to stays on the open island (and glows round the camera). */
     resumeWindowMs: Long = IslandPlayback.DEFAULT_RESUME_MS,
     onOpenFeed: () -> Unit,
@@ -491,7 +497,7 @@ internal fun DynamicIsland(
     var environment by remember { mutableStateOf(environmentOverride
         ?: IslandEnvironment(null, initialWidth.toFloat(), 0f)) }
     var origin by remember { mutableStateOf(Offset.Zero) }
-    LaunchedEffect(environment, sizeScale, d) { state.restPill = IslandGeometry.frame(environment, d, 0f, sizeScale) }
+    LaunchedEffect(environment, sizeScale, d, wideFactor) { state.restPill = IslandGeometry.frame(environment, d, 0f, sizeScale, wideFactor = wideFactor) }
     LaunchedEffect(configuration, environmentOverride) {
         environment = environmentOverride ?: readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight)
     }
@@ -672,11 +678,14 @@ internal fun DynamicIsland(
     // not change during the morph, so the faces are laid out from this one frame. [frameState] is the live frame; it is read only when the
     // island lays out, draws and positions itself.
     val openFrame = remember(environment, d, sizeScale, extraBody) { IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = extraBody) }
-    val frameState = remember(environment, d, sizeScale, extraBody, coupling) { derivedStateOf {
+    val frameState = remember(environment, d, sizeScale, extraBody, coupling, wideFactor) { derivedStateOf {
         val p = progressState.value
         IslandGeometry.frame(environment, d, if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value, sizeScale,
-            extraBodyDp = extraBody, extraWidthDp = eventWidthState.value, compactness = compactnessState.value, heightProgress = p)
+            extraBodyDp = extraBody, extraWidthDp = eventWidthState.value, compactness = compactnessState.value, wideFactor = wideFactor, heightProgress = p)
     } }
+    // The collapsed pill's top edge in window pixels: below it (in the launcher's own space) a pull belongs to the island; above it the
+    // system status-bar strip owns the touch, so a pull must not engage there when the island renders below SystemUI.
+    val collapsedTopPx = remember(environment, d, sizeScale) { IslandGeometry.frame(environment, d, 0f, sizeScale).top }
     // How far open the peek rests: enough of the open panel to read its top (the time, then its first row, if it has one). The animation above
     // reads this through [peekState], so the panel's own content decides how much a peek shows.
     run {
@@ -697,9 +706,9 @@ internal fun DynamicIsland(
     // What the touch window is told. It used to follow the island's size on every animation frame, which is a call to the window
     // manager per frame while the island opens and closes. Now it is told the size the island is heading for as soon as a change
     // starts, and kept at the largest size seen until the animation has settled, then snapped to the settled size.
-    val headingFor = remember(environment, d, sizeScale, extraBody, state.expanded, state.peeked, eventTargetDp, compactTarget) {
+    val headingFor = remember(environment, d, sizeScale, extraBody, state.expanded, state.peeked, eventTargetDp, compactTarget, wideFactor) {
         IslandGeometry.frame(environment, d, if (state.expanded) 1f else if (state.peeked) peekState.floatValue else 0f, sizeScale, extraBodyDp = extraBody,
-            extraWidthDp = eventTargetDp, compactness = compactTarget) }
+            extraWidthDp = eventTargetDp, compactness = compactTarget, wideFactor = wideFactor) }
     val reported = remember { arrayOfNulls<IslandFrame>(1) }
     val bodyFade = remember(openFrame, d) { BodyFade({ frameState.value.height }, openFrame.height, 10f * d) }
     val morphSpeed = remember { MorphVelocity() }
@@ -782,7 +791,7 @@ internal fun DynamicIsland(
         // Sized for the island at its most overshot (a bounce carries it past the panel), so a bounce is never clipped by the window.
         val open = remember(environment, d, sizeScale, actionsTrimDp) { IslandGeometry.frame(environment, d, IslandGeometry.MAX_OVERSHOOT, sizeScale,
             extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + NavigationText.CARD_ROW_DP + RECENT_ROW_DP + PEEK_ACTIONS_ROW_DP + IslandWidgetState.ROW_DP + 6f + maxOf(QUICK_ROW_DP, TOOLS_PANELS_ROW_DP) + PanelHeight.MAX_EXTRA_DP + PRIVACY_ROW_DP - actionsTrimDp, heightProgress = IslandGeometry.MAX_OVERSHOOT) }
-        val wide = remember(environment, d, sizeScale) { IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = MAX_EVENT_EXTRA_DP) }
+        val wide = remember(environment, d, sizeScale, wideFactor) { IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = MAX_EVENT_EXTRA_DP, wideFactor = wideFactor) }
         val pad = 10f * d
         // The live frame is always inside the open and the widest pill, so it needs no say here (and the rectangle does not change per frame).
         PxRect(
@@ -946,7 +955,12 @@ internal fun DynamicIsland(
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val tracker = VelocityTracker().apply { addPointerInputChange(down) }
-                    val canPull = !state.expanded && !flashActive && state.peekCard == null
+                    // Below SystemUI the strip's touches belong to the system, which opens the shade from them; a pill pull must
+                    // only engage from the part of the pill in launcher-owned space (below the strip). The accessibility overlay
+                    // sits above the strip, so there the whole pill pulls.
+                    val stripBottomLocalY = if (belowStatusBar) (environment.statusBarHeight - collapsedTopPx).coerceAtLeast(0f) else 0f
+                    val canPull = !state.expanded && !flashActive && state.peekCard == null &&
+                        down.position.y >= stripBottomLocalY
                     val canHold = (state.expanded || state.peeked) && HoldOpen.inZone(down.position.y, size.height.toFloat(), d)
                     // Set when the pull actually engages, below: where the island is right now, so a pull that lands
                     // mid-collapse (or mid-peek) continues from its current height instead of jumping to the start.
@@ -955,6 +969,9 @@ internal fun DynamicIsland(
                     var pulling = false
                     var holding = false
                     var last = down.position
+                    var lastEventTime = down.uptimeMillis
+                    // The finger's pull position, low-passed so sub-frame touch jitter never twitches the island's bottom edge.
+                    var fingerFilter: LowPass? = null
                     val downAt = System.currentTimeMillis()
                     try {
                         while (true) {
@@ -969,6 +986,8 @@ internal fun DynamicIsland(
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
                             tracker.addPointerInputChange(change)
                             last = change.position
+                            val dt = ((change.uptimeMillis - lastEventTime).coerceAtLeast(0L)) / 1000f
+                            lastEventTime = change.uptimeMillis
                             val delta = last - down.position
                             if (holding) { change.consume(); if (!change.pressed) break; continue }
                             if (!moved && (abs(delta.x) > slop || abs(delta.y) > slop)) moved = true
@@ -978,9 +997,11 @@ internal fun DynamicIsland(
                                 // from its current height (and a grab on a peek from the peek). The release spring is
                                 // still seeded with the finger's own velocity, so both directions carry momentum.
                                 pullFrom = progress.value
+                                if (animationsOn) fingerFilter = LowPass()
                             }
                             if (pulling) {
-                                state.pullFraction = PeekPull.fraction(delta.y, d, peekState.floatValue, from = pullFrom)
+                                val dy = fingerFilter?.step(dt, delta.y) ?: delta.y
+                                state.pullFraction = PeekPull.fraction(dy, d, peekState.floatValue, from = pullFrom)
                                 change.consume()
                             } else if (moved && !(state.expanded && abs(delta.x) > abs(delta.y))) change.consume()
                             if (!change.pressed) break
@@ -990,8 +1011,9 @@ internal fun DynamicIsland(
                         if (pulling) {
                             val fraction = state.pullFraction ?: 0f
                             state.pullFraction = null
-                            // The pull's own speed seeds the spring that lands the island, so letting go mid-pull carries on instead of starting cold.
-                            state.settleVelocity = tracker.calculateVelocity().y
+                            // The filtered pull's speed seeds the spring that lands the island, so letting go mid-pull carries on
+                            // smoothly instead of starting cold (or carrying the raw finger's jitter).
+                            state.settleVelocity = fingerFilter?.velocity() ?: tracker.calculateVelocity().y
                             when (PeekPull.outcome(fraction, peekState.floatValue)) {
                                 PeekPull.Outcome.COLLAPSE -> state.collapse()
                                 PeekPull.Outcome.PEEK -> { UnoFeedback.play(Cue.TICK, haptic); state.peeked = true }
@@ -1857,5 +1879,40 @@ private fun UpdateCard(update: LiveUpdate, clockMs: Long, onOpen: () -> Unit) {
                 Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(IslandThemes.active.progress(tint, f >= 1f)))
             }
         }
+    }
+}
+
+/**
+ * A critically-damped 1st-order low-pass filter for a finger-driven value (the island's pull position). It lets intentional
+ * moves through in a few tens of milliseconds while killing sub-frame touch jitter, and it reports the *filtered* value's
+ * velocity so a release spring continues the smooth motion rather than the raw finger's noise.
+ *
+ * Kept pure and outside composition: the pull gesture steps it per touch event, and the animation collector only ever sees the
+ * filtered value, so filtering never recomposes the island (the peek-jitter contract).
+ */
+internal class LowPass(private val tauSeconds: Float = DEFAULT_TAU_S) {
+    private var value = Float.NaN
+    private var velocity = 0f
+
+    /** Steps the filter toward [raw] over [dtSeconds]; returns the filtered value. The first step (or a long gap) snap to [raw]. */
+    fun step(dtSeconds: Float, raw: Float): Float {
+        if (dtSeconds <= 0f || dtSeconds > GAP_SECONDS || value.isNaN()) {
+            value = raw; velocity = 0f; return raw
+        }
+        val alpha = 1f - exp(-dtSeconds / tauSeconds)
+        val next = value + (raw - value) * alpha
+        // The filtered value's own rate of change, smoothed with the same time constant.
+        velocity += ((next - value) / dtSeconds - velocity) * alpha
+        value = next
+        return next
+    }
+
+    /** The filtered value's velocity (units per second), for seeding a release spring. */
+    fun velocity(): Float = velocity
+
+    companion object {
+        /** The filter time constant: short enough to feel instant, long enough to swallow per-touch jitter (30–60 ms). */
+        const val DEFAULT_TAU_S = 0.04f
+        private const val GAP_SECONDS = 0.5f
     }
 }

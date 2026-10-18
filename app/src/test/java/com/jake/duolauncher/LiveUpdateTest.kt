@@ -42,6 +42,15 @@ class LiveUpdateTest {
         assertEquals(listOf("b", "d", "c"), list.map { it.key })
     }
 
+    @Test fun anUpdateWhoseNotificationIsGoneIsDropped() {
+        val a = update("a", post = 1); val b = update("b", post = 2); val c = update("c", post = 3)
+        assertEquals(listOf("c", "b", "a"), LiveUpdateLogic.present(listOf(a, b, c), setOf("a", "b", "c")).map { it.key })
+        assertEquals(listOf("c", "a"), LiveUpdateLogic.present(listOf(a, b, c), setOf("a", "c")).map { it.key })
+        assertTrue(LiveUpdateLogic.present(listOf(a, b, c), emptySet()).isEmpty())
+        assertTrue(LiveUpdateLogic.present(emptyList(), setOf("a")).isEmpty())
+        assertTrue("the safety sweep is a positive interval", LiveUpdateLogic.SAFETY_SWEEP_MS > 0L)
+    }
+
     @Test fun onlyAClockWithoutShortTextNeedsASecondTick() {
         assertTrue(LiveUpdateLogic.needsSecondTick(listOf(update(base = 0L))))
         assertFalse(LiveUpdateLogic.needsSecondTick(listOf(update(base = 0L, short = "12 min"))))

@@ -139,9 +139,15 @@ internal fun LiquidSliderControl(
     }
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
     var width by remember { mutableStateOf(0) }
-    val fraction = ((value - valueRange.start) / (valueRange.endInclusive - valueRange.start)).coerceIn(0f, 1f)
+    val fraction = SliderMath.fraction(value, valueRange)
     val progressAnim = remember { Animatable(fraction, .0005f) }
-    LaunchedEffect(fraction) { progressAnim.animateTo(fraction, spring(.8f, 700f, .0005f)) }
+    // The thumb must follow the finger 1:1. Keying the effect on the value restarts (and cancels) the running
+    // spring on every drag event, so the thumb never advanced even though the value itself was updating. Instead,
+    // animate toward the latest value from a single effect whose lifetime does not depend on the value.
+    val latestFraction = rememberUpdatedState(fraction)
+    LaunchedEffect(progressAnim) {
+        snapshotFlow { latestFraction.value }.collect { progressAnim.animateTo(it, spring(.8f, 700f, .0005f)) }
+    }
     val progress = progressAnim.value
     val scope = rememberCoroutineScope()
     val press = remember { Animatable(0f, .001f) }
@@ -160,8 +166,8 @@ internal fun LiquidSliderControl(
         .pointerInput(valueRange, width, isLtr) {
             if (width <= 0) return@pointerInput
             fun valueAt(x: Float): Float {
-                val raw = (x / width).coerceIn(0f, 1f).let { if (isLtr) it else 1f - it }
-                return valueRange.start + raw * (valueRange.endInclusive - valueRange.start)
+                val raw = SliderMath.fraction(x, 0f..width.toFloat()).let { if (isLtr) it else 1f - it }
+                return SliderMath.valueAt(raw, valueRange)
             }
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
@@ -187,7 +193,7 @@ internal fun LiquidSliderControl(
             Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(accent))
         }
         // Thumb: white at rest, clear liquid glass while held.
-        Box(Modifier.graphicsLayer { translationX = progress * (width - thumbPx) + stretch }
+        Box(Modifier.graphicsLayer { translationX = SliderMath.thumbX(progress, width.toFloat(), thumbPx) + stretch }
             .liquidThumb(glass, trackBackdrop, { press.value }, { progressAnim.velocity * 5f }, lensHeightDp = 10f, lensAmountDp = 14f)
             .size(thumbWidth, thumbHeight)
             .testTag("liquid-slider-thumb"))

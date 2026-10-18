@@ -299,6 +299,40 @@ class IslandGeometryTest {
         assertTrue(half > compact.width && half < full.width)
     }
 
+    // ---- the "Extra wide" island: 1.5x the wide side slots, clamped to the phone ----
+    @Test fun extraWideGrowsThePillsSideSlotsByHalfAndLeavesThePanelAlone() {
+        val camera = PxRect(514f, 40f, 566f, 92f)
+        val e = env(camera)
+        val wide = IslandGeometry.frame(e, d, 0f, .5f)
+        val extra = IslandGeometry.frame(e, d, 0f, .5f, wideFactor = 1.5f)
+        // The wide part (the two side slots) is 50% wider; the hole stays as it was.
+        assertEquals(2f * 62f * .5f * d, extra.width - wide.width, .5f)
+        assertEquals(wide.height, extra.height, .01f)
+        assertEquals("still centred on the camera", camera.centerX, extra.left + extra.width / 2f, .5f)
+        assertTrue("still wraps the hole", extra.hole!!.left >= 0f && extra.hole.right <= extra.width)
+        // The expanded panel is unchanged: extra width belongs to the collapsed pill alone.
+        assertEquals(IslandGeometry.frame(e, d, 1f, .5f).width,
+            IslandGeometry.frame(e, d, 1f, .5f, wideFactor = 1.5f).width, .5f)
+        // 1f is today's width: no change.
+        assertEquals(wide.width, IslandGeometry.frame(e, d, 0f, .5f, wideFactor = 1f).width, 0f)
+    }
+
+    @Test fun extraWideClampsSoThePillAndPanelStillClearTheDock() {
+        // A narrow phone (~411 dp) with a 56 dp dock, at the largest size setting: extra wide would overshoot the
+        // screen's usable width, so it clamps to the screen minus the dock clearance, and the panel still clears the dock.
+        val narrowW = 411f * d
+        val camera = PxRect(narrowW / 2f - 37f, 40f, narrowW / 2f + 37f, 92f)
+        val dockPx = 56f * d
+        val e = IslandEnvironment(camera, narrowW, 80f, dockWidthPx = dockPx)
+        val extra = IslandGeometry.frame(e, d, 0f, 1f, wideFactor = 1.5f)
+        val dockLeft = narrowW - dockPx - 16f * d
+        assertTrue("pill right edge clears the dock", extra.left + extra.width <= dockLeft + .5f)
+        assertTrue("pill stays within its own edge margins", extra.left >= 8f * d - .01f && extra.left + extra.width <= narrowW - 8f * d + .01f)
+        assertTrue("still wraps the hole", extra.left <= camera.left + .01f && extra.left + extra.width >= camera.right - .01f)
+        val open = IslandGeometry.frame(e, d, 1f, 1f, wideFactor = 1.5f)
+        assertTrue("expanded panel still clears the dock", open.left + open.width <= dockLeft + .5f)
+    }
+
     // ---- regression: 0.23.4 crashed on launch with "Cannot coerce value to an empty range" ----
     @Test fun noCombinationOfCameraDensitySizeAndCompactnessMakesTheFrameThrow() {
         val densities = listOf(1.5f, 2f, 2.625f, 2.75f, 3f, 3.5f)

@@ -7,6 +7,26 @@ import com.jake.duolauncher.appearance.*
 import android.content.Context
 import androidx.compose.runtime.*
 
+/**
+ * How wide the island's collapsed pill stays when idle, and how wide its "wide" form is. Three states, stored as an int
+ * (`islandWideMode` 0/1/2); the old `islandWide` boolean is migrated: `true` becomes [WIDE]. [EXTRA_WIDE] keeps the pill
+ * wide everywhere the [WIDE] state does and makes the wide pill 50% wider (see IslandGeometry's `wideFactor`).
+ */
+internal enum class IslandWideMode(val keepWide: Boolean, val wideFactor: Float) {
+    OFF(false, 1f), WIDE(true, 1f), EXTRA_WIDE(true, 1.5f);
+
+    companion object {
+        fun fromInt(value: Int): IslandWideMode = entries.getOrNull(value) ?: OFF
+
+        /** Reads the new int pref ([intValue], null when absent), falling back to the old boolean ([oldBoolean]): true → [WIDE]. */
+        fun read(intValue: Int?, oldBoolean: Boolean): IslandWideMode = when {
+            intValue != null -> fromInt(intValue)
+            oldBoolean -> WIDE
+            else -> OFF
+        }
+    }
+}
+
 /** Everything the "extras" features remember, in one preference file. Every grant-backed feature
  * defaults to off: badges, media details and contact search do nothing until the user turns them on
  * (and then grants Android's own permission), so a fresh install asks for nothing.
@@ -44,8 +64,8 @@ internal data class ExtrasState(
     /** Action buttons (Reply, Archive...) on the notification card, taken from the notification itself. */
     val peekActions: Boolean = true,
     val islandShortcuts: Boolean = true,
-    /** Keep the island's pill wide when idle over other apps, instead of shrinking to a ring round the camera. */
-    val islandWide: Boolean = false,
+    /** Whether the island's pill stays wide when idle over other apps (Wide / Extra wide), and how wide that pill is. */
+    val islandWideMode: IslandWideMode = IslandWideMode.OFF,
     /** Minutes that paused media worth returning to stays on the open island (and glows round the camera): 1, 2, 10 or 30. */
     val mediaResumeMinutes: Int = 2,
     val progressTasks: Boolean = true,
@@ -119,7 +139,9 @@ internal class ExtrasStore(context: Context) {
         bluetoothAlerts = prefs.getBoolean("bluetoothAlerts", false),
         peekActions = prefs.getBoolean("peekActions", true),
         islandShortcuts = prefs.getBoolean("islandShortcuts", true),
-        islandWide = prefs.getBoolean("islandWide", false),
+        islandWideMode = IslandWideMode.read(
+            prefs.getInt("islandWideMode", 0).takeIf { prefs.contains("islandWideMode") },
+            prefs.getBoolean("islandWide", false)),
         mediaResumeMinutes = prefs.getInt("mediaResumeMinutes", 2),
         progressTasks = prefs.getBoolean("progressTasks", true),
         navigationTasks = prefs.getBoolean("navigationTasks", true),
@@ -171,7 +193,8 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("bluetoothAlerts", next.bluetoothAlerts)
             .putBoolean("peekActions", next.peekActions)
             .putBoolean("islandShortcuts", next.islandShortcuts)
-            .putBoolean("islandWide", next.islandWide)
+            .putInt("islandWideMode", next.islandWideMode.ordinal)
+            .remove("islandWide")
             .putInt("mediaResumeMinutes", next.mediaResumeMinutes)
             .putBoolean("progressTasks", next.progressTasks)
             .putBoolean("navigationTasks", next.navigationTasks)
@@ -219,7 +242,7 @@ internal class ExtrasStore(context: Context) {
     fun setBadgeMuted(packageName: String, muted: Boolean) = save(state.copy(badgeMuted = BadgeMute.encode(BadgeMute.with(BadgeMute.parse(state.badgeMuted), packageName, muted))))
     fun setMediaDetails(value: Boolean) = save(state.copy(mediaDetails = value))
     fun setCallDetails(value: Boolean) = save(state.copy(callDetails = value))
-    fun setIslandWide(value: Boolean) = save(state.copy(islandWide = value))
+    fun setIslandWideMode(value: IslandWideMode) = save(state.copy(islandWideMode = value))
     fun setMediaResumeMinutes(value: Int) = save(state.copy(mediaResumeMinutes = value))
     fun setProgressTasks(value: Boolean) = save(state.copy(progressTasks = value))
     fun setNavigationTasks(value: Boolean) = save(state.copy(navigationTasks = value))

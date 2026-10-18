@@ -16,7 +16,7 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
     /** Words by first letter, for the correction scan. */
     private val byFirst: Map<Char, List<String>> = sorted.groupBy { it[0] }
 
-    fun contains(word: String) = word in score || word in CONTRACTION_WORDS
+    fun contains(word: String) = word in score || word in CONTRACTION_WORDS || word in CONTRACTIONS
     fun scoreOf(word: String) = score[word] ?: 0
 
     /** The most common words that start with [prefix] (not including [prefix] itself), best first. */
@@ -40,7 +40,26 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
         var i = sorted.binarySearch(prefix).let { if (it < 0) -it - 1 else it }
         val found = ArrayList<String>()
         while (i < sorted.size && sorted[i].startsWith(prefix)) { if (sorted[i] != prefix) found += sorted[i]; i++ }
-        return found.sortedByDescending { score[it] ?: 0 }.take(limit)
+        // A contraction also completes what was typed: "don'" (the apostrophe flicked up) completes to "don't", and the bare
+        // letters "doesnt"/"were" complete to "doesn't"/"we're", so the contraction is one tap away in either direction.
+        found += contractionCompletions(prefix)
+        return found.sortedByDescending { c -> score[c] ?: if ('\'' in c) CONTRACTION_SCORE else 0 }.take(limit)
+    }
+
+    /** The contractions that extend [prefix]. With the apostrophe already typed ("don'"), the contraction form must literally
+     * start with it; without an apostrophe, the whole bare form must match ("doesnt", "were"), so a partial prefix like "don"
+     * or "we" never drags in a contraction on its own.
+     */
+    private fun contractionCompletions(prefix: String): List<String> {
+        if (prefix.isEmpty()) return emptyList()
+        val out = ArrayList<String>(2)
+        for ((bare, form) in CONTRACTIONS) {
+            val lower = form.lowercase()
+            if (lower == prefix) continue   // already the whole word: nothing to complete
+            if ('\'' in prefix) { if (lower.startsWith(prefix)) out += form }
+            else if (bare == prefix) out += form
+        }
+        return out
     }
 
     /** What most often follows [previous]; the commonest sentence openers when there is no usable previous word. */
@@ -72,7 +91,13 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
     fun correction(typed: String, previous: String? = null, previous2: String? = null): String? {
         val t = typed.lowercase()
         if (t in INFORMAL) return null
-        CONTRACTIONS[t]?.let { return it }
+        // A word already written with its apostrophe is correct: "don't" must never be "fixed" into something else.
+        if ('\'' in t && t in CONTRACTION_WORDS) return null
+        // Missing apostrophes are the commonest slip and are fixed outright - but only when the bare letters are not a real
+        // word the person could have meant. "were", "lets", "its", "ill", "well", "wed", "shed" and "id" are words, so they
+        // complete to the contraction in the lane instead of being replaced by it; a handful of rare real words ("cant" as
+        // jargon, "wont" meaning accustomed) still correct because the contraction is what was meant.
+        CONTRACTIONS[t]?.let { if (t !in score || t in CONTRACTION_OVERRIDES) return it }
         MISSPELLINGS[t]?.let { return it }
         val follow = previous?.lowercase()?.let { followers[it] }.orEmpty()
         val follow2 = previous2?.lowercase()?.let { followers[it] }.orEmpty()
@@ -153,18 +178,54 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
         /** Swapping a letter for one far away on the keyboard is a less likely slip than leaving a letter out, so it costs more. */
         private const val FAR_SUBSTITUTION = 1.3
 
-        /** Missing apostrophes are the commonest slip, and "its"/"ill"/"were"/"well" are real words, so those are left alone. */
+        /** Every common English contraction: the bare letters typed without the apostrophe to the form with it put back. This
+         * table is the single source of truth. Autocorrect reads it (a bare form that is not a real word is fixed outright), the
+         * completion lane reads it ("don'" completes to "don't", and "doesnt"/"were" complete to "doesn't"/"we're"), and `contains`
+         * reads it so a contraction is a known word in both directions. Bare forms that are real, common words are never
+         * auto-replaced - the word the person typed is kept and the contraction is offered in the lane instead (see
+         * [CONTRACTION_OVERRIDES] for the few rare words that still correct).
+         */
         val CONTRACTIONS = mapOf(
+            // "-n't": the missing apostrophe is the commonest slip of all.
             "dont" to "don't", "doesnt" to "doesn't", "didnt" to "didn't", "cant" to "can't", "wont" to "won't",
             "isnt" to "isn't", "arent" to "aren't", "wasnt" to "wasn't", "werent" to "weren't", "couldnt" to "couldn't",
             "wouldnt" to "wouldn't", "shouldnt" to "shouldn't", "hasnt" to "hasn't", "havent" to "haven't", "hadnt" to "hadn't",
-            "im" to "I'm", "ive" to "I've", "youre" to "you're", "theyre" to "they're", "thats" to "that's", "whats" to "what's",
-            "youve" to "you've", "weve" to "we've", "theyve" to "they've", "hes" to "he's", "shes" to "she's", "i" to "I",
-            "id" to "I'd", "youd" to "you'd", "theyd" to "they'd", "wouldve" to "would've", "couldve" to "could've", "shouldve" to "should've",
-            "mightve" to "might've", "mustve" to "must've", "itll" to "it'll", "youll" to "you'll", "theyll" to "they'll", "thatll" to "that'll",
-            "theres" to "there's", "heres" to "here's", "wheres" to "where's", "whos" to "who's", "mustnt" to "mustn't", "neednt" to "needn't",
-            "yall" to "y'all", "aint" to "ain't", "wholl" to "who'll", "therell" to "there'll", "whatre" to "what're", "whove" to "who've",
-            "whyre" to "why're")
+            "mustnt" to "mustn't", "neednt" to "needn't", "shant" to "shan't", "aint" to "ain't", "mightnt" to "mightn't",
+            "oughtnt" to "oughtn't", "darent" to "daren't",
+            // Pronoun + am/is/are/have/had/will/would.
+            "im" to "I'm", "ive" to "I've",
+            "youre" to "you're", "youve" to "you've", "youll" to "you'll", "youd" to "you'd",
+            "hes" to "he's", "shes" to "she's", "hed" to "he'd",
+            "weve" to "we've",
+            "theyre" to "they're", "theyve" to "they've", "theyd" to "they'd", "theyll" to "they'll",
+            "itll" to "it'll", "itd" to "it'd",
+            "thats" to "that's", "thatll" to "that'll", "thatd" to "that'd",
+            "whats" to "what's", "whatre" to "what're", "whatll" to "what'll", "whatd" to "what'd",
+            "whos" to "who's", "wholl" to "who'll", "whove" to "who've", "whod" to "who'd",
+            "hows" to "how's", "howre" to "how're",
+            "theres" to "there's", "heres" to "here's", "wheres" to "where's", "therell" to "there'll",
+            // "... have" shortened to "'ve".
+            "wouldve" to "would've", "couldve" to "could've", "shouldve" to "should've", "mightve" to "might've", "mustve" to "must've",
+            // People and phrases.
+            "yall" to "y'all", "oclock" to "o'clock", "maam" to "ma'am",
+            "whyre" to "why're",
+            // The pronoun capitalised on its own.
+            "i" to "I",
+            // The bare form is a real, common word: never auto-replaced, only offered as a completion so the word is not stolen.
+            "id" to "I'd", "its" to "it's", "ill" to "I'll", "were" to "we're", "well" to "we'll",
+            "lets" to "let's", "wed" to "we'd", "shed" to "she'd")
+
+        /** Bare forms that are real dictionary words but so rare that the contraction is what was meant ("cant" as jargon,
+         * "wont" meaning accustomed, "whats"/"hows"/"wheres" as the plural nouns): these are still auto-replaced. Every other
+         * dictionary-word bare form above ("id", "its", "ill", "were", "well", "lets", "wed", "shed") is only offered as a
+         * completion, so a real word the person typed is never stolen.
+         */
+        private val CONTRACTION_OVERRIDES = setOf("i", "cant", "wont", "hes", "shes", "whats", "wheres", "hows")
+
+        /** How common a contraction is treated as for ranking completions: comparable to "here"/"does" (192), a very common
+         * word, so "don'" offers "don't" ahead of anything rarer that happens to start the same way.
+         */
+        private const val CONTRACTION_SCORE = 190
 
         /** Slips that edit distance cannot reach, or reaches the wrong word for, and the habitual misspellings that are two or three keys
          * off. These are fixed outright; they are all words nobody types on purpose.

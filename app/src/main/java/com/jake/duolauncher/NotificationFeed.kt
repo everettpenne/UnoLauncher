@@ -110,6 +110,7 @@ class UnoNotificationListener : NotificationListenerService() {
             recount(); syncLiveUpdates()
             runCatching { sessions?.addOnActiveSessionsChangedListener(sessionsListener, component, handler) }
             syncMedia()
+            scheduleSweep()
         }
     }
 
@@ -117,6 +118,7 @@ class UnoNotificationListener : NotificationListenerService() {
     override fun onDestroy() { teardown(); super.onDestroy() }
 
     private fun teardown() {
+        handler?.removeCallbacks(sweep)
         NotificationFeed.connected = false
         NotificationFeed.badges = emptyMap()
         NotificationFeed.nowPlaying = null
@@ -132,6 +134,12 @@ class UnoNotificationListener : NotificationListenerService() {
     // active notification. The reads now wait a moment and run once for the whole burst; the peek and the call check stay immediate.
     private val syncAll = Runnable { recount(); syncLiveUpdates() }
     private fun scheduleSync() { handler?.let { it.removeCallbacks(syncAll); it.postDelayed(syncAll, SYNC_DELAY_MS) } }
+
+    // A safety net for Live Updates: an app can end its activity (or die) without a removal event reaching this
+    // listener, or a notification can be removed while the listener is re-binding. Every so often re-read the
+    // active notifications and drop anything whose notification is gone, so a navigation icon never lingers.
+    private val sweep = Runnable { syncLiveUpdates(); scheduleSweep() }
+    private fun scheduleSweep() { handler?.let { it.removeCallbacks(sweep); it.postDelayed(sweep, LiveUpdateLogic.SAFETY_SWEEP_MS) } }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         handler?.post { peek(sbn); trackCall(sbn); scheduleSync() }
@@ -151,6 +159,7 @@ class UnoNotificationListener : NotificationListenerService() {
         val tasksOn = prefs.getBoolean("progressTasks", true)
         if (!liveOn && !navOn && !tasksOn) { NotificationFeed.liveUpdates = emptyList(); return }
         val active = runCatching { activeNotifications }.getOrNull() ?: return
+        val presentKeys = active.map { it.key }.toSet()
         // Debug builds also show their own (the test poster); a release build never lists its own notifications.
         val debuggable = applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
         val muted = IslandLinks.parse(prefs.getString("islandMuted", null))
@@ -181,7 +190,7 @@ class UnoNotificationListener : NotificationListenerService() {
                     largeIcon = if (source == ActivitySource.NAVIGATION) runCatching { n.getLargeIcon()?.loadDrawable(this)?.toBitmap(NavigationText.ARROW_PX, NavigationText.ARROW_PX) }.getOrNull() else null,
                     source = source)
             }.getOrNull() }
-        NotificationFeed.liveUpdates = LiveUpdateLogic.ordered(found)
+        NotificationFeed.liveUpdates = LiveUpdateLogic.present(found, presentKeys)
         checkNavigationCue(found)
     }
 

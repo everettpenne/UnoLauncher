@@ -178,7 +178,7 @@ internal class IslandOverlayHost(
                 IslandRuntime.statusBarVisible = configuration.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE
             }
             var visible by androidx.compose.runtime.remember { mutableStateOf(true) }
-            var alwaysWide by androidx.compose.runtime.remember { mutableStateOf(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("islandWide", false)) }
+            var islandWideMode by androidx.compose.runtime.remember { mutableStateOf(readIslandWideMode(context)) }
             var resumeWindowMs by androidx.compose.runtime.remember { mutableStateOf(IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))) }
             var islandScale by androidx.compose.runtime.remember {
                 mutableStateOf(context.getSharedPreferences("appearance", Context.MODE_PRIVATE).lenientFloat("islandScale", .5f).coerceIn(0f, 1f))
@@ -199,7 +199,7 @@ internal class IslandOverlayHost(
                     val enabled = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("islandEverywhere", false)
                     visible = OverlayPolicy.shouldShow(enabled, (!needsOverlayPermission || Settings.canDrawOverlays(context)),
                         keyguard.isKeyguardLocked, power.isInteractive)
-                    alwaysWide = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("islandWide", false)
+                    islandWideMode = readIslandWideMode(context)
                     resumeWindowMs = IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))
                     islandScale = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
                         .lenientFloat("islandScale", .5f).coerceIn(0f, 1f)
@@ -218,7 +218,9 @@ internal class IslandOverlayHost(
                     deviceStatus = rememberBatteryStatus(),
                     feedHeadline = null,
                     sizeScale = islandScale,
-                    alwaysWide = alwaysWide,
+                    alwaysWide = islandWideMode.keepWide,
+                    wideFactor = islandWideMode.wideFactor,
+                    belowStatusBar = needsOverlayPermission,
                     resumeWindowMs = resumeWindowMs,
                     dockWidthPx = 0f,
                     environmentOverride = environment,
@@ -361,4 +363,12 @@ private class TouchProxy(context: Context, private val forward: (MotionEvent) ->
         return super.dispatchTouchEvent(event)
     }
     override fun onTouchEvent(event: MotionEvent): Boolean { forward(event); return true }
+}
+
+/** Reads the island-wide choice the way [ExtrasStore] does: the new int pref, falling back to the old boolean. */
+private fun readIslandWideMode(context: Context): IslandWideMode {
+    val prefs = context.getSharedPreferences("extras", Context.MODE_PRIVATE)
+    return IslandWideMode.read(
+        prefs.getInt("islandWideMode", 0).takeIf { prefs.contains("islandWideMode") },
+        prefs.getBoolean("islandWide", false))
 }

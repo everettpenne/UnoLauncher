@@ -243,7 +243,12 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         ChoiceRow(if (minutes == 1) "1 minute" else "$minutes minutes", if (minutes == 2) "The default" else "",
             s.mediaResumeMinutes == minutes, "media-resume-$minutes") { store.setMediaResumeMinutes(minutes) }
     }
-    SettingsSwitch("Permanent wide island", s.islandWide, store::setIslandWide, "island-wide-switch")
+    ChoiceRow("Off", "Over other apps the pill shrinks to a ring round the camera when idle",
+        s.islandWideMode == IslandWideMode.OFF, "island-wide-off") { store.setIslandWideMode(IslandWideMode.OFF) }
+    ChoiceRow("Wide", "The pill stays wide at today's width, for sound that is playing",
+        s.islandWideMode == IslandWideMode.WIDE, "island-wide-wide") { store.setIslandWideMode(IslandWideMode.WIDE) }
+    ChoiceRow("Extra wide", "50% wider than Wide; on a narrow phone it stops at the screen's edge",
+        s.islandWideMode == IslandWideMode.EXTRA_WIDE, "island-wide-extra") { store.setIslandWideMode(IslandWideMode.EXTRA_WIDE) }
     Text(stringResource(com.jake.duolauncher.R.string.over_other_apps_the_island_normally),
         style = note, color = muted)
     SettingsSwitch("App shortcuts in the island", s.islandShortcuts, store::setIslandShortcuts, "island-shortcuts-switch")

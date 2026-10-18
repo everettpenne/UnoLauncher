@@ -6,7 +6,7 @@ Uno Launcher is an experimental Android launcher designed around a phone, a four
 
 On a fresh install, **Welcome to Uno Launcher** offers **Choose Home app**, **Add a widget**, **Explore Home**, and **Not now**. Choosing or skipping setup does not prevent later changes.
 
-To make Uno Launcher the launcher, choose **Set as home app** in Launcher settings, or open **Help & setup** and choose **Set Uno Launcher as Home**. Android owns the final Home-app chooser. To switch away later, choose **Change home app**, or use Android **Settings → Apps → Default apps → Home app**. The exact Android path may vary by device.
+To make Uno Launcher the launcher, choose **Set as home app** in Launcher settings, or open **Backup & about → Help & setup** and choose **Set Uno Launcher as Home**. Android owns the final Home-app chooser. To switch away later, choose **Change home app**, or use Android **Settings → Apps → Default apps → Home app**. The exact Android path may vary by device.
 
 ## Move around Home
 
@@ -20,11 +20,15 @@ To make Uno Launcher the launcher, choose **Set as home app** in Launcher settin
 
 Swipe up anywhere on Home to open **Launcher settings** (not when the swipe starts on a widget that scrolls itself). You can also long press an empty Home cell to open **Add to Home**, then choose **Widgets**, **Wallpaper**, or **Launcher settings**. If every cell is occupied, long press the slim wallpaper margin at the left edge of the grid. The settings are grouped like iOS Settings:
 
-- **Look:** **Wallpaper & glass** (launcher photos, Android wallpaper, liquid glass, color from wallpaper, light and dark) and **App icons** (original, themed or tinted by your wallpaper).
-- **Home:** **Home layout** (icon size, row spacing, dock geometry, Home apps, widgets on the visible page), **Gestures & feel** (app names, the upper-right status display, pull-down and right-hand swipes, haptics and sounds), **Search** (the Google button, suggestions, contacts) and **Control panel & Focus**.
-- **Island & keyboard:** **Dynamic island** (size, everywhere mode, live activities, alerts, the island widget, which apps may use it) and **Keyboard**.
-- **Privacy:** **Notifications & privacy** (notification access, badges, and what every permission can see).
-- **More:** **News feed**, **Backup** (layout and your settings, including large folders and widget notes), **Updates** and **Help & setup**.
+- **Appearance:** **wallpaper & glass** (launcher photos, Android wallpaper, liquid glass, color from wallpaper, light and dark) and **app icons** (original, themed or tinted by your wallpaper).
+- **Home layout:** icon size, row spacing, dock geometry, Home apps, and the widgets on the visible page.
+- **The island:** the island's on/off, everywhere mode and size, its style and theme files, the timer, live activities, audio and Bluetooth alerts, navigation, and which apps may use it.
+- **Notifications & privacy:** notification access, badges, how much a new notification's card shows, hidden apps, Focus, and what every permission can see (the permission ledger).
+- **Gestures & feel:** app names, the upper-right status display, pull-down and right-hand swipes, the control panel's tiles and shortcuts, haptics and sounds.
+- **Search:** the Google button, suggestions, and contacts.
+- **News feed:** your own headlines in place of Discover.
+- **Keyboard:** the Uno Keyboard's suggestions, autocorrect, haptics and one-handed mode.
+- **Backup & about:** save or restore your layout and settings, updates, and help & setup.
 
 **Edit Home** works like iOS's jiggle mode. Long press empty space and choose **Edit Home** (an app's options have it too). Icons wiggle and carry a **−** badge. Drag any icon at once, without a long press, to any free cell: free cells show as faint squares and the one under your finger fills in, and a drop that just misses a cell lands in the nearest one. Tap **−** to take an app off Home (it stays in All apps). The **+** at the top left adds apps or a widget; **Done**, or Back, leaves. Dropping one app on the middle of another still makes a folder.
 
@@ -52,7 +56,7 @@ Scrollable Android widgets keep their native vertical scrolling when the touch b
 
 ## Background and appearance
 
-In **Wallpaper & glass**, **Choose a photo** creates a private preview. It does not replace the current launcher background until you choose **Apply**; **Cancel** keeps the committed background. If selection is interrupted, choose **Resume** or **Cancel**. Recovery has been checked for activity recreation and a completed private preview file, but an interruption during the earlier decode step may require selecting the photo again.
+In **Appearance**, **Choose a photo** creates a private preview. It does not replace the current launcher background until you choose **Apply**; **Cancel** keeps the committed background. If selection is interrupted, choose **Resume** or **Cancel**. Recovery has been checked for activity recreation and a completed private preview file, but an interruption during the earlier decode step may require selecting the photo again.
 
 **Built-in background** offers seven of the launcher's own drawn backgrounds, shown whenever no photo is chosen, each with a day and a night version that follow your light or dark setting: **Uno dunes** (the original), **Deep dunes** (the same three dunes with glowing ridges and grain), **Dune glass** (lit, hazy dunes), **Dune range** (soft slopes under hazy mountains, closer to a photograph, with stars at night), **Dune bloom** (glossy rounded domes in soft focus), **Dune flow** (dark, grainy light trails) and **Molten metal** (abstract dunes poured in liquid metal for OLED: glowing rims on the crests, deep black mirror bodies, vivid light pooling in the troughs — silver and cyan by day, copper by night). The night versions fade to pure black at the very top, so the camera cutout disappears and the island rises out of the dark. **Preview Android wallpaper** opens Android's separate wallpaper preview. It does not change Uno Launcher's **Launcher background**. **Remove photo** clears the selected launcher background and returns to the chosen built-in background.
 
@@ -60,11 +64,11 @@ Appearance choices are **Light**, **Dark**, **Follow system**, and **Sunrise / s
 
 ## Optional shade gestures
 
-On Home, swipe down from the left 70% to open Notifications or from the right 30% to open Android's Quick Settings (choose "Android mode" in Gestures & feel; otherwise the right side opens Uno's control panel). This is off until you turn it on: Android only lets a launcher open those panels through an accessibility service. The first swipe explains exactly what the service can and can't do and offers **Open settings** or **No thanks**. **No thanks** is remembered, and the swipe then does nothing; pressing outside the prompt only hides it for now. You can enable the gestures later from **Help & setup**, and turn them off any time in Android Settings → Accessibility. The service only requests the system panel actions; it can't read your screen or see other apps.
+On Home, swipe down from the left 70% to open Notifications or from the right 30% to open Android's Quick Settings (choose "Android mode" in Gestures & feel; otherwise the right side opens Uno's control panel). This is off until you turn it on: Android only lets a launcher open those panels through an accessibility service. The first swipe explains exactly what the service can and can't do and offers **Open settings** or **No thanks**. **No thanks** is remembered, and the swipe then does nothing; pressing outside the prompt only hides it for now. You can enable the gestures later from **Backup & about → Help & setup**, and turn them off any time in Android Settings → Accessibility. The service only requests the system panel actions; it can't read your screen or see other apps.
 
 ## Layout backup
 
-Open **Backup**, choose **Save**, and select a document destination. Choose **Restore** to select a backup, inspect **Review restored layout**, then choose **Restore** again. **Cancel** leaves Home unchanged.
+Open **Backup & about → Backup**, choose **Save**, and select a document destination. Choose **Restore** to select a backup, inspect **Review restored layout**, then choose **Restore** again. **Cancel** leaves Home unchanged.
 
 Backups contain Home and dock positions, folders, widget descriptions and spaces, layout presets, labels, search behavior, and status settings. They include the unfolded-only workspace. They do not include the selected background photo or live Android widget bindings. After restore, provider widgets keep their saved space but require **Reconnect**; unavailable apps leave empty positions, and work-profile entries may need manual placement. Review a backup before sharing because it can expose app names, folder names, and profile metadata.
 

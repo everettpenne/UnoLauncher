@@ -630,7 +630,8 @@ internal fun DynamicIsland(
     val updates = NotificationFeed.liveUpdates
     // Everything live on the collapsed pill, most important first, and which goes in which slot (see IslandLive).
     val liveKinds = IslandLive.rotated(IslandLive.active(call = callActive,
-        timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaOnPill, update = updates.isNotEmpty()), state.activityShift)
+        timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaOnPill,
+        update = updates.any { !LiveUpdateLogic.isStale(it, clockMs) }), state.activityShift)
     val plan = IslandLive.plan(liveKinds)
     // A camera on a side edge has no room beside it unless the pill widens, so live content asks for some.
     val cameraOnSide = environment.cutout?.let {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.75.0-uno01
+
+- **Settings, reorganized around you.** Thirteen destinations became nine: **Appearance** (wallpaper, glass and app icons together), **Home layout**, **The island** (everything island in one place), **Notifications & privacy** (access, badges, notification cards, Focus, hidden apps and the permission ledger end to end), **Gestures & feel** (now with the control panel's tiles and shortcuts, next to the swipe that opens it), **Search**, **News feed**, **Keyboard**, and **Backup & about** (backup, updates and help). Every switch is two taps away; nothing moved in meaning, defaults or storage.
+- **Spotlight does more of the typing.** A bare phone number offers Dial (and "call 555-123-4567" just dials); a domain or URL offers "Open in browser"; an empty search offers one-tap Stopwatch, Torch and Focus. A phone number is no longer mistaken for a sum ("555-123-4567" used to "answer" -4135). And an app you actually use outranks a better-spelled one you never open ("maps" puts your daily Organic Maps above a never-opened Maps).
+- **A fresher island.** A Live Update that stops updating for ten minutes steps off the pill (navigation and countdown clocks stay); the card still waits on the open island.
+
 ## 0.74.0-uno01
 
 - **Spotlight and the keyboard move as one.** Opening search used to happen in three beats — the island grew, then the keyboard popped, then the whole home screen jumped up to make room. The keyboard is now asked for on the very frame the island begins to open and dismissed the frame the close begins; the window no longer resizes for the keyboard (it was `adjustResize`, and the home container was padding for the IME through `safeDrawing`), so Home, the dock and the rail never move; and the page dots and search button ride the keyboard's top edge frame by frame, up and back down.

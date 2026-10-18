@@ -13,6 +13,10 @@ internal sealed class QuickAction(val label: String, val detail: String) {
     class Focus(val desired: Boolean?, label: String, detail: String) : QuickAction(label, detail)
     class Call(val name: String, label: String) : QuickAction(label, "Shows the dialer with their number — no call is placed")
     class Text(val name: String, label: String) : QuickAction(label, "Opens your messages app to text them")
+    /** A bare (or "call …") phone number: the dialer is shown, no call is placed. */
+    class Dial(val number: String, label: String) : QuickAction(label, "Shows the dialer — no call is placed")
+    /** A web address typed into search: opens it in the browser. */
+    class OpenLink(val url: String, label: String) : QuickAction(label, "Opens in your browser")
 }
 
 /** What an alarm action asks for: a clock time, or a number of minutes from now. */
@@ -184,12 +188,54 @@ internal object SpotlightSources {
         return QuickAction.Call(name, "Call $name")
     }
 
+    /** "call <name>", unless the name is itself a phone number, in which case it dials straight away (no contact is named that). */
+    private fun callOrDial(query: String): QuickAction? {
+        val call = call(query) ?: return null
+        return if (looksLikePhoneNumber(call.name)) QuickAction.Dial(call.name, "Dial ${call.name}") else call
+    }
+
     /** "text <name>", "message <name>", "sms <name>": open messages for a matching contact. */
     fun text(query: String): QuickAction.Text? {
         val name = textPattern.matchEntire(query.trim())?.groupValues?.get(1)?.trim().orEmpty()
         if (name.isEmpty()) return null
         return QuickAction.Text(name, "Text $name")
     }
+
+    /** A bare phone number ("555 123 4567", "+1 555-123-4567") is a dial, not an app or a sum. */
+    fun dial(query: String): QuickAction.Dial? {
+        val q = query.trim()
+        if (!looksLikePhoneNumber(q)) return null
+        return QuickAction.Dial(q, "Dial $q")
+    }
+
+    /** Whether [q] reads as a web address (a domain or a full URL), so it can be opened in the browser. */
+    private fun isDomain(q: String): Boolean {
+        val s = q.lowercase()
+        if (s.isBlank() || s.any { it.isWhitespace() }) return false
+        val host = s.substringAfter("://").substringBefore('/').substringBefore(':')
+        val clean = host.removePrefix("www.").trim('.')
+        val parts = clean.split('.')
+        if (parts.size < 2) return false
+        val tld = parts.last()
+        if (tld.length !in 2..6 || !tld.all { it.isLetter() }) return false
+        return parts.all { it.isNotEmpty() && it.all { c -> c.isLetterOrDigit() || c == '-' } }
+    }
+
+    /** "example.com", "www.example.com", "https://example.com/x": open the address in the browser. */
+    fun openLink(query: String): QuickAction.OpenLink? {
+        val q = query.trim()
+        if (!isDomain(q)) return null
+        val url = if (q.contains("://")) q else "https://$q"
+        val shown = q.removePrefix("https://").removePrefix("http://").trimEnd('/')
+        return QuickAction.OpenLink(url, "Open $shown")
+    }
+
+    /** Quick actions worth offering before anything is typed: the ones that need no argument, one tap instead of typing the command. */
+    fun idleActions(): List<QuickAction> = listOf(
+        QuickAction.Stopwatch(),
+        QuickAction.Torch(),
+        QuickAction.Focus(null, "Toggle Focus", "Hides or shows the apps you picked"),
+    )
 
     /** The quick action a query asks for, if any. */
     fun quickAction(query: String): QuickAction? {
@@ -199,8 +245,10 @@ internal object SpotlightSources {
             ?: note(query)
             ?: torch(q)
             ?: focus(q)
-            ?: call(query)
+            ?: dial(query)
+            ?: callOrDial(query)
             ?: text(query)
+            ?: openLink(query)
             ?: if (q == "stopwatch" || q == "start stopwatch" || q == "stop stopwatch") QuickAction.Stopwatch() else null
     }
 }

@@ -62,4 +62,39 @@ class SpotlightSourcesTest {
         assertEquals(300L, SpotlightSources.timer("start timer 5")?.seconds)
         assertEquals(600L, SpotlightSources.timer("10 min countdown")?.seconds)
     }
+
+    @Test fun barePhoneNumbersDialAndShortOnesDoNot() {
+        assertTrue(SpotlightSources.dial("555 123 4567") is QuickAction.Dial)
+        assertTrue(SpotlightSources.dial("+1 555-123-4567") is QuickAction.Dial)
+        assertEquals("555-123-4567", SpotlightSources.dial("555-123-4567")?.number)
+        assertNull(SpotlightSources.dial("2048"))
+        assertNull(SpotlightSources.dial("timer 5"))
+        assertNull(SpotlightSources.dial(""))
+        assertNull(SpotlightSources.dial("1-2-3-4-5-6"))
+    }
+
+    @Test fun callWithANumberDialsInsteadOfLookingUpAContact() {
+        assertTrue(SpotlightSources.quickAction("call 555 123 4567") is QuickAction.Dial)
+        assertTrue(SpotlightSources.call("call John") is QuickAction.Call)
+        assertEquals("555-123-4567", (SpotlightSources.quickAction("call 555-123-4567") as QuickAction.Dial).number)
+    }
+
+    @Test fun domainsAndUrlsOpenInTheBrowser() {
+        val link = SpotlightSources.openLink("example.com")
+        assertTrue(link is QuickAction.OpenLink)
+        assertEquals("https://example.com", link?.url)
+        assertEquals("https://www.example.com/x", SpotlightSources.openLink("www.example.com/x")?.url)
+        assertEquals("https://example.com/path", SpotlightSources.openLink("https://example.com/path")?.url)
+        assertNull(SpotlightSources.openLink("maps"))
+        assertNull(SpotlightSources.openLink("12.5"))
+        assertNull(SpotlightSources.openLink("3.14"))
+        assertNull(SpotlightSources.openLink("hello world"))
+    }
+
+    @Test fun idleActionsNeedNoArgument() {
+        val idle = SpotlightSources.idleActions()
+        assertTrue(idle.any { it is QuickAction.Stopwatch })
+        assertTrue(idle.any { it is QuickAction.Torch })
+        assertTrue(idle.any { it is QuickAction.Focus })
+    }
 }

@@ -168,7 +168,7 @@ class NativeAppearanceLocationIntegrationTest {
             assertNull("Location permission must be user initiated", find("Don’t allow"))
 
             openNativeHomeCustomization(automation) { click("Launcher settings") }
-            click("Wallpaper & glass")
+            click("Appearance")
             clickAfterScrolling("Sunrise / sunset")
             val launcherBefore = launcherPrefs.all.toMap()
             val appearanceBefore = appearancePrefs.all.toMap()

@@ -9,6 +9,20 @@ import kotlin.math.pow
 /** An answer the search box can give without any app match: the [text] to show (and copy), and the [detail] line. */
 internal data class SmartAnswer(val text: String, val detail: String)
 
+/**
+ * Whether [raw] reads as a phone number worth dialing rather than a sum: at least seven digits and nothing but the usual
+ * separators (spaces, dashes, parentheses, dots, a leading + or a trailing #). Shared by the dial action and by
+ * [SearchSmarts], which must not report "555-123-4567" as the sum 555 − 123 − 4567. `*` is deliberately not a separator
+ * here: the short dial-pad codes that use it are never seven digits, and allowing it would turn "1000*1000" into a "phone number".
+ */
+internal fun looksLikePhoneNumber(raw: String): Boolean {
+    val q = raw.trim()
+    if (q.isEmpty() || (q.first() != '+' && !q.first().isDigit())) return false
+    val digits = q.count { it.isDigit() }
+    if (digits !in 7..15) return false
+    return q.all { it.isDigit() || it in "+()-. #" }
+}
+
 /** On-device answers for All apps search: arithmetic ("12*(3+4)", "15% of 80") and unit conversion
  * ("5 km in mi", "212 f to c"). Nothing is sent anywhere, and a query that isn't clearly one of these
  * returns null so ordinary app search is untouched ("7-zip" and "2048" are app names, not sums).
@@ -17,6 +31,8 @@ internal object SearchSmarts {
     fun answer(query: String, now: java.time.LocalDateTime = java.time.LocalDateTime.now()): SmartAnswer? {
         val q = query.trim()
         if (q.isEmpty() || q.length > 80) return null
+        // A phone number is a dial, not arithmetic ("555-123-4567" would otherwise answer "-4135").
+        if (looksLikePhoneNumber(q)) return null
         return easterEgg(q) ?: dateOrTime(q, now) ?: percentOf(q) ?: conversion(q) ?: calculation(q)
     }
 

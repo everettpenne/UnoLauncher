@@ -111,6 +111,11 @@ class UnoActionsTest {
         assertNull(SpotlightSources.quickAction("message"))
     }
 
+    @Test fun quickActionRecognisesADialAndAnAddress() {
+        assertTrue(SpotlightSources.quickAction("5551234567") is QuickAction.Dial)
+        assertTrue(SpotlightSources.quickAction("example.com") is QuickAction.OpenLink)
+    }
+
     // ---- intent and alarm arithmetic ----------------------------------------------------------
 
     @Test fun phoneNumbersKeepOnlyUriCharacters() {
@@ -122,6 +127,10 @@ class UnoActionsTest {
     @Test fun dialAndSmsIntentsAreHonest() {
         assertEquals(ActionIntent(ActionLogic.ACTION_DIAL, "tel:+15551234567"), ActionLogic.dialIntent("+1 555 123 4567"))
         assertEquals(ActionIntent(ActionLogic.ACTION_SENDTO, "smsto:+15551234567"), ActionLogic.smsIntent("+1 (555) 123-4567"))
+    }
+
+    @Test fun viewIntentOpensTheAddress() {
+        assertEquals(ActionIntent(ActionLogic.ACTION_VIEW, "https://example.com"), ActionLogic.viewIntent("https://example.com"))
     }
 
     @Test fun alarmIntentCarriesHourAndMinute() {

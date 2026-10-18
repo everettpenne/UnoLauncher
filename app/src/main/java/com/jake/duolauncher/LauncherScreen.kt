@@ -915,7 +915,7 @@ internal fun LauncherScreen(
                 }
             }
             if (sheet.isNotEmpty() && sheet != "widgets") {
-                val activeCustomizationPage = if (sheet == "settings:wallpaper") CustomizationPage.WALLPAPER else customizationPage
+                val activeCustomizationPage = if (sheet == "settings:wallpaper") CustomizationPage.APPEARANCE else customizationPage
                 GlassModalSheet(controlGlass, onDismissRequest = {
                     sheet = ""; widgetPackage = null; widgetExactTarget = false
                 }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -1361,7 +1361,7 @@ internal fun LauncherScreen(
             ControlPanel(controlGlass, extras?.store?.state ?: ExtrasState(), state.apps,
                 onToggleFocus = { extras?.toggleFocus?.invoke() },
                 onLaunchApp = { app -> controlPanelOpen = false; onLaunch(app) },
-                onCustomize = { controlPanelOpen = false; customizationPage = CustomizationPage.PANEL; sheet = "settings" },
+                onCustomize = { controlPanelOpen = false; customizationPage = CustomizationPage.GESTURES; sheet = "settings" },
                 onDismiss = { controlPanelOpen = false }, onSystemSettings = {
                 controlPanelOpen = false
                 launcherActivity.openSystemShade(ShadePanel.QUICK_SETTINGS)

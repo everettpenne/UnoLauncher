@@ -55,6 +55,15 @@ class SearchSmartsTest {
         }
     }
 
+    @Test fun phoneNumbersAreNotArithmetic() {
+        // "555-123-4567" would otherwise answer the sum 555 − 123 − 4567.
+        assertNull(text("555-123-4567"))
+        assertNull(text("555 - 123 - 4567"))
+        assertNull(text("(555) 123-4567"))
+        assertNull(text("+1 555 123 4567"))
+        assertNull(text("5551234567"))
+    }
+
     @Test fun lengthMassVolumeAndMore() {
         assertEquals("3.106856 mi", text("5 km in mi"))
         assertEquals("30.48 cm", text("1 ft to cm"))

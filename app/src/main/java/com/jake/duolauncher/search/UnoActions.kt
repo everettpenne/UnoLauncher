@@ -34,6 +34,7 @@ internal object ActionLogic {
     const val ACTION_DIAL = "android.intent.action.DIAL"
     const val ACTION_SENDTO = "android.intent.action.SENDTO"
     const val ACTION_SET_ALARM = "android.intent.action.SET_ALARM"
+    const val ACTION_VIEW = "android.intent.action.VIEW"
 
     /** Only the characters a tel: or smsto: URI understands, so a number stored with spaces or dashes still dials. */
     fun phoneNumber(raw: String): String = raw.filter { it.isDigit() || it == '+' || it == '*' || it == '#' }
@@ -41,6 +42,7 @@ internal object ActionLogic {
     fun dialIntent(number: String) = ActionIntent(ACTION_DIAL, "tel:" + phoneNumber(number))
     fun smsIntent(number: String) = ActionIntent(ACTION_SENDTO, "smsto:" + phoneNumber(number))
     fun alarmIntent(hour: Int, minute: Int) = ActionIntent(ACTION_SET_ALARM, null, hour, minute)
+    fun viewIntent(url: String) = ActionIntent(ACTION_VIEW, url)
 
     /** The alarm clock time for "in [minutes] minutes" from [nowHour]:[nowMinute], wrapped past midnight. */
     fun alarmAt(minutes: Int, nowHour: Int, nowMinute: Int): Pair<Int, Int> {
@@ -100,6 +102,8 @@ internal class ActionResolver(
                 if (on != focusOn) toggleFocus()
             }
             is QuickAction.Call, is QuickAction.Text -> Unit
+            is QuickAction.Dial -> openContact(ContactActionKind.DIAL, action.number)
+            is QuickAction.OpenLink -> open(ActionLogic.viewIntent(action.url))
         }
     }
 

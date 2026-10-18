@@ -91,7 +91,7 @@ class CustomizationNavigationIntegrationTest {
         ready()
         val before = model().state.value.layout
         compose.openHomeCustomization()
-        compose.onNodeWithTag("customization-help").performScrollTo().performClick()
+        compose.onNodeWithTag("customization-backup").performScrollTo().performClick()
         compose.onNodeWithText("Settings on any page").assertIsDisplayed()
         compose.onNodeWithTag("help-home-settings").assertExists()
         compose.onNodeWithTag("help-add-widget").performScrollTo().assertIsDisplayed()
@@ -99,7 +99,7 @@ class CustomizationNavigationIntegrationTest {
 
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithTag("customization-help")
+            compose.onAllNodesWithTag("customization-backup")
                 .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
         }
         assertEquals(before, model().state.value.layout)

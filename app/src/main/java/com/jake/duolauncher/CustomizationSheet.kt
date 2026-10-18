@@ -33,7 +33,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
-internal enum class CustomizationPage { OVERVIEW, WALLPAPER, ICONS, HOME, GESTURES, SEARCH, PANEL, ISLAND, KEYBOARD, PRIVACY, FEED, UPDATES, BACKUP, HELP }
+internal enum class CustomizationPage { OVERVIEW, APPEARANCE, HOME, GESTURES, SEARCH, ISLAND, KEYBOARD, PRIVACY, FEED, BACKUP }
 
 @Composable
 internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, model: LauncherModel,
@@ -78,19 +78,15 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     var wide by rememberSaveable { mutableStateOf(initiallyWide) }
     val title = when (page) {
         CustomizationPage.OVERVIEW -> "Launcher settings"
-        CustomizationPage.WALLPAPER -> "Wallpaper & glass"
-        CustomizationPage.ICONS -> "App icons"
+        CustomizationPage.APPEARANCE -> "Appearance"
         CustomizationPage.HOME -> "Home layout"
         CustomizationPage.GESTURES -> "Gestures & feel"
         CustomizationPage.SEARCH -> "Search"
-        CustomizationPage.PANEL -> "Control panel & Focus"
-        CustomizationPage.ISLAND -> "Dynamic island"
+        CustomizationPage.ISLAND -> "The island"
         CustomizationPage.KEYBOARD -> "Keyboard"
         CustomizationPage.PRIVACY -> "Notifications & privacy"
         CustomizationPage.FEED -> "News feed"
-        CustomizationPage.UPDATES -> "Updates"
-        CustomizationPage.BACKUP -> "Backup"
-        CustomizationPage.HELP -> "Help & setup"
+        CustomizationPage.BACKUP -> "Backup & about"
     }
     val bodyScroll = rememberScrollState()
     LaunchedEffect(page) { bodyScroll.scrollTo(0) }
@@ -113,44 +109,29 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     if (state.canUndoEdit) GlassButton(onClick = { model.undoEdit(); onClose() },
                         Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.undo_last_layout_change)) }
                     MiniHomePreview(backgrounds.previewBitmap, state, 176.dp)
-                    SettingsGroupLabel("Look")
-                    CustomizationDestination(Icons.Rounded.Wallpaper, "Wallpaper & glass",
-                        if (backgrounds.previewPending) "Photo ready to review" else "Background, liquid glass, light and dark",
-                        "customization-wallpaper") { onPage(CustomizationPage.WALLPAPER) }
-                    if (extras != null) CustomizationDestination(Icons.Rounded.Apps, "App icons",
-                        "Original, themed or tinted by your wallpaper", "customization-icons") { onPage(CustomizationPage.ICONS) }
-                    SettingsGroupLabel("Home")
+                    CustomizationDestination(Icons.Rounded.Wallpaper, "Appearance",
+                        if (backgrounds.previewPending) "Photo ready to review" else "Background, glass, icons, light and dark",
+                        "customization-wallpaper") { onPage(CustomizationPage.APPEARANCE) }
                     CustomizationDestination(Icons.Rounded.GridView, "Home layout",
                         "Icons, spacing, dock, and widgets", "customization-home") { onPage(CustomizationPage.HOME) }
+                    CustomizationDestination(IslandPillIcon, "The island",
+                        "Size, style, live activities, and apps allowed", "customization-island") { onPage(CustomizationPage.ISLAND) }
+                    CustomizationDestination(Icons.Rounded.Lock, "Notifications & privacy",
+                        "Access, badges, cards, and the permission ledger", "customization-privacy") { onPage(CustomizationPage.PRIVACY) }
                     CustomizationDestination(Icons.Rounded.Gesture, "Gestures & feel",
-                        "Labels, status, swipes, haptics and sounds", "customization-gestures") { onPage(CustomizationPage.GESTURES) }
-                    if (extras != null) CustomizationDestination(Icons.Rounded.Search, "Search",
+                        "Swipes, panel, haptics and sounds", "customization-gestures") { onPage(CustomizationPage.GESTURES) }
+                    CustomizationDestination(Icons.Rounded.Search, "Search",
                         "Google button, suggestions, contacts", "customization-search") { onPage(CustomizationPage.SEARCH) }
-                    if (extras != null) CustomizationDestination(Icons.Rounded.Tune, "Control panel & Focus",
-                        "Panel tiles, shortcuts, Focus", "customization-panel") { onPage(CustomizationPage.PANEL) }
-                    SettingsGroupLabel("Island & keyboard")
-                    if (extras != null) CustomizationDestination(IslandPillIcon, "Dynamic island",
-                        "Size, live activities, bubbles, widget, timer", "customization-island") { onPage(CustomizationPage.ISLAND) }
-                    if (extras != null) CustomizationDestination(Icons.Rounded.Keyboard, "Keyboard",
-                        "Uno Keyboard: suggestions, autocorrect, one-handed", "customization-keyboard") { onPage(CustomizationPage.KEYBOARD) }
-                    SettingsGroupLabel("Privacy")
-                    if (extras != null) CustomizationDestination(Icons.Rounded.Lock, "Notifications & privacy",
-                        "Notification access, badges, what each permission can see", "customization-privacy") { onPage(CustomizationPage.PRIVACY) }
-                    SettingsGroupLabel("More")
                     CustomizationDestination(Icons.Rounded.RssFeed, "News feed",
                         "Your own headlines in place of Discover", "customization-feed") { onPage(CustomizationPage.FEED) }
-                    CustomizationDestination(Icons.Rounded.Save, "Backup",
-                        "Save or restore your layout and settings", "customization-backup") { onPage(CustomizationPage.BACKUP) }
-                    CustomizationDestination(Icons.Rounded.SystemUpdateAlt, "Updates",
-                        "Check for releases or update automatically", "customization-updates") { onPage(CustomizationPage.UPDATES) }
-                    CustomizationDestination(Icons.AutoMirrored.Rounded.HelpOutline, "Help & setup",
-                        "Home app, widgets, gestures, and Discover", "customization-help") {
-                        onPage(CustomizationPage.HELP)
-                    }
+                    CustomizationDestination(Icons.Rounded.Keyboard, "Keyboard",
+                        "Uno Keyboard: suggestions, autocorrect, one-handed", "customization-keyboard") { onPage(CustomizationPage.KEYBOARD) }
+                    CustomizationDestination(Icons.Rounded.Save, "Backup & about",
+                        "Save or restore, updates, and help", "customization-backup") { onPage(CustomizationPage.BACKUP) }
                     if (isDefaultHome) GlassButton(onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         .testTag("default-home-settings")) { Text(stringResource(com.jake.duolauncher.R.string.change_home_app)) }
                 }
-                CustomizationPage.WALLPAPER -> {
+                CustomizationPage.APPEARANCE -> {
                     MiniHomePreview(backgrounds.previewBitmap, state, 228.dp)
                     Text(stringResource(com.jake.duolauncher.R.string.launcher_background), style = MaterialTheme.typography.titleMedium)
                     Text(stringResource(com.jake.duolauncher.R.string.changes_the_image_behind_uno_launcher), style = MaterialTheme.typography.bodySmall,
@@ -222,6 +203,10 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear, onAppearanceCancelLocation)
+                    if (extras != null) {
+                        SettingsGroupLabel("App icons")
+                        ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.ICONS)
+                    }
                 }
                 CustomizationPage.HOME -> HomeLayoutSettings(state, wide, { wide = it }, model, homePage,
                     onEditPins, onWidget, onAddWidget, onRemoveWidget)
@@ -232,14 +217,12 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         style = MaterialTheme.typography.bodyMedium)
                     if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.GESTURES)
                 }
-                CustomizationPage.ICONS -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.ICONS)
                 CustomizationPage.SEARCH -> {
                     SettingsSwitch("Search button opens Google", state.googleSearch, model::setGoogleSearch, "google-search-switch")
                     Text(stringResource(com.jake.duolauncher.R.string.all_apps_always_keeps_local_app), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.SEARCH)
                 }
-                CustomizationPage.PANEL -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.PANEL)
                 CustomizationPage.ISLAND -> {
                     SettingsSwitch("Dynamic island", appearance.island, onIsland, "island-switch")
                     SettingsSwitch("Island everywhere", islandEverywhere, onIslandEverywhere, "island-everywhere-switch")
@@ -258,10 +241,11 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.PRIVACY)
                     val hiddenState = model.state.collectAsState().value
                     HiddenAppsSetting(hiddenState.apps.filter { it.id in hiddenState.hiddenApps }) { model.unhideApp(it.id) }
+                    if (extras != null) PermissionLedgerSection(extras)
                 }
                 CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onSourceEnabled, onImportOpml, onKeepPerFeed)
-                CustomizationPage.UPDATES -> UpdatesPanel(updates, onCheckUpdates, onInstallRelease, onAutoUpdate)
                 CustomizationPage.BACKUP -> {
+                    SettingsGroupLabel("Backup")
                     Text(stringResource(com.jake.duolauncher.R.string.save_the_current_home_layout_folders),
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -269,13 +253,16 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         GlassButton(prominent = true, onClick = onImportLayout, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("layout-import")) { Text(stringResource(com.jake.duolauncher.R.string.restore)) }
                     }
                     Text(stringResource(com.jake.duolauncher.R.string.restore_shows_a_review_before_changing), style = MaterialTheme.typography.bodySmall)
+                    SettingsGroupLabel("Updates")
+                    UpdatesPanel(updates, onCheckUpdates, onInstallRelease, onAutoUpdate)
+                    SettingsGroupLabel("Help & setup")
+                    LauncherHelp(
+                        isDefaultHome = isDefaultHome,
+                        onHomeSettings = onMakeDefault,
+                        onAddWidget = { onAddWidget(homePage) },
+                        onShadeSetup = onShadeSetup,
+                    )
                 }
-                CustomizationPage.HELP -> LauncherHelp(
-                    isDefaultHome = isDefaultHome,
-                    onHomeSettings = onMakeDefault,
-                    onAddWidget = { onAddWidget(homePage) },
-                    onShadeSetup = onShadeSetup,
-                )
             }
         }
     }

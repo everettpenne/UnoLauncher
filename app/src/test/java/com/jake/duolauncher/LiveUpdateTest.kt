@@ -57,6 +57,18 @@ class LiveUpdateTest {
         assertFalse(LiveUpdateLogic.needsSecondTick(listOf(update())))
     }
 
+    @Test fun aQuietUpdateGoesStaleButNavigationAndClocksDoNot() {
+        val now = 1_000_000L
+        assertTrue(LiveUpdateLogic.isStale(update(post = now - LiveUpdateLogic.STALE_MS - 1), now))
+        assertFalse(LiveUpdateLogic.isStale(update(post = now - 5_000L), now))
+        // A navigation instruction (reposted only when the manoeuvre changes) stays fresh however old the post.
+        val nav = LiveUpdate("k", "com.example", "Maps", "Turn left", "Main St", null, 0, 0, false, null, false, null, 0,
+            now - LiveUpdateLogic.STALE_MS - 1, null, source = ActivitySource.NAVIGATION)
+        assertFalse(LiveUpdateLogic.isStale(nav, now))
+        // A counting clock is still moving, so it is never stale.
+        assertFalse(LiveUpdateLogic.isStale(update(post = now - LiveUpdateLogic.STALE_MS - 1, base = 0L), now))
+    }
+
     @Test fun aLiveUpdateRanksAfterTheStopwatchAndBeforeMusic() {
         val all = IslandLive.active(call = true, timer = true, stopwatch = true, media = true, update = true)
         assertEquals(listOf(LiveKind.CALL, LiveKind.TIMER, LiveKind.STOPWATCH, LiveKind.UPDATE, LiveKind.MEDIA), all)

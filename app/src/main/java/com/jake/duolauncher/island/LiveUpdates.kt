@@ -90,6 +90,15 @@ internal object LiveUpdateLogic {
      * removed while the listener is re-binding) is dropped on the next sweep instead of lingering forever. */
     const val SAFETY_SWEEP_MS = 60_000L
 
+    /** A still-present Live Update that has gone this long without a fresh post is stale: it keeps its card, but gives up its pill slot. */
+    const val STALE_MS = 10 * 60_000L
+
+    /** Whether a still-present update has gone quiet long enough to demote from the pill. A navigation instruction (which only
+     * reposts when the manoeuvre changes) and anything with a counting clock stay fresh however old their notification is, because
+     * the clock is still moving. [nowMs] and [update.postTime] are both wall-clock milliseconds. */
+    fun isStale(update: LiveUpdate, nowMs: Long, staleAfterMs: Long = STALE_MS): Boolean =
+        update.source != ActivitySource.NAVIGATION && update.chronometerBase == null && nowMs - update.postTime > staleAfterMs
+
     /** The updates whose notification is still among [presentKeys], newest first. Anything whose notification has
      * gone is dropped: the single rule that clears a navigation icon once its app ends or dies without a removal
      * event reaching us. */

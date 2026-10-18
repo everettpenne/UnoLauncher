@@ -25,7 +25,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 /** Which part of the extras a Customize page shows (each is its own page, reached from the overview). */
-internal enum class ExtrasSection { KEYBOARD, GESTURES, PANEL, ICONS, ISLAND, SEARCH, PRIVACY }
+internal enum class ExtrasSection { KEYBOARD, GESTURES, ICONS, ISLAND, SEARCH, PRIVACY }
 
 /** One of the extras pages of the Customize sheet. */
 @Composable
@@ -114,11 +114,6 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     ChoiceRow("Android mode", "Opens Android's own Quick Settings instead; needs the optional shade accessibility service",
         s.rightSwipe == RightSwipe.SYSTEM, "swipe-system") { store.setRightSwipe(RightSwipe.SYSTEM) }
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    SettingsSwitch("Double-tap to lock", s.doubleTapLock, store::setDoubleTapLock, "double-tap-lock-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.double_tap_lock_note), style = note, color = muted)
-    }
-
-    if (section == ExtrasSection.PANEL) {
     Text(stringResource(com.jake.duolauncher.R.string.control_panel_tiles), style = MaterialTheme.typography.titleMedium)
     s.tileOrder.forEachIndexed { index, tile ->
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -132,18 +127,12 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         }
     }
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
-
     Text(stringResource(com.jake.duolauncher.R.string.shortcuts_in_the_panel), style = MaterialTheme.typography.titleMedium)
     Text("Up to ${PanelLayout.MAX_SHORTCUTS} apps; choosing a sixth replaces the oldest.", style = note, color = muted)
     AppChecklist(apps, s.shortcuts.toSet(), "shortcut") { store.toggleShortcut(it) }
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
-
-    Text(stringResource(com.jake.duolauncher.R.string.focus), style = MaterialTheme.typography.titleMedium)
-    SettingsSwitch("Focus on", s.focusOn, { actions.toggleFocus() }, "focus-switch")
-    SettingsSwitch("Also set the ringer to vibrate", s.focusVibrate, store::setFocusVibrate, "focus-vibrate-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.hides_the_apps_you_pick_from),
-        style = note, color = muted)
-    AppChecklist(apps, s.focusHidden, "focus") { store.toggleFocusHidden(it) }
+    SettingsSwitch("Double-tap to lock", s.doubleTapLock, store::setDoubleTapLock, "double-tap-lock-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.double_tap_lock_note), style = note, color = muted)
     }
 
     if (section == ExtrasSection.ICONS) {
@@ -228,6 +217,27 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         Text(stringResource(com.jake.duolauncher.R.string.badge_mute_note), style = note, color = muted)
     }
     SettingsSwitch("Track title and artwork in media", s.mediaDetails, store::setMediaDetails, "media-details-switch")
+    SettingsSwitch("Show new notifications in the island", s.notificationPeek, store::setNotificationPeek, "peek-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.how_much_a_new_notification_shows), style = note, color = muted)
+    if (s.notificationPeek) {
+        SettingsSwitch("Action buttons on the card", s.peekActions, store::setPeekActions, "peek-actions-switch")
+        Text(stringResource(com.jake.duolauncher.R.string.peek_actions_note), style = note, color = muted)
+    }
+    ChoiceRow("App name only", "A flash of the app's icon and name, never what it says", s.peekLevel == 0, "peek-level-name") { store.setPeekLevel(0) }
+    ChoiceRow("Name and title", "A card with the sender or subject; tap it to open the notification", s.peekLevel == 1, "peek-level-title") { store.setPeekLevel(1) }
+    ChoiceRow("Name, title and text", "The card also shows the first lines of the text. Uno reads that text to show it, and keeps nothing",
+        s.peekLevel == 2, "peek-level-text") { store.setPeekLevel(2) }
+    GlassField(s.peekBlocked, { store.setPeekBlocked(it) }, Modifier.fillMaxWidth().testTag("peek-blocked"), minLines = 1, maxLines = 3,
+        label = { Text(stringResource(com.jake.duolauncher.R.string.hide_notifications_containing_these_words)) }, supportingText = { Text(stringResource(com.jake.duolauncher.R.string.separate_with_commas_a_match_shows)) })
+    Text(stringResource(com.jake.duolauncher.R.string.everything_stays_on_this_device_badges),
+        style = note, color = muted)
+    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    Text(stringResource(com.jake.duolauncher.R.string.focus), style = MaterialTheme.typography.titleMedium)
+    SettingsSwitch("Focus on", s.focusOn, { actions.toggleFocus() }, "focus-switch")
+    SettingsSwitch("Also set the ringer to vibrate", s.focusVibrate, store::setFocusVibrate, "focus-vibrate-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.hides_the_apps_you_pick_from),
+        style = note, color = muted)
+    AppChecklist(apps, s.focusHidden, "focus") { store.toggleFocusHidden(it) }
     }
     if (section == ExtrasSection.ISLAND) {
     SettingsSwitch("Camera and microphone indicators", s.privacyIndicators, store::setPrivacyIndicators, "privacy-indicators-switch")
@@ -280,20 +290,6 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     SettingsSwitch("Show calls in the island", s.callDetails, store::setCallDetails, "call-details-switch")
     Text(stringResource(com.jake.duolauncher.R.string.while_a_call_is_active_the),
         style = note, color = muted)
-    SettingsSwitch("Show new notifications in the island", s.notificationPeek, store::setNotificationPeek, "peek-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.how_much_a_new_notification_shows), style = note, color = muted)
-    if (s.notificationPeek) {
-        SettingsSwitch("Action buttons on the card", s.peekActions, store::setPeekActions, "peek-actions-switch")
-        Text(stringResource(com.jake.duolauncher.R.string.peek_actions_note), style = note, color = muted)
-    }
-    ChoiceRow("App name only", "A flash of the app's icon and name, never what it says", s.peekLevel == 0, "peek-level-name") { store.setPeekLevel(0) }
-    ChoiceRow("Name and title", "A card with the sender or subject; tap it to open the notification", s.peekLevel == 1, "peek-level-title") { store.setPeekLevel(1) }
-    ChoiceRow("Name, title and text", "The card also shows the first lines of the text. Uno reads that text to show it, and keeps nothing",
-        s.peekLevel == 2, "peek-level-text") { store.setPeekLevel(2) }
-    GlassField(s.peekBlocked, { store.setPeekBlocked(it) }, Modifier.fillMaxWidth().testTag("peek-blocked"), minLines = 1, maxLines = 3,
-        label = { Text(stringResource(com.jake.duolauncher.R.string.hide_notifications_containing_these_words)) }, supportingText = { Text(stringResource(com.jake.duolauncher.R.string.separate_with_commas_a_match_shows)) })
-    Text(stringResource(com.jake.duolauncher.R.string.everything_stays_on_this_device_badges),
-        style = note, color = muted)
     }
 
     if (section == ExtrasSection.ISLAND) {
@@ -307,10 +303,6 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
             style = note, color = muted)
         HorizontalDivider(Modifier.padding(vertical = 6.dp))
     }
-    }
-
-    if (section == ExtrasSection.PRIVACY) {
-    PermissionLedgerSection(actions)
     }
 
     if (section == ExtrasSection.SEARCH) {

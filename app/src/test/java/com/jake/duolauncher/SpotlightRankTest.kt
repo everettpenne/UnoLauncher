@@ -47,10 +47,27 @@ class SpotlightRankSmartTest {
         assertTrue(rank(labels, "cr").isEmpty())
     }
 
-    @Test fun frecencyBreaksTiesWithinATierButNotAcrossTiers() {
+    @Test fun frecencyBreaksTiesWithinATierAndLiftsAUsedAppOneBoundary() {
+        // "Sigma" (a prefix you use) stays ahead; "Design Sign" (a later word you use daily) now outranks
+        // "Signal" (a prefix you never open), crossing exactly one tier boundary.
         val labels = listOf("Signal", "Sigma", "Design Sign")
         val scores = mapOf("Sigma" to 5.0, "Design Sign" to 100.0)
-        assertEquals(listOf("Sigma", "Signal", "Design Sign"), rank(labels, "sig") { scores[it] ?: 0.0 })
+        assertEquals(listOf("Sigma", "Design Sign", "Signal"), rank(labels, "sig") { scores[it] ?: 0.0 })
+    }
+
+    @Test fun aNeverUsedPrefixDoesNotCrowdOutADailyDriver() {
+        // "maps" puts Organic Maps (a later word, used daily) above a "Maps"-named app never opened.
+        val labels = listOf("Maps", "Organic Maps", "Google Maps")
+        val scores = mapOf("Organic Maps" to 9.0, "Google Maps" to 6.0)
+        assertEquals(listOf("Organic Maps", "Google Maps", "Maps"), rank(labels, "maps") { scores[it] ?: 0.0 })
+    }
+
+    @Test fun effectiveTierDemotesUnusedAppsExactlyOneStep() {
+        assertEquals(SpotlightRank.Tier.WORD_PREFIX, SpotlightRank.effectiveTier(SpotlightRank.Tier.PREFIX, used = false))
+        assertEquals(SpotlightRank.Tier.PREFIX, SpotlightRank.effectiveTier(SpotlightRank.Tier.PREFIX, used = true))
+        assertEquals(SpotlightRank.Tier.FUZZY, SpotlightRank.effectiveTier(SpotlightRank.Tier.CONTAINS, used = false))
+        assertEquals(SpotlightRank.Tier.TYPO, SpotlightRank.effectiveTier(SpotlightRank.Tier.TYPO, used = false))
+        assertEquals(SpotlightRank.Tier.NONE, SpotlightRank.effectiveTier(SpotlightRank.Tier.NONE, used = false))
     }
 
     @Test fun frecencyDecaysAndSuggestionsSkipUnusedApps() {

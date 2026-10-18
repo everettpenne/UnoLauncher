@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Call
@@ -163,6 +164,8 @@ internal object SpotlightRank {
 
     /** Frecency: launches count for more when recent. A launch loses half its weight every [HALF_LIFE_DAYS] days. */
     const val HALF_LIFE_DAYS = 14.0
+    /** At or below this, an app is treated as "not really used": it can still match, but it never crowds out a daily driver. */
+    const val SUGGESTION_FRECENCY = .05
     fun frecency(count: Int, lastLaunchMs: Long, nowMs: Long): Double {
         if (count <= 0) return 0.0
         val ageDays = ((nowMs - lastLaunchMs).coerceAtLeast(0L)) / 86_400_000.0
@@ -170,19 +173,36 @@ internal object SpotlightRank {
     }
 
     /**
-     * Best match first: how the name matches, then how often and recently you open the app, then alphabetical.
-     * A blank query matches nothing (see [suggested] for what Spotlight offers before you type).
+     * An app you have not launched enough to matter is demoted one tier, so a daily-used app whose name merely *contains* the
+     * word ("maps" → "Organic Maps") can outrank a never-used app that merely *starts* with it. The boundary is one tier only:
+     * a demoted prefix never falls below a used word-prefix by more than its own merit, and a typo match is never demoted away.
+     */
+    fun effectiveTier(tier: Tier, used: Boolean): Tier = if (used) tier else when (tier) {
+        Tier.PREFIX -> Tier.WORD_PREFIX
+        Tier.WORD_PREFIX -> Tier.INITIALS
+        Tier.INITIALS -> Tier.CONTAINS
+        Tier.CONTAINS -> Tier.FUZZY
+        else -> tier
+    }
+
+    /**
+     * Best match first: how the name matches (with a frecency-aware adjustment for never-used apps), then how often and
+     * recently you open the app, then alphabetical. A blank query matches nothing (see [suggested] for what Spotlight offers
+     * before you type).
      */
     fun <T> apps(apps: List<T>, query: String, label: (T) -> String, frecency: (T) -> Double = { 0.0 }): List<T> {
         if (query.isBlank()) return emptyList()
         return apps.map { it to tier(label(it), query) }.filter { it.second != Tier.NONE }
-            .sortedWith(compareBy<Pair<T, Tier>>({ it.second }, { -frecency(it.first) }, { label(it.first).lowercase() }))
+            .sortedWith(compareBy<Pair<T, Tier>>(
+                { effectiveTier(it.second, frecency(it.first) > SUGGESTION_FRECENCY) },
+                { -frecency(it.first) },
+                { label(it.first).lowercase() }))
             .map { it.first }.take(MAX_APPS)
     }
 
     /** What to offer before anything is typed: the apps you open most, if you have opened any. */
     fun <T> suggested(apps: List<T>, frecency: (T) -> Double): List<T> =
-        apps.filter { frecency(it) > .05 }.sortedByDescending(frecency).take(MAX_SUGGESTED)
+        apps.filter { frecency(it) > SUGGESTION_FRECENCY }.sortedByDescending(frecency).take(MAX_SUGGESTED)
 
     /** Saved feed entries whose title or summary mentions every word of the query. */
     fun feed(entries: List<FeedEntry>, query: String): List<FeedEntry> {
@@ -286,6 +306,8 @@ internal fun Spotlight(
     val feedResults = remember(feedEntries, query) { SpotlightRank.feed(feedEntries, query) }
     val smart = remember(query) { SearchSmarts.answer(query) }
     val quick = remember(query) { SpotlightSources.quickAction(query) }
+    // The quick actions that need no argument, offered before anything is typed so they are one tap instead of a command.
+    val idle = remember { SpotlightSources.idleActions() }
     val actions = rememberActionResolver(noteSlot)
     // "call"/"text" resolve to contact rows (one per number found) rather than a single row; a "note" action needs a
     // Note widget on Home to write to. Everything else is one row, the top hit.
@@ -446,6 +468,20 @@ internal fun Spotlight(
                         }
                     }
                 }
+                // Before anything is typed the panel also offers the quick actions that need no argument, one tap instead of a command.
+                if (!typed && idle.isNotEmpty()) {
+                    item("idle-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_actions), ink) }
+                    items(idle, key = { "idle-${it.javaClass.simpleName}" }) { action ->
+                        SpotlightRow(action.label, action.detail, "spotlight-idle-${action.javaClass.simpleName.lowercase()}", false, ink, {
+                            actions.run(action, focusOn(), onToggleFocus)
+                            onDismiss()
+                        }) {
+                            Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
+                                Icon(actionIcon(action), null, Modifier.size(22.dp))
+                            }
+                        }
+                    }
+                }
                 if (appResults.isNotEmpty()) item("apps-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_apps), ink) }
                 itemsIndexed(appResults, key = { _, app -> "app-${app.id}" }) { index, app ->
                     // The first result is what Enter opens, so it is marked as the top hit.
@@ -485,8 +521,8 @@ internal fun Spotlight(
                 if (typed && nothing) item("none") {
                     Text(stringResource(com.jake.duolauncher.R.string.nothing_found), Modifier.padding(12.dp), color = ink.copy(alpha = .7f))
                 }
-                // Before anything is typed (and with no launch history yet) the panel would otherwise be an empty void; teach instead.
-                if (!typed && nothing) item("hint") {
+                // With no launch history yet the panel would otherwise just be quick actions; teach the typed commands too.
+                if (!typed && suggested.isEmpty()) item("hint") {
                     Text(stringResource(com.jake.duolauncher.R.string.spotlight_try), Modifier.padding(12.dp),
                         color = ink.copy(alpha = .6f), fontSize = 13.sp)
                 }
@@ -543,6 +579,8 @@ private fun actionIcon(action: QuickAction): ImageVector = when (action) {
     is QuickAction.Focus -> Icons.Rounded.Bedtime
     is QuickAction.Call -> Icons.Rounded.Call
     is QuickAction.Text -> Icons.Rounded.Sms
+    is QuickAction.Dial -> Icons.Rounded.Call
+    is QuickAction.OpenLink -> Icons.AutoMirrored.Rounded.OpenInNew
 }
 
 /** One result: a 40 dp leading mark, a title, an optional second line; the top hit sits on a faint plate. */

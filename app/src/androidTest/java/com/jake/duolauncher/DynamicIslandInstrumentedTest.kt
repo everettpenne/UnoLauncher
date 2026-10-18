@@ -25,7 +25,6 @@ class DynamicIslandInstrumentedTest {
 
     @After fun reset() {
         NotificationFeed.liveUpdates = emptyList()
-        IslandTools.toolsOpen = false
     }
 
     private fun show() {
@@ -150,13 +149,6 @@ class DynamicIslandInstrumentedTest {
         compose.runOnIdle { NotificationFeed.liveUpdates = emptyList() }
         compose.waitForIdle()
         assertEquals(0, compose.onAllNodesWithTag("island-live-update", useUnmergedTree = true).fetchSemanticsNodes().size)
-    }
-
-    @Test fun longPressToolsStateOpensTheToolsPanel() {
-        show()
-        compose.runOnIdle { IslandTools.toolsOpen = true; state.expanded = true }
-        compose.waitForIdle()
-        assertPresent("island-tools-timer")
     }
 
     @Test fun typingInTheIslandSearchFieldAndPressingEnterSendsTheQuery() {

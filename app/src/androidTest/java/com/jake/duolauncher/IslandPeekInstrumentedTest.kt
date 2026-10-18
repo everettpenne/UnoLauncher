@@ -32,7 +32,7 @@ class IslandPeekInstrumentedTest {
     @get:Rule val compose = createComposeRule()
     private val state = IslandState()
 
-    @After fun reset() { NotificationFeed.liveUpdates = emptyList(); IslandTools.toolsOpen = false }
+    @After fun reset() { NotificationFeed.liveUpdates = emptyList() }
 
     private fun show() {
         compose.setContent {
@@ -73,7 +73,7 @@ class IslandPeekInstrumentedTest {
         pull(40f)
         compose.mainClock.advanceTimeBy(1_200)
         compose.runOnIdle { assertTrue(state.peeked) }
-        compose.mainClock.advanceTimeBy(PeekPull.HOLD_MS + 500)
+        compose.mainClock.advanceTimeBy(IslandDrag.PEEK_HOLD_MS + 500)
         compose.runOnIdle { assertFalse("the peek tucks itself away", state.peeked) }
         compose.mainClock.autoAdvance = true
     }
@@ -99,7 +99,7 @@ class IslandPeekInstrumentedTest {
         compose.mainClock.advanceTimeBy(1_500)
         compose.onNodeWithTag("dynamic-island", useUnmergedTree = true).performTouchInput { down(Offset(width / 2f, height - 12f * density)) }
         compose.mainClock.advanceTimeBy(600)
-        compose.runOnIdle { assertTrue("the hold has taken", state.holdingOpen); assertFalse("and it did not open the tools", IslandTools.toolsOpen) }
+        compose.runOnIdle { assertTrue("the hold has taken", state.holdingOpen) }
         // Far longer than the island stays open by itself.
         compose.mainClock.advanceTimeBy(40_000)
         compose.runOnIdle { assertTrue("still open while held", state.expanded) }

@@ -104,49 +104,49 @@ class IslandExtrasTest {
 
     @Test fun pullingTheIslandDownReachesThePeekThenTheWholePanel() {
         val d = 2.625f; val peek = .5f
-        assertEquals(0f, PeekPull.fraction(0f, d, peek), 0f)
-        assertEquals("half way to the peek", peek / 2f, PeekPull.fraction(PeekPull.TO_PEEK_DP / 2f * d, d, peek), .001f)
-        assertEquals("at the peek", peek, PeekPull.fraction(PeekPull.TO_PEEK_DP * d, d, peek), .001f)
-        assertEquals("all the way", 1f, PeekPull.fraction(PeekPull.TO_FULL_DP * d, d, peek), .001f)
-        assertEquals("never past it", 1f, PeekPull.fraction(1000f * d, d, peek), 0f)
-        assertEquals("pulling up never goes below nothing", 0f, PeekPull.fraction(-50f * d, d, peek), 0f)
+        assertEquals(0f, IslandDrag.peekFraction(0f, d, peek), 0f)
+        assertEquals("half way to the peek", peek / 2f, IslandDrag.peekFraction(IslandDrag.PULL_TO_PEEK_DP / 2f * d, d, peek), .001f)
+        assertEquals("at the peek", peek, IslandDrag.peekFraction(IslandDrag.PULL_TO_PEEK_DP * d, d, peek), .001f)
+        assertEquals("all the way", 1f, IslandDrag.peekFraction(IslandDrag.PULL_TO_FULL_DP * d, d, peek), .001f)
+        assertEquals("never past it", 1f, IslandDrag.peekFraction(1000f * d, d, peek), 0f)
+        assertEquals("pulling up never goes below nothing", 0f, IslandDrag.peekFraction(-50f * d, d, peek), 0f)
         // On a peek, pulling down takes it on, and pulling up takes it back.
-        assertTrue(PeekPull.fraction(30f * d, d, peek, from = peek) > peek)
-        assertTrue(PeekPull.fraction(-30f * d, d, peek, from = peek) < peek)
+        assertTrue(IslandDrag.peekFraction(30f * d, d, peek, from = peek) > peek)
+        assertTrue(IslandDrag.peekFraction(-30f * d, d, peek, from = peek) < peek)
     }
 
     @Test fun aGrabMidCollapseContinuesFromWhereTheIslandIs() {
         val d = 2.625f; val peek = .5f
         // The island is part-way collapsed (0.6 open) when the finger lands. With the pull anchored there,
         // a zero-movement frame keeps it at 0.6 instead of snapping to the collapsed start.
-        assertEquals(.6f, PeekPull.fraction(0f, d, peek, from = .6f), .001f)
+        assertEquals(.6f, IslandDrag.peekFraction(0f, d, peek, from = .6f), .001f)
         // Pulling down re-opens it further, and pulling up closes it, both from the same place.
-        assertTrue(PeekPull.fraction(20f * d, d, peek, from = .6f) > .6f)
-        assertTrue(PeekPull.fraction(-20f * d, d, peek, from = .6f) < .6f)
+        assertTrue(IslandDrag.peekFraction(20f * d, d, peek, from = .6f) > .6f)
+        assertTrue(IslandDrag.peekFraction(-20f * d, d, peek, from = .6f) < .6f)
         // It never leaves 0..1 even when grabbed from a mid value.
-        assertEquals(0f, PeekPull.fraction(-1000f * d, d, peek, from = .6f), 0f)
-        assertEquals(1f, PeekPull.fraction(1000f * d, d, peek, from = .6f), 0f)
+        assertEquals(0f, IslandDrag.peekFraction(-1000f * d, d, peek, from = .6f), 0f)
+        assertEquals(1f, IslandDrag.peekFraction(1000f * d, d, peek, from = .6f), 0f)
     }
 
     @Test fun lettingGoDecidesBetweenDroppingBackPeekingAndOpening() {
         val peek = .5f
-        assertEquals(PeekPull.Outcome.COLLAPSE, PeekPull.outcome(.02f, peek))
-        assertEquals(PeekPull.Outcome.PEEK, PeekPull.outcome(.3f, peek))
-        assertEquals(PeekPull.Outcome.PEEK, PeekPull.outcome(peek, peek))
-        assertEquals(PeekPull.Outcome.OPEN, PeekPull.outcome(.95f, peek))
+        assertEquals(IslandDrag.PeekOutcome.COLLAPSE, IslandDrag.peekOutcome(.02f, peek))
+        assertEquals(IslandDrag.PeekOutcome.PEEK, IslandDrag.peekOutcome(.3f, peek))
+        assertEquals(IslandDrag.PeekOutcome.PEEK, IslandDrag.peekOutcome(peek, peek))
+        assertEquals(IslandDrag.PeekOutcome.OPEN, IslandDrag.peekOutcome(.95f, peek))
         // A pull that Android cuts short at the edge of the status bar (about 35 dp) still lands in the peek, not in the bin.
-        val cut = PeekPull.fraction(35f * 2.625f, 2.625f, peek)
-        assertEquals(PeekPull.Outcome.PEEK, PeekPull.outcome(cut, peek))
+        val cut = IslandDrag.peekFraction(35f * 2.625f, 2.625f, peek)
+        assertEquals(IslandDrag.PeekOutcome.PEEK, IslandDrag.peekOutcome(cut, peek))
     }
 
     @Test fun onlyTheBottomStripHoldsTheIslandOpen() {
         val d = 2.625f; val h = 600f
-        assertTrue(HoldOpen.inZone(h - 10f, h, d))
-        assertTrue(HoldOpen.inZone(h - HoldOpen.ZONE_DP * d, h, d))
-        assertTrue(!HoldOpen.inZone(h - HoldOpen.ZONE_DP * d - 5f, h, d))
-        assertTrue(!HoldOpen.inZone(20f, h, d))
-        assertTrue(!HoldOpen.inZone(h + 5f, h, d))
-        assertTrue(!HoldOpen.inZone(10f, 0f, d))
+        assertTrue(IslandDrag.holdInZone(h - 10f, h, d))
+        assertTrue(IslandDrag.holdInZone(h - IslandDrag.HOLD_ZONE_DP * d, h, d))
+        assertTrue(!IslandDrag.holdInZone(h - IslandDrag.HOLD_ZONE_DP * d - 5f, h, d))
+        assertTrue(!IslandDrag.holdInZone(20f, h, d))
+        assertTrue(!IslandDrag.holdInZone(h + 5f, h, d))
+        assertTrue(!IslandDrag.holdInZone(10f, 0f, d))
     }
 
     @Test fun aNotificationStaysAvailableForThirtySeconds() {

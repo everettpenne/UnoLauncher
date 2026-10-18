@@ -67,4 +67,50 @@ class IslandPanelLogicTest {
         // Font scales past the cap do not keep raising the bar (the text is clipped instead).
         assertEquals(PanelHeight.actionsFit(336f, 1.6f), PanelHeight.actionsFit(336f, 3f))
     }
+
+    // --- the panel's narration line (why it shows what it shows) ---
+
+    private fun narrate(card: Boolean = false, call: Boolean = false, navigating: Boolean = false, ringing: Boolean = false,
+        timer: Boolean = false, stopwatch: Boolean = false, media: Boolean = false, update: Boolean = false,
+        charging: Boolean = false) = IslandNarration.label(card, call, navigating, ringing, timer, stopwatch, media, update, charging)
+
+    @Test fun narrationNamesTheOneLiveThingInOrderOfImportance() {
+        assertNull("an idle panel narrates nothing", narrate())
+        assertEquals("Charging", narrate(charging = true))
+        assertEquals("Live update", narrate(update = true, charging = true))
+        assertEquals("Now playing", narrate(media = true, update = true))
+        assertEquals("Stopwatch", narrate(stopwatch = true, media = true))
+        assertEquals("Timer", narrate(timer = true, stopwatch = true))
+        assertEquals("Timer finished", narrate(ringing = true, timer = true))
+        assertEquals("You're navigating", narrate(navigating = true, ringing = true))
+        assertEquals("You're on a call", narrate(call = true, navigating = true))
+        assertEquals("New notification", narrate(card = true, call = true))
+    }
+
+    // --- what TalkBack hears when the live facts change ---
+
+    private fun facts(ringing: Boolean = false, call: Boolean = false, timer: Boolean = false, playing: Boolean = false) =
+        IslandLiveFacts(ringing, call, timer, playing)
+
+    @Test fun arrivalsAndDeparturesAreEachSaidOnce() {
+        assertEquals("Timer started", IslandAnnounce.transition(facts(), facts(timer = true)))
+        assertEquals("Timer finished", IslandAnnounce.transition(facts(timer = true), facts(timer = true, ringing = true)))
+        assertEquals("Call started", IslandAnnounce.transition(facts(), facts(call = true)))
+        assertEquals("Call ended", IslandAnnounce.transition(facts(call = true), facts()))
+        assertEquals("Music playing", IslandAnnounce.transition(facts(), facts(playing = true)))
+        assertEquals("Music paused", IslandAnnounce.transition(facts(playing = true), facts()))
+        assertEquals("Timer ended", IslandAnnounce.transition(facts(timer = true), facts()))
+    }
+
+    @Test fun noChangeAndSilencingTheRingSayNothing() {
+        assertNull(IslandAnnounce.transition(facts(), facts()))
+        assertNull(IslandAnnounce.transition(facts(timer = true), facts(timer = true)))
+        // Silencing a finished timer is the person's own action, not something to read back.
+        assertNull(IslandAnnounce.transition(facts(timer = true, ringing = true), facts()))
+    }
+
+    @Test fun theMostImportantChangeWinsWhenSeveralHappenAtOnce() {
+        // A call starting while music stops speaks the call, not the music.
+        assertEquals("Call started", IslandAnnounce.transition(facts(playing = true), facts(call = true)))
+    }
 }

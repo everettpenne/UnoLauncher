@@ -391,4 +391,11 @@
     <string name="island_theme_clipboard_empty">The clipboard has no text to read.</string>
     <string name="battery_widget_title">Battery</string>
     <string name="tap_to_write_a_note">Tap to write a note</string>
+    <string name="what_shows_where">What shows where</string>
+    <string name="what_shows_where_intro">Every event has one home, so nothing is said twice.</string>
+    <string name="what_shows_where_ongoing">Ongoing (a call, timer, stopwatch, music, a Live Update) → the island\'s two slots; more come out as bubbles.</string>
+    <string name="what_shows_where_notification">A message or app notification → a card, then a dot, or a name-only flash (your choice under Notifications).</string>
+    <string name="what_shows_where_system">A system change (ringer, airplane mode, Do Not Disturb, VPN, USB, headphones, charging) → a short island flash.</string>
+    <string name="what_shows_where_privacy">Camera, microphone and screen recording → the green, orange and red dots beside the pill.</string>
+    <string name="what_shows_where_time">Time → the status rail when it is on, else the open island. Battery → the rail\'s ring, or the island while charging.</string>
 </resources>

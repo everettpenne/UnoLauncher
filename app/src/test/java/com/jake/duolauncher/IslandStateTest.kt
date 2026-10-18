@@ -15,8 +15,8 @@ import org.junit.Test
 class IslandStateTest {
     private lateinit var state: IslandState
 
-    @Before fun fresh() { state = IslandState(); IslandTools.toolsOpen = false }
-    @After fun clean() { IslandTools.toolsOpen = false }
+    @Before fun fresh() { state = IslandState() }
+    @After fun clean() { }
 
     private fun event(title: String, symbol: IslandSymbol = IslandSymbol.VPN) = IslandEvent(title, symbol)
     private fun card(text: String? = "hi") = PeekNotification("com.example", "Example", "Title", text, null, null, 5)
@@ -29,10 +29,10 @@ class IslandStateTest {
         state.toggle(); assertFalse(state.expanded)
     }
 
-    @Test fun collapseAlwaysEndsClosedAndClearsTheCardAndTools() {
-        state.expanded = true; IslandTools.toolsOpen = true
+    @Test fun collapseAlwaysEndsClosedAndClearsTheCard() {
+        state.expanded = true
         state.collapse()
-        assertFalse(state.expanded); assertFalse(IslandTools.toolsOpen); assertNull(state.peekCard)
+        assertFalse(state.expanded); assertNull(state.peekCard)
     }
 
     @Test fun togglingDropsAFlashAndTheCard() {
@@ -107,10 +107,10 @@ class IslandStateTest {
         assertNull(state.peekCard)
     }
 
-    @Test fun aCardClearsAFlashAndTheToolsPanel() {
-        state.showEvent(event("VPN on")); IslandTools.toolsOpen = true
+    @Test fun aCardClearsAFlash() {
+        state.showEvent(event("VPN on"))
         state.showPeekCard(card())
-        assertNull(state.flashTitle); assertFalse(IslandTools.toolsOpen)
+        assertNull(state.flashTitle)
     }
 
     @Test fun collapsingDismissesTheCard() {

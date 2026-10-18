@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.79.0-uno01
+
+- **The island, simplified like Apple's.** The long-press tools face (torch, timer, stopwatch grid) is gone, and with it one hidden gesture and one surface. Running timers and stopwatches still live in the island; you start them from search ("timer 10", "stopwatch"), the Timers widget, or the control panel's torch. The compact island is now passive, as Apple intends: tap to open, touch-and-hold to expand.
+- **One drag, five uses.** Pull-to-peek, swipe-up-to-close, the hold-open rest, and Spotlight's collapse now all read their thresholds and their smoothing from a single `IslandDrag` home — so the next feel change is one edit, not five. The feel today is unchanged; the plumbing is honest.
+- **The island explains itself.** The open panel's first line now says *why* it is showing what it is ("You're navigating", "Charging", "Now playing"), and a "What shows where" section in island settings maps every event to its one home.
+- **Accessibility from the source.** Arrivals and departures (timer started, call ended, music paused) are announced to TalkBack once, at the moment the state changes, and the reply-send and play/pause buttons grew to proper touch targets.
+
 ## 0.78.0-uno01
 
 - **A quieter island.** The peek and morph fade no longer build a gradient on every frame (it draws from a once-made ramp instead), the Search/Feed/Settings labels drop to icons before they clip at larger system fonts, a long event title like "Do Not Disturb" gets room instead of truncating, and TalkBack now says when the phone is charging.

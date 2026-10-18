@@ -34,7 +34,6 @@ class IslandScenarioInstrumentedTest {
 
     @After fun reset() {
         NotificationFeed.liveUpdates = emptyList(); NotificationFeed.ongoingCall = null; NotificationFeed.nowPlaying = null
-        IslandTools.toolsOpen = false
         session?.release()
     }
 

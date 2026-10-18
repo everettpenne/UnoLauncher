@@ -171,48 +171,6 @@ internal class MorphVelocity {
     }
 }
 
-/** Pulling the small island down to look inside it without opening it all the way. */
-internal object PeekPull {
-    /** The finger must move this far (dp) before the touch counts as a pull and not a tap. */
-    const val SLOP_DP = 8f
-    /** How far (dp) the finger travels from the pill to the peek's size, and then on to the whole panel. */
-    const val TO_PEEK_DP = 56f
-    const val TO_FULL_DP = 140f
-    /** A held peek tucks away by itself after this long, if nothing touches it. */
-    const val HOLD_MS = 5_000L
-
-    enum class Outcome { COLLAPSE, PEEK, OPEN }
-
-    /** How open the island is for a pull of [dyPx], where [peek] is the fraction the peek rests at. The first stretch of the pull takes the island
-     * to the peek; the rest takes it on to fully open. Pulling up from a peek ([from] > 0) closes it again, and pulling down opens it further.
-     */
-    fun fraction(dyPx: Float, density: Float, peek: Float, from: Float = 0f): Float {
-        val dy = dyPx / density
-        return if (from <= 0f) {
-            if (dy <= TO_PEEK_DP) (dy / TO_PEEK_DP * peek).coerceAtLeast(0f)
-            else (peek + (dy - TO_PEEK_DP) / (TO_FULL_DP - TO_PEEK_DP) * (1f - peek)).coerceAtMost(1f)
-        } else (from + dy / (TO_FULL_DP - TO_PEEK_DP) * (1f - peek)).coerceIn(0f, 1f)
-    }
-
-    /** What letting go does. A short pull drops back; a pull that has reached the peek holds it; one that is nearly all the way opens it. This is
-     * decided by the last place the finger was, so a drag that Android cancels part-way (a pull from the very top edge of the screen can be) still
-     * lands in the peek instead of being thrown away.
-     */
-    fun outcome(fraction: Float, peek: Float): Outcome = when {
-        fraction < peek * .15f -> Outcome.COLLAPSE
-        fraction >= peek + (1f - peek) * .6f -> Outcome.OPEN
-        else -> Outcome.PEEK
-    }
-}
-
-/** Holding the bottom of the open island keeps it open. */
-internal object HoldOpen {
-    /** The strip along the island's bottom edge that counts, in dp, and how long a finger must rest on it before it holds. */
-    const val ZONE_DP = 56f
-    const val AFTER_MS = 350L
-    fun inZone(y: Float, height: Float, density: Float): Boolean = height > 0f && y >= height - ZONE_DP * density && y <= height
-}
-
 /** A notification that has just arrived stays one tap away for a little while after its card has gone. */
 internal object RecentNotice {
     const val WINDOW_MS = 30_000L

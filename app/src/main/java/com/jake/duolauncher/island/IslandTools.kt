@@ -20,9 +20,10 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
 
-/** The island's long-press tools: a timer, a stopwatch and the flashlight.
+/** The island's timer, stopwatch and one-shot flashlight. They live on the island as live activities
+ * (the timer and stopwatch) and are started from the search actions ("timer 10", "stopwatch"), the Timers
+ * widget and the control panel / "torch" search action for the flashlight.
  *
  * The timer is an alarm-clock alarm ([AlarmManager.setAlarmClock]) when the user has allowed exact alarms,
  * and an inexact one otherwise, so it fires even if the launcher isn't on screen; a trigger inside the
@@ -41,8 +42,7 @@ internal object IslandTools {
     var swRunning by mutableStateOf(false); private set
     private var swBase by mutableLongStateOf(0L)
     private var swStartedAt by mutableLongStateOf(0L)
-    var toolsOpen by mutableStateOf(false)
-    /** Bumped by every tool button so the island's idle timeout restarts while it is being used. */
+    /** Bumped by every interaction so the island's idle timeout restarts while it is being used. */
     var interactions by mutableIntStateOf(0); private set
 
     private var ringtone: Ringtone? = null
@@ -190,53 +190,7 @@ class TimerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) { IslandTools.onAlarm(context) }
 }
 
-/** The flashlight as the island shares it. It owns no thread of its own: [rememberTorch] gives it a worker
- * only while the tools face is showing, and takes it away again afterwards.
- */
-@Stable
-internal class TorchState(private val context: Context) {
-    var on by mutableStateOf(false); private set
-    var available by mutableStateOf(false); private set
-    private var id: String? = null
-    private var handler: Handler? = null
-    private val cameras = context.getSystemService(CameraManager::class.java)
-    private val callback = object : CameraManager.TorchCallback() {
-        override fun onTorchModeChanged(cameraId: String, enabled: Boolean) { if (cameraId == id) { on = enabled; available = true } }
-        override fun onTorchModeUnavailable(cameraId: String) { if (cameraId == id) available = false }
-    }
-    private fun pick() {
-        id = runCatching {
-            ControlLogic.pickTorchCamera(cameras.cameraIdList.map { cam ->
-                val c = cameras.getCameraCharacteristics(cam)
-                TorchCamera(cam, c.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true,
-                    c.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK)
-            })
-        }.getOrNull()
-        available = id != null
-    }
-    fun toggle() {
-        val cam = id ?: return
-        val next = !on
-        handler?.post { try { cameras.setTorchMode(cam, next) } catch (_: CameraAccessException) { available = false } catch (_: IllegalArgumentException) { available = false } }
-    }
-    internal fun attach(worker: Handler) { handler = worker; worker.post { pick(); runCatching { cameras.registerTorchCallback(callback, worker) } } }
-    internal fun detach() { val h = handler; handler = null; h?.post { runCatching { cameras.unregisterTorchCallback(callback) } } }
-}
-
-@Composable
-internal fun rememberTorch(active: Boolean): TorchState {
-    val context = LocalContext.current
-    val torch = remember(context) { TorchState(context) }
-    DisposableEffect(torch, active) {
-        if (!active) return@DisposableEffect onDispose { }
-        val worker = HandlerThread("island-torch").apply { start() }
-        torch.attach(Handler(worker.looper))
-        onDispose { torch.detach(); worker.quitSafely() }
-    }
-    return torch
-}
-
-/** The timer lengths offered, in minutes, by the island's tools and by the Timers widget alike, so the two never disagree. */
+/** The timer lengths offered, in minutes, by the Timers widget, so the two never disagree. */
 internal object TimerPresets {
     val MINUTES = listOf(5, 10, 25, 45)
 }

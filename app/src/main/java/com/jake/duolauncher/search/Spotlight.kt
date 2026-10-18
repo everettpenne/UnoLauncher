@@ -372,8 +372,8 @@ internal fun Spotlight(
     val quiet = remember { MutableInteractionSource() }
     val density = LocalDensity.current
     // Swipe-up-to-close, mirroring the island's swipe-up-close: the finger's upward travel is low-passed and mapped to a reduced
-    // emerge progress (SwipeCloseLogic.fraction), so the panel shrinks back into the pill as the finger moves instead of sliding off
-    // the top. On release it closes past the distance or a flick (SwipeCloseLogic.decide) and the exit transition finishes the
+    // emerge progress (IslandDrag.closeFraction), so the panel shrinks back into the pill as the finger moves instead of sliding off
+    // the top. On release it closes past the distance or a flick (IslandDrag.closeDecide) and the exit transition finishes the
     // collapse from where the finger left it; a short slow swipe springs back open. With Android's animations off, tracking is raw
     // and the spring-back snaps, as the island does.
     val viewConfiguration = LocalViewConfiguration.current
@@ -441,8 +441,8 @@ internal fun Spotlight(
             .pointerInput(Unit) {
                 // A swipe up from the bottom of the panel collapses it back into the island, like the island's swipe-up-close: the
                 // finger is tracked in the Initial pass (so the panel owns the drag before the result list can scroll it), its upward
-                // travel is mapped to a reduced emerge progress (SwipeCloseLogic.fraction), and the release decision reuses the
-                // island's pure SwipeCloseLogic. A tap within the slop is left alone, so rows and the field still receive it.
+                // travel is mapped to a reduced emerge progress (IslandDrag.closeFraction), and the release decision reuses the
+                // island's pure IslandDrag. A tap within the slop is left alone, so rows and the field still receive it.
                 val slop = viewConfiguration.touchSlop
                 val zonePx = SPOTLIGHT_SWIPE_CLOSE_ZONE.toPx()
                 awaitEachGesture {
@@ -456,7 +456,7 @@ internal fun Spotlight(
                     var moved = false
                     var last = down.position
                     var lastEventTime = down.uptimeMillis
-                    var fingerFilter: LowPass? = null
+                    var fingerFilter: IslandDrag.Filter? = null
                     try {
                         while (true) {
                             val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -470,11 +470,11 @@ internal fun Spotlight(
                             if (fromBottom && moved && !closing && -delta.y > slop && abs(delta.y) > abs(delta.x)) {
                                 closing = true
                                 closeFrom = swipeProgress.value
-                                if (animationsOn) fingerFilter = LowPass()
+                                if (animationsOn) fingerFilter = IslandDrag.Filter()
                             }
                             if (closing) {
                                 val dy = fingerFilter?.step(dt, delta.y) ?: delta.y
-                                swipeTarget = SpotlightSwipe(SwipeCloseLogic.fraction(-dy, travelPx, from = closeFrom), dragging = true)
+                                swipeTarget = SpotlightSwipe(IslandDrag.closeFraction(-dy, travelPx, from = closeFrom), dragging = true)
                                 change.consume()
                             }
                             if (!change.pressed) break
@@ -483,7 +483,7 @@ internal fun Spotlight(
                         if (closing) {
                             val upPx = down.position.y - last.y
                             val velocityY = tracker.calculateVelocity().y
-                            if (SwipeCloseLogic.decide(upPx / density.density, -velocityY, slop / density.density) == SwipeCloseLogic.Outcome.CLOSE) {
+                            if (IslandDrag.closeDecide(upPx / density.density, -velocityY, slop / density.density) == IslandDrag.CloseOutcome.CLOSE) {
                                 // Hold the panel where the finger left it, so the parent's exit tween (progress 1 → 0) finishes the
                                 // collapse from there rather than snapping back open first.
                                 swipeTarget = SpotlightSwipe(swipeProgress.value, dragging = false)

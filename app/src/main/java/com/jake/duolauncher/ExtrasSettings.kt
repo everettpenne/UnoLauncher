@@ -293,6 +293,21 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     }
 
     if (section == ExtrasSection.ISLAND) {
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_intro), style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_ongoing),
+        style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_notification),
+        style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_system),
+        style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_privacy),
+        style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_time),
+        style = note, color = muted)
+    }
+
+    if (section == ExtrasSection.ISLAND) {
     // Developer HUD: only offered by debuggable builds, so a release build has neither the switch nor the overlay.
     val hudContext = androidx.compose.ui.platform.LocalContext.current
     if (hudContext.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {

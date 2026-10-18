@@ -294,12 +294,12 @@ internal class IslandState {
         if (expanded && peekCard == null) return
         // A ringing timer has the island until it is dealt with.
         if (IslandTools.ringing) return
-        dismissFlash(); IslandTools.toolsOpen = false
+        dismissFlash()
         peekCard = peek; peekKey++; expanded = true; peeked = false
     }
 
-    fun toggle() { expanded = if (peeked) true else !expanded; peeked = false; peekCard = null; peekEditing = false; dismissFlash(); IslandTools.toolsOpen = false }
-    fun collapse() { expanded = false; peeked = false; peekCard = null; peekEditing = false; IslandTools.toolsOpen = false }
+    fun toggle() { expanded = if (peeked) true else !expanded; peeked = false; peekCard = null; peekEditing = false; dismissFlash() }
+    fun collapse() { expanded = false; peeked = false; peekCard = null; peekEditing = false }
 }
 
 private fun IslandSymbol.icon(): ImageVector = when (this) {
@@ -478,7 +478,6 @@ internal fun DynamicIsland(
         if (!state.expanded) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { IslandQuick.refreshIfChanged(context) }
     }
     val quickApps = IslandQuick.cached
-    val torch = rememberTorch(active = state.expanded && IslandTools.toolsOpen)
     // A timer whose alarm never reached us (the process was stopped, or Android delayed it) must still finish: once the
     // clock passes its end it rings from here. onAlarm ignores a second trigger, so this cannot double up.
     LaunchedEffect(clockMs) {
@@ -648,14 +647,12 @@ internal fun DynamicIsland(
     val hasLiveContent = flashActive || IslandTools.ringing || liveKinds.isNotEmpty()
     val compactTarget = if (anchoredToWindow && !hasLiveContent && !alwaysWide) 1f else 0f
     val compactnessState = animateFloatAsState(compactTarget, if (!animationsOn) snap() else theme.spring(.8f, 380f), label = "island compact")
-    // What the open island is showing, held while it closes. collapse() clears the card and the tools flag at once, but the island takes a
-    // moment to shrink; reading them live made the face (and the body's height) switch to the ordinary open island, with the app shortcuts
+    // What the open island is showing, held while it closes. collapse() clears the card at once, but the island takes a
+    // moment to shrink; reading it live made the face (and the body's height) switch to the ordinary open island, with the app shortcuts
     // and settings, for that moment before it reached the camera. While closing, the face and size it had when it was open are kept.
     var heldPeek by remember { mutableStateOf<PeekNotification?>(null) }
-    var heldTools by remember { mutableStateOf(false) }
-    if (state.expanded) { heldPeek = state.peekCard; heldTools = IslandTools.toolsOpen }
+    if (state.expanded) { heldPeek = state.peekCard }
     val peekShown = if (state.expanded) state.peekCard else heldPeek
-    val toolsShown = if (state.expanded) IslandTools.toolsOpen else heldTools
     // A notification from the last 30 seconds is held for the open island (its card has long since gone), and a navigation instruction gets a tall card.
     // The held notification goes the moment its half minute ends, not at the next tick of a slow clock.
     var recentTick by remember { mutableLongStateOf(0L) }
@@ -669,14 +666,29 @@ internal fun DynamicIsland(
     val recentLive = recent != null && RecentNotice.live(state.recentAt, maxOf(clockMs, recentTick, state.recentAt))
     val navCard = updates.firstOrNull()?.let { it.source == ActivitySource.NAVIGATION && it.largeIcon != null } == true
     val updateRowDp = if (navCard) NavigationText.CARD_ROW_DP else UPDATE_ROW_DP
-    val extraBody = if (peekShown != null) (if (peekShown.actions.isNotEmpty()) PEEK_ACTIONS_ROW_DP else 0f) + (if (peekShown.navigation) NavigationText.TURN_CARD_EXTRA_DP else 0f)
-        else (if (anyPrivacy && !toolsShown) PRIVACY_ROW_DP else 0f) +
-        (if (recentLive && !toolsShown) RECENT_ROW_DP + (if (recent!!.actions.isNotEmpty()) PEEK_ACTIONS_ROW_DP else 0f) else 0f) +
-        (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) updateRowDp else 0f) + widgetRowDp(toolsShown) +
-        (if (toolsShown) TOOLS_PANELS_ROW_DP else if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) +
+    // The open panel's first line names why it is showing what it is showing: the one live thing that has the island right now.
+    val narration = IslandNarration.label(
+        cardShown = peekShown != null,
+        callActive = callActive,
+        navigating = navCard,
+        ringing = IslandTools.ringing,
+        timerActive = IslandTools.timerActive,
+        stopwatchRunning = IslandTools.swRunning,
+        mediaShown = mediaVisible,
+        liveUpdate = updates.isNotEmpty(),
+        charging = deviceStatus.charging == true,
+    )
+    // The reply field is a little taller than the plain action buttons, so its send button keeps a full 44 dp touch target.
+    val actionsRowDp = if (state.peekEditing) REPLY_ROW_DP else PEEK_ACTIONS_ROW_DP
+    val extraBody = if (peekShown != null) (if (peekShown.actions.isNotEmpty()) actionsRowDp else 0f) + (if (peekShown.navigation) NavigationText.TURN_CARD_EXTRA_DP else 0f)
+        else (if (anyPrivacy) PRIVACY_ROW_DP else 0f) +
+        (if (recentLive) RECENT_ROW_DP + (if (recent!!.actions.isNotEmpty()) actionsRowDp else 0f) else 0f) +
+        (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) updateRowDp else 0f) + widgetRowDp() +
+        (if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) +
+        (if (narration != null) NARRATION_ROW_DP else 0f) +
         // The headline and a larger system font need room the panel's base height does not have; without it the Search / Feed / Settings row
         // was cut off the bottom of the open island whenever the feed had a headline to show.
-        (if (toolsShown) 0f else PanelHeight.extraDp(feedHeadline != null, configuration.fontScale)) - actionsTrimDp
+        PanelHeight.extraDp(feedHeadline != null, configuration.fontScale) - actionsTrimDp
     // The fully open island at its current content. Which side the camera is on, where it sits in the island and how big the open panel is do
     // not change during the morph, so the faces are laid out from this one frame. [frameState] is the live frame; it is read only when the
     // island lays out, draws and positions itself.
@@ -702,7 +714,7 @@ internal fun DynamicIsland(
             else -> 0f
         }
         val faceTopPx = openFrame.hole?.bottom ?: collapsedHeight
-        val wanted = (faceTopPx / d + 6f + 44f + firstRowDp + 10f) * d
+        val wanted = (faceTopPx / d + 6f + (if (narration != null) NARRATION_ROW_DP else 0f) + 44f + firstRowDp + 10f) * d
         val fraction = ((wanted - collapsedHeight) / (openFrame.height - collapsedHeight).coerceAtLeast(1f)).coerceIn(.25f, .85f)
         SideEffect { peekState.floatValue = fraction }
     }
@@ -763,15 +775,15 @@ internal fun DynamicIsland(
         if (state.flashTitle != null) { delay(2600); state.advanceFlash() }
     }
     // An idle open island tucks itself back in. A finger resting on its bottom holds it open, and a pull in progress is not idle.
-    LaunchedEffect(state.expanded, state.peeked, pulling, state.holdingOpen, IslandTools.toolsOpen, IslandTools.interactions, isPlaying, state.peekKey, state.peekEditing) {
+    LaunchedEffect(state.expanded, state.peeked, pulling, state.holdingOpen, IslandTools.interactions, isPlaying, state.peekKey, state.peekEditing) {
         if (state.holdingOpen || pulling) return@LaunchedEffect
         // The peek is only a glance: it goes by itself after a few seconds.
-        if (state.peeked && !state.expanded) { delay(PeekPull.HOLD_MS); state.peeked = false; return@LaunchedEffect }
+        if (state.peeked && !state.expanded) { delay(IslandDrag.PEEK_HOLD_MS); state.peeked = false; return@LaunchedEffect }
         // Longer while music plays, since that is when the buttons are being used; any button press restarts the wait. A notification card
         // stays for the time chosen for its app.
         if (state.expanded) {
             val peek = state.peekCard
-            delay(if (peek != null && state.peekEditing) 30_000L else if (peek != null) peek.seconds * 1000L else if (IslandTools.toolsOpen) 20_000L else if (isPlaying) 12_000L else 5000L)
+            delay(if (peek != null && state.peekEditing) 30_000L else if (peek != null) peek.seconds * 1000L else if (isPlaying) 12_000L else 5000L)
             state.collapse()
         }
     }
@@ -793,7 +805,7 @@ internal fun DynamicIsland(
         // The biggest the island gets, in both directions: worked out once for the environment, not on every animation frame.
         // Sized for the island at its most overshot (a bounce carries it past the panel), so a bounce is never clipped by the window.
         val open = remember(environment, d, sizeScale, actionsTrimDp) { IslandGeometry.frame(environment, d, IslandGeometry.MAX_OVERSHOOT, sizeScale,
-            extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + NavigationText.CARD_ROW_DP + RECENT_ROW_DP + PEEK_ACTIONS_ROW_DP + IslandWidgetState.ROW_DP + 6f + maxOf(QUICK_ROW_DP, TOOLS_PANELS_ROW_DP) + PanelHeight.MAX_EXTRA_DP + PRIVACY_ROW_DP - actionsTrimDp, heightProgress = IslandGeometry.MAX_OVERSHOOT) }
+            extraBodyDp = MEDIA_ROW_DP + CALL_ROW_DP + NavigationText.CARD_ROW_DP + RECENT_ROW_DP + PEEK_ACTIONS_ROW_DP + IslandWidgetState.ROW_DP + 6f + QUICK_ROW_DP + PanelHeight.MAX_EXTRA_DP + PRIVACY_ROW_DP - actionsTrimDp, heightProgress = IslandGeometry.MAX_OVERSHOOT) }
         val wide = remember(environment, d, sizeScale, wideFactor) { IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = MAX_EVENT_EXTRA_DP, wideFactor = wideFactor) }
         val pad = 10f * d
         // The live frame is always inside the open and the widest pill, so it needs no say here (and the rectangle does not change per frame).
@@ -902,10 +914,36 @@ internal fun DynamicIsland(
                 }
             }
         }
-        // What a screen reader is told when something new shows on the island (an event, or a notification card): its own node, so that
-        // the ticking times inside the island (a call, a timer) are never read out again each second.
-        val announcement = state.flashTitle ?: state.peekCard?.let { listOfNotNull(it.appLabel, it.title).joinToString(": ") }
-        if (announcement != null) Box(Modifier.size(1.dp).semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite; contentDescription = announcement })
+        // A screen reader is told when something new shows on the island — a flash event, a notification card, or a change in the
+        // live facts (a call, a timer, music starting or ending) — through one hidden node, so each thing is said exactly once and the
+        // ticking times inside the island are never read out again each second. The phrase is held until the next change.
+        val card = state.peekCard
+        val cardPhrase = card?.let { listOfNotNull(it.appLabel, it.title).joinToString(": ") }
+        val liveFacts = IslandLiveFacts(
+            ringing = IslandTools.ringing,
+            call = callActive,
+            timer = IslandTools.timerActive,
+            playing = isPlaying,
+        )
+        var lastFlash by remember { mutableStateOf(state.flashTitle) }
+        var lastCardKey by remember { mutableIntStateOf(-1) }
+        var prevFacts by remember { mutableStateOf(liveFacts) }
+        var announcement by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(state.flashTitle, state.peekKey, liveFacts) {
+            val flash = state.flashTitle
+            if (flash != null && flash != lastFlash) {
+                lastFlash = flash; announcement = flash
+            } else if (cardPhrase != null && state.peekKey != lastCardKey) {
+                lastCardKey = state.peekKey; announcement = cardPhrase
+            } else {
+                IslandAnnounce.transition(prevFacts, liveFacts)?.let { announcement = it }
+            }
+            if (flash == null) lastFlash = null
+            prevFacts = liveFacts
+        }
+        announcement?.let { ann ->
+            Box(Modifier.size(1.dp).semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite; contentDescription = ann })
+        }
         // A press squashes the island wide and flat, like a thumb on a water balloon, and it springs back with the motion's own wobble
         // (a calm theme barely moves; a jelly one jiggles).
         val islandTouch = remember { MutableInteractionSource() }
@@ -949,12 +987,12 @@ internal fun DynamicIsland(
                 //
                 // Android can take a downward drag that starts at the very top of the screen for the notification shade and cancel it for us (seen
                 // on the emulator: the touch is cancelled where the status bar strip ends). A cancel arrives here as a release at the last place the
-                // finger was, and [PeekPull.outcome] reads that, so a pull cut short that way still lands in the peek. The launcher's own top-edge
+                // finger was, and [IslandDrag.peekOutcome] reads that, so a pull cut short that way still lands in the peek. The launcher's own top-edge
                 // pull is kept off the pill separately: LauncherScreen's canStartDownwardSwipe excludes it (IslandEventArbiter.pressOnIslandPill), so
                 // a pill drag is never also a shade/panel/search pull. The status bar strip itself belongs to the system and cannot be suppressed.
                 val slop = viewConfiguration.touchSlop
                 val threshold = 26.dp.toPx()
-                val pullSlop = PeekPull.SLOP_DP.dp.toPx()
+                val pullSlop = IslandDrag.PULL_SLOP_DP.dp.toPx()
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val tracker = VelocityTracker().apply { addPointerInputChange(down) }
@@ -964,7 +1002,7 @@ internal fun DynamicIsland(
                     val stripBottomLocalY = if (belowStatusBar) (environment.statusBarHeight - collapsedTopPx).coerceAtLeast(0f) else 0f
                     val canPull = !state.expanded && !flashActive && state.peekCard == null &&
                         down.position.y >= stripBottomLocalY
-                    val canHold = (state.expanded || state.peeked) && HoldOpen.inZone(down.position.y, size.height.toFloat(), d)
+                    val canHold = (state.expanded || state.peeked) && IslandDrag.holdInZone(down.position.y, size.height.toFloat(), d)
                     // Set when the pull actually engages, below: where the island is right now, so a pull that lands
                     // mid-collapse (or mid-peek) continues from its current height instead of jumping to the start.
                     var pullFrom = 0f
@@ -976,11 +1014,11 @@ internal fun DynamicIsland(
                     var last = down.position
                     var lastEventTime = down.uptimeMillis
                     // The finger's pull position, low-passed so sub-frame touch jitter never twitches the island's bottom edge.
-                    var fingerFilter: LowPass? = null
+                    var fingerFilter: IslandDrag.Filter? = null
                     val downAt = System.currentTimeMillis()
                     try {
                         while (true) {
-                            val waitMs = if (canHold && !holding && !moved) HoldOpen.AFTER_MS - (System.currentTimeMillis() - downAt) else -1L
+                            val waitMs = if (canHold && !holding && !moved) IslandDrag.HOLD_AFTER_MS - (System.currentTimeMillis() - downAt) else -1L
                             val event = if (waitMs >= 0L) withTimeoutOrNull(waitMs.coerceAtLeast(1L)) { awaitPointerEvent(PointerEventPass.Initial) }
                                 else awaitPointerEvent(PointerEventPass.Initial)
                             if (event == null) {
@@ -1002,7 +1040,7 @@ internal fun DynamicIsland(
                                 // from its current height (and a grab on a peek from the peek). The release spring is
                                 // still seeded with the finger's own velocity, so both directions carry momentum.
                                 pullFrom = progress.value
-                                if (animationsOn) fingerFilter = LowPass()
+                                if (animationsOn) fingerFilter = IslandDrag.Filter()
                             }
                             // A slow, deliberate swipe up on the open island (or a peek) closes it by following the finger: the
                             // bottom edge tracks the drag, so closing no longer depends on a fast flick past a fixed distance. The
@@ -1011,18 +1049,18 @@ internal fun DynamicIsland(
                             if ((state.expanded || state.peeked) && moved && !pulling && !closing && -delta.y > pullSlop && abs(delta.y) > abs(delta.x)) {
                                 closing = true
                                 closeFrom = progress.value
-                                if (animationsOn) fingerFilter = LowPass()
+                                if (animationsOn) fingerFilter = IslandDrag.Filter()
                             }
                             if (pulling) {
                                 val dy = fingerFilter?.step(dt, delta.y) ?: delta.y
-                                state.pullFraction = PeekPull.fraction(dy, d, peekState.floatValue, from = pullFrom)
+                                state.pullFraction = IslandDrag.peekFraction(dy, d, peekState.floatValue, from = pullFrom)
                                 change.consume()
                             } else if (closing) {
                                 // The finger's upward travel is low-passed, as the pull-down is, so the bottom edge follows without
                                 // the sub-frame twitch; the release decision below reads the raw tracker, so a short, fast flick is
                                 // not misread as slow by the filter.
                                 val dy = fingerFilter?.step(dt, delta.y) ?: delta.y
-                                state.pullFraction = SwipeCloseLogic.fraction(-dy, openHeightPx, from = closeFrom)
+                                state.pullFraction = IslandDrag.closeFraction(-dy, openHeightPx, from = closeFrom)
                                 change.consume()
                             } else if (moved && !(state.expanded && abs(delta.x) > abs(delta.y))) change.consume()
                             if (!change.pressed) break
@@ -1035,10 +1073,10 @@ internal fun DynamicIsland(
                             // The filtered pull's speed seeds the spring that lands the island, so letting go mid-pull carries on
                             // smoothly instead of starting cold (or carrying the raw finger's jitter).
                             state.settleVelocity = fingerFilter?.velocity() ?: tracker.calculateVelocity().y
-                            when (PeekPull.outcome(fraction, peekState.floatValue)) {
-                                PeekPull.Outcome.COLLAPSE -> state.collapse()
-                                PeekPull.Outcome.PEEK -> { UnoFeedback.play(Cue.TICK, haptic); state.peeked = true }
-                                PeekPull.Outcome.OPEN -> { UnoFeedback.play(Cue.OPEN, haptic); state.peeked = false; state.expanded = true }
+                            when (IslandDrag.peekOutcome(fraction, peekState.floatValue)) {
+                                IslandDrag.PeekOutcome.COLLAPSE -> state.collapse()
+                                IslandDrag.PeekOutcome.PEEK -> { UnoFeedback.play(Cue.TICK, haptic); state.peeked = true }
+                                IslandDrag.PeekOutcome.OPEN -> { UnoFeedback.play(Cue.OPEN, haptic); state.peeked = false; state.expanded = true }
                             }
                         } else if (closing) {
                             // The upward travel since touch-down and the raw release speed (positive = up) decide the release: a slow
@@ -1046,7 +1084,7 @@ internal fun DynamicIsland(
                             val upPx = down.position.y - last.y
                             val velocityY = tracker.calculateVelocity().y
                             state.pullFraction = null
-                            if (SwipeCloseLogic.decide(upPx / d, -velocityY, slop / d) == SwipeCloseLogic.Outcome.CLOSE) {
+                            if (IslandDrag.closeDecide(upPx / d, -velocityY, slop / d) == IslandDrag.CloseOutcome.CLOSE) {
                                 state.settleVelocity = velocityY
                                 UnoFeedback.play(Cue.TICK, haptic); state.collapse()
                             }
@@ -1070,13 +1108,7 @@ internal fun DynamicIsland(
                 }
             }
             .combinedClickable(interactionSource = islandTouch, indication = null,
-                onClickLabel = if (state.expanded) "Close" else "Open", onLongClickLabel = "Open timer, stopwatch and flashlight",
-                onLongClick = {
-                    // A finger that has just started holding the island's bottom open is not asking for the tools.
-                    if (state.holdingOpen) return@combinedClickable
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    state.dismissFlash(); IslandTools.toolsOpen = true; state.expanded = true
-                },
+                onClickLabel = if (state.expanded) "Close" else "Open",
                 onClick = {
                     // A ringing timer is silenced by a tap before anything else.
                     if (IslandTools.ringing) { UnoFeedback.play(Cue.OPEN, haptic); IslandTools.stopRinging(context) }
@@ -1148,11 +1180,6 @@ internal fun DynamicIsland(
                 }
                 CollapsedFace(frameState, d, collapsedAlpha, animationsOn, leading, trailing)
             }
-            // Tools face (long press): timer, stopwatch, flashlight.
-            if (showOpenFace && toolsShown) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)
-                .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop)) {
-                IslandToolsFace(clockMs, torch)
-            }
             // A new notification as a card: icon, who or what, and the text if the level allows. Tap opens it; swipe up or wait to dismiss.
             peekShown?.let { peek ->
                 if (showOpenFace) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)
@@ -1193,8 +1220,13 @@ internal fun DynamicIsland(
             if (state.expanded || state.peeked) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp).size(width = 34.dp, height = 4.dp)
                 .clip(CircleShape).background(themeInk.copy(alpha = if (state.holdingOpen) .85f else .22f)).testTag("island-hold-handle"))
             // Expanded face: live panel, starting below the camera hole.
-            if (showOpenFace && !toolsShown && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)
+            if (showOpenFace && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop).testTag("island-main-face")) {
+                if (narration != null) {
+                    Text(narration, color = themeInk.copy(alpha = .6f), fontSize = 11.sp, fontWeight = FontWeight.Medium,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-narration"))
+                    Spacer(Modifier.height(4.dp))
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(now.format(timeFormatter), color = themeInk,
@@ -1240,7 +1272,7 @@ internal fun DynamicIsland(
                     Spacer(Modifier.height(6.dp))
                     UpdateCard(u, clockMs, onOpen = { sendTapAction(context, u.openIntent); state.collapse() })
                 }
-                if (IslandWidgetState.id >= 0 && !toolsShown) {
+                if (IslandWidgetState.id >= 0) {
                     Spacer(Modifier.height(6.dp))
                     IslandWidgetPanel(Modifier.fillMaxWidth().height(IslandWidgetState.ROW_DP.dp))
                 }
@@ -1449,7 +1481,7 @@ private fun PeekReplyField(action: PeekAction, onSend: (String) -> Unit) {
     var text by remember { mutableStateOf("") }
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    Row(Modifier.fillMaxWidth().height(PEEK_ACTIONS_ROW_DP.dp - 6.dp).clip(IslandThemes.active.controlShape()).background(themeInk.copy(alpha = .14f))
+    Row(Modifier.fillMaxWidth().height(REPLY_ROW_DP.dp).clip(IslandThemes.active.controlShape()).background(themeInk.copy(alpha = .14f))
         .padding(start = 14.dp, end = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (text.isEmpty()) Text(action.reply?.label?.toString() ?: "Reply", color = themeInk.copy(alpha = .55f), fontSize = 14.sp, maxLines = 1)
@@ -1460,7 +1492,8 @@ private fun PeekReplyField(action: PeekAction, onSend: (String) -> Unit) {
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Send),
                 keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSend = { if (text.isNotBlank()) onSend(text.trim()) }))
         }
-        Box(Modifier.size(34.dp).clip(CircleShape).clickable(enabled = text.isNotBlank()) { onSend(text.trim()) }
+        // A full 44 dp touch target around the 20 dp send glyph, so the reply's most-used control is easy to hit.
+        Box(Modifier.size(44.dp).clip(CircleShape).clickable(enabled = text.isNotBlank()) { onSend(text.trim()) }
             .semantics { contentDescription = "Send reply" }.testTag("island-reply-send"), contentAlignment = Alignment.Center) {
             Icon(Icons.AutoMirrored.Rounded.Send, null, tint = themeInk.copy(alpha = if (text.isNotBlank()) 1f else .35f), modifier = Modifier.size(20.dp))
         }
@@ -1536,19 +1569,22 @@ internal const val MAX_QUEUED_FLASHES = 3
 internal const val MEDIA_ROW_DP = 126f
 /** Extra panel height, in dp, for the notification card's buttons (or its reply field), and for the privacy row. */
 internal const val PEEK_ACTIONS_ROW_DP = 42f
+/** The reply field's row height, in dp: tall enough that its send button keeps a 44 dp touch target. */
+internal const val REPLY_ROW_DP = 44f
 internal const val PRIVACY_ROW_DP = 46f
 /** The height the open panel reserves for its action buttons, in dp; taken back where they are not shown. */
 internal const val ACTIONS_ROW_DP = 44f
-/** The quick-launch strip of apps in the open island, and the row of system panels in the tools face. */
+/** The quick-launch strip of apps in the open island. */
 internal const val QUICK_ROW_DP = 52f
-internal const val TOOLS_PANELS_ROW_DP = 46f
+/** Extra panel height, in dp, for the narration line that names why the panel is showing what it is. */
+internal const val NARRATION_ROW_DP = 18f
 /** Extra panel height, in dp, when a Live Update card is showing. */
 internal const val UPDATE_ROW_DP = 76f
 /** A held notification on the open island: its spacer, padding and two lines (its buttons add [PEEK_ACTIONS_ROW_DP]). */
 internal const val RECENT_ROW_DP = 76f
 
 /** The open island's hosted widget row; see IslandWidget. */
-private fun widgetRowDp(toolsOpen: Boolean): Float = if (IslandWidgetState.id >= 0 && !toolsOpen) IslandWidgetState.ROW_DP + 6f else 0f
+private fun widgetRowDp(): Float = if (IslandWidgetState.id >= 0) IslandWidgetState.ROW_DP + 6f else 0f
 /** The artwork tile in the music card, in dp. */
 internal const val MEDIA_ART_DP = 56f
 /** Extra panel height, in dp, when the call card is showing. */
@@ -1738,58 +1774,6 @@ private fun IslandAction(icon: ImageVector, label: String, showLabel: Boolean, o
     }
 }
 
-/** Timer presets or the running countdown, the stopwatch, and the flashlight. */
-@Composable
-private fun IslandToolsFace(clockMs: Long, torch: TorchState) {
-    val context = LocalContext.current
-    Row(Modifier.fillMaxWidth().height(40.dp).testTag("island-tools-timer"), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Icon(Icons.Rounded.Timer, null, tint = IslandThemes.active.timer, modifier = Modifier.size(18.dp))
-        if (IslandTools.timerActive) {
-            Text(if (IslandTools.ringing) "Done" else IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)),
-                color = themeInk, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            ToolButton(Icons.Rounded.Close, "Cancel timer") { IslandTools.cancelTimer(context) }
-        } else TimerPresets.MINUTES.map { it to "${it}m" }.forEach { (minutes, label) ->
-            Box(Modifier.weight(1f).height(34.dp).clip(IslandThemes.active.controlShape()).background(themeInk.copy(alpha = .14f))
-                .clickable { IslandTools.startTimer(context, minutes * 60_000L) }
-                .semantics { contentDescription = "Start $minutes minute timer" }.testTag("island-timer-$minutes"),
-                contentAlignment = Alignment.Center) {
-                Text(label, color = themeInk, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            }
-        }
-    }
-    Row(Modifier.fillMaxWidth().height(44.dp).testTag("island-tools-stopwatch"), verticalAlignment = Alignment.CenterVertically) {
-        Text(IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)), color = themeInk, fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1)
-        ToolButton(if (IslandTools.swRunning) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
-            if (IslandTools.swRunning) "Stop stopwatch" else "Start stopwatch") { IslandTools.toggleStopwatch(context) }
-        if (IslandTools.stopwatchStarted && !IslandTools.swRunning) ToolButton(Icons.Rounded.Refresh, "Reset stopwatch") { IslandTools.resetStopwatch(context) }
-        ToolButton(if (torch.on) Icons.Rounded.FlashlightOn else Icons.Rounded.FlashlightOff,
-            if (torch.on) "Flashlight, on" else "Flashlight", enabled = torch.available) { IslandTools.touch(); torch.toggle() }
-    }
-    // Android's own quick panels, which slide up over whatever is on screen (they need no permission): internet and volume.
-    Row(Modifier.fillMaxWidth().height(TOOLS_PANELS_ROW_DP.dp).testTag("island-tools-panels"), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf("Internet" to android.provider.Settings.Panel.ACTION_INTERNET_CONNECTIVITY, "Volume" to android.provider.Settings.Panel.ACTION_VOLUME)
-            .forEach { (label, action) ->
-                Box(Modifier.weight(1f).height(34.dp).clip(IslandThemes.active.controlShape()).background(themeInk.copy(alpha = .14f))
-                    .clickable { IslandTools.touch(); runCatching { context.startActivity(android.content.Intent(action).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
-                    .semantics { contentDescription = "Open $label panel" }.testTag("island-panel-${label.lowercase()}"), contentAlignment = Alignment.Center) {
-                    Text(label, color = themeInk, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                }
-            }
-    }
-}
-
-@Composable
-private fun ToolButton(icon: ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
-    Box(Modifier.size(44.dp).clip(IslandThemes.active.controlShape()).clickable(enabled = enabled, onClick = onClick)
-        .semantics { contentDescription = label }.testTag("island-tool-${label.lowercase().replace(' ', '-')}"), contentAlignment = Alignment.Center) {
-        Icon(icon, null, tint = themeInk.copy(alpha = if (enabled) 1f else .35f), modifier = Modifier.size(22.dp))
-    }
-}
-
-
 /** One text size for the detail beside the camera, whichever activity it is: the timer, the call, the stopwatch, a Live Update. */
 private const val SLOT_TEXT_SP = 12
 private val PRIVACY_MIC = Color(0xFFFF9F0A)
@@ -1913,68 +1897,5 @@ private fun UpdateCard(update: LiveUpdate, clockMs: Long, onOpen: () -> Unit) {
                 Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(IslandThemes.active.progress(tint, f >= 1f)))
             }
         }
-    }
-}
-
-/**
- * A critically-damped 1st-order low-pass filter for a finger-driven value (the island's pull position). It lets intentional
- * moves through in a few tens of milliseconds while killing sub-frame touch jitter, and it reports the *filtered* value's
- * velocity so a release spring continues the smooth motion rather than the raw finger's noise.
- *
- * Kept pure and outside composition: the pull gesture steps it per touch event, and the animation collector only ever sees the
- * filtered value, so filtering never recomposes the island (the peek-jitter contract).
- */
-internal class LowPass(private val tauSeconds: Float = DEFAULT_TAU_S) {
-    private var value = Float.NaN
-    private var velocity = 0f
-
-    /** Steps the filter toward [raw] over [dtSeconds]; returns the filtered value. The first step (or a long gap) snap to [raw]. */
-    fun step(dtSeconds: Float, raw: Float): Float {
-        if (dtSeconds <= 0f || dtSeconds > GAP_SECONDS || value.isNaN()) {
-            value = raw; velocity = 0f; return raw
-        }
-        val alpha = 1f - exp(-dtSeconds / tauSeconds)
-        val next = value + (raw - value) * alpha
-        // The filtered value's own rate of change, smoothed with the same time constant.
-        velocity += ((next - value) / dtSeconds - velocity) * alpha
-        value = next
-        return next
-    }
-
-    /** The filtered value's velocity (units per second), for seeding a release spring. */
-    fun velocity(): Float = velocity
-
-    companion object {
-        /** The filter time constant: short enough to feel instant, long enough to swallow per-touch jitter (30–60 ms). */
-        const val DEFAULT_TAU_S = 0.04f
-        private const val GAP_SECONDS = 0.5f
-    }
-}
-
-/**
- * A slow, deliberate swipe up on the open island closes it by following the finger, mirroring the pull-down peek in the other
- * direction. Pure and unit-tested: how far up the finger travelled and how fast it was going when it let go decide between closing
- * and springing back. A touch that never leaves the slop is a tap or a hold, never a close.
- */
-internal object SwipeCloseLogic {
-    /** Upward travel (dp) past which a release closes the open island, however slowly it got there. */
-    const val CLOSE_DP = 32f
-    /** Release speed upward (px/s) past which a release closes before it has travelled [CLOSE_DP] (a flick). */
-    const val CLOSE_VELOCITY_PX_S = 600f
-
-    enum class Outcome { STAY, CLOSE }
-
-    /** The island's open fraction (1 = fully open) for a finger that has moved up [upPx] pixels from the height [from] it was
-     * grabbed at, over a full-close travel of [travelPx] pixels, so the bottom edge follows the finger one-to-one. */
-    fun fraction(upPx: Float, travelPx: Float, from: Float = 1f): Float =
-        if (travelPx <= 0f) from else (from - upPx / travelPx).coerceIn(0f, 1f)
-
-    /** What letting go does. [upDp] is the upward travel in dp (positive = up); [upVelocityPx] is the release speed in px/s
-     * (positive = up); [slopDp] is the touch slop in dp. A movement within the slop is a tap or a hold and never closes. */
-    fun decide(upDp: Float, upVelocityPx: Float, slopDp: Float): Outcome = when {
-        upDp <= slopDp -> Outcome.STAY
-        upDp >= CLOSE_DP -> Outcome.CLOSE
-        upVelocityPx >= CLOSE_VELOCITY_PX_S -> Outcome.CLOSE
-        else -> Outcome.STAY
     }
 }

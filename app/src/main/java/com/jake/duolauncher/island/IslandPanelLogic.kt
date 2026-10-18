@@ -70,3 +70,56 @@ internal object IslandSpeech {
         if (playing) add("music playing")
     }.joinToString(", ")
 }
+
+/**
+ * The open panel's first line: a short, honest label for *why* the panel is showing what it is showing. It names the one live
+ * thing that currently has the island, most important first, and is null when the panel is simply idle (the clock and shortcuts).
+ */
+internal object IslandNarration {
+    fun label(
+        cardShown: Boolean,
+        callActive: Boolean,
+        navigating: Boolean,
+        ringing: Boolean,
+        timerActive: Boolean,
+        stopwatchRunning: Boolean,
+        mediaShown: Boolean,
+        liveUpdate: Boolean,
+        charging: Boolean,
+    ): String? = when {
+        cardShown -> "New notification"
+        callActive -> "You're on a call"
+        navigating -> "You're navigating"
+        ringing -> "Timer finished"
+        timerActive -> "Timer"
+        stopwatchRunning -> "Stopwatch"
+        mediaShown -> "Now playing"
+        liveUpdate -> "Live update"
+        charging -> "Charging"
+        else -> null
+    }
+}
+
+/** The live-activity facts whose arrivals and departures the island speaks aloud, once, at the point they change. */
+internal data class IslandLiveFacts(
+    val ringing: Boolean = false,
+    val call: Boolean = false,
+    val timer: Boolean = false,
+    val playing: Boolean = false,
+)
+
+/** What TalkBack hears when the live facts change. A timer that finishes (ringing) speaks first, and silencing it is not said;
+ * every other fact says both its start and its end, so "Call ended" and "Music paused" are heard too, not just their arrivals. */
+internal object IslandAnnounce {
+    fun transition(prev: IslandLiveFacts, now: IslandLiveFacts): String? = when {
+        now.ringing && !prev.ringing -> "Timer finished"
+        prev.ringing && !now.ringing -> null // the person just silenced it
+        now.call && !prev.call -> "Call started"
+        prev.call && !now.call -> "Call ended"
+        now.timer && !prev.timer -> "Timer started"
+        prev.timer && !now.timer -> "Timer ended"
+        now.playing && !prev.playing -> "Music playing"
+        prev.playing && !now.playing -> "Music paused"
+        else -> null
+    }
+}

@@ -31,7 +31,7 @@ class IslandShotsInstrumentedTest {
 
     @After fun reset() {
         NotificationFeed.liveUpdates = emptyList(); NotificationFeed.ongoingCall = null; NotificationFeed.nowPlaying = null
-        IslandTools.toolsOpen = false; session?.release()
+        session?.release()
     }
 
     private fun show() {
@@ -82,8 +82,6 @@ class IslandShotsInstrumentedTest {
         openShot("4-music-open")
         compose.runOnIdle { state.collapse() }
         compose.runOnIdle { NotificationFeed.nowPlaying = null; state.endPlayback(); state.setPlaying(System.currentTimeMillis(), false) }
-        compose.runOnIdle { IslandTools.toolsOpen = true; state.expanded = true }
-        shot("5-tools")
         compose.runOnIdle { state.collapse() }
         compose.runOnIdle { state.showPeekCard(PeekNotification("com.example.chat", "Messages", "Ada Lovelace", "Are we still on for lunch? I found the place with the good noodles.", null, null, 6)) }
         shot("6-card")

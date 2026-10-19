@@ -18,6 +18,7 @@ docs/*
 !docs/architecture.md
 !docs/design.md
 !docs/island-roadmap.md
+!docs/island-layout-process.md
 !docs/working-together.md
 !docs/widget-development.md
 !docs/island-themes.md

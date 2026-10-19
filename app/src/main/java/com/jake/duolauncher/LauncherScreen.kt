@@ -647,6 +647,7 @@ internal fun LauncherScreen(
             val contentHeight = maxHeight
             val panelWidth = maxWidth - geometry.homeWidth.dp
             val pagerWidth = maxWidth - preset.dockWidth.dp - 28.dp
+            val pagerWidthPx = with(density) { pagerWidth.toPx() }
             // Home runs the pager under the dock and status rail, iOS-style, so page content
             // slides beneath the glass during swipes and the lens has edges to bend. Compact
             // pages inset their content by this much, so the resting layout is unchanged.
@@ -780,7 +781,10 @@ internal fun LauncherScreen(
                     userScrollEnabled = !drag.active && resizeSlot == null, flingBehavior = pageFling,
                     key = { if (it < firstHome) "discover" else if (it - firstHome == visibleHomePages) "library" else "home-${it - firstHome}" }) { physicalPage ->
                     val page = physicalPage - firstHome
-                    Box(Modifier.fillMaxSize().padding(end = pagerEndInset)) {
+                    // The pager already spans the full width; only the Home pages reserve the dock's
+                    // column. Feed and All apps fill the whole width, so once the dock/rail have slid
+                    // off with an edge (see EdgeDockShift) they use the space those controls vacated.
+                    Box(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions) {
                     if (page == -1) {
                         DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace),
@@ -796,7 +800,7 @@ internal fun LauncherScreen(
                             drag = drag, page = visibleHomePages, onLaunchFrom = onLaunchFrom, onTurnOnWork = { model.turnOnWork(it) },
                             contacts = contactResults, onContact = { ContactsSearch.open(launcherActivity, it) }, handoff = handoffResolver)
                     } else {
-                        Row(Modifier.fillMaxSize().testTag("home-surface")) {
+                        Row(Modifier.fillMaxSize().padding(end = pagerEndInset).testTag("home-surface")) {
                             HomePagePane(page, state, previewLayout.slots, previewLayout.leadingSlots, previewLayout.widgetPlacements, appsById, geometry, contentHeight,
                                 bottomSpace, widgets, drag, target, insertionTarget, showLargeWidget = false,
                                 onLaunch = onLaunchFrom, onActions = { selectedId = it.id },
@@ -823,11 +827,19 @@ internal fun LauncherScreen(
                     height = bottomInset + PageIndicatorLayout.reserveDp(isDefaultHome).dp,
                     modifier = Modifier.align(Alignment.BottomStart).offset(y = bottomInset))
             }
+            // The dock and the status rail belong to the home screen: they stay pinned between home pages, but slide
+            // off-screen with the page they border when the pager crosses into the feed or the app list, so the edge
+            // pages fill the width the dock/rail vacated. The math lives in EdgeDockShift, read here as a derived
+            // state so the four rail/dock layers track pager.position frame-by-frame without recomposing the screen.
+            val dockRailShiftPx = remember(visibleHomePages, pagerWidthPx) {
+                derivedStateOf { EdgeDockShift.shiftPx(pager.position, visibleHomePages, pagerWidthPx) }
+            }
             if (state.verticalStatus) {
                 val railInk = rememberAdaptiveInk(glassTint, if (glassEnabled) .12f else .0f)
                 if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.contentTop.dp)
                     .width(preset.dockWidth.dp).then(railInk.track)
                     .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
+                    .graphicsLayer { translationX = dockRailShiftPx.value }
                     .padding(vertical = 8.dp)) {
                     StatusRail(deviceStatus, Modifier.fillMaxWidth().onSizeChanged {
                         statusHeight = (with(density) { it.height.toDp().value } -
@@ -835,7 +847,9 @@ internal fun LauncherScreen(
                     }, compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp, ink = railInk.color)
                 } else StatusRail(deviceStatus,
                     Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.contentTop.dp)
-                        .width(preset.dockWidth.dp).then(railInk.track).onSizeChanged {
+                        .width(preset.dockWidth.dp).then(railInk.track)
+                        .graphicsLayer { translationX = dockRailShiftPx.value }
+                        .onSizeChanged {
                             // The normal rail's 20dp location slot and 3dp gap do not move the dock.
                             statusHeight = (with(density) { it.height.toDp().value } -
                                 if (contentHeight < 500.dp) 0f else 23f).coerceAtLeast(0f)
@@ -846,6 +860,7 @@ internal fun LauncherScreen(
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
                 .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
                 .graphicsLayer {
+                    translationX = dockRailShiftPx.value
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                 }.testTag("dock")) {
                 Column(Modifier.padding(vertical = 8.dp).verticalScroll(dockScroll)) {
@@ -855,7 +870,9 @@ internal fun LauncherScreen(
                 }
             } else Surface(Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp).graphicsLayer {
-                    // Composite the stationary dock independently of the shared pager layer.
+                    translationX = dockRailShiftPx.value
+                    // Composite the dock independently of the shared pager layer, so its edge
+                    // slide never re-renders the pages behind it.
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                 }.testTag("dock"),
                 shape = Corner.xlarge, color = Glass.copy(alpha = .32f),

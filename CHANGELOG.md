@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.84.0-uno01
+
+- **The dock knows its place.** Between home pages the dock and the status rail stay pinned, as always. But swipe into the feed (left) or the All apps list (right) and they slide off-screen with the home page, while the feed and All apps expand to fill the width the dock vacated — so the edge pages are true full-bleed surfaces and the dock/rail feel like part of the home screen rather than furniture bolted to the glass.
+- **A little more breathing room round the island icon.** The app icon and artwork circle in the pill is a touch smaller, so it sits inside a wider pill border and reads as set into the island.
+
 ## 0.83.0-uno01
 
 - **One type scale, everywhere.** The All apps list, Spotlight rows, the status rail, every widget face and the settings now speak the same `UnoType` HIG rhythm instead of stray raw point sizes; section headers, label colours and corner radii are consistent, and the last Material `surfaceVariant` slabs are gone. The launcher finally reads as one piece of glass.

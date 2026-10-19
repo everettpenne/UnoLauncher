@@ -122,8 +122,14 @@ the feed page and the native Google Discover window all use `PageIndicatorLayout
 - Presets (Launcher settings → Home layout, per single-page and wide layout):
   icon size 40–68 dp, row gap 0–28 dp, dock width 56–84 dp, dock height on screen
   25–75% (or aligned to rows).
-- Pager inset math: `pagerWidth = maxWidth - dockWidth - 28 dp`; the pager runs under
-  the dock and rail so pages slide beneath the glass.
+- Pager inset math: `pagerWidth = maxWidth - dockWidth - 28 dp`. The pager itself spans
+  `maxWidth` and runs under the dock and rail; only the **Home pages** inset their content by
+  `dockWidth + 28 dp` so icons never sit beneath the glass. The feed and All apps pages fill the
+  full width, so they use the column the dock vacates once it has slid away.
+- Edge slide (`EdgeDockShift`): the dock and status rail stay pinned between Home pages, then ride
+  off-screen with the page they border — right with Home 0 toward the feed (`-position × pagerWidth`),
+  left with the last Home page toward All apps. It is a pure function of `pager.position`, so it
+  tracks the finger 1:1, is interruptible, and settles exactly as the pager does (spring or snap).
 
 ## Glass rules (`LiquidGlass.kt`)
 

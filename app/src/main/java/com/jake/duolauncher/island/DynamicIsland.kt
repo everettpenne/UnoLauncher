@@ -1830,7 +1830,7 @@ private val PRIVACY_MIC = Color(0xFFFF9F0A)
 private val capsuleShape = RoundedCornerShape(percent = 50)
 /** How much smaller than the pill's height an app icon or thumbnail is, in px: a ~4 px inset each side, so the circle sits
  * concentrically inside the pill. */
-private const val GLYPH_INSET_PX = 8f
+private const val GLYPH_INSET_PX = 14f
 /** The smallest a glyph circle may be, in px, whatever the pill's height. */
 private const val MIN_GLYPH_PX = 12f
 

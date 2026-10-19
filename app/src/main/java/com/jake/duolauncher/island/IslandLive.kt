@@ -75,19 +75,17 @@ internal object LiveCompactText {
 
 /** Detached capsules to the right of the pill: the trailing activity first (glyph + short status), then the extras (glyph only).
  * These are Apple's trailing capsule plus Uno's extra "bubbles", restyled as the same capsule: a black rounded body with a
- * hairline rim. Tapping one brings its activity to the front of the pill. Pure, so the rules are unit-tested.
+ * hairline rim. Every capsule is as tall as the pill (so its glyph sits concentrically), the trailing one is wide (glyph +
+ * status), and an extra one is a circle the pill's height. Tapping one brings its activity to the front. Pure, so the rules
+ * are unit-tested.
  */
 internal object IslandBubbles {
     /** The extra activities shown after the pill's leading and its trailing capsule, at most [MAX]. */
     const val MAX = 2
-    /** Every capsule's height, in dp. */
-    const val HEIGHT_DP = 30f
     /** The gap between the pill and the first capsule, and between capsules, in dp. */
     const val GAP_DP = 6f
     /** The trailing capsule's width (glyph + short status, ellipsized), in dp. */
     const val TRAILING_WIDTH_DP = 88f
-    /** An extra capsule's width (glyph only), in dp. */
-    const val EXTRA_WIDTH_DP = 34f
 
     /** The activities shown as extra capsules: those after the pill's leading and its trailing capsule, at most [MAX]. */
     fun extras(kinds: List<LiveKind>): List<LiveKind> = kinds.drop(2).take(MAX)
@@ -95,16 +93,18 @@ internal object IslandBubbles {
     /** How far to turn the order so the capsule at [index] (0 is the trailing capsule, then the extras) is in front of the pill. */
     fun shiftFor(index: Int): Int = index + 1
 
-    /** The fixed width of the capsule at [index] (0 is the trailing capsule, then the extras), in dp. */
-    fun widthDp(index: Int): Float = if (index == 0) TRAILING_WIDTH_DP else EXTRA_WIDTH_DP
+    /** The width of the capsule at [index] (0 is the trailing capsule, then the extras), in dp. [heightDp] is the capsule/pill
+     * height: an extra capsule is a circle of that height, so its glyph fits with a ring round it.
+     */
+    fun widthDp(index: Int, heightDp: Float): Float = if (index == 0) TRAILING_WIDTH_DP else heightDp
 
     /** How much room the detached capsules need to the right of the pill, in dp (0 with none). [count] is the total number of
-     * capsules (the trailing capsule, then the extras).
+     * capsules (the trailing capsule, then the extras) and [heightDp] the pill's collapsed height.
      */
-    fun reserveDp(count: Int): Float {
+    fun reserveDp(count: Int, heightDp: Float): Float {
         if (count <= 0) return 0f
         var widths = 0f
-        for (i in 0 until count) widths += widthDp(i)
+        for (i in 0 until count) widths += widthDp(i, heightDp)
         return count * GAP_DP + widths
     }
 }

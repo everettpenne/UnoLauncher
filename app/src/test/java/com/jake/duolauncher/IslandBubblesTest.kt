@@ -25,16 +25,18 @@ class IslandBubblesTest {
         assertEquals(LiveKind.TIMER, IslandLive.rotated(all, IslandBubbles.shiftFor(1)).first())
     }
 
-    @Test fun theTrailingCapsuleIsWiderThanAnExtra() {
-        assertTrue(IslandBubbles.widthDp(0) > IslandBubbles.widthDp(1))
-        assertEquals(IslandBubbles.TRAILING_WIDTH_DP, IslandBubbles.widthDp(0), 0f)
-        assertEquals(IslandBubbles.EXTRA_WIDTH_DP, IslandBubbles.widthDp(1), 0f)
+    @Test fun theTrailingCapsuleIsWiderThanAnExtraAndAnExtraIsACircle() {
+        val height = 30f
+        assertTrue(IslandBubbles.widthDp(0, height) > IslandBubbles.widthDp(1, height))
+        assertEquals(IslandBubbles.TRAILING_WIDTH_DP, IslandBubbles.widthDp(0, height), 0f)
+        // An extra capsule is a circle of the pill's height, so its glyph fits with a ring round it.
+        assertEquals(height, IslandBubbles.widthDp(1, height), 0f)
     }
 
     @Test fun reserveGrowsWithTheCapsules() {
-        assertEquals(0f, IslandBubbles.reserveDp(0), 0f)
-        assertTrue(IslandBubbles.reserveDp(2) > IslandBubbles.reserveDp(1))
+        assertEquals(0f, IslandBubbles.reserveDp(0, 30f), 0f)
+        assertTrue(IslandBubbles.reserveDp(2, 30f) > IslandBubbles.reserveDp(1, 30f))
         // One capsule is the trailing one: its width plus the gap from the pill.
-        assertEquals(IslandBubbles.TRAILING_WIDTH_DP + IslandBubbles.GAP_DP, IslandBubbles.reserveDp(1), 0f)
+        assertEquals(IslandBubbles.TRAILING_WIDTH_DP + IslandBubbles.GAP_DP, IslandBubbles.reserveDp(1, 30f), 0f)
     }
 }

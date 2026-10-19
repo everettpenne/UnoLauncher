@@ -715,10 +715,15 @@ internal fun DynamicIsland(
     // The collapsed pill's top edge in window pixels: below it (in the launcher's own space) a pull belongs to the island; above it the
     // system status-bar strip owns the touch, so a pull must not engage there when the island renders below SystemUI.
     val collapsedTopPx = remember(environment, d, sizeScale) { IslandGeometry.frame(environment, d, 0f, sizeScale).top }
+    // The collapsed pill's height in px. App icons and thumbnails are circles sized from this (diameter = height - ~8 px), so they stay
+    // concentric inside the pill and scale with the island size setting. The detached capsules share this height, so their glyphs match.
+    val collapsedHeightPx = remember(environment, d, sizeScale) { IslandGeometry.frame(environment, d, 0f, sizeScale).height }
+    val glyphDiameterDp = ((collapsedHeightPx - GLYPH_INSET_PX).coerceAtLeast(MIN_GLYPH_PX) / d).dp
+    val capsuleHeightDp = (collapsedHeightPx / d).dp
     // How far open the peek rests: enough of the open panel to read its top (the time, then its first row, if it has one). The animation above
     // reads this through [peekState], so the panel's own content decides how much a peek shows.
     run {
-        val collapsedHeight = IslandGeometry.frame(environment, d, 0f, sizeScale).height
+        val collapsedHeight = collapsedHeightPx
         val firstRowDp = when {
             recentLive -> RECENT_ROW_DP + (if (recent!!.actions.isNotEmpty()) PEEK_ACTIONS_ROW_DP else 0f)
             anyPrivacy -> PRIVACY_ROW_DP
@@ -825,7 +830,7 @@ internal fun DynamicIsland(
         // The live frame is always inside the open and the widest pill, so it needs no say here (and the rectangle does not change per frame).
         PxRect(
             minOf(open.left, wide.left) - pad, minOf(open.top, wide.top),
-            maxOf(open.left + open.width, wide.left + wide.width + (IslandBubbles.reserveDp(1 + IslandBubbles.MAX) + IslandPrivacy.widthDp(3)) * d) + pad,
+            maxOf(open.left + open.width, wide.left + wide.width + (IslandBubbles.reserveDp(1 + IslandBubbles.MAX, capsuleHeightDp.value) + IslandPrivacy.widthDp(3)) * d) + pad,
             maxOf(open.top + open.height, wide.top + wide.height) + pad)
     } else null
     val wrapperModifier = if (anchoredToWindow) {
@@ -867,7 +872,7 @@ internal fun DynamicIsland(
         // what the person is doing, the dots show what the phone is doing. The capsules start after the dots.
         val privacyKinds = IslandLive.privacy(state.cameraActive, state.micActive, state.recordingActive)
         val dotsDp = IslandPrivacy.widthDp(privacyKinds.size)
-        IslandRuntime.bubbleExtraPx = if (detachedKinds.isEmpty()) 0 else ((IslandBubbles.reserveDp(detachedKinds.size) + dotsDp) * d).roundToInt()
+        IslandRuntime.bubbleExtraPx = if (detachedKinds.isEmpty()) 0 else ((IslandBubbles.reserveDp(detachedKinds.size, capsuleHeightDp.value) + dotsDp) * d).roundToInt()
         LaunchedEffect(detachedKinds.size, privacyKinds.size) { onFrameChanged?.invoke(reported[0] ?: headingFor, windowRect) }
         privacyKinds.forEachIndexed { index, kind ->
             Box(Modifier
@@ -889,13 +894,13 @@ internal fun DynamicIsland(
                 // and for a moment stays joined to the pill by a neck that stretches thin and pinches off (see Metaball).
                 val appear = remember { Animatable(if (animationsOn) 0f else 1f) }
                 LaunchedEffect(Unit) { if (animationsOn) appear.animateTo(1f, theme.spring(.5f, 240f)) }
-                val capsuleH = IslandBubbles.HEIGHT_DP * d
-                val capsuleW = IslandBubbles.widthDp(index) * d
+                val capsuleH = collapsedHeightPx
+                val capsuleW = IslandBubbles.widthDp(index, capsuleHeightDp.value) * d
                 val fill = themeFill
                 // The neck's path is made once and rewound each frame, instead of allocating a Path per frame while the capsule pulls away.
                 val neckPath = remember { androidx.compose.ui.graphics.Path() }
                 fun capsuleX(frame: IslandFrame): Float {
-                    val before = (0 until index).sumOf { (IslandBubbles.widthDp(it) + IslandBubbles.GAP_DP).toDouble() }.toFloat()
+                    val before = (0 until index).sumOf { (IslandBubbles.widthDp(it, capsuleHeightDp.value) + IslandBubbles.GAP_DP).toDouble() }.toFloat()
                     val finalX = frame.left + frame.width + (dotsDp + IslandBubbles.GAP_DP + before) * d
                     val startX = frame.left + frame.width - frame.height / 2f - capsuleW / 2f
                     return startX + (finalX - startX) * appear.value
@@ -924,7 +929,7 @@ internal fun DynamicIsland(
                         }
                     }
                     .graphicsLayer { val sc = (.55f + .45f * appear.value).coerceAtLeast(.4f); scaleX = sc; scaleY = sc }
-                    .size(IslandBubbles.widthDp(index).dp, IslandBubbles.HEIGHT_DP.dp)
+                    .size(IslandBubbles.widthDp(index, capsuleHeightDp.value).dp, capsuleHeightDp)
                     .clip(capsuleShape)
                     .background(themeFill)
                     .border(1.dp, themeInk.copy(alpha = .28f), capsuleShape)
@@ -937,16 +942,16 @@ internal fun DynamicIsland(
                         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (kind == LiveKind.MEDIA) {
                                 // Media's glyph is its artwork (or nothing); its status is the playing bars.
-                                if (artImage != null) Image(artImage, null, Modifier.size(18.dp).clip(RoundedCornerShape(5.dp)))
-                                LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
+                                if (artImage != null) Image(artImage, null, Modifier.size(glyphDiameterDp).clip(CircleShape))
+                                LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
                             } else {
-                                LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
-                                LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
+                                LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
+                                LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
                             }
                         }
                     } else {
                         // An extra capsule: glyph only.
-                        LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
+                        LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
                     }
                 }
             }
@@ -1181,16 +1186,16 @@ internal fun DynamicIsland(
                         val open = state.flashOpen
                         // The app's icon opens what the notification points at (its own tap action, as the card does), or the app when
                         // it has none (a child click, so it wins over the pill's own expand tap).
-                        if (bitmap != null) Box(Modifier.size(40.dp).clip(CircleShape)
+                        if (bitmap != null) Box(Modifier.size(glyphDiameterDp).clip(CircleShape)
                             .then(if (component != null || open != null) Modifier.clickable { openFlash() }.testTag("island-peek-app") else Modifier),
                             contentAlignment = Alignment.Center) {
-                            Image(bitmap, null, Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)))
+                            Image(bitmap, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
                         }
-                        else if (symbol != null) Icon(symbol.icon(), null, tint = IslandThemes.active.tint(symbol), modifier = Modifier.size(18.dp))
+                        else if (symbol != null) Icon(symbol.icon(), null, tint = IslandThemes.active.tint(symbol), modifier = Modifier.size(glyphDiameterDp))
                     } else if (IslandTools.ringing) {
                         Icon(Icons.Rounded.Alarm, null, tint = IslandThemes.active.timer, modifier = Modifier.size(18.dp))
                     } else plan.leading?.let { kind ->
-                        LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
+                        LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
                     }
                     // Idle: nothing here. The time is in the status bar and on the expanded panel
                     // (IslandEventArbiter.timeOwner); the collapsed island never shows it.
@@ -1206,7 +1211,7 @@ internal fun DynamicIsland(
                     } else if (plan.leading != null) {
                         // The leading activity's detail, on the other side of the camera from its glyph. The trailing activity is
                         // not inside the pill: it is a detached capsule to the right (rendered below).
-                        LiveSlot(plan.leading, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
+                        LiveSlot(plan.leading, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
                     } else if (recentLive) {
                         // A notification came in the last half minute: a dot in its app's colour says it can still be looked at.
                         Box(Modifier.size(7.dp).clip(CircleShape).background(recent?.tint?.let { Color(it) } ?: themeInk).testTag("island-recent-dot"))
@@ -1817,37 +1822,43 @@ private const val SLOT_TEXT_SP = 12
 private val PRIVACY_MIC = Color(0xFFFF9F0A)
 /** A detached capsule's body: a stadium with fully rounded ends, like the pill but small. */
 private val capsuleShape = RoundedCornerShape(percent = 50)
+/** How much smaller than the pill's height an app icon or thumbnail is, in px: a ~4 px inset each side, so the circle sits
+ * concentrically inside the pill. */
+private const val GLYPH_INSET_PX = 8f
+/** The smallest a glyph circle may be, in px, whatever the pill's height. */
+private const val MIN_GLYPH_PX = 12f
 
 /** One live activity as it appears in a side of the collapsed pill: its small glyph, or its detail (text or bars). */
 @Composable
 private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boolean, tint: Color,
-    art: androidx.compose.ui.graphics.ImageBitmap?, multi: Boolean, liveCompactLevel: Int, update: LiveUpdate? = null) {
+    art: androidx.compose.ui.graphics.ImageBitmap?, multi: Boolean, liveCompactLevel: Int, update: LiveUpdate? = null,
+    glyphSize: androidx.compose.ui.unit.Dp) {
     val glyph = show == SlotShow.GLYPH
     when (kind) {
         LiveKind.CAMERA -> if (glyph) Icon(Icons.Rounded.Videocam, "Camera in use", tint = IosGreen,
-            modifier = Modifier.size(16.dp).testTag("island-camera"))
+            modifier = Modifier.size(glyphSize).testTag("island-camera"))
             else Text(stringResource(com.jake.duolauncher.R.string.camera), color = IosGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         LiveKind.MIC -> if (glyph) Icon(Icons.Rounded.Mic, "Microphone in use", tint = PRIVACY_MIC,
-            modifier = Modifier.size(16.dp).testTag("island-mic"))
+            modifier = Modifier.size(glyphSize).testTag("island-mic"))
             else Text(stringResource(com.jake.duolauncher.R.string.mic), color = PRIVACY_MIC, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         LiveKind.RECORDING -> if (glyph) Icon(Icons.Rounded.FiberManualRecord, "Screen is being recorded", tint = IslandSymbol.RECORDING.tint,
-            modifier = Modifier.size(16.dp).testTag("island-recording"))
+            modifier = Modifier.size(glyphSize).testTag("island-recording"))
             else Text(stringResource(com.jake.duolauncher.R.string.recording), color = IslandSymbol.RECORDING.tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-        LiveKind.CALL -> if (glyph) Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(14.dp))
+        LiveKind.CALL -> if (glyph) Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(glyphSize))
             // How long the call has lasted, in green, like the other things that count time (the timer, the stopwatch). The caller's name
             // is on the open island's call card: a name cut to five letters says little, a clock says how long.
             else Text(NotificationFeed.ongoingCall?.let { IslandClock.countdown((clockMs - it.startedAt).coerceAtLeast(0L)) } ?: "", color = IosGreen,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                 modifier = Modifier.padding(end = 4.dp).testTag("island-call"))
-        LiveKind.TIMER -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = IslandThemes.active.timer, modifier = Modifier.size(16.dp))
+        LiveKind.TIMER -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = IslandThemes.active.timer, modifier = Modifier.size(glyphSize))
             else Text(IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)), color = IslandThemes.active.timer,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-timer"))
-        LiveKind.STOPWATCH -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = themeInk, modifier = Modifier.size(16.dp))
+        LiveKind.STOPWATCH -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = themeInk, modifier = Modifier.size(glyphSize))
             else Text(IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)), color = themeInk,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
         LiveKind.UPDATE -> if (update != null) {
             val driving = update.source == ActivitySource.NAVIGATION
-            if (glyph) UpdateGlyph(update, if (driving) NavigationText.PILL_ARROW_DP.dp else 22.dp)
+            if (glyph) UpdateGlyph(update, glyphSize)
             else {
                 // The words beside the glyph, as the person chose: none (glyph alone), the short status, or the title.
                 val text = LiveCompactText.choose(liveCompactLevel, LiveUpdateLogic.glance(update, clockMs), update.title)
@@ -1857,8 +1868,8 @@ private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boo
             }
         }
         LiveKind.MEDIA -> if (glyph) {
-            // The artwork when there is any; otherwise the bars stand in on the left when something else holds the right.
-            if (art != null) Image(art, null, Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)))
+            // The artwork when there is any, as a circle sized to sit concentrically inside the pill; otherwise the bars stand in.
+            if (art != null) Image(art, null, Modifier.size(glyphSize).clip(CircleShape))
             else if (multi) EqualizerBars(if (playing) tint else tint.copy(alpha = .55f), animate = playing)
         } else {
             // Stays while a paused player can still be resumed, but only moves while audio is playing.

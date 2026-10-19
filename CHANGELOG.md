@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.82.1-uno01
+
+- **Concentric icons, for real.** App icons and artwork on the pill (and the detached capsules) are now circles sized a few pixels inside the pill's radius, centered — they follow the island size and read as set into it. (0.82.0 shipped the leading/trailing restyle; this release actually ships the concentric-icon change it described.)
+
 ## 0.82.0-uno01
 
 - **The island reads like Apple's now.** With two live activities, the first stays attached to the camera in the main pill and the second becomes its own detached capsule to the right — a black pill with a hairline rim and a small gap — instead of both squeezing into one pill. Activities beyond two pop out as more of the same capsules, so a call + music + a timer reads as one coherent, Apple-like row of islands. A sideways flick still swaps which one is leading, and tapping a capsule brings it forward.

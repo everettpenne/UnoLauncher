@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.82.0-uno01
+
+- **The island reads like Apple's now.** With two live activities, the first stays attached to the camera in the main pill and the second becomes its own detached capsule to the right — a black pill with a hairline rim and a small gap — instead of both squeezing into one pill. Activities beyond two pop out as more of the same capsules, so a call + music + a timer reads as one coherent, Apple-like row of islands. A sideways flick still swaps which one is leading, and tapping a capsule brings it forward.
+- **Icons sit concentrically.** App icons and artwork on the pill are now circles sized a few pixels inside the pill's radius, centered, instead of fixed-size squares — so they follow the island size and read as set into the pill.
+
 ## 0.81.0-uno01
 
 - **Spotlight opens like a pill, not a rectangle.** The search panel's corners now morph with the emerge — fully round while it is still pill-sized, easing to the panel's 34dp corner as it grows — so the brief "rounded rectangle" flash at the very start of opening (and its mirror on close) is gone.

@@ -14,17 +14,18 @@ class IslandLiveTest {
         assertNull(plan.leading); assertNull(plan.trailing)
     }
 
-    @Test fun oneActivityShowsItsGlyphOnOneSideAndItsDetailOnTheOther() {
+    @Test fun oneActivityIsTheLeadingWithNoTrailingCapsule() {
+        // One activity fills the pill alone: its glyph one side, its detail the other. No detached capsule.
         val plan = IslandLive.plan(kinds(timer = true))
-        assertEquals(LiveKind.TIMER to SlotShow.GLYPH, plan.leading)
-        assertEquals(LiveKind.TIMER to SlotShow.DETAIL, plan.trailing)
+        assertEquals(LiveKind.TIMER, plan.leading)
+        assertNull(plan.trailing)
     }
 
-    @Test fun twoActivitiesGetOneSideEach() {
-        // A timer and music: the music bars on the left, the countdown in full on the right.
+    @Test fun twoActivitiesPutTheFrontOneOnThePillAndTheSecondInItsOwnCapsule() {
+        // A timer and music: the timer (most important) holds the pill, the music is the trailing detached capsule.
         val plan = IslandLive.plan(kinds(timer = true, media = true))
-        assertEquals(LiveKind.MEDIA to SlotShow.GLYPH, plan.leading)
-        assertEquals(LiveKind.TIMER to SlotShow.DETAIL, plan.trailing)
+        assertEquals(LiveKind.TIMER, plan.leading)
+        assertEquals(LiveKind.MEDIA, plan.trailing)
     }
 
     @Test fun priorityRunsCallThenTimerThenStopwatchThenMedia() {
@@ -39,10 +40,10 @@ class IslandLiveTest {
     }
 
     @Test fun aVideoCallKeepsItsTimerOnThePillWhateverThePrivacyMarksAre() {
-        // Camera and microphone are dots, so the call (with music) holds the pill: the call in full, the music as a glyph.
+        // Camera and microphone are dots, so the call holds the pill and the music is its detached capsule.
         val plan = IslandLive.plan(kinds(call = true, media = true))
-        assertEquals(LiveKind.CALL to SlotShow.DETAIL, plan.trailing)
-        assertEquals(LiveKind.MEDIA to SlotShow.GLYPH, plan.leading)
+        assertEquals(LiveKind.CALL, plan.leading)
+        assertEquals(LiveKind.MEDIA, plan.trailing)
         assertEquals(2, IslandLive.privacy(true, true, false).size)
     }
 
@@ -131,14 +132,14 @@ class IslandCombinationTest {
             val plan = IslandLive.plan(kinds)
             val bubbles = IslandBubbles.extras(kinds)
             if (kinds.isEmpty()) { assertNull(plan.leading); assertNull(plan.trailing); assertTrue(bubbles.isEmpty()); return@forEach }
-            val onPill = listOfNotNull(plan.leading?.first, plan.trailing?.first).distinct()
-            // The most important activity always has the detail slot on the right, in full.
-            assertEquals("front of $subset", kinds[0], plan.trailing!!.first)
-            if (kinds.size >= 2) assertEquals("second of $subset", kinds[1], plan.leading!!.first)
-            // Pill and bubbles never repeat an activity, and together they show the first four.
-            assertTrue("no repeats in $subset", (onPill + bubbles).distinct().size == (onPill + bubbles).size)
-            assertEquals("shown for $subset", kinds.take(4), (listOf(kinds[0]) + listOfNotNull(kinds.getOrNull(1)) + bubbles))
-            assertTrue("at most two bubbles", bubbles.size <= IslandBubbles.MAX)
+            // The pill carries the leading, the trailing is its own detached capsule, then the extras.
+            val shown = listOfNotNull(plan.leading, plan.trailing) + bubbles
+            assertEquals("front of $subset", kinds[0], plan.leading)
+            if (kinds.size >= 2) assertEquals("second of $subset", kinds[1], plan.trailing)
+            // The pill, the trailing capsule and the extras never repeat an activity, and together they show the first four.
+            assertTrue("no repeats in $subset", shown.distinct().size == shown.size)
+            assertEquals("shown for $subset", kinds.take(4), shown)
+            assertTrue("at most two extras", bubbles.size <= IslandBubbles.MAX)
         }
     }
 

@@ -19,6 +19,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.rounded.Usb
 import androidx.compose.material.icons.rounded.Headphones
@@ -824,7 +825,7 @@ internal fun DynamicIsland(
         // The live frame is always inside the open and the widest pill, so it needs no say here (and the rectangle does not change per frame).
         PxRect(
             minOf(open.left, wide.left) - pad, minOf(open.top, wide.top),
-            maxOf(open.left + open.width, wide.left + wide.width + (IslandBubbles.reserveDp(IslandBubbles.MAX) + IslandPrivacy.widthDp(3)) * d) + pad,
+            maxOf(open.left + open.width, wide.left + wide.width + (IslandBubbles.reserveDp(1 + IslandBubbles.MAX) + IslandPrivacy.widthDp(3)) * d) + pad,
             maxOf(open.top + open.height, wide.top + wide.height) + pad)
     } else null
     val wrapperModifier = if (anchoredToWindow) {
@@ -858,14 +859,16 @@ internal fun DynamicIsland(
         }.testTag("island-scrim"))
         // The island's window-pixel position, translated into this parent's own frame. The
         // everywhere-overlay positions its window itself and renders the island at the origin.
-        // Pop-out bubbles beside the collapsed pill for the live activities that do not fit in it.
-        val bubbleKinds = if (state.expanded || state.peeked || pulling || flashActive || IslandTools.ringing) emptyList() else IslandBubbles.extras(liveKinds)
-        // Camera, microphone and screen recording are dots beside the pill, always, and not activities: the pill and the bubbles show what
-        // the person is doing, the dots show what the phone is doing. The bubbles start after the dots.
+        // Detached capsules beside the collapsed pill: the trailing activity, then the live activities that do not fit
+        // (Apple's trailing capsule plus Uno's extra "bubbles", all as the same capsule). The pill itself carries only the leading.
+        val detachedKinds = if (state.expanded || state.peeked || pulling || flashActive || IslandTools.ringing) emptyList()
+            else listOfNotNull(plan.trailing) + IslandBubbles.extras(liveKinds)
+        // Camera, microphone and screen recording are dots beside the pill, always, and not activities: the pill and the capsules show
+        // what the person is doing, the dots show what the phone is doing. The capsules start after the dots.
         val privacyKinds = IslandLive.privacy(state.cameraActive, state.micActive, state.recordingActive)
         val dotsDp = IslandPrivacy.widthDp(privacyKinds.size)
-        IslandRuntime.bubbleExtraPx = if (bubbleKinds.isEmpty()) 0 else ((IslandBubbles.reserveDp(bubbleKinds.size) + dotsDp) * d).roundToInt()
-        LaunchedEffect(bubbleKinds.size, privacyKinds.size) { onFrameChanged?.invoke(reported[0] ?: headingFor, windowRect) }
+        IslandRuntime.bubbleExtraPx = if (detachedKinds.isEmpty()) 0 else ((IslandBubbles.reserveDp(detachedKinds.size) + dotsDp) * d).roundToInt()
+        LaunchedEffect(detachedKinds.size, privacyKinds.size) { onFrameChanged?.invoke(reported[0] ?: headingFor, windowRect) }
         privacyKinds.forEachIndexed { index, kind ->
             Box(Modifier
                 .offset {
@@ -880,37 +883,39 @@ internal fun DynamicIsland(
                 .semantics { contentDescription = when (kind) { LiveKind.CAMERA -> "Camera in use"; LiveKind.MIC -> "Microphone in use"; else -> "Screen is being recorded" } }
                 .testTag(when (kind) { LiveKind.CAMERA -> "island-camera"; LiveKind.MIC -> "island-mic"; else -> "island-recording" }))
         }
-        bubbleKinds.forEachIndexed { index, kind ->
+        detachedKinds.forEachIndexed { index, kind ->
             key(kind) {
-                // A bubble leaves the pill like a drop pulling away: it starts inside the pill's end, travels out on a springy overshoot, and for a
-                // moment stays joined to the pill by a neck that stretches thin and pinches off (see Metaball).
+                // A capsule leaves the pill like a drop pulling away: it starts inside the pill's end, travels out on a springy overshoot,
+                // and for a moment stays joined to the pill by a neck that stretches thin and pinches off (see Metaball).
                 val appear = remember { Animatable(if (animationsOn) 0f else 1f) }
                 LaunchedEffect(Unit) { if (animationsOn) appear.animateTo(1f, theme.spring(.5f, 240f)) }
-                val bubblePx = IslandBubbles.SIZE_DP * d
+                val capsuleH = IslandBubbles.HEIGHT_DP * d
+                val capsuleW = IslandBubbles.widthDp(index) * d
                 val fill = themeFill
-                // The neck's path is made once and rewound each frame, instead of allocating a Path per frame while the bubble pulls away.
+                // The neck's path is made once and rewound each frame, instead of allocating a Path per frame while the capsule pulls away.
                 val neckPath = remember { androidx.compose.ui.graphics.Path() }
-                fun bubbleX(frame: IslandFrame): Float {
-                    val finalX = frame.left + frame.width + (dotsDp + IslandBubbles.GAP_DP + index * (IslandBubbles.SIZE_DP + IslandBubbles.GAP_DP)) * d
-                    val startX = frame.left + frame.width - frame.height / 2f - bubblePx / 2f
+                fun capsuleX(frame: IslandFrame): Float {
+                    val before = (0 until index).sumOf { (IslandBubbles.widthDp(it) + IslandBubbles.GAP_DP).toDouble() }.toFloat()
+                    val finalX = frame.left + frame.width + (dotsDp + IslandBubbles.GAP_DP + before) * d
+                    val startX = frame.left + frame.width - frame.height / 2f - capsuleW / 2f
                     return startX + (finalX - startX) * appear.value
                 }
                 Box(Modifier
                     .offset {
                         val frame = frameState.value
-                        val y = frame.top + (frame.height - bubblePx) / 2f
+                        val y = frame.top + (frame.height - capsuleH) / 2f
                         androidx.compose.ui.unit.IntOffset(
-                            (bubbleX(frame) - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
+                            (capsuleX(frame) - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
                     }
                     .drawBehind {
                         val t = appear.value
                         if (t < .99f) {
                             val frame = frameState.value
                             val r1 = frame.height / 2f
-                            val c1 = Metaball.Pt(frame.left + frame.width - r1 - bubbleX(frame), bubblePx / 2f)
-                            val c2 = Metaball.Pt(bubblePx / 2f, bubblePx / 2f)
+                            val c1 = Metaball.Pt(frame.left + frame.width - r1 - capsuleX(frame), capsuleH / 2f)
+                            val c2 = Metaball.Pt(capsuleH / 2f, capsuleH / 2f)
                             val grow = (.55f + .45f * t).coerceAtLeast(.4f)
-                            Metaball.neck(c1, r1, c2, bubblePx / 2f * grow, reach = ((1f - t) * 2f).coerceIn(0f, 1.5f))?.let { n ->
+                            Metaball.neck(c1, r1, c2, capsuleH / 2f * grow, reach = ((1f - t) * 2f).coerceIn(0f, 1.5f))?.let { n ->
                                 neckPath.rewind()
                                 neckPath.moveTo(n.p1a.x, n.p1a.y); neckPath.cubicTo(n.h1.x, n.h1.y, n.h2.x, n.h2.y, n.p2a.x, n.p2a.y)
                                 neckPath.lineTo(n.p2b.x, n.p2b.y); neckPath.cubicTo(n.h3.x, n.h3.y, n.h4.x, n.h4.y, n.p1b.x, n.p1b.y); neckPath.close()
@@ -919,11 +924,30 @@ internal fun DynamicIsland(
                         }
                     }
                     .graphicsLayer { val sc = (.55f + .45f * appear.value).coerceAtLeast(.4f); scaleX = sc; scaleY = sc }
-                    .size(IslandBubbles.SIZE_DP.dp).clip(CircleShape).background(themeFill)
-                    .clickable { UnoFeedback.play(Cue.TICK, haptic); state.rotateBy(IslandBubbles.shiftFor(liveKinds, index)) }
+                    .size(IslandBubbles.widthDp(index).dp, IslandBubbles.HEIGHT_DP.dp)
+                    .clip(capsuleShape)
+                    .background(themeFill)
+                    .border(1.dp, themeInk.copy(alpha = .28f), capsuleShape)
+                    .clickable { UnoFeedback.play(Cue.TICK, haptic); state.rotateBy(IslandBubbles.shiftFor(index)) }
                     .semantics { contentDescription = "Show ${kind.name.lowercase()}" }
-                    .testTag("island-bubble-${kind.name.lowercase()}"), contentAlignment = Alignment.Center) {
-                    LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
+                    .testTag(if (index == 0) "island-capsule-${kind.name.lowercase()}" else "island-bubble-${kind.name.lowercase()}"),
+                    contentAlignment = Alignment.Center) {
+                    if (index == 0) {
+                        // The trailing capsule: a compact glyph + short status (the Live Compact level's text for a Live Update).
+                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (kind == LiveKind.MEDIA) {
+                                // Media's glyph is its artwork (or nothing); its status is the playing bars.
+                                if (artImage != null) Image(artImage, null, Modifier.size(18.dp).clip(RoundedCornerShape(5.dp)))
+                                LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
+                            } else {
+                                LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
+                                LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
+                            }
+                        }
+                    } else {
+                        // An extra capsule: glyph only.
+                        LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
+                    }
                 }
             }
         }
@@ -1165,8 +1189,8 @@ internal fun DynamicIsland(
                         else if (symbol != null) Icon(symbol.icon(), null, tint = IslandThemes.active.tint(symbol), modifier = Modifier.size(18.dp))
                     } else if (IslandTools.ringing) {
                         Icon(Icons.Rounded.Alarm, null, tint = IslandThemes.active.timer, modifier = Modifier.size(18.dp))
-                    } else plan.leading?.let { (kind, show) ->
-                        LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
+                    } else plan.leading?.let { kind ->
+                        LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
                     }
                     // Idle: nothing here. The time is in the status bar and on the expanded panel
                     // (IslandEventArbiter.timeOwner); the collapsed island never shows it.
@@ -1179,9 +1203,10 @@ internal fun DynamicIsland(
                     } else if (IslandTools.ringing) {
                         Text(stringResource(com.jake.duolauncher.R.string.timer_done), color = IslandThemes.active.timer, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, modifier = Modifier.testTag("island-timer-done"))
-                    } else if (plan.trailing != null) {
-                        val (kind, show) = plan.trailing
-                        LiveSlot(kind, show, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
+                    } else if (plan.leading != null) {
+                        // The leading activity's detail, on the other side of the camera from its glyph. The trailing activity is
+                        // not inside the pill: it is a detached capsule to the right (rendered below).
+                        LiveSlot(plan.leading, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull())
                     } else if (recentLive) {
                         // A notification came in the last half minute: a dot in its app's colour says it can still be looked at.
                         Box(Modifier.size(7.dp).clip(CircleShape).background(recent?.tint?.let { Color(it) } ?: themeInk).testTag("island-recent-dot"))
@@ -1790,6 +1815,8 @@ private fun IslandAction(icon: ImageVector, label: String, showLabel: Boolean, o
 /** One text size for the detail beside the camera, whichever activity it is: the timer, the call, the stopwatch, a Live Update. */
 private const val SLOT_TEXT_SP = 12
 private val PRIVACY_MIC = Color(0xFFFF9F0A)
+/** A detached capsule's body: a stadium with fully rounded ends, like the pill but small. */
+private val capsuleShape = RoundedCornerShape(percent = 50)
 
 /** One live activity as it appears in a side of the collapsed pill: its small glyph, or its detail (text or bars). */
 @Composable

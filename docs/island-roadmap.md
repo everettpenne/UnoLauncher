@@ -4,7 +4,7 @@ What is built, and what is still to do. This is a working list, not a promise.
 
 ## Built
 
-- **A pill with two slots and up to two bubbles.** Calls, timers, stopwatches, Live Updates and music sit either side of the camera, the next two pop out as round bubbles, and a sideways flick turns which is in front. When all five run at once only music, the least urgent, is left out (every combination is unit tested).
+- **A leading activity on the pill and detached capsules beside it.** Calls, timers, stopwatches, Live Updates and music: the most important holds the pill (glyph one side, detail the other), the next is Apple's trailing capsule, and up to two more pop out as extra capsules. A sideways flick (or a tap on a capsule) turns which is in front. When all five run at once only music, the least urgent, is left out (every combination is unit tested).
 - **Privacy dots.** Camera, microphone and screen recording show as small green, orange and red dots beside the pill, from public callbacks that need no permission.
 - **Music that follows the player.** The player's own session decides playing and paused; a session that says "playing" over silence stops counting after a few seconds. Finished media lingers a few seconds; paused media worth returning to (a title, part-way through, over 30 seconds) leaves the pill and waits on the open island for a time you set. The cover colour washes the pill while it plays; the moving bars are checked on the real display.
 - **Notification cards and flashes.** A new notification drops a card (name only, name and title, or name, title and text; blocked words; per-app timeouts and an allowlist). A flash with only the app's icon opens that notification on a tap anywhere on the pill.

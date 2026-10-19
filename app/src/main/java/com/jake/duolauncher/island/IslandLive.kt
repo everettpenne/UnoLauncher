@@ -13,15 +13,23 @@ internal enum class LiveKind(val privacy: Boolean = false) { CAMERA(true), MIC(t
 /** What a collapsed-pill slot shows for a kind: its small glyph (an icon or artwork), or its detail (the text or bars). */
 internal enum class SlotShow { GLYPH, DETAIL }
 
-internal data class SlotPlan(val leading: Pair<LiveKind, SlotShow>?, val trailing: Pair<LiveKind, SlotShow>?)
-
-/** The two-slot layout, as iOS does it: with one live activity, its glyph sits on one side of the camera and its detail on
- * the other; with two, each side carries one (the left one as a glyph, the right one in full).
+/** The collapsed island's plan, as Apple does it: the *leading* activity is the one the main pill carries (its glyph on one
+ * side of the camera, its detail on the other), and the *trailing* activity is a separate detached capsule to the right of
+ * the pill. More activities beyond those two are also detached capsules (see [IslandBubbles]).
  */
+internal data class SlotPlan(
+    /** The leading activity the pill carries, glyph one side + detail the other; null when nothing is live. */
+    val leading: LiveKind?,
+    /** The trailing activity, a detached capsule to the right of the pill; null with one or no live activity. */
+    val trailing: LiveKind?,
+)
+
+/** The live-activity plan: the leading activity the pill carries and the trailing activity shown as its own detached capsule. */
 internal object IslandLive {
-    /** The activities that take a place on the pill, most important first. Camera, microphone and screen recording are not among them:
-     * they are privacy marks, shown as small dots beside the island whatever else is going on (see [privacy]), so a video call keeps its
-     * timer on the pill instead of being pushed out by the camera and microphone.
+    /** The live activities, most important first: the first is the pill's leading, the second its trailing capsule, and any
+     * further ones the extra capsules. Camera, microphone and screen recording are not among them: they are privacy marks,
+     * shown as small dots beside the island whatever else is going on (see [privacy]), so a video call keeps its timer on the
+     * pill instead of being pushed out by the camera and microphone.
      */
     fun active(call: Boolean, timer: Boolean, stopwatch: Boolean, media: Boolean, update: Boolean = false): List<LiveKind> =
         buildList {
@@ -46,11 +54,10 @@ internal object IslandLive {
         return kinds.drop(by) + kinds.take(by)
     }
 
-    fun plan(kinds: List<LiveKind>): SlotPlan = when {
-        kinds.isEmpty() -> SlotPlan(null, null)
-        kinds.size == 1 -> SlotPlan(kinds[0] to SlotShow.GLYPH, kinds[0] to SlotShow.DETAIL)
-        else -> SlotPlan(kinds[1] to SlotShow.GLYPH,
-            kinds[0] to if (kinds[0].privacy) SlotShow.GLYPH else SlotShow.DETAIL)
+    fun plan(kinds: List<LiveKind>): SlotPlan = when (kinds.size) {
+        0 -> SlotPlan(null, null)
+        1 -> SlotPlan(kinds[0], null)
+        else -> SlotPlan(kinds[0], kinds[1])
     }
 }
 
@@ -66,23 +73,40 @@ internal object LiveCompactText {
     }
 }
 
-/** Pop-out bubbles: as on newer dynamic islands, live activities beyond the two the pill can carry come out as small round
- * bubbles beside it. Tapping one brings its activity to the front of the pill. Pure, so the rules are unit-tested.
+/** Detached capsules to the right of the pill: the trailing activity first (glyph + short status), then the extras (glyph only).
+ * These are Apple's trailing capsule plus Uno's extra "bubbles", restyled as the same capsule: a black rounded body with a
+ * hairline rim. Tapping one brings its activity to the front of the pill. Pure, so the rules are unit-tested.
  */
 internal object IslandBubbles {
+    /** The extra activities shown after the pill's leading and its trailing capsule, at most [MAX]. */
     const val MAX = 2
-    const val SIZE_DP = 30f
+    /** Every capsule's height, in dp. */
+    const val HEIGHT_DP = 30f
+    /** The gap between the pill and the first capsule, and between capsules, in dp. */
     const val GAP_DP = 6f
+    /** The trailing capsule's width (glyph + short status, ellipsized), in dp. */
+    const val TRAILING_WIDTH_DP = 88f
+    /** An extra capsule's width (glyph only), in dp. */
+    const val EXTRA_WIDTH_DP = 34f
 
-    /** The activities shown as bubbles: those after the pill's two, at most [MAX]. */
+    /** The activities shown as extra capsules: those after the pill's leading and its trailing capsule, at most [MAX]. */
     fun extras(kinds: List<LiveKind>): List<LiveKind> = kinds.drop(2).take(MAX)
 
-    /** How far to turn the order so the tapped bubble's activity is in front of the pill. */
-    fun shiftFor(kinds: List<LiveKind>, bubbleIndex: Int): Int =
-        if (bubbleIndex in extras(kinds).indices) 2 + bubbleIndex else 0
+    /** How far to turn the order so the capsule at [index] (0 is the trailing capsule, then the extras) is in front of the pill. */
+    fun shiftFor(index: Int): Int = index + 1
 
-    /** How much room to the right of the pill the bubbles need, in dp (0 with none). */
-    fun reserveDp(count: Int): Float = if (count <= 0) 0f else GAP_DP + count * (SIZE_DP + GAP_DP)
+    /** The fixed width of the capsule at [index] (0 is the trailing capsule, then the extras), in dp. */
+    fun widthDp(index: Int): Float = if (index == 0) TRAILING_WIDTH_DP else EXTRA_WIDTH_DP
+
+    /** How much room the detached capsules need to the right of the pill, in dp (0 with none). [count] is the total number of
+     * capsules (the trailing capsule, then the extras).
+     */
+    fun reserveDp(count: Int): Float {
+        if (count <= 0) return 0f
+        var widths = 0f
+        for (i in 0 until count) widths += widthDp(i)
+        return count * GAP_DP + widths
+    }
 }
 
 /** Where the privacy dots sit beside the pill, and how much room they need. */

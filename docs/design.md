@@ -415,7 +415,7 @@ Uno borrows on purpose: **Apple's look** (island, glass, squircles, Spotlight-st
 1. **One surface per event type (the event-home ladder).** Every event has one home; a second surface may repeat it only when the first is not on screen.
    | Event | Home |
    | --- | --- |
-   | Something ongoing (call, timer, stopwatch, Live Update, download, music) | an island slot (two on the pill, two as bubbles; see Island activities) |
+   | Something ongoing (call, timer, stopwatch, Live Update, download, music) | an island slot (the leading on the pill, then detached capsules: the trailing and up to two extras; see Island activities) |
    | A message or app notification | the peek card, then the badge on the app's icon |
    | Camera, microphone, screen recording | the privacy dots beside the pill |
    | A system change (ringer, airplane, Do Not Disturb, VPN, USB, headphones, charging) | a short island flash |

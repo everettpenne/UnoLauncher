@@ -3,6 +3,7 @@ package com.jake.duolauncher
 import com.jake.duolauncher.island.*
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class IslandBubblesTest {
@@ -13,24 +14,27 @@ class IslandBubblesTest {
         assertEquals(emptyList<LiveKind>(), IslandBubbles.extras(all.take(2)))
     }
 
-    @Test fun activitiesBeyondTheTwoSlotsBecomeBubblesUpToTheLimit() {
+    @Test fun activitiesBeyondTheLeadingAndTrailingBecomeExtraCapsulesUpToTheLimit() {
         assertEquals(listOf(LiveKind.TIMER), IslandBubbles.extras(all.take(3)))
         assertEquals(listOf(LiveKind.TIMER, LiveKind.UPDATE), IslandBubbles.extras(all))
     }
 
-    @Test fun tappingABubbleBringsItsActivityToTheFront() {
-        val shift = IslandBubbles.shiftFor(all, 1)
-        assertEquals(LiveKind.UPDATE, IslandLive.rotated(all, shift).first())
-        assertEquals(LiveKind.TIMER, IslandLive.rotated(all, IslandBubbles.shiftFor(all, 0)).first())
+    @Test fun tappingACapsuleBringsItsActivityToTheFront() {
+        // Capsule 0 is the trailing activity (all[1]), capsule 1 the first extra (all[2]).
+        assertEquals(LiveKind.CALL, IslandLive.rotated(all, IslandBubbles.shiftFor(0)).first())
+        assertEquals(LiveKind.TIMER, IslandLive.rotated(all, IslandBubbles.shiftFor(1)).first())
     }
 
-    @Test fun badIndexChangesNothing() {
-        assertEquals(0, IslandBubbles.shiftFor(all, 5))
-        assertEquals(0, IslandBubbles.shiftFor(all.take(2), 0))
+    @Test fun theTrailingCapsuleIsWiderThanAnExtra() {
+        assertTrue(IslandBubbles.widthDp(0) > IslandBubbles.widthDp(1))
+        assertEquals(IslandBubbles.TRAILING_WIDTH_DP, IslandBubbles.widthDp(0), 0f)
+        assertEquals(IslandBubbles.EXTRA_WIDTH_DP, IslandBubbles.widthDp(1), 0f)
     }
 
-    @Test fun reserveGrowsWithTheBubbles() {
+    @Test fun reserveGrowsWithTheCapsules() {
         assertEquals(0f, IslandBubbles.reserveDp(0), 0f)
-        assertEquals(true, IslandBubbles.reserveDp(2) > IslandBubbles.reserveDp(1))
+        assertTrue(IslandBubbles.reserveDp(2) > IslandBubbles.reserveDp(1))
+        // One capsule is the trailing one: its width plus the gap from the pill.
+        assertEquals(IslandBubbles.TRAILING_WIDTH_DP + IslandBubbles.GAP_DP, IslandBubbles.reserveDp(1), 0f)
     }
 }

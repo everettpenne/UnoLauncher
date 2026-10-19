@@ -648,6 +648,7 @@ internal fun LauncherScreen(
             val panelWidth = maxWidth - geometry.homeWidth.dp
             val pagerWidth = maxWidth - preset.dockWidth.dp - 28.dp
             val pagerWidthPx = with(density) { pagerWidth.toPx() }
+            val screenWidthPx = with(density) { maxWidth.toPx() }
             // Home runs the pager under the dock and status rail, iOS-style, so page content
             // slides beneath the glass during swipes and the lens has edges to bend. Compact
             // pages inset their content by this much, so the resting layout is unchanged.
@@ -831,8 +832,8 @@ internal fun LauncherScreen(
             // off-screen with the page they border when the pager crosses into the feed or the app list, so the edge
             // pages fill the width the dock/rail vacated. The math lives in EdgeDockShift, read here as a derived
             // state so the four rail/dock layers track pager.position frame-by-frame without recomposing the screen.
-            val dockRailShiftPx = remember(visibleHomePages, pagerWidthPx) {
-                derivedStateOf { EdgeDockShift.shiftPx(pager.position, visibleHomePages, pagerWidthPx) }
+            val dockRailShiftPx = remember(visibleHomePages, screenWidthPx) {
+                derivedStateOf { EdgeDockShift.shiftPx(pager.position, visibleHomePages, screenWidthPx) }
             }
             if (state.verticalStatus) {
                 val railInk = rememberAdaptiveInk(glassTint, if (glassEnabled) .12f else .0f)

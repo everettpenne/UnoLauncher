@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.86.0-uno01
+
+- **The dock leaves cleanly into All apps.** Swiping into All apps now slides the dock and status rail fully off the left edge with the home page, instead of parking them on the left edge drawn over the app list. The feed side was already right; both edges now exit the screen cleanly.
+
 ## 0.85.0-uno01
 
 - **The dock's glass slides with the dock.** The dock and status rail's glass surface now moves off-screen together with its icons (before, only the icons moved and the glass stayed floating over the feed and All apps).

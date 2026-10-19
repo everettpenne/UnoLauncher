@@ -1395,7 +1395,13 @@ private fun CollapsedFace(frameState: State<IslandFrame>, d: Float, alphaOf: () 
                     }
                     if (frame.side == IslandSide.RIGHT) Spacer(Modifier.width(((frame.width - hole.left) / d).dp + gap))
                 } else if (hole != null) {
-                    Box(Modifier.width(((hole.left / d).dp - gap).coerceAtLeast(0.dp)), contentAlignment = Alignment.Center) { leading() }
+                    // In the wide pill the leading glyph sits concentrically with the pill's left end cap (its centre at half the
+                    // pill's height), not centred in the whole left slot; the compact pill's left slot is already tight enough.
+                    val wide = frame.width > frame.height * 1.05f
+                    Box(Modifier.width(((hole.left / d).dp - gap).coerceAtLeast(0.dp)),
+                        contentAlignment = if (wide) Alignment.CenterStart else Alignment.Center) {
+                        if (wide) Box(Modifier.padding(start = ((GLYPH_INSET_PX / 2f) / d).dp)) { leading() } else leading()
+                    }
                     Spacer(Modifier.width((hole.width / d).dp + gap * 2))
                     Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { trailing() }
                 } else {

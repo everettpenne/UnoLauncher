@@ -38,9 +38,9 @@ internal fun ChecklistFace(slot: Int, onOptions: () -> Unit) {
         val (done, total) = Checklist.doneCount(items)
         CardTitle(Icons.Rounded.CheckCircle, "Checklist")
         if (items.isEmpty()) {
-            Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_a_task), color = ink.soft(), fontSize = 13.sp)
+            Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_a_task), color = ink.soft(), style = UnoType.footnote)
         } else {
-            Text("$done of $total done", color = ink.soft(), fontSize = 11.sp, maxLines = 1)
+            Text("$done of $total done", color = ink.soft(), style = UnoType.caption2, maxLines = 1)
             Column(Modifier.weight(1f).fillMaxWidth().padding(top = 3.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 items.take(Checklist.SHOWN).forEachIndexed { index, item ->
                     Row(Modifier.fillMaxWidth().clip(Corner.medium)
@@ -51,7 +51,7 @@ internal fun ChecklistFace(slot: Int, onOptions: () -> Unit) {
                             if (item.done) "Done" else "Not done",
                             tint = if (item.done) accent else ink.soft(), modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(7.dp))
-                        Text(item.text, color = if (item.done) ink.soft() else ink.primary, fontSize = 13.sp, maxLines = 1,
+                        Text(item.text, color = if (item.done) ink.soft() else ink.primary, style = UnoType.footnote, maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textDecoration = if (item.done) TextDecoration.LineThrough else null,
                             modifier = Modifier.weight(1f))

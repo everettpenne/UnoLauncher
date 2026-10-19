@@ -26,7 +26,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -145,9 +144,9 @@ internal fun LargeFolderFace(slot: Int, onOpenOptions: () -> Unit) {
             val (columns, capacity) = LargeFolderRules.capacity(maxWidth.value + 16f, maxHeight.value + 16f)
             val shown = folder.appIds.mapNotNull(apps::get).take(capacity)
             Column(Modifier.fillMaxSize()) {
-                if (m.titled) Text(folder.title, color = Color.White, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                if (m.titled) Text(folder.title, color = Color.White, style = UnoType.caption1, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(start = 4.dp, bottom = 6.dp).testTag("large-folder-title"))
-                if (shown.isEmpty()) Text(if (m.titled) "Tap to choose apps" else "Tap", color = Color.White.copy(alpha = .75f), fontSize = 12.sp,
+                if (shown.isEmpty()) Text(if (m.titled) "Tap to choose apps" else "Tap", color = Color.White.copy(alpha = .75f), style = UnoType.caption1,
                     modifier = Modifier.padding(4.dp))
                 shown.chunked(columns).forEach { row ->
                     Row(Modifier.fillMaxWidth()) {

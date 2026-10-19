@@ -40,7 +40,7 @@ internal fun TimersFace(slot: Int, onOptions: () -> Unit) {
                 fontWeight = FontWeight.Light, maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally).testTag("timer-remaining"))
             Box(Modifier.align(Alignment.CenterHorizontally).clip(RoundedCornerShape(50)).background(ink.soft(.2f))
                 .clickable { IslandTools.cancelTimer(context) }.padding(horizontal = 18.dp, vertical = 6.dp).testTag("timer-stop")) {
-                Text(stringResource(com.jake.duolauncher.R.string.stop), color = ink.primary, fontSize = 13.sp)
+                Text(stringResource(com.jake.duolauncher.R.string.stop), color = ink.primary, style = UnoType.footnote)
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -50,7 +50,7 @@ internal fun TimersFace(slot: Int, onOptions: () -> Unit) {
                             Box(Modifier.weight(1f).clip(RoundedCornerShape(50)).background(widgetAccent(WidgetColors.Warm).copy(alpha = .28f))
                                 .clickable { IslandTools.startTimer(context, minutes * 60_000L) }.padding(vertical = 8.dp)
                                 .testTag("timer-start-$minutes"), contentAlignment = Alignment.Center) {
-                                Text("$minutes min", color = ink.primary, fontSize = 12.sp, maxLines = 1)
+                                Text("$minutes min", color = ink.primary, style = UnoType.caption1, maxLines = 1)
                             }
                         }
                     }

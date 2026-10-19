@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 
@@ -33,6 +32,6 @@ internal fun CardTitle(icon: androidx.compose.ui.graphics.vector.ImageVector, te
     Row(verticalAlignment = Alignment.CenterVertically) {
         androidx.compose.material3.Icon(icon, null, tint = ink.soft(), modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(5.dp))
-        Text(text, color = ink.soft(), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text, color = ink.soft(), style = UnoType.caption2, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

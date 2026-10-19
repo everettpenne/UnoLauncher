@@ -27,7 +27,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -79,9 +78,9 @@ internal fun BatteryFace(slot: Int, onOptions: () -> Unit) {
                     }
                 }
             }
-            Text(if (reading.level >= 0) "${reading.level}%" else "—", color = ink.primary, fontSize = 17.sp, fontWeight = FontWeight.Light)
+            Text(if (reading.level >= 0) "${reading.level}%" else "—", color = ink.primary, style = UnoType.body.copy(fontWeight = FontWeight.Light))
         }
-        Text(reading.toFull ?: if (reading.charging) "Charging" else "On battery", color = ink.soft(), fontSize = 11.sp, maxLines = 1,
+        Text(reading.toFull ?: if (reading.charging) "Charging" else "On battery", color = ink.soft(), style = UnoType.caption2, maxLines = 1,
             modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }

@@ -66,8 +66,8 @@ internal fun MoonFace(slot: Int, onOptions: () -> Unit) {
                 }
             }
         }
-        Text(MoonPhase.name(cycle), color = ink.primary, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally))
-        Text("${(litFraction * 100).toInt()}% lit", color = ink.soft(), fontSize = 11.sp, maxLines = 1,
+        Text(MoonPhase.name(cycle), color = ink.primary, style = UnoType.footnote.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text("${(litFraction * 100).toInt()}% lit", color = ink.soft(), style = UnoType.caption2, maxLines = 1,
             modifier = Modifier.align(Alignment.CenterHorizontally))
         // What is coming: the nearer of the next full and the next new moon.
         Text(MoonPhase.nextText(MoonPhase.next(at)), color = ink.soft(), fontSize = 10.sp, maxLines = 1,

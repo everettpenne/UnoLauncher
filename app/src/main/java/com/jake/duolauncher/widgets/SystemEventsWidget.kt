@@ -66,7 +66,7 @@ internal fun ConsoleFace(slot: Int, onOptions: () -> Unit) {
         val ink = LocalGlassInk.current
         CardTitle(Icons.Rounded.Terminal, "Console")
         if (events.isEmpty()) {
-            Text(stringResource(com.jake.duolauncher.R.string.no_events_yet), color = ink.soft(), fontSize = 12.sp)
+            Text(stringResource(com.jake.duolauncher.R.string.no_events_yet), color = ink.soft(), style = UnoType.caption1)
         } else {
             // Newest at the bottom, scrollable up to the older lines. reverseLayout keeps the newest line
             // visible when a new event lands, and the bottom padding stops the last line's descenders
@@ -78,7 +78,7 @@ internal fun ConsoleFace(slot: Int, onOptions: () -> Unit) {
                         Text(ConsoleTime.format(event.atMs, is24, zone), color = accent, fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace, maxLines = 1)
                         Spacer(Modifier.width(6.dp))
-                        Text(event.text, color = ink.primary, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                        Text(event.text, color = ink.primary, style = UnoType.caption2.copy(fontFamily = FontFamily.Monospace),
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }

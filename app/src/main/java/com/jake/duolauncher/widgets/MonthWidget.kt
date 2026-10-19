@@ -33,8 +33,8 @@ internal fun MonthFace(slot: Int, onOptions: () -> Unit) {
         val ink = LocalGlassInk.current
         val accent = widgetAccent(WidgetColors.Rose)
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(month.format(DateTimeFormatter.ofPattern("MMMM")), color = ink.primary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-            Text("\u00A0${month.year}", color = ink.soft(), fontSize = 11.sp, maxLines = 1)
+            Text(month.format(DateTimeFormatter.ofPattern("MMMM")), color = ink.primary, style = UnoType.footnote.copy(fontWeight = FontWeight.SemiBold), maxLines = 1)
+            Text("\u00A0${month.year}", color = ink.soft(), style = UnoType.caption2, maxLines = 1)
         }
         Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
             MonthGrid.headers(first).forEach { day ->

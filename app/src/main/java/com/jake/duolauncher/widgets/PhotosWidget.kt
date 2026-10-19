@@ -43,7 +43,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import java.time.ZoneId
@@ -101,7 +100,7 @@ internal fun PhotosFace(slot: Int, onOptions: () -> Unit) {
                     albumId != null && !PhotoAlbums.hasAccess(context) -> "Allow Photos access to show this album."
                     albumId != null -> "This album is empty."
                     else -> "Tap to choose photos"
-                }, color = ink.soft(), fontSize = 13.sp)
+                }, color = ink.soft(), style = UnoType.footnote)
             }
             picture != null -> Image(picture!!, "Photo ${index + 1} of ${ordered.size}",
                 Modifier.fillMaxSize().testTag("photos-image"), contentScale = ContentScale.Crop)
@@ -142,7 +141,7 @@ private fun PhotoPreview(uris: List<String>, startIndex: Int, title: String,
                 .background(Color.Black.copy(alpha = .55f)).padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("${pager.currentPage + 1} of ${uris.size}" + if (title.isNotEmpty()) " · $title" else "",
-                    color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                    color = Color.White, style = UnoType.subheadline.copy(fontWeight = FontWeight.Medium),
                     modifier = Modifier.weight(1f).padding(start = 8.dp), maxLines = 1)
                 CompositionLocalProvider(LocalKitInk provides Color.White) {
                     GlassIconButton(onClick = onSettings, modifier = Modifier.testTag("photos-preview-settings")) {

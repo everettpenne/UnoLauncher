@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import java.time.LocalDate
 
 /** The Day, month and year widget: its face (the drawing) and its own helpers. Registered in [UnoWidgets]. */
@@ -34,8 +33,8 @@ internal fun ProgressFace(slot: Int, onOptions: () -> Unit) {
                 val colour = widgetAccent(hue).let { if (LocalWallpaperAccent.current != null) hue else it }
                 Column {
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text(label, color = ink.primary, fontSize = 11.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                        Text("${(fraction * 100).toInt()}%", color = ink.soft(), fontSize = 11.sp)
+                        Text(label, color = ink.primary, style = UnoType.caption2.copy(fontWeight = FontWeight.Medium), modifier = Modifier.weight(1f))
+                        Text("${(fraction * 100).toInt()}%", color = ink.soft(), style = UnoType.caption2)
                     }
                     Box(Modifier.padding(top = 3.dp).fillMaxWidth().height(7.dp).clip(RoundedCornerShape(50)).background(ink.soft(.2f))) {
                         Box(Modifier.fillMaxWidth(fraction.coerceIn(.02f, 1f)).fillMaxHeight().clip(RoundedCornerShape(50))

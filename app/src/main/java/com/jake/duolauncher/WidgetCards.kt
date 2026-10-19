@@ -66,7 +66,7 @@ internal fun ClockCard(onClick: () -> Unit) {
         val ink = LocalGlassInk.current
         Icon(Icons.Rounded.Schedule, "Clock widget; tap to replace", tint = ink.primary, modifier = Modifier.size(20.dp))
         Text(time.format(DateTimeFormatter.ofPattern(format)), color = ink.primary, fontWeight = FontWeight.Light, fontSize = 30.sp, maxLines = 1)
-        Text(stringResource(com.jake.duolauncher.R.string.local_time), color = ink.soft(.92f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text(stringResource(com.jake.duolauncher.R.string.local_time), color = ink.soft(.92f), style = UnoType.caption1.copy(fontWeight = FontWeight.Medium))
     }
 }
 
@@ -75,9 +75,9 @@ internal fun DateCard(onClick: () -> Unit) {
     val date = currentTime()
     GlassCard(onClick = onClick) {
         val ink = LocalGlassInk.current
-        Text(date.format(DateTimeFormatter.ofPattern("EEEE")), color = ink.primary, fontSize = 12.sp, maxLines = 1)
+        Text(date.format(DateTimeFormatter.ofPattern("EEEE")), color = ink.primary, style = UnoType.caption1, maxLines = 1)
         Text(date.dayOfMonth.toString(), color = ink.primary, fontWeight = FontWeight.Light, fontSize = 40.sp, lineHeight = 42.sp)
-        Text(date.format(DateTimeFormatter.ofPattern("MMMM")), color = ink.soft(.92f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Text(date.format(DateTimeFormatter.ofPattern("MMMM")), color = ink.soft(.92f), style = UnoType.footnote.copy(fontWeight = FontWeight.Medium))
     }
 }
 
@@ -87,15 +87,15 @@ internal fun ExpandedCard(onClick: () -> Unit) {
     GlassCard(onClick = onClick) {
         val ink = LocalGlassInk.current
         Column {
-            Text(date.format(DateTimeFormatter.ofPattern("EEEE")), color = ink.primary, fontSize = 22.sp)
-            Text(date.format(DateTimeFormatter.ofPattern("MMMM d")), color = ink.soft(), fontSize = 16.sp)
+            Text(date.format(DateTimeFormatter.ofPattern("EEEE")), color = ink.primary, style = UnoType.title2)
+            Text(date.format(DateTimeFormatter.ofPattern("MMMM d")), color = ink.soft(), style = UnoType.callout)
         }
         Column {
             Icon(Icons.Rounded.Widgets, null, tint = ink.primary, modifier = Modifier.size(32.dp))
             Spacer(Modifier.height(16.dp))
             Text(stringResource(com.jake.duolauncher.R.string.a_little_more_room), color = ink.primary, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Light)
             Spacer(Modifier.height(12.dp))
-            Text(stringResource(com.jake.duolauncher.R.string.add_a_calendar_photos_or_another), color = ink.soft(.85f), fontSize = 14.sp)
+            Text(stringResource(com.jake.duolauncher.R.string.add_a_calendar_photos_or_another), color = ink.soft(.85f), style = UnoType.subheadline)
             Spacer(Modifier.height(20.dp))
             FilledTonalButton(onClick = onClick) { Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(com.jake.duolauncher.R.string.add_widget)) }
         }

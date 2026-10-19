@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.83.0-uno01
+
+- **One type scale, everywhere.** The All apps list, Spotlight rows, the status rail, every widget face and the settings now speak the same `UnoType` HIG rhythm instead of stray raw point sizes; section headers, label colours and corner radii are consistent, and the last Material `surfaceVariant` slabs are gone. The launcher finally reads as one piece of glass.
+- **The wide island's icon sits in its end.** When the pill is wide, the app icon or artwork sits concentrically with the pill's rounded end (a few pixels inside it), instead of floating in the middle of the wider slot.
+
 ## 0.82.1-uno01
 
 - **Concentric icons, for real.** App icons and artwork on the pill (and the detached capsules) are now circles sized a few pixels inside the pill's radius, centered — they follow the island size and read as set into it. (0.82.0 shipped the leading/trailing restyle; this release actually ships the concentric-icon change it described.)

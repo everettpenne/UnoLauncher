@@ -31,7 +31,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -96,8 +95,8 @@ internal fun AppLibrary(
             listOf(Color.White.copy(alpha = .09f), Color.Transparent) else listOf(Color.Transparent, Color.Transparent)))
             .padding(horizontal = 16.dp).padding(top = 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (editing) "Choose home apps" else "All apps", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
-                Text(if (editing) "${pinned.size} pinned" else "${visibleApps.size}", color = ink, fontSize = 12.sp)
+                Text(if (editing) "Choose home apps" else "All apps", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+                Text(if (editing) "${pinned.size} pinned" else "${visibleApps.size}", color = ink, style = UnoType.caption1)
             }
             if (hasWork) Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassChip(selected = !showWork, onClick = { showWork = false }, label = { Text(stringResource(com.jake.duolauncher.R.string.personal)) })
@@ -122,9 +121,9 @@ internal fun AppLibrary(
                             clipboard.setText(androidx.compose.ui.text.AnnotatedString(smart.text))
                             android.widget.Toast.makeText(toastContext, "Copied ${smart.text}", android.widget.Toast.LENGTH_SHORT).show()
                         }.padding(horizontal = 16.dp, vertical = 12.dp).testTag("smart-answer")) {
-                        Text(smart.detail, color = ink.copy(alpha = .7f), fontSize = 12.sp)
-                        Text(smart.text, color = ink, fontSize = 26.sp, fontWeight = FontWeight.Medium)
-                        Text(stringResource(com.jake.duolauncher.R.string.tap_to_copy), color = ink.copy(alpha = .55f), fontSize = 11.sp)
+                        Text(smart.detail, color = ink.copy(alpha = .7f), style = UnoType.caption1)
+                        Text(smart.text, color = ink, style = UnoType.title2)
+                        Text(stringResource(com.jake.duolauncher.R.string.tap_to_copy), color = ink.copy(alpha = .55f), style = UnoType.caption2)
                     }
                 }
                 if (showWork && selectedProfile?.available == false) item("work-paused") {
@@ -141,9 +140,9 @@ internal fun AppLibrary(
                             // An opaque small chip prevents text from showing through the sticky letter.
                             Box(Modifier.size(width = 32.dp, height = 28.dp).background(
                                 if (glass) (if (palette.dark) Color(0xFF314852) else Color(0xFFB7CBD3))
-                                else MaterialTheme.colorScheme.surfaceContainer,
+                                else MaterialTheme.colorScheme.secondaryContainer,
                                 Corner.small), contentAlignment = Alignment.Center) {
-                                Text(letter, color = ink, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                                Text(letter, color = ink, style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
                             }
                             if (glass) HorizontalDivider(Modifier.weight(1f).padding(start = 10.dp), color = Color.White.copy(alpha = .24f))
                         }
@@ -159,11 +158,11 @@ internal fun AppLibrary(
                             .padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Image(app.image, null, Modifier.size(40.dp)
                                 .onGloballyPositioned { launchBounds.set(it.boundsInWindow().toAndroidBounds()) }.clip(Corner.icon))
-                            Text(app.label, Modifier.weight(1f).padding(start = 12.dp), maxLines = 2, fontSize = 14.sp)
+                            Text(app.label, Modifier.weight(1f).padding(start = 12.dp), maxLines = 2, style = UnoType.subheadline)
                             if (editing) IconButton(onClick = { onPin(app.id, !isPinned) }, Modifier.testTag("pin-${app.id}")) {
                                 Icon(if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
                                     if (isPinned) "Remove ${app.label} from home" else "Pin ${app.label} to home",
-                                    tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                    tint = if (isPinned) MaterialTheme.colorScheme.primary else ink.copy(alpha = .5f),
                                     modifier = Modifier.size(20.dp))
                             }
                         }
@@ -171,7 +170,7 @@ internal fun AppLibrary(
                 }
                 if (suggestions.isNotEmpty()) {
                     item("handoff-header") {
-                        Text(stringResource(com.jake.duolauncher.R.string.look_elsewhere), Modifier.padding(top = 14.dp, bottom = 6.dp), fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = ink)
+                        Text(stringResource(com.jake.duolauncher.R.string.look_elsewhere), Modifier.padding(top = 12.dp, bottom = 4.dp), color = ink.copy(alpha = .6f), style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
                     }
                     items(suggestions, key = { "handoff-${it.kind}-${it.packageName}" }) { target ->
                         HandoffRow(target, ink, Modifier.clickable { handoff?.open(target, query) })
@@ -179,8 +178,8 @@ internal fun AppLibrary(
                 }
                 if (contacts.isNotEmpty()) {
                     item("contacts-header") {
-                        Text(stringResource(com.jake.duolauncher.R.string.contacts), Modifier.padding(top = 14.dp, bottom = 6.dp), fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp, color = ink)
+                        Text(stringResource(com.jake.duolauncher.R.string.contacts), Modifier.padding(top = 12.dp, bottom = 4.dp),
+                            color = ink.copy(alpha = .6f), style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
                     }
                     items(contacts, key = { "contact-${it.id}" }) { contact ->
                         Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.small).clickable { onContact(contact) }
@@ -189,7 +188,7 @@ internal fun AppLibrary(
                                 contentAlignment = Alignment.Center) {
                                 Text(contact.name.firstOrNull()?.uppercase() ?: "?", color = ink, fontWeight = FontWeight.SemiBold)
                             }
-                            Text(contact.name, Modifier.weight(1f).padding(start = 12.dp), maxLines = 1, fontSize = 14.sp)
+                            Text(contact.name, Modifier.weight(1f).padding(start = 12.dp), maxLines = 1, style = UnoType.subheadline)
                         }
                     }
                 }

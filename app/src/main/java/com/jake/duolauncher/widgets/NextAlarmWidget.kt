@@ -53,18 +53,18 @@ internal fun NextAlarmFace(slot: Int, onOptions: () -> Unit) {
         val preview = LocalWidgetPreview.current
         if (alarm == null && !preview) {
             Text(stringResource(com.jake.duolauncher.R.string.no_alarm_set), color = ink.primary, fontSize = 18.sp, fontWeight = FontWeight.Light, modifier = Modifier.testTag("next-alarm-none"))
-            Text(stringResource(com.jake.duolauncher.R.string.set_one_in_your_clock_app), color = ink.soft(), fontSize = 12.sp)
+            Text(stringResource(com.jake.duolauncher.R.string.set_one_in_your_clock_app), color = ink.soft(), style = UnoType.caption1)
         } else {
             val zone = ZoneId.systemDefault()
             // The picker's preview shows a plausible alarm (tomorrow morning) rather than the person's own, or "No alarm set".
             val trigger = alarm?.triggerTime ?: java.time.ZonedDateTime.now(zone).plusDays(1).withHour(7).withMinute(30).withSecond(0).toInstant().toEpochMilli()
             val parts = NextAlarmText.describe(Instant.ofEpochMilli(nowMs).atZone(zone), Instant.ofEpochMilli(trigger).atZone(zone),
                 android.text.format.DateFormat.is24HourFormat(context))
-            Text(parts.day, color = ink.soft(), fontSize = 12.sp, maxLines = 1)
+            Text(parts.day, color = ink.soft(), style = UnoType.caption1, maxLines = 1)
             Text(parts.time, color = ink.primary, fontSize = 34.sp, fontWeight = FontWeight.Light, maxLines = 1, modifier = Modifier.testTag("next-alarm-time"))
             Box(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(widgetAccent(WidgetColors.Warm).copy(alpha = .26f))
                 .padding(horizontal = 9.dp, vertical = 3.dp)) {
-                Text(parts.remaining, color = ink.primary, fontSize = 11.sp, maxLines = 1)
+                Text(parts.remaining, color = ink.primary, style = UnoType.caption2, maxLines = 1)
             }
         }
     }

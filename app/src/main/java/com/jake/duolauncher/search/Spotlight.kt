@@ -69,7 +69,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -539,10 +538,10 @@ internal fun Spotlight(
                             copied = true
                         }
                         .padding(horizontal = 16.dp, vertical = 10.dp).testTag("spotlight-answer")) {
-                        Text(smart.detail, color = ink.copy(alpha = .7f), fontSize = 12.sp)
-                        Text(smart.text, color = ink, fontSize = 24.sp, fontWeight = FontWeight.Medium)
+                        Text(smart.detail, color = ink.copy(alpha = .7f), style = UnoType.caption1)
+                        Text(smart.text, color = ink, style = UnoType.title2)
                         Text(stringResource(if (copied) com.jake.duolauncher.R.string.spotlight_copied else com.jake.duolauncher.R.string.spotlight_tap_to_copy),
-                            color = ink.copy(alpha = .5f), fontSize = 11.sp)
+                            color = ink.copy(alpha = .5f), style = UnoType.caption2)
                     }
                 }
                 if (singleQuick != null) item("quick-header") {
@@ -637,7 +636,7 @@ internal fun Spotlight(
                 // With no launch history yet the panel would otherwise just be quick actions; teach the typed commands too.
                 if (!typed && suggested.isEmpty()) item("hint") {
                     Text(stringResource(com.jake.duolauncher.R.string.spotlight_try), Modifier.padding(12.dp),
-                        color = ink.copy(alpha = .6f), fontSize = 13.sp)
+                        color = ink.copy(alpha = .6f), style = UnoType.footnote)
                 }
                 if (suggestions.isNotEmpty()) item("elsewhere-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_elsewhere), ink) }
                 items(suggestions, key = { "handoff-${it.kind}-${it.packageName}" }) { target ->
@@ -669,17 +668,17 @@ internal fun HandoffRow(target: HandoffTarget, ink: Color, modifier: Modifier = 
         if (icon != null) Image(icon.asImageBitmap(), null, Modifier.size(40.dp).clip(Corner.icon))
         else Box(Modifier.size(40.dp).background(ink.copy(alpha = .12f), Corner.icon))
         Column(Modifier.padding(start = 12.dp)) {
-            Text(target.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp)
+            Text(target.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = UnoType.subheadline)
             Text(if (target.kind == HandoffKind.WEB) "Opens your browser's own search" else "Not installed? Look for it here",
-                fontSize = 11.sp, color = ink.copy(alpha = .6f), maxLines = 1)
+                style = UnoType.caption2, color = ink.copy(alpha = .6f), maxLines = 1)
         }
     }
 }
 
 @Composable
 private fun SpotlightHeader(text: String, ink: Color) {
-    Text(text.uppercase(), Modifier.padding(start = 8.dp, top = 10.dp, bottom = 2.dp), color = ink.copy(alpha = .5f),
-        fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = .8.sp)
+    Text(text.uppercase(), Modifier.padding(start = 8.dp, top = 12.dp, bottom = 4.dp), color = ink.copy(alpha = .6f),
+        style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
 }
 
 /** The leading mark for a quick action row. */
@@ -706,10 +705,10 @@ private fun SpotlightRow(title: String, subtitle: String?, tag: String, highligh
         .padding(horizontal = 6.dp, vertical = 6.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically) {
         leading()
         Column(Modifier.padding(start = 12.dp)) {
-            val size = if (titleLines > 1) 14.sp else 16.sp
-            if (match == null) Text(title, maxLines = titleLines, overflow = TextOverflow.Ellipsis, fontSize = size)
-            else Text(highlightMatch(title, match), maxLines = titleLines, overflow = TextOverflow.Ellipsis, fontSize = size)
-            if (subtitle != null) Text(subtitle, fontSize = 11.sp, color = ink.copy(alpha = .6f), maxLines = 1)
+            val titleStyle = if (titleLines > 1) UnoType.subheadline else UnoType.callout
+            if (match == null) Text(title, maxLines = titleLines, overflow = TextOverflow.Ellipsis, style = titleStyle)
+            else Text(highlightMatch(title, match), maxLines = titleLines, overflow = TextOverflow.Ellipsis, style = titleStyle)
+            if (subtitle != null) Text(subtitle, style = UnoType.caption2, color = ink.copy(alpha = .6f), maxLines = 1)
         }
     }
 }

@@ -17,7 +17,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -40,9 +39,9 @@ internal fun SunFace(slot: Int, onOptions: () -> Unit) {
         val ink = LocalGlassInk.current
         CardTitle(Icons.Rounded.WbSunny, "Sun")
         when {
-            schedule == null -> Text(stringResource(com.jake.duolauncher.R.string.set_a_place_in_wallpaper_glass), color = ink.soft(), fontSize = 12.sp)
-            schedule.polar == PolarDaylight.DAY -> Text(stringResource(com.jake.duolauncher.R.string.the_sun_does_not_set_today), color = ink.primary, fontSize = 14.sp)
-            schedule.polar == PolarDaylight.NIGHT -> Text(stringResource(com.jake.duolauncher.R.string.the_sun_does_not_rise_today), color = ink.primary, fontSize = 14.sp)
+            schedule == null -> Text(stringResource(com.jake.duolauncher.R.string.set_a_place_in_wallpaper_glass), color = ink.soft(), style = UnoType.caption1)
+            schedule.polar == PolarDaylight.DAY -> Text(stringResource(com.jake.duolauncher.R.string.the_sun_does_not_set_today), color = ink.primary, style = UnoType.subheadline)
+            schedule.polar == PolarDaylight.NIGHT -> Text(stringResource(com.jake.duolauncher.R.string.the_sun_does_not_rise_today), color = ink.primary, style = UnoType.subheadline)
             else -> {
                 val rise = requireNotNull(schedule.sunrise); val set = requireNotNull(schedule.sunset)
                 val sunNow = rememberNow(60_000L).atZone(rise.zone)
@@ -70,10 +69,10 @@ internal fun SunFace(slot: Int, onOptions: () -> Unit) {
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(rise.format(format), color = ink.primary, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-                    Text(set.format(format), color = ink.primary, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                    Text(rise.format(format), color = ink.primary, style = UnoType.footnote.copy(fontWeight = FontWeight.Medium), maxLines = 1)
+                    Text(set.format(format), color = ink.primary, style = UnoType.footnote.copy(fontWeight = FontWeight.Medium), maxLines = 1)
                 }
-                Text(SunText.dayLength(rise, set), color = ink.soft(), fontSize = 11.sp, maxLines = 1)
+                Text(SunText.dayLength(rise, set), color = ink.soft(), style = UnoType.caption2, maxLines = 1)
             }
         }
     }

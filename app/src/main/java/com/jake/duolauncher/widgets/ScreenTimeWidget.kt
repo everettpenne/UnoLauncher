@@ -60,7 +60,7 @@ internal fun ScreenTimeFace(slot: Int, onOptions: () -> Unit) {
         val ink = LocalGlassInk.current
         CardTitle(Icons.Rounded.HourglassTop, "Screen time")
         if (!allowed) {
-            Text(stringResource(com.jake.duolauncher.R.string.screen_time_allow), color = ink.soft(), fontSize = 12.sp)
+            Text(stringResource(com.jake.duolauncher.R.string.screen_time_allow), color = ink.soft(), style = UnoType.caption1)
             Spacer(Modifier.height(8.dp))
             GlassButton("Allow", { openUsageAccess(context) }, tag = "screentime-allow")
         } else {
@@ -68,20 +68,20 @@ internal fun ScreenTimeFace(slot: Int, onOptions: () -> Unit) {
             val over = ScreenTime.overGoal(total, goalMin)
             Text(ScreenTime.formatDuration(total), color = ink.primary, fontSize = 30.sp, fontWeight = FontWeight.Light,
                 maxLines = 1, modifier = Modifier.testTag("screentime-total"))
-            Text(stringResource(com.jake.duolauncher.R.string.screen_time_today), color = ink.soft(), fontSize = 11.sp)
+            Text(stringResource(com.jake.duolauncher.R.string.screen_time_today), color = ink.soft(), style = UnoType.caption2)
             Spacer(Modifier.height(4.dp))
             LinearProgressIndicator(progress = { ScreenTime.goalProgress(total, goalMin) },
                 modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)),
                 color = if (over) widgetAccent(WidgetColors.Warm) else accent,
                 trackColor = ink.soft(.20f), gapSize = 0.dp, drawStopIndicator = {})
-            Text("of your ${ScreenTime.formatDuration(goalMin)} goal", color = ink.soft(), fontSize = 11.sp, maxLines = 1)
+            Text("of your ${ScreenTime.formatDuration(goalMin)} goal", color = ink.soft(), style = UnoType.caption2, maxLines = 1)
             Spacer(Modifier.height(4.dp))
             ScreenTime.topApps(usages).forEach { app ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 1.dp).testTag("screentime-app-${app.packageName}"),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text(ScreenTime.displayName(app), color = ink.soft(), fontSize = 12.sp, maxLines = 1,
+                    Text(ScreenTime.displayName(app), color = ink.soft(), style = UnoType.caption1, maxLines = 1,
                         overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    Text(ScreenTime.formatDuration(app.minutes), color = ink.primary, fontSize = 12.sp, maxLines = 1)
+                    Text(ScreenTime.formatDuration(app.minutes), color = ink.primary, style = UnoType.caption1, maxLines = 1)
                 }
             }
         }

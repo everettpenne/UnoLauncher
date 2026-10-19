@@ -42,7 +42,7 @@ internal fun WorldClockFace(slot: Int, onOptions: () -> Unit) {
     GlassCard(onClick = { editing = true }, modifier = Modifier.testTag("uno-world-clock-$slot")) {
         val ink = LocalGlassInk.current
         CardTitle(Icons.Rounded.Public, "World clock")
-        if (zones.isEmpty()) Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_a_place), color = ink.soft(), fontSize = 13.sp)
+        if (zones.isEmpty()) Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_a_place), color = ink.soft(), style = UnoType.footnote)
         else Column(Modifier.weight(1f).fillMaxWidth().padding(top = 2.dp), verticalArrangement = Arrangement.Center) {
             zones.forEach { zoneId ->
                 val row = WorldClock.row(requireNotNull(WorldClock.cityFor(zoneId)), now, is24Hour)
@@ -51,12 +51,12 @@ internal fun WorldClockFace(slot: Int, onOptions: () -> Unit) {
                     // A small sun or moon: is it day or night there?
                     Box(Modifier.padding(end = 7.dp).size(8.dp).clip(androidx.compose.foundation.shape.CircleShape)
                         .background(if (row.daytime) widgetAccent(WidgetColors.Gold) else WidgetColors.Violet.copy(alpha = .85f)))
-                    Text(row.label, color = ink.primary.copy(alpha = .85f), fontSize = 12.sp, maxLines = 1, softWrap = false,
+                    Text(row.label, color = ink.primary.copy(alpha = .85f), style = UnoType.caption1, maxLines = 1, softWrap = false,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     // "+1" or "-1": the place is a day ahead of, or behind, this phone (the full words took the room the name needs).
                     row.dayNote?.let { Text(if (it == "Tomorrow") "+1" else "\u22121", color = ink.soft(.75f), fontSize = 10.sp, maxLines = 1,
                         modifier = Modifier.padding(end = 5.dp).semantics { contentDescription = it }) }
-                    Text(row.time, color = ink.primary, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                    Text(row.time, color = ink.primary, style = UnoType.subheadline.copy(fontWeight = FontWeight.Medium), maxLines = 1)
                 }
             }
         }

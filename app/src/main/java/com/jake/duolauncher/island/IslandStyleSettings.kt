@@ -87,7 +87,7 @@ internal fun IslandStyleSection(controller: IslandThemeController?) {
         GlassButton(stringResource(com.jake.duolauncher.R.string.island_theme_paste), { controller?.pasteTheme() }, Modifier.fillMaxWidth(), enabled = controller != null, tag = "island-theme-paste")
         GlassButton("Reset to Classic", { IslandThemes.reset(); notice = null; controller?.clearMessage() }, Modifier.fillMaxWidth(), tag = "island-theme-reset")
         GlassNote("Themes are small text files. Only install ones from people you trust; a theme can change how the island looks and moves, never what it does or what it can see.")
-        if (message != null) Text(message, color = ink, fontSize = 13.sp, modifier = Modifier.testTag("island-theme-message"))
+        if (message != null) Text(message, color = ink, style = UnoType.footnote, modifier = Modifier.testTag("island-theme-message"))
     }
 
     val pending = controller?.preview
@@ -95,7 +95,7 @@ internal fun IslandStyleSection(controller: IslandThemeController?) {
         GlassButton("Cancel", { controller.cancelPreview() }, tag = "island-theme-cancel")
         GlassButton("Apply", { controller.applyPreview() }, prominent = true, tag = "island-theme-apply")
     }) {
-        Text(pending.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        Text(pending.name, style = UnoType.headline)
         if (pending.author.isNotEmpty()) GlassNote("by ${pending.author}")
         IslandThemePreview(pending)
         GlassNote("Panel: ${pending.panel.label}. Buttons: ${pending.controls.label}. Motion: ${pending.motion.label}.")
@@ -125,7 +125,7 @@ private fun IslandThemePreview(theme: IslandTheme) {
 private fun SwatchRow(label: String, selected: Color, palette: List<Color>, key: String, onPick: (Color) -> Unit) {
     val ink = MaterialTheme.colorScheme.onSurface
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, color = ink, fontSize = 14.sp)
+        Text(label, color = ink, style = UnoType.subheadline)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             palette.forEach { c ->
                 val on = c == selected

@@ -11,7 +11,6 @@ import com.jake.duolauncher.appearance.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -183,7 +182,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         Text(stringResource(com.jake.duolauncher.R.string.app_stores), style = MaterialTheme.typography.titleSmall)
         HandoffLogic.KNOWN_STORES.forEach { storeInfo ->
             val present = resolver.isStoreInstalled(storeInfo)
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Corner.small)
                 .toggleable(value = storeInfo.id in s.handoffStores, enabled = present, role = androidx.compose.ui.semantics.Role.Checkbox) {
                     store.toggleHandoffStore(storeInfo.id) }.testTag("handoff-store-${storeInfo.id}"),
                 verticalAlignment = Alignment.CenterVertically) {
@@ -337,7 +336,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
 
 @Composable
 private fun ChoiceRow(title: String, subtitle: String, selected: Boolean, tag: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(12.dp))
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(Corner.small)
         .selectable(selected = selected, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onClick).testTag(tag),
         verticalAlignment = Alignment.CenterVertically) {
         GlassRadio(selected, null)
@@ -356,7 +355,7 @@ private fun AppChecklist(apps: List<AppEntry>, selected: Set<String>, tag: Strin
         Text(if (open) "Done" else "Choose apps (${selected.size} selected)")
     }
     if (open) apps.forEach { app ->
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Corner.small)
             .toggleable(value = app.id in selected, role = androidx.compose.ui.semantics.Role.Checkbox) { onToggle(app.id) }
             .testTag("$tag-app-${app.id}"), verticalAlignment = Alignment.CenterVertically) {
             GlassCheckbox(app.id in selected, null)
@@ -414,7 +413,7 @@ private fun IslandLinksSetting(actions: ExtrasActions, apps: List<AppEntry>, not
         Text(if (open) "Done" else "Choose apps (${apps.count { IslandLinks.allowed(it.packageName, s.islandMuted) }} linked)")
     }
     if (open) apps.forEach { app ->
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Corner.small)
             .toggleable(value = IslandLinks.allowed(app.packageName, s.islandMuted), role = androidx.compose.ui.semantics.Role.Checkbox) { actions.store.toggleIslandLink(app.packageName) }
             .testTag("island-link-app-${app.id}"), verticalAlignment = Alignment.CenterVertically) {
             GlassCheckbox(IslandLinks.allowed(app.packageName, s.islandMuted), null)

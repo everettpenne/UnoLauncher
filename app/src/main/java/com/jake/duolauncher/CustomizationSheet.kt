@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 internal enum class CustomizationPage { OVERVIEW, APPEARANCE, HOME, GESTURES, SEARCH, ISLAND, KEYBOARD, PRIVACY, FEED, BACKUP }
@@ -314,13 +315,13 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
 
 /** The small grey heading above a group of rows on the settings overview, as in iOS Settings. */
 @Composable private fun SettingsGroupLabel(text: String) {
-    Text(text.uppercase(), Modifier.padding(start = 6.dp, top = 10.dp), style = MaterialTheme.typography.labelMedium,
+    Text(text.uppercase(), Modifier.padding(start = 6.dp, top = 10.dp), style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold),
         color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable private fun CustomizationDestination(icon: ImageVector, title: String, detail: String, tag: String, onClick: () -> Unit) {
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag(tag),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .52f), shape = Corner.medium) {
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), shape = Corner.medium) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.titleMedium); Text(detail,
@@ -378,7 +379,7 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
                         modifier = Modifier.weight(1f).heightIn(min = 148.dp).testTag("builtin-${builtin.name.lowercase()}"),
                         shape = Corner.medium,
                         color = if (active) accent.copy(alpha = .16f)
-                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .52f),
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = .08f),
                         border = if (active) BorderStroke(2.dp, accent) else null) {
                         Column(Modifier.padding(6.dp)) {
                             Box(Modifier.fillMaxWidth().height(112.dp).clip(Corner.small)) { BuiltinPreview(builtin, dark) }

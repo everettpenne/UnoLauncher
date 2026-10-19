@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.*
@@ -33,10 +32,10 @@ internal fun CounterFace(slot: Int, onOptions: () -> Unit) {
         modifier = Modifier.testTag("uno-counter-$slot")) {
         val ink = LocalGlassInk.current
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { editing = true }.testTag("counter-name")) { CardTitle(Icons.Rounded.Add, name) }
+            Box(Modifier.weight(1f).clip(Corner.small).clickable { editing = true }.testTag("counter-name")) { CardTitle(Icons.Rounded.Add, name) }
             Box(Modifier.size(28.dp).clip(CircleShape).background(ink.soft(.18f))
                 .clickable { WidgetData.set(slot, "count", WidgetText.clampCount(count - 1L).toString()) }.testTag("counter-minus"),
-                contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.text_6), color = ink.primary, fontSize = 16.sp) }
+                contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.text_6), color = ink.primary, style = UnoType.callout) }
         }
         val accent = widgetAccent(WidgetColors.Blue)
         Box(Modifier.align(Alignment.CenterHorizontally), contentAlignment = Alignment.Center) {
@@ -44,7 +43,7 @@ internal fun CounterFace(slot: Int, onOptions: () -> Unit) {
             Text(count.toString(), color = ink.primary, fontSize = 46.sp, fontWeight = FontWeight.Light, maxLines = 1,
                 modifier = Modifier.testTag("counter-value"))
         }
-        Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_one), color = ink.soft(), fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_one), color = ink.soft(), style = UnoType.caption2, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
     if (editing) {
         var draft by remember { mutableStateOf(name) }

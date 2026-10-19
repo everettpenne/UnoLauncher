@@ -15,7 +15,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -62,7 +61,7 @@ internal fun AnalogClockFace(slot: Int, onOptions: () -> Unit) {
                 drawCircle(androidx.compose.ui.graphics.Color.White.copy(alpha = .9f), 1.5.dp.toPx(), c)
             }
         }
-        Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = ink.soft(), fontSize = 11.sp, maxLines = 1,
+        Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = ink.soft(), style = UnoType.caption2, maxLines = 1,
             modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }

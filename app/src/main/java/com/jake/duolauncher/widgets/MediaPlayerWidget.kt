@@ -100,14 +100,14 @@ internal fun MediaPlayerFace(slot: Int, onOptions: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically) {
                     ArtTile(art, ink, Modifier.size(tile))
                     Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
-                        TrackText(np, ink, soft, titleSize = 16.sp)
+                        TrackText(np, ink, soft, titleStyle = UnoType.callout.copy(fontWeight = FontWeight.SemiBold))
                         SeekBar(np, playing, tick, ink, showTimes = true)
                         Controls(context, playing, ink, onArt, Modifier.fillMaxWidth())
                     }
                 }
             } else {
                 Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                    TrackText(np, ink, soft, titleSize = 13.sp)
+                    TrackText(np, ink, soft, titleStyle = UnoType.footnote.copy(fontWeight = FontWeight.SemiBold))
                     SeekBar(np, playing, tick, ink, showTimes = false)
                     Controls(context, playing, ink, onArt, Modifier.fillMaxWidth())
                 }
@@ -140,11 +140,11 @@ private fun ArtTile(art: ImageBitmap?, ink: Color, modifier: Modifier) {
 }
 
 @Composable
-private fun TrackText(now: MediaView, ink: Color, soft: Color, titleSize: androidx.compose.ui.unit.TextUnit) {
+private fun TrackText(now: MediaView, ink: Color, soft: Color, titleStyle: androidx.compose.ui.text.TextStyle) {
     Column {
-        Text(MediaWidget.displayTitle(now.title, now.playing), color = ink, fontSize = titleSize, fontWeight = FontWeight.SemiBold,
+        Text(MediaWidget.displayTitle(now.title, now.playing), color = ink, style = titleStyle,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("media-title"))
-        Text(now.artist ?: "", color = soft, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(now.artist ?: "", color = soft, style = UnoType.caption1, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -166,12 +166,12 @@ private fun EmptyPlayer(context: Context, ink: Color, soft: Color) {
             Icon(Icons.Rounded.MusicNote, null, tint = soft, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.height(10.dp))
-        Text(stringResource(com.jake.duolauncher.R.string.nothing_playing), color = ink, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        Text(stringResource(com.jake.duolauncher.R.string.nothing_playing), color = ink, style = UnoType.callout.copy(fontWeight = FontWeight.Medium))
         Text(stringResource(when (MediaWidget.emptyHint(NotificationFeed.connected, detailsOn)) {
             MediaWidget.EmptyHint.NEEDS_ACCESS -> com.jake.duolauncher.R.string.media_widget_needs_access
             MediaWidget.EmptyHint.NEEDS_SETTING -> com.jake.duolauncher.R.string.media_widget_needs_setting
             MediaWidget.EmptyHint.IDLE -> com.jake.duolauncher.R.string.media_widget_idle
-        }), color = soft, fontSize = 12.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("media-empty-hint"))
+        }), color = soft, style = UnoType.caption1, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("media-empty-hint"))
     }
 }
 

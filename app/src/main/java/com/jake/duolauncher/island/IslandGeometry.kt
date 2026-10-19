@@ -26,6 +26,20 @@ internal data class IslandFrame(
     val side: IslandSide = IslandSide.TOP,
 )
 
+/**
+ * [frame] with the hand adjustment for the main island ([dwDp] wider, [dxDp] across, [dyDp] down) applied as far as it is collapsed
+ * ([collapsed] is 1 at rest and 0 when open, so the open panel is not disturbed). The camera hole stays where it is on screen.
+ */
+internal fun withDebugAdjust(frame: IslandFrame, collapsed: Float, dwDp: Float, dxDp: Float, dyDp: Float, density: Float): IslandFrame {
+    val k = collapsed.coerceIn(0f, 1f)
+    if (k == 0f || (dwDp == 0f && dxDp == 0f && dyDp == 0f)) return frame
+    val width = (frame.width + dwDp * density * k).coerceAtLeast(frame.height)
+    val left = frame.left - (width - frame.width) / 2f + dxDp * density * k
+    val top = frame.top + dyDp * density * k
+    val hole = frame.hole?.let { PxRect(it.left + frame.left - left, it.top + frame.top - top, it.right + frame.left - left, it.bottom + frame.top - top) }
+    return frame.copy(left = left, top = top, width = width, hole = hole)
+}
+
 /** Both frames are within a pixel or so of each other (the animation has settled). */
 internal fun IslandFrame.nearly(other: IslandFrame): Boolean =
     kotlin.math.abs(left - other.left) < .75f && kotlin.math.abs(top - other.top) < .75f &&

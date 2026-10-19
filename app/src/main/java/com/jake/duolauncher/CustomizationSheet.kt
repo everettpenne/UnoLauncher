@@ -34,7 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-internal enum class CustomizationPage { OVERVIEW, APPEARANCE, HOME, GESTURES, SEARCH, ISLAND, KEYBOARD, PRIVACY, FEED, BACKUP }
+internal enum class CustomizationPage { OVERVIEW, APPEARANCE, HOME, GESTURES, SEARCH, ISLAND, KEYBOARD, PRIVACY, FEED, BACKUP, DEBUG }
 
 @Composable
 internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, model: LauncherModel,
@@ -88,6 +88,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
         CustomizationPage.PRIVACY -> "Notifications & privacy"
         CustomizationPage.FEED -> "News feed"
         CustomizationPage.BACKUP -> "Backup & about"
+        CustomizationPage.DEBUG -> "Island debug"
     }
     val bodyScroll = rememberScrollState()
     LaunchedEffect(page) { bodyScroll.scrollTo(0) }
@@ -129,6 +130,8 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         "Uno Keyboard: suggestions, autocorrect, one-handed", "customization-keyboard") { onPage(CustomizationPage.KEYBOARD) }
                     CustomizationDestination(Icons.Rounded.Save, "Backup & about",
                         "Save or restore, updates, and help", "customization-backup") { onPage(CustomizationPage.BACKUP) }
+                    CustomizationDestination(Icons.Rounded.Tune, "Island debug",
+                        "Dummy live activities, and width and position by hand", "customization-debug") { onPage(CustomizationPage.DEBUG) }
                     if (isDefaultHome) GlassButton(onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         .testTag("default-home-settings")) { Text(stringResource(com.jake.duolauncher.R.string.change_home_app)) }
                 }
@@ -244,6 +247,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     HiddenAppsSetting(hiddenState.apps.filter { it.id in hiddenState.hiddenApps }) { model.unhideApp(it.id) }
                     if (extras != null) PermissionLedgerSection(extras)
                 }
+                CustomizationPage.DEBUG -> IslandDebugSettings()
                 CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onSourceEnabled, onImportOpml, onKeepPerFeed)
                 CustomizationPage.BACKUP -> {
                     SettingsGroupLabel("Backup")

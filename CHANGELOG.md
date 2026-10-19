@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.90.0-uno01
+
+- **Three live activities spread around the island.** With three or more live, the first is on the main island, the second is a circle on its left and the third a circle on its right (with two, the second stays on the right). Every capsule is now a circle showing the activity's symbol, and only as many circles are drawn on the right as fit before the screen's edge.
+- **An Island debug page in Launcher settings.** Force dummy live activities on (call, timer, stopwatch, music, live update, and the camera, microphone and recording dots) and set the width and position of the main island and each capsule by hand, with the numbers shown and copyable. All zero and nothing forced is the normal layout.
+
 ## 0.89.0-uno01
 
 - **Live activities leave gracefully.** When an activity ends, its capsule slides back into the pill on the same neck it left on, shrinking and melting in, and the pill gives a small pulse. The pill's own glyph and detail shrink out and the next ones grow in, and the camera, microphone and recording dots spring up and shrink away instead of popping.

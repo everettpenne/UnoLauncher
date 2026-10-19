@@ -108,6 +108,14 @@ internal object LiveCompactText {
     }
 }
 
+/** A detached capsule: which activity, which side of the pill it is on, and its place along that side (0 is next to the pill). Equal when
+ * the activity is the same, so an activity that moves sides keeps its capsule (and its exit animation, if it ends).
+ */
+internal class Capsule(val kind: LiveKind, val left: Boolean, val slot: Int) {
+    override fun equals(other: Any?) = other is Capsule && other.kind == kind
+    override fun hashCode() = kind.hashCode()
+}
+
 /** Detached capsules to the right of the pill: the trailing activity first (glyph + short status), then the extras (glyph only).
  * These are Apple's trailing capsule plus Uno's extra "bubbles", restyled as the same capsule: a black rounded body with a
  * hairline rim. Every capsule is as tall as the pill (so its glyph sits concentrically), the trailing one is wide (glyph +
@@ -119,8 +127,37 @@ internal object IslandBubbles {
     const val MAX = 2
     /** The gap between the pill and the first capsule, and between capsules, in dp. */
     const val GAP_DP = 6f
-    /** The trailing capsule's width (glyph + short status, ellipsized), in dp. */
-    const val TRAILING_WIDTH_DP = 88f
+    /** The room kept clear of the screen's edge, in dp. */
+    const val EDGE_MARGIN_DP = 8f
+
+    /** Where each activity beyond the pill's goes. With two live, the second is a capsule to the right. With three or more, the second is a
+     * capsule to the LEFT of the pill and the rest go to its right, the third next to the pill and any more after it, at most [MAX] more.
+     */
+    fun layout(kinds: List<LiveKind>): List<Capsule> = when {
+        kinds.size < 2 -> emptyList()
+        kinds.size == 2 -> listOf(Capsule(kinds[1], false, 0))
+        else -> listOf(Capsule(kinds[1], true, 0)) + kinds.drop(2).take(1 + MAX).mapIndexed { i, k -> Capsule(k, false, i) }
+    }
+
+    /** The debug adjustment that applies to [capsule]: the left island's, the right island's for the one next to the pill, else the extras'. */
+    fun groupFor(capsule: Capsule, left: DebugGroup, right: DebugGroup, extra: DebugGroup): DebugGroup =
+        if (capsule.left) left else if (capsule.slot == 0) right else extra
+
+    /** How far from the pill's right edge to the left edge of the right-hand capsule in [slot], in dp: past the privacy dots, then each gap
+     * and each earlier capsule's width, with the debug adjustments added.
+     */
+    fun rightOffsetDp(slot: Int, heightDp: Float, dotsDp: Float, right: DebugGroup, extra: DebugGroup): Float {
+        var x = dotsDp
+        for (s in 0..slot) {
+            val g = if (s == 0) right else extra
+            x += GAP_DP + g.dx
+            if (s < slot) x += heightDp + g.dw
+        }
+        return x
+    }
+
+    /** How far from the pill's left edge to the right edge of the left-hand capsule, in dp. */
+    fun leftOffsetDp(left: DebugGroup): Float = GAP_DP + left.dx
 
     /** The activities shown as extra capsules: those after the pill's leading and its trailing capsule, at most [MAX]. */
     fun extras(kinds: List<LiveKind>): List<LiveKind> = kinds.drop(2).take(MAX)
@@ -131,7 +168,13 @@ internal object IslandBubbles {
     /** The width of the capsule at [index] (0 is the trailing capsule, then the extras), in dp. [heightDp] is the capsule/pill
      * height: an extra capsule is a circle of that height, so its glyph fits with a ring round it.
      */
-    fun widthDp(index: Int, heightDp: Float): Float = if (index == 0) TRAILING_WIDTH_DP else heightDp
+    fun widthDp(index: Int, heightDp: Float): Float = heightDp
+
+    /** How many capsules fit between the pill and the screen's edge: [roomDp] is what is left to the right of the pill, [dotsDp] what the privacy
+     * dots take, and a small margin is kept clear of the edge. At most the trailing capsule plus [MAX] extras; the rest stay reachable by a flick.
+     */
+    fun capacity(roomDp: Float, heightDp: Float, dotsDp: Float): Int =
+        ((roomDp - EDGE_MARGIN_DP - dotsDp) / (heightDp + GAP_DP)).toInt().coerceIn(0, 1 + MAX)
 
     /** How much room the detached capsules need to the right of the pill, in dp (0 with none). [count] is the total number of
      * capsules (the trailing capsule, then the extras) and [heightDp] the pill's collapsed height.

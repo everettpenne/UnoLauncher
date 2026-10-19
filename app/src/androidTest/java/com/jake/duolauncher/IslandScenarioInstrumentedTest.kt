@@ -36,6 +36,8 @@ class IslandScenarioInstrumentedTest {
     @After fun reset() {
         NotificationFeed.liveUpdates = emptyList(); NotificationFeed.ongoingCall = null; NotificationFeed.nowPlaying = null
         session?.release()
+        IslandTools.cancelTimer(context)
+        IslandDebug.reset()
     }
 
     private fun show() {
@@ -294,6 +296,7 @@ class IslandScenarioInstrumentedTest {
     private fun freshUpdate() = LiveUpdate("k2", "com.example.ride", "Ride", "Ride to the airport", null, "12 min", 40, 100, false, null, false, null, 0xFF1A73E8.toInt(), System.currentTimeMillis(), null)
 
     private fun capsuleCount(kind: String) = compose.onAllNodesWithTag("island-capsule-$kind", useUnmergedTree = true).fetchSemanticsNodes().size +
+        compose.onAllNodesWithTag("island-capsule-left-$kind", useUnmergedTree = true).fetchSemanticsNodes().size +
         compose.onAllNodesWithTag("island-bubble-$kind", useUnmergedTree = true).fetchSemanticsNodes().size
 
     @Test fun tappingAnExtraCapsuleMergesItIntoThePillAndTheOldFrontSplitsOff() {
@@ -302,7 +305,7 @@ class IslandScenarioInstrumentedTest {
         compose.runOnIdle { NotificationFeed.ongoingCall = call(); NotificationFeed.liveUpdates = listOf(freshUpdate()) }
         compose.waitForIdle()
         assertEquals("media is the extra capsule before", 1, capsuleCount("media"))
-        compose.onNodeWithTag("island-bubble-media", useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("island-capsule-media", useUnmergedTree = true).performClick()
         compose.waitForIdle()
         assertEquals("media merged into the pill, so it has no capsule", 0, capsuleCount("media"))
         assertEquals("the old front detached into a capsule", 1, capsuleCount("call"))
@@ -324,5 +327,36 @@ class IslandScenarioInstrumentedTest {
         compose.runOnIdle { state.cameraActive = false }
         compose.waitForIdle()
         assertTrue("the camera dot is gone once it has shrunk away", !present("island-camera"))
+    }
+
+    @Test fun fourActivitiesAndTheDotsAllShowAsCircles() {
+        show()
+        playMusic(playing = true)
+        compose.runOnIdle {
+            NotificationFeed.ongoingCall = call(); NotificationFeed.liveUpdates = listOf(freshUpdate())
+            IslandTools.startTimer(context, 600_000L)
+            state.cameraActive = true; state.micActive = true
+        }
+        compose.waitForIdle()
+        assertTrue("circles fill the room before the edge, no more", capsuleCount("timer") + capsuleCount("update") + capsuleCount("media") in 1..3)
+        shot("four-activities")
+    }
+
+    @Test fun withThreeActivitiesTheSecondIsOnTheLeftAndTheThirdOnTheRight() {
+        show()
+        // Forced from the debug page: a call (in the pill), a timer (to its left) and a live update (to its right).
+        compose.runOnIdle { IslandDebug.init(context); IslandDebug.force(LiveKind.CALL, true); IslandDebug.force(LiveKind.TIMER, true); IslandDebug.force(LiveKind.UPDATE, true) }
+        compose.waitForIdle()
+        assertEquals("the second is on the left", 1, compose.onAllNodesWithTag("island-capsule-left-timer", useUnmergedTree = true).fetchSemanticsNodes().size)
+        assertEquals("the third is on the right", 1, compose.onAllNodesWithTag("island-capsule-update", useUnmergedTree = true).fetchSemanticsNodes().size)
+        val left = compose.onAllNodesWithTag("island-capsule-left-timer", useUnmergedTree = true)[0].fetchSemanticsNode().boundsInRoot
+        val right = compose.onAllNodesWithTag("island-capsule-update", useUnmergedTree = true)[0].fetchSemanticsNode().boundsInRoot
+        assertTrue("the left capsule is left of the right one", left.right < right.left)
+        shot("three-activities")
+        // Widening the left capsule by hand makes it wider.
+        val before = left.width
+        compose.runOnIdle { IslandDebug.set(DebugTarget.LEFT, DebugGroup(dw = 20f)) }
+        compose.waitForIdle()
+        assertTrue("debug width applies", compose.onAllNodesWithTag("island-capsule-left-timer", useUnmergedTree = true)[0].fetchSemanticsNode().boundsInRoot.width > before + 10f)
     }
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.87.0-uno01
+
+- **Several live activities are easier to handle on the island.** The activity you bring to the front (by tapping its capsule or flicking) now stays in front while others start and end, instead of a different one jumping forward. A flick steps through every activity and wraps round. Capsules glide to their new places and change width smoothly, press down under your finger, and are announced as buttons ("Bring music to the front").
+- **The extra capsules look like their activities.** Each capsule has a soft wash of its activity's colour and a rim in that colour that breathes slowly while the activity is live.
+
 ## 0.86.0-uno01
 
 - **The dock leaves cleanly into All apps.** Swiping into All apps now slides the dock and status rail fully off the left edge with the home page, instead of parking them on the left edge drawn over the app list. The feed side was already right; both edges now exit the screen cleanly.

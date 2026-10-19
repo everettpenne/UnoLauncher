@@ -54,6 +54,27 @@ internal object IslandLive {
         return kinds.drop(by) + kinds.take(by)
     }
 
+    /** [kinds] with [front] moved to the head (the rest keep their order, so the old leading activity becomes the trailing capsule).
+     * Unchanged when [front] is null or not live. Pinning by *kind* rather than by a turn count means that when some other
+     * activity starts or ends, the one the person chose stays in front instead of a different one jumping forward.
+     */
+    fun withFront(kinds: List<LiveKind>, front: LiveKind?): List<LiveKind> =
+        if (front == null || front !in kinds || kinds.first() == front) kinds else listOf(front) + (kinds - front)
+
+    /** The activity a flick brings forward: the one after the current leading in the fixed order, wrapping round. Null with fewer than two. */
+    fun nextFront(canonical: List<LiveKind>, front: LiveKind?): LiveKind? {
+        if (canonical.size < 2) return null
+        val at = canonical.indexOf(front ?: canonical.first()).coerceAtLeast(0)
+        return canonical[(at + 1) % canonical.size]
+    }
+
+    /** A spoken name for an activity, for the capsule's accessibility label. */
+    fun label(kind: LiveKind): String = when (kind) {
+        LiveKind.CAMERA -> "camera"; LiveKind.MIC -> "microphone"; LiveKind.RECORDING -> "screen recording"
+        LiveKind.CALL -> "call"; LiveKind.TIMER -> "timer"; LiveKind.STOPWATCH -> "stopwatch"
+        LiveKind.UPDATE -> "live update"; LiveKind.MEDIA -> "music"
+    }
+
     fun plan(kinds: List<LiveKind>): SlotPlan = when (kinds.size) {
         0 -> SlotPlan(null, null)
         1 -> SlotPlan(kinds[0], null)

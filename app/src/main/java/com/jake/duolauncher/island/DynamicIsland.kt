@@ -72,6 +72,7 @@ import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.automirrored.rounded.Send
@@ -185,6 +186,10 @@ internal class IslandState {
         private set
     fun rotateActivities() { activityShift++ }
     fun rotateBy(places: Int) { activityShift += places }
+    /** The activity the person put in front (by tapping its capsule or flicking), pinned by kind so it stays there while others come and go. */
+    var frontKind by mutableStateOf<LiveKind?>(null)
+        private set
+    fun bringToFront(kind: LiveKind?) { frontKind = kind }
 
     private class Flash(val title: String, val icon: androidx.compose.ui.graphics.ImageBitmap?,
         val component: android.content.ComponentName?, val symbol: IslandSymbol, val tint: Color? = null,
@@ -644,9 +649,12 @@ internal fun DynamicIsland(
         awaitDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
     // Everything live on the collapsed pill, most important first, and which goes in which slot (see IslandLive).
-    val liveKinds = IslandLive.rotated(IslandLive.active(call = callActive,
+    val canonicalKinds = IslandLive.active(call = callActive,
         timer = IslandTools.timerActive, stopwatch = IslandTools.swRunning, media = mediaOnPill,
-        update = updates.any { !LiveUpdateLogic.isStale(it, clockMs) }), state.activityShift)
+        update = updates.any { !LiveUpdateLogic.isStale(it, clockMs) })
+    // A pinned activity that has ended is forgotten, so it does not jump to the front again if it restarts much later.
+    LaunchedEffect(canonicalKinds) { if (state.frontKind != null && state.frontKind !in canonicalKinds) state.bringToFront(null) }
+    val liveKinds = IslandLive.withFront(canonicalKinds, state.frontKind)
     val plan = IslandLive.plan(liveKinds)
     // A camera on a side edge has no room beside it unless the pill widens, so live content asks for some.
     val cameraOnSide = environment.cutout?.let {
@@ -895,13 +903,31 @@ internal fun DynamicIsland(
                 val appear = remember { Animatable(if (animationsOn) 0f else 1f) }
                 LaunchedEffect(Unit) { if (animationsOn) appear.animateTo(1f, theme.spring(.5f, 240f)) }
                 val capsuleH = collapsedHeightPx
-                val capsuleW = IslandBubbles.widthDp(index, capsuleHeightDp.value) * d
+                // When the order changes (a tap or a flick) each capsule glides to its new place and grows or shrinks to the new width,
+                // instead of jumping, so the person can follow where each activity went.
+                val glide = if (!animationsOn) snap<Float>() else theme.spring(.75f, 380f)
+                val beforeDp by animateFloatAsState((0 until index).sumOf { (IslandBubbles.widthDp(it, capsuleHeightDp.value) + IslandBubbles.GAP_DP).toDouble() }.toFloat(), glide, label = "capsule slot")
+                val widthDp by animateFloatAsState(IslandBubbles.widthDp(index, capsuleHeightDp.value), glide, label = "capsule width")
+                val capsuleW = widthDp * d
+                val capsuleTouch = remember { MutableInteractionSource() }
+                val capsulePressed by capsuleTouch.collectIsPressedAsState()
+                val pressScale by animateFloatAsState(if (capsulePressed) .9f else 1f, spring(dampingRatio = .6f, stiffness = 500f), label = "capsule press")
+                val breathing = animationsOn && (kind != LiveKind.MEDIA || isPlaying)
+                val breath = if (breathing) rememberInfiniteTransition(label = "capsule breath").animateFloat(.38f, .72f,
+                    infiniteRepeatable(tween(1_800, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "capsule rim")
+                    else remember { mutableFloatStateOf(.5f) }
+                val rim = when (kind) {
+                    LiveKind.CALL -> IosGreen
+                    LiveKind.TIMER -> IslandThemes.active.timer
+                    LiveKind.UPDATE -> updates.firstOrNull()?.let { updateTint(it) } ?: themeInk
+                    LiveKind.MEDIA -> artTint
+                    else -> themeInk
+                }
                 val fill = themeFill
                 // The neck's path is made once and rewound each frame, instead of allocating a Path per frame while the capsule pulls away.
                 val neckPath = remember { androidx.compose.ui.graphics.Path() }
                 fun capsuleX(frame: IslandFrame): Float {
-                    val before = (0 until index).sumOf { (IslandBubbles.widthDp(it, capsuleHeightDp.value) + IslandBubbles.GAP_DP).toDouble() }.toFloat()
-                    val finalX = frame.left + frame.width + (dotsDp + IslandBubbles.GAP_DP + before) * d
+                    val finalX = frame.left + frame.width + (dotsDp + IslandBubbles.GAP_DP + beforeDp) * d
                     val startX = frame.left + frame.width - frame.height / 2f - capsuleW / 2f
                     return startX + (finalX - startX) * appear.value
                 }
@@ -928,16 +954,33 @@ internal fun DynamicIsland(
                             }
                         }
                     }
-                    .graphicsLayer { val sc = (.55f + .45f * appear.value).coerceAtLeast(.4f); scaleX = sc; scaleY = sc }
-                    .size(IslandBubbles.widthDp(index, capsuleHeightDp.value).dp, capsuleHeightDp)
+                    .graphicsLayer { val sc = (.55f + .45f * appear.value).coerceAtLeast(.4f) * pressScale; scaleX = sc; scaleY = sc }
+                    .size(widthDp.dp, capsuleHeightDp)
                     .clip(capsuleShape)
                     .background(themeFill)
-                    .border(1.dp, themeInk.copy(alpha = .28f), capsuleShape)
-                    .clickable { UnoFeedback.play(Cue.TICK, haptic); state.rotateBy(IslandBubbles.shiftFor(index)) }
-                    .semantics { contentDescription = "Show ${kind.name.lowercase()}" }
+                    // A soft wash of the activity's own colour from the centre, so each capsule reads as its activity at a glance,
+                    // and a rim that breathes slowly while the activity is live (still when it is a paused player or animations are off).
+                    .drawBehind {
+                        drawRect(androidx.compose.ui.graphics.Brush.radialGradient(
+                            listOf(rim.copy(alpha = .26f), androidx.compose.ui.graphics.Color.Transparent), radius = size.maxDimension * .7f))
+                    }
+                    .drawWithContent {
+                        drawContent()
+                        val sw = 1.5.dp.toPx()
+                        drawRoundRect(rim.copy(alpha = breath.value),
+                            topLeft = androidx.compose.ui.geometry.Offset(sw / 2f, sw / 2f),
+                            size = androidx.compose.ui.geometry.Size(size.width - sw, size.height - sw),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2f),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(sw))
+                    }
+                    .clickable(interactionSource = capsuleTouch, indication = null, onClickLabel = "Bring ${IslandLive.label(kind)} to the front", role = Role.Button) {
+                        UnoFeedback.play(Cue.TICK, haptic); state.bringToFront(kind)
+                    }
+                    .semantics { contentDescription = "Show ${IslandLive.label(kind)}" }
                     .testTag(if (index == 0) "island-capsule-${kind.name.lowercase()}" else "island-bubble-${kind.name.lowercase()}"),
                     contentAlignment = Alignment.Center) {
-                    if (index == 0) {
+                    androidx.compose.animation.Crossfade(index == 0, animationSpec = tween(if (animationsOn) 160 else 0), label = "capsule content") { wide ->
+                    if (wide) {
                         // The trailing capsule: a compact glyph + short status (the Live Compact level's text for a Live Update).
                         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (kind == LiveKind.MEDIA) {
@@ -952,6 +995,7 @@ internal fun DynamicIsland(
                     } else {
                         // An extra capsule: glyph only.
                         LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
+                    }
                     }
                 }
             }
@@ -1020,7 +1064,7 @@ internal fun DynamicIsland(
                 val a = glowAlpha.value
                 if (a > .01f) drawBottomGlow(glowWash, glowTongue, a, flameT, flameAnimated)
             }
-            .pointerInput(state.expanded, state.peeked, liveKinds.size, flashActive) {
+            .pointerInput(state.expanded, state.peeked, liveKinds, flashActive) {
                 // Pulling the small island down (a drag that starts on it) opens it part-way, and letting go holds that peek; pulling on a peek takes
                 // it further, and swiping up closes it. A finger resting on the bottom of the open island holds it open until it lifts. A sideways flick
                 // turns the live activities so another is in front, or sends a flash away. Watched in the Initial pass and consumed once the finger has
@@ -1144,7 +1188,7 @@ internal fun DynamicIsland(
                         }
                         abs(dx) > abs(dy) && abs(dx) >= threshold && !state.expanded -> {
                             if (flashActive) { UnoFeedback.play(Cue.TICK, haptic); state.advanceFlash() }
-                            else if (liveKinds.size >= 2) { UnoFeedback.play(Cue.TICK, haptic); state.rotateActivities() }
+                            else if (liveKinds.size >= 2) { UnoFeedback.play(Cue.TICK, haptic); state.bringToFront(IslandLive.nextFront(canonicalKinds, liveKinds.first())) }
                         }
                     }
                 }

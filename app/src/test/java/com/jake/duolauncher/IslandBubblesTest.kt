@@ -39,4 +39,22 @@ class IslandBubblesTest {
         // One capsule is the trailing one: its width plus the gap from the pill.
         assertEquals(IslandBubbles.TRAILING_WIDTH_DP + IslandBubbles.GAP_DP, IslandBubbles.reserveDp(1, 30f), 0f)
     }
+
+    @Test fun aChosenActivityStaysInFrontWhileOthersComeAndGo() {
+        val three = listOf(LiveKind.CALL, LiveKind.TIMER, LiveKind.MEDIA)
+        assertEquals(listOf(LiveKind.MEDIA, LiveKind.CALL, LiveKind.TIMER), IslandLive.withFront(three, LiveKind.MEDIA))
+        // The timer ends: media is still in front, not whichever activity a turn count would now land on.
+        assertEquals(listOf(LiveKind.MEDIA, LiveKind.CALL), IslandLive.withFront(three - LiveKind.TIMER, LiveKind.MEDIA))
+        // The pinned activity is gone, or nothing is pinned: the usual order.
+        assertEquals(three - LiveKind.MEDIA, IslandLive.withFront(three - LiveKind.MEDIA, LiveKind.MEDIA))
+        assertEquals(three, IslandLive.withFront(three, null))
+    }
+
+    @Test fun flickingVisitsEveryActivityAndWrapsRound() {
+        val three = listOf(LiveKind.CALL, LiveKind.TIMER, LiveKind.MEDIA)
+        var front: LiveKind? = null
+        val seen = buildList { repeat(3) { front = IslandLive.nextFront(three, IslandLive.withFront(three, front).first()); add(front!!) } }
+        assertEquals(listOf(LiveKind.TIMER, LiveKind.MEDIA, LiveKind.CALL), seen)
+        assertEquals(null, IslandLive.nextFront(listOf(LiveKind.CALL), null))
+    }
 }

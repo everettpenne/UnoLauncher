@@ -38,8 +38,8 @@ android {
         applicationId = "com.jake.duolauncher"
         minSdk = 31
         targetSdk = 36
-        versionCode = 142
-        versionName = "0.86.0-uno01"
+        versionCode = 143
+        versionName = "0.87.0-uno01"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {

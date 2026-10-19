@@ -278,7 +278,7 @@ class IslandScenarioInstrumentedTest {
         shot("music-and-call")
     }
 
-    @Test fun manyActivitiesSpillIntoAtMostTwoBubblesAndTheDotsStillShow() {
+    @Test fun manyActivitiesShowAtMostThreeIslandsAndTheDotsStillShow() {
         show()
         playMusic(playing = true)
         compose.runOnIdle {
@@ -288,8 +288,8 @@ class IslandScenarioInstrumentedTest {
         }
         compose.waitForIdle()
         assertTrue(present("island-call")); assertTrue(present("island-camera")); assertTrue(present("island-recording"))
-        assertTrue("at most two bubbles",
-            listOf("call", "timer", "stopwatch", "update", "media").sumOf { compose.onAllNodesWithTag("island-bubble-$it", useUnmergedTree = true).fetchSemanticsNodes().size } <= 2)
+        assertEquals("three islands at most, so no extra bubbles",
+            0, listOf("call", "timer", "stopwatch", "update", "media").sumOf { compose.onAllNodesWithTag("island-bubble-$it", useUnmergedTree = true).fetchSemanticsNodes().size })
         shot("crowded")
     }
 
@@ -358,5 +358,27 @@ class IslandScenarioInstrumentedTest {
         compose.runOnIdle { IslandDebug.set(DebugTarget.LEFT, DebugGroup(dw = 20f)) }
         compose.waitForIdle()
         assertTrue("debug width applies", compose.onAllNodesWithTag("island-capsule-left-timer", useUnmergedTree = true)[0].fetchSemanticsNode().boundsInRoot.width > before + 10f)
+    }
+
+    private fun islandWidth() = compose.onAllNodesWithTag("dynamic-island", useUnmergedTree = true)[0].fetchSemanticsNode().boundsInRoot.width
+
+    @Test fun openingAnAppSpringsTheIslandWiderAndTheActivitiesTuckInThenEverythingReturns() {
+        show()
+        compose.runOnIdle { IslandDebug.init(context); IslandDebug.force(LiveKind.CALL, true); IslandDebug.force(LiveKind.TIMER, true); IslandDebug.force(LiveKind.UPDATE, true) }
+        compose.waitForIdle()
+        val resting = islandWidth()
+        assertEquals("both capsules are out", 2, capsuleCount("timer") + capsuleCount("update"))
+        val icon = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888).also { Canvas(it).drawColor(0xFF3B82F6.toInt()) }
+        compose.runOnIdle { state.showLaunch(AppEntry("com.android.settings/com.android.settings.Settings", "Settings", icon)) }
+        compose.waitForIdle()
+        assertEquals("the activities tucked into the island", 0, capsuleCount("timer") + capsuleCount("update"))
+        // 62 dp wider than automatic against 15 dp: 47 dp more than at rest (the event's own title room is on top of that).
+        val density = context.resources.displayMetrics.density
+        assertTrue("the island sprang wider: $resting -> ${islandWidth()}", islandWidth() >= resting + 40f * density)
+        shot("app-flash-wide")
+        compose.runOnIdle { state.advanceFlash() }
+        compose.waitForIdle()
+        assertEquals("back to its resting width", resting, islandWidth(), 2f)
+        assertEquals("and the activities are back", 2, capsuleCount("timer") + capsuleCount("update"))
     }
 }

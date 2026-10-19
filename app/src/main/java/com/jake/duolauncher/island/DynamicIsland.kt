@@ -724,12 +724,21 @@ internal fun DynamicIsland(
     // not change during the morph, so the faces are laid out from this one frame. [frameState] is the live frame; it is read only when the
     // island lays out, draws and positions itself.
     val openFrame = remember(environment, d, sizeScale, extraBody) { IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = extraBody) }
+    // While the island shows an app's icon and name (an app opening, or a notification's app) it springs open wider and a touch left, and
+    // goes back to its resting width when that is dismissed. The live activities have tucked into it for the time (see detachedCapsules).
+    val showingApp = flashActive && state.flashSymbol == IslandSymbol.APP
+    val mainBase = if (showingApp) IslandLayoutDefaults.MAIN_SHOWING_APP else IslandLayoutDefaults.MAIN
+    val mainSpring = if (!animationsOn) snap<Float>() else theme.spring(.55f, 380f)
+    val mainDw by animateFloatAsState(mainBase.dw + IslandDebug.pill.dw, mainSpring, label = "main width")
+    val mainDx by animateFloatAsState(mainBase.dx + IslandDebug.pill.dx, mainSpring, label = "main across")
+    val mainDy = mainBase.dy + IslandDebug.pill.dy
     val frameState = remember(environment, d, sizeScale, extraBody, coupling, wideFactor) { derivedStateOf {
         val p = progressState.value
         IslandGeometry.frame(environment, d, if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value, sizeScale,
             extraBodyDp = extraBody, extraWidthDp = eventWidthState.value, compactness = compactnessState.value, wideFactor = wideFactor, heightProgress = p)
-            // The hand-set width and position of the main island, from the debug page (all zero in normal use).
-            .let { withDebugAdjust(it, 1f - p, IslandDebug.pill.dw, IslandDebug.pill.dx, IslandDebug.pill.dy, d) }
+            // The main island's shipped width and place (a little wider than automatic; wider still while it shows an app's icon and name,
+            // see [mainDw]), plus any hand adjustment from the debug page of a debug build.
+            .let { withDebugAdjust(it, 1f - p, mainDw, mainDx, mainDy, d, environment.screenWidth) }
     } }
     // The collapsed pill's top edge in window pixels: below it (in the launcher's own space) a pull belongs to the island; above it the
     // system status-bar strip owns the touch, so a pull must not engage there when the island renders below SystemUI.
@@ -907,10 +916,18 @@ internal fun DynamicIsland(
             all.filter { it.left } + all.filter { !it.left }.take(
                 IslandBubbles.capacity((environment.screenWidth - (headingFor.left + headingFor.width)) / d, capsuleHeightDp.value, dotsDp))
         }
-        val rightCount = detachedCapsules.count { !it.left }
-        IslandRuntime.bubbleExtraPx = if (rightCount == 0) 0 else ((IslandBubbles.reserveDp(rightCount, capsuleHeightDp.value) + dotsDp) * d).roundToInt()
-        IslandRuntime.bubbleLeftPx = if (detachedCapsules.any { it.left }) ((capsuleHeightDp.value + IslandBubbles.GAP_DP) * d).roundToInt() else 0
-        IslandRuntime.debugSlackPx = (IslandDebug.slackDp() * d).roundToInt()
+        val rightCapsules = detachedCapsules.filter { !it.left }
+        val leftAdjust = IslandDebug.effective(DebugTarget.LEFT); val rightAdjust = IslandDebug.effective(DebugTarget.RIGHT); val extraAdjust = IslandDebug.effective(DebugTarget.EXTRA)
+        // The touch window is exactly what is drawn beside the pill: room for the right-hand capsules, for the left one, and for a capsule
+        // set higher or lower than the pill's row. Nothing more, or it would take touches meant for the app underneath.
+        IslandRuntime.bubbleExtraPx = rightCapsules.lastOrNull()?.let { last ->
+            ((IslandBubbles.rightOffsetDp(last.slot, capsuleHeightDp.value, dotsDp, rightAdjust, extraAdjust) + capsuleHeightDp.value +
+                IslandBubbles.groupFor(last, leftAdjust, rightAdjust, extraAdjust).dw) * d).roundToInt().coerceAtLeast(0)
+        } ?: 0
+        IslandRuntime.bubbleLeftPx = if (detachedCapsules.any { it.left })
+            ((IslandBubbles.leftOffsetDp(leftAdjust) + capsuleHeightDp.value + leftAdjust.dw) * d).roundToInt().coerceAtLeast(0) else 0
+        IslandRuntime.touchAbovePx = detachedCapsules.maxOfOrNull { -IslandBubbles.groupFor(it, leftAdjust, rightAdjust, extraAdjust).dy }?.coerceAtLeast(0f)?.times(d)?.roundToInt() ?: 0
+        IslandRuntime.touchBelowPx = detachedCapsules.maxOfOrNull { IslandBubbles.groupFor(it, leftAdjust, rightAdjust, extraAdjust).dy }?.coerceAtLeast(0f)?.times(d)?.roundToInt() ?: 0
         LaunchedEffect(detachedCapsules.size, privacyKinds.size) { onFrameChanged?.invoke(reported[0] ?: headingFor, windowRect) }
         val heldDots = rememberLingering(privacyKinds, keepGhosts = capsulesShown)
         heldDots.held.forEach { dot ->
@@ -967,10 +984,10 @@ internal fun DynamicIsland(
                 // When the order changes (a tap or a flick) each capsule glides to its new place and grows or shrinks to the new width,
                 // instead of jumping, so the person can follow where each activity went.
                 val glide = if (!animationsOn) snap<Float>() else theme.spring(.75f, 380f)
-                val adjust = IslandBubbles.groupFor(shape, IslandDebug.left, IslandDebug.right, IslandDebug.extra)
+                val adjust = IslandBubbles.groupFor(shape, IslandDebug.effective(DebugTarget.LEFT), IslandDebug.effective(DebugTarget.RIGHT), IslandDebug.effective(DebugTarget.EXTRA))
                 val offsetDp by animateFloatAsState(
-                    if (shape.left) IslandBubbles.leftOffsetDp(IslandDebug.left)
-                    else IslandBubbles.rightOffsetDp(shape.slot, capsuleHeightDp.value, dotsDp, IslandDebug.right, IslandDebug.extra), glide, label = "capsule slot")
+                    if (shape.left) IslandBubbles.leftOffsetDp(IslandDebug.effective(DebugTarget.LEFT))
+                    else IslandBubbles.rightOffsetDp(shape.slot, capsuleHeightDp.value, dotsDp, IslandDebug.effective(DebugTarget.RIGHT), IslandDebug.effective(DebugTarget.EXTRA)), glide, label = "capsule slot")
                 val widthDp by animateFloatAsState(IslandBubbles.widthDp(0, capsuleHeightDp.value) + adjust.dw, glide, label = "capsule width")
                 val capsuleW = widthDp * d
                 val capsuleTouch = remember { MutableInteractionSource() }

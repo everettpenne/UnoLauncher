@@ -278,10 +278,10 @@ internal class IslandOverlayHost(
                     width = window.width.roundToInt(), height = window.height.roundToInt(),
                     gravity = Gravity.TOP or Gravity.START, x = window.left.roundToInt(), y = window.top.roundToInt())
                 val pad = 6f * context.resources.displayMetrics.density
-                showTouchWindow(manager,
-                    left = (frame.left - pad - IslandRuntime.bubbleLeftPx - IslandRuntime.debugSlackPx).roundToInt(), top = (frame.top - pad - IslandRuntime.debugSlackPx).roundToInt(),
-                    width = (frame.width + 2f * pad + IslandRuntime.bubbleExtraPx + IslandRuntime.bubbleLeftPx + 2f * IslandRuntime.debugSlackPx).roundToInt(),
-                    height = (frame.height + 2f * pad + 2f * IslandRuntime.debugSlackPx).roundToInt())
+                val touch = touchRect(frame, pad, IslandRuntime.bubbleLeftPx.toFloat(), IslandRuntime.bubbleExtraPx.toFloat(),
+                    IslandRuntime.touchAbovePx.toFloat(), IslandRuntime.touchBelowPx.toFloat())
+                showTouchWindow(manager, left = touch.left.roundToInt(), top = touch.top.roundToInt(),
+                    width = touch.width.roundToInt(), height = touch.height.roundToInt())
             }
             frame != null -> {
                 // Camera on a side edge: one window sized to the island, as the island moves it.

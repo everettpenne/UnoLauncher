@@ -80,16 +80,15 @@ class IslandPullSmoothnessInstrumentedTest {
             state.setPlaying(System.currentTimeMillis(), true)
         }
         compose.mainClock.advanceTimeBy(1_500)
-        fun bubbles() = compose.onAllNodesWithTag("island-bubble-media", useUnmergedTree = true).fetchSemanticsNodes().size +
-            compose.onAllNodesWithTag("island-bubble-timer", useUnmergedTree = true).fetchSemanticsNodes().size +
-            compose.onAllNodesWithTag("island-bubble-call", useUnmergedTree = true).fetchSemanticsNodes().size
-        assertEquals("one bubble beside the pill", 1, bubbles())
+        fun bubbles() = listOf("media", "timer", "call").sumOf { k ->
+            listOf("island-capsule-$k", "island-capsule-left-$k", "island-bubble-$k").sumOf { compose.onAllNodesWithTag(it, useUnmergedTree = true).fetchSemanticsNodes().size } }
+        assertEquals("two capsules beside the pill", 2, bubbles())
         compose.runOnIdle { state.peeked = true }
         compose.mainClock.advanceTimeBy(1_500)
         assertEquals("none on a peek", 0, bubbles())
         compose.runOnIdle { state.collapse() }
         compose.mainClock.advanceTimeBy(1_500)
-        assertEquals("and back when it closes", 1, bubbles())
+        assertEquals("and back when it closes", 2, bubbles())
         compose.runOnIdle { NotificationFeed.ongoingCall = null; IslandTools.cancelTimer(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext) }
         compose.mainClock.autoAdvance = true
     }

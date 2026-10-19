@@ -15,8 +15,9 @@ class IslandBubblesTest {
     }
 
     @Test fun activitiesBeyondTheLeadingAndTrailingBecomeExtraCapsulesUpToTheLimit() {
-        assertEquals(listOf(LiveKind.TIMER), IslandBubbles.extras(all.take(3)))
-        assertEquals(listOf(LiveKind.TIMER, LiveKind.UPDATE), IslandBubbles.extras(all))
+        // Three islands at most (the pill, one on each side), so there are no further extras.
+        assertEquals(emptyList<LiveKind>(), IslandBubbles.extras(all.take(3)))
+        assertEquals(emptyList<LiveKind>(), IslandBubbles.extras(all))
     }
 
     @Test fun tappingACapsuleBringsItsActivityToTheFront() {
@@ -77,8 +78,8 @@ class IslandBubblesTest {
 
     @Test fun onlyAsManyCapsulesAsFitBeforeTheScreensEdge() {
         // 130 dp to the right of the pill, 38 dp circles with a 6 dp gap, 8 dp kept clear of the edge.
-        assertEquals(2, IslandBubbles.capacity(130f, 38f, IslandPrivacy.widthDp(2)))
-        assertEquals(3, IslandBubbles.capacity(400f, 38f, 0f))   // never more than the trailing one plus the extras
+        assertEquals(1, IslandBubbles.capacity(130f, 38f, IslandPrivacy.widthDp(2)))
+        assertEquals(1 + IslandBubbles.MAX, IslandBubbles.capacity(400f, 38f, 0f))   // never more than the right-hand capsule (three islands in all)
         assertEquals(0, IslandBubbles.capacity(20f, 38f, 0f))
         assertEquals(0, IslandBubbles.capacity(-5f, 38f, 0f))
     }
@@ -92,9 +93,9 @@ class IslandBubblesTest {
         // With two live, the second is a single capsule on the right; with one, none.
         assertEquals(listOf(false), IslandBubbles.layout(three.take(2)).map { it.left })
         assertEquals(emptyList<Capsule>(), IslandBubbles.layout(three.take(1)))
-        // More than three: the rest follow the third on the right.
+        // More than three live: still only the first three are shown.
         val five = listOf(LiveKind.CALL, LiveKind.TIMER, LiveKind.STOPWATCH, LiveKind.UPDATE, LiveKind.MEDIA)
-        assertEquals(listOf(0, 1, 2), IslandBubbles.layout(five).filter { !it.left }.map { it.slot })
+        assertEquals(listOf(LiveKind.TIMER, LiveKind.STOPWATCH), IslandBubbles.layout(five).map { it.kind })
     }
 
     @Test fun capsulePositionsFollowTheDebugAdjustments() {

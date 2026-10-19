@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.91.0-uno01
+
+- **The island's tuned layout is the default.** The main island is 15 dp wider than automatic, and the left and right islands are 10 dp wider and 2 dp closer in. Three islands at most: the main island, one on its left and one on its right.
+- **The island springs open to show an app's icon and name.** When an app opens (or a notification's app shows), the live activities tuck into the island, which springs 62 dp wider and 3 dp to the left, then returns to its resting size with the activities back when the name goes away.
+- **Fixed: the top of the screen not taking touches.** The island's touch window had been padded far beyond what it draws, so it swallowed touches meant for the app under the top of the screen. It is now exactly the island and its capsules.
+- **The Island debug page is only in debug builds.** A release build neither shows it nor reads anything it saved.
+
 ## 0.90.0-uno01
 
 - **Three live activities spread around the island.** With three or more live, the first is on the main island, the second is a circle on its left and the third a circle on its right (with two, the second stays on the right). Every capsule is now a circle showing the activity's symbol, and only as many circles are drawn on the right as fit before the screen's edge.

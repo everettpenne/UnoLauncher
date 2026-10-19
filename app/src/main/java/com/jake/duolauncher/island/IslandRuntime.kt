@@ -23,9 +23,11 @@ internal object IslandRuntime {
     /** Whether the system status bar is showing, approximated: false while the display is landscape (see FullScreenPolicy). */
     /** Room the pop-out bubbles need to the right of the pill, in pixels, so the touch window covers them. */
     @Volatile var bubbleExtraPx = 0
-    /** Room the left-hand capsule needs to the left of the pill, and the slack the debug controls add all round, in pixels. */
+    /** Room the left-hand capsule needs to the left of the pill, in pixels, and how far a capsule's hand-set offset takes it above or below the
+     * pill's row. Together with [bubbleExtraPx] they make the touch window exactly as big as what is drawn. */
     @Volatile var bubbleLeftPx = 0
-    @Volatile var debugSlackPx = 0
+    @Volatile var touchAbovePx = 0
+    @Volatile var touchBelowPx = 0
     var statusBarVisible by mutableStateOf(true)
     /** When the launcher last opened the notification shade (0 if never), so the island does not re-announce a
      * notification the shade has just presented (see [IslandEventArbiter.notificationSurface]). */

@@ -400,6 +400,6 @@
     <string name="what_shows_where_privacy">Camera, microphone and screen recording → the green, orange and red dots beside the pill.</string>
     <string name="what_shows_where_time">Time → the status rail when it is on, else the open island. Battery → the rail\'s ring, or the island while charging.</string>
     <string name="island_debug_force_intro">Force dummy live activities, so you can see where they end up. With three or more live, the first is on the main island, the second on its left and the third on its right.</string>
-    <string name="island_debug_adjust_intro">Width and position, in dp. Everything at 0 is the automatic layout.</string>
+    <string name="island_debug_adjust_intro">Width and position, in dp, added to the island\'s shipped layout. Everything at 0 is that layout.</string>
     <string name="island_debug_numbers_intro">The numbers to give as a default:</string>
 </resources>

@@ -130,24 +130,23 @@ class IslandCombinationTest {
                 LiveKind.MEDIA in subset, LiveKind.UPDATE in subset)
             assertEquals("order for $subset", subset, kinds)                         // priority order, nothing invented or lost
             val plan = IslandLive.plan(kinds)
-            val bubbles = IslandBubbles.extras(kinds)
-            if (kinds.isEmpty()) { assertNull(plan.leading); assertNull(plan.trailing); assertTrue(bubbles.isEmpty()); return@forEach }
-            // The pill carries the leading, the trailing is its own detached capsule, then the extras.
-            val shown = listOfNotNull(plan.leading, plan.trailing) + bubbles
+            val capsules = IslandBubbles.layout(kinds)
+            if (kinds.isEmpty()) { assertNull(plan.leading); assertTrue(capsules.isEmpty()); return@forEach }
             assertEquals("front of $subset", kinds[0], plan.leading)
-            if (kinds.size >= 2) assertEquals("second of $subset", kinds[1], plan.trailing)
-            // The pill, the trailing capsule and the extras never repeat an activity, and together they show the first four.
-            assertTrue("no repeats in $subset", shown.distinct().size == shown.size)
-            assertEquals("shown for $subset", kinds.take(4), shown)
-            assertTrue("at most two extras", bubbles.size <= IslandBubbles.MAX)
+            // The pill carries the first; with two live the second is a capsule on the right, with three the second is on the left and the
+            // third on the right. Three islands at most, none repeated, always the first three in priority order.
+            val shown = listOf(plan.leading!!) + capsules.map { it.kind }
+            assertEquals("shown for $subset", kinds.take(3), shown)
+            assertTrue("at most three islands", shown.size <= 3 && shown.distinct().size == shown.size)
+            assertEquals("a left capsule only with three live in $subset", kinds.size >= 3, capsules.any { it.left })
         }
     }
 
-    @Test fun onlyTheLowestPriorityActivityCanBeHiddenAndOnlyWhenAllFiveAreLive() {
+    @Test fun onlyTheThreeHighestPriorityActivitiesAreShown() {
         val every = IslandLive.active(true, true, true, true, true)
-        val shown = listOf(every[0], every[1]) + IslandBubbles.extras(every)
-        assertEquals(listOf(LiveKind.MEDIA), every - shown.toSet())
-        assertEquals(emptyList<LiveKind>(), IslandLive.active(true, true, true, true, false).let { it - (listOf(it[0], it[1]) + IslandBubbles.extras(it)).toSet() })
+        val shown = listOf(every[0]) + IslandBubbles.layout(every).map { it.kind }
+        assertEquals(every.drop(3), every - shown.toSet())
+        assertEquals(emptyList<LiveKind>(), IslandLive.active(true, true, false, false, false).let { it - (listOf(it[0]) + IslandBubbles.layout(it).map { c -> c.kind }).toSet() })
     }
 
     @Test fun turningTheListNeverLosesAnActivity() {

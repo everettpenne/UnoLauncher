@@ -130,8 +130,10 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         "Uno Keyboard: suggestions, autocorrect, one-handed", "customization-keyboard") { onPage(CustomizationPage.KEYBOARD) }
                     CustomizationDestination(Icons.Rounded.Save, "Backup & about",
                         "Save or restore, updates, and help", "customization-backup") { onPage(CustomizationPage.BACKUP) }
-                    CustomizationDestination(Icons.Rounded.Tune, "Island debug",
-                        "Dummy live activities, and width and position by hand", "customization-debug") { onPage(CustomizationPage.DEBUG) }
+                    // Only a debug build has the island debug page; a release build neither shows it nor reads anything it saved.
+                    if (androidx.compose.ui.platform.LocalContext.current.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0)
+                        CustomizationDestination(Icons.Rounded.Tune, "Island debug",
+                            "Dummy live activities, and width and position by hand", "customization-debug") { onPage(CustomizationPage.DEBUG) }
                     if (isDefaultHome) GlassButton(onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         .testTag("default-home-settings")) { Text(stringResource(com.jake.duolauncher.R.string.change_home_app)) }
                 }

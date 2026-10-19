@@ -19,6 +19,17 @@ internal data class DebugGroup(val dw: Float = 0f, val dx: Float = 0f, val dy: F
     }
 }
 
+/** The layout the island ships with, in the same terms as a hand adjustment (see [DebugGroup]), found with the debug page. Hand adjustments are added on top. */
+internal object IslandLayoutDefaults {
+    /** The main island at rest: a little wider than the automatic width. */
+    val MAIN = DebugGroup(dw = 15f)
+    /** While the island shows an app's icon and name (a launch or a notification): it springs wider and a touch to the left, then returns to [MAIN]. */
+    val MAIN_SHOWING_APP = DebugGroup(dw = 62f, dx = -3f)
+    val LEFT = DebugGroup(dw = 10f, dx = -2f)
+    val RIGHT = DebugGroup(dw = 10f, dx = -2f)
+    val EXTRA = DebugGroup(dw = 10f, dx = -2f)
+}
+
 /** The islands you can adjust by hand. */
 internal enum class DebugTarget(val label: String, val key: String) {
     PILL("Main island", "pill"), LEFT("Left island", "left"), RIGHT("Right island", "right"), EXTRA("Extra islands (4th and later)", "extra"),
@@ -39,16 +50,27 @@ internal object IslandDebug {
 
     private var prefs: android.content.SharedPreferences? = null
 
-    /** Loads the saved values the first time it is called; later calls do nothing. */
+    /** Loads the saved values the first time it is called; later calls do nothing. Only a debuggable build has any: in a release build every
+     * value stays at its default and nothing is forced, whatever an old preferences file says. */
     fun init(context: Context) {
         if (prefs != null) return
-        val p = context.applicationContext.getSharedPreferences("islandDebug", Context.MODE_PRIVATE)
+        val app = context.applicationContext
+        val p = app.getSharedPreferences("islandDebug", Context.MODE_PRIVATE)
         prefs = p
+        if (app.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) return
         DebugTarget.entries.forEach { t ->
             val g = DebugGroup(p.getFloat("${t.key}.dw", 0f), p.getFloat("${t.key}.dx", 0f), p.getFloat("${t.key}.dy", 0f)).clamped()
             assign(t, g)
         }
         forced = p.getString("forced", "").orEmpty().split(',').mapNotNull { n -> LiveKind.entries.firstOrNull { it.name == n } }.toSet()
+    }
+
+    /** What [target] is laid out with: its shipped default plus the hand adjustment. */
+    fun effective(target: DebugTarget): DebugGroup {
+        val base = when (target) { DebugTarget.PILL -> IslandLayoutDefaults.MAIN; DebugTarget.LEFT -> IslandLayoutDefaults.LEFT
+            DebugTarget.RIGHT -> IslandLayoutDefaults.RIGHT; DebugTarget.EXTRA -> IslandLayoutDefaults.EXTRA }
+        val g = group(target)
+        return DebugGroup(base.dw + g.dw, base.dx + g.dx, base.dy + g.dy)
     }
 
     fun group(target: DebugTarget): DebugGroup = when (target) { DebugTarget.PILL -> pill; DebugTarget.LEFT -> left; DebugTarget.RIGHT -> right; DebugTarget.EXTRA -> extra }
@@ -74,8 +96,8 @@ internal object IslandDebug {
     }
 
     /** How far, in dp, any debug value can move something beyond its automatic place: the overlay window is made this much larger all round. */
-    fun slackDp(): Float = if (DebugTarget.entries.all { group(it).isDefault }) 0f
-        else DebugTarget.entries.sumOf { (abs(group(it).dw) + abs(group(it).dx)).toDouble() }.toFloat().coerceAtMost(240f) + 48f
+    fun slackDp(): Float = DebugTarget.entries.sumOf { (abs(effective(it).dw) + abs(effective(it).dx) + abs(effective(it).dy)).toDouble() }.toFloat()
+        .coerceAtMost(300f) + abs(IslandLayoutDefaults.MAIN_SHOWING_APP.dw) / 2f + 16f
 
     /** The values as one line to read out: for each island its width, x and y adjustments in dp, then what is forced on. */
     fun summary(): String = summaryOf(pill, left, right, extra, forced)

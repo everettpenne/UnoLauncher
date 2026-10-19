@@ -30,15 +30,27 @@ internal data class IslandFrame(
  * [frame] with the hand adjustment for the main island ([dwDp] wider, [dxDp] across, [dyDp] down) applied as far as it is collapsed
  * ([collapsed] is 1 at rest and 0 when open, so the open panel is not disturbed). The camera hole stays where it is on screen.
  */
-internal fun withDebugAdjust(frame: IslandFrame, collapsed: Float, dwDp: Float, dxDp: Float, dyDp: Float, density: Float): IslandFrame {
+internal fun withDebugAdjust(frame: IslandFrame, collapsed: Float, dwDp: Float, dxDp: Float, dyDp: Float, density: Float,
+    screenWidth: Float = Float.MAX_VALUE): IslandFrame {
     val k = collapsed.coerceIn(0f, 1f)
     if (k == 0f || (dwDp == 0f && dxDp == 0f && dyDp == 0f)) return frame
-    val width = (frame.width + dwDp * density * k).coerceAtLeast(frame.height)
-    val left = frame.left - (width - frame.width) / 2f + dxDp * density * k
+    // Never wider than the screen (less an edge margin each side), so a wide adjustment cannot push the island off it.
+    val margin = 8f * density
+    val width = (frame.width + dwDp * density * k).coerceAtLeast(frame.height).coerceAtMost(maxOf(frame.width, screenWidth - 2f * margin))
+    var left = frame.left - (width - frame.width) / 2f + dxDp * density * k
+    if (screenWidth < Float.MAX_VALUE) left = left.coerceIn(margin, maxOf(margin, screenWidth - width - margin))
     val top = frame.top + dyDp * density * k
     val hole = frame.hole?.let { PxRect(it.left + frame.left - left, it.top + frame.top - top, it.right + frame.left - left, it.bottom + frame.top - top) }
     return frame.copy(left = left, top = top, width = width, hole = hole)
 }
+
+/**
+ * The part of the screen the island's touch window covers: the island itself and a small pad, plus the room its capsules take on each
+ * side and any hand-set vertical offset of a capsule. It is exactly that and no more: this window takes every touch inside it, so anything
+ * bigger would swallow touches meant for the app underneath (the top of the screen).
+ */
+internal fun touchRect(frame: IslandFrame, pad: Float, leftPx: Float, rightPx: Float, abovePx: Float, belowPx: Float): PxRect =
+    PxRect(frame.left - pad - leftPx, frame.top - pad - abovePx, frame.left + frame.width + pad + rightPx, frame.top + frame.height + pad + belowPx)
 
 /** Both frames are within a pixel or so of each other (the animation has settled). */
 internal fun IslandFrame.nearly(other: IslandFrame): Boolean =

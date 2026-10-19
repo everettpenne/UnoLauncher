@@ -124,7 +124,7 @@ internal class Capsule(val kind: LiveKind, val left: Boolean, val slot: Int) {
  */
 internal object IslandBubbles {
     /** The extra activities shown after the pill's leading and its trailing capsule, at most [MAX]. */
-    const val MAX = 2
+    const val MAX = 0
     /** The gap between the pill and the first capsule, and between capsules, in dp. */
     const val GAP_DP = 6f
     /** The room kept clear of the screen's edge, in dp. */

@@ -45,4 +45,31 @@ class IslandDebugTest {
         assertTrue(IslandDebug.summaryOf(DebugGroup(), DebugGroup(), DebugGroup(), DebugGroup(), emptySet()).endsWith("forced none"))
         assertNotEquals(s, IslandDebug.summaryOf(DebugGroup(), DebugGroup(), DebugGroup(), DebugGroup(), emptySet()))
     }
+
+    @Test fun theTouchWindowIsTheIslandAndItsCapsulesAndNothingMore() {
+        // Regression: the touch window once grew by a debug "slack" all round, which took touches meant for the app under the top of the screen.
+        val f = frame()
+        val plain = touchRect(f, 12f, 0f, 0f, 0f, 0f)
+        assertEquals(f.height + 24f, plain.height, 0.001f)
+        assertEquals(f.top - 12f, plain.top, 0.001f)
+        val withCapsules = touchRect(f, 12f, 90f, 100f, 0f, 0f)
+        assertEquals(plain.height, withCapsules.height, 0.001f)
+        assertEquals(f.left - 12f - 90f, withCapsules.left, 0.001f)
+        assertEquals(f.left + f.width + 12f + 100f, withCapsules.right, 0.001f)
+        // A capsule set lower makes the window taller below only by that much.
+        assertEquals(plain.height + 8f, touchRect(f, 12f, 0f, 0f, 0f, 8f).height, 0.001f)
+    }
+
+    @Test fun theShippedLayoutIsTheOneChosenOnTheDebugPage() {
+        assertEquals(DebugGroup(15f, 0f, 0f), IslandLayoutDefaults.MAIN)
+        assertEquals(DebugGroup(62f, -3f, 0f), IslandLayoutDefaults.MAIN_SHOWING_APP)
+        assertEquals(DebugGroup(10f, -2f, 0f), IslandLayoutDefaults.LEFT)
+        assertEquals(DebugGroup(10f, -2f, 0f), IslandLayoutDefaults.RIGHT)
+    }
+
+    @Test fun aWideAdjustmentNeverRunsOffTheScreen() {
+        val g = withDebugAdjust(frame(), 1f, 500f, 0f, 0f, 2f, screenWidth = 1080f)
+        assertTrue(g.width <= 1080f - 32f + 0.01f)
+        assertTrue(g.left >= 16f - 0.01f && g.left + g.width <= 1080f - 16f + 0.01f)
+    }
 }

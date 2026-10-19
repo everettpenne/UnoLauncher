@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.81.0-uno01
+
+- **Spotlight opens like a pill, not a rectangle.** The search panel's corners now morph with the emerge — fully round while it is still pill-sized, easing to the panel's 34dp corner as it grows — so the brief "rounded rectangle" flash at the very start of opening (and its mirror on close) is gone.
+
 ## 0.80.0-uno01
 
 - **Live Activities, as a first-class contract.** The island's reading of Android 16's promoted ongoing notifications is now a named, tested contract: a pure `LiveUpdateLogic.build` maps the notification's fields (title, short status, body, progress, color, …) into the island's model, with reference tests for the ride-share and delivery cases. PRIVACY.md now names the exact closed set of fields read, and a test fails if the code and the doc ever drift.

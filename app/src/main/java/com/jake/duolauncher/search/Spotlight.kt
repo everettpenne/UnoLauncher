@@ -365,12 +365,15 @@ internal fun Spotlight(
         contacts = withContext(Dispatchers.IO) { ContactsSearch.search(context, query) }
     }
     // The island's own look: a true-black body (the pill's colour, so the panel reads as the pill grown larger), white ink and
-    // a hairline rim. The glass the panel used to have belonged to a sheet that appeared from nowhere. The corners equal the
-    // expanded island's (IslandGeometry.CORNER_CAP_DP, the shared source of truth), so they can never drift apart.
-    val shape = RoundedCornerShape(IslandGeometry.CORNER_CAP_DP.dp)
+    // a hairline rim. The corners equal the expanded island's (IslandGeometry.CORNER_CAP_DP, the shared source of truth) at full
+    // size, and morph with the emerge so the panel never reads as a rounded rectangle while it is still pill-sized: a capsule at
+    // progress 0, the 34dp cap at progress 1. Without an island there is no pill to grow from, so it stays at the cap.
     val ink = Color.White
     val quiet = remember { MutableInteractionSource() }
     val density = LocalDensity.current
+    val capCorner = IslandGeometry.CORNER_CAP_DP.dp
+    val pillCorner = pill?.let { with(density) { (it.height / 2f).toDp() } } ?: capCorner
+    val shape = RoundedCornerShape(if (pill != null) androidx.compose.ui.unit.lerp(pillCorner, capCorner, progress.coerceIn(0f, 1f)) else capCorner)
     // Swipe-up-to-close, mirroring the island's swipe-up-close: the finger's upward travel is low-passed and mapped to a reduced
     // emerge progress (IslandDrag.closeFraction), so the panel shrinks back into the pill as the finger moves instead of sliding off
     // the top. On release it closes past the distance or a flick (IslandDrag.closeDecide) and the exit transition finishes the

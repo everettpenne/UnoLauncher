@@ -912,17 +912,6 @@ internal fun DynamicIsland(
                 val capsuleTouch = remember { MutableInteractionSource() }
                 val capsulePressed by capsuleTouch.collectIsPressedAsState()
                 val pressScale by animateFloatAsState(if (capsulePressed) .9f else 1f, spring(dampingRatio = .6f, stiffness = 500f), label = "capsule press")
-                val breathing = animationsOn && (kind != LiveKind.MEDIA || isPlaying)
-                val breath = if (breathing) rememberInfiniteTransition(label = "capsule breath").animateFloat(.38f, .72f,
-                    infiniteRepeatable(tween(1_800, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "capsule rim")
-                    else remember { mutableFloatStateOf(.5f) }
-                val rim = when (kind) {
-                    LiveKind.CALL -> IosGreen
-                    LiveKind.TIMER -> IslandThemes.active.timer
-                    LiveKind.UPDATE -> updates.firstOrNull()?.let { updateTint(it) } ?: themeInk
-                    LiveKind.MEDIA -> artTint
-                    else -> themeInk
-                }
                 val fill = themeFill
                 // The neck's path is made once and rewound each frame, instead of allocating a Path per frame while the capsule pulls away.
                 val neckPath = remember { androidx.compose.ui.graphics.Path() }
@@ -958,21 +947,6 @@ internal fun DynamicIsland(
                     .size(widthDp.dp, capsuleHeightDp)
                     .clip(capsuleShape)
                     .background(themeFill)
-                    // A soft wash of the activity's own colour from the centre, so each capsule reads as its activity at a glance,
-                    // and a rim that breathes slowly while the activity is live (still when it is a paused player or animations are off).
-                    .drawBehind {
-                        drawRect(androidx.compose.ui.graphics.Brush.radialGradient(
-                            listOf(rim.copy(alpha = .26f), androidx.compose.ui.graphics.Color.Transparent), radius = size.maxDimension * .7f))
-                    }
-                    .drawWithContent {
-                        drawContent()
-                        val sw = 1.5.dp.toPx()
-                        drawRoundRect(rim.copy(alpha = breath.value),
-                            topLeft = androidx.compose.ui.geometry.Offset(sw / 2f, sw / 2f),
-                            size = androidx.compose.ui.geometry.Size(size.width - sw, size.height - sw),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2f),
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(sw))
-                    }
                     .clickable(interactionSource = capsuleTouch, indication = null, onClickLabel = "Bring ${IslandLive.label(kind)} to the front", role = Role.Button) {
                         UnoFeedback.play(Cue.TICK, haptic); state.bringToFront(kind)
                     }
@@ -993,8 +967,8 @@ internal fun DynamicIsland(
                             }
                         }
                     } else {
-                        // An extra capsule: glyph only.
-                        LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
+                        // An extra capsule: the activity's symbol only, never an app's logo or album art.
+                        LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp, plain = true)
                     }
                     }
                 }
@@ -1882,7 +1856,7 @@ private const val MIN_GLYPH_PX = 12f
 @Composable
 private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boolean, tint: Color,
     art: androidx.compose.ui.graphics.ImageBitmap?, multi: Boolean, liveCompactLevel: Int, update: LiveUpdate? = null,
-    glyphSize: androidx.compose.ui.unit.Dp) {
+    glyphSize: androidx.compose.ui.unit.Dp, plain: Boolean = false) {
     val glyph = show == SlotShow.GLYPH
     when (kind) {
         LiveKind.CAMERA -> if (glyph) Icon(Icons.Rounded.Videocam, "Camera in use", tint = IosGreen,
@@ -1908,7 +1882,7 @@ private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boo
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
         LiveKind.UPDATE -> if (update != null) {
             val driving = update.source == ActivitySource.NAVIGATION
-            if (glyph) UpdateGlyph(update, glyphSize)
+            if (glyph) UpdateGlyph(update, glyphSize, plain)
             else {
                 // The words beside the glyph, as the person chose: none (glyph alone), the short status, or the title.
                 val text = LiveCompactText.choose(liveCompactLevel, LiveUpdateLogic.glance(update, clockMs), update.title)
@@ -1919,7 +1893,7 @@ private fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boo
         }
         LiveKind.MEDIA -> if (glyph) {
             // The artwork when there is any, as a circle sized to sit concentrically inside the pill; otherwise the bars stand in.
-            if (art != null) Image(art, null, Modifier.size(glyphSize).clip(CircleShape))
+            if (art != null && !plain) Image(art, null, Modifier.size(glyphSize).clip(CircleShape))
             else if (multi) EqualizerBars(if (playing) tint else tint.copy(alpha = .55f), animate = playing)
         } else {
             // Stays while a paused player can still be resumed, but only moves while audio is playing.
@@ -1948,7 +1922,7 @@ private fun percentage(update: LiveUpdate): String {
 
 /** The app's small icon in a soft circle of its colour: what stands in for the app on the pill and the card. */
 @Composable
-private fun UpdateGlyph(update: LiveUpdate, size: androidx.compose.ui.unit.Dp) {
+private fun UpdateGlyph(update: LiveUpdate, size: androidx.compose.ui.unit.Dp, plain: Boolean = false) {
     val tint = updateTint(update)
     val fraction = LiveUpdateLogic.fraction(update.progress, update.progressMax, update.indeterminate)
     val ringColour = IslandThemes.active.progress(tint, fraction != null && fraction >= 1f)
@@ -1967,6 +1941,8 @@ private fun UpdateGlyph(update: LiveUpdate, size: androidx.compose.ui.unit.Dp) {
         // A navigation instruction shows its turn arrow, in the arrow's own colours, instead of the maps app's logo.
         val arrow = remember(update.largeIcon) { update.largeIcon?.asImageBitmap() }
         if (update.source == ActivitySource.NAVIGATION && arrow != null) Image(arrow, null, Modifier.size(size * .92f).testTag("island-update-arrow"))
+        // A plain glyph (an extra capsule) is the activity's own symbol, not the app's logo: the arrow above is the one picture that says something.
+        else if (plain) Icon(if (update.source == ActivitySource.PROGRESS) Icons.Rounded.Refresh else Icons.Rounded.RssFeed, null, tint = tint, modifier = Modifier.size(size * .6f))
         else if (icon != null) Image(icon, null, Modifier.size(size * .66f), colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(tint))
         else Icon(Icons.Rounded.RssFeed, null, tint = tint, modifier = Modifier.size(size * .6f))
     }

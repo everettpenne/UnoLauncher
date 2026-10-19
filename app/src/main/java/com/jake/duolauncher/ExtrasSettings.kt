@@ -256,7 +256,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         s.islandWideMode == IslandWideMode.OFF, "island-wide-off") { store.setIslandWideMode(IslandWideMode.OFF) }
     ChoiceRow("Wide", "The pill stays wide at today's width, for sound that is playing",
         s.islandWideMode == IslandWideMode.WIDE, "island-wide-wide") { store.setIslandWideMode(IslandWideMode.WIDE) }
-    ChoiceRow("Extra wide", "50% wider than Wide; on a narrow phone it stops at the screen's edge",
+    ChoiceRow("Extra wide", "As wide as the island at the 75% size setting, at the height you chose; on a narrow phone it stops at the screen's edge",
         s.islandWideMode == IslandWideMode.EXTRA_WIDE, "island-wide-extra") { store.setIslandWideMode(IslandWideMode.EXTRA_WIDE) }
     Text(stringResource(com.jake.duolauncher.R.string.over_other_apps_the_island_normally),
         style = note, color = muted)

@@ -147,14 +147,17 @@ internal object IslandGeometry {
     /** How far past fully open a spring may carry the island: room for a bounce, a stretch or a splash. */
     const val MAX_OVERSHOOT = 1.35f
 
+    /** The size-slider position whose width the "Extra wide" pill takes. */
+    const val EXTRA_WIDE_SIZE = .75f
+
     /**
      * The island's frame. [progress] is how open its width is (0 = the pill, 1 = the panel) and [heightProgress] how open its height is;
      * they are separate so a motion can stretch and squash. Either may run a little past 1 (up to [MAX_OVERSHOOT]) for a bounce; the
      * width never leaves the screen. A camera on a side edge ignores the overshoot.
      *
-     * [wideFactor] scales the collapsed pill's *wide* side slots (the room beside the hole for its content): 1f is today's wide pill,
-     * 1.5f the "Extra wide" setting. It never narrows, and the result is clamped so the pill still fits the screen with its own margins
-     * and the expanded panel still clears the dock/rail strip.
+     * [wideFactor] above 1f (the "Extra wide" setting) gives the collapsed pill the width it would have with the size slider at 75% (see
+     * [EXTRA_WIDE_SIZE]) and leaves its height alone. It never narrows, and the result is clamped so the pill still fits the screen with
+     * its own margins and the expanded panel still clears the dock/rail strip.
      */
     fun frame(env: IslandEnvironment, density: Float, progress: Float, scale: Float = .5f,
         extraBodyDp: Float = 0f, extraWidthDp: Float = 0f, compactness: Float = 0f,
@@ -187,7 +190,9 @@ internal object IslandGeometry {
             top = cutout.centerY - half
             collapsedHeight = half * 2f
             val c = compactness.coerceIn(0f, 1f)
-            val sideRoom = (1f - c) * 2f * mix(44f, 80f, size) * wideFactor.coerceAtLeast(1f) * d
+            // "Extra wide" (wideFactor > 1) gives the pill the width it has at the 75% size setting, whatever the slider says, while the
+            // height still follows the slider. It never narrows: above 75% the slider's own width already is wider.
+            val sideRoom = (1f - c) * 2f * mix(44f, 80f, if (wideFactor > 1f) max(size, EXTRA_WIDE_SIZE) else size) * d
             // The compact width is the hole plus a ring each side, never less than the wrap clearance used below: a pill
             // narrower than hole + 2 * wrap makes that clamp's range empty (min above max) and throws.
             collapsedWidth = cutout.width + sideRoom + c * 2f * max(ring, WRAP_DP * d) + extraWidthDp * d
@@ -203,7 +208,7 @@ internal object IslandGeometry {
         // The expanded panel must clear the dock/rail strip: cap its width so it can never
         // reach the glass column on the right, whatever the dock-width preset.
         val dockClearance = env.dockWidthPx + 16f * d
-        // Extra wide (wideFactor > 1) makes the pill 50% wider, but never wider than the phone allows: it must still clear the
+        // Extra wide (wideFactor > 1) makes the pill as wide as the 75% size setting, but never wider than the phone allows: it must still clear the
         // dock/rail strip (so the expanded panel can too, below) and keep the screen's own edge margins.
         collapsedWidth = collapsedWidth.coerceAtMost(env.screenWidth - 2f * dockClearance)
         val expandedWidth = min(expandedWidthDp(env.screenWidth / d) * d,

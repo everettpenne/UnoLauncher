@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.89.0-uno01
+
+- **Live activities leave gracefully.** When an activity ends, its capsule slides back into the pill on the same neck it left on, shrinking and melting in, and the pill gives a small pulse. The pill's own glyph and detail shrink out and the next ones grow in, and the camera, microphone and recording dots spring up and shrink away instead of popping.
+- **Swapping activities merges and splits.** Tapping a capsule absorbs it into the pill, then the old front detaches into the freed slot a moment later.
+- **Extra wide is 1% wider** than the 75% size width, still at the height you chose.
+
 ## 0.88.0-uno01
 
 - **Capsules are black again.** The coloured rim, colour wash and breathing glow added in 0.87.0 are gone; the detached live-activity capsules match the pill in plain AMOLED black.

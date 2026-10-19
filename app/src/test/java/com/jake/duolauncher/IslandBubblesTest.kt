@@ -57,4 +57,22 @@ class IslandBubblesTest {
         assertEquals(listOf(LiveKind.TIMER, LiveKind.MEDIA, LiveKind.CALL), seen)
         assertEquals(null, IslandLive.nextFront(listOf(LiveKind.CALL), null))
     }
+
+    @Test fun anActivityThatLeavesLingersInItsPlaceUntilItsExitIsDone() {
+        val before = Lingering.merge(emptyList(), listOf(LiveKind.CALL, LiveKind.TIMER, LiveKind.MEDIA))
+        // The timer ends: it stays in the list, leaving, at the place it had, and the others close ranks.
+        val during = Lingering.merge(before, listOf(LiveKind.CALL, LiveKind.MEDIA))
+        assertEquals(listOf(Held(LiveKind.CALL, 0, false), Held(LiveKind.MEDIA, 1, false), Held(LiveKind.TIMER, 1, true)), during)
+        // Asking again changes nothing, and once the exit is done it is gone.
+        assertEquals(during, Lingering.merge(during, listOf(LiveKind.CALL, LiveKind.MEDIA)))
+        assertEquals(listOf(Held(LiveKind.CALL, 0, false), Held(LiveKind.MEDIA, 1, false)), Lingering.drop(during, LiveKind.TIMER))
+    }
+
+    @Test fun anActivityThatReturnsWhileLeavingStopsLeaving() {
+        val leaving = Lingering.merge(Lingering.merge(emptyList(), listOf(LiveKind.CALL)), emptyList())
+        assertEquals(true, leaving.single().leaving)
+        assertEquals(listOf(Held(LiveKind.CALL, 0, false)), Lingering.merge(leaving, listOf(LiveKind.CALL)))
+        // Dropping something that is not leaving does nothing.
+        assertEquals(listOf(Held(LiveKind.CALL, 0, false)), Lingering.drop(listOf(Held(LiveKind.CALL, 0, false)), LiveKind.CALL))
+    }
 }

@@ -10,6 +10,7 @@ import android.media.session.PlaybackState
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToString
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -288,5 +289,40 @@ class IslandScenarioInstrumentedTest {
         assertTrue("at most two bubbles",
             listOf("call", "timer", "stopwatch", "update", "media").sumOf { compose.onAllNodesWithTag("island-bubble-$it", useUnmergedTree = true).fetchSemanticsNodes().size } <= 2)
         shot("crowded")
+    }
+
+    private fun freshUpdate() = LiveUpdate("k2", "com.example.ride", "Ride", "Ride to the airport", null, "12 min", 40, 100, false, null, false, null, 0xFF1A73E8.toInt(), System.currentTimeMillis(), null)
+
+    private fun capsuleCount(kind: String) = compose.onAllNodesWithTag("island-capsule-$kind", useUnmergedTree = true).fetchSemanticsNodes().size +
+        compose.onAllNodesWithTag("island-bubble-$kind", useUnmergedTree = true).fetchSemanticsNodes().size
+
+    @Test fun tappingAnExtraCapsuleMergesItIntoThePillAndTheOldFrontSplitsOff() {
+        show()
+        playMusic(playing = true)
+        compose.runOnIdle { NotificationFeed.ongoingCall = call(); NotificationFeed.liveUpdates = listOf(freshUpdate()) }
+        compose.waitForIdle()
+        assertEquals("media is the extra capsule before", 1, capsuleCount("media"))
+        compose.onNodeWithTag("island-bubble-media", useUnmergedTree = true).performClick()
+        compose.waitForIdle()
+        assertEquals("media merged into the pill, so it has no capsule", 0, capsuleCount("media"))
+        assertEquals("the old front detached into a capsule", 1, capsuleCount("call"))
+        shot("after-swap")
+    }
+
+    @Test fun anActivityThatEndsFadesItsCapsuleOutAndLeavesNothingBehind() {
+        show()
+        playMusic(playing = true)
+        compose.runOnIdle { NotificationFeed.ongoingCall = call(); NotificationFeed.liveUpdates = listOf(freshUpdate()) }
+        compose.waitForIdle()
+        assertEquals(1, capsuleCount("media"))
+        compose.runOnIdle { NotificationFeed.nowPlaying = null; state.setPlaying(System.currentTimeMillis(), false) }
+        compose.waitForIdle()
+        assertEquals("the ended activity's capsule is gone once its exit has played", 0, capsuleCount("media"))
+        compose.runOnIdle { state.cameraActive = true }
+        compose.waitForIdle()
+        assertTrue(present("island-camera"))
+        compose.runOnIdle { state.cameraActive = false }
+        compose.waitForIdle()
+        assertTrue("the camera dot is gone once it has shrunk away", !present("island-camera"))
     }
 }

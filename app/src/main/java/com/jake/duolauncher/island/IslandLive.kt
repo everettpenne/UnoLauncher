@@ -82,6 +82,20 @@ internal object IslandLive {
     }
 }
 
+/** One thing the island is showing, or is still finishing leaving: [index] is where it sat (kept while it [leaving], so its exit starts from there). */
+internal data class Held<T>(val item: T, val index: Int, val leaving: Boolean)
+
+/** Keeps a thing that has just ended or moved on drawn until its exit animation is done, instead of vanishing the moment it leaves the list. Pure, so the rules are unit-tested. */
+internal object Lingering {
+    /** The things [current] now, in order, then the ones from [held] no longer in it, marked leaving and keeping the place they last had. */
+    fun <T> merge(held: List<Held<T>>, current: List<T>): List<Held<T>> =
+        current.mapIndexed { i, item -> Held(item, i, false) } +
+            held.filter { it.item !in current }.map { it.copy(leaving = true) }
+
+    /** [held] without the leaving [item], once its exit has finished. */
+    fun <T> drop(held: List<Held<T>>, item: T): List<Held<T>> = held.filterNot { it.item == item && it.leaving }
+}
+
 /** What text the collapsed pill writes beside a Live Update's glyph, at the level the person chose: 0 nothing (the glyph alone, so
  *  the slot stays small), 1 the app's own short status (the pill's behaviour today), 2 the title instead. Pure, so the rule is unit-tested.
  */

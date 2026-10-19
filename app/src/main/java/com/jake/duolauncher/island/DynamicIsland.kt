@@ -189,7 +189,10 @@ internal class IslandState {
     /** The activity the person put in front (by tapping its capsule or flicking), pinned by kind so it stays there while others come and go. */
     var frontKind by mutableStateOf<LiveKind?>(null)
         private set
-    fun bringToFront(kind: LiveKind?) { frontKind = kind }
+    fun bringToFront(kind: LiveKind?) { frontKind = kind; swapAtMs = System.currentTimeMillis() }
+    /** When the front activity was last changed: the capsule that splits off the pill waits a beat for the one merging into it. */
+    var swapAtMs = 0L
+        private set
 
     private class Flash(val title: String, val icon: androidx.compose.ui.graphics.ImageBitmap?,
         val component: android.content.ComponentName?, val symbol: IslandSymbol, val tint: Color? = null,
@@ -797,6 +800,15 @@ internal fun DynamicIsland(
             pulse.animateTo(1f, IslandThemes.active.spring(.4f, 260f))
         }
     }
+    // A capsule melting into the pill (an activity ended, or was brought to the front) gives it the same small pulse, a touch softer.
+    var absorbTick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(absorbTick) {
+        if (absorbTick > 0 && animationsOn) {
+            pulse.snapTo(1f)
+            pulse.animateTo(1f + (IslandThemes.active.motion.pulse - 1f) * .7f, IslandThemes.active.spring(.45f, 700f))
+            pulse.animateTo(1f, IslandThemes.active.spring(.4f, 260f))
+        }
+    }
     // Flash returns to the collapsed clock after a beat.
     LaunchedEffect(state.flashKey) {
         if (state.flashTitle != null) { delay(2600); state.advanceFlash() }
@@ -882,26 +894,58 @@ internal fun DynamicIsland(
         val dotsDp = IslandPrivacy.widthDp(privacyKinds.size)
         IslandRuntime.bubbleExtraPx = if (detachedKinds.isEmpty()) 0 else ((IslandBubbles.reserveDp(detachedKinds.size, capsuleHeightDp.value) + dotsDp) * d).roundToInt()
         LaunchedEffect(detachedKinds.size, privacyKinds.size) { onFrameChanged?.invoke(reported[0] ?: headingFor, windowRect) }
-        privacyKinds.forEachIndexed { index, kind ->
-            Box(Modifier
-                .offset {
-                    val frame = frameState.value
-                    val x = frame.left + frame.width + (IslandPrivacy.GAP_DP + index * IslandPrivacy.STEP_DP) * d
-                    val y = frame.top + (frame.height - IslandPrivacy.DOT_DP * d) / 2f
-                    androidx.compose.ui.unit.IntOffset(
-                        (x - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
+        val capsulesShown = !(state.expanded || state.peeked || pulling || flashActive || IslandTools.ringing)
+        val heldDots = rememberLingering(privacyKinds, keepGhosts = capsulesShown)
+        heldDots.held.forEach { dot ->
+            val kind = dot.item; val index = dot.index
+            key(kind) {
+                // A dot springs up from nothing when the camera, microphone or recording starts, and back down to nothing when it stops.
+                val grow = remember { Animatable(if (animationsOn) 0f else 1f) }
+                LaunchedEffect(dot.leaving) {
+                    grow.animateTo(if (dot.leaving) 0f else 1f, if (animationsOn) theme.spring(.7f, 520f) else snap())
+                    if (dot.leaving) heldDots.gone(kind)
                 }
-                .size(IslandPrivacy.DOT_DP.dp).clip(CircleShape)
-                .background(when (kind) { LiveKind.CAMERA -> IosGreen; LiveKind.MIC -> PRIVACY_MIC; else -> IslandSymbol.RECORDING.tint })
-                .semantics { contentDescription = when (kind) { LiveKind.CAMERA -> "Camera in use"; LiveKind.MIC -> "Microphone in use"; else -> "Screen is being recorded" } }
-                .testTag(when (kind) { LiveKind.CAMERA -> "island-camera"; LiveKind.MIC -> "island-mic"; else -> "island-recording" }))
+                Box(Modifier
+                    .offset {
+                        val frame = frameState.value
+                        val x = frame.left + frame.width + (IslandPrivacy.GAP_DP + index * IslandPrivacy.STEP_DP) * d
+                        val y = frame.top + (frame.height - IslandPrivacy.DOT_DP * d) / 2f
+                        androidx.compose.ui.unit.IntOffset(
+                            (x - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
+                    }
+                    .graphicsLayer { val sc = grow.value.coerceAtLeast(0f); scaleX = sc; scaleY = sc; alpha = grow.value.coerceIn(0f, 1f) }
+                    .size(IslandPrivacy.DOT_DP.dp).clip(CircleShape)
+                    .background(when (kind) { LiveKind.CAMERA -> IosGreen; LiveKind.MIC -> PRIVACY_MIC; else -> IslandSymbol.RECORDING.tint })
+                    .semantics { contentDescription = when (kind) { LiveKind.CAMERA -> "Camera in use"; LiveKind.MIC -> "Microphone in use"; else -> "Screen is being recorded" } }
+                    .testTag(when (kind) { LiveKind.CAMERA -> "island-camera"; LiveKind.MIC -> "island-mic"; else -> "island-recording" }))
+            }
         }
-        detachedKinds.forEachIndexed { index, kind ->
+        val heldCapsules = rememberLingering(detachedKinds, keepGhosts = capsulesShown)
+        heldCapsules.held.forEach { capsule ->
+            val kind = capsule.item; val index = capsule.index
             key(kind) {
                 // A capsule leaves the pill like a drop pulling away: it starts inside the pill's end, travels out on a springy overshoot,
                 // and for a moment stays joined to the pill by a neck that stretches thin and pinches off (see Metaball).
                 val appear = remember { Animatable(if (animationsOn) 0f else 1f) }
-                LaunchedEffect(Unit) { if (animationsOn) appear.animateTo(1f, theme.spring(.5f, 240f)) }
+                // When the activity ends or is brought to the front, this plays backwards: the capsule slides back into the pill on the same neck
+                // and melts into it, and the pill pulses. A capsule that splits off right after one merged in waits a beat, so the two read
+                // as one hand-over: the front one merges, then the old front detaches.
+                LaunchedEffect(capsule.leaving) {
+                    if (!animationsOn) {
+                        appear.snapTo(if (capsule.leaving) 0f else 1f)
+                        if (capsule.leaving) { absorbTick++; heldCapsules.gone(kind) }
+                    } else if (capsule.leaving) {
+                        appear.animateTo(0f, tween(240, easing = FastOutSlowInEasing))
+                        absorbTick++; heldCapsules.gone(kind)
+                    } else {
+                        if (appear.value < .05f && System.currentTimeMillis() - state.swapAtMs < 400L) delay(150L)
+                        appear.animateTo(1f, theme.spring(.5f, 240f))
+                    }
+                }
+                // What a capsule shows while it leaves is what it showed last: its live data may already be gone.
+                val lastUpdate = remember { arrayOfNulls<LiveUpdate>(1) }
+                if (!capsule.leaving) lastUpdate[0] = updates.firstOrNull()
+                val shownUpdate = if (capsule.leaving) lastUpdate[0] else updates.firstOrNull()
                 val capsuleH = collapsedHeightPx
                 // When the order changes (a tap or a flick) each capsule glides to its new place and grows or shrinks to the new width,
                 // instead of jumping, so the person can follow where each activity went.
@@ -943,12 +987,12 @@ internal fun DynamicIsland(
                             }
                         }
                     }
-                    .graphicsLayer { val sc = (.55f + .45f * appear.value).coerceAtLeast(.4f) * pressScale; scaleX = sc; scaleY = sc }
+                    .graphicsLayer { val sc = (.55f + .45f * appear.value).coerceAtLeast(.4f) * pressScale; scaleX = sc; scaleY = sc; alpha = (appear.value / .35f).coerceIn(0f, 1f) }
                     .size(widthDp.dp, capsuleHeightDp)
                     .clip(capsuleShape)
                     .background(themeFill)
                     .clickable(interactionSource = capsuleTouch, indication = null, onClickLabel = "Bring ${IslandLive.label(kind)} to the front", role = Role.Button) {
-                        UnoFeedback.play(Cue.TICK, haptic); state.bringToFront(kind)
+                        if (!capsule.leaving) { UnoFeedback.play(Cue.TICK, haptic); state.bringToFront(kind) }
                     }
                     .semantics { contentDescription = "Show ${IslandLive.label(kind)}" }
                     .testTag(if (index == 0) "island-capsule-${kind.name.lowercase()}" else "island-bubble-${kind.name.lowercase()}"),
@@ -960,15 +1004,15 @@ internal fun DynamicIsland(
                             if (kind == LiveKind.MEDIA) {
                                 // Media's glyph is its artwork (or nothing); its status is the playing bars.
                                 if (artImage != null) Image(artImage, null, Modifier.size(glyphDiameterDp).clip(CircleShape))
-                                LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
+                                LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = shownUpdate, glyphSize = glyphDiameterDp)
                             } else {
-                                LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
-                                LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
+                                LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = shownUpdate, glyphSize = glyphDiameterDp)
+                                LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = shownUpdate, glyphSize = glyphDiameterDp)
                             }
                         }
                     } else {
                         // An extra capsule: the activity's symbol only, never an app's logo or album art.
-                        LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp, plain = true)
+                        LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = shownUpdate, glyphSize = glyphDiameterDp, plain = true)
                     }
                     }
                 }
@@ -1212,8 +1256,8 @@ internal fun DynamicIsland(
                         else if (symbol != null) Icon(symbol.icon(), null, tint = IslandThemes.active.tint(symbol), modifier = Modifier.size(glyphDiameterDp))
                     } else if (IslandTools.ringing) {
                         Icon(Icons.Rounded.Alarm, null, tint = IslandThemes.active.timer, modifier = Modifier.size(18.dp))
-                    } else plan.leading?.let { kind ->
-                        LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
+                    } else androidx.compose.animation.AnimatedContent(plan.leading, transitionSpec = { pillSwap(animationsOn) }, label = "pill glyph") { kind ->
+                        if (kind != null) LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
                     }
                     // Idle: nothing here. The time is in the status bar and on the expanded panel
                     // (IslandEventArbiter.timeOwner); the collapsed island never shows it.
@@ -1229,7 +1273,9 @@ internal fun DynamicIsland(
                     } else if (plan.leading != null) {
                         // The leading activity's detail, on the other side of the camera from its glyph. The trailing activity is
                         // not inside the pill: it is a detached capsule to the right (rendered below).
-                        LiveSlot(plan.leading, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
+                        androidx.compose.animation.AnimatedContent(plan.leading, transitionSpec = { pillSwap(animationsOn) }, label = "pill detail") { kind ->
+                            if (kind != null) LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
+                        }
                     } else if (recentLive) {
                         // A notification came in the last half minute: a dot in its app's colour says it can still be looked at.
                         Box(Modifier.size(7.dp).clip(CircleShape).background(recent?.tint?.let { Color(it) } ?: themeInk).testTag("island-recent-dot"))
@@ -1839,6 +1885,30 @@ private fun IslandAction(icon: ImageVector, label: String, showLabel: Boolean, o
         Icon(icon, label, tint = themeInk, modifier = Modifier.size(15.dp))
         Text(label, color = themeInk, fontSize = 12.sp)
     }
+}
+
+/** What the pill's glyph and detail do when the activity in front changes: the old one shrinks and fades away, the new one grows in a beat later,
+ * without the layout resizing under them. With animations off, nothing animates. */
+private fun pillSwap(animate: Boolean): androidx.compose.animation.ContentTransform =
+    if (!animate) androidx.compose.animation.ContentTransform(androidx.compose.animation.EnterTransition.None, androidx.compose.animation.ExitTransition.None)
+    else androidx.compose.animation.ContentTransform(
+        targetContentEnter = androidx.compose.animation.fadeIn(tween(170, delayMillis = 70)) + androidx.compose.animation.scaleIn(tween(170, delayMillis = 70), initialScale = .7f),
+        initialContentExit = androidx.compose.animation.fadeOut(tween(110)) + androidx.compose.animation.scaleOut(tween(110), targetScale = .7f),
+        sizeTransform = null)
+
+/** The things the island shows, plus the ones just gone that are still playing their exit; [gone] says an exit has finished. */
+private class Lingered<T>(val held: List<Held<T>>, val gone: (T) -> Unit)
+
+/** [current] as [Held] entries, keeping each thing that leaves until its exit calls [Lingered.gone]. With [keepGhosts] false (the island is
+ * open or busy, so nothing is shown to animate) leavers are dropped at once. */
+@Composable
+private fun <T> rememberLingering(current: List<T>, keepGhosts: Boolean): Lingered<T> {
+    val box = remember { arrayOfNulls<List<Held<T>>>(1) }
+    var tick by remember { mutableIntStateOf(0) }
+    @Suppress("UNUSED_VARIABLE") val observed = tick
+    val held = Lingering.merge(if (keepGhosts) box[0] ?: emptyList() else emptyList(), current)
+    box[0] = held
+    return Lingered(held) { item -> box[0] = Lingering.drop(box[0] ?: emptyList(), item); tick++ }
 }
 
 /** One text size for the detail beside the camera, whichever activity it is: the timer, the call, the stopwatch, a Live Update. */

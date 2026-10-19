@@ -315,12 +315,12 @@ class IslandGeometryTest {
         val e = env(camera)
         val wide = IslandGeometry.frame(e, d, 0f, .5f)
         val extra = IslandGeometry.frame(e, d, 0f, .5f, wideFactor = 1.5f)
-        // The width is what the 75% size setting gives; the height is the slider's own.
-        assertEquals(IslandGeometry.frame(e, d, 0f, .75f).width, extra.width, .01f)
+        // The width is what the 75% size setting gives, 1% wider; the height is the slider's own.
+        assertEquals(IslandGeometry.frame(e, d, 0f, .75f).width * IslandGeometry.EXTRA_WIDE_BOOST, extra.width, .01f)
         assertTrue(extra.width > wide.width)
         assertEquals(wide.height, extra.height, .01f)
         // Above 75% it never narrows.
-        assertEquals(IslandGeometry.frame(e, d, 0f, 1f).width, IslandGeometry.frame(e, d, 0f, 1f, wideFactor = 1.5f).width, .01f)
+        assertTrue(IslandGeometry.frame(e, d, 0f, 1f, wideFactor = 1.5f).width >= IslandGeometry.frame(e, d, 0f, 1f).width)
         assertEquals("still centred on the camera", camera.centerX, extra.left + extra.width / 2f, .5f)
         assertTrue("still wraps the hole", extra.hole!!.left >= 0f && extra.hole.right <= extra.width)
         // The expanded panel is unchanged: extra width belongs to the collapsed pill alone.

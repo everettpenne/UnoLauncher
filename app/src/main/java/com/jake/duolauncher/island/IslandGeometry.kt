@@ -150,13 +150,16 @@ internal object IslandGeometry {
     /** The size-slider position whose width the "Extra wide" pill takes. */
     const val EXTRA_WIDE_SIZE = .75f
 
+    /** "Extra wide" is a touch wider than that 75% width, so it reads as its own setting. */
+    const val EXTRA_WIDE_BOOST = 1.01f
+
     /**
      * The island's frame. [progress] is how open its width is (0 = the pill, 1 = the panel) and [heightProgress] how open its height is;
      * they are separate so a motion can stretch and squash. Either may run a little past 1 (up to [MAX_OVERSHOOT]) for a bounce; the
      * width never leaves the screen. A camera on a side edge ignores the overshoot.
      *
      * [wideFactor] above 1f (the "Extra wide" setting) gives the collapsed pill the width it would have with the size slider at 75% (see
-     * [EXTRA_WIDE_SIZE]) and leaves its height alone. It never narrows, and the result is clamped so the pill still fits the screen with
+     * [EXTRA_WIDE_SIZE]), 1% wider (see [EXTRA_WIDE_BOOST]), and leaves its height alone. It never narrows, and the result is clamped so the pill still fits the screen with
      * its own margins and the expanded panel still clears the dock/rail strip.
      */
     fun frame(env: IslandEnvironment, density: Float, progress: Float, scale: Float = .5f,
@@ -196,6 +199,7 @@ internal object IslandGeometry {
             // The compact width is the hole plus a ring each side, never less than the wrap clearance used below: a pill
             // narrower than hole + 2 * wrap makes that clamp's range empty (min above max) and throws.
             collapsedWidth = cutout.width + sideRoom + c * 2f * max(ring, WRAP_DP * d) + extraWidthDp * d
+            if (wideFactor > 1f) collapsedWidth *= EXTRA_WIDE_BOOST
         } else {
             centerX = env.screenWidth / 2f
             top = env.statusBarHeight + 8f * d

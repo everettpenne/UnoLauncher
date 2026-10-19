@@ -787,7 +787,7 @@ internal fun LauncherScreen(
                     Box(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions) {
                     if (page == -1) {
-                        DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace),
+                        DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = bottomSpace),
                             feed, feedVisible, onFeedRefresh, onFeedOpenEntry,
                             onFeedToggleSave = onFeedToggleSave,
                             onAddFeed = { customizationPage = CustomizationPage.FEED; sheet = "settings" },
@@ -796,7 +796,7 @@ internal fun LauncherScreen(
                             settings = glassSettings)
                     } else if (page == visibleHomePages) {
                         AppLibrary(state, libraryQuery, { libraryQuery = it }, onLaunch, model::setPinned,
-                            onActions = { selectedId = it.id }, modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace).testTag("library-page"),
+                            onActions = { selectedId = it.id }, modifier = Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = bottomSpace).testTag("library-page"),
                             drag = drag, page = visibleHomePages, onLaunchFrom = onLaunchFrom, onTurnOnWork = { model.turnOnWork(it) },
                             contacts = contactResults, onContact = { ContactsSearch.open(launcherActivity, it) }, handoff = handoffResolver)
                     } else {
@@ -836,19 +836,17 @@ internal fun LauncherScreen(
             }
             if (state.verticalStatus) {
                 val railInk = rememberAdaptiveInk(glassTint, if (glassEnabled) .12f else .0f)
-                if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.contentTop.dp)
+                if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.contentTop.dp)
                     .width(preset.dockWidth.dp).then(railInk.track)
                     .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
-                    .graphicsLayer { translationX = dockRailShiftPx.value }
                     .padding(vertical = 8.dp)) {
                     StatusRail(deviceStatus, Modifier.fillMaxWidth().onSizeChanged {
                         statusHeight = (with(density) { it.height.toDp().value } -
                             if (contentHeight < 500.dp) 0f else 23f).coerceAtLeast(0f)
                     }, compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp, ink = railInk.color)
                 } else StatusRail(deviceStatus,
-                    Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.contentTop.dp)
+                    Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.contentTop.dp)
                         .width(preset.dockWidth.dp).then(railInk.track)
-                        .graphicsLayer { translationX = dockRailShiftPx.value }
                         .onSizeChanged {
                             // The normal rail's 20dp location slot and 3dp gap do not move the dock.
                             statusHeight = (with(density) { it.height.toDp().value } -
@@ -856,11 +854,10 @@ internal fun LauncherScreen(
                         },
                     compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp, ink = railInk.color)
             }
-            if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.dockTop.dp)
+            if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
                 .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
                 .graphicsLayer {
-                    translationX = dockRailShiftPx.value
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                 }.testTag("dock")) {
                 Column(Modifier.padding(vertical = 8.dp).verticalScroll(dockScroll)) {
@@ -868,9 +865,8 @@ internal fun LauncherScreen(
                         dockIconSize(geometry.iconSize), drag, insertionTarget,
                         onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" }, glass = controlGlass)
                 }
-            } else Surface(Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = geometry.dockTop.dp)
+            } else Surface(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.dockTop.dp)
                 .width(preset.dockWidth.dp).height(geometry.dockHeight.dp).graphicsLayer {
-                    translationX = dockRailShiftPx.value
                     // Composite the dock independently of the shared pager layer, so its edge
                     // slide never re-renders the pages behind it.
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen

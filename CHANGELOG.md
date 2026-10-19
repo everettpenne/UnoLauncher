@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.85.0-uno01
+
+- **The dock's glass slides with the dock.** The dock and status rail's glass surface now moves off-screen together with its icons (before, only the icons moved and the glass stayed floating over the feed and All apps).
+- **Edge pages keep their margin.** The feed and All apps now sit with the same 16dp margin on both sides instead of running to the screen's right edge.
+
 ## 0.84.0-uno01
 
 - **The dock knows its place.** Between home pages the dock and the status rail stay pinned, as always. But swipe into the feed (left) or the All apps list (right) and they slide off-screen with the home page, while the feed and All apps expand to fill the width the dock vacated — so the edge pages are true full-bleed surfaces and the dock/rail feel like part of the home screen rather than furniture bolted to the glass.

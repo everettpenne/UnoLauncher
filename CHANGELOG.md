@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.88.0-uno01
+
+- **Capsules are black again.** The coloured rim, colour wash and breathing glow added in 0.87.0 are gone; the detached live-activity capsules match the pill in plain AMOLED black.
+- **Extra wide is the width of the 75% size setting.** The collapsed pill takes the width it has with the size slider at 75% and keeps the height you chose. It never gets narrower than the slider's own width.
+- **Extra capsules show the activity's symbol, not an app's picture.** Music is its equalizer bars rather than album art, and a Live Update is a plain symbol in its accent colour (with its progress ring when it has one). A navigation turn arrow is kept, since it says where to turn.
+
 ## 0.87.0-uno01
 
 - **Several live activities are easier to handle on the island.** The activity you bring to the front (by tapping its capsule or flicking) now stays in front while others start and end, instead of a different one jumping forward. A flick steps through every activity and wraps round. Capsules glide to their new places and change width smoothly, press down under your finger, and are announced as buttons ("Bring music to the front").

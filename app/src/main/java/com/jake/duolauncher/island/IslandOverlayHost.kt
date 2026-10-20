@@ -110,11 +110,14 @@ internal class IslandOverlayHost(
         view.setViewTreeLifecycleOwner(this)
         view.setViewTreeSavedStateRegistryOwner(this)
         view.setViewTreeViewModelStoreOwner(this)
+        // Untouchable from the first moment. Until the island has composed and said where it is, this window wraps content as big as the whole
+        // screen; added touchable (as it was) it took every touch on the screen for as long as the island took to start, which on a cold start
+        // is seconds, and blocked whatever app was in front. The layout below keeps it untouchable; the small touch window takes the island's touches.
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             windowType,
-            OverlayPolicy.WINDOW_FLAGS,
+            OverlayPolicy.WINDOW_FLAGS and outsideFlag.inv() or untouchable,
             PixelFormat.TRANSLUCENT).apply {
             // Starts at the top centre, where the island nearly always belongs, rather than at the screen's top-left corner (a
             // flash on every start). Not parked off-screen: a window that is fully off-screen is not drawn, so the island never

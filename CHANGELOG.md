@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.91.1-uno01
+
+- **The island no longer takes touches while it starts.** Its window used to be added touchable and as big as the screen, so for the seconds a cold start takes it swallowed every touch meant for the app in front. It now starts untouchable, and only the small window around the island takes touches.
+- **Fixed a crash in the island's own window.** A frame measured before the screen's size was known could come out narrower than nothing, and a negative corner radius threw. The radius is now never negative.
+
 ## 0.91.0-uno01
 
 - **The island's tuned layout is the default.** The main island is 15 dp wider than automatic, and the left and right islands are 10 dp wider and 2 dp closer in. Three islands at most: the main island, one on its left and one on its right.

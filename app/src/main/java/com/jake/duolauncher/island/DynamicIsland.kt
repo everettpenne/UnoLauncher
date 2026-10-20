@@ -779,7 +779,9 @@ internal fun DynamicIsland(
     val panelScale = theme.panel.scale
     val cornerPx = remember(panelScale, d) { derivedStateOf {
         val f = frameState.value
-        val half = minOf(f.width, f.height) / 2f
+        // Never negative: a frame measured before the screen's size is known (width 0) can come out narrower than nothing, and a negative
+        // corner radius throws in the shape code, which crashed the island's own window.
+        val half = (minOf(f.width, f.height) / 2f).coerceAtLeast(0f)
         if (panelScale < 1f) minOf(half, IslandGeometry.CORNER_CAP_DP * d) * panelScale else minOf(half, IslandGeometry.CORNER_CAP_DP * d * panelScale)
     } }
     val sideways = openFrame.side != IslandSide.TOP

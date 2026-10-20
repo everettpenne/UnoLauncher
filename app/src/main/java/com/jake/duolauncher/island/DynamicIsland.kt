@@ -260,28 +260,33 @@ internal fun DynamicIsland(
     // finger dragging the island changes layout and drawing only. Reading the pull in composition (as this did) recomposed the whole island,
     // faces and all, on nearly every touch event, which is what made a pull stutter.
     val peekState = remember { mutableFloatStateOf(.5f) }
-    val progress = remember { Animatable(if (state.expanded) 1f else 0f) }
-    val widthAnim = remember { Animatable(if (state.expanded) 1f else 0f) }
-    val progressState = progress.asState()
-    val widthState = widthAnim.asState()
+    // The island's one motion driver (see IslandMotionDriver): every value that moves its body, each sprung toward what the island is heading for
+    // with its spring from IslandMotionSpecs, restarting only what changed and from where it is and how fast it is going.
+    val motion = remember { IslandMotionDriver(state.expanded) }
+    val motionInputs = remember { MotionInputs() }
+    val motionSpecs = remember(theme, animationsOn) { IslandMotionSpecs(theme, animationsOn) }
+    val progress = motion.height
+    val progressState = motion.height.asState()
+    val widthState = motion.width.asState()
     // The open panel's height in px, to turn the finger's release velocity (px/s) into the 0..1 progress-per-second the spring wants.
     val openHeightPx = remember(environment, d, sizeScale) { IslandGeometry.frame(environment, d, 1f, sizeScale).height }.coerceAtLeast(1f)
-    LaunchedEffect(theme, animationsOn) {
-        snapshotFlow { IslandTarget(state.pullFraction, state.expanded, state.peeked, peekState.floatValue) }.collectLatest { t ->
-            val height = t.pull ?: if (t.expanded) 1f else if (t.peeked) t.peek else 0f
-            val wide = if (t.pull != null) (t.pull * 2.5f).coerceAtMost(1f) else if (t.expanded || t.peeked) 1f else 0f
-            // The finger's release velocity (px/s, down = positive) is consumed once and seeds the height spring, so a fast
-            // swipe-up tucks the island away with momentum and a pull released mid-motion carries on instead of starting cold.
+    LaunchedEffect(motionSpecs, openHeightPx) {
+        snapshotFlow {
+            val pull = state.pullFraction
+            val t = IslandTarget(pull, state.expanded, state.peeked, peekState.floatValue)
+            MotionTarget(
+                height = pull ?: if (t.expanded) 1f else if (t.peeked) t.peek else 0f,
+                width = if (pull != null) (pull * 2.5f).coerceAtMost(1f) else if (t.expanded || t.peeked) 1f else 0f,
+                opening = t.expanded || t.peeked, fingerDriven = pull != null,
+                eventWidthDp = motionInputs.eventWidthDp, compactness = motionInputs.compactness,
+                edgeLeft = motionInputs.edgeLeft, edgeRight = motionInputs.edgeRight,
+                pressX = motionInputs.pressX, pressY = motionInputs.pressY, screen = motionInputs.screen, animate = animationsOn)
+        }.collect { t ->
+            // The finger's release velocity (px/s, down = positive) is consumed once and seeds the height spring, so a fast swipe-up tucks the
+            // island away with momentum and a pull released mid-motion carries on instead of starting cold.
             val releaseVelocity = state.settleVelocity
             state.settleVelocity = 0f
-            if (!animationsOn || t.pull != null) { progress.snapTo(height); widthAnim.snapTo(wide) }
-            else {
-                val opening = t.expanded || t.peeked
-                coroutineScope {
-                    launch { progress.animateTo(height, if (opening) theme.heightSpring() else theme.closeSpring(), initialVelocity = releaseVelocity / openHeightPx) }
-                    launch { widthAnim.animateTo(wide, if (opening) theme.widthSpring() else theme.closeSpring()) }
-                }
-            }
+            motion.drive(this, t, motionSpecs, releaseVelocity / openHeightPx)
         }
     }
     // True while a finger is pulling the island; read in composition, it changes twice per pull instead of on every move.
@@ -402,14 +407,13 @@ internal fun DynamicIsland(
         IslandGeometry.sideOf(it, environment.screenWidth, environment.screenHeight) != IslandSide.TOP } == true
     val eventTargetDp = if (flashActive) IslandGeometry.eventExtraWidthDp((state.flashTitle ?: "").length, sizeScale, configuration.fontScale)
         else if (cameraOnSide && liveKinds.isNotEmpty()) 60f else 0f
-    val eventWidthState = animateFloatAsState(eventTargetDp,
-        if (!animationsOn) snap() else theme.spring(.6f, 420f), label = "island event width")
+    val eventWidthState = motion.eventWidthDp.asState()
     // Over other apps the system status bar already shows the time and battery right beside the camera, so while the island has
     // nothing to say it shrinks to a ring around the camera instead of covering those icons. Anything live (an event, a timer,
     // a call, playback) widens it again.
     val hasLiveContent = flashActive || IslandTools.ringing || liveKinds.isNotEmpty()
     val compactTarget = if (anchoredToWindow && !hasLiveContent && !alwaysWide) 1f else 0f
-    val compactnessState = animateFloatAsState(compactTarget, if (!animationsOn) snap() else theme.spring(.8f, 380f), label = "island compact")
+    val compactnessState = motion.compactness.asState()
     // What the open island is showing, held while it closes. collapse() clears the card at once, but the island takes a
     // moment to shrink; reading it live made the face (and the body's height) switch to the ordinary open island, with the app shortcuts
     // and settings, for that moment before it reached the camera. While closing, the face and size it had when it was open are kept.
@@ -460,7 +464,6 @@ internal fun DynamicIsland(
     // goes back to its resting width when that is dismissed. The live activities have tucked into it for the time (see detachedCapsules).
     val showingApp = flashActive && state.flashSymbol == IslandSymbol.APP
     val mainBase = if (showingApp) IslandLayoutDefaults.MAIN_SHOWING_APP else IslandLayoutDefaults.MAIN
-    val mainSpring = if (!animationsOn) snap<Float>() else theme.spring(.55f, 380f)
     val mainDy = mainBase.dy + IslandDebug.pill.dy
     // The collapsed island at the size it is heading for, before any adjustment: the edges it would have.
     val restTarget = remember(environment, d, sizeScale, eventTargetDp, compactTarget, wideFactor) {
@@ -489,15 +492,19 @@ internal fun DynamicIsland(
     // How far each edge moves from where it would be, in px: animated, so the island springs to its snapped width and back.
     // Started afresh whenever the screen it is measured against changes (the first real reading at start-up, a rotation), so the island is simply
     // where it belongs then, instead of springing there from wherever a guess put it.
-    val edgeLeftState = key(environment, d) { animateFloatAsState(islandLayout.pillLeft * d - restTarget.left, mainSpring, label = "island left edge") }
-    val edgeRightState = key(environment, d) { animateFloatAsState(islandLayout.pillRight * d - (restTarget.left + restTarget.width), mainSpring, label = "island right edge") }
-    val edgeLeft by edgeLeftState
-    val edgeRight by edgeRightState
+    // What composition works out, handed to the motion driver (which jumps the edges, rather than springing them, when the screen changes).
+    SideEffect {
+        motionInputs.eventWidthDp = eventTargetDp
+        motionInputs.compactness = compactTarget
+        motionInputs.edgeLeft = islandLayout.pillLeft * d - restTarget.left
+        motionInputs.edgeRight = islandLayout.pillRight * d - (restTarget.left + restTarget.width)
+        motionInputs.screen = environment to d
+    }
     val frameState = remember(environment, d, sizeScale, extraBody, coupling, wideFactor) { derivedStateOf {
         val p = progressState.value
         val base = IslandGeometry.frame(environment, d, if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value, sizeScale,
             extraBodyDp = extraBody, extraWidthDp = eventWidthState.value, compactness = compactnessState.value, wideFactor = wideFactor, heightProgress = p)
-        withDebugAdjust(withEdgeShift(base, 1f - p, edgeLeft, edgeRight), 1f - p, 0f, 0f, mainDy, d, environment.screenWidth)
+        withDebugAdjust(withEdgeShift(base, 1f - p, motion.edgeLeft.value, motion.edgeRight.value), 1f - p, 0f, 0f, mainDy, d, environment.screenWidth)
     } }
     // The collapsed pill's top edge in window pixels: below it (in the launcher's own space) a pull belongs to the island; above it the
     // system status-bar strip owns the touch, so a pull must not engage there when the island renders below SystemUI.
@@ -577,22 +584,14 @@ internal fun DynamicIsland(
         IslandTools.timerActive && plan.leading == LiveKind.TIMER, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
         IslandEventArbiter.chargingRingSurface(statusRailShown, deviceStatus.charging == true), deviceStatus.battery, IslandThemes.active.timer, IslandThemes.active.charging, state.flashTint)
     // A new event gives the island a small spring pulse, like iOS's.
-    val pulse = remember { Animatable(1f) }
+    val pulse = motion.pulse
     LaunchedEffect(state.flashKey) {
-        if (state.flashKey > 0) {
-            pulse.snapTo(1f)
-            pulse.animateTo(IslandThemes.active.motion.pulse, IslandThemes.active.spring(.45f, 700f))
-            pulse.animateTo(1f, IslandThemes.active.spring(.4f, 260f))
-        }
+        if (state.flashKey > 0) motion.kick(this, IslandThemes.active.motion.pulse, motionSpecs)
     }
     // A capsule melting into the pill (an activity ended, or was brought to the front) gives it the same small pulse, a touch softer.
     var absorbTick by remember { mutableIntStateOf(0) }
     LaunchedEffect(absorbTick) {
-        if (absorbTick > 0 && animationsOn) {
-            pulse.snapTo(1f)
-            pulse.animateTo(1f + (IslandThemes.active.motion.pulse - 1f) * .7f, IslandThemes.active.spring(.45f, 700f))
-            pulse.animateTo(1f, IslandThemes.active.spring(.4f, 260f))
-        }
+        if (absorbTick > 0 && animationsOn) motion.kick(this, 1f + (IslandThemes.active.motion.pulse - 1f) * .7f, motionSpecs)
     }
     // Flash returns to the collapsed clock after a beat.
     LaunchedEffect(state.flashKey) {
@@ -714,7 +713,7 @@ internal fun DynamicIsland(
                 // A dot springs up from nothing when the camera, microphone or recording starts, and back down to nothing when it stops.
                 val grow = remember { Animatable(if (animationsOn) 0f else 1f) }
                 LaunchedEffect(dot.leaving) {
-                    grow.animateTo(if (dot.leaving) 0f else 1f, if (animationsOn) theme.spring(.7f, 520f) else snap())
+                    grow.animateTo(if (dot.leaving) 0f else 1f, motionSpecs.dot)
                     if (dot.leaving) heldDots.gone(kind)
                 }
                 Box(Modifier
@@ -750,11 +749,11 @@ internal fun DynamicIsland(
                         appear.snapTo(if (capsule.leaving) 0f else 1f)
                         if (capsule.leaving) { absorbTick++; heldCapsules.gone(shape) }
                     } else if (capsule.leaving) {
-                        appear.animateTo(0f, tween(240, easing = FastOutSlowInEasing))
+                        appear.animateTo(0f, motionSpecs.capsuleLeave)
                         absorbTick++; heldCapsules.gone(shape)
                     } else {
                         if (appear.value < .05f && System.currentTimeMillis() - state.swapAtMs < 400L) delay(150L)
-                        appear.animateTo(1f, theme.spring(.5f, 240f))
+                        appear.animateTo(1f, motionSpecs.capsuleAppear)
                     }
                 }
                 // What a capsule shows while it leaves is what it showed last: its live data may already be gone.
@@ -764,7 +763,7 @@ internal fun DynamicIsland(
                 val capsuleH = collapsedHeightPx
                 // When the order changes (a tap or a flick) each capsule glides to its new place and grows or shrinks to the new width,
                 // instead of jumping, so the person can follow where each activity went.
-                val glide = if (!animationsOn) snap<Float>() else theme.spring(.75f, 380f)
+                val glide = motionSpecs.capsuleGlide
                 val adjust = IslandBubbles.groupFor(shape, IslandDebug.effective(DebugTarget.LEFT), IslandDebug.effective(DebugTarget.RIGHT), IslandDebug.effective(DebugTarget.EXTRA))
                 // The box the grid gives this capsule (kept for the exit animation, once the activity is gone and it has none), widened and
                 // moved outward by any hand adjustment.
@@ -779,7 +778,7 @@ internal fun DynamicIsland(
                 val capsuleW = widthPx
                 val capsuleTouch = remember { MutableInteractionSource() }
                 val capsulePressed by capsuleTouch.collectIsPressedAsState()
-                val pressScale by animateFloatAsState(if (capsulePressed) .9f else 1f, spring(dampingRatio = .6f, stiffness = 500f), label = "capsule press")
+                val pressScale by animateFloatAsState(if (capsulePressed) .9f else 1f, motionSpecs.pressCapsule, label = "capsule press")
                 val fill = themeFill
                 // The neck's path is made once and rewound each frame, instead of allocating a Path per frame while the capsule pulls away.
                 val neckPath = remember { androidx.compose.ui.graphics.Path() }
@@ -862,8 +861,10 @@ internal fun DynamicIsland(
         val islandTouch = remember { MutableInteractionSource() }
         val islandPressed by islandTouch.collectIsPressedAsState()
         val squash = IslandThemes.active.motion.pulse - 1f
-        val pressX by animateFloatAsState(if (islandPressed && !pulling) 1f + squash * .55f else 1f, IslandThemes.active.spring(.4f, 500f), label = "island press x")
-        val pressY by animateFloatAsState(if (islandPressed && !pulling) 1f - squash * .45f else 1f, IslandThemes.active.spring(.4f, 500f), label = "island press y")
+        SideEffect {
+            motionInputs.pressX = if (islandPressed && !pulling) 1f + squash * .55f else 1f
+            motionInputs.pressY = if (islandPressed && !pulling) 1f - squash * .45f else 1f
+        }
         Box(Modifier
             .offset { val frame = frameState.value; if (anchoredToWindow) {
                 androidx.compose.ui.unit.IntOffset(
@@ -880,7 +881,7 @@ internal fun DynamicIsland(
                 val fingerDriven = state.pullFraction != null
                 val stretch = if (animationsOn && !fingerDriven) MorphVelocity.stretch(morphSpeed.update(progressState.value, System.nanoTime(), settledAt), squashGain)
                     else { morphSpeed.update(progressState.value, System.nanoTime(), progressState.value); 0f }
-                scaleX = pulse.value * pressX * (1f - stretch * .8f); scaleY = pulse.value * pressY * (1f + stretch)
+                scaleX = pulse.value * motion.pressX.value * (1f - stretch * .8f); scaleY = pulse.value * motion.pressY.value * (1f + stretch)
             }
             .islandSized { frameState.value }
             .islandBody(glass?.backdrop, { cornerPx.value }, settings = glass?.settings ?: GlassSettings.Default)

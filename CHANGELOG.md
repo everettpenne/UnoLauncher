@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.96.0-uno01
+
+- **One motion driver for the island.** Everything that moves the island's body (how open it is each way, the widening for an event, the shrink to a ring, the status bar grid's edges, the press and the pulse) is now driven from one place toward what the island is heading for. When the target changes part-way, only the values that change restart, each from where it is and how fast it is going, so an interruption (a tap mid-morph, an activity ending mid-swap, a pull let go) carries on smoothly instead of jumping or starting cold. Every spring the island uses comes from one table, from its theme, and snaps with Android's animations off.
+
 ## 0.95.0-uno01
 
 - **Search in Launcher settings.** A search field at the top of Launcher settings finds any setting by its name or by other words for it ("dark mode", "do not disturb", "typo") and goes straight to its page. A test checks every switch, slider and group on the pages can be found.

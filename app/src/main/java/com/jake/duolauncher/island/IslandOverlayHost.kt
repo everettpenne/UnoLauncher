@@ -383,7 +383,8 @@ private fun readIslandWideMode(context: Context): IslandWideMode {
         prefs.getBoolean("islandWide", false))
 }
 
-/** Asks Android not to animate this window's moves (it slides a window that changes position, unless told not to). Android 13 and later. */
+/** Asks Android not to animate this window's moves (it slides a window that changes position, unless told not to). Android 14 and later; earlier
+ * the window keeps its fixed corner, which is what stops the island's own window from flying in. */
 private fun WindowManager.LayoutParams.noMoveAnimation() {
-    if (android.os.Build.VERSION.SDK_INT >= 33) setCanPlayMoveAnimation(false)
+    if (android.os.Build.VERSION.SDK_INT >= 34) setCanPlayMoveAnimation(false)
 }

@@ -378,10 +378,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Pulling the island down to peek is smooth: it follows your finger with no jitter, and no cut-off text or stray ring.</string>
-    <string name="whats_new_2">Switches, chips and the chosen wallpaper now share one accent colour instead of green, teal and lavender beside orange.</string>
-    <string name="whats_new_3">Home layout presets are called Single page and Wide, and the welcome and docs no longer talk about foldables.</string>
-    <string name="whats_new_4">Double-tap an empty spot on Home to lock the screen, and app names are easier to read (0.68).</string>
+    <string name="whats_new_1">The island settings show a live island at the top: change a setting and watch it play there first, or tap a situation (music, a Live Update, three activities, a notification) to see it.</string>
+    <string name="whats_new_2">The island page is grouped into what the island is, how it looks and moves, what shows in it, and new notifications, which moved here from Privacy.</string>
+    <string name="whats_new_3">Wallpaper: drag and pinch a photo into place and adjust its brightness, blur, colour and warmth, all in a preview, before you tap Apply. An applied photo can be adjusted again.</string>
+    <string name="whats_new_4">Built-in backgrounds are previewed too: tap one to see it on your Home screen, then Apply or Cancel.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>
@@ -408,4 +408,57 @@
     <string name="status_grid_reset">Reset to the Pixel 10a</string>
     <string name="island_overlay_grey_note">Android draws the island slightly see-through over other apps in this mode (so it can never hide a tap from the app underneath), so it looks dark grey instead of black. Turn on Uno\'s accessibility service (Gestures &amp; feel) for a solid black island that also covers the status bar.</string>
     <string name="home_island_overlay_note">With Uno\'s accessibility service on, the Home island is drawn in its own window, so it stays at the camera while Android animates the launcher (unlocking, closing an app) instead of moving with it. It has no news headline on its panel. Needs the accessibility service; without it, this does nothing.</string>
+    <!-- The island settings preview -->
+    <string name="island_preview_idle">Idle</string>
+    <string name="island_preview_music">Music</string>
+    <string name="island_preview_live">Live Update</string>
+    <string name="island_preview_three">Three activities</string>
+    <string name="island_preview_notification">Notification</string>
+    <string name="island_preview_privacy">Camera in use</string>
+    <string name="island_preview_open">Open</string>
+    <string name="island_preview_caption_idle">At rest round the camera, at %1$d%% size.</string>
+    <string name="island_preview_caption_music_off">Music playing. With wide mode off, the pill keeps its usual width.</string>
+    <string name="island_preview_caption_music_wide">Music playing, with the pill kept wide.</string>
+    <string name="island_preview_caption_music_extra">Music playing, with the pill extra wide.</string>
+    <string name="island_preview_caption_live_off">A delivery. Live Updates are off, so the island leaves it alone.</string>
+    <string name="island_preview_caption_live_glyph">A delivery, shown by its icon only.</string>
+    <string name="island_preview_caption_live_status">A delivery, with the app\'s short status.</string>
+    <string name="island_preview_caption_live_title">A delivery, with the update\'s title.</string>
+    <string name="island_preview_caption_three">Three activities: the first on the island, the second on the left, the third on the right.</string>
+    <string name="island_preview_caption_peek_name">A new message, showing the app\'s name only.</string>
+    <string name="island_preview_caption_peek_title">A new message, showing who it is from.</string>
+    <string name="island_preview_caption_peek_text">A new message, showing who it is from and the start of the text.</string>
+    <string name="island_preview_caption_privacy_on">An app is using the camera: a green dot shows on the island.</string>
+    <string name="island_preview_caption_privacy_off">An app is using the camera, but camera and microphone indicators are off.</string>
+    <string name="island_preview_caption_open">Opened with a tap.</string>
+    <string name="island_preview_caption_open_shortcuts">Opened with a tap, with your app shortcuts.</string>
+    <string name="island_preview_time">9:41</string>
+    <string name="island_preview_date">Tuesday 20 October</string>
+    <string name="island_preview_eta">4 min</string>
+    <string name="island_preview_delivery">On its way</string>
+    <string name="island_preview_app">Messages</string>
+    <string name="island_preview_sender">Ada Lovelace</string>
+    <string name="island_preview_message">Running late, see you at the station at six.</string>
+    <string name="island_preview_reply">Reply</string>
+    <string name="island_preview_mark_read">Mark read</string>
+    <string name="island_group_basics">The island</string>
+    <string name="island_group_looks">How it looks and moves</string>
+    <string name="island_group_shows">What shows in the island</string>
+    <string name="island_group_notifications">New notifications</string>
+    <string name="island_group_timer">Timer</string>
+    <string name="island_group_reference">Where things show</string>
+    <string name="island_preview_note">Changes play here first. Tap a situation to see it again.</string>
+    <!-- Wallpaper: preview and adjust before applying -->
+    <string name="wallpaper_adjust_photo">Adjust photo</string>
+    <string name="wallpaper_drag_hint">Drag to move the photo, pinch to zoom. Nothing changes until you tap Apply.</string>
+    <string name="wallpaper_builtin_pending">Previewing %1$s. Tap Apply to use it.</string>
+    <string name="wallpaper_adjust_heading">Adjust</string>
+    <string name="wallpaper_zoom">Zoom</string>
+    <string name="wallpaper_brightness">Brightness</string>
+    <string name="wallpaper_blur">Blur</string>
+    <string name="wallpaper_saturation">Colour</string>
+    <string name="wallpaper_warmth">Warmth</string>
+    <string name="wallpaper_adjust_reset">Reset adjustments</string>
+    <string name="wallpaper_choose_different">Choose a different photo</string>
+    <string name="wallpaper_choose_photo">Choose a photo</string>
 </resources>

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.97.0-uno01
+
+- **A live island in its settings.** The island page keeps a small copy of the island above its settings, drawn with the island's real geometry for this phone's camera, its theme and its springs. A setting that changes how the island looks or behaves plays its effect there as it is changed: the size slider, Off / Wide / Extra wide (music), the compact Live Update text, camera and microphone indicators, app shortcuts (the open island), what a notification card shows and its buttons, and every style choice (colours replay the scene; a new panel or button shape opens it; a new motion replays the movement). Chips under the preview show any situation again: idle, music, a Live Update, three activities, a notification, the camera in use, or open.
+- **The island page, regrouped.** Its settings sit under The island, How it looks and moves, What shows in the island, New notifications (moved here from Notifications & privacy), Timer, and Where things show. Settings search follows the moves.
+- **Wallpaper you can adjust before applying.** A chosen photo opens in a phone-shaped preview of Home: drag it into place, pinch (or use the slider) to zoom, and set brightness, blur, colour and warmth. The preview is the saved picture made small, by the same code, so Apply gives exactly what was shown. The photo as chosen is kept, so **Adjust photo** reopens an applied one with its settings. Built-in backgrounds are previewed on Home too, with Apply and Cancel, instead of changing at once.
+
 ## 0.96.0-uno01
 
 - **One motion driver for the island.** Everything that moves the island's body (how open it is each way, the widening for an event, the shrink to a ring, the status bar grid's edges, the press and the pulse) is now driven from one place toward what the island is heading for. When the target changes part-way, only the values that change restart, each from where it is and how fast it is going, so an interruption (a tap mid-morph, an activity ending mid-swap, a pull let go) carries on smoothly instead of jumping or starting cold. Every spring the island uses comes from one table, from its theme, and snaps with Android's animations off.

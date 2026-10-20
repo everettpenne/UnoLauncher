@@ -138,6 +138,15 @@ class LauncherBackgroundController(
         private set
     var previewPending by mutableStateOf(false)
         private set
+    /** How the photo being previewed is fitted and toned; applied (baked into the saved picture) by [applyPreview]. */
+    var adjust by mutableStateOf(WallpaperAdjust())
+        private set
+    /** A built-in scene being looked at before it is applied ([applyBuiltin]); null when none is. */
+    var pendingBuiltin by mutableStateOf<BuiltinBackground?>(null)
+        private set
+    /** True while an adjusted photo is being made and saved. */
+    var applying by mutableStateOf(false)
+        private set
     private var generation = 0
     private var preview: StagedBackground? = null
     private val prefs = launcherBackgroundPreferences(activity)
@@ -157,6 +166,7 @@ class LauncherBackgroundController(
         val pendingUri = runCatching { prefs.getString(PENDING_URI, null) }.getOrNull()
         pickerPending = runCatching { prefs.getBoolean(PICKER_PENDING, false) }.getOrDefault(false)
         val operation = pendingOperation()
+        if (previewPhase != null) adjust = WallpaperAdjust.decode(runCatching { prefs.getString(PREVIEW_ADJUST, null) }.getOrNull())
         releaseStalePreviewGrant(if (previewPhase == PHASE_DECODING) operation else null)
         if (pickerPending && pendingUri != null && operation != null) {
             // Compatibility with controllers that were recreated after receiving a picker URI
@@ -190,6 +200,9 @@ class LauncherBackgroundController(
     }
 
     fun choosePhoto() {
+        pendingBuiltin = null
+        adjust = WallpaperAdjust()
+        prefs.edit().remove(PREVIEW_ADJUST).apply()
         discardPreview()
         releasePreviewGrant()
         cleanupStagedFiles()
@@ -206,13 +219,27 @@ class LauncherBackgroundController(
 
     /** Drops a committed photo and reveals the currently selected built-in background. */
     fun reset() {
+        pendingBuiltin = null
         clearPhoto()
         successMessage = "Using ${builtin.label}."
         if (systemSync) pushToSystem(null)
     }
 
-    /** Chooses one of the launcher's own drawn backgrounds, replacing any committed photo. */
+    /**
+     * Shows one of the launcher's own drawn backgrounds in the preview, without applying it: [applyBuiltin] makes it the background,
+     * [cancelBuiltin] goes back to the current one. Choosing the scene already in use (with no photo over it) just clears the pending one.
+     */
     fun chooseBuiltin(value: BuiltinBackground) {
+        if (previewPending) cancelPreview()
+        errorMessage = null; successMessage = null
+        pendingBuiltin = if (value == builtin && !photoSelected) null else value
+    }
+
+    fun applyBuiltin() { pendingBuiltin?.let { pendingBuiltin = null; useBuiltin(it) } }
+    fun cancelBuiltin() { pendingBuiltin = null }
+
+    /** Makes one of the launcher's own drawn backgrounds the background, replacing any committed photo. */
+    fun useBuiltin(value: BuiltinBackground) {
         clearPhoto()
         setBuiltinBackground(activity, value)
         builtin = value
@@ -259,6 +286,8 @@ class LauncherBackgroundController(
         // A Compose or wallpaper-service canvas may still be drawing the old bitmap.
         LauncherBackgroundCache.changed(null)
         launcherBackgroundFile(activity).delete()
+        originalFile().delete()
+        prefs.edit().remove(PHOTO_ADJUST).remove(PREVIEW_ADJUST).apply()
         prefs.edit().putBoolean(BACKGROUND_ENABLED, false).remove(BACKGROUND_ID).remove(PICKER_PENDING).remove(PENDING_URI)
             .remove(PENDING_OPERATION).remove(PREVIEW_PHASE).remove(PREVIEW_FILE).apply()
         photoSelected = false; errorMessage = null
@@ -273,33 +302,91 @@ class LauncherBackgroundController(
         generation++; loading = false; clearPickerPending()
     }
 
+    /** Changes how the previewed photo is fitted and toned. Kept with the preview, so it survives the launcher being recreated. */
+    fun updateAdjust(next: WallpaperAdjust) {
+        if (!previewPending) return
+        adjust = next.clamped()
+        prefs.edit().putString(PREVIEW_ADJUST, adjust.encode()).apply()
+    }
+
+    /**
+     * Opens the applied photo again for adjusting, from the original as it was chosen (kept beside the adjusted one), with the adjustments it
+     * was applied with. A photo applied before adjustments existed has no original kept; then the applied picture itself is the starting point.
+     */
+    fun adjustCurrent() {
+        if (!photoSelected || previewPending || loading || applying) return
+        val kept = originalFile().takeIf { it.isFile }
+        val source = kept ?: launcherBackgroundFile(activity).takeIf { it.isFile } ?: return
+        val saved = if (kept != null) WallpaperAdjust.decode(runCatching { prefs.getString(PHOTO_ADJUST, null) }.getOrNull()) else WallpaperAdjust()
+        pendingBuiltin = null; errorMessage = null; successMessage = null
+        generation++
+        cleanupStagedFiles()
+        val operation = UUID.randomUUID().toString()
+        val staged = File(launcherBackgroundFile(activity).parentFile, "$BACKGROUND_FILE.$operation.${UUID.randomUUID()}.tmp")
+        if (runCatching { source.copyTo(staged, overwrite = true) }.isFailure) { errorMessage = "The photo could not be opened for adjusting."; return }
+        val persisted = prefs.edit().putString(PENDING_OPERATION, operation).putString(PREVIEW_PHASE, PHASE_READY).putString(PREVIEW_FILE, staged.name)
+            .putString(PREVIEW_ADJUST, saved.encode()).remove(PENDING_URI).remove(PICKER_PENDING).commit()
+        if (!persisted) { staged.delete(); errorMessage = "The photo could not be opened for adjusting."; return }
+        adjust = saved
+        previewPending = true
+        loading = true
+        restorePreview(staged, operation)
+    }
+
     fun applyPreview() {
         val staged = preview ?: return
         if (!previewPending || pendingOperation() != staged.operation ||
             previewFile()?.absolutePath != staged.file.absolutePath) return
+        val chosen = adjust
+        // Keep the photo as chosen, so it can be adjusted again later from the original rather than from an already-adjusted copy.
+        runCatching { staged.file.copyTo(originalFile(), overwrite = true) }
+        if (chosen.isNeutral) { commitPreview(staged, staged.bitmap, chosen); return }
+        // An adjusted photo is made off the main thread: cropping, toning and blurring a large picture takes a moment.
+        val token = generation
+        applying = true; loading = true
+        val aspect = activity.resources.displayMetrics.let { m -> minOf(m.widthPixels, m.heightPixels).toFloat() / maxOf(m.widthPixels, m.heightPixels) }
+        activity.lifecycleScope.launch {
+            val baked = runCatching {
+                withContext(Dispatchers.Default) {
+                    val out = WallpaperAdjustMath.bake(staged.bitmap, aspect, chosen, MAX_BACKGROUND_EDGE)
+                    FileOutputStream(staged.file).use { o -> require(out.compress(Bitmap.CompressFormat.JPEG, 92, o)) { "The adjusted photo could not be saved." }; o.fd.sync() }
+                    out
+                }
+            }
+            applying = false
+            if (token != generation || preview !== staged) { loading = false; return@launch }
+            baked.onSuccess { commitPreview(staged, it, chosen) }.onFailure { loading = false; errorMessage = it.message ?: "The adjusted photo could not be made." }
+        }
+    }
+
+    private fun commitPreview(staged: StagedBackground, picture: Bitmap, chosen: WallpaperAdjust) {
         runCatching { staged.commit(launcherBackgroundFile(activity)) }
             .onSuccess {
                 releasePreviewGrant(staged.operation)
                 prefs.edit().putBoolean(BACKGROUND_ENABLED, true).putString(BACKGROUND_ID, staged.operation)
+                    .putString(PHOTO_ADJUST, chosen.encode()).remove(PREVIEW_ADJUST)
                     .remove(PENDING_URI).remove(PENDING_OPERATION).remove(PREVIEW_PHASE).remove(PREVIEW_FILE).apply()
                 preview = null
                 previewBitmap = null
                 previewPending = false
                 loading = false
-                LauncherBackgroundCache.changed(staged.bitmap, staged.operation)
+                adjust = WallpaperAdjust()
+                LauncherBackgroundCache.changed(picture, staged.operation)
                 photoSelected = true
                 errorMessage = null
                 successMessage = "Launcher background updated."
-                if (systemSync) pushToSystem(staged.bitmap)
+                if (systemSync) pushToSystem(picture)
                 cleanupStagedFiles()
             }
-            .onFailure { errorMessage = it.message ?: "That photo could not be saved." }
+            .onFailure { loading = false; errorMessage = it.message ?: "That photo could not be saved." }
     }
 
     fun cancelPreview() {
         if (!previewPending) return
         generation++
-        loading = false
+        loading = false; applying = false
+        adjust = WallpaperAdjust()
+        prefs.edit().remove(PREVIEW_ADJUST).apply()
         discardPreview()
         clearPreviewPersistence()
         errorMessage = null
@@ -483,6 +570,9 @@ class LauncherBackgroundController(
         prefs.edit().remove(PREVIEW_GRANT_URI).remove(PREVIEW_GRANT_OPERATION).commit()
     }
 
+    /** The photo as chosen, before adjusting, kept beside the applied one so it can be adjusted again. */
+    private fun originalFile(): File = File(launcherBackgroundFile(activity).parentFile, ORIGINAL_FILE)
+
     private fun previewFile(): File? {
         val name = runCatching { prefs.getString(PREVIEW_FILE, null) }.getOrNull() ?: return null
         if (File(name).name != name || !name.startsWith("$BACKGROUND_FILE.") || !name.endsWith(".tmp")) return null
@@ -555,5 +645,8 @@ class LauncherBackgroundController(
         private const val PREVIEW_GRANT_OPERATION = "previewGrantOperation"
         private const val PHASE_DECODING = "decoding"
         private const val PHASE_READY = "ready"
+        private const val PREVIEW_ADJUST = "previewAdjust"
+        private const val PHOTO_ADJUST = "photoAdjust"
+        private const val ORIGINAL_FILE = "launcher-background-original.jpg"
     }
 }

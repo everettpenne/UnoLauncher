@@ -5,6 +5,8 @@ import com.jake.duolauncher.island.*
 import com.jake.duolauncher.feed.*
 import com.jake.duolauncher.panel.*
 import com.jake.duolauncher.appearance.*
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTransformGestures
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -90,6 +92,14 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
             Text(title, Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close settings") }
         }
+        // The island page keeps a live copy of the island above its settings, so a change can be watched as it is made.
+        val islandPreview = remember { com.jake.duolauncher.island.IslandPreviewController() }
+        if (page == CustomizationPage.ISLAND && appearance.island && extras != null) {
+            val es = extras.store.state
+            com.jake.duolauncher.island.IslandSettingsPreview(islandPreview, com.jake.duolauncher.island.PreviewSettings(appearance.islandScale, es.islandWideMode,
+                es.liveCompactLevel, es.peekLevel, es.peekActions, es.islandShortcuts, es.privacyIndicators, es.liveUpdates), Modifier.padding(bottom = 8.dp))
+        }
+        CompositionLocalProvider(com.jake.duolauncher.island.LocalIslandPreview provides islandPreview) {
         Column(Modifier.weight(1f).verticalScroll(bodyScroll).padding(bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (page) {
@@ -140,24 +150,14 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     }
                 }
                 CustomizationPage.APPEARANCE -> {
-                    MiniHomePreview(backgrounds.previewBitmap, state, 228.dp)
-                    Text(stringResource(com.jake.duolauncher.R.string.launcher_background), style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(com.jake.duolauncher.R.string.changes_the_image_behind_uno_launcher), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     SideEffect { backgrounds.dark = appearance.dark }
-                    BuiltInBackgroundPicker(backgrounds.builtin, backgrounds::chooseBuiltin, appearance.dark)
-                    GlassButton(prominent = true, onClick = backgrounds::choosePhoto, enabled = !backgrounds.loading,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-choose")) {
-                        Text(if (backgrounds.previewPending) "Choose a different photo" else "Choose a photo")
+                    WallpaperSection(backgrounds, state, appearance.dark)
+                    if (backgrounds.photoSelected && !backgrounds.previewPending) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GlassButton(onClick = backgrounds::adjustCurrent, enabled = !backgrounds.loading, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                            .testTag("background-adjust")) { Text(stringResource(com.jake.duolauncher.R.string.wallpaper_adjust_photo)) }
+                        GlassButton(onClick = backgrounds::reset, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                            .testTag("background-reset")) { Text(stringResource(com.jake.duolauncher.R.string.remove_photo)) }
                     }
-                    if (backgrounds.previewPending) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GlassButton(onClick = backgrounds::cancelPreview, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                            .testTag("background-preview-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
-                        GlassButton(prominent = true, onClick = backgrounds::applyPreview, enabled = backgrounds.previewBitmap != null,
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("background-preview-apply")) { Text(stringResource(com.jake.duolauncher.R.string.apply)) }
-                    }
-                    if (backgrounds.photoSelected && !backgrounds.previewPending) GlassButton(onClick = backgrounds::reset,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-reset")) { Text(stringResource(com.jake.duolauncher.R.string.remove_photo)) }
                     if (backgrounds.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("background-loading"))
                     (backgrounds.errorMessage ?: backgrounds.successMessage)?.let { message ->
                         GlassButton(onClick = backgrounds::clearMessage, modifier = Modifier.fillMaxWidth().testTag("background-message")) { Text(message) }
@@ -232,6 +232,10 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.SEARCH)
                 }
                 CustomizationPage.ISLAND -> {
+                    val islandApps = model.state.collectAsState().value.apps
+                    if (appearance.island && extras != null) Text(stringResource(com.jake.duolauncher.R.string.island_preview_note),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.island_group_basics))
                     SettingsSwitch("Dynamic island", appearance.island, onIsland, "island-switch")
                     SettingsSwitch("Island everywhere", islandEverywhere, onIslandEverywhere, "island-everywhere-switch")
                     Text(stringResource(com.jake.duolauncher.R.string.shows_the_island_above_other_apps),
@@ -240,15 +244,30 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     // so touches can pass through it: grey, not black. Say so, and how to get the solid island.
                     if (islandEverywhere && !SystemShadeAccessibilityService.isConnected()) Text(stringResource(com.jake.duolauncher.R.string.island_overlay_grey_note),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("island-grey-note"))
+                    if (extras != null) IslandSettingsPart(extras, islandApps, IslandPart.HOME_STILL)
                     if (appearance.island) CustomizationSlider("Island size",
                         "${(appearance.islandScale * 100).toInt()}%", appearance.islandScale, 0f..1f,
-                        tag = "island-scale-slider") { onIslandScale(it) }
+                        tag = "island-scale-slider") { onIslandScale(it); islandPreview.show(com.jake.duolauncher.island.PreviewScene.IDLE) }
                     Text(stringResource(com.jake.duolauncher.R.string.a_liquid_capsule_at_the_camera),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (appearance.island) CustomizationDestination(Icons.Rounded.Straighten, "Line up with the status bar",
                         "So the island never cuts an icon in half", "customization-status-grid") { onPage(CustomizationPage.STATUS_GRID) }
-                    if (appearance.island) IslandStyleSection(IslandThemeController.current)
-                    if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.ISLAND)
+                    if (appearance.island) {
+                        SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.island_group_looks))
+                        if (extras != null) IslandSettingsPart(extras, islandApps, IslandPart.LOOKS)
+                        IslandStyleSection(IslandThemeController.current)
+                    }
+                    if (extras != null) {
+                        SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.island_group_shows))
+                        IslandSettingsPart(extras, islandApps, IslandPart.SHOWS)
+                        SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.island_group_notifications))
+                        IslandSettingsPart(extras, islandApps, IslandPart.NOTIFICATIONS)
+                        SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.island_group_timer))
+                        IslandSettingsPart(extras, islandApps, IslandPart.TIMER)
+                        SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.island_group_reference))
+                        IslandSettingsPart(extras, islandApps, IslandPart.REFERENCE)
+                        IslandSettingsPart(extras, islandApps, IslandPart.DEBUG)
+                    }
                 }
                 CustomizationPage.KEYBOARD -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.KEYBOARD)
                 CustomizationPage.PRIVACY -> {
@@ -280,6 +299,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     )
                 }
             }
+        }
         }
     }
 }
@@ -346,21 +366,27 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     }
 }
 
+/**
+ * A small Home screen: the background (the photo being previewed, or [builtin] when a built-in scene is being looked at, otherwise the current
+ * background) under the person's own icons and dock. [aspect] is width over height; the photo editor passes the phone's own, so the preview is
+ * cropped exactly as the screen will be. [surface] goes on the picture, for the editor's drag and pinch.
+ */
 @Composable private fun MiniHomePreview(stagedBitmap: android.graphics.Bitmap?, state: LauncherState,
-    previewHeight: androidx.compose.ui.unit.Dp) {
+    previewHeight: androidx.compose.ui.unit.Dp, builtin: BuiltinBackground? = null, dark: Boolean = false, aspect: Float = .632f,
+    surface: Modifier = Modifier) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val backgroundRevision = LauncherBackgroundCache.revision.intValue
     val committedBitmap = remember(backgroundRevision) { cachedLauncherBackground(context) }
-    val bitmap = stagedBitmap ?: committedBitmap
+    val bitmap = stagedBitmap ?: committedBitmap.takeIf { builtin == null }
     val apps = remember(state.apps) { state.apps.associateBy { it.id } }
     val homeIcons = state.homeSlots.mapNotNull { id -> id?.let(apps::get) }.take(8)
     val dockIcons = state.dock.mapNotNull { id -> id?.let(apps::get) }.take(5)
-    val scale = previewHeight.value * .632f / 250f
+    val scale = previewHeight.value * aspect / 250f
     fun unit(value: Float) = (value * scale).dp
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Box(Modifier.height(previewHeight).width(previewHeight * .632f).clip(RoundedCornerShape(unit(24f)))
-            .testTag("customization-home-preview")) {
-            DuneWallpaper()
+        Box(Modifier.height(previewHeight).width(previewHeight * aspect).clip(RoundedCornerShape(unit(24f)))
+            .testTag("customization-home-preview").then(surface)) {
+            if (builtin != null) BuiltinPreview(builtin, dark) else DuneWallpaper()
             bitmap?.let { Image(it.asImageBitmap(), null, Modifier.matchParentSize(),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop) }
             Column(Modifier.fillMaxSize().padding(start = unit(16f), top = unit(18f), end = unit(54f)),
@@ -378,6 +404,94 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
             }
         }
     }
+}
+
+/**
+ * The background chooser: a phone-shaped preview of Home on top, then whatever is being decided. A photo being previewed can be dragged into
+ * place, pinched to zoom, and toned (brightness, blur, colour, warmth) before Apply; a built-in scene being looked at is shown the same way,
+ * with Apply and Cancel. Nothing changes the real background until Apply.
+ */
+@Composable private fun WallpaperSection(backgrounds: LauncherBackgroundController, state: LauncherState, dark: Boolean) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val metrics = context.resources.displayMetrics
+    val screenAspect = minOf(metrics.widthPixels, metrics.heightPixels).toFloat() / maxOf(metrics.widthPixels, metrics.heightPixels)
+    val editing = backgrounds.previewPending && backgrounds.previewBitmap != null
+    val adjust = backgrounds.adjust
+    val adjusted = adjustedPreview(if (editing) backgrounds.previewBitmap else null, screenAspect, adjust)
+    val latestAdjust by rememberUpdatedState(adjust)
+    val drag = if (!editing) Modifier else Modifier.pointerInput(backgrounds.previewBitmap) {
+        detectTransformGestures { _, pan, zoom, _ ->
+            val a = latestAdjust
+            val z = (a.zoom * zoom).coerceIn(1f, WallpaperAdjust.MAX_ZOOM)
+            // a drag of the whole preview's width moves the crop from one edge to the other (at this zoom: less room, slower)
+            backgrounds.updateAdjust(a.copy(zoom = z, panX = a.panX - pan.x * 2f / size.width, panY = a.panY - pan.y * 2f / size.height))
+        }
+    }
+    MiniHomePreview(if (editing) adjusted ?: backgrounds.previewBitmap else backgrounds.previewBitmap, state, if (editing) 330.dp else 228.dp,
+        builtin = backgrounds.pendingBuiltin, dark = dark, aspect = if (editing) screenAspect else .632f, surface = drag)
+    if (editing) Text(stringResource(com.jake.duolauncher.R.string.wallpaper_drag_hint), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    // Apply and Cancel sit right under the preview, whichever kind of background is being decided.
+    if (backgrounds.previewPending) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        GlassButton(onClick = backgrounds::cancelPreview, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+            .testTag("background-preview-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
+        GlassButton(prominent = true, onClick = backgrounds::applyPreview, enabled = backgrounds.previewBitmap != null && !backgrounds.applying,
+            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("background-preview-apply")) { Text(stringResource(com.jake.duolauncher.R.string.apply)) }
+    }
+    backgrounds.pendingBuiltin?.let { pending ->
+        Text(stringResource(com.jake.duolauncher.R.string.wallpaper_builtin_pending, pending.label), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GlassButton(onClick = backgrounds::cancelBuiltin, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                .testTag("builtin-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
+            GlassButton(prominent = true, onClick = backgrounds::applyBuiltin, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                .testTag("builtin-apply")) { Text(stringResource(com.jake.duolauncher.R.string.apply)) }
+        }
+    }
+    if (editing) {
+        SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.wallpaper_adjust_heading))
+        CustomizationSlider(stringResource(com.jake.duolauncher.R.string.wallpaper_zoom), "${(adjust.zoom * 100).toInt()}%", adjust.zoom, 1f..WallpaperAdjust.MAX_ZOOM,
+            tag = "wallpaper-zoom") { backgrounds.updateAdjust(adjust.copy(zoom = it)) }
+        CustomizationSlider(stringResource(com.jake.duolauncher.R.string.wallpaper_brightness), signedPercent(adjust.brightness), adjust.brightness, -1f..1f,
+            tag = "wallpaper-brightness") { backgrounds.updateAdjust(adjust.copy(brightness = it)) }
+        CustomizationSlider(stringResource(com.jake.duolauncher.R.string.wallpaper_blur), "${(adjust.blur * 100).toInt()}%", adjust.blur, 0f..1f,
+            tag = "wallpaper-blur") { backgrounds.updateAdjust(adjust.copy(blur = it)) }
+        CustomizationSlider(stringResource(com.jake.duolauncher.R.string.wallpaper_saturation), "${(adjust.saturation * 100).toInt()}%", adjust.saturation, 0f..2f,
+            tag = "wallpaper-saturation") { backgrounds.updateAdjust(adjust.copy(saturation = it)) }
+        CustomizationSlider(stringResource(com.jake.duolauncher.R.string.wallpaper_warmth), signedPercent(adjust.warmth), adjust.warmth, -1f..1f,
+            tag = "wallpaper-warmth") { backgrounds.updateAdjust(adjust.copy(warmth = it)) }
+        if (!adjust.isNeutral) GlassButton(onClick = { backgrounds.updateAdjust(WallpaperAdjust()) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            .testTag("wallpaper-adjust-reset")) { Text(stringResource(com.jake.duolauncher.R.string.wallpaper_adjust_reset)) }
+        HorizontalDivider(Modifier.padding(vertical = 6.dp))
+    }
+    Text(stringResource(com.jake.duolauncher.R.string.launcher_background), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(com.jake.duolauncher.R.string.changes_the_image_behind_uno_launcher), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+    BuiltInBackgroundPicker(backgrounds.pendingBuiltin ?: backgrounds.builtin,
+        backgrounds::chooseBuiltin, dark)
+    GlassButton(prominent = true, onClick = backgrounds::choosePhoto, enabled = !backgrounds.loading,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-choose")) {
+        Text(if (backgrounds.previewPending) stringResource(com.jake.duolauncher.R.string.wallpaper_choose_different) else stringResource(com.jake.duolauncher.R.string.wallpaper_choose_photo))
+    }
+}
+
+private fun signedPercent(v: Float): String = (v * 100).toInt().let { if (it > 0) "+$it%" else "$it%" }
+
+/**
+ * The previewed photo with the adjustments applied, made by the same code that makes the saved picture ([WallpaperAdjustMath.bake]) at a small
+ * size, off the main thread, newest adjustment winning. Null until the first one is ready (the caller shows the plain photo meanwhile).
+ */
+@Composable private fun adjustedPreview(source: android.graphics.Bitmap?, aspect: Float, adjust: WallpaperAdjust): android.graphics.Bitmap? {
+    val small = remember(source) {
+        source?.let { s -> val k = minOf(1f, 720f / maxOf(s.width, s.height))
+            if (k >= 1f) s else android.graphics.Bitmap.createScaledBitmap(s, maxOf(1, (s.width * k).toInt()), maxOf(1, (s.height * k).toInt()), true) }
+    }
+    var out by remember(source) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    LaunchedEffect(small, aspect, adjust) {
+        val s = small ?: return@LaunchedEffect
+        out = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { WallpaperAdjustMath.bake(s, aspect, adjust, 720) }
+    }
+    return out
 }
 
 @Composable private fun BuiltInBackgroundPicker(selected: BuiltinBackground, onSelect: (BuiltinBackground) -> Unit, dark: Boolean) {

@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import com.jake.duolauncher.island.PreviewScene
+
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.res.stringResource
@@ -159,24 +161,6 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     IconPackSettings(s.iconPack, store::setIconPack)
     }
 
-    if (section == ExtrasSection.ISLAND) {
-    // Draw the Home island in the accessibility service's own window, so it stays still while Android animates the launcher's window.
-    val homePrefs = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("extras", android.content.Context.MODE_PRIVATE)
-    var homeOverlay by remember { mutableStateOf(homePrefs.getBoolean("homeIslandOverlay", false)) }
-    SettingsSwitch("Keep the Home island still", homeOverlay, { homeOverlay = it; homePrefs.edit().putBoolean("homeIslandOverlay", it).apply() }, "home-island-overlay-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.home_island_overlay_note), style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.island_timer), style = MaterialTheme.typography.titleMedium)
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val exact = IslandTools.exactAlarmsAllowed(context)
-    Text(if (exact) "Exact alarms are allowed, so the timer ends on time even with Home closed."
-        else "The timer ends on time while the launcher is running, and within a minute or so otherwise. Allow exact alarms for to-the-second timing.",
-        style = note, color = muted)
-    if (!exact) GlassButton(onClick = {
-        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
-            android.net.Uri.parse("package:${context.packageName}")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-    }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("exact-alarm")) { Text(stringResource(com.jake.duolauncher.R.string.allow_exact_alarms)) }
-    }
-
     if (section == ExtrasSection.SEARCH) {
     Text(stringResource(com.jake.duolauncher.R.string.search_suggestions), style = MaterialTheme.typography.titleMedium)
     val resolver = rememberHandoffResolver(s)
@@ -221,18 +205,6 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         Text(stringResource(com.jake.duolauncher.R.string.badge_mute_note), style = note, color = muted)
     }
     SettingsSwitch("Track title and artwork in media", s.mediaDetails, store::setMediaDetails, "media-details-switch")
-    SettingsSwitch("Show new notifications in the island", s.notificationPeek, store::setNotificationPeek, "peek-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.how_much_a_new_notification_shows), style = note, color = muted)
-    if (s.notificationPeek) {
-        SettingsSwitch("Action buttons on the card", s.peekActions, store::setPeekActions, "peek-actions-switch")
-        Text(stringResource(com.jake.duolauncher.R.string.peek_actions_note), style = note, color = muted)
-    }
-    ChoiceRow("App name only", "A flash of the app's icon and name, never what it says", s.peekLevel == 0, "peek-level-name") { store.setPeekLevel(0) }
-    ChoiceRow("Name and title", "A card with the sender or subject; tap it to open the notification", s.peekLevel == 1, "peek-level-title") { store.setPeekLevel(1) }
-    ChoiceRow("Name, title and text", "The card also shows the first lines of the text. Uno reads that text to show it, and keeps nothing",
-        s.peekLevel == 2, "peek-level-text") { store.setPeekLevel(2) }
-    GlassField(s.peekBlocked, { store.setPeekBlocked(it) }, Modifier.fillMaxWidth().testTag("peek-blocked"), minLines = 1, maxLines = 3,
-        label = { Text(stringResource(com.jake.duolauncher.R.string.hide_notifications_containing_these_words)) }, supportingText = { Text(stringResource(com.jake.duolauncher.R.string.separate_with_commas_a_match_shows)) })
     Text(stringResource(com.jake.duolauncher.R.string.everything_stays_on_this_device_badges),
         style = note, color = muted)
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
@@ -243,91 +215,6 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         style = note, color = muted)
     AppChecklist(apps, s.focusHidden, "focus") { store.toggleFocusHidden(it) }
     }
-    if (section == ExtrasSection.ISLAND) {
-    SettingsSwitch("Camera and microphone indicators", s.privacyIndicators, store::setPrivacyIndicators, "privacy-indicators-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.the_island_shows_a_green_camera),
-        style = note, color = muted)
-    SettingsSwitch("VPN and USB data alerts", s.securityAlerts, store::setSecurityAlerts, "security-alerts-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.the_island_flashes_when_a_vpn),
-        style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.paused_music_and_podcasts), style = MaterialTheme.typography.titleMedium)
-    Text(stringResource(com.jake.duolauncher.R.string.the_wide_pill_is_for_sound),
-        style = note, color = muted)
-    IslandPlayback.RESUME_CHOICES_MIN.forEach { minutes ->
-        ChoiceRow(if (minutes == 1) "1 minute" else "$minutes minutes", if (minutes == 2) "The default" else "",
-            s.mediaResumeMinutes == minutes, "media-resume-$minutes") { store.setMediaResumeMinutes(minutes) }
-    }
-    ChoiceRow("Off", "Over other apps the pill shrinks to a ring round the camera when idle",
-        s.islandWideMode == IslandWideMode.OFF, "island-wide-off") { store.setIslandWideMode(IslandWideMode.OFF) }
-    ChoiceRow("Wide", "The pill stays wide at today's width, for sound that is playing",
-        s.islandWideMode == IslandWideMode.WIDE, "island-wide-wide") { store.setIslandWideMode(IslandWideMode.WIDE) }
-    ChoiceRow("Extra wide", "As wide as the island at the 75% size setting, at the height you chose; on a narrow phone it stops at the screen's edge",
-        s.islandWideMode == IslandWideMode.EXTRA_WIDE, "island-wide-extra") { store.setIslandWideMode(IslandWideMode.EXTRA_WIDE) }
-    Text(stringResource(com.jake.duolauncher.R.string.over_other_apps_the_island_normally),
-        style = note, color = muted)
-    SettingsSwitch("App shortcuts in the island", s.islandShortcuts, store::setIslandShortcuts, "island-shortcuts-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.the_open_island_shows_the_apps),
-        style = note, color = muted)
-    SettingsSwitch("Headphone and Bluetooth audio alerts", s.audioAlerts, store::setAudioAlerts, "audio-alerts-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.the_island_flashes_the_name_of),
-        style = note, color = muted)
-    SettingsSwitch("Bluetooth device alerts", s.bluetoothAlerts, { on ->
-        if (on) { store.setBluetoothAlerts(true); if (!actions.hasBluetoothPermission()) actions.requestBluetooth() }
-        else store.setBluetoothAlerts(false)
-    }, "bluetooth-alerts-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.bluetooth_alerts_note), style = note, color = muted)
-    SettingsSwitch("Live Updates in the island", s.liveUpdates, store::setLiveUpdates, "live-updates-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.compact_live_update_text), style = MaterialTheme.typography.titleSmall)
-    ChoiceRow("Glyph only", "Just the app's icon or turn arrow on the pill", s.liveCompactLevel == 0, "live-compact-glyph") { store.setLiveCompactLevel(0) }
-    ChoiceRow("Short status", "The app's own short line, like “4 min”", s.liveCompactLevel == 1, "live-compact-status") { store.setLiveCompactLevel(1) }
-    ChoiceRow("Title", "The update's title instead of the short status", s.liveCompactLevel == 2, "live-compact-title") { store.setLiveCompactLevel(2) }
-    SettingsSwitch("Downloads and other progress", s.progressTasks, store::setProgressTasks, "progress-tasks-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.a_download_upload_or_install_with),
-        style = note, color = muted)
-    SettingsSwitch("Navigation in the island", s.navigationTasks, store::setNavigationTasks, "navigation-tasks-switch")
-    if (s.navigationTasks) {
-        SettingsSwitch("Drop down for each turn", s.navigationCues, store::setNavigationCues, "navigation-cues-switch")
-        Text(stringResource(com.jake.duolauncher.R.string.navigation_cues_note), style = note, color = muted)
-    }
-    Text(stringResource(com.jake.duolauncher.R.string.while_a_maps_app_shows_turn),
-        style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.android_16_apps_can_post_a),
-        style = note, color = muted)
-    IslandWidgetSetting(actions.islandWidget, note, muted)
-    IslandLinksSetting(actions, apps, note, muted)
-    SettingsSwitch("Show calls in the island", s.callDetails, store::setCallDetails, "call-details-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.while_a_call_is_active_the),
-        style = note, color = muted)
-    }
-
-    if (section == ExtrasSection.ISLAND) {
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where), style = MaterialTheme.typography.titleMedium)
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_intro), style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_ongoing),
-        style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_notification),
-        style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_system),
-        style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_privacy),
-        style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_time),
-        style = note, color = muted)
-    }
-
-    if (section == ExtrasSection.ISLAND) {
-    // Developer HUD: only offered by debuggable builds, so a release build has neither the switch nor the overlay.
-    val hudContext = androidx.compose.ui.platform.LocalContext.current
-    if (hudContext.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-        val hudPrefs = remember { hudContext.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE) }
-        var hudOn by remember { mutableStateOf(hudPrefs.getBoolean("debugHud", false)) }
-        SettingsSwitch("Developer HUD (debug build)", hudOn, { hudOn = it; hudPrefs.edit().putBoolean("debugHud", it).apply() }, "debug-hud-switch")
-        Text(stringResource(com.jake.duolauncher.R.string.shows_frame_times_jank_the_island),
-            style = note, color = muted)
-        HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    }
-    }
-
     if (section == ExtrasSection.SEARCH) {
     Text(stringResource(com.jake.duolauncher.R.string.contacts_in_search_optional), style = MaterialTheme.typography.titleMedium)
     SettingsSwitch("Search contacts from All apps", s.contactSearch, { on ->
@@ -336,6 +223,130 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     }, "contact-search-switch")
     Text(stringResource(com.jake.duolauncher.R.string.asks_android_s_contacts_permission_names),
         style = note, color = muted)
+    }
+}
+
+/** The island page's parts, drawn by the page in its own order and under its own headings (see CustomizationSheet). */
+internal enum class IslandPart { HOME_STILL, LOOKS, SHOWS, NOTIFICATIONS, TIMER, REFERENCE, DEBUG }
+
+/**
+ * One part of the island's settings. A row that changes how the island looks or moves also asks the preview at the top of the page
+ * ([LocalIslandPreview]) to play the situation that shows it, so the change can be seen before leaving the page.
+ */
+@Composable
+internal fun IslandSettingsPart(actions: ExtrasActions, apps: List<AppEntry>, part: IslandPart) {
+    val store = actions.store
+    val s = store.state
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val note = MaterialTheme.typography.bodySmall
+    val preview = com.jake.duolauncher.island.LocalIslandPreview.current
+    fun demo(scene: PreviewScene) { preview?.show(scene) }
+
+    when (part) {
+    IslandPart.HOME_STILL -> {
+    // Draw the Home island in the accessibility service's own window, so it stays still while Android animates the launcher's window.
+    val homePrefs = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("extras", android.content.Context.MODE_PRIVATE)
+    var homeOverlay by remember { mutableStateOf(homePrefs.getBoolean("homeIslandOverlay", false)) }
+    SettingsSwitch("Keep the Home island still", homeOverlay, { homeOverlay = it; homePrefs.edit().putBoolean("homeIslandOverlay", it).apply() }, "home-island-overlay-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.home_island_overlay_note), style = note, color = muted)
+    }
+
+    IslandPart.LOOKS -> {
+    Text(stringResource(com.jake.duolauncher.R.string.paused_music_and_podcasts), style = MaterialTheme.typography.titleSmall)
+    ChoiceRow("Off", "Over other apps the pill shrinks to a ring round the camera when idle",
+        s.islandWideMode == IslandWideMode.OFF, "island-wide-off") { store.setIslandWideMode(IslandWideMode.OFF); demo(PreviewScene.MUSIC) }
+    ChoiceRow("Wide", "The pill stays wide at today's width, for sound that is playing",
+        s.islandWideMode == IslandWideMode.WIDE, "island-wide-wide") { store.setIslandWideMode(IslandWideMode.WIDE); demo(PreviewScene.MUSIC) }
+    ChoiceRow("Extra wide", "As wide as the island at the 75% size setting, at the height you chose; on a narrow phone it stops at the screen's edge",
+        s.islandWideMode == IslandWideMode.EXTRA_WIDE, "island-wide-extra") { store.setIslandWideMode(IslandWideMode.EXTRA_WIDE); demo(PreviewScene.MUSIC) }
+    Text(stringResource(com.jake.duolauncher.R.string.over_other_apps_the_island_normally), style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.compact_live_update_text), style = MaterialTheme.typography.titleSmall)
+    ChoiceRow("Glyph only", "Just the app's icon or turn arrow on the pill", s.liveCompactLevel == 0, "live-compact-glyph") { store.setLiveCompactLevel(0); demo(PreviewScene.LIVE) }
+    ChoiceRow("Short status", "The app's own short line, like “4 min”", s.liveCompactLevel == 1, "live-compact-status") { store.setLiveCompactLevel(1); demo(PreviewScene.LIVE) }
+    ChoiceRow("Title", "The update's title instead of the short status", s.liveCompactLevel == 2, "live-compact-title") { store.setLiveCompactLevel(2); demo(PreviewScene.LIVE) }
+    }
+
+    IslandPart.SHOWS -> {
+    SettingsSwitch("Live Updates in the island", s.liveUpdates, { store.setLiveUpdates(it); demo(PreviewScene.LIVE) }, "live-updates-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.android_16_apps_can_post_a), style = note, color = muted)
+    SettingsSwitch("Downloads and other progress", s.progressTasks, store::setProgressTasks, "progress-tasks-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.a_download_upload_or_install_with), style = note, color = muted)
+    SettingsSwitch("Navigation in the island", s.navigationTasks, store::setNavigationTasks, "navigation-tasks-switch")
+    if (s.navigationTasks) {
+        SettingsSwitch("Drop down for each turn", s.navigationCues, store::setNavigationCues, "navigation-cues-switch")
+        Text(stringResource(com.jake.duolauncher.R.string.navigation_cues_note), style = note, color = muted)
+    }
+    Text(stringResource(com.jake.duolauncher.R.string.while_a_maps_app_shows_turn), style = note, color = muted)
+    SettingsSwitch("Show calls in the island", s.callDetails, store::setCallDetails, "call-details-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.while_a_call_is_active_the), style = note, color = muted)
+    SettingsSwitch("Camera and microphone indicators", s.privacyIndicators, { store.setPrivacyIndicators(it); demo(PreviewScene.PRIVACY) }, "privacy-indicators-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.the_island_shows_a_green_camera), style = note, color = muted)
+    SettingsSwitch("VPN and USB data alerts", s.securityAlerts, store::setSecurityAlerts, "security-alerts-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.the_island_flashes_when_a_vpn), style = note, color = muted)
+    SettingsSwitch("Headphone and Bluetooth audio alerts", s.audioAlerts, store::setAudioAlerts, "audio-alerts-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.the_island_flashes_the_name_of), style = note, color = muted)
+    SettingsSwitch("Bluetooth device alerts", s.bluetoothAlerts, { on ->
+        if (on) { store.setBluetoothAlerts(true); if (!actions.hasBluetoothPermission()) actions.requestBluetooth() }
+        else store.setBluetoothAlerts(false)
+    }, "bluetooth-alerts-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.bluetooth_alerts_note), style = note, color = muted)
+    SettingsSwitch("App shortcuts in the island", s.islandShortcuts, { store.setIslandShortcuts(it); demo(PreviewScene.OPEN) }, "island-shortcuts-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.the_open_island_shows_the_apps), style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.the_wide_pill_is_for_sound), style = MaterialTheme.typography.titleSmall)
+    IslandPlayback.RESUME_CHOICES_MIN.forEach { minutes ->
+        ChoiceRow(if (minutes == 1) "1 minute" else "$minutes minutes", if (minutes == 2) "The default" else "",
+            s.mediaResumeMinutes == minutes, "media-resume-$minutes") { store.setMediaResumeMinutes(minutes) }
+    }
+    IslandWidgetSetting(actions.islandWidget, note, muted)
+    IslandLinksSetting(actions, apps, note, muted)
+    }
+
+    IslandPart.NOTIFICATIONS -> {
+    SettingsSwitch("Show new notifications in the island", s.notificationPeek, { store.setNotificationPeek(it); demo(PreviewScene.NOTIFICATION) }, "peek-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.how_much_a_new_notification_shows), style = note, color = muted)
+    if (s.notificationPeek) {
+        SettingsSwitch("Action buttons on the card", s.peekActions, { store.setPeekActions(it); demo(PreviewScene.NOTIFICATION) }, "peek-actions-switch")
+        Text(stringResource(com.jake.duolauncher.R.string.peek_actions_note), style = note, color = muted)
+    }
+    ChoiceRow("App name only", "A flash of the app's icon and name, never what it says", s.peekLevel == 0, "peek-level-name") { store.setPeekLevel(0); demo(PreviewScene.NOTIFICATION) }
+    ChoiceRow("Name and title", "A card with the sender or subject; tap it to open the notification", s.peekLevel == 1, "peek-level-title") { store.setPeekLevel(1); demo(PreviewScene.NOTIFICATION) }
+    ChoiceRow("Name, title and text", "The card also shows the first lines of the text. Uno reads that text to show it, and keeps nothing",
+        s.peekLevel == 2, "peek-level-text") { store.setPeekLevel(2); demo(PreviewScene.NOTIFICATION) }
+    GlassField(s.peekBlocked, { store.setPeekBlocked(it) }, Modifier.fillMaxWidth().testTag("peek-blocked"), minLines = 1, maxLines = 3,
+        label = { Text(stringResource(com.jake.duolauncher.R.string.hide_notifications_containing_these_words)) }, supportingText = { Text(stringResource(com.jake.duolauncher.R.string.separate_with_commas_a_match_shows)) })
+    }
+
+    IslandPart.TIMER -> {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val exact = IslandTools.exactAlarmsAllowed(context)
+    Text(if (exact) "Exact alarms are allowed, so the timer ends on time even with Home closed."
+        else "The timer ends on time while the launcher is running, and within a minute or so otherwise. Allow exact alarms for to-the-second timing.",
+        style = note, color = muted)
+    if (!exact) GlassButton(onClick = {
+        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+            android.net.Uri.parse("package:${context.packageName}")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("exact-alarm")) { Text(stringResource(com.jake.duolauncher.R.string.allow_exact_alarms)) }
+    }
+
+    IslandPart.REFERENCE -> {
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_intro), style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_ongoing), style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_notification), style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_system), style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_privacy), style = note, color = muted)
+    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_time), style = note, color = muted)
+    }
+
+    IslandPart.DEBUG -> {
+    // Developer HUD: only offered by debuggable builds, so a release build has neither the switch nor the overlay.
+    val hudContext = androidx.compose.ui.platform.LocalContext.current
+    if (hudContext.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+        val hudPrefs = remember { hudContext.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE) }
+        var hudOn by remember { mutableStateOf(hudPrefs.getBoolean("debugHud", false)) }
+        SettingsSwitch("Developer HUD (debug build)", hudOn, { hudOn = it; hudPrefs.edit().putBoolean("debugHud", it).apply() }, "debug-hud-switch")
+        Text(stringResource(com.jake.duolauncher.R.string.shows_frame_times_jank_the_island), style = note, color = muted)
+    }
+    }
     }
 }
 

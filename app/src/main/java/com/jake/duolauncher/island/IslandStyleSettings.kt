@@ -33,10 +33,16 @@ internal fun IslandStyleSection(controller: IslandThemeController?) {
     val message = notice ?: controller?.message
     val ink = MaterialTheme.colorScheme.onSurface
 
+    // The live preview at the top of the island page replays its scene with the new look, so a colour or a motion is seen, not imagined.
+    val preview = LocalIslandPreview.current
     fun change(candidate: IslandTheme) {
         val renamed = if (candidate.name == theme.name && IslandThemes.presets.any { it.name == theme.name }) candidate.copy(name = "Custom", author = "") else candidate
         val problem = IslandThemeMath.problem(renamed)
-        if (problem != null) notice = problem else { notice = null; controller?.clearMessage(); IslandThemes.apply(renamed) }
+        if (problem != null) notice = problem else {
+            notice = null; controller?.clearMessage(); IslandThemes.apply(renamed)
+            // a new panel or button shape is only seen on the open island; everything else shows in whatever is playing
+            if (renamed.panel != theme.panel || renamed.controls != theme.controls) preview?.show(PreviewScene.OPEN) else preview?.replay()
+        }
     }
 
     Column(Modifier.fillMaxWidth().testTag("island-style"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -44,7 +50,7 @@ internal fun IslandStyleSection(controller: IslandThemeController?) {
         GlassHeading("ISLAND STYLE")
         IslandThemePreview(theme)
         GlassChips(IslandThemes.presets, IslandThemes.presets.firstOrNull { it.name == theme.name } ?: IslandThemes.presets[0],
-            { it.name }, { IslandThemes.apply(it); notice = null; controller?.clearMessage() }, tagPrefix = "island-preset")
+            { it.name }, { IslandThemes.apply(it); notice = null; controller?.clearMessage(); preview?.replay() }, tagPrefix = "island-preset")
         if (IslandThemes.presets.none { it.name == theme.name }) GlassNote("Using ${theme.name}${if (theme.author.isNotEmpty()) " by ${theme.author}" else ""}.")
 
         GlassHeading("PANEL SHAPE")

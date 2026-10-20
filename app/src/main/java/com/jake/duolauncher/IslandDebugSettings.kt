@@ -7,15 +7,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.jake.duolauncher.appearance.GlassButton
 import com.jake.duolauncher.island.*
+import kotlinx.coroutines.launch
 
 /** The activities and dots that can be forced on, with the words the page uses for them. */
 private val FORCEABLE = listOf(
@@ -50,9 +49,10 @@ internal fun IslandDebugSettings() {
     HorizontalDividerSpace()
     Text(stringResource(R.string.island_debug_numbers_intro), style = note, color = muted)
     SelectionContainer { Text(IslandDebug.summary(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("debug-summary")) }
-    val clipboard = LocalClipboardManager.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboard.current
+    val clipScope = androidx.compose.runtime.rememberCoroutineScope()
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        GlassButton("Copy numbers", { clipboard.setText(AnnotatedString(IslandDebug.summary())) }, Modifier.weight(1f).heightIn(min = 48.dp), tag = "debug-copy")
+        GlassButton("Copy numbers", { clipScope.launch { clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("", IslandDebug.summary()))) } }, Modifier.weight(1f).heightIn(min = 48.dp), tag = "debug-copy")
         GlassButton("Reset all", { IslandDebug.reset() }, Modifier.weight(1f).heightIn(min = 48.dp), tag = "debug-reset")
     }
 }

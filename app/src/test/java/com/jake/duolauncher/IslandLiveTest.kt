@@ -60,14 +60,6 @@ class IslandLiveTest {
         assertTrue(IslandGlow.PLAYING > IslandGlow.PAUSED && IslandGlow.PAUSED > 0f)
     }
 
-    @Test fun aFlickTurnsTheListSoADifferentActivityIsInFront() {
-        val list = kinds(call = true, timer = true, media = true)
-        assertEquals(list, IslandLive.rotated(list, 0))
-        assertEquals(listOf(LiveKind.TIMER, LiveKind.MEDIA, LiveKind.CALL), IslandLive.rotated(list, 1))
-        assertEquals(list, IslandLive.rotated(list, 3))
-        assertEquals(IslandLive.rotated(list, 2), IslandLive.rotated(list, -1))
-        assertEquals(kinds(timer = true), IslandLive.rotated(kinds(timer = true), 5))
-    }
 
     // ---- compact Live Update text ----
     @Test fun compactTextLevelsChooseGlyphOnlyShortStatusOrTitle() {
@@ -149,8 +141,4 @@ class IslandCombinationTest {
         assertEquals(emptyList<LiveKind>(), IslandLive.active(true, true, false, false, false).let { it - (listOf(it[0]) + IslandBubbles.layout(it).map { c -> c.kind }).toSet() })
     }
 
-    @Test fun turningTheListNeverLosesAnActivity() {
-        val kinds = IslandLive.active(true, true, true, true, true)
-        (-7..7).forEach { shift -> assertEquals(kinds.toSet(), IslandLive.rotated(kinds, shift).toSet()) }
-    }
 }

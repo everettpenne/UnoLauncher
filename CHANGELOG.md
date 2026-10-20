@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.95.0-uno01
+
+- **Search in Launcher settings.** A search field at the top of Launcher settings finds any setting by its name or by other words for it ("dark mode", "do not disturb", "typo") and goes straight to its page. A test checks every switch, slider and group on the pages can be found.
+- **Line up with the status bar.** A new page (The island) draws guides over the real status bar where the island thinks the gaps between icons are, and moves them in quarter-dp steps until they sit between the icons, so the island never cuts an icon in half on a phone other than the Pixel 10a it was measured on.
+- **Keep the Home island still** (optional, with Uno's accessibility service). The Home island is drawn in its own window, so it stays at the camera while Android animates the launcher on unlock or when an app closes.
+- **One record of where the island is.** The touch window is now the island and each capsule's own rectangle, published as they are laid out, rather than a reserve worked out separately on each side.
+- **The island page says when it will look grey.** Over other apps through "display over other apps", Android draws the island at 80% opacity; the page says so and how to get the solid island.
+- **Code health.** The 2,100-line island file is split by job (state, faces, rows, slots, modifiers). Deprecated APIs are replaced (the clipboard, lifecycle owner, display, parcelable lists, background-start mode, typed extras) or explained where nothing replaces them, so the launcher compiles with no warnings. Dead code from earlier capsule layouts is gone, along with unused strings and redundant version checks.
+
 ## 0.94.0-uno01
 
 - **No more sliver of the signal icon past the island's end.** The island's ends are round, so an end sitting just inside the narrow gap between the signal and Wi-Fi icons showed the top of the signal bars. An outer edge now sits a little past the middle of its gap, away from the island; where a capsule meets the island the two edges still share one gap.

@@ -232,7 +232,6 @@
     <string name="feed_unsave">Remove from saved</string>
     <string name="feed_keep_title">Stories to keep per feed</string>
     <string name="feed_keep_note">Saved stories are always kept, whatever you choose. Choosing less trims what is stored right away.</string>
-    <string name="feed_backup_none">Not in this backup; your feeds stay as they are</string>
     <string name="stack_position">Widget %1$d of %2$d: %3$s</string>
     <string name="stack_next_widget">Next widget in stack</string>
     <string name="stack_previous_widget">Previous widget in stack</string>
@@ -339,8 +338,6 @@
     <string name="set_a_place_in_wallpaper_glass">Set a place in Wallpaper &amp; glass, Appearance, to see sunrise and sunset.</string>
     <string name="the_sun_does_not_set_today">The sun does not set today.</string>
     <string name="the_sun_does_not_rise_today">The sun does not rise today.</string>
-    <string name="sunrise">Sunrise</string>
-    <string name="sunset">Sunset</string>
 
     <!-- widgets/TimersWidget.kt -->
     <string name="stop">Stop</string>
@@ -402,4 +399,13 @@
     <string name="island_debug_force_intro">Force dummy live activities, so you can see where they end up. With three or more live, the first is on the main island, the second on its left and the third on its right.</string>
     <string name="island_debug_adjust_intro">Width and position, in dp, added to the island\'s shipped layout. Everything at 0 is that layout.</string>
     <string name="island_debug_numbers_intro">The numbers to give as a default:</string>
+    <string name="search_settings">Search settings</string>
+    <string name="no_settings_match">No setting matches that.</string>
+    <string name="status_grid_intro">The island puts its edges in the gaps between the status bar\'s icons, so it never cuts one in half. The pink lines show where it thinks the gaps are. Move them until every line sits between two icons (or over empty status bar).</string>
+    <string name="status_grid_left">Left side: clock and notification icons (dp)</string>
+    <string name="status_grid_spacing">Spacing of the notification icons (dp)</string>
+    <string name="status_grid_right">Right side: signal, Wi-Fi and battery (dp)</string>
+    <string name="status_grid_reset">Reset to the Pixel 10a</string>
+    <string name="island_overlay_grey_note">Android draws the island slightly see-through over other apps in this mode (so it can never hide a tap from the app underneath), so it looks dark grey instead of black. Turn on Uno\'s accessibility service (Gestures &amp; feel) for a solid black island that also covers the status bar.</string>
+    <string name="home_island_overlay_note">With Uno\'s accessibility service on, the Home island is drawn in its own window, so it stays at the camera while Android animates the launcher (unlocking, closing an app) instead of moving with it. It has no news headline on its panel. Needs the accessibility service; without it, this does nothing.</string>
 </resources>

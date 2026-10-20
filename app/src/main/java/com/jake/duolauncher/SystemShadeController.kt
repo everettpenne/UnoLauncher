@@ -21,8 +21,9 @@ class SystemShadeAccessibilityService : AccessibilityService() {
     private var islandHost: IslandOverlayHost? = null
     private val prefs by lazy { getSharedPreferences("extras", MODE_PRIVATE) }
     private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == "islandEverywhere") syncIsland()
+        if (key == "islandEverywhere" || key == "island" || key == "homeIslandOverlay") syncIsland()
     }
+    private val appearancePrefs by lazy { getSharedPreferences("appearance", MODE_PRIVATE) }
 
     override fun onServiceConnected() {
         // The declaration lets Settings describe the service. Once bound, unsubscribe from
@@ -30,6 +31,7 @@ class SystemShadeAccessibilityService : AccessibilityService() {
         serviceInfo = serviceInfo.apply { eventTypes = 0 }
         instance = WeakReference(this)
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
+        appearancePrefs.registerOnSharedPreferenceChangeListener(prefListener)
         syncIsland()
     }
 
@@ -39,7 +41,9 @@ class SystemShadeAccessibilityService : AccessibilityService() {
      * It draws only the island and reads nothing from other apps.
      */
     private fun syncIsland() {
-        val wanted = prefs.getBoolean("islandEverywhere", false)
+        // Everywhere; or, when asked ("Keep the Home island still"), on Home alone: this window then draws the Home island too, so it stays
+        // still at the camera while Android animates the launcher's own window (unlocking, closing an app). Otherwise the launcher draws it.
+        val wanted = prefs.getBoolean("islandEverywhere", false) || (appearancePrefs.getBoolean("island", true) && prefs.getBoolean("homeIslandOverlay", false))
         if (wanted && islandHost == null) {
             stopService(android.content.Intent(this, IslandOverlayService::class.java))
             islandHost = IslandOverlayHost(this, android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
@@ -52,7 +56,7 @@ class SystemShadeAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
     override fun onInterrupt() = Unit
     override fun onUnbind(intent: android.content.Intent?): Boolean {
-        runCatching { prefs.unregisterOnSharedPreferenceChangeListener(prefListener) }
+        runCatching { prefs.unregisterOnSharedPreferenceChangeListener(prefListener); appearancePrefs.unregisterOnSharedPreferenceChangeListener(prefListener) }
         islandHost?.stop(); islandHost = null
         if (instance.get() === this) instance.clear()
         return super.onUnbind(intent)

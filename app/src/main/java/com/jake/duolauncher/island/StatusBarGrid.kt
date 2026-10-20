@@ -12,6 +12,12 @@ package com.jake.duolauncher.island
  *
  * Everything here is in dp and pure, so it is unit-tested apart from the screen.
  */
+/** A person's correction to the measured grid, in dp: the left gaps moved by [leftShift] (and their spacing changed by [pitchDelta]), the
+ * right gaps moved by [rightShift] (positive is rightward). All zero is the Pixel 10a as measured. */
+internal data class GridCalibration(val leftShift: Float = 0f, val pitchDelta: Float = 0f, val rightShift: Float = 0f) {
+    fun clamped() = GridCalibration(leftShift.coerceIn(-30f, 30f), pitchDelta.coerceIn(-6f, 6f), rightShift.coerceIn(-30f, 30f))
+}
+
 internal object StatusBarGrid {
     /** How far inside a gap a seam's edges sit, in dp: where a capsule meets the main island, both edges share one gap, 3 dp apart. */
     const val INSET_DP = 1.5f
@@ -35,13 +41,18 @@ internal object StatusBarGrid {
     /** The room an island keeps to the camera hole at least, in dp. */
     private const val HOLE_WRAP_DP = 6f
 
+    /** How much wider the clock is than with a one-digit hour, for the hour now ([hour12] is Calendar.HOUR, 0..11): any 24-hour time and
+     * 10, 11 and 12 o'clock have two digits. */
+    fun clockShiftDp(hour12: Int, is24Hour: Boolean): Float = if (is24Hour || hour12 == 0 || hour12 >= 10) DIGIT_DP else 0f
+
     /** The x of each left-hand gap, in dp from the left edge: index 0 is after the clock, index 1 after the first icon, and so on. [shiftDp]
      * is the clock's extra width ([DIGIT_DP] with a two-digit hour, else 0). */
-    fun leftGaps(shiftDp: Float): List<Float> =
-        listOf(CLOCK_GAP_DP + shiftDp) + (0 until LEFT_GAP_COUNT - 1).map { FIRST_ICON_GAP_DP + shiftDp + it * ICON_PITCH_DP }
+    fun leftGaps(shiftDp: Float, cal: GridCalibration = GridCalibration()): List<Float> =
+        listOf(CLOCK_GAP_DP + shiftDp + cal.leftShift) +
+            (0 until LEFT_GAP_COUNT - 1).map { FIRST_ICON_GAP_DP + shiftDp + cal.leftShift + it * (ICON_PITCH_DP + cal.pitchDelta) }
 
     /** The x of each right-hand gap, in dp from the left edge, nearest the camera first. */
-    fun rightGaps(screenWidthDp: Float): List<Float> = RIGHT_GAPS_FROM_EDGE_DP.map { screenWidthDp - it }
+    fun rightGaps(screenWidthDp: Float, cal: GridCalibration = GridCalibration()): List<Float> = RIGHT_GAPS_FROM_EDGE_DP.map { screenWidthDp - it + cal.rightShift }
 
     /** A stretch of the status bar an island covers, in dp from the left edge. */
     data class Span(val left: Float, val right: Float) { val width: Float get() = right - left }
@@ -57,9 +68,9 @@ internal object StatusBarGrid {
      * it at least [capsuleMinWidth] wide. [dots] privacy dots sit inside the island's right end, which asks it for more room.
      */
     fun layout(desiredLeft: Float, desiredRight: Float, screenWidthDp: Float, clockShiftDp: Float, holeLeft: Float, holeRight: Float,
-        wantLeft: Boolean, wantRight: Boolean, dots: Int, capsuleMinWidth: Float): Layout {
-        val lg = leftGaps(clockShiftDp)
-        val rg = rightGaps(screenWidthDp)
+        wantLeft: Boolean, wantRight: Boolean, dots: Int, capsuleMinWidth: Float, cal: GridCalibration = GridCalibration()): Layout {
+        val lg = leftGaps(clockShiftDp, cal)
+        val rg = rightGaps(screenWidthDp, cal)
         // Left: the nearest gap at or beyond (left of) the wanted edge, that still leaves the hole wrapped.
         var j = lg.indexOfLast { it <= desiredLeft }.coerceAtLeast(0)
         val maxJ = lg.indexOfLast { it <= holeLeft - HOLE_WRAP_DP }.coerceAtLeast(0)

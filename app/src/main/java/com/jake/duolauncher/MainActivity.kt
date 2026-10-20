@@ -140,7 +140,7 @@ class MainActivity : ComponentActivity() {
         // frame-by-frame IME inset animation WITHOUT resizing the window: only composables that
         // consume the IME insets move, so the pager/dock/rail stay put while the floating bottom
         // glass tracks the keyboard's top edge.
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        @Suppress("DEPRECATION") window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         widgets = WidgetController(this, model) { active ->
             LiveDiscover.setExternalResultPending(this, "main", "widget-setup", active)
         }.also { it.restore(savedInstanceState) }
@@ -261,6 +261,10 @@ class MainActivity : ComponentActivity() {
         appearance.refresh(systemDark())
         com.jake.duolauncher.appearance.SystemWallpaperSync.check(this, systemDark())
     }
+    override fun onPause() {
+        com.jake.duolauncher.island.IslandRuntime.launcherInFront = false
+        super.onPause()
+    }
     override fun onStop() {
         // The first app of a split is now in front; give it a beat to settle, then open the second beside it.
         if (pendingSplitSecond != null) { splitLauncherStopped = true; splitHandler.removeCallbacks(openSplitSecond); splitHandler.postDelayed(openSplitSecond, SPLIT_SETTLE_MS) }
@@ -277,6 +281,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onResume() {
         super.onResume()
+        com.jake.duolauncher.island.IslandRuntime.launcherInFront = true
         // Back on Home before the second app opened: the user left the first app, so don't open anything now.
         if (splitLauncherStopped && pendingSplitSecond != null) {
             pendingSplitSecond = null; splitLauncherStopped = false
@@ -393,6 +398,8 @@ class MainActivity : ComponentActivity() {
     }
 
     @Deprecated("Widget configuration uses the platform host request-code API")
+    // AppWidgetHost.startAppWidgetConfigureActivityForResult reports only here: there is no Activity Result contract for widget configuration.
+    @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (!widgets.onActivityResult(requestCode, resultCode) && !islandWidget.onActivityResult(requestCode, resultCode)) super.onActivityResult(requestCode, resultCode, data)
     }

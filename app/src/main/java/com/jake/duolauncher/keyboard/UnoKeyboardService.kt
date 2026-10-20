@@ -6,7 +6,6 @@ import com.jake.duolauncher.appearance.*
 import android.content.ClipboardManager
 import android.content.Context
 import android.inputmethodservice.InputMethodService
-import android.os.Build
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -150,7 +149,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         ui.numberRow = prefs.getBoolean("kbNumberRow", false)
         ui.oneHanded = prefs.getInt("kbOneHanded", 0).coerceIn(0, 2)
         // The switcher key is only worth having when Android has another keyboard to go to.
-        ui.globe = if (Build.VERSION.SDK_INT >= 28) runCatching { shouldOfferSwitchingToNextInputMethod() }.getOrDefault(true) else true
+        ui.globe = runCatching { shouldOfferSwitchingToNextInputMethod() }.getOrDefault(true)
         hasSelection = info.initialSelStart != info.initialSelEnd
         updatePasteAvailable()
         ui.spaceCursor = prefs.getBoolean("kbSpaceCursor", true)
@@ -319,7 +318,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
             mirror.invalidate()   // the cursor is somewhere new; the selection update re-reads the text around it
         }
         override fun globe() {
-            val switched = if (Build.VERSION.SDK_INT >= 28) switchToNextInputMethod(false) else false
+            val switched = switchToNextInputMethod(false)
             if (!switched) getSystemService(InputMethodManager::class.java)?.showInputMethodPicker()
         }
         override fun shift() {

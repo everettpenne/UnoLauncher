@@ -1,0 +1,81 @@
+package com.jake.duolauncher
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import com.jake.duolauncher.appearance.GlassButton
+import com.jake.duolauncher.island.GridCalibration
+import com.jake.duolauncher.island.StatusBarCalibration
+import com.jake.duolauncher.island.StatusBarGrid
+
+/**
+ * "Line up with the status bar": the island keeps its edges in the gaps between the status bar's icons (see StatusBarGrid), using spacing
+ * measured on a Pixel 10a. This page draws guides where it thinks the gaps are, over the real status bar, and lets the person move them until
+ * every guide sits between two icons; the island uses the result.
+ */
+@Composable
+internal fun StatusBarCalibrationSettings() {
+    val context = LocalContext.current
+    StatusBarCalibration.init(context)
+    val cal = StatusBarCalibration.current
+    DisposableEffect(Unit) { StatusBarCalibration.guidesShown = true; onDispose { StatusBarCalibration.guidesShown = false } }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Text(stringResource(R.string.status_grid_intro), style = MaterialTheme.typography.bodySmall, color = muted)
+    CalibrationStepper(stringResource(R.string.status_grid_left), cal.leftShift, "grid-left") { StatusBarCalibration.set(cal.copy(leftShift = it)) }
+    CalibrationStepper(stringResource(R.string.status_grid_spacing), cal.pitchDelta, "grid-pitch") { StatusBarCalibration.set(cal.copy(pitchDelta = it)) }
+    CalibrationStepper(stringResource(R.string.status_grid_right), cal.rightShift, "grid-right") { StatusBarCalibration.set(cal.copy(rightShift = it)) }
+    GlassButton(stringResource(R.string.status_grid_reset), { StatusBarCalibration.set(GridCalibration()) }, Modifier.fillMaxWidth().heightIn(min = 48.dp), tag = "grid-reset")
+    StatusBarGuides(cal)
+}
+
+/** A label, then -1 -0.25 [value] +0.25 +1 (dp). */
+@Composable
+private fun CalibrationStepper(label: String, value: Float, tag: String, onChange: (Float) -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            GlassButton("\u22121", { onChange(value - 1f) }, Modifier.weight(1f).heightIn(min = 44.dp), tag = "$tag-m1")
+            GlassButton("\u2212\u00bc", { onChange(value - .25f) }, Modifier.weight(1f).heightIn(min = 44.dp), tag = "$tag-mq")
+            Text(String.format(java.util.Locale.ROOT, "%+.2f", value), Modifier.weight(1.3f).testTag("$tag-value"), textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium)
+            GlassButton("+\u00bc", { onChange(value + .25f) }, Modifier.weight(1f).heightIn(min = 44.dp), tag = "$tag-pq")
+            GlassButton("+1", { onChange(value + 1f) }, Modifier.weight(1f).heightIn(min = 44.dp), tag = "$tag-p1")
+        }
+    }
+}
+
+/** Thin lines over the status bar where the gaps should be: drawn in a popup pinned to the screen's top-left corner, under the status bar's icons. */
+@Composable
+private fun StatusBarGuides(cal: GridCalibration) {
+    val context = LocalContext.current
+    val widthDp = LocalConfiguration.current.screenWidthDp.toFloat()
+    val cal24 = android.text.format.DateFormat.is24HourFormat(context)
+    val shift = StatusBarGrid.clockShiftDp(java.util.Calendar.getInstance().get(java.util.Calendar.HOUR), cal24)
+    val xs = StatusBarGrid.leftGaps(shift, cal).take(6) + StatusBarGrid.rightGaps(widthDp, cal)
+    val corner = object : PopupPositionProvider {
+        override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) = IntOffset.Zero
+    }
+    Popup(popupPositionProvider = corner, properties = PopupProperties(focusable = false, clippingEnabled = false)) {
+        Canvas(Modifier.fillMaxWidth().height(52.dp)) {
+            xs.forEach { x -> drawLine(Color(0xFFFF2D9B), androidx.compose.ui.geometry.Offset(x.dp.toPx(), 0f), androidx.compose.ui.geometry.Offset(x.dp.toPx(), size.height), strokeWidth = 1.5.dp.toPx()) }
+        }
+    }
+}

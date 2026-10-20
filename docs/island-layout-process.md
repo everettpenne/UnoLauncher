@@ -136,6 +136,20 @@ How each state follows from it:
 The numbers come from one phone and one status bar. If the system's spacing changes, update the constants in `StatusBarGrid` (they are in dp)
 and the test's icon positions.
 
+## 10. One footprint, a calibration page, and a still Home island (0.95.0)
+
+- **The touch window comes from what is drawn.** The island publishes each capsule's rectangle as it lays them out (`IslandRuntime.capsuleRectsPx`),
+  and the touch window is the island's frame and those rectangles, each with a small pad (`touchArea`). There is no longer a separate reserve
+  worked out for each side, which is how the touch area and the drawing drifted apart before.
+- **Line up with the status bar** (The island, in Launcher settings) draws pink guides over the real status bar where the grid thinks the gaps
+  are, and moves them by the left side, the notification icons' spacing and the right side, in quarter-dp steps. The island uses the result
+  (`StatusBarCalibration`, its own preferences file), so the grid can be matched to a phone other than the Pixel 10a it was measured on.
+- **The Home island no longer moves with the launcher's window.** When Uno's accessibility service is on, its overlay draws the Home island too
+  (only while Home is in front, if the island is not set to show everywhere), so unlocking or closing an app no longer carries the island
+  with the launcher's window. Without the service, the launcher still draws it itself.
+- **The grey island.** Over other apps through "display over other apps" (not the accessibility service), Android draws the island at 80%
+  opacity so taps can pass through it; the island page now says so and how to get the solid island.
+
 ## Recorded values
 
 Found with the debug page on 2026-10-19 and shipped as `IslandLayoutDefaults`. They are the width the island would *like*; the grid then grows

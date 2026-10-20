@@ -34,7 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-internal enum class CustomizationPage { OVERVIEW, APPEARANCE, HOME, GESTURES, SEARCH, ISLAND, KEYBOARD, PRIVACY, FEED, BACKUP, DEBUG }
+internal enum class CustomizationPage { OVERVIEW, APPEARANCE, HOME, GESTURES, SEARCH, ISLAND, KEYBOARD, PRIVACY, FEED, BACKUP, DEBUG, STATUS_GRID }
 
 @Composable
 internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, model: LauncherModel,
@@ -77,19 +77,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onRefractionChroma: (Float) -> Unit = {},
 ) {
     var wide by rememberSaveable { mutableStateOf(initiallyWide) }
-    val title = when (page) {
-        CustomizationPage.OVERVIEW -> "Launcher settings"
-        CustomizationPage.APPEARANCE -> "Appearance"
-        CustomizationPage.HOME -> "Home layout"
-        CustomizationPage.GESTURES -> "Gestures & feel"
-        CustomizationPage.SEARCH -> "Search"
-        CustomizationPage.ISLAND -> "The island"
-        CustomizationPage.KEYBOARD -> "Keyboard"
-        CustomizationPage.PRIVACY -> "Notifications & privacy"
-        CustomizationPage.FEED -> "News feed"
-        CustomizationPage.BACKUP -> "Backup & about"
-        CustomizationPage.DEBUG -> "Island debug"
-    }
+    val title = SettingsSearch.pageName(page)
     val bodyScroll = rememberScrollState()
     LaunchedEffect(page) { bodyScroll.scrollTo(0) }
     Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)
@@ -106,6 +94,19 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (page) {
                 CustomizationPage.OVERVIEW -> {
+                    // Search every setting by name, and go straight to its page.
+                    var settingsQuery by rememberSaveable { mutableStateOf("") }
+                    OutlinedTextField(settingsQuery, { settingsQuery = it }, Modifier.fillMaxWidth().testTag("settings-search"),
+                        placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_settings)) },
+                        leadingIcon = { Icon(Icons.Rounded.Search, null) }, singleLine = true, shape = RoundedCornerShape(percent = 50))
+                    val found = SettingsSearch.search(settingsQuery)
+                    if (settingsQuery.isNotBlank()) {
+                        if (found.isEmpty()) Text(stringResource(com.jake.duolauncher.R.string.no_settings_match), style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                        found.take(12).forEach { e ->
+                            CustomizationDestination(Icons.Rounded.Tune, e.title, SettingsSearch.pageName(e.page), "settings-result") { settingsQuery = ""; onPage(e.page) }
+                        }
+                    } else {
                     if (!isDefaultHome) GlassButton(prominent = true, onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         .testTag("default-home-settings")) { Text(stringResource(com.jake.duolauncher.R.string.set_as_home_app)) }
                     if (state.canUndoEdit) GlassButton(onClick = { model.undoEdit(); onClose() },
@@ -136,6 +137,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                             "Dummy live activities, and width and position by hand", "customization-debug") { onPage(CustomizationPage.DEBUG) }
                     if (isDefaultHome) GlassButton(onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         .testTag("default-home-settings")) { Text(stringResource(com.jake.duolauncher.R.string.change_home_app)) }
+                    }
                 }
                 CustomizationPage.APPEARANCE -> {
                     MiniHomePreview(backgrounds.previewBitmap, state, 228.dp)
@@ -234,11 +236,17 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     SettingsSwitch("Island everywhere", islandEverywhere, onIslandEverywhere, "island-everywhere-switch")
                     Text(stringResource(com.jake.duolauncher.R.string.shows_the_island_above_other_apps),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // Over other apps through "display over other apps" (not Uno's accessibility service), Android draws the island at 80% opacity
+                    // so touches can pass through it: grey, not black. Say so, and how to get the solid island.
+                    if (islandEverywhere && !SystemShadeAccessibilityService.isConnected()) Text(stringResource(com.jake.duolauncher.R.string.island_overlay_grey_note),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("island-grey-note"))
                     if (appearance.island) CustomizationSlider("Island size",
                         "${(appearance.islandScale * 100).toInt()}%", appearance.islandScale, 0f..1f,
                         tag = "island-scale-slider") { onIslandScale(it) }
                     Text(stringResource(com.jake.duolauncher.R.string.a_liquid_capsule_at_the_camera),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (appearance.island) CustomizationDestination(Icons.Rounded.Straighten, "Line up with the status bar",
+                        "So the island never cuts an icon in half", "customization-status-grid") { onPage(CustomizationPage.STATUS_GRID) }
                     if (appearance.island) IslandStyleSection(IslandThemeController.current)
                     if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.ISLAND)
                 }
@@ -250,6 +258,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     if (extras != null) PermissionLedgerSection(extras)
                 }
                 CustomizationPage.DEBUG -> IslandDebugSettings()
+                CustomizationPage.STATUS_GRID -> StatusBarCalibrationSettings()
                 CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onSourceEnabled, onImportOpml, onKeepPerFeed)
                 CustomizationPage.BACKUP -> {
                     SettingsGroupLabel("Backup")

@@ -160,6 +160,11 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
     }
 
     if (section == ExtrasSection.ISLAND) {
+    // Draw the Home island in the accessibility service's own window, so it stays still while Android animates the launcher's window.
+    val homePrefs = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("extras", android.content.Context.MODE_PRIVATE)
+    var homeOverlay by remember { mutableStateOf(homePrefs.getBoolean("homeIslandOverlay", false)) }
+    SettingsSwitch("Keep the Home island still", homeOverlay, { homeOverlay = it; homePrefs.edit().putBoolean("homeIslandOverlay", it).apply() }, "home-island-overlay-switch")
+    Text(stringResource(com.jake.duolauncher.R.string.home_island_overlay_note), style = note, color = muted)
     Text(stringResource(com.jake.duolauncher.R.string.island_timer), style = MaterialTheme.typography.titleMedium)
     val context = androidx.compose.ui.platform.LocalContext.current
     val exact = IslandTools.exactAlarmsAllowed(context)

@@ -76,7 +76,8 @@ internal object KeyHaptics {
     fun configure(context: Context, strengthSetting: Float) {
         strength = strengthSetting
         systemAllows = runCatching {
-            Settings.System.getInt(context.contentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED, 1) != 0
+            // Deprecated for apps, with no replacement that says whether the person turned touch feedback off; still honoured if set.
+            @Suppress("DEPRECATION") Settings.System.getInt(context.contentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED, 1) != 0
         }.getOrDefault(true)
         if (vibrator == null) {
             val v = context.applicationContext.getSystemService(VibratorManager::class.java)?.defaultVibrator

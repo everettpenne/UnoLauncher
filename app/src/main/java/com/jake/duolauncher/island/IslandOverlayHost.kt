@@ -165,7 +165,7 @@ internal class IslandOverlayHost(
         fun buildEnvironment(): IslandEnvironment {
             val m = realMetrics()
             return IslandEnvironment(
-                cutout = debugCutout() ?: readDisplayCutout(manager.defaultDisplay, m.widthPixels.toFloat(), m.heightPixels.toFloat()),
+                cutout = debugCutout() ?: readDisplayCutout(context.getSystemService(android.hardware.display.DisplayManager::class.java).getDisplay(android.view.Display.DEFAULT_DISPLAY), m.widthPixels.toFloat(), m.heightPixels.toFloat()),
                 screenWidth = m.widthPixels.toFloat(),
                 statusBarHeight = statusBarPx.toFloat(),
                 dockWidthPx = 0f,
@@ -184,7 +184,10 @@ internal class IslandOverlayHost(
                 // measured on the emulator: no inset events at all, and a probe window reported the bar hidden even when it showed.)
                 IslandRuntime.statusBarVisible = configuration.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE
             }
-            var visible by androidx.compose.runtime.remember { mutableStateOf(true) }
+            // Whether the overlay may show at all (enabled, allowed, unlocked, awake), polled; and whether it shows everywhere or on Home alone.
+            var allowed by androidx.compose.runtime.remember { mutableStateOf(true) }
+            var everywhere by androidx.compose.runtime.remember { mutableStateOf(true) }
+            val visible = allowed && (everywhere || IslandRuntime.launcherInFront)
             var islandWideMode by androidx.compose.runtime.remember { mutableStateOf(readIslandWideMode(context)) }
             var resumeWindowMs by androidx.compose.runtime.remember { mutableStateOf(IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))) }
             var islandScale by androidx.compose.runtime.remember {
@@ -204,7 +207,10 @@ internal class IslandOverlayHost(
             LaunchedEffect(Unit) {
                 while (true) {
                     val enabled = context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("islandEverywhere", false)
-                    visible = OverlayPolicy.shouldShow(enabled, (!needsOverlayPermission || Settings.canDrawOverlays(context)),
+                    val homeIsland = context.getSharedPreferences("appearance", Context.MODE_PRIVATE).getBoolean("island", true) &&
+                        context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean("homeIslandOverlay", false)
+                    everywhere = enabled
+                    allowed = OverlayPolicy.shouldShow(enabled, homeIsland, launcherInFront = true, (!needsOverlayPermission || Settings.canDrawOverlays(context)),
                         keyguard.isKeyguardLocked, power.isInteractive)
                     islandWideMode = readIslandWideMode(context)
                     resumeWindowMs = IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))
@@ -225,7 +231,8 @@ internal class IslandOverlayHost(
                     deviceStatus = rememberBatteryStatus(),
                     feedHeadline = null,
                     sizeScale = islandScale,
-                    alwaysWide = islandWideMode.keepWide,
+                    // On Home alone the island keeps its full pill when idle, as the launcher's own did; the ring is for over other apps.
+                    alwaysWide = islandWideMode.keepWide || !everywhere,
                     wideFactor = islandWideMode.wideFactor,
                     belowStatusBar = needsOverlayPermission,
                     resumeWindowMs = resumeWindowMs,
@@ -285,8 +292,7 @@ internal class IslandOverlayHost(
                     width = window.width.roundToInt(), height = window.height.roundToInt(),
                     gravity = Gravity.TOP or Gravity.START, x = window.left.roundToInt(), y = window.top.roundToInt())
                 val pad = 6f * context.resources.displayMetrics.density
-                val touch = touchRect(frame, pad, IslandRuntime.bubbleLeftPx.toFloat(), IslandRuntime.bubbleExtraPx.toFloat(),
-                    IslandRuntime.touchAbovePx.toFloat(), IslandRuntime.touchBelowPx.toFloat())
+                val touch = touchArea(frame, IslandRuntime.capsuleRectsPx, pad)
                 showTouchWindow(manager, left = touch.left.roundToInt(), top = touch.top.roundToInt(),
                     width = touch.width.roundToInt(), height = touch.height.roundToInt())
             }

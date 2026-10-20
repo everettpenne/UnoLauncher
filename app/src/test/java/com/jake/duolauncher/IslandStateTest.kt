@@ -159,11 +159,6 @@ class IslandStateTest {
         assertTrue(state.recordingActive)
     }
 
-    @Test fun flickingTurnsTheOrderOfActivities() {
-        assertEquals(0, state.activityShift)
-        state.rotateActivities(); state.rotateBy(2)
-        assertEquals(3, state.activityShift)
-    }
 
     @Test fun flashOpensSomethingOnlyForANotificationWithAnAction() {
         state.showEvent(event("VPN on"))

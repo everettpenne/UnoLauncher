@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,7 +58,8 @@ internal fun AppLibrary(
     val hasWork = state.profiles.any { it.isWork } || state.visibleApps.any { it.isWork }
     // A sum or a unit conversion typed into search is answered on the spot (nothing leaves the device).
     val smart = remember(query, editing) { if (editing) null else SearchSmarts.answer(query) }
-    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboard.current
+    val clipScope = rememberCoroutineScope()
     val toastContext = androidx.compose.ui.platform.LocalContext.current
     var showWork by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -118,7 +120,7 @@ internal fun AppLibrary(
                 if (smart != null) item("smart-answer") {
                     Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(Corner.medium).background(ink.copy(alpha = .10f))
                         .clickable {
-                            clipboard.setText(androidx.compose.ui.text.AnnotatedString(smart.text))
+                            clipScope.launch { clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("", smart.text))) }
                             android.widget.Toast.makeText(toastContext, "Copied ${smart.text}", android.widget.Toast.LENGTH_SHORT).show()
                         }.padding(horizontal = 16.dp, vertical = 12.dp).testTag("smart-answer")) {
                         Text(smart.detail, color = ink.copy(alpha = .7f), style = UnoType.caption1)

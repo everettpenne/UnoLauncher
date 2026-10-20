@@ -932,7 +932,8 @@ internal fun LauncherScreen(
             }
             // The island is not composed while Spotlight is open, so a tap on the camera cutout can never expand it
             // underneath the search: the Spotlight scrim/panel owns that touch (it does nothing there).
-            if (appearance.island && !islandEverywhere && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen && !spotlightOpen) {
+            // The overlay (the accessibility service's window) draws the Home island when it is running, so it never moves with this window.
+            if (appearance.island && !islandEverywhere && !IslandRuntime.overlayActive && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen && !spotlightOpen) {
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.shownEntries.firstOrNull()?.title,
                     sizeScale = appearance.islandScale,

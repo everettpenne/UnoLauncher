@@ -18,7 +18,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.ui.platform.LocalLifecycleOwner
 
 /** The permission ledger: every permission the launcher uses, why, what it can see, and a way to turn it off. */
 @Composable
@@ -28,7 +27,7 @@ internal fun PermissionLedgerSection(actions: ExtrasActions) {
     val note = MaterialTheme.typography.bodySmall
     // Re-read when the user comes back from Android's settings, so the ledger shows what they just changed.
     var refresh by remember { mutableIntStateOf(0) }
-    val owner = LocalLifecycleOwner.current
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(owner) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) refresh++ }
         owner.lifecycle.addObserver(observer)

@@ -86,7 +86,8 @@ internal class DiscoverFrame(private val activity: Activity, private val vertica
                             lastTraceBucket = bucket
                             val frameLocation = IntArray(2).also(::getLocationOnScreen)
                             val decorLocation = IntArray(2).also(activity.window.decorView::getLocationOnScreen)
-                            val matrix = Matrix().also(canvas::getMatrix)
+                            // A trace of where the frame draws: Canvas.getMatrix is deprecated with nothing to replace it for this, and is fine here.
+                            @Suppress("DEPRECATION") val matrix = Matrix().also(canvas::getMatrix)
                             val values = FloatArray(9).also(matrix::getValues)
                             val windowBounds = activity.windowManager.currentWindowMetrics.bounds
                             val layer = LiveDiscover.homeLayer

@@ -330,7 +330,7 @@ class FoldProbeActivity : ComponentActivity(), SensorEventListener, DisplayManag
         return buildString {
             appendLine("CURRENT WINDOW")
             appendLine("bounds: ${bounds.width()}×${bounds.height()}  $bounds")
-            appendLine("density: ${metrics.density} (${metrics.densityDpi}dpi)  scaled: ${metrics.scaledDensity}")
+            appendLine("density: ${metrics.density} (${metrics.densityDpi}dpi)  font scale: ${resources.configuration.fontScale}")
             appendLine("config dp: ${config.screenWidthDp}×${config.screenHeightDp}  smallest: ${config.smallestScreenWidthDp}")
             appendLine("orientation: ${config.orientation}  rotation: ${currentDisplay?.rotation ?: "none"}")
             appendLine("activity display: ${currentDisplay?.displayId ?: "none"}")
@@ -486,7 +486,7 @@ class FoldProbeActivity : ComponentActivity(), SensorEventListener, DisplayManag
         else -> "UNKNOWN($state)"
     }
 
-    private fun wallClock(wallMs: Long): String = WALL_CLOCK.get().format(Date(wallMs))
+    private fun wallClock(wallMs: Long): String = WALL_CLOCK.get()!!.format(Date(wallMs))
 
     private fun formatAngle(angle: Float): String = String.format(Locale.US, "%.3f", angle)
 

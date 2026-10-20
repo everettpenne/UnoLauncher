@@ -47,12 +47,6 @@ internal object IslandLive {
         if (recording) add(LiveKind.RECORDING)
     }
 
-    /** The list turned [shift] places (a flick across the island swaps which activity is in front). */
-    fun rotated(kinds: List<LiveKind>, shift: Int): List<LiveKind> {
-        if (kinds.size < 2) return kinds
-        val by = ((shift % kinds.size) + kinds.size) % kinds.size
-        return kinds.drop(by) + kinds.take(by)
-    }
 
     /** [kinds] with [front] moved to the head (the rest keep their order, so the old leading activity becomes the trailing capsule).
      * Unchanged when [front] is null or not live. Pinning by *kind* rather than by a turn count means that when some other
@@ -127,8 +121,6 @@ internal object IslandBubbles {
     const val MAX = 0
     /** The gap between the pill and the first capsule, and between capsules, in dp. */
     const val GAP_DP = 6f
-    /** The room kept clear of the screen's edge, in dp. */
-    const val EDGE_MARGIN_DP = 8f
 
     /** Where each activity beyond the pill's goes. With two live, the second is a capsule to the right. With three or more, the second is a
      * capsule to the LEFT of the pill and the rest go to its right, the third next to the pill and any more after it, at most [MAX] more.
@@ -143,38 +135,15 @@ internal object IslandBubbles {
     fun groupFor(capsule: Capsule, left: DebugGroup, right: DebugGroup, extra: DebugGroup): DebugGroup =
         if (capsule.left) left else if (capsule.slot == 0) right else extra
 
-    /** How far from the pill's right edge to the left edge of the right-hand capsule in [slot], in dp: past the privacy dots, then each gap
-     * and each earlier capsule's width, with the debug adjustments added.
-     */
-    fun rightOffsetDp(slot: Int, heightDp: Float, dotsDp: Float, right: DebugGroup, extra: DebugGroup): Float {
-        var x = dotsDp
-        for (s in 0..slot) {
-            val g = if (s == 0) right else extra
-            x += GAP_DP + g.dx
-            if (s < slot) x += heightDp + g.dw
-        }
-        return x
-    }
 
-    /** How far from the pill's left edge to the right edge of the left-hand capsule, in dp. */
-    fun leftOffsetDp(left: DebugGroup): Float = GAP_DP + left.dx
 
-    /** The activities shown as extra capsules: those after the pill's leading and its trailing capsule, at most [MAX]. */
-    fun extras(kinds: List<LiveKind>): List<LiveKind> = kinds.drop(2).take(MAX)
 
-    /** How far to turn the order so the capsule at [index] (0 is the trailing capsule, then the extras) is in front of the pill. */
-    fun shiftFor(index: Int): Int = index + 1
 
     /** The width of the capsule at [index] (0 is the trailing capsule, then the extras), in dp. [heightDp] is the capsule/pill
      * height: an extra capsule is a circle of that height, so its glyph fits with a ring round it.
      */
     fun widthDp(index: Int, heightDp: Float): Float = heightDp
 
-    /** How many capsules fit between the pill and the screen's edge: [roomDp] is what is left to the right of the pill, [dotsDp] what the privacy
-     * dots take, and a small margin is kept clear of the edge. At most the trailing capsule plus [MAX] extras; the rest stay reachable by a flick.
-     */
-    fun capacity(roomDp: Float, heightDp: Float, dotsDp: Float): Int =
-        ((roomDp - EDGE_MARGIN_DP - dotsDp) / (heightDp + GAP_DP)).toInt().coerceIn(0, 1 + MAX)
 
     /** How much room the detached capsules need to the right of the pill, in dp (0 with none). [count] is the total number of
      * capsules (the trailing capsule, then the extras) and [heightDp] the pill's collapsed height.

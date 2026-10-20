@@ -26,4 +26,15 @@ class OverlayPolicyTest {
         assertFalse(has("FLAG_FULLSCREEN"))
         assertTrue("hears of touches elsewhere so an expanded island can tuck away", has("FLAG_WATCH_OUTSIDE_TOUCH"))
     }
+
+    @Test fun theHomeIslandShowsOnlyWhileHomeIsInFront() {
+        // Island on, not everywhere: the overlay draws it on Home, and nowhere else.
+        assertTrue(OverlayPolicy.shouldShow(islandEverywhere = false, homeIsland = true, launcherInFront = true, canDrawOverlays = true, keyguardLocked = false, interactive = true))
+        assertFalse(OverlayPolicy.shouldShow(islandEverywhere = false, homeIsland = true, launcherInFront = false, canDrawOverlays = true, keyguardLocked = false, interactive = true))
+        // Everywhere: whatever is in front.
+        assertTrue(OverlayPolicy.shouldShow(islandEverywhere = true, homeIsland = true, launcherInFront = false, canDrawOverlays = true, keyguardLocked = false, interactive = true))
+        // The island off: never; and never on the lock screen.
+        assertFalse(OverlayPolicy.shouldShow(islandEverywhere = false, homeIsland = false, launcherInFront = true, canDrawOverlays = true, keyguardLocked = false, interactive = true))
+        assertFalse(OverlayPolicy.shouldShow(islandEverywhere = false, homeIsland = true, launcherInFront = true, canDrawOverlays = true, keyguardLocked = true, interactive = true))
+    }
 }

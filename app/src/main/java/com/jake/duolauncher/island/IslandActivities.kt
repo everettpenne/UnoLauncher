@@ -187,7 +187,10 @@ internal fun sendTapAction(context: Context, action: android.app.PendingIntent?)
     if (action == null) return false
     return runCatching {
         val options = android.app.ActivityOptions.makeBasic()
-        if (android.os.Build.VERSION.SDK_INT >= 34) options.setPendingIntentBackgroundActivityStartMode(
+        // Allowed to start the notification's screen from the island: always (Android 16's name for it), or the older "allowed" before that.
+        if (android.os.Build.VERSION.SDK_INT >= 36) options.setPendingIntentBackgroundActivityStartMode(
+            android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS)
+        else if (android.os.Build.VERSION.SDK_INT >= 34) @Suppress("DEPRECATION") options.setPendingIntentBackgroundActivityStartMode(
             android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
         action.send(context, 0, null, null, null, null, options.toBundle())
     }.isSuccess
@@ -372,7 +375,7 @@ internal fun IslandSystemEvents(state: IslandState) {
         val usbReceiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context?, intent: Intent?) {
                 val extras = intent?.extras ?: return
-                val functions = extras.keySet().filter { it != "connected" && it != "configured" && extras.get(it) == true }.toSet()
+                val functions = extras.keySet().filter { it != "connected" && it != "configured" && extras.getBoolean(it, false) }.toSet()
                 val data = UsbState.dataActive(extras.getBoolean("connected"), extras.getBoolean("configured"), functions)
                 val changed = data != usbDataWas
                 usbDataWas = data

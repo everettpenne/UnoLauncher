@@ -21,14 +21,13 @@ internal object IslandRuntime {
         private set
 
     /** Whether the system status bar is showing, approximated: false while the display is landscape (see FullScreenPolicy). */
-    /** Room the pop-out bubbles need to the right of the pill, in pixels, so the touch window covers them. */
-    @Volatile var bubbleExtraPx = 0
-    /** Room the left-hand capsule needs to the left of the pill, in pixels, and how far a capsule's hand-set offset takes it above or below the
-     * pill's row. Together with [bubbleExtraPx] they make the touch window exactly as big as what is drawn. */
-    @Volatile var bubbleLeftPx = 0
-    @Volatile var touchAbovePx = 0
-    @Volatile var touchBelowPx = 0
+    /** Where the capsules beside the island are, in screen pixels, as the island last laid them out. The touch window covers the island and
+     * these and nothing else (see [touchArea]): one record of what is drawn, not a reserve on each side worked out separately. */
+    @Volatile var capsuleRectsPx: List<PxRect> = emptyList()
     var statusBarVisible by mutableStateOf(true)
+    /** True while the launcher's Home is the screen in front. With the island on Home only (not everywhere), the overlay shows it just then, so
+     * it sits still at the camera instead of moving with Android's animations of the launcher's own window (an unlock, an app closing). */
+    var launcherInFront by mutableStateOf(false)
     /** When the launcher last opened the notification shade (0 if never), so the island does not re-announce a
      * notification the shade has just presented (see [IslandEventArbiter.notificationSurface]). */
     @Volatile var shadeOpenedAtMs = 0L
@@ -76,6 +75,10 @@ internal object OverlayPolicy {
 
     fun shouldShow(islandEverywhere: Boolean, canDrawOverlays: Boolean, keyguardLocked: Boolean,
         interactive: Boolean): Boolean = islandEverywhere && canDrawOverlays && !keyguardLocked && interactive
+
+    /** As [shouldShow], and also on Home alone when the island is on but not everywhere: the overlay then draws the Home island too. */
+    fun shouldShow(islandEverywhere: Boolean, homeIsland: Boolean, launcherInFront: Boolean, canDrawOverlays: Boolean, keyguardLocked: Boolean,
+        interactive: Boolean): Boolean = (islandEverywhere || (homeIsland && launcherInFront)) && canDrawOverlays && !keyguardLocked && interactive
 }
 
 /** Battery state for the overlay window, read from the sticky broadcast; the overlay has no

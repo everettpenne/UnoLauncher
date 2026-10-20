@@ -219,7 +219,7 @@ internal object ConsoleListeners {
                     AudioManager.ACTION_HEADSET_PLUG -> ConsoleEvents.headphones(intent.getIntExtra("state", 0) == 1)
                     "android.hardware.usb.action.USB_STATE" -> {
                         val functions = intent.extras?.keySet()
-                            ?.filter { it != "connected" && it != "configured" && intent.extras?.get(it) == true }?.toSet() ?: emptySet()
+                            ?.filter { it != "connected" && it != "configured" && intent.getBooleanExtra(it, false) }?.toSet() ?: emptySet()
                         val data = UsbState.dataActive(intent.getBooleanExtra("connected", false),
                             intent.getBooleanExtra("configured", false), functions)
                         if (data == usbDataWas) null else { usbDataWas = data; ConsoleEvents.usbData(data) }

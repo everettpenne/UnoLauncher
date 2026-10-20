@@ -96,7 +96,7 @@ private fun publishExactWidgetSize(view: AppWidgetHostView, widthDp: Float, heig
         AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT,
         AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT,
     ).all { current.getInt(it) == options.getInt(it) }
-    val currentSizes = current.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
-    val nextSizes = options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
+    val currentSizes = androidx.core.os.BundleCompat.getParcelableArrayList(current, AppWidgetManager.OPTION_APPWIDGET_SIZES, SizeF::class.java)
+    val nextSizes = androidx.core.os.BundleCompat.getParcelableArrayList(options, AppWidgetManager.OPTION_APPWIDGET_SIZES, SizeF::class.java)
     if (!sameBounds || currentSizes != nextSizes) view.updateAppWidgetOptions(options)
 }

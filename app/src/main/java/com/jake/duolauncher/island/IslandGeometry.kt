@@ -57,12 +57,15 @@ internal fun withEdgeShift(frame: IslandFrame, collapsed: Float, dLeft: Float, d
 }
 
 /**
- * The part of the screen the island's touch window covers: the island itself and a small pad, plus the room its capsules take on each
- * side and any hand-set vertical offset of a capsule. It is exactly that and no more: this window takes every touch inside it, so anything
- * bigger would swallow touches meant for the app underneath (the top of the screen).
+ * The part of the screen the island's touch window covers: the island [frame] and each of its [capsules], each with a small [pad] round it,
+ * and the smallest rectangle holding them all. It is exactly that and no more: this window takes every touch inside it, so anything bigger would
+ * swallow touches meant for the app underneath (the top of the screen).
  */
-internal fun touchRect(frame: IslandFrame, pad: Float, leftPx: Float, rightPx: Float, abovePx: Float, belowPx: Float): PxRect =
-    PxRect(frame.left - pad - leftPx, frame.top - pad - abovePx, frame.left + frame.width + pad + rightPx, frame.top + frame.height + pad + belowPx)
+internal fun touchArea(frame: IslandFrame, capsules: List<PxRect>, pad: Float): PxRect {
+    var l = frame.left - pad; var t = frame.top - pad; var r = frame.left + frame.width + pad; var b = frame.top + frame.height + pad
+    for (c in capsules) { l = minOf(l, c.left - pad); t = minOf(t, c.top - pad); r = maxOf(r, c.right + pad); b = maxOf(b, c.bottom + pad) }
+    return PxRect(l, t, r, b)
+}
 
 /** Both frames are within a pixel or so of each other (the animation has settled). */
 internal fun IslandFrame.nearly(other: IslandFrame): Boolean =

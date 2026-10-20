@@ -49,15 +49,18 @@ class IslandDebugTest {
     @Test fun theTouchWindowIsTheIslandAndItsCapsulesAndNothingMore() {
         // Regression: the touch window once grew by a debug "slack" all round, which took touches meant for the app under the top of the screen.
         val f = frame()
-        val plain = touchRect(f, 12f, 0f, 0f, 0f, 0f)
+        val plain = touchArea(f, emptyList(), 12f)
         assertEquals(f.height + 24f, plain.height, 0.001f)
         assertEquals(f.top - 12f, plain.top, 0.001f)
-        val withCapsules = touchRect(f, 12f, 90f, 100f, 0f, 0f)
-        assertEquals(plain.height, withCapsules.height, 0.001f)
-        assertEquals(f.left - 12f - 90f, withCapsules.left, 0.001f)
-        assertEquals(f.left + f.width + 12f + 100f, withCapsules.right, 0.001f)
+        // Capsules either side widen it to them, and no further; at the island's height it stays the island's height.
+        val left = PxRect(f.left - 120f, f.top, f.left - 10f, f.top + f.height)
+        val right = PxRect(f.left + f.width + 10f, f.top, f.left + f.width + 130f, f.top + f.height)
+        val both = touchArea(f, listOf(left, right), 12f)
+        assertEquals(plain.height, both.height, 0.001f)
+        assertEquals(left.left - 12f, both.left, 0.001f)
+        assertEquals(right.right + 12f, both.right, 0.001f)
         // A capsule set lower makes the window taller below only by that much.
-        assertEquals(plain.height + 8f, touchRect(f, 12f, 0f, 0f, 0f, 8f).height, 0.001f)
+        assertEquals(plain.height + 8f, touchArea(f, listOf(PxRect(left.left, left.top + 8f, left.right, left.bottom + 8f)), 12f).height, 0.001f)
     }
 
     @Test fun theShippedLayoutIsTheOneChosenOnTheDebugPage() {

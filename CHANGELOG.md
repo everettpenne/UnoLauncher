@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.93.0-uno01
+
+- **Fixed: taps near the top of the screen going missing.** After the island had opened once (a tap, a pull, a notification card, an app's name), its touch window kept the open panel's size and took taps meant for the top of the app underneath, such as in-app back buttons. The island compared its settled frame with a target that lacked the width adjustments, so the touch area only ever grew. It now shrinks back to the island the moment it settles, and a test that fails on the old code guards it.
+- **A much smaller overlay window.** The island's drawing window over other apps was larger than the screen at all times, and Android blended it into every frame of the app in front and redrew it whole whenever the island animated. It is now only the top strip while the island is collapsed, growing to full height only while it opens, and never past the screen's edges: less battery and smoother apps underneath.
+- The status bar grid's clock check runs once a minute instead of on every tick of the island's clock.
+
 ## 0.92.0-uno01
 
 - **The island no longer cuts a status bar icon in half.** Measured on a Pixel 10a's status bar, every edge of the island and its capsules now falls in a gap between two icons, so each icon is either wholly covered or wholly clear, whatever is showing and however many notification icons there are. This covers the resting island, the wider island that shows an app's icon and name, event flashes, and the capsules.

@@ -85,6 +85,14 @@ exactly as large as what is drawn, plus a small pad. In the first debug build it
 touches meant for the top of the app underneath. `touchRect()` now builds it from the island's real frame and each capsule's real extent, and
 `IslandDebugTest` pins that it never grows beyond them. Any new layout code must keep to this.
 
+A second way it went wrong (fixed in 0.93.0): the touch window follows the frame the island *reports*, and the report only shrinks once the
+live frame matches the frame the island is heading for. When the island's width was adjusted (by hand, then by the grid), the live frame no
+longer matched the unadjusted target, so the report only ever grew: after the island had opened once (a tap, a pull, a notification card) the
+touch window kept the open panel's size and took taps meant for the top of the app underneath, intermittently, depending on whether the island
+had opened since it last started. The target now gets the same adjustments as the live frame, and
+`IslandScenarioInstrumentedTest.theTouchFrameShrinksBackWhenTheIslandCloses` fails on the old code. Any adjustment applied to the live frame
+must also be applied to `headingAdjusted`.
+
 ## 9. The status bar grid (the layout that ships)
 
 Screenshots of the Pixel 10a's status bar, with the island off and on, give the positions of every element (2.625 density, 1080 px wide):

@@ -381,4 +381,36 @@ class IslandScenarioInstrumentedTest {
         assertEquals("back to its resting width", resting, islandWidth(), 2f)
         assertEquals("and the activities are back", 2, capsuleCount("timer") + capsuleCount("update"))
     }
+
+    /** Regression: the frame reported to the touch window only ever grew. After the island had opened once it kept covering the whole panel, and
+     * took touches meant for the top of whatever app was underneath. */
+    @Test fun theTouchFrameShrinksBackWhenTheIslandCloses() {
+        var reported: PxRect? = null
+        var restHeight = 0f
+        compose.setContent {
+            DuoTheme(false) {
+                DynamicIsland(state, glass = null, deviceStatus = DeviceStatus(battery = 80), feedHeadline = null,
+                    environmentOverride = IslandEnvironment(PxRect(509f, 40f, 571f, 102f), 1080f, 80f, screenHeight = 2400f),
+                    onFrameChanged = { f, _ -> reported = PxRect(f.left, f.top, f.left + f.width, f.top + f.height) },
+                    onSearch = {}, onOpenFeed = {}, onCustomize = {})
+            }
+        }
+        Thread.sleep(2500); compose.waitForIdle()
+        restHeight = reported!!.height
+        compose.runOnIdle { state.toggle() }
+        compose.waitForIdle()
+        assertTrue("it opened", reported!!.height > restHeight * 3)
+        compose.runOnIdle { state.collapse() }
+        compose.waitForIdle()
+        assertEquals("and the touch frame is back to the resting island's", restHeight, reported!!.height, 2f)
+        // The same after a notification's app name has widened it.
+        val icon = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888).also { Canvas(it).drawColor(0xFF3B82F6.toInt()) }
+        val restWidth = reported!!.width
+        compose.runOnIdle { state.showLaunch(AppEntry("com.android.settings/com.android.settings.Settings", "Settings", icon)) }
+        compose.waitForIdle()
+        assertTrue("wider while it shows the app", reported!!.width > restWidth + 20f)
+        compose.runOnIdle { state.advanceFlash() }
+        compose.waitForIdle()
+        assertEquals("and back to the resting width", restWidth, reported!!.width, 2f)
+    }
 }

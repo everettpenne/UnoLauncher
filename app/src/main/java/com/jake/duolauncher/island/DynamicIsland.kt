@@ -737,11 +737,10 @@ internal fun DynamicIsland(
     // Where the system status bar's icons are, so no island edge cuts one in half (see [StatusBarGrid]). The grid is a Pixel's: it is used only
     // with a camera at the top of the screen, and not for the ring the island shrinks to over other apps when it has nothing to say.
     val gridOn = environment.cutout != null && openFrame.side == IslandSide.TOP && compactTarget < .5f
-    val clockShiftDp = run {
-        val cal = java.util.Calendar.getInstance().apply { timeInMillis = clockMs }
-        val is24 = android.text.format.DateFormat.is24HourFormat(context)
-        val hour = cal.get(java.util.Calendar.HOUR)
-        if (is24 || hour == 0 || hour >= 10) StatusBarGrid.DIGIT_DP else 0f
+    // Worked out once a minute, not on every tick of the island's clock (which is ten times a second while a stopwatch runs).
+    val clockShiftDp = remember(clockMs / 60_000L, is24Hour) {
+        val hour = java.util.Calendar.getInstance().apply { timeInMillis = clockMs }.get(java.util.Calendar.HOUR)
+        if (is24Hour || hour == 0 || hour >= 10) StatusBarGrid.DIGIT_DP else 0f
     }
     val capsulesWanted = !(state.expanded || state.peeked || pulling || flashActive || IslandTools.ringing)
     val capsulePlan = if (capsulesWanted) IslandBubbles.layout(liveKinds) else emptyList()
@@ -796,6 +795,12 @@ internal fun DynamicIsland(
     val headingFor = remember(environment, d, sizeScale, extraBody, state.expanded, state.peeked, eventTargetDp, compactTarget, wideFactor) {
         IslandGeometry.frame(environment, d, if (state.expanded) 1f else if (state.peeked) peekState.floatValue else 0f, sizeScale, extraBodyDp = extraBody,
             extraWidthDp = eventTargetDp, compactness = compactTarget, wideFactor = wideFactor) }
+    // The frame the island settles to, with the same adjustments the live frame gets (the grid's edges, the debug offset): what the touch window should
+    // be when nothing is moving. It must match the settled live frame; if it does not, the touch window never shrinks back (see the effect that reports it).
+    val headingCollapsed = if (state.expanded) 0f else if (state.peeked) 1f - peekState.floatValue else 1f
+    val headingAdjusted = withDebugAdjust(
+        withEdgeShift(headingFor, headingCollapsed, islandLayout.pillLeft * d - restTarget.left, islandLayout.pillRight * d - (restTarget.left + restTarget.width)),
+        headingCollapsed, 0f, 0f, mainDy, d, environment.screenWidth)
     val reported = remember { arrayOfNulls<IslandFrame>(1) }
     val bodyFade = remember(openFrame, d) { BodyFade({ frameState.value.height }, openFrame.height, 10f * d) }
     val morphSpeed = remember { MorphVelocity() }
@@ -884,6 +889,10 @@ internal fun DynamicIsland(
     // moves: a window that changes size shows its old, smaller picture at the new window's corner until the new one arrives, and
     // the island opened from the wrong corner and collapsed through the wrong place. Touches are taken by a separate small window
     // that follows the island (see IslandOverlayHost), so the empty part of this one never blocks the app underneath.
+    // Whether anything is, or is about to be, taller than the collapsed pill: only a threshold, so the island recomposes when it is crossed and
+    // not on every frame of the morph.
+    val morphing by remember { derivedStateOf { progressState.value > .002f || state.pullFraction != null } }
+    val windowTall = morphing || state.expanded || state.peeked || state.holdingOpen || peekShown != null
     val windowRect: PxRect? = if (anchoredToWindow && openFrame.side == IslandSide.TOP) {
         // The biggest the island gets, in both directions: worked out once for the environment, not on every animation frame.
         // Sized for the island at its most overshot (a bounce carries it past the panel), so a bounce is never clipped by the window.
@@ -894,10 +903,19 @@ internal fun DynamicIsland(
         val pad = 10f * d + slack
         // The live frame is always inside the open and the widest pill, so it needs no say here (and the rectangle does not change per frame).
         // Room is kept on the left for the left-hand capsule, and (with the debug controls in use) all round for hand-set positions.
-        PxRect(
-            minOf(open.left, wide.left - (capsuleHeightDp.value * 2f + IslandBubbles.GAP_DP) * d) - pad, minOf(open.top, wide.top) - slack,
-            maxOf(open.left + open.width, wide.left + wide.width + (IslandBubbles.reserveDp(1 + IslandBubbles.MAX, capsuleHeightDp.value) + IslandPrivacy.widthDp(3)) * d) + pad,
-            maxOf(open.top + open.height, wide.top + wide.height) + pad)
+        // Nothing outside the screen is ever seen, so the window stops at its edges: unclipped it was 1740 x 3580 px on a 1080 x 2400 screen.
+        val screenH = if (environment.screenHeight > 0f) environment.screenHeight else Float.MAX_VALUE
+        val full = PxRect(
+            maxOf(0f, minOf(open.left, wide.left - (capsuleHeightDp.value * 2f + IslandBubbles.GAP_DP) * d) - pad), maxOf(0f, minOf(open.top, wide.top) - slack),
+            minOf(environment.screenWidth, maxOf(open.left + open.width, wide.left + wide.width + (IslandBubbles.reserveDp(1 + IslandBubbles.MAX, capsuleHeightDp.value) + IslandPrivacy.widthDp(3)) * d) + pad),
+            minOf(screenH, maxOf(open.top + open.height, wide.top + wide.height) + pad))
+        // Collapsed and still, the island needs only the top strip, so the window is only that tall: the same left, top and width, so the
+        // picture never moves when it grows (it grows at the bottom, out of sight below the island), but a sliver of the screen instead of
+        // all of it. A window as big as the screen was blended into every frame of whatever app was in front, and redrawn whole on every
+        // frame the island animated (the music bars, the glow), which cost battery and smoothness everywhere. It grows to the full height the
+        // moment the island starts to open (a pull, a tap, a card), with room to spare below the pill for the first frames of the morph.
+        if (windowTall) full else PxRect(full.left, full.top, full.right,
+            minOf(full.bottom, wide.top + wide.height + (IslandGeometry.MAX_OVERSHOOT - 1f) * wide.height + 64f * d))
     } else null
     val wrapperModifier = if (anchoredToWindow) {
         if (windowRect != null) Modifier.size((windowRect.width / d).dp, (windowRect.height / d).dp) else Modifier
@@ -914,11 +932,14 @@ internal fun DynamicIsland(
     CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides
         androidx.compose.material3.LocalTextStyle.current.copy(lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified)) {
     Box(modifier.then(wrapperModifier), contentAlignment = Alignment.TopStart) {
-        LaunchedEffect(headingFor, windowRect) {
-            // Told when the frame the touch window should have changes; during a morph that is only while the island is growing.
+        LaunchedEffect(headingAdjusted, windowRect) {
+            // Told when the frame the touch window should have changes; during a morph that is only while the island is growing. Once the island has
+            // settled the report is exactly the settled frame, so the touch window shrinks back to it: compared with a frame that differed from the
+            // settled one (as it did when the island's width was adjusted), the report only ever grew, and the window kept covering the whole panel
+            // after the first time the island opened, taking touches meant for the top of the app underneath.
             var first = true
             snapshotFlow { frameState.value }.collect { live ->
-                val next = if (live.nearly(headingFor)) headingFor else (reported[0] ?: live).union(live).union(headingFor)
+                val next = if (live.nearly(headingAdjusted)) headingAdjusted else (reported[0] ?: live).union(live).union(headingAdjusted)
                 if (first || next != reported[0]) { reported[0] = next; onFrameChanged?.invoke(next, windowRect) }
                 first = false
             }
@@ -948,7 +969,7 @@ internal fun DynamicIsland(
             ((islandLayout.pillLeft - l.left) * d + leftAdjust.dw * d + leftAdjust.dx * d).roundToInt().coerceAtLeast(0) } ?: 0 else 0
         IslandRuntime.touchAbovePx = detachedCapsules.maxOfOrNull { -IslandBubbles.groupFor(it, leftAdjust, rightAdjust, extraAdjust).dy }?.coerceAtLeast(0f)?.times(d)?.roundToInt() ?: 0
         IslandRuntime.touchBelowPx = detachedCapsules.maxOfOrNull { IslandBubbles.groupFor(it, leftAdjust, rightAdjust, extraAdjust).dy }?.coerceAtLeast(0f)?.times(d)?.roundToInt() ?: 0
-        LaunchedEffect(detachedCapsules.size, privacyKinds.size) { onFrameChanged?.invoke(reported[0] ?: headingFor, windowRect) }
+        LaunchedEffect(detachedCapsules.size, privacyKinds.size) { onFrameChanged?.invoke(reported[0] ?: headingAdjusted, windowRect) }
         val heldDots = rememberLingering(privacyKinds, keepGhosts = capsulesShown)
         heldDots.held.forEach { dot ->
             val kind = dot.item; val index = dot.index

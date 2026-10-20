@@ -78,6 +78,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.draw.drawBehind
@@ -729,16 +730,40 @@ internal fun DynamicIsland(
     val showingApp = flashActive && state.flashSymbol == IslandSymbol.APP
     val mainBase = if (showingApp) IslandLayoutDefaults.MAIN_SHOWING_APP else IslandLayoutDefaults.MAIN
     val mainSpring = if (!animationsOn) snap<Float>() else theme.spring(.55f, 380f)
-    val mainDw by animateFloatAsState(mainBase.dw + IslandDebug.pill.dw, mainSpring, label = "main width")
-    val mainDx by animateFloatAsState(mainBase.dx + IslandDebug.pill.dx, mainSpring, label = "main across")
     val mainDy = mainBase.dy + IslandDebug.pill.dy
+    // The collapsed island at the size it is heading for, before any adjustment: the edges it would have.
+    val restTarget = remember(environment, d, sizeScale, eventTargetDp, compactTarget, wideFactor) {
+        IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = eventTargetDp, compactness = compactTarget, wideFactor = wideFactor) }
+    // Where the system status bar's icons are, so no island edge cuts one in half (see [StatusBarGrid]). The grid is a Pixel's: it is used only
+    // with a camera at the top of the screen, and not for the ring the island shrinks to over other apps when it has nothing to say.
+    val gridOn = environment.cutout != null && openFrame.side == IslandSide.TOP && compactTarget < .5f
+    val clockShiftDp = run {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = clockMs }
+        val is24 = android.text.format.DateFormat.is24HourFormat(context)
+        val hour = cal.get(java.util.Calendar.HOUR)
+        if (is24 || hour == 0 || hour >= 10) StatusBarGrid.DIGIT_DP else 0f
+    }
+    val capsulesWanted = !(state.expanded || state.peeked || pulling || flashActive || IslandTools.ringing)
+    val capsulePlan = if (capsulesWanted) IslandBubbles.layout(liveKinds) else emptyList()
+    val capsuleMinDp = restTarget.height / d
+    // The edges the island would have with its shipped width (and, showing an app, its wider one) and any hand adjustment.
+    val wantLeftDp = (restTarget.left - (mainBase.dw + IslandDebug.pill.dw) * d / 2f + (mainBase.dx + IslandDebug.pill.dx) * d) / d
+    val wantRightDp = (restTarget.left + restTarget.width + (mainBase.dw + IslandDebug.pill.dw) * d / 2f + (mainBase.dx + IslandDebug.pill.dx) * d) / d
+    val islandLayout = restTarget.hole.let { hole ->
+        if (gridOn && hole != null) StatusBarGrid.layout(wantLeftDp, wantRightDp, environment.screenWidth / d, clockShiftDp,
+            (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
+            wantLeft = capsulePlan.any { it.left }, wantRight = capsulePlan.any { !it.left }, dots = privacyNow.size, capsuleMinWidth = capsuleMinDp)
+        else StatusBarGrid.flush(if (compactTarget < .5f) wantLeftDp else restTarget.left / d, if (compactTarget < .5f) wantRightDp else (restTarget.left + restTarget.width) / d,
+            capsulePlan.any { it.left }, capsulePlan.any { !it.left }, capsuleMinDp)
+    }
+    // How far each edge moves from where it would be, in px: animated, so the island springs to its snapped width and back.
+    val edgeLeft by animateFloatAsState(islandLayout.pillLeft * d - restTarget.left, mainSpring, label = "island left edge")
+    val edgeRight by animateFloatAsState(islandLayout.pillRight * d - (restTarget.left + restTarget.width), mainSpring, label = "island right edge")
     val frameState = remember(environment, d, sizeScale, extraBody, coupling, wideFactor) { derivedStateOf {
         val p = progressState.value
-        IslandGeometry.frame(environment, d, if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value, sizeScale,
+        val base = IslandGeometry.frame(environment, d, if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value, sizeScale,
             extraBodyDp = extraBody, extraWidthDp = eventWidthState.value, compactness = compactnessState.value, wideFactor = wideFactor, heightProgress = p)
-            // The main island's shipped width and place (a little wider than automatic; wider still while it shows an app's icon and name,
-            // see [mainDw]), plus any hand adjustment from the debug page of a debug build.
-            .let { withDebugAdjust(it, 1f - p, mainDw, mainDx, mainDy, d, environment.screenWidth) }
+        withDebugAdjust(withEdgeShift(base, 1f - p, edgeLeft, edgeRight), 1f - p, 0f, 0f, mainDy, d, environment.screenWidth)
     } }
     // The collapsed pill's top edge in window pixels: below it (in the launcher's own space) a pull belongs to the island; above it the
     // system status-bar strip owns the touch, so a pull must not engage there when the island renders below SystemUI.
@@ -870,7 +895,7 @@ internal fun DynamicIsland(
         // The live frame is always inside the open and the widest pill, so it needs no say here (and the rectangle does not change per frame).
         // Room is kept on the left for the left-hand capsule, and (with the debug controls in use) all round for hand-set positions.
         PxRect(
-            minOf(open.left, wide.left - (capsuleHeightDp.value + IslandBubbles.GAP_DP) * d) - pad, minOf(open.top, wide.top) - slack,
+            minOf(open.left, wide.left - (capsuleHeightDp.value * 2f + IslandBubbles.GAP_DP) * d) - pad, minOf(open.top, wide.top) - slack,
             maxOf(open.left + open.width, wide.left + wide.width + (IslandBubbles.reserveDp(1 + IslandBubbles.MAX, capsuleHeightDp.value) + IslandPrivacy.widthDp(3)) * d) + pad,
             maxOf(open.top + open.height, wide.top + wide.height) + pad)
     } else null
@@ -907,27 +932,20 @@ internal fun DynamicIsland(
         // everywhere-overlay positions its window itself and renders the island at the origin.
         // Detached capsules beside the collapsed pill: the trailing activity, then the live activities that do not fit
         // (Apple's trailing capsule plus Uno's extra "bubbles", all as the same capsule). The pill itself carries only the leading.
-        val capsulesShown = !(state.expanded || state.peeked || pulling || flashActive || IslandTools.ringing)
-        // Camera, microphone and screen recording are dots beside the pill, always, and not activities: the pill and the capsules show
-        // what the person is doing, the dots show what the phone is doing. The right-hand capsules start after the dots.
+        val capsulesShown = capsulesWanted
+        // Camera, microphone and screen recording are dots inside the island's right end, always, and not activities: the pill and the capsules
+        // show what the person is doing, the dots show what the phone is doing. (Outside the island they would sit on top of status bar icons.)
         val privacyKinds = privacyNow
-        val dotsDp = IslandPrivacy.widthDp(privacyKinds.size)
-        // With three or more live, the second is a capsule on the pill's left and the others go to its right; only as many circles as fit
-        // before the screen's edge are drawn on the right (a fourth would run off it), the rest stay reachable by a flick.
-        val detachedCapsules = if (!capsulesShown) emptyList() else IslandBubbles.layout(liveKinds).let { all ->
-            all.filter { it.left } + all.filter { !it.left }.take(
-                IslandBubbles.capacity((environment.screenWidth - (headingFor.left + headingFor.width)) / d, capsuleHeightDp.value, dotsDp))
-        }
-        val rightCapsules = detachedCapsules.filter { !it.left }
+        // With two live the second is a capsule on the island's right; with three or more it is on the left and the third on the right. The
+        // grid decides how wide each is and which icons it covers, so none is cut; a capsule with no room for it is not drawn.
+        val detachedCapsules = capsulePlan.filter { if (it.left) islandLayout.left != null else islandLayout.right != null }
         val leftAdjust = IslandDebug.effective(DebugTarget.LEFT); val rightAdjust = IslandDebug.effective(DebugTarget.RIGHT); val extraAdjust = IslandDebug.effective(DebugTarget.EXTRA)
-        // The touch window is exactly what is drawn beside the pill: room for the right-hand capsules, for the left one, and for a capsule
-        // set higher or lower than the pill's row. Nothing more, or it would take touches meant for the app underneath.
-        IslandRuntime.bubbleExtraPx = rightCapsules.lastOrNull()?.let { last ->
-            ((IslandBubbles.rightOffsetDp(last.slot, capsuleHeightDp.value, dotsDp, rightAdjust, extraAdjust) + capsuleHeightDp.value +
-                IslandBubbles.groupFor(last, leftAdjust, rightAdjust, extraAdjust).dw) * d).roundToInt().coerceAtLeast(0)
-        } ?: 0
-        IslandRuntime.bubbleLeftPx = if (detachedCapsules.any { it.left })
-            ((IslandBubbles.leftOffsetDp(leftAdjust) + capsuleHeightDp.value + leftAdjust.dw) * d).roundToInt().coerceAtLeast(0) else 0
+        // The touch window is exactly what is drawn beside the island: from the left capsule's left edge to the right capsule's right edge, and a
+        // capsule set higher or lower than the island's row (hand adjustment). Nothing more, or it would take touches meant for the app underneath.
+        IslandRuntime.bubbleExtraPx = if (detachedCapsules.any { !it.left }) islandLayout.right?.let { r ->
+            ((r.right - islandLayout.pillRight) * d + rightAdjust.dw * d + rightAdjust.dx * d).roundToInt().coerceAtLeast(0) } ?: 0 else 0
+        IslandRuntime.bubbleLeftPx = if (detachedCapsules.any { it.left }) islandLayout.left?.let { l ->
+            ((islandLayout.pillLeft - l.left) * d + leftAdjust.dw * d + leftAdjust.dx * d).roundToInt().coerceAtLeast(0) } ?: 0 else 0
         IslandRuntime.touchAbovePx = detachedCapsules.maxOfOrNull { -IslandBubbles.groupFor(it, leftAdjust, rightAdjust, extraAdjust).dy }?.coerceAtLeast(0f)?.times(d)?.roundToInt() ?: 0
         IslandRuntime.touchBelowPx = detachedCapsules.maxOfOrNull { IslandBubbles.groupFor(it, leftAdjust, rightAdjust, extraAdjust).dy }?.coerceAtLeast(0f)?.times(d)?.roundToInt() ?: 0
         LaunchedEffect(detachedCapsules.size, privacyKinds.size) { onFrameChanged?.invoke(reported[0] ?: headingFor, windowRect) }
@@ -944,11 +962,14 @@ internal fun DynamicIsland(
                 Box(Modifier
                     .offset {
                         val frame = frameState.value
-                        val x = frame.left + frame.width + (IslandPrivacy.GAP_DP + index * IslandPrivacy.STEP_DP) * d
+                        // Inside the island, against its right end: dot [index] of [privacyKinds.size], counting from the left.
+                        val x = frame.left + frame.width - (IslandPrivacy.END_PAD_DP + (privacyKinds.size.coerceAtLeast(index + 1) - index) * IslandPrivacy.STEP_DP) * d
                         val y = frame.top + (frame.height - IslandPrivacy.DOT_DP * d) / 2f
                         androidx.compose.ui.unit.IntOffset(
                             (x - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
                     }
+                    // Drawn above the island, which is composed after them: they sit inside its right end.
+                    .zIndex(2f)
                     .graphicsLayer { val sc = grow.value.coerceAtLeast(0f); scaleX = sc; scaleY = sc; alpha = grow.value.coerceIn(0f, 1f) }
                     .size(IslandPrivacy.DOT_DP.dp).clip(CircleShape)
                     .background(when (kind) { LiveKind.CAMERA -> IosGreen; LiveKind.MIC -> PRIVACY_MIC; else -> IslandSymbol.RECORDING.tint })
@@ -987,11 +1008,17 @@ internal fun DynamicIsland(
                 // instead of jumping, so the person can follow where each activity went.
                 val glide = if (!animationsOn) snap<Float>() else theme.spring(.75f, 380f)
                 val adjust = IslandBubbles.groupFor(shape, IslandDebug.effective(DebugTarget.LEFT), IslandDebug.effective(DebugTarget.RIGHT), IslandDebug.effective(DebugTarget.EXTRA))
-                val offsetDp by animateFloatAsState(
-                    if (shape.left) IslandBubbles.leftOffsetDp(IslandDebug.effective(DebugTarget.LEFT))
-                    else IslandBubbles.rightOffsetDp(shape.slot, capsuleHeightDp.value, dotsDp, IslandDebug.effective(DebugTarget.RIGHT), IslandDebug.effective(DebugTarget.EXTRA)), glide, label = "capsule slot")
-                val widthDp by animateFloatAsState(IslandBubbles.widthDp(0, capsuleHeightDp.value) + adjust.dw, glide, label = "capsule width")
-                val capsuleW = widthDp * d
+                // The box the grid gives this capsule (kept for the exit animation, once the activity is gone and it has none), widened and
+                // moved outward by any hand adjustment.
+                val lastBox = remember { arrayOfNulls<StatusBarGrid.Span>(1) }
+                (if (shape.left) islandLayout.left else islandLayout.right)?.let { lastBox[0] = it }
+                val box = lastBox[0] ?: StatusBarGrid.Span(0f, capsuleMinDp)
+                val boxLeftPx = (box.left - adjust.dw / 2f + if (shape.left) -adjust.dx else adjust.dx) * d
+                val boxWidthPx = (box.width + adjust.dw) * d
+                val slotX by animateFloatAsState(boxLeftPx, glide, label = "capsule slot")
+                val widthPx by animateFloatAsState(boxWidthPx, glide, label = "capsule width")
+                val widthDp = widthPx / d
+                val capsuleW = widthPx
                 val capsuleTouch = remember { MutableInteractionSource() }
                 val capsulePressed by capsuleTouch.collectIsPressedAsState()
                 val pressScale by animateFloatAsState(if (capsulePressed) .9f else 1f, spring(dampingRatio = .6f, stiffness = 500f), label = "capsule press")
@@ -999,9 +1026,9 @@ internal fun DynamicIsland(
                 // The neck's path is made once and rewound each frame, instead of allocating a Path per frame while the capsule pulls away.
                 val neckPath = remember { androidx.compose.ui.graphics.Path() }
                 fun capsuleX(frame: IslandFrame): Float {
-                    val finalX = if (shape.left) frame.left - offsetDp * d - capsuleW else frame.left + frame.width + offsetDp * d
+                    // Settled, the capsule is where the grid put it; it comes out of (and goes back into) the island's end on its side.
                     val startX = if (shape.left) frame.left + frame.height / 2f - capsuleW / 2f else frame.left + frame.width - frame.height / 2f - capsuleW / 2f
-                    return startX + (finalX - startX) * appear.value
+                    return startX + (slotX - startX) * appear.value
                 }
                 Box(Modifier
                     .offset {

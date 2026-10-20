@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.92.0-uno01
+
+- **The island no longer cuts a status bar icon in half.** Measured on a Pixel 10a's status bar, every edge of the island and its capsules now falls in a gap between two icons, so each icon is either wholly covered or wholly clear, whatever is showing and however many notification icons there are. This covers the resting island, the wider island that shows an app's icon and name, event flashes, and the capsules.
+- **The capsules are rounded rectangles, not circles.** The left one covers exactly two notification icon slots and the right one as few slots as it needs, each ending in a gap, with a thin seam to the main island.
+- **Privacy dots sit inside the island's right end,** where they cannot cover half an icon, and ask the island for a little more room.
+- **The clock's width is read from your time format,** so the island still lands in the gaps with a two-digit hour or a 24-hour clock.
+- The process and the measurements are written up in `docs/island-layout-process.md`.
+
 ## 0.91.1-uno01
 
 - **The island no longer takes touches while it starts.** Its window used to be added touchable and as big as the screen, so for the seconds a cold start takes it swallowed every touch meant for the app in front. It now starts untouchable, and only the small window around the island takes touches.

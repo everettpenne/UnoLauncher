@@ -63,8 +63,9 @@ class IslandDebugTest {
     @Test fun theShippedLayoutIsTheOneChosenOnTheDebugPage() {
         assertEquals(DebugGroup(15f, 0f, 0f), IslandLayoutDefaults.MAIN)
         assertEquals(DebugGroup(62f, -3f, 0f), IslandLayoutDefaults.MAIN_SHOWING_APP)
-        assertEquals(DebugGroup(10f, -2f, 0f), IslandLayoutDefaults.LEFT)
-        assertEquals(DebugGroup(10f, -2f, 0f), IslandLayoutDefaults.RIGHT)
+        // The capsules' width and gap now come from the status bar grid, so their defaults start at zero.
+        assertEquals(DebugGroup(), IslandLayoutDefaults.LEFT)
+        assertEquals(DebugGroup(), IslandLayoutDefaults.RIGHT)
     }
 
     @Test fun aWideAdjustmentNeverRunsOffTheScreen() {

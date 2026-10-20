@@ -85,15 +85,55 @@ exactly as large as what is drawn, plus a small pad. In the first debug build it
 touches meant for the top of the app underneath. `touchRect()` now builds it from the island's real frame and each capsule's real extent, and
 `IslandDebugTest` pins that it never grows beyond them. Any new layout code must keep to this.
 
+## 9. The status bar grid (the layout that ships)
+
+Screenshots of the Pixel 10a's status bar, with the island off and on, give the positions of every element (2.625 density, 1080 px wide):
+
+| Element | x range (px) |
+|---|---|
+| Clock, one-digit hour | 93-160 (a two-digit hour or any 24-hour time is about 19 px wider, and moves everything after it right) |
+| Notification icons 1 to 4 | 188-218, 248-279, 305-336, 360-396 (a pitch of about 57 px) |
+| Do not disturb (and other extra icons, packed leftward) | 736-767 |
+| Signal | 788-842 |
+| Wi-Fi | 858-903 |
+| Battery | 919-988 |
+
+The notification icons run from the clock to the camera hole, and the right-hand icons are packed against the screen's right edge. So the
+gaps between icons are at fixed places: on the left a fixed distance from the clock and then every 21.85 dp, on the right a fixed distance
+from the right edge. Android lays the notification icons out only around the camera hole, and the island is far wider than the hole, so icons
+run under it. Covering an icon wholly is fine; covering half is the failure. The rule that follows:
+
+**Every island edge goes in a gap, 1.5 dp inside it** (`StatusBarGrid`, `StatusBarGridTest`). A unit test sweeps every wanted width, one- and
+two-digit hours, capsules on either side and zero to three privacy dots, and fails if any edge lands inside an icon.
+
+How each state follows from it:
+
+- **Main island at rest.** The width the island would like (+15 dp over automatic) grows outward to the nearest gap on each side: about 348 px on
+  the left (between notification icons 3 and 4) and 726 px on the right (before the do-not-disturb slot). Icons 4 and later, and any extra
+  right-hand icons, are then wholly under it; icons 1 to 3 are wholly clear.
+- **Showing an app's icon and name (+62 dp wider, 3 dp left) and event flashes.** The same snap, so the island is a few gaps wider. It stops at
+  the clock on the left and the battery on the right.
+- **A two-digit hour.** The left gaps move right by a digit (7.2 dp), read from the clock's format.
+- **Left capsule (the second of three activities).** Covers exactly two icon slots, ending in the gap the island starts at, with a 3 dp seam
+  between them, so it is a stadium about 40 dp wide, not a circle.
+- **Right capsule.** Starts in the gap the island ends at and covers as few slots as make it wide enough (the do-not-disturb and signal slots).
+- **Privacy dots** sit inside the island's right end, not outside it where they would cover half an icon. They ask the island for more room:
+  one or two dots take it to the next gap on the right, three to the one after.
+- **Over other apps, idle:** the island is a ring round the camera, and the grid is not used.
+- **No top camera** (phone turned sideways, or a camera elsewhere): the grid is not used and the islands sit flush.
+
+The numbers come from one phone and one status bar. If the system's spacing changes, update the constants in `StatusBarGrid` (they are in dp)
+and the test's icon positions.
+
 ## Recorded values
 
-Found with the debug page on 2026-10-19 and shipped as `IslandLayoutDefaults` in 0.91.0:
+Found with the debug page on 2026-10-19 and shipped as `IslandLayoutDefaults`. They are the width the island would *like*; the grid then grows
+each edge outward to the nearest gap (shipped in 0.92.0):
 
-| Island | Width | Across / Gap | Down |
+| Island | Width | Across | Down |
 |---|---|---|---|
-| Main island, at rest | +15 | 0 | 0 |
-| Main island, showing an app's icon and name | +62 | -3 | 0 |
-| Left island | +10 | -2 | 0 |
-| Right island | +10 | -2 | 0 |
+| Main island, at rest (before snapping) | +15 | 0 | 0 |
+| Main island, showing an app's icon and name (before snapping) | +62 | -3 | 0 |
+| Left and right capsules | set by the grid | | |
 
-Three islands at most. Not yet checked against the clipping rule on a real phone.
+Three islands at most. Still to check against the real status bar in each state: the app-name state, event flashes, and the capsules.

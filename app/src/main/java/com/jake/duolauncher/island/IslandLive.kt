@@ -192,6 +192,8 @@ internal object IslandPrivacy {
     const val DOT_DP = 9f
     const val GAP_DP = 6f
     const val STEP_DP = 13f
+    /** The room between the last dot and the island's right end, in dp: the dots sit inside the island, against that end. */
+    const val END_PAD_DP = 12f
     fun widthDp(count: Int): Float = if (count <= 0) 0f else GAP_DP + count * STEP_DP
 }
 

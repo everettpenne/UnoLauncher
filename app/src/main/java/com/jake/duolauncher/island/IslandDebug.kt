@@ -21,13 +21,14 @@ internal data class DebugGroup(val dw: Float = 0f, val dx: Float = 0f, val dy: F
 
 /** The layout the island ships with, in the same terms as a hand adjustment (see [DebugGroup]), found with the debug page. Hand adjustments are added on top. */
 internal object IslandLayoutDefaults {
-    /** The main island at rest: a little wider than the automatic width. */
+    /** The main island at rest: the width it would like (a little wider than automatic). The grid then grows it outward to the nearest gaps in the status bar. */
     val MAIN = DebugGroup(dw = 15f)
     /** While the island shows an app's icon and name (a launch or a notification): it springs wider and a touch to the left, then returns to [MAIN]. */
     val MAIN_SHOWING_APP = DebugGroup(dw = 62f, dx = -3f)
-    val LEFT = DebugGroup(dw = 10f, dx = -2f)
-    val RIGHT = DebugGroup(dw = 10f, dx = -2f)
-    val EXTRA = DebugGroup(dw = 10f, dx = -2f)
+    /** The capsules' width and place come from the status bar grid ([StatusBarGrid]), so these start at zero: the debug page adds to what the grid gives. */
+    val LEFT = DebugGroup()
+    val RIGHT = DebugGroup()
+    val EXTRA = DebugGroup()
 }
 
 /** The islands you can adjust by hand. */

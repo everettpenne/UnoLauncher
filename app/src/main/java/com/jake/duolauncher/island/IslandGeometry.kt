@@ -44,6 +44,18 @@ internal fun withDebugAdjust(frame: IslandFrame, collapsed: Float, dwDp: Float, 
     return frame.copy(left = left, top = top, width = width, hole = hole)
 }
 
+/** [frame] with its left edge moved [dLeft] px and its right edge [dRight] px, as far as it is collapsed ([collapsed] 1 at rest, 0 open); the
+ * camera hole stays where it is on screen. This is how the island springs to the edges the status bar grid gives it. */
+internal fun withEdgeShift(frame: IslandFrame, collapsed: Float, dLeft: Float, dRight: Float): IslandFrame {
+    val k = collapsed.coerceIn(0f, 1f)
+    if (k == 0f || (dLeft == 0f && dRight == 0f)) return frame
+    val left = frame.left + dLeft * k
+    val right = frame.left + frame.width + dRight * k
+    val width = (right - left).coerceAtLeast(frame.height)
+    val hole = frame.hole?.let { PxRect(it.left + frame.left - left, it.top, it.right + frame.left - left, it.bottom) }
+    return frame.copy(left = left, width = width, hole = hole)
+}
+
 /**
  * The part of the screen the island's touch window covers: the island itself and a small pad, plus the room its capsules take on each
  * side and any hand-set vertical offset of a capsule. It is exactly that and no more: this window takes every touch inside it, so anything

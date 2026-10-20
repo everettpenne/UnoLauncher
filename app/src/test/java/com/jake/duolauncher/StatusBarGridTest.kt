@@ -71,7 +71,8 @@ class StatusBarGridTest {
     @Test fun aLeftCapsuleCoversTwoIconSlotsAndLeavesAHairlineSeamToTheIsland() {
         val l = layout(366f / d, 715f / d, left = true)
         val left = assertNotNull(l.left).let { l.left!! }
-        assertEquals("two slots wide, less the insets", 2 * StatusBarGrid.ICON_PITCH_DP - 2 * StatusBarGrid.INSET_DP, left.width, 0.6f)
+        // Two slots: from just past the outer gap's middle to just inside the seam's.
+        assertEquals("two slots wide", 2 * StatusBarGrid.ICON_PITCH_DP - StatusBarGrid.INSET_DP + StatusBarGrid.OUTER_BIAS_DP, left.width, 0.6f)
         // The seam between capsule and island is centred on one gap: wholly inside the 8 dp the gap has.
         assertEquals(2 * StatusBarGrid.INSET_DP, l.pillLeft - left.right, 0.01f)
         assertTrue("clear of the clock", px(left.left) > 160f)
@@ -121,5 +122,17 @@ class StatusBarGridTest {
                 assertTrue("hole wrapped", l.pillLeft < holeL && l.pillRight > holeR)
             }
         }
+    }
+
+    /** Regression from the phone: the wide island's right end sat 1.5 dp inside the narrow signal-to-Wi-Fi gap, and its round end showed the top of
+     * the signal icon's tallest bar. An outer edge now sits a little past the gap's middle, away from the island. */
+    @Test fun anOuterEdgeSitsPastTheGapsMiddleSoTheRoundEndCoversTheIconsCorners() {
+        val wide = layout(250f / d, 845f / d)
+        val signalEnd = 842f; val wifiStart = 858f
+        val edge = px(wide.pillRight)
+        assertTrue("past the gap's middle (850): $edge", edge > 850f)
+        assertTrue("still clear of Wi-Fi", edge < wifiStart - 2f)
+        // An island 80 px tall falls back about 4.3 px at an icon's top or bottom (18 px from the middle row); the icon is still covered there.
+        assertTrue(edge - 4.5f > signalEnd)
     }
 }

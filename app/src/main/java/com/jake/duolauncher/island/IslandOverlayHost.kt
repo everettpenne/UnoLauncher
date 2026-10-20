@@ -122,9 +122,13 @@ internal class IslandOverlayHost(
             // Starts at the top centre, where the island nearly always belongs, rather than at the screen's top-left corner (a
             // flash on every start). Not parked off-screen: a window that is fully off-screen is not drawn, so the island never
             // composed and never reported where it should go.
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            x = 0
+            // At the top-left corner, where the island's window always is (it spans the screen's width from there), so it never moves. It
+            // used to start at the top centre and then move into place, and Android animates a window's move: the island flew in from the middle
+            // of the screen each time the launcher started or the phone woke.
+            gravity = Gravity.TOP or Gravity.START
+            x = 0; y = 0
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            noMoveAnimation()
         }
         try {
             manager.addView(view, params)
@@ -313,6 +317,8 @@ internal class IslandOverlayHost(
                 gravity = Gravity.TOP or Gravity.START
                 x = left; y = top
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                // The touch window follows the island; an animated move would leave it behind the island for a moment, taking taps in the wrong place.
+                noMoveAnimation()
             }
             if (runCatching { manager.addView(v, p) }.isSuccess) { touchView = v; touchParams = p }
         } else {
@@ -375,4 +381,9 @@ private fun readIslandWideMode(context: Context): IslandWideMode {
     return IslandWideMode.read(
         prefs.getInt("islandWideMode", 0).takeIf { prefs.contains("islandWideMode") },
         prefs.getBoolean("islandWide", false))
+}
+
+/** Asks Android not to animate this window's moves (it slides a window that changes position, unless told not to). Android 13 and later. */
+private fun WindowManager.LayoutParams.noMoveAnimation() {
+    if (android.os.Build.VERSION.SDK_INT >= 33) setCanPlayMoveAnimation(false)
 }

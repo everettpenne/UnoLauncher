@@ -13,8 +13,12 @@ package com.jake.duolauncher.island
  * Everything here is in dp and pure, so it is unit-tested apart from the screen.
  */
 internal object StatusBarGrid {
-    /** How far inside a gap an island's edge sits, in dp: the gap is about 8 dp wide, and a rounded end falls back a little at the corners. */
+    /** How far inside a gap a seam's edges sit, in dp: where a capsule meets the main island, both edges share one gap, 3 dp apart. */
     const val INSET_DP = 1.5f
+    /** How far past a gap's middle an *outer* edge sits, away from the island, in dp. An island's end is round, so at the height of an icon's
+     * top and bottom it falls back from its edge by about 1.6 dp; an edge in the middle of a narrow gap (signal to Wi-Fi is only 6 dp) then
+     * showed a sliver of the icon it covers above and below its end. Pushing the edge outward a little covers the icon at the corners too. */
+    const val OUTER_BIAS_DP = 1f
     /** The middle of the gap between the clock and the first notification icon, from the left edge, with a one-digit hour. */
     const val CLOCK_GAP_DP = 66.3f
     /** The middle of the gap between the first and second notification icons, from the left edge, with a one-digit hour. */
@@ -65,13 +69,14 @@ internal object StatusBarGrid {
         val minI = when { dots <= 0 -> 0; dots <= 2 -> 1; else -> 2 }
         var i = rg.indexOfFirst { it >= desiredRight && it >= holeRight + HOLE_WRAP_DP }
         if (i >= 0) i = i.coerceAtLeast(minI)
-        val pillLeft = lg[j] + INSET_DP
-        val pillRight = if (i >= 0) rg[i] - INSET_DP else desiredRight
-        val left = if (wantLeft && j >= 2) Span(lg[j - 2] + INSET_DP, lg[j] - INSET_DP) else null
+        val left = if (wantLeft && j >= 2) Span(lg[j - 2] - OUTER_BIAS_DP, lg[j] - INSET_DP) else null
         val right = if (wantRight && i >= 0) {
-            val k = (i + 1 until rg.size).firstOrNull { rg[it] - rg[i] - 2 * INSET_DP >= capsuleMinWidth }
-            k?.let { Span(rg[i] + INSET_DP, rg[it] - INSET_DP) }
+            val k = (i + 1 until rg.size).firstOrNull { rg[it] - rg[i] - INSET_DP + OUTER_BIAS_DP >= capsuleMinWidth }
+            k?.let { Span(rg[i] + INSET_DP, rg[it] + OUTER_BIAS_DP) }
         } else null
+        // An edge shared with a capsule is half of a seam; an edge with nothing beyond it is an outer edge.
+        val pillLeft = if (left != null) lg[j] + INSET_DP else lg[j] - OUTER_BIAS_DP
+        val pillRight = if (i < 0) desiredRight else if (right != null) rg[i] - INSET_DP else rg[i] + OUTER_BIAS_DP
         return Layout(pillLeft, pillRight, left, right)
     }
 

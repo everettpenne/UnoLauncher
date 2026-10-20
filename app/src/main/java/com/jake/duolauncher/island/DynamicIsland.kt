@@ -756,8 +756,12 @@ internal fun DynamicIsland(
             capsulePlan.any { it.left }, capsulePlan.any { !it.left }, capsuleMinDp)
     }
     // How far each edge moves from where it would be, in px: animated, so the island springs to its snapped width and back.
-    val edgeLeft by animateFloatAsState(islandLayout.pillLeft * d - restTarget.left, mainSpring, label = "island left edge")
-    val edgeRight by animateFloatAsState(islandLayout.pillRight * d - (restTarget.left + restTarget.width), mainSpring, label = "island right edge")
+    // Started afresh whenever the screen it is measured against changes (the first real reading at start-up, a rotation), so the island is simply
+    // where it belongs then, instead of springing there from wherever a guess put it.
+    val edgeLeftState = key(environment, d) { animateFloatAsState(islandLayout.pillLeft * d - restTarget.left, mainSpring, label = "island left edge") }
+    val edgeRightState = key(environment, d) { animateFloatAsState(islandLayout.pillRight * d - (restTarget.left + restTarget.width), mainSpring, label = "island right edge") }
+    val edgeLeft by edgeLeftState
+    val edgeRight by edgeRightState
     val frameState = remember(environment, d, sizeScale, extraBody, coupling, wideFactor) { derivedStateOf {
         val p = progressState.value
         val base = IslandGeometry.frame(environment, d, if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value, sizeScale,
@@ -817,7 +821,7 @@ internal fun DynamicIsland(
     val sideways = openFrame.side != IslandSide.TOP
     // The colour fade for music: while the music is one of the things the pill shows (or the panel is open), and nothing else has the island.
     val glowAlpha = animateFloatAsState(
-        IslandGlow.target(mediaVisible && (state.expanded || liveKinds.take(2).contains(LiveKind.MEDIA)), isPlaying,
+        IslandGlow.target(mediaVisible && (state.expanded || plan.leading == LiveKind.MEDIA), isPlaying,
             flashActive || IslandTools.ringing || peekShown != null), tween(650), label = "island media glow")
     // The glow's flame stirs only while audio is really playing (not paused or lingering), and not at all with Android's animations off.
     val flameAnimated = isPlaying && mediaVisible && animationsOn
@@ -838,7 +842,8 @@ internal fun DynamicIsland(
     // The status rail owns the battery level when it is shown, so the island draws a level ring only while
     // charging with the rail off (IslandEventArbiter.chargingRingSurface); the charging icon stays either way.
     val ring = IslandRingLogic.choose(flashActive, pastHalfOpen || state.expanded || state.peeked || pulling, IslandTools.ringing,
-        IslandTools.timerActive, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
+        // The timer rings the island only when the island is showing it; in a capsule, a ring round the island would be about something else.
+        IslandTools.timerActive && plan.leading == LiveKind.TIMER, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
         IslandEventArbiter.chargingRingSurface(statusRailShown, deviceStatus.charging == true), deviceStatus.battery, IslandThemes.active.timer, IslandThemes.active.charging, state.flashTint)
     // A new event gives the island a small spring pulse, like iOS's.
     val pulse = remember { Animatable(1f) }
@@ -905,8 +910,8 @@ internal fun DynamicIsland(
         // Room is kept on the left for the left-hand capsule, and (with the debug controls in use) all round for hand-set positions.
         // Nothing outside the screen is ever seen, so the window stops at its edges: unclipped it was 1740 x 3580 px on a 1080 x 2400 screen.
         val screenH = if (environment.screenHeight > 0f) environment.screenHeight else Float.MAX_VALUE
-        val full = PxRect(
-            maxOf(0f, minOf(open.left, wide.left - (capsuleHeightDp.value * 2f + IslandBubbles.GAP_DP) * d) - pad), maxOf(0f, minOf(open.top, wide.top) - slack),
+        // Its top-left corner is the screen's, always: a window that moves is animated by Android, and the island seemed to fly into place.
+        val full = PxRect(0f, 0f,
             minOf(environment.screenWidth, maxOf(open.left + open.width, wide.left + wide.width + (IslandBubbles.reserveDp(1 + IslandBubbles.MAX, capsuleHeightDp.value) + IslandPrivacy.widthDp(3)) * d) + pad),
             minOf(screenH, maxOf(open.top + open.height, wide.top + wide.height) + pad))
         // Collapsed and still, the island needs only the top strip, so the window is only that tall: the same left, top and width, so the

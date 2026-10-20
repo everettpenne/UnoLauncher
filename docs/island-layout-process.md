@@ -111,7 +111,10 @@ gaps between icons are at fixed places: on the left a fixed distance from the cl
 from the right edge. Android lays the notification icons out only around the camera hole, and the island is far wider than the hole, so icons
 run under it. Covering an icon wholly is fine; covering half is the failure. The rule that follows:
 
-**Every island edge goes in a gap, 1.5 dp inside it** (`StatusBarGrid`, `StatusBarGridTest`). A unit test sweeps every wanted width, one- and
+**Every island edge goes in a gap** (`StatusBarGrid`, `StatusBarGridTest`). Where a capsule meets the main island, the two edges share one
+gap, 1.5 dp either side of its middle. An outer edge (nothing beyond it) sits 1 dp *past* the gap's middle, away from the island: the island's
+ends are round and fall back about 1.6 dp at an icon's top and bottom, and in the narrow signal-to-Wi-Fi gap an edge 1.5 dp inside the middle
+showed the top of the signal icon above the island's end (seen on the phone in 0.93.0, fixed in 0.94.0). A unit test sweeps every wanted width, one- and
 two-digit hours, capsules on either side and zero to three privacy dots, and fails if any edge lands inside an icon.
 
 How each state follows from it:

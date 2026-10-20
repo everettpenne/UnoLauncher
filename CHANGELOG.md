@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.94.0-uno01
+
+- **No more sliver of the signal icon past the island's end.** The island's ends are round, so an end sitting just inside the narrow gap between the signal and Wi-Fi icons showed the top of the signal bars. An outer edge now sits a little past the middle of its gap, away from the island; where a capsule meets the island the two edges still share one gap.
+- **The island no longer flies in from the middle of the screen** when the launcher starts or the phone wakes. Its window was added at the top centre and then moved into place, and Android animates a window's move. It now starts and stays at the top-left corner, with move animations turned off for it and for its touch window, and its springs start afresh when the screen's size is first known.
+- **The glow and the timer's ring belong to the island's own activity.** Music in a capsule no longer tints the island, and a timer in a capsule no longer rings it.
+
 ## 0.93.0-uno01
 
 - **Fixed: taps near the top of the screen going missing.** After the island had opened once (a tap, a pull, a notification card, an app's name), its touch window kept the open panel's size and took taps meant for the top of the app underneath, such as in-app back buttons. The island compared its settled frame with a target that lacked the width adjustments, so the touch area only ever grew. It now shrinks back to the island the moment it settles, and a test that fails on the old code guards it.

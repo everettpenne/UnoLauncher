@@ -3,9 +3,9 @@ package com.jake.duolauncher.keyboard
 import kotlin.math.abs
 import kotlin.math.min
 
-/** Spelling correction and next-word suggestions from a bundled word list. Pure Kotlin: no Android classes, no
- * storage, no network (see `KeyboardPrivacyTest`). It never learns: nothing you type is added to the dictionary or
- * remembered after the session, so there is no typing history anywhere to leak.
+/** Spelling correction and next-word suggestions from a bundled word list, blended with what the person's own [personal] model has
+ * learned. Pure Kotlin: no Android classes, no storage, no network (see `KeyboardPrivacyTest`); the learned model is kept, on the phone
+ * only, by [PersonalStore].
  *
  * [scores] is each word's commonness (higher is more common, roughly ten times its natural log of its frequency).
  * [followers] maps a word to the words that most often come after it, best first.
@@ -16,11 +16,35 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
     /** Words by first letter, for the correction scan. */
     private val byFirst: Map<Char, List<String>> = sorted.groupBy { it[0] }
 
-    fun contains(word: String) = word in score || word in CONTRACTION_WORDS || word in CONTRACTIONS
+    /** The person's learned words, when learning is on. Read on the suggestion worker; its methods lock. */
+    @Volatile var personal: PersonalModel? = null
+    /** Which keys neighbour which on the layout in use (QWERTY's by default), for the edit cost when there is no touch to go by. */
+    @Volatile var neighbours: Map<Char, Set<Char>> = NEIGHBOURS
+
+    fun inDictionary(word: String) = word in score
+    fun contains(word: String) = word in score || word in CONTRACTION_WORDS || word in CONTRACTIONS || personal?.knows(word) == true
     fun scoreOf(word: String) = score[word] ?: 0
 
-    /** The most common words that start with [prefix] (not including [prefix] itself), best first. */
+    /** The most common words that start with [prefix] (not including [prefix] itself), best first; the person's own words rank by how
+     * much they use them, written the way they write them.
+     */
     fun completions(prefix: String, limit: Int = 3): List<String> {
+        val own = personal?.completions(prefix, { it in score }, limit).orEmpty()
+        if (own.isEmpty()) return dictionaryCompletions(prefix, limit)
+        val ranked = LinkedHashMap<String, Pair<String, Int>>()
+        for (w in dictionaryCompletions(prefix, limit + 2)) ranked[w.lowercase()] = w to (score[w] ?: if ('\'' in w) CONTRACTION_SCORE else 0)
+        for ((form, s) in own) { val k = form.lowercase(); val was = ranked[k]; ranked[k] = form to maxOf(s, was?.second ?: 0) }
+        return ranked.values.sortedByDescending { it.second }.map { it.first }.take(limit)
+    }
+
+    /** Dictionary words (and their candidates for swipe typing) starting with [first], with their commonness: the person's own words too. */
+    fun wordsStartingWith(first: Char): Sequence<Pair<String, Int>> {
+        val dict = byFirst[first].orEmpty().asSequence().map { it to (score[it] ?: 0) }
+        val own = personal?.activeWords { it in score }.orEmpty().asSequence().filter { it.first.firstOrNull() == first }
+        return dict + own
+    }
+
+    private fun dictionaryCompletions(prefix: String, limit: Int): List<String> {
         if (prefix.isEmpty()) return emptyList()
         // A short prefix matches thousands of words and is typed over and over, so its best few are kept: the next keystroke that
         // reaches the same prefix answers from memory instead of scanning and sorting them all again.
@@ -62,10 +86,13 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
         return out
     }
 
-    /** What most often follows [previous]; the commonest sentence openers when there is no usable previous word. */
-    fun nextWords(previous: String?, limit: Int = 3): List<String> {
+    /** What most often follows [previous]: first what the person themselves usually puts there, then the dictionary's commonest; the
+     * commonest sentence openers when there is no usable previous word.
+     */
+    fun nextWords(previous: String?, limit: Int = 3, previous2: String? = null): List<String> {
+        val mine = personal?.next(previous2, previous, limit).orEmpty()
         val own = previous?.lowercase()?.let { followers[it] }.orEmpty()
-        return (own + STARTERS).distinct().take(limit)
+        return (mine + own + STARTERS).distinctBy { it.lowercase() }.take(limit)
     }
 
     /** Completions of [prefix] with the ones that often follow [previous] put first (and then the ones that follow [previous2]):
@@ -88,9 +115,12 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
      * is fixed too ("i went to hte" is caught by the first rule; "ro the" by this one). [previous2] is the word before that,
      * a cheap trigram signal from the two bigram lists together (no extra dictionary data is needed).
      */
-    fun correction(typed: String, previous: String? = null, previous2: String? = null): String? {
+    fun correction(typed: String, previous: String? = null, previous2: String? = null, touches: List<Pt?>? = null,
+        geometry: KeyGeometry? = null): String? {
         val t = typed.lowercase()
         if (t in INFORMAL) return null
+        // One of the person's own words (a name, a place, their slang) is never corrected.
+        if (t !in score && personal?.knows(t) == true) return null
         // A word already written with its apostrophe is correct: "don't" must never be "fixed" into something else.
         if ('\'' in t && t in CONTRACTION_WORDS) return null
         // Missing apostrophes are the commonest slip and are fixed outright - but only when the bare letters are not a real
@@ -104,22 +134,51 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
         if (t in score) return contextFix(t, follow)
         if (t.length < 2) return null
         val maxCost = when { t.length <= 3 -> 1.0; t.length <= 5 -> 1.7; else -> 2.4 }
-        val buckets = listOfNotNull(byFirst[t[0]], if (t.length > 1) byFirst[t[1]] else null).distinct()
+        // Where each letter was touched, when known: a tap near a key's edge makes the key beside it a cheap reading of it.
+        val spatial: ((Int, Char) -> Double?)? = if (touches != null && geometry != null && geometry.usable && touches.size == t.length)
+            { i, c -> TouchModel.substitutionCost(geometry, touches[i], c, FAR_SUBSTITUTION) } else null
+        val firstLetters = buildSet {
+            add(t[0]); if (t.length > 1) add(t[1])
+            // A first letter that was touched near another key may have been meant for it.
+            if (spatial != null) touches?.firstOrNull()?.let { p -> geometry!!.near(p, .9f).take(4).forEach(::add) }
+        }
+        val own = personal?.activeWords { it in score }.orEmpty()
+        val buckets = firstLetters.mapNotNull { byFirst[it]?.asSequence()?.map { w -> w to (score[w] ?: 0) } } +
+            listOf(own.asSequence().filter { it.first.firstOrNull() in firstLetters })
         var best: String? = null
         var bestValue = Double.NEGATIVE_INFINITY
-        for (bucket in buckets) for (cand in bucket) {
+        for (bucket in buckets) for ((cand, candScore) in bucket) {
             if (abs(cand.length - t.length) > 2) continue
-            val cost = editCost(t, cand, maxCost)
+            val cost = editCost(t, cand, maxCost, spatial)
             if (cost > maxCost) continue
             // Commoner words win, and every bit of edit cost counts against a candidate. A word that often follows the previous one
             // gets a bonus that is larger the nearer the top of that list it is; following both previous words earns a small extra.
             val rank = follow.indexOf(cand)
             val rank2 = follow2.indexOf(cand)
-            val value = (score[cand] ?: 0) / 10.0 - COST_WEIGHT * cost +
+            val value = candScore / 10.0 - COST_WEIGHT * cost +
                 (if (rank >= 0) BIGRAM_BONUS - rank * .4 else 0.0) +
                 (if (rank2 >= 0) TRIGRAM_BONUS - rank2 * .3 else 0.0)
             if (value > bestValue) { bestValue = value; best = cand }
         }
+        // Two words run together ("ofthe"), or a space bar missed for a key just above it ("thisnis"): split, when that reads better.
+        splitFix(t)?.let { (split, value) -> if (value > bestValue) return split }
+        return best
+    }
+
+    /** The best way to read [t] as two common words, with its value on [correction]'s scale, or null when there is none. */
+    private fun splitFix(t: String): Pair<String, Double>? {
+        if (t.length < 4) return null
+        fun ok(w: String) = (w.length >= 2 || w == "a" || w == "i") && (score[w] ?: 0) >= SPLIT_MIN_SCORE
+        fun shown(w: String) = if (w == "i") "I" else w
+        var best: Pair<String, Double>? = null
+        fun consider(a: String, b: String, cost: Double) {
+            if (!ok(a) || !ok(b)) return
+            val bonus = if (followers[a]?.contains(b) == true) BIGRAM_BONUS else 0.0
+            val value = minOf(score[a] ?: 0, score[b] ?: 0) / 10.0 - COST_WEIGHT * cost + bonus
+            if (best == null || value > best!!.second) best = "${shown(a)} ${shown(b)}" to value
+        }
+        for (i in 1 until t.length) consider(t.substring(0, i), t.substring(i), .9)
+        for (i in 1 until t.length - 1) if (t[i] in SPACE_NEIGHBOURS) consider(t.substring(0, i), t.substring(i + 1), .8)
         return best
     }
 
@@ -137,7 +196,8 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
     /** Damerau-Levenshtein distance where a slip to a neighbouring key and a swap of two letters are cheaper than a
      * random change. Returns something greater than [limit] as soon as it cannot finish within it.
      */
-    internal fun editCost(a: String, b: String, limit: Double): Double {
+    internal fun editCost(a: String, b: String, limit: Double, spatial: ((Int, Char) -> Double?)? = null): Double {
+        val neighbours = neighbours
         val n = a.length; val m = b.length
         if (abs(n - m) > limit) return limit + 1
         var prevPrev = DoubleArray(m + 1); var prev = DoubleArray(m + 1) { it.toDouble() }; var cur = DoubleArray(m + 1)
@@ -145,14 +205,15 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
             cur[0] = i.toDouble()
             var rowMin = cur[0]
             for (j in 1..m) {
-                val sub = if (a[i - 1] == b[j - 1]) 0.0 else if (NEIGHBOURS[a[i - 1]]?.contains(b[j - 1]) == true) 0.6 else FAR_SUBSTITUTION
+                val sub = if (a[i - 1] == b[j - 1]) 0.0 else spatial?.invoke(i - 1, b[j - 1])
+                    ?: if (neighbours[a[i - 1]]?.contains(b[j - 1]) == true) 0.6 else FAR_SUBSTITUTION
                 // A letter missing from the typed word that doubles one next to it ("helo" for "hello") is the commonest
                 // slip of all, so it costs less than a missing letter elsewhere.
                 val missing = if ((j >= 2 && b[j - 1] == b[j - 2]) || (j < m && b[j - 1] == b[j])) 0.5 else 1.0
                 // A letter typed that was not meant: a finger that touched two keys at once (it sits next to the letter before or after it)
                 // or a doubled letter is a likelier slip than any other extra letter.
                 val extra = if (a[i - 1] == a.getOrNull(i - 2) || a[i - 1] == a.getOrNull(i)) .5
-                    else if ((i > 1 && NEIGHBOURS[a[i - 1]]?.contains(a[i - 2]) == true) || (i < n && NEIGHBOURS[a[i - 1]]?.contains(a[i]) == true)) .6
+                    else if ((i > 1 && neighbours[a[i - 1]]?.contains(a[i - 2]) == true) || (i < n && neighbours[a[i - 1]]?.contains(a[i]) == true)) .6
                     else 1.0
                 var v = min(min(prev[j] + extra, cur[j - 1] + missing), prev[j - 1] + sub)
                 if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) v = min(v, prevPrev[j - 2] + 0.8)
@@ -173,6 +234,10 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
         private const val TRIGRAM_BONUS = 1.2
         /** How much commoner (in score points, tenths of a log) a word must be to replace a real word that does not fit the sentence. */
         private const val REAL_WORD_GAP = 35
+        /** How common (in score points) both halves of a split must be: everyday words only, so a rare word is never cut in two. */
+        private const val SPLIT_MIN_SCORE = 150
+        /** The keys just above the space bar, which a thumb aiming for it can catch instead. */
+        private const val SPACE_NEIGHBOURS = "cvbnm"
         private const val CACHED_PREFIX = 3
         private const val CACHED_LIMIT = 4
         /** Swapping a letter for one far away on the keyboard is a less likely slip than leaving a letter out, so it costs more. */

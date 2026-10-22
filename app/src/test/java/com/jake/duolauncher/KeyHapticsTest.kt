@@ -12,7 +12,7 @@ class KeyHapticsTest {
         HapticKind.entries.forEach { k ->
             val p = HapticProfile.plan(k, HapticProfile.DEFAULT_STRENGTH)!!
             assertTrue("$k", p.scale in .06f..1f)
-            if (k != HapticKind.CURSOR && k != HapticKind.DELETE_REPEAT && k != HapticKind.PREVIEW) assertTrue("$k not lighter than letters", p.scale >= letter.scale)
+            if (k !in setOf(HapticKind.CURSOR, HapticKind.DELETE_REPEAT, HapticKind.PREVIEW, HapticKind.SWIPE_KEY, HapticKind.AUTOCORRECT)) assertTrue("$k not lighter than letters", p.scale >= letter.scale)
         }
         assertTrue(HapticProfile.plan(HapticKind.DELETE_REPEAT, .6f)!!.scale < HapticProfile.plan(HapticKind.DELETE, .6f)!!.scale)
         assertTrue(HapticProfile.plan(HapticKind.RETURN, .6f)!!.scale >= HapticProfile.plan(HapticKind.LETTER, .6f)!!.scale)

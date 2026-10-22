@@ -53,12 +53,11 @@
     <string name="uno_keyboard">Uno Keyboard</string>
     <string name="turn_on_uno_keyboard">Turn on Uno Keyboard</string>
     <string name="switch_to_uno_keyboard">Switch to Uno Keyboard</string>
-    <string name="suggestions_use_a_fixed_word_list">Suggestions use a fixed word list. Nothing you type is learned or stored.</string>
     <string name="key_haptics">Key haptics</string>
     <string name="feel_it">Feel it</string>
     <string name="a_light_tick_on_touch_down">A light tick on touch-down, firmer for the space bar and Return, lighter again for held delete and cursor sliding. It follows Android\'s touch-feedback setting and the Haptics switch below.</string>
     <string name="one_handed_keyboard">One-handed keyboard</string>
-    <string name="a_glass_styled_keyboard_with_key">A glass-styled keyboard with key previews, accents on long-press, caps lock, a numbers page and a field-aware Return key. It is strictly local: nothing you type is stored, learned, logged or sent, and its code contains no network access (a test enforces that). Suggestions and autocorrect use a word list bundled in the app (English only); they never learn from what you type, never save a word, and switch themselves off in password, email, web address, name and number fields. Backspace right after a correction undoes it, and that word is left alone for the session. There is no swipe typing yet.</string>
+    <string name="a_glass_styled_keyboard_with_key">A liquid-glass keyboard with swipe typing, autocorrect that knows where you touched, predictions that learn your words, emoji suggestions and search, clipboard history, text editing, autofill from your password manager and 17 layouts. Everything happens on this phone: its code contains no network access (a test enforces that), and nothing it keeps ever leaves the phone. Backspace right after a correction undoes it, and teaches the keyboard that word.</string>
     <string name="feel_and_sound">Feel and sound</string>
     <string name="haptics_tick_on_page_changes_sliders">Haptics tick on page changes, sliders, the stack rail and the control panel. Sounds are Android\'s own touch sounds: no audio files are bundled, they follow your system Touch sounds setting and volume, and they stay silent in silent mode. Sounds are off by default.</string>
     <string name="pulling_down_on_home">Pulling down on Home</string>
@@ -175,7 +174,7 @@
 
     <!-- SetupExperience.kt -->
     <string name="welcome_to_uno_launcher">Welcome to Uno Launcher</string>
-    <string name="a_quiet_home_screen_built_for">A quiet Home screen with liquid glass, a Dynamic island and a keyboard that keeps what you type to itself.</string>
+    <string name="a_quiet_home_screen_built_for">A quiet Home screen with liquid glass, a Dynamic island and a keyboard that keeps what you type on your phone.</string>
     <string name="choose_home_app">Choose Home app</string>
     <string name="add_a_widget">Add a widget</string>
     <string name="explore_home">Explore Home</string>
@@ -269,6 +268,51 @@
 
     <!-- keyboard/KeyboardUi.kt -->
     <string name="abc">ABC</string>
+    <string name="kb_space">space</string>
+    <string name="kb_cursor">←  cursor  →</string>
+    <string name="kb_done">Done</string>
+    <string name="kb_search_emoji">Search emoji</string>
+    <string name="kb_clipboard">Clipboard</string>
+    <string name="kb_clear_recent">Clear recent</string>
+    <string name="kb_clipboard_empty">Copy something and it shows up here. Copies stay for an hour; pin one to keep it.</string>
+    <string name="kb_start">Start</string>
+    <string name="kb_end">End</string>
+    <string name="kb_select">Select</string>
+    <string name="kb_select_all">Select all</string>
+    <string name="kb_copy">Copy</string>
+    <string name="kb_cut">Cut</string>
+    <string name="kb_paste">Paste</string>
+    <string name="kb_undo">Undo</string>
+    <string name="kb_redo">Redo</string>
+    <string name="kb_other_keyboards">Other keyboards…</string>
+
+    <!-- ExtrasSettings.kt: keyboard -->
+    <string name="kb_try_it">Try it: type on the keyboard below. It types here, not into any app.</string>
+    <string name="kb_try_placeholder">Your words appear here</string>
+    <string name="kb_group_typing">Typing</string>
+    <string name="kb_group_smarts">Smarts</string>
+    <string name="kb_group_look">Look and feel</string>
+    <string name="kb_group_layouts">Layouts</string>
+    <string name="kb_group_privacy">What it keeps</string>
+    <string name="kb_layouts_note">Turn on the layouts you type in. With more than one, the globe key goes round them and holding it opens Android\'s keyboard list. Autocorrect, completions and swipe typing use the English word list, so they work on the English layouts; on the others the keyboard suggests the words it has learned from you.</string>
+    <string name="kb_height">Keyboard height</string>
+    <string name="kb_style">Key style</string>
+    <string name="kb_style_glass">Liquid glass</string>
+    <string name="kb_style_glass_note">Translucent glass keys on a frosted panel, with a springy press</string>
+    <string name="kb_style_classic">Classic (Uno 0.97)</string>
+    <string name="kb_style_classic_note">The flat look of earlier versions. Everything new still works.</string>
+    <string name="kb_haptic_feel">Feel</string>
+    <string name="kb_feel_soft">Soft</string>
+    <string name="kb_feel_crisp">Crisp</string>
+    <string name="kb_feel_firm">Firm</string>
+    <string name="kb_learn_note">Learned words stay on this phone, in storage no backup or settings export includes. Nothing is learned in password, email, web address or number fields, or in fields that ask keyboards not to learn, such as incognito tabs.</string>
+    <string name="kb_your_words">Your words</string>
+    <string name="kb_no_words">None yet. Words you type that the dictionary lacks show up here after you use them twice.</string>
+    <string name="kb_add_word">Add a word</string>
+    <string name="kb_add">Add</string>
+    <string name="kb_forget_everything">Forget everything learned</string>
+    <string name="kb_forgotten">Forgotten. The keyboard starts fresh.</string>
+    <string name="kb_clip_note">Recent copies are kept in memory for an hour; only clips you pin are saved. Copies Android marks as sensitive, such as passwords from a password manager, are never added.</string>
 
     <!-- panel/ControlPanel.kt -->
     <string name="allow_brightness_control">Allow brightness control</string>
@@ -378,10 +422,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">The island settings show a live island at the top: change a setting and watch it play there first, or tap a situation (music, a Live Update, three activities, a notification) to see it.</string>
-    <string name="whats_new_2">The island page is grouped into what the island is, how it looks and moves, what shows in it, and new notifications, which moved here from Privacy.</string>
-    <string name="whats_new_3">Wallpaper: drag and pinch a photo into place and adjust its brightness, blur, colour and warmth, all in a preview, before you tap Apply. An applied photo can be adjusted again.</string>
-    <string name="whats_new_4">Built-in backgrounds are previewed too: tap one to see it on your Home screen, then Apply or Cancel.</string>
+    <string name="whats_new_1">Uno Keyboard is liquid glass now, blurring the app behind it, with a live preview in its settings. Prefer the old look? Key style › Classic keeps everything new.</string>
+    <string name="whats_new_2">Swipe to type, autocorrect that knows where you touched, emoji suggestions and search, and predictions that learn your words, kept only on this phone.</string>
+    <string name="whats_new_3">Clipboard history with pinned clips, a text-editing panel, 17 layouts, keyboard height, and autofill chips from your password manager.</string>
+    <string name="whats_new_4">Key haptics with a feel: Soft, Crisp or Firm, with their own cues for a correction, caps lock and swiping.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

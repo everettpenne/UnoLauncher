@@ -105,7 +105,7 @@ internal fun LauncherScreen(
     state: LauncherState, model: LauncherModel, widgets: WidgetController, homeRequests: Int,
     onLaunch: (AppEntry) -> Unit, onMakeDefault: () -> Unit, onAppInfo: (AppEntry) -> Unit,
     isDefaultHome: Boolean, deviceStatus: DeviceStatus, onStatusMode: (Boolean) -> Unit, onWallpaperPreview: () -> Unit,
-    onDiscover: () -> Unit = {}, searchRequests: Int = 0, customizeRequests: Int = 0,
+    onDiscover: () -> Unit = {}, searchRequests: Int = 0, customizeRequests: Int = 0, keyboardSettingsRequests: Int = 0,
     onLaunchFrom: (AppEntry, android.graphics.Rect?) -> Unit = { app, _ -> onLaunch(app) },
     onGoogleSearch: (android.graphics.Rect?) -> Boolean = { false },
     appearance: AppearanceState = AppearanceState(),
@@ -342,6 +342,7 @@ internal fun LauncherScreen(
         pager.animateScrollToPage(page)
     } }
     LaunchedEffect(customizeRequests) { if (customizeRequests > 0) { island.collapse(); customizationPage = CustomizationPage.OVERVIEW; sheet = "settings" } }
+    LaunchedEffect(keyboardSettingsRequests) { if (keyboardSettingsRequests > 0) { island.collapse(); customizationPage = CustomizationPage.KEYBOARD; sheet = "settings" } }
     LaunchedEffect(searchRequests) { if (searchRequests > 0) { drag.clear(); widgetSession = null; resizeSlot = null; sheet = ""; widgetPackage = null; widgetExactTarget = false; selectedId = null
         if (!state.googleSearch || !onGoogleSearch(null)) pager.animateScrollToPage(homePages)
     } }

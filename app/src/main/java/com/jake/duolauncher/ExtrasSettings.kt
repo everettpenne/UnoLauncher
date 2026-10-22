@@ -62,36 +62,7 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("keyboard-enable")) { Text(stringResource(com.jake.duolauncher.R.string.turn_on_uno_keyboard)) }
     else if (keyboardSelected != true) GlassButton(onClick = { keyboardContext.getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.showInputMethodPicker() },
         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("keyboard-switch")) { Text(stringResource(com.jake.duolauncher.R.string.switch_to_uno_keyboard)) }
-    Text(stringResource(com.jake.duolauncher.R.string.suggestions_use_a_fixed_word_list), style = note, color = muted)
-    SettingsSwitch("Suggestions", s.kbSuggestions, store::setKbSuggestions, "kb-suggestions-switch")
-    SettingsSwitch("Autocorrect", s.kbAutocorrect, store::setKbAutocorrect, "kb-autocorrect-switch")
-    SettingsSwitch("Number row", s.kbNumberRow, store::setKbNumberRow, "kb-number-row-switch")
-    SettingsSwitch("Double-space to type a period", s.kbDoubleSpace, store::setKbDoubleSpace, "kb-double-space-switch")
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(com.jake.duolauncher.R.string.key_haptics), Modifier.weight(1f))
-        Text(if (s.kbHapticStrength <= .01f) "Off" else "${(s.kbHapticStrength * 100).toInt()}%", color = muted)
-    }
-    LiquidSliderControl(s.kbHapticStrength, 0f..1f, { value ->
-        store.setKbHapticStrength(value)
-        com.jake.duolauncher.keyboard.KeyHaptics.configure(keyboardContext, if (s.haptics) value else 0f)
-    }, LocalPageGlass.current, Modifier.testTag("kb-haptic-slider"))
-    GlassButton(onClick = {
-        // A short run of what typing feels like, so you can set the strength without opening a text field.
-        com.jake.duolauncher.keyboard.KeyHaptics.configure(keyboardContext, if (s.haptics) s.kbHapticStrength else 0f)
-        val kinds = listOf(com.jake.duolauncher.keyboard.HapticKind.LETTER, com.jake.duolauncher.keyboard.HapticKind.LETTER,
-            com.jake.duolauncher.keyboard.HapticKind.SPACE, com.jake.duolauncher.keyboard.HapticKind.DELETE, com.jake.duolauncher.keyboard.HapticKind.RETURN)
-        val h = android.os.Handler(android.os.Looper.getMainLooper())
-        kinds.forEachIndexed { i, k -> h.postDelayed({ com.jake.duolauncher.keyboard.KeyHaptics.fire(k) }, i * 140L) }
-    }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("kb-haptic-try")) { Text(stringResource(com.jake.duolauncher.R.string.feel_it)) }
-    Text(stringResource(com.jake.duolauncher.R.string.a_light_tick_on_touch_down),
-        style = note, color = muted)
-    SettingsSwitch("Slide on space bar to move the cursor", s.kbSpaceCursor, store::setKbSpaceCursor, "kb-space-cursor-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.one_handed_keyboard), style = MaterialTheme.typography.bodyLarge)
-    ChoiceRow("Off", "The keys use the full width", s.kbOneHanded == 0, "kb-one-handed-off") { store.setKbOneHanded(0) }
-    ChoiceRow("Left", "The keys sit against the left edge, a little narrower", s.kbOneHanded == 1, "kb-one-handed-left") { store.setKbOneHanded(1) }
-    ChoiceRow("Right", "The keys sit against the right edge, a little narrower", s.kbOneHanded == 2, "kb-one-handed-right") { store.setKbOneHanded(2) }
-    Text(stringResource(com.jake.duolauncher.R.string.a_glass_styled_keyboard_with_key),
-        style = note, color = muted)
+    KeyboardSettingsBody(store, s, keyboardContext)
     }
 
     if (section == ExtrasSection.GESTURES) {
@@ -462,4 +433,144 @@ private fun IconPackSettings(selected: String, onSelect: (String) -> Unit) {
     }
     Text(stringResource(com.jake.duolauncher.R.string.icon_pack_note), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** The keyboard page below its on/off status: a live keyboard to see and feel each change, then the settings in four groups. */
+@Composable
+private fun KeyboardSettingsBody(store: ExtrasStore, s: ExtrasState, keyboardContext: android.content.Context) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val note = MaterialTheme.typography.bodySmall
+    val group = MaterialTheme.typography.titleSmall
+    fun haptics(strength: Float = s.kbHapticStrength, feel: Int = s.kbHapticFeel) =
+        com.jake.duolauncher.keyboard.KeyHaptics.configure(keyboardContext, if (s.haptics) strength else 0f, feel)
+    LaunchedEffect(s.haptics, s.kbHapticStrength, s.kbHapticFeel) { haptics() }
+
+    com.jake.duolauncher.keyboard.KeyboardSettingsPreview(com.jake.duolauncher.keyboard.KeyboardLook(s.kbLayouts, s.kbHeight, s.kbNumberRow, s.kbEmojiKey,
+        s.kbKeyPreview, s.kbGlass, s.kbOneHanded, s.kbSpaceCursor, classic = s.kbStyle == 1), Modifier.fillMaxWidth())
+
+    Text(stringResource(R.string.kb_group_typing), style = group)
+    SettingsSwitch("Suggestions", s.kbSuggestions, store::setKbSuggestions, "kb-suggestions-switch")
+    SettingsSwitch("Autocorrect", s.kbAutocorrect, store::setKbAutocorrect, "kb-autocorrect-switch")
+    SettingsSwitch("Swipe to type", s.kbSwipe, store::setKbSwipe, "kb-swipe-switch")
+    SettingsSwitch("Capitalize sentences", s.kbAutoCaps, store::setKbAutoCaps, "kb-auto-caps-switch")
+    SettingsSwitch("Double-space to type a period", s.kbDoubleSpace, store::setKbDoubleSpace, "kb-double-space-switch")
+    SettingsSwitch("Slide on space bar to move the cursor", s.kbSpaceCursor, store::setKbSpaceCursor, "kb-space-cursor-switch")
+
+    Text(stringResource(R.string.kb_group_smarts), style = group)
+    SettingsSwitch("Learn my words", s.kbLearn, store::setKbLearn, "kb-learn-switch")
+    SettingsSwitch("Emoji suggestions", s.kbEmojiSuggestions, store::setKbEmojiSuggestions, "kb-emoji-suggestions-switch")
+    SettingsSwitch("Clipboard history", s.kbClipHistory, store::setKbClipHistory, "kb-clip-history-switch")
+    Text(stringResource(R.string.kb_learn_note), style = note, color = muted)
+    Text(stringResource(R.string.kb_clip_note), style = note, color = muted)
+    PersonalWords(s.kbLearn)
+
+    Text(stringResource(R.string.kb_group_look), style = group)
+    Text(stringResource(R.string.kb_style), style = MaterialTheme.typography.bodyLarge)
+    ChoiceRow(stringResource(R.string.kb_style_glass), stringResource(R.string.kb_style_glass_note), s.kbStyle == 0, "kb-style-glass") { store.setKbStyle(0) }
+    ChoiceRow(stringResource(R.string.kb_style_classic), stringResource(R.string.kb_style_classic_note), s.kbStyle == 1, "kb-style-classic") { store.setKbStyle(1) }
+    if (s.kbStyle == 0) SettingsSwitch("See-through glass", s.kbGlass, store::setKbGlass, "kb-glass-switch")
+    SettingsSwitch("Number row", s.kbNumberRow, store::setKbNumberRow, "kb-number-row-switch")
+    SettingsSwitch("Emoji key", s.kbEmojiKey, store::setKbEmojiKey, "kb-emoji-key-switch")
+    SettingsSwitch("Magnify keys as you type", s.kbKeyPreview, store::setKbKeyPreview, "kb-key-preview-switch")
+    SettingsSwitch("Key sounds", s.kbSound, store::setKbSound, "kb-sound-switch")
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.kb_height), Modifier.weight(1f))
+        Text("${(s.kbHeight * 100).toInt()}%", color = muted)
+    }
+    LiquidSliderControl(s.kbHeight, .8f..1.3f, { store.setKbHeight(it) }, LocalPageGlass.current, Modifier.testTag("kb-height-slider"))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.key_haptics), Modifier.weight(1f))
+        Text(if (s.kbHapticStrength <= .01f) "Off" else "${(s.kbHapticStrength * 100).toInt()}%", color = muted)
+    }
+    LiquidSliderControl(s.kbHapticStrength, 0f..1f, { value -> store.setKbHapticStrength(value); haptics(strength = value) },
+        LocalPageGlass.current, Modifier.testTag("kb-haptic-slider"))
+    Text(stringResource(R.string.kb_haptic_feel), style = MaterialTheme.typography.bodyLarge)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(R.string.kb_feel_soft, R.string.kb_feel_crisp, R.string.kb_feel_firm).forEachIndexed { i, label ->
+            val on = s.kbHapticFeel == i
+            GlassButton(onClick = {
+                // Choosing a feel plays it, so the choice is felt at once.
+                store.setKbHapticFeel(i); haptics(feel = i)
+                val h = android.os.Handler(android.os.Looper.getMainLooper())
+                listOf(com.jake.duolauncher.keyboard.HapticKind.LETTER, com.jake.duolauncher.keyboard.HapticKind.LETTER, com.jake.duolauncher.keyboard.HapticKind.SPACE)
+                    .forEachIndexed { n, k -> h.postDelayed({ com.jake.duolauncher.keyboard.KeyHaptics.fire(k) }, 60L + n * 130L) }
+            }, Modifier.weight(1f).heightIn(min = 44.dp).testTag("kb-feel-$i")) {
+                Text(stringResource(label) + if (on) " ✓" else "")
+            }
+        }
+    }
+    GlassButton(onClick = {
+        // A short run of what typing feels like, so you can set the strength without opening a text field.
+        haptics()
+        val kinds = listOf(com.jake.duolauncher.keyboard.HapticKind.LETTER, com.jake.duolauncher.keyboard.HapticKind.LETTER,
+            com.jake.duolauncher.keyboard.HapticKind.SPACE, com.jake.duolauncher.keyboard.HapticKind.AUTOCORRECT, com.jake.duolauncher.keyboard.HapticKind.DELETE,
+            com.jake.duolauncher.keyboard.HapticKind.SHIFT_LOCK, com.jake.duolauncher.keyboard.HapticKind.RETURN)
+        val h = android.os.Handler(android.os.Looper.getMainLooper())
+        kinds.forEachIndexed { i, k -> h.postDelayed({ com.jake.duolauncher.keyboard.KeyHaptics.fire(k) }, i * 150L) }
+    }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("kb-haptic-try")) { Text(stringResource(R.string.feel_it)) }
+    Text(stringResource(R.string.a_light_tick_on_touch_down), style = note, color = muted)
+    Text(stringResource(R.string.one_handed_keyboard), style = MaterialTheme.typography.bodyLarge)
+    ChoiceRow("Off", "The keys use the full width", s.kbOneHanded == 0, "kb-one-handed-off") { store.setKbOneHanded(0) }
+    ChoiceRow("Left", "The keys sit against the left edge, a little narrower", s.kbOneHanded == 1, "kb-one-handed-left") { store.setKbOneHanded(1) }
+    ChoiceRow("Right", "The keys sit against the right edge, a little narrower", s.kbOneHanded == 2, "kb-one-handed-right") { store.setKbOneHanded(2) }
+
+    Text(stringResource(R.string.kb_group_layouts), style = group)
+    Text(stringResource(R.string.kb_layouts_note), style = note, color = muted)
+    val on = com.jake.duolauncher.keyboard.KeyLayouts.parse(s.kbLayouts).map { it.id }
+    com.jake.duolauncher.keyboard.KeyLayouts.ALL.forEach { layout ->
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Corner.small)
+            .toggleable(value = layout.id in on, role = androidx.compose.ui.semantics.Role.Checkbox) { store.toggleKbLayout(layout.id) }
+            .testTag("kb-layout-${layout.id}"), verticalAlignment = Alignment.CenterVertically) {
+            GlassCheckbox(layout.id in on, null)
+            Column(Modifier.padding(start = 8.dp)) {
+                Text(layout.name)
+                Text(layout.rows.first().uppercase(), style = note, color = muted)
+            }
+        }
+    }
+
+    Text(stringResource(R.string.a_glass_styled_keyboard_with_key), style = note, color = muted)
+}
+
+/** The words the keyboard has learned: each can be forgotten, one can be added, and everything can be forgotten at once. */
+@Composable
+private fun PersonalWords(learning: Boolean) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var version by remember { mutableIntStateOf(0) }
+    var loaded by remember { mutableStateOf(com.jake.duolauncher.keyboard.PersonalStore.loaded) }
+    LaunchedEffect(Unit) {
+        if (!loaded) com.jake.duolauncher.keyboard.PersonalStore.load(context) { android.os.Handler(android.os.Looper.getMainLooper()).post { loaded = true } }
+    }
+    val words = remember(version, loaded) { com.jake.duolauncher.keyboard.PersonalStore.model.list() }
+    var open by rememberSaveable { mutableStateOf(false) }
+    var draft by rememberSaveable { mutableStateOf("") }
+    var forgotten by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Corner.small).clickable { open = !open }.testTag("kb-your-words"),
+        verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.kb_your_words), Modifier.weight(1f))
+        Text("${words.size}", color = muted)
+        Icon(if (open) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, null, tint = muted)
+    }
+    if (open) {
+        if (words.isEmpty()) Text(stringResource(R.string.kb_no_words), style = MaterialTheme.typography.bodySmall, color = muted)
+        words.take(200).forEach { w ->
+            Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(w, Modifier.weight(1f))
+                IconButton(onClick = { com.jake.duolauncher.keyboard.PersonalStore.model.forget(w); com.jake.duolauncher.keyboard.PersonalStore.saveSoon(); version++ },
+                    modifier = Modifier.testTag("kb-forget-$w")) { Icon(Icons.Rounded.Close, "Forget $w", tint = muted) }
+            }
+        }
+        if (learning) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GlassField(draft, { draft = it }, Modifier.weight(1f).testTag("kb-add-word"), minLines = 1, maxLines = 1,
+                placeholder = { Text(stringResource(R.string.kb_add_word)) })
+            GlassButton(onClick = {
+                com.jake.duolauncher.keyboard.PersonalStore.model.add(draft, (System.currentTimeMillis() / 86_400_000L).toInt())
+                com.jake.duolauncher.keyboard.PersonalStore.saveSoon(); draft = ""; version++
+            }, Modifier.heightIn(min = 48.dp).testTag("kb-add-word-button")) { Text(stringResource(R.string.kb_add)) }
+        }
+    }
+    GlassButton(onClick = { com.jake.duolauncher.keyboard.PersonalStore.forgetEverything(); forgotten = true; version++ },
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("kb-forget-everything")) { Text(stringResource(R.string.kb_forget_everything)) }
+    if (forgotten) Text(stringResource(R.string.kb_forgotten), style = MaterialTheme.typography.bodySmall, color = muted)
 }

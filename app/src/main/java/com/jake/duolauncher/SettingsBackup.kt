@@ -47,7 +47,7 @@ internal object SettingsBackup {
      * and the later getFloat threw ClassCastException at startup. These are always written as floats.
      */
     private val FLOAT_KEYS = mapOf(
-        EXTRAS to setOf("kbHapticStrength"),
+        EXTRAS to setOf("kbHapticStrength", "kbHeight"),
         APPEARANCE to setOf("refraction", "refractionHeight", "refractionAmount", "refractionChroma", "tiltStrength", "islandScale"),
     )
     fun isFloatKey(file: String, key: String) = key in FLOAT_KEYS[file].orEmpty()

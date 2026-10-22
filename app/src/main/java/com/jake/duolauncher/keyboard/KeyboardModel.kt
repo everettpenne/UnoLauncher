@@ -78,33 +78,33 @@ internal object KeyboardModel {
     fun allowsAutocorrect(inputType: Int): Boolean =
         allowsSuggestions(inputType) && (inputType and TYPE_MASK_VARIATION) !in NO_AUTOCORRECT_VARIATIONS
 
-    private val letterRows = listOf("qwertyuiop", "asdfghjkl", "zxcvbnm")
     private val numberRows = listOf("1234567890", "-/:;()$&@\"", ".,?!'")
     private val symbolRows = listOf("[]{}#%^*+=", "_\\|~<>€£¥•", ".,?!'")
 
     private fun chars(s: String, upper: Boolean = false) = s.map { Key.Char(if (upper) it.uppercase() else it.toString()) }
 
-    /** The four rows for [page]. Letters uppercase while shift is on. */
-    fun rows(page: KeyPage, shift: ShiftState, numberRow: Boolean = false, globe: Boolean = true): List<List<Key>> =
+    /** The rows for [page] on [layout]: an optional number row, three rows of keys and the bottom row. Letters are upper case while shift is on. */
+    fun rows(page: KeyPage, shift: ShiftState, numberRow: Boolean = false, globe: Boolean = true, layout: KeyLayout = KeyLayouts.QWERTY,
+        emojiKey: Boolean = true): List<List<Key>> =
         if (page == KeyPage.EMOJI) emptyList() else (if (numberRow && page == KeyPage.LETTERS) listOf(chars("1234567890")) else emptyList()) + when (page) {
         KeyPage.LETTERS -> {
             val up = shift != ShiftState.OFF
-            listOf(chars(letterRows[0], up), chars(letterRows[1], up),
-                listOf<Key>(Key.Shift) + chars(letterRows[2], up) + Key.Backspace)
+            val r = layout.rows
+            listOf(chars(r[0], up), chars(r[1], up), listOf<Key>(Key.Shift) + chars(r[2], up) + Key.Backspace)
         }
         KeyPage.NUMBERS -> listOf(chars(numberRows[0]), chars(numberRows[1]),
             listOf<Key>(Key.Page(KeyPage.SYMBOLS, "#+=")) + chars(numberRows[2]) + Key.Backspace)
         KeyPage.SYMBOLS -> listOf(chars(symbolRows[0]), chars(symbolRows[1]),
             listOf<Key>(Key.Page(KeyPage.NUMBERS, "123")) + chars(symbolRows[2]) + Key.Backspace)
         KeyPage.EMOJI -> emptyList()
-    } + listOf(bottomRow(page, globe))
+    } + listOf(bottomRow(page, globe, emojiKey))
 
-    /** The bottom row: the page key, the emoji key, the keyboard switcher only when Android says there is another keyboard to
-     * switch to (a globe that goes nowhere is just a dead key), the space bar and Return.
+    /** The bottom row: the page key, the emoji key (unless turned off), the switcher only when there is somewhere to switch to (another
+     * layout or another keyboard: a globe that goes nowhere is just a dead key), the space bar and Return.
      */
-    fun bottomRow(page: KeyPage, globe: Boolean): List<Key> = listOfNotNull(
+    fun bottomRow(page: KeyPage, globe: Boolean, emojiKey: Boolean = true): List<Key> = listOfNotNull(
         if (page == KeyPage.LETTERS) Key.Page(KeyPage.NUMBERS, "123") else Key.Page(KeyPage.LETTERS, "ABC"),
-        Key.Emoji, if (globe) Key.Globe else null, Key.Space, Key.Enter)
+        if (emojiKey) Key.Emoji else null, if (globe) Key.Globe else null, Key.Space, Key.Enter)
 
     /** Shift after tapping the shift key: off to once to locked and back. A quick second tap locks caps. */
     fun tapShift(state: ShiftState, doubleTap: Boolean): ShiftState = when {
@@ -208,9 +208,11 @@ internal object KeyboardModel {
         "i" to listOf("ì", "í", "î", "ï"), "o" to listOf("ò", "ó", "ô", "ö", "õ", "ø", "œ"),
         "u" to listOf("ù", "ú", "û", "ü"), "c" to listOf("ç", "ć", "č"), "n" to listOf("ñ", "ń"),
         "s" to listOf("ß", "ś", "š"), "y" to listOf("ý", "ÿ"), "z" to listOf("ž", "ź", "ż"),
-        "l" to listOf("ł"), "d" to listOf("ð"), "t" to listOf("þ"),
+        "l" to listOf("ł"), "d" to listOf("ð"), "t" to listOf("þ"), "g" to listOf("ğ"),
+        // Letters the Cyrillic layouts keep behind a long-press, as their phone keyboards do.
+        "е" to listOf("ё"), "ь" to listOf("ъ"), "г" to listOf("ґ"), "і" to listOf("ї"), "и" to listOf("й"),
         // Symbols and digits, as on iOS.
-        "-" to listOf("–", "—", "•"), "/" to listOf("\\"), "." to listOf("…"), "?" to listOf("¿"), "!" to listOf("¡"),
+        "-" to listOf("–", "—", "•"), "/" to listOf("\\"), "." to listOf("…", "!", "?", "'"), "?" to listOf("¿"), "!" to listOf("¡"),
         "'" to listOf("‘", "’", "`"), "\"" to listOf("“", "”", "„", "«", "»"), "$" to listOf("¢", "€", "£", "¥", "₹"),
         "&" to listOf("§"), "%" to listOf("‰"), "0" to listOf("°"), "=" to listOf("≠", "≈"), "+" to listOf("±"),
         "<" to listOf("≤", "«"), ">" to listOf("≥", "»"), "(" to listOf("[", "{"), ")" to listOf("]", "}"),

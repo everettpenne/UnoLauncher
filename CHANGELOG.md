@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.98.0-uno01
+
+- **Uno Keyboard, rebuilt.** A liquid-glass look: on phones that allow it the keyboard's window blurs the app behind it, and the keys are translucent glass with a bright top edge and a springy press. **Key style** in its settings switches back to the flat look of 0.97, with everything new still working. A live keyboard at the top of its settings shows each change (height, layout, keys, style) and can be typed on.
+- **Smarter typing.** Swipe typing. Autocorrect that uses where each key was actually touched, splits words run together ("ofthe") and puts back a correction with one tap. Predictions and completions that learn your words, how you capitalise them and what you put after what. Emoji suggestions for the word you type, emoji search and skin tones. A full stop or comma after a picked word takes the space's place.
+- **What it learns stays on the phone.** Learned words, pinned clips and recent emoji are kept in no-backup storage, written by one file that a test holds to that; nothing is learned in password, email, address or number fields or incognito tabs. Learning can be turned off, words removed or added, and everything forgotten from Settings. The keyboard's code still has no network access.
+- **Fossify Keyboard's features.** Clipboard history (copies stay an hour, pinned clips are kept, copies marked sensitive are skipped), 17 layouts (QWERTY, Dvorak, Colemak, Colemak-DH, Workman, QWERTZ, AZERTY, Spanish, Portuguese, Italian, Nordic, Turkish, Polish, Russian, Ukrainian, Greek) with the globe key going round them, keyboard height, key sounds, an optional emoji key and key magnifier, and digits on the top row's long-press. Plus a tools row with a text-editing panel, a voice-typing button when a voice keyboard is installed, and autofill chips from your password manager.
+- **Haptics with a feel.** Soft, Crisp or Firm, and new cues for a correction, caps lock, Delete taking whole words and a swipe crossing keys.
+
 ## 0.97.0-uno01
 
 - **A live island in its settings.** The island page keeps a small copy of the island above its settings, drawn with the island's real geometry for this phone's camera, its theme and its springs. A setting that changes how the island looks or behaves plays its effect there as it is changed: the size slider, Off / Wide / Extra wide (music), the compact Live Update text, camera and microphone indicators, app shortcuts (the open island), what a notification card shows and its buttons, and every style choice (colours replay the scene; a new panel or button shape opens it; a new motion replays the movement). Chips under the preview show any situation again: idle, music, a Live Update, three activities, a notification, the camera in use, or open.

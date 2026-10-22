@@ -13,7 +13,10 @@ internal data class WordContext(
     val atSentenceStart: Boolean,
 )
 
-internal enum class SuggestionKind { TYPED, CORRECTION, COMPLETION, NEXT }
+/** What a slot in the strip holds: the word as typed, the correction the space bar will make, a completion, a likely next word, an emoji
+ * for the word, the word an autocorrection replaced (to put it back), another reading of a swipe, or the latest thing copied.
+ */
+internal enum class SuggestionKind { TYPED, CORRECTION, COMPLETION, NEXT, EMOJI, REVERT, GESTURE, CLIP }
 
 internal data class Suggestion(val text: String, val kind: SuggestionKind)
 
@@ -59,10 +62,17 @@ internal object Suggest {
      * has undone a correction of this session. [capitalise] puts a capital on the word where one belongs (a sentence start in
      * a field with sentence capitalisation), even when it was typed in lower case.
      */
-    fun autocorrect(engine: WordEngine, ctx: WordContext, ignored: Set<String>, capitalise: Boolean = false): String? {
+    fun autocorrect(engine: WordEngine, ctx: WordContext, ignored: Set<String>, capitalise: Boolean = false, touches: List<Pt?>? = null,
+        geometry: KeyGeometry? = null): String? {
         val typed = ctx.current
         if (!ctx.plainWord || typed.isEmpty()) return null
         if (typed.lowercase() in ignored) return null
+        // A learned word written with its own capitals ("Everett", "iPhone") gets them back when typed in lower case.
+        // Never for a dictionary word: "Will" typed as a name must not capitalise every "will".
+        if (typed.none { it.isUpperCase() } && !engine.inDictionary(typed)) engine.personal?.formOf(typed)?.let { form ->
+            val cased = if (capitalise) form.replaceFirstChar { it.uppercase() } else form
+            return cased.takeIf { it != typed }
+        }
         // Names and brands like "iPhone" or "McDonald" and acronyms typed deliberately are left alone; plain Title or ALL CAPS get fixed.
         val interior = typed.drop(1)
         if (interior.any { it.isUpperCase() } && !typed.all { it.isUpperCase() || !it.isLetter() }) return null
@@ -70,7 +80,7 @@ internal object Suggest {
         val midSentenceName = typed.first().isUpperCase() && typed.length > 1 && typed.drop(1).none { it.isUpperCase() } &&
             !ctx.atSentenceStart && ctx.previous != null && !engine.contains(typed.lowercase())
         if (midSentenceName) return null
-        val fix = engine.correction(typed, ctx.previous, ctx.previous2) ?: return null
+        val fix = engine.correction(typed, ctx.previous, ctx.previous2, touches, geometry) ?: return null
         var cased = WordEngine.matchCase(typed, fix)
         if (capitalise && cased.isNotEmpty()) cased = cased.replaceFirstChar { it.uppercase() }
         return cased.takeIf { it != typed }
@@ -83,7 +93,7 @@ internal object Suggest {
         fix: String? = if (ctx.current.isEmpty()) null else autocorrect(engine, ctx, ignored)): List<Suggestion> {
         if (!ctx.plainWord) return emptyList()
         val cap = { w: String -> if (capitalise) w.replaceFirstChar { it.uppercase() } else w }
-        if (ctx.current.isEmpty()) return engine.nextWords(ctx.previous, 3).map { Suggestion(cap(it), SuggestionKind.NEXT) }
+        if (ctx.current.isEmpty()) return engine.nextWords(ctx.previous, 3, ctx.previous2).map { Suggestion(cap(it), SuggestionKind.NEXT) }
         val typed = ctx.current
         val out = ArrayList<Suggestion>(3)
         out += Suggestion(typed, SuggestionKind.TYPED)
@@ -95,5 +105,12 @@ internal object Suggest {
         }
         // With a correction, the typed word moves to the left and the correction sits in the middle, where the eye expects it.
         return out
+    }
+
+    /** Puts an emoji for the word in the last slot (the word being typed, or the one just finished), as Gboard and iOS do. */
+    fun withEmoji(list: List<Suggestion>, ctx: WordContext, index: EmojiIndex?): List<Suggestion> {
+        val word = ctx.current.ifEmpty { ctx.previous ?: return list }
+        val emoji = index?.forWord(word)?.firstOrNull() ?: return list
+        return list.take(2) + Suggestion(emoji, SuggestionKind.EMOJI)
     }
 }

@@ -53,6 +53,8 @@ class MainActivity : ComponentActivity() {
     private val searchRequests = mutableIntStateOf(0)
     private val feedSetupRequests = mutableIntStateOf(0)
     private val customizeRequests = mutableIntStateOf(0)
+    /** Uno Keyboard's settings button asks for its own page of the Customize sheet. */
+    private val keyboardSettingsRequests = mutableIntStateOf(0)
     private val defaultHome = mutableStateOf(false)
     private val showFirstRun = mutableStateOf(false)
     private val showWhatsNew = mutableStateOf(false)
@@ -212,6 +214,7 @@ class MainActivity : ComponentActivity() {
                     feed = feeds.state.collectAsStateWithLifecycle().value,
                     feedSetupRequests = feedSetupRequests.intValue,
                     customizeRequests = customizeRequests.intValue,
+                    keyboardSettingsRequests = keyboardSettingsRequests.intValue,
                     onFeedRefresh = feeds::refresh,
                     onFeedOpenEntry = ::openFeedEntry,
                     onFeedToggleSave = feeds::toggleSaved,
@@ -384,6 +387,7 @@ class MainActivity : ComponentActivity() {
         when (destination) {
             "search" -> searchRequests.intValue++
             "customize" -> customizeRequests.intValue++
+            "keyboard" -> keyboardSettingsRequests.intValue++
             "feed" -> window.decorView.post { openDiscover() }
         }
     }
@@ -392,7 +396,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         FoldRenderExperiment.onNewIntent(this, intent)
-        if (intent.getStringExtra("duo_destination") in setOf("search", "feed", "customize")) openDestination(intent.getStringExtra("duo_destination"))
+        if (intent.getStringExtra("duo_destination") in setOf("search", "feed", "customize", "keyboard")) openDestination(intent.getStringExtra("duo_destination"))
         else if (intent.hasCategory(Intent.CATEGORY_HOME) || intent.getStringExtra("duo_destination") == "home") homeRequests.intValue++
         intent.removeExtra("duo_destination")
     }

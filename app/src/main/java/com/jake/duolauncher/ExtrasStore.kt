@@ -91,6 +91,23 @@ internal data class ExtrasState(
     val kbOneHanded: Int = 0,
     val kbSpaceCursor: Boolean = true,
     val kbHapticStrength: Float = com.jake.duolauncher.keyboard.HapticProfile.DEFAULT_STRENGTH,
+    /** 0 soft, 1 crisp, 2 firm (see keyboard.HapticFeel). */
+    val kbHapticFeel: Int = 1,
+    /** The keyboard layouts turned on, comma separated ids (see keyboard.KeyLayouts). */
+    val kbLayouts: String = "qwerty",
+    /** Key height as a fraction of the standard, 0.8 to 1.3. */
+    val kbHeight: Float = 1f,
+    val kbKeyPreview: Boolean = true,
+    val kbSound: Boolean = false,
+    val kbEmojiKey: Boolean = true,
+    val kbSwipe: Boolean = true,
+    val kbLearn: Boolean = true,
+    val kbClipHistory: Boolean = true,
+    val kbEmojiSuggestions: Boolean = true,
+    val kbGlass: Boolean = true,
+    val kbAutoCaps: Boolean = true,
+    /** 0 liquid glass, 1 the flat look of Uno 0.97 (see keyboard.KeyboardUi's KeyPalette). */
+    val kbStyle: Int = 0,
     val handoff: Boolean = true,
     val webPackage: String? = null,
     val handoffStores: Set<String> = HandoffLogic.DEFAULT_STORES,
@@ -163,6 +180,19 @@ internal class ExtrasStore(context: Context) {
         kbOneHanded = prefs.getInt("kbOneHanded", 0).coerceIn(0, 2),
         kbSpaceCursor = prefs.getBoolean("kbSpaceCursor", true),
         kbHapticStrength = prefs.lenientFloat("kbHapticStrength", com.jake.duolauncher.keyboard.HapticProfile.DEFAULT_STRENGTH).coerceIn(0f, 1f),
+        kbHapticFeel = prefs.getInt("kbHapticFeel", 1).coerceIn(0, 2),
+        kbLayouts = prefs.getString("kbLayouts", null)?.takeIf { it.isNotBlank() } ?: "qwerty",
+        kbHeight = prefs.lenientFloat("kbHeight", 1f).coerceIn(.8f, 1.3f),
+        kbKeyPreview = prefs.getBoolean("kbKeyPreview", true),
+        kbSound = prefs.getBoolean("kbSound", prefs.getBoolean("sounds", false)),
+        kbEmojiKey = prefs.getBoolean("kbEmojiKey", true),
+        kbSwipe = prefs.getBoolean("kbSwipe", true),
+        kbLearn = prefs.getBoolean("kbLearn", true),
+        kbClipHistory = prefs.getBoolean("kbClipHistory", true),
+        kbEmojiSuggestions = prefs.getBoolean("kbEmojiSuggestions", true),
+        kbGlass = prefs.getBoolean("kbGlass", true),
+        kbAutoCaps = prefs.getBoolean("kbAutoCaps", true),
+        kbStyle = prefs.getInt("kbStyle", 0).coerceIn(0, 1),
         handoff = prefs.getBoolean("handoff", true),
         webPackage = prefs.getString("webPackage", null)?.takeIf { it.isNotBlank() },
         handoffStores = prefs.getString("handoffStores", null)?.split(',')?.filter { it.isNotBlank() }?.toSet() ?: HandoffLogic.DEFAULT_STORES,
@@ -217,6 +247,19 @@ internal class ExtrasStore(context: Context) {
             .putInt("kbOneHanded", next.kbOneHanded)
             .putBoolean("kbSpaceCursor", next.kbSpaceCursor)
             .putFloat("kbHapticStrength", next.kbHapticStrength)
+            .putInt("kbHapticFeel", next.kbHapticFeel)
+            .putString("kbLayouts", next.kbLayouts)
+            .putFloat("kbHeight", next.kbHeight)
+            .putBoolean("kbKeyPreview", next.kbKeyPreview)
+            .putBoolean("kbSound", next.kbSound)
+            .putBoolean("kbEmojiKey", next.kbEmojiKey)
+            .putBoolean("kbSwipe", next.kbSwipe)
+            .putBoolean("kbLearn", next.kbLearn)
+            .putBoolean("kbClipHistory", next.kbClipHistory)
+            .putBoolean("kbEmojiSuggestions", next.kbEmojiSuggestions)
+            .putBoolean("kbGlass", next.kbGlass)
+            .putBoolean("kbAutoCaps", next.kbAutoCaps)
+            .putInt("kbStyle", next.kbStyle)
             .putBoolean("handoff", next.handoff)
             .putString("webPackage", next.webPackage ?: "")
             .putString("handoffStores", next.handoffStores.joinToString(","))
@@ -274,6 +317,24 @@ internal class ExtrasStore(context: Context) {
     fun setKbOneHanded(value: Int) = save(state.copy(kbOneHanded = value.coerceIn(0, 2)))
     fun setKbSpaceCursor(value: Boolean) = save(state.copy(kbSpaceCursor = value))
     fun setKbHapticStrength(value: Float) = save(state.copy(kbHapticStrength = value.coerceIn(0f, 1f)))
+    fun setKbHapticFeel(value: Int) = save(state.copy(kbHapticFeel = value.coerceIn(0, 2)))
+    /** Turns a layout on or off; the last one left cannot be turned off. */
+    fun toggleKbLayout(id: String) {
+        val on = com.jake.duolauncher.keyboard.KeyLayouts.parse(state.kbLayouts).map { it.id }
+        val next = if (id in on) on - id else on + id
+        if (next.isNotEmpty()) save(state.copy(kbLayouts = next.joinToString(",")))
+    }
+    fun setKbHeight(value: Float) = save(state.copy(kbHeight = value.coerceIn(.8f, 1.3f)))
+    fun setKbKeyPreview(value: Boolean) = save(state.copy(kbKeyPreview = value))
+    fun setKbSound(value: Boolean) = save(state.copy(kbSound = value))
+    fun setKbEmojiKey(value: Boolean) = save(state.copy(kbEmojiKey = value))
+    fun setKbSwipe(value: Boolean) = save(state.copy(kbSwipe = value))
+    fun setKbLearn(value: Boolean) = save(state.copy(kbLearn = value))
+    fun setKbClipHistory(value: Boolean) = save(state.copy(kbClipHistory = value))
+    fun setKbEmojiSuggestions(value: Boolean) = save(state.copy(kbEmojiSuggestions = value))
+    fun setKbGlass(value: Boolean) = save(state.copy(kbGlass = value))
+    fun setKbAutoCaps(value: Boolean) = save(state.copy(kbAutoCaps = value))
+    fun setKbStyle(value: Int) = save(state.copy(kbStyle = value.coerceIn(0, 1)))
     fun setHandoff(value: Boolean) = save(state.copy(handoff = value))
     fun setWebPackage(value: String?) = save(state.copy(webPackage = value))
     fun toggleHandoffStore(id: String) =

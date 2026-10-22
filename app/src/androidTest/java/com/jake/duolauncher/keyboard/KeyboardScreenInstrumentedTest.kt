@@ -23,7 +23,7 @@ class KeyboardScreenInstrumentedTest {
 
     private class Recorder : KeyboardActions {
         val log = mutableListOf<String>()
-        override fun type(text: String) { log += "type:$text" }
+        override fun type(text: String, at: Pt?) { log += "type:$text" }
         override fun replaceLast(text: String) { log += "replace:$text" }
         override fun backspace(held: Int) { log += "backspace:$held" }
         override fun space() { log += "space" }

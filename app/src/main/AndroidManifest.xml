@@ -114,7 +114,7 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
-        <!-- Uno Keyboard: strictly opt-in (Android asks you to enable it), and local: no network code, nothing stored or sent. -->
+        <!-- Uno Keyboard: strictly opt-in (Android asks you to enable it), and local: no network code; what it learns stays in no-backup storage. -->
         <service android:name=".keyboard.UnoKeyboardService" android:label="@string/keyboard_label"
             android:permission="android.permission.BIND_INPUT_METHOD" android:exported="true">
             <intent-filter><action android:name="android.view.InputMethod" /></intent-filter>

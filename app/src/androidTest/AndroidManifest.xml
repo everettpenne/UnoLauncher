@@ -16,6 +16,9 @@
             <meta-data android:name="android.app.device_admin" android:resource="@xml/profile_admin" />
             <intent-filter><action android:name="android.app.action.DEVICE_ADMIN_ENABLED" /></intent-filter>
         </receiver>
+        <!-- A compose box that rewrites its text as it changes, as Signal's does: for checking the keyboard's edits by hand. -->
+        <activity android:name="com.jake.duolauncher.test.RewritingComposeActivity" android:exported="true"
+            android:label="Rewriting compose box" android:windowSoftInputMode="adjustResize|stateVisible" />
         <activity android:name="com.jake.duolauncher.test.ProfileFixtureActivity"
             android:exported="true" android:label="Duo Profile Fixture">
             <intent-filter>

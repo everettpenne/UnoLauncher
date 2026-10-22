@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.98.1-uno01
+
+- **Fixed: text turning to gibberish in some apps (reported in Signal).** Uno Keyboard sent a correction as two steps (delete the word, then type the fix) and deleted from its own remembered copy of the text. An app that rewrites its text box as it changes could act on the half-done edit, the copy drifted from what was really there, and later corrections deleted the wrong characters, with the app and the keyboard each undoing the other. Every edit is now one batch edit the app sees whole; before anything is deleted the app's real text is checked and, if it differs, the keyboard re-reads it and changes nothing; and the keyboard recognises its own cursor updates in order, so an app's change that lands where an earlier keystroke left the cursor is no longer mistaken for its own.
+- **Autocorrect reads a dropped vowel back in.** "brwn" is now "brown" and "ovr" is "over" (they were "been" and "or"): a skipped vowel is the commonest slip of a fast thumb, and two slips in one short word count for more than one.
+
 ## 0.98.0-uno01
 
 - **Uno Keyboard, rebuilt.** A liquid-glass look: on phones that allow it the keyboard's window blurs the app behind it, and the keys are translucent glass with a bright top edge and a springy press. **Key style** in its settings switches back to the flat look of 0.97, with everything new still working. A live keyboard at the top of its settings shows each change (height, layout, keys, style) and can be typed on.

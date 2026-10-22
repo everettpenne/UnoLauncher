@@ -17,6 +17,14 @@ class WordEngineTest {
         private fun fix(typed: String) = Suggest.autocorrect(engine, Suggest.parse(typed), emptySet())
     }
 
+    @Test fun aDroppedVowelIsReadBackIn() {
+        // Typing seen on the emulator: a skipped vowel was "corrected" into a commoner word two keys away.
+        assertEquals("brown", fix("brwn"))
+        assertEquals("over", fix("ovr"))
+        assertEquals("people", fix("peple"))
+        assertEquals("because", fix("becuse"))
+    }
+
     @Test fun commonSlipsAreCorrected() {
         assertEquals("the", fix("teh"))
         assertEquals("receive", fix("recieve"))

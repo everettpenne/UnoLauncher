@@ -155,7 +155,10 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
             // gets a bonus that is larger the nearer the top of that list it is; following both previous words earns a small extra.
             val rank = follow.indexOf(cand)
             val rank2 = follow2.indexOf(cand)
-            val value = candScore / 10.0 - COST_WEIGHT * cost +
+            // Two slips in one short word are much rarer than one, so cost counts for more the larger the share of the word it is:
+            // "brwn" is "brown" (one vowel dropped), not "been" (half its letters wrong), however common "been" is.
+            val weighted = cost * (1 + cost / t.length)
+            val value = candScore / 10.0 - COST_WEIGHT * weighted +
                 (if (rank >= 0) BIGRAM_BONUS - rank * .4 else 0.0) +
                 (if (rank2 >= 0) TRIGRAM_BONUS - rank2 * .3 else 0.0)
             if (value > bestValue) { bestValue = value; best = cand }
@@ -209,7 +212,8 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
                     ?: if (neighbours[a[i - 1]]?.contains(b[j - 1]) == true) 0.6 else FAR_SUBSTITUTION
                 // A letter missing from the typed word that doubles one next to it ("helo" for "hello") is the commonest
                 // slip of all, so it costs less than a missing letter elsewhere.
-                val missing = if ((j >= 2 && b[j - 1] == b[j - 2]) || (j < m && b[j - 1] == b[j])) 0.5 else 1.0
+                // So is a vowel left out ("brwn", "ovr", "peple"): fast thumbs skip them, and the consonants still spell the word.
+                val missing = if ((j >= 2 && b[j - 1] == b[j - 2]) || (j < m && b[j - 1] == b[j])) 0.5 else if (b[j - 1] in VOWELS) 0.55 else 1.0
                 // A letter typed that was not meant: a finger that touched two keys at once (it sits next to the letter before or after it)
                 // or a doubled letter is a likelier slip than any other extra letter.
                 val extra = if (a[i - 1] == a.getOrNull(i - 2) || a[i - 1] == a.getOrNull(i)) .5
@@ -238,6 +242,7 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
         private const val SPLIT_MIN_SCORE = 150
         /** The keys just above the space bar, which a thumb aiming for it can catch instead. */
         private const val SPACE_NEIGHBOURS = "cvbnm"
+        private const val VOWELS = "aeiou"
         private const val CACHED_PREFIX = 3
         private const val CACHED_LIMIT = 4
         /** Swapping a letter for one far away on the keyboard is a less likely slip than leaving a letter out, so it costs more. */

@@ -330,10 +330,52 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         mirror.commit(typed); cursor += typed.length; expectedCursor.expect(cursor)
     }
 
-    private fun commit(ic: InputConnection, text: String, removed: Int = 0) {
-        if (removed > 0) ic.deleteSurroundingText(removed, 0)
-        ic.commitText(text, 1)
-        editedText(text, removed)
+    /**
+     * Replaces the [removed] characters before the cursor with [text], as one edit. Returns false, changing nothing, when the app's text is not
+     * what the keyboard thinks it is.
+     *
+     * Bug fix (reported in Signal): typing a long message, once the box grew to a second line, corrections turned the text into gibberish and
+     * the box flickered between that and what was typed. Root cause: an edit was sent as two steps (delete, then type) with nothing around
+     * them, so an app that rewrites its text box as it changes (Signal re-processes its compose text, and re-lays it out when it gains a
+     * line) acted on the half-done edit; and the keyboard, deleting from its own remembered copy of the text, removed whatever characters
+     * were there by then. Each side then "fixed" the other. Now every edit is one batch edit the app sees whole, and before anything is
+     * deleted the app's real text is read and checked against the copy; if they differ the copy is re-read and nothing is touched.
+     */
+    private fun commit(ic: InputConnection, text: String, removed: Int = 0): Boolean {
+        ic.beginBatchEdit()
+        try {
+            if (removed > 0) {
+                if (!matchesApp(ic, removed)) { resyncAfterMismatch(); return false }
+                ic.deleteSurroundingText(removed, 0)
+            }
+            ic.commitText(text, 1)
+            editedText(text, removed)
+            return true
+        } finally { ic.endBatchEdit() }
+    }
+
+    /** Deletes the [count] characters before the cursor, as one edit, after checking them as [commit] does. */
+    private fun deleteBefore(ic: InputConnection, count: Int, check: Boolean = true): Boolean {
+        if (count <= 0) return true
+        ic.beginBatchEdit()
+        try {
+            if (check && !matchesApp(ic, count)) { resyncAfterMismatch(); return false }
+            ic.deleteSurroundingText(count, 0); mirror.delete(count); cursor -= count; expectedCursor.expect(cursor)
+            return true
+        } finally { ic.endBatchEdit() }
+    }
+
+    /** Whether the [count] characters before the cursor in the app are the ones the keyboard's copy says (always true when the copy was just read). */
+    private fun matchesApp(ic: InputConnection, count: Int): Boolean {
+        if (!mirror.valid) return true
+        val mine = mirror.get().takeLast(count)
+        val theirs = ic.getTextBeforeCursor(count, 0)?.toString() ?: return false
+        return theirs == mine
+    }
+
+    private fun resyncAfterMismatch() {
+        mirror.invalidate(); expectedCursor.clear(); touches.clear(); lastFix = null; lastSwipe = null; phantomSpace = false; autoSpace = false
+        main.post { resyncMirror(); refreshShift(); refreshSuggestions() }
     }
 
     // ---- layouts ----------------------------------------------------------------------------------------------------------------
@@ -416,7 +458,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         val sentenceCaps = inputType and 0x4000 != 0 && autoCapsOn
         val fix = (if (cached != null && cached.first == ctx.current) cached.second
             else Suggest.autocorrect(e, ctx, ignored, capitalise = sentenceCaps && ctx.atSentenceStart, touches = touchesFor(ctx.current), geometry = geometry())) ?: return false
-        commit(ic, fix, removed = ctx.current.length)
+        if (!commit(ic, fix, removed = ctx.current.length)) return false
         lastFix = ctx.current to fix
         // Felt as well as seen: a soft double pulse just after the key's own tick.
         main.postDelayed({ KeyHaptics.fire(HapticKind.AUTOCORRECT) }, 45)
@@ -540,7 +582,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                 finishWord()
                 // After a picked suggestion's space, the punctuation takes the space's place and puts it after itself ("word. ").
                 val now = textBefore()
-                if (autoSpace && now.endsWith(" ") && text[0] != ')') { commit(ic, text + " ", removed = 1); typed = text.length + 1 }
+                if (autoSpace && now.endsWith(" ") && text[0] != ')' && commit(ic, text + " ", removed = 1)) typed = text.length + 1
                 else { commit(ic, text); typed = text.length }
                 touches.clear()
             } else {
@@ -578,9 +620,11 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                 val spaced = before.endsWith(fix.second + " ")
                 if (spaced || before.endsWith(fix.second)) {
                     val n = fix.second.length + if (spaced) 1 else 0
-                    commit(ic, fix.first, removed = n)
-                    ignored += fix.first.lowercase(); lastFix = null; fixCache = null
-                    learnCurrent(explicit = true)
+                    if (commit(ic, fix.first, removed = n)) {
+                        ignored += fix.first.lowercase(); fixCache = null
+                        learnCurrent(explicit = true)
+                    }
+                    lastFix = null
                     refreshShift(); refreshSuggestions(); return
                 }
             }
@@ -588,7 +632,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
             val swiped = lastSwipe
             if (swiped != null && held == 0 && textBefore().endsWith(swiped)) {
                 // Delete straight after a swipe takes the whole word it typed, as Gboard does.
-                ic.deleteSurroundingText(swiped.length, 0); mirror.delete(swiped.length); cursor -= swiped.length; expectedCursor.expect(cursor)
+                deleteBefore(ic, swiped.length)
                 lastSwipe = null; phantomSpace = false; touches.clear()
                 refreshShift(); refreshSuggestions(); return
             }
@@ -598,7 +642,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                 // One character at a time (a whole emoji or flag counts as one), then whole words once held a while. The text is
                 // needed to know how many units that is, so when the mirror has lost it a single unit is deleted without asking.
                 val n = if (mirror.valid || held >= KeyboardModel.WORD_DELETE_AFTER) KeyboardModel.deleteStep(textBefore(), held).coerceAtLeast(1) else 1
-                ic.deleteSurroundingText(n, 0); mirror.delete(n); cursor -= n; expectedCursor.expect(cursor)
+                deleteBefore(ic, n, check = false)
                 if (n == 1) touches.removeLastOrNull() else touches.clear()
             }
             refreshShift(); refreshSuggestions()
@@ -609,8 +653,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
             phantomSpace = false; lastSwipe = null
             val corrected = finishWord()
             val change = if (doubleSpaceOn) KeyboardModel.doubleSpace(textBefore()) else null
-            if (change != null && !corrected) { commit(ic, change.second, removed = change.first + 1); lastFix = null }
-            else commit(ic, " ")
+            if (change == null || corrected || !commit(ic, change.second, removed = change.first + 1)) commit(ic, " ") else lastFix = null
             autoSpace = false; touches.clear()
             refreshShift(); refreshSuggestions()
         }
@@ -632,7 +675,8 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                 SuggestionKind.NEXT -> { commit(ic, suggestion.text); learnCurrent(); commit(ic, " ") }
                 SuggestionKind.TYPED -> { ignored += ctx.current.lowercase(); fixCache = null; learnCurrent(explicit = true); commit(ic, " ") }
                 SuggestionKind.CORRECTION, SuggestionKind.COMPLETION -> {
-                    commit(ic, suggestion.text, removed = ctx.current.length); learnCurrent(); commit(ic, " ")
+                    if (!commit(ic, suggestion.text, removed = ctx.current.length)) return
+                    learnCurrent(); commit(ic, " ")
                 }
                 SuggestionKind.EMOJI -> {
                     val lead = if (ctx.current.isNotEmpty()) { learnCurrent(); " " } else ""
@@ -643,14 +687,13 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                     val fix = lastFix
                     val before = textBefore()
                     if (fix != null && before.endsWith(fix.second + " ")) {
-                        commit(ic, fix.first, removed = fix.second.length + 1)
-                        ignored += fix.first.lowercase(); learnCurrent(explicit = true); commit(ic, " ")
+                        if (commit(ic, fix.first, removed = fix.second.length + 1)) { ignored += fix.first.lowercase(); learnCurrent(explicit = true); commit(ic, " ") }
                     }
                 }
                 SuggestionKind.GESTURE -> {
                     val old = lastSwipe
                     if (old != null && textBefore().endsWith(old)) {
-                        commit(ic, suggestion.text, removed = old.length)
+                        if (!commit(ic, suggestion.text, removed = old.length)) return
                         swipeAlternatives = (swipeAlternatives - suggestion.text) + old
                         lastSwipe = suggestion.text; phantomSpace = true
                         ui.suggestions = swipeAlternatives.map { Suggestion(it, SuggestionKind.GESTURE) }
@@ -757,7 +800,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
             // The letter the swipe began on was typed when the finger landed; the swipe types a whole word instead.
             val ic = currentInputConnection ?: return
             val n = lastTypeLength.coerceAtMost(textBefore().length).coerceAtLeast(0)
-            if (n > 0) { ic.deleteSurroundingText(n, 0); mirror.delete(n); cursor -= n; expectedCursor.expect(cursor) }
+            if (n > 0) deleteBefore(ic, n)
             lastTypeLength = 0; touches.clear()
             swipeShift = shiftBeforeType; ui.shift = shiftBeforeType
             ui.swiping = true

@@ -19,12 +19,21 @@ internal class TextMirror(private val keep: Int = 80) {
     private fun trim() { if (text.length > keep * 2) text.delete(0, text.length - keep) }
 }
 
-/** Remembers the cursor positions our own edits should produce, so the selection updates the app sends back for them
+/** Remembers the cursor positions our own edits should produce, in order, so the selection updates the app sends back for them
  * are recognised and ignored, and only a cursor that ended up somewhere unexpected triggers a re-read.
+ *
+ * Updates are matched in order: one that matches a later expectation consumes the earlier ones too (an app may report only the last
+ * of a burst), and one that matches none clears them all. Matching any position seen lately, as this once did, took an app's own
+ * change that happened to land where an earlier keystroke had left the cursor for an echo, so the keyboard kept a stale copy of the text.
  */
 internal class ExpectedCursor(private val size: Int = 24) {
-    private val recent = ArrayDeque<Int>()
-    fun expect(position: Int) { recent.addLast(position); if (recent.size > size) recent.removeFirst() }
-    fun isOurs(position: Int) = position in recent
-    fun clear() = recent.clear()
+    private val pending = ArrayDeque<Int>()
+    fun expect(position: Int) { pending.addLast(position); if (pending.size > size) pending.removeFirst() }
+    fun isOurs(position: Int): Boolean {
+        val i = pending.indexOf(position)
+        if (i < 0) { pending.clear(); return false }
+        repeat(i + 1) { pending.removeFirst() }
+        return true
+    }
+    fun clear() = pending.clear()
 }

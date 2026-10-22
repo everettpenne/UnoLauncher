@@ -70,10 +70,20 @@ class KeyHapticsTest {
         assertTrue(m.get().length <= 20); assertTrue(m.get().endsWith("zzzz"))
     }
 
-    @Test fun ourOwnCursorMovesAreRecognisedEvenWhenTheirUpdatesArriveLate() {
+    @Test fun ourOwnCursorMovesAreRecognisedInOrderEvenWhenSomeAreSkipped() {
         val c = ExpectedCursor(size = 4)
-        (1..6).forEach { c.expect(it) }
-        assertTrue(c.isOurs(6)); assertTrue(c.isOurs(3)); assertFalse(c.isOurs(1)); assertFalse(c.isOurs(99))
-        c.clear(); assertFalse(c.isOurs(6))
+        (1..6).forEach { c.expect(it) }                     // only the last four are kept: 3, 4, 5, 6
+        assertTrue(c.isOurs(3)); assertTrue(c.isOurs(4))
+        assertTrue("an app may report only the last of a burst", c.isOurs(6))
+        assertFalse("an earlier position after a later one is not an echo", c.isOurs(5))
+        c.expect(10); assertFalse(c.isOurs(99)); assertFalse("an unexpected update clears what was expected", c.isOurs(10))
+    }
+
+    @Test fun anAppsOwnChangeLandingWhereAnEarlierKeystrokeLeftTheCursorIsNotTakenForAnEcho() {
+        // Signal: the keyboard types at 40 and 41; the app then rewrites its box and the cursor lands back on 40.
+        val c = ExpectedCursor()
+        c.expect(40); c.expect(41)
+        assertTrue(c.isOurs(40)); assertTrue(c.isOurs(41))
+        assertFalse(c.isOurs(40))
     }
 }

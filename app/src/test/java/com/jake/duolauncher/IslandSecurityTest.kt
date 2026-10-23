@@ -21,7 +21,7 @@ class IslandSecurityTest {
     private fun row(i: LedgerInputs, id: String) = PermissionLedger.rows(i).first { it.id == id }
 
     @Test fun theLedgerListsEveryPermissionTheLauncherUses() {
-        assertEquals(listOf("overlay", "accessibility", "notifications", "contacts", "photos", "usage", "bluetooth", "indicators"),
+        assertEquals(listOf("overlay", "accessibility", "alignment", "notifications", "contacts", "photos", "usage", "bluetooth", "indicators"),
             PermissionLedger.rows(inputs()).map { it.id })
     }
 

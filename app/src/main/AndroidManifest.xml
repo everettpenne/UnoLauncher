@@ -137,6 +137,18 @@
             <meta-data android:name="android.accessibilityservice"
                 android:resource="@xml/system_shade_accessibility_service" />
         </service>
+        <!-- Optional and separate from the shade service: reads only where the status bar's icons are (their bounds), for the island. -->
+        <service android:name=".island.StatusBarReaderService"
+            android:label="@string/status_reader_service_label"
+            android:description="@string/status_reader_service_description"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice"
+                android:resource="@xml/status_bar_reader_service" />
+        </service>
         <provider android:name="androidx.core.content.FileProvider"
             android:authorities="com.jake.duolauncher.fileprovider" android:exported="false"
             android:grantUriPermissions="true">

@@ -488,11 +488,16 @@ internal fun DynamicIsland(
     // The edges the island would have with its shipped width (and, showing an app, its wider one) and any hand adjustment.
     val wantLeftDp = (restTarget.left - (mainBase.dw + IslandDebug.pill.dw) * d / 2f + (mainBase.dx + IslandDebug.pill.dx) * d) / d
     val wantRightDp = (restTarget.left + restTarget.width + (mainBase.dw + IslandDebug.pill.dw) * d / 2f + (mainBase.dx + IslandDebug.pill.dx) * d) / d
+    // The status bar's real gaps, when the optional alignment service has read them at this screen width (see StatusBarReader); otherwise
+    // the grid measured on a Pixel 10a, moved by the calibration page.
+    val measuredBar = StatusBarLive.usable(environment.screenWidth / d)
     val islandLayout = restTarget.hole.let { hole ->
+        val measuredGaps = if (measuredBar != null && hole != null)
+            StatusBarScan.gaps(measuredBar.icons, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d) else null
         if (gridOn && hole != null) StatusBarGrid.layout(wantLeftDp, wantRightDp, environment.screenWidth / d, clockShiftDp,
             (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
             wantLeft = capsulePlan.any { it.left }, wantRight = capsulePlan.any { !it.left }, dots = privacyNow.size, capsuleMinWidth = capsuleMinDp,
-            cal = StatusBarCalibration.current)
+            cal = StatusBarCalibration.current, measuredLeft = measuredGaps?.first, measuredRight = measuredGaps?.second)
         else StatusBarGrid.flush(if (compactTarget < .5f) wantLeftDp else restTarget.left / d, if (compactTarget < .5f) wantRightDp else (restTarget.left + restTarget.width) / d,
             capsulePlan.any { it.left }, capsulePlan.any { !it.left }, capsuleMinDp)
     }

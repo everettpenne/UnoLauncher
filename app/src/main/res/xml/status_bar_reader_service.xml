@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Reads where the status bar's icons are, so the island lines its edges up with them. Told only of SystemUI's window changes; it may
+     read window content (the icons' bounds) but reads no text, performs no actions and injects no gestures. See island/StatusBarReader.kt. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/status_reader_service_description"
+    android:accessibilityEventTypes="typeWindowContentChanged|typeWindowsChanged"
+    android:packageNames="com.android.systemui"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows"
+    android:notificationTimeout="250"
+    android:canRetrieveWindowContent="true"
+    android:canPerformGestures="false" />

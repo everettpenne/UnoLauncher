@@ -66,11 +66,15 @@ internal object StatusBarGrid {
      * [holeLeft] and [holeRight] are the camera hole, which it must still wrap. With [wantLeft] a capsule is placed to its left, covering two
      * icon slots, so the island stays at least that far from the clock; with [wantRight] one is placed to its right, over as few slots as make
      * it at least [capsuleMinWidth] wide. [dots] privacy dots sit inside the island's right end, which asks it for more room.
+     *
+     * [measuredLeft] and [measuredRight], when given, are gaps read from the status bar itself ([StatusBarScan.gaps]), in the same order as
+     * [leftGaps] and [rightGaps]; they replace the measured Pixel grid and its calibration on that side.
      */
     fun layout(desiredLeft: Float, desiredRight: Float, screenWidthDp: Float, clockShiftDp: Float, holeLeft: Float, holeRight: Float,
-        wantLeft: Boolean, wantRight: Boolean, dots: Int, capsuleMinWidth: Float, cal: GridCalibration = GridCalibration()): Layout {
-        val lg = leftGaps(clockShiftDp, cal)
-        val rg = rightGaps(screenWidthDp, cal)
+        wantLeft: Boolean, wantRight: Boolean, dots: Int, capsuleMinWidth: Float, cal: GridCalibration = GridCalibration(),
+        measuredLeft: List<Float>? = null, measuredRight: List<Float>? = null): Layout {
+        val lg = measuredLeft?.takeIf { it.isNotEmpty() } ?: leftGaps(clockShiftDp, cal)
+        val rg = measuredRight?.takeIf { it.isNotEmpty() } ?: rightGaps(screenWidthDp, cal)
         // Left: the nearest gap at or beyond (left of) the wanted edge, that still leaves the hole wrapped.
         var j = lg.indexOfLast { it <= desiredLeft }.coerceAtLeast(0)
         val maxJ = lg.indexOfLast { it <= holeLeft - HOLE_WRAP_DP }.coerceAtLeast(0)

@@ -3,6 +3,16 @@
     <string name="keyboard_label">Uno Keyboard</string>
     <string name="keyboard_subtype">English (US)</string>
     <string name="shade_service_label">Uno Launcher shade gestures</string>
+    <string name="status_reader_service_label">Uno Launcher island alignment</string>
+    <string name="status_reader_service_description">Optional. Lets Uno Launcher\'s island line its edges up with the status bar\'s icons on any phone. It reads only where those icons are on screen (their positions), from the status bar alone: never their text, never other apps\' windows. It keeps only the latest positions in memory, takes no actions and sends nothing.</string>
+    <string name="status_auto_title">Automatic</string>
+    <string name="status_auto_note">With Uno Launcher island alignment turned on in Android\'s accessibility settings, the island reads where the status bar\'s icons really are and keeps its edges between them on any phone, font size or set of icons. It reads only the icons\' positions, never their text, and nothing leaves the phone. The guides below are then not needed.</string>
+    <string name="status_auto_reading">On: lining up with %1$d status bar items.</string>
+    <string name="status_auto_waiting">On: waiting for the status bar to change.</string>
+    <string name="status_auto_blocked">Turned on, but Android is not running it (a restricted-settings block can do this).</string>
+    <string name="status_auto_off">Off: the island uses the guides below.</string>
+    <string name="status_auto_open">Open accessibility settings</string>
+    <string name="status_manual_title">By hand</string>
     <string name="shade_service_description">Allows Uno Launcher’s Home screen gestures to open the system notifications and Quick Settings panels. It also draws the island above other apps so it can be tapped. It does not read screen content or observe activity in other apps.</string>
 
 
@@ -435,10 +445,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Widgets look like iOS\'s: each widget\'s name in its own colour, big semibold figures, and Clock, Date and Battery redrawn after the iPhone\'s.</string>
-    <string name="whats_new_2">On the iOS layout the open island covers the status bar, as on an iPhone: the clock and icons step aside while it is open, peeking, flashing an event or growing into search.</string>
-    <string name="whats_new_3">On the iOS layout the idle island is a ring round the camera, so it never covers the status bar\'s icons; it widens when it has something to show.</string>
-    <string name="whats_new_4">The status bar\'s icons follow your wallpaper: dark over a light sky, light over a dark one.</string>
+    <string name="whats_new_1">The island can line up with your status bar\'s real icons: turn on Uno Launcher island alignment in Android\'s accessibility settings and its edges fall between the icons on any phone.</string>
+    <string name="whats_new_2">It is optional and separate from the shade service. It reads only where the status bar\'s icons are, never their text or other apps, and keeps nothing.</string>
+    <string name="whats_new_3">Launcher settings › The island › Line up with the status bar shows whether it is on, and keeps the hand guides for when it is off.</string>
+    <string name="whats_new_4">The permission ledger lists the new service, what it is for and what it can see.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

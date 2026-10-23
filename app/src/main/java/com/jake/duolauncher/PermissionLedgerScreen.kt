@@ -66,6 +66,8 @@ private fun ledgerInputs(context: Context, actions: ExtrasActions): LedgerInputs
         photosAllowed = com.jake.duolauncher.widgets.PhotoAlbums.hasAccess(context),
         usageAccess = com.jake.duolauncher.widgets.hasUsageAccess(context),
         islandEverywhere = actions.store.state.islandEverywhere,
+        alignmentEnabled = StatusBarReaderService.isEnabled(context),
+        alignmentRunning = StatusBarReaderService.isConnected(),
     )
 }
 

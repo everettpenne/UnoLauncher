@@ -40,6 +40,9 @@ internal data class LedgerInputs(
     val photosAllowed: Boolean = false,
     val usageAccess: Boolean = false,
     val bluetoothAllowed: Boolean = false,
+    /** The optional island alignment service (StatusBarReaderService): turned on in settings, and running. */
+    val alignmentEnabled: Boolean = false,
+    val alignmentRunning: Boolean = false,
 )
 
 internal object PermissionLedger {
@@ -61,6 +64,16 @@ internal object PermissionLedger {
                 "Opening the notifications and Quick Settings panels from Home gestures, locking the screen when you double-tap empty Home space (only if you switch that on), and drawing the island above the status bar (as an accessibility overlay window) so it can be tapped over other apps." +
                     if (blocked) " Android is not running it. Advanced Protection or a restricted-settings block can do this; the plain overlay is used instead." else "",
                 "Nothing. It subscribes to no events and cannot read the screen or other apps.",
+                LedgerAction.ACCESSIBILITY_SETTINGS),
+            LedgerRow("alignment", "Accessibility service (island alignment)",
+                when {
+                    i.alignmentRunning -> "Running"
+                    i.alignmentEnabled -> "Turned on, but not running"
+                    else -> "Off"
+                },
+                i.alignmentRunning,
+                "Lining the island's edges up with the status bar's icons, wherever they are on this phone. Optional and separate from the shade service; without it the island uses spacing measured on a Pixel and the guides you set.",
+                "Where the status bar's icons are on screen (their positions), from SystemUI's status bar window only. It never reads their text or any other app's window, keeps only the latest positions in memory, takes no actions and sends nothing.",
                 LedgerAction.ACCESSIBILITY_SETTINGS),
             LedgerRow("notifications", "Notification access",
                 if (i.notificationAccess) "Allowed" else "Not allowed", i.notificationAccess,

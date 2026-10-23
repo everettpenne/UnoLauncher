@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.101.0-uno01
+
+- **The island lines up with the real status bar.** A new, optional accessibility service, **Uno Launcher island alignment**, reads where the status bar's icons are (their positions only, from SystemUI's status bar window, never their text or any other app's window, kept in memory and never sent). With it on, the island puts its edges in the real gaps between icons on either side of the camera, on any phone, at any font or display size, and whatever icons are showing; it never covers the clock. Without it the island uses the spacing measured on a Pixel 10a and the guides on the calibration page, as before. It is separate from the shade service, which still reads nothing.
+- **Line up with the status bar** (the island's settings) shows whether automatic alignment is on and how many status bar items it is following, with a button to Android's accessibility settings; the hand guides are kept under **By hand**. The permission ledger has a row for the new service.
+
 ## 0.100.0-uno01
 
 - **Widgets that look like iOS's.** Each Uno widget's header is in its own colour and semibold (orange for timers and alarms, green for battery, blue for checklist and counter, gold for note and moon), darkened on a light wallpaper so it reads; big figures are semibold, tightly tracked and of one width instead of thin; content sits 16 dp in, as on iOS. The Date widget reads like Apple's Calendar widget (the weekday in red capitals, a large date), the Clock widget has an orange header, a large time and the date, and Battery shows the phone in its ring with the percentage under it.

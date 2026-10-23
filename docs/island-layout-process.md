@@ -150,6 +150,26 @@ and the test's icon positions.
 - **The grey island.** Over other apps through "display over other apps" (not the accessibility service), Android draws the island at 80%
   opacity so taps can pass through it; the island page now says so and how to get the solid island.
 
+## 11. Reading the real status bar (0.101.0)
+
+The grid above is one phone's status bar, measured by hand. When the person turns on **Uno Launcher island alignment** (a second accessibility
+service, separate from the shade service and off unless they turn it on), the island uses the status bar's real icons instead
+(`island/StatusBarReader.kt`):
+
+- **What it reads.** The service is told only of SystemUI's window changes (`packageNames="com.android.systemui"`). A quarter of a second after
+  a burst of them, it finds SystemUI's status bar window (type `TYPE_SYSTEM`, at the top, about the bar's height) and walks its tree, keeping
+  the bounds of each visible leaf. It reads no text or descriptions and never looks at another app's window. Only the latest set is kept, in
+  memory; nothing is stored or sent. The permission ledger lists it.
+- **From nodes to icons** (`StatusBarScan.icons`): only small leaves within the bar's height count. Parts that overlap are one icon. Parts
+  that only touch are two, because each view's bounds hold its own padding (on the emulator the clock's and the first notification icon's touch).
+- **From icons to gaps** (`StatusBarScan.gaps`): left of the camera, the middle of each gap after the first icon (the clock, which the island
+  never covers) and room past the last; right of it, room before the first, the middles, and room past the last. These replace the grid's
+  gaps on that side in `StatusBarGrid.layout`; a side with no icons keeps the grid.
+- **When it is used.** Only while the service runs and the reading was made at the current screen width. An empty read (the bar hidden, as in
+  the iOS layout's jiggle mode or with the status rail) keeps the last good one.
+- One gotcha found on the emulator: SystemUI's Compose host reports itself not visible while the icons inside it are, so every node's
+  children are walked and only leaves are checked for visibility.
+
 ## Recorded values
 
 Found with the debug page on 2026-10-19 and shipped as `IslandLayoutDefaults`. They are the width the island would *like*; the grid then grows

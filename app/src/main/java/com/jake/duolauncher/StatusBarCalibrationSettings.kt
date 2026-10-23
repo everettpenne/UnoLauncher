@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,6 +40,24 @@ internal fun StatusBarCalibrationSettings() {
     val cal = StatusBarCalibration.current
     DisposableEffect(Unit) { StatusBarCalibration.guidesShown = true; onDispose { StatusBarCalibration.guidesShown = false } }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    // Automatic alignment: the optional status bar reader (see island/StatusBarReader.kt). While it has a reading, the guides below are not used.
+    val reading = com.jake.duolauncher.island.StatusBarLive.reading
+    val running = com.jake.duolauncher.island.StatusBarReaderService.isConnected()
+    val enabled = remember(running) { com.jake.duolauncher.island.StatusBarReaderService.isEnabled(context) }
+    Text(stringResource(R.string.status_auto_title), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.status_auto_note), style = MaterialTheme.typography.bodySmall, color = muted)
+    Text(when {
+            running && reading != null -> stringResource(R.string.status_auto_reading, reading.icons.size)
+            running -> stringResource(R.string.status_auto_waiting)
+            enabled -> stringResource(R.string.status_auto_blocked)
+            else -> stringResource(R.string.status_auto_off)
+        }, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("status-auto-state"))
+    GlassButton(stringResource(R.string.status_auto_open), {
+        runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    }, Modifier.fillMaxWidth().heightIn(min = 48.dp), tag = "status-auto-open")
+    Spacer(Modifier.height(8.dp))
+    Text(stringResource(R.string.status_manual_title), style = MaterialTheme.typography.titleMedium)
     Text(stringResource(R.string.status_grid_intro), style = MaterialTheme.typography.bodySmall, color = muted)
     CalibrationStepper(stringResource(R.string.status_grid_left), cal.leftShift, "grid-left") { StatusBarCalibration.set(cal.copy(leftShift = it)) }
     CalibrationStepper(stringResource(R.string.status_grid_spacing), cal.pitchDelta, "grid-pitch") { StatusBarCalibration.set(cal.copy(pitchDelta = it)) }

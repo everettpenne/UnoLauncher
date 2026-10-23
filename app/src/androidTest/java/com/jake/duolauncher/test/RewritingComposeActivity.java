@@ -12,6 +12,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 
 /**
+ * (The box sits at the bottom, just above the keyboard, as a chat app's does, and the window resizes for the keyboard.)
  * A message box like Signal's: several lines, sentence capitals and autocorrect asked for, and a text watcher that, once the text runs onto
  * a second line, rewrites the whole of it on every change (as Signal re-processes its compose text for emoji and styling), keeping the
  * cursor where it was. Uno Keyboard once turned text in a box like this into gibberish; this is for checking that by hand.
@@ -38,9 +39,15 @@ public class RewritingComposeActivity extends Activity {
             }
         });
         FrameLayout root = new FrameLayout(this);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP);
-        lp.setMargins(32, 160, 32, 0);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
+        lp.setMargins(32, 0, 32, 24);
         root.addView(box, lp);
+        // Edge-to-edge (the default now) ignores adjustResize: like a chat app, lift the box by the keyboard's height myself.
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            int ime = insets.getInsets(android.view.WindowInsets.Type.ime() | android.view.WindowInsets.Type.systemBars()).bottom;
+            v.setPadding(0, 0, 0, ime);
+            return insets;
+        });
         setContentView(root);
         box.requestFocus();
     }

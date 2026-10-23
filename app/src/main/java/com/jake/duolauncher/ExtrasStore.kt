@@ -104,7 +104,8 @@ internal data class ExtrasState(
     val kbLearn: Boolean = true,
     val kbClipHistory: Boolean = true,
     val kbEmojiSuggestions: Boolean = true,
-    val kbGlass: Boolean = true,
+    /** Blur the app behind the keyboard (cross-window blur). Off by default: see UnoKeyboardService.setUpGlassWindow. */
+    val kbBlur: Boolean = false,
     val kbAutoCaps: Boolean = true,
     /** 0 liquid glass, 1 the flat look of Uno 0.97 (see keyboard.KeyboardUi's KeyPalette). */
     val kbStyle: Int = 0,
@@ -190,7 +191,7 @@ internal class ExtrasStore(context: Context) {
         kbLearn = prefs.getBoolean("kbLearn", true),
         kbClipHistory = prefs.getBoolean("kbClipHistory", true),
         kbEmojiSuggestions = prefs.getBoolean("kbEmojiSuggestions", true),
-        kbGlass = prefs.getBoolean("kbGlass", true),
+        kbBlur = prefs.getBoolean("kbBlur", false),
         kbAutoCaps = prefs.getBoolean("kbAutoCaps", true),
         kbStyle = prefs.getInt("kbStyle", 0).coerceIn(0, 1),
         handoff = prefs.getBoolean("handoff", true),
@@ -257,7 +258,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("kbLearn", next.kbLearn)
             .putBoolean("kbClipHistory", next.kbClipHistory)
             .putBoolean("kbEmojiSuggestions", next.kbEmojiSuggestions)
-            .putBoolean("kbGlass", next.kbGlass)
+            .putBoolean("kbBlur", next.kbBlur)
             .putBoolean("kbAutoCaps", next.kbAutoCaps)
             .putInt("kbStyle", next.kbStyle)
             .putBoolean("handoff", next.handoff)
@@ -332,7 +333,7 @@ internal class ExtrasStore(context: Context) {
     fun setKbLearn(value: Boolean) = save(state.copy(kbLearn = value))
     fun setKbClipHistory(value: Boolean) = save(state.copy(kbClipHistory = value))
     fun setKbEmojiSuggestions(value: Boolean) = save(state.copy(kbEmojiSuggestions = value))
-    fun setKbGlass(value: Boolean) = save(state.copy(kbGlass = value))
+    fun setKbBlur(value: Boolean) = save(state.copy(kbBlur = value))
     fun setKbAutoCaps(value: Boolean) = save(state.copy(kbAutoCaps = value))
     fun setKbStyle(value: Int) = save(state.copy(kbStyle = value.coerceIn(0, 1)))
     fun setHandoff(value: Boolean) = save(state.copy(handoff = value))

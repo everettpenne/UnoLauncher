@@ -296,6 +296,7 @@
     <string name="kb_group_privacy">What it keeps</string>
     <string name="kb_layouts_note">Turn on the layouts you type in. With more than one, the globe key goes round them and holding it opens Android\'s keyboard list. Autocorrect, completions and swipe typing use the English word list, so they work on the English layouts; on the others the keyboard suggests the words it has learned from you.</string>
     <string name="kb_height">Keyboard height</string>
+    <string name="kb_blur_note">The liquid-glass keyboard looks best blurring the app behind it, but on some phones that makes text in some apps flicker. If yours does, leave this off: the keys keep their glass look on a solid panel.</string>
     <string name="kb_style">Key style</string>
     <string name="kb_style_glass">Liquid glass</string>
     <string name="kb_style_glass_note">Translucent glass keys on a frosted panel, with a springy press</string>

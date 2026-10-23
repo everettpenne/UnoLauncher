@@ -94,7 +94,8 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
     private var emojiSuggestOn = true
     private var swipeOn = true
     private var soundOn = false
-    private var glassOn = true
+    /** Cross-window blur behind the keyboard, from the "kbBlur" setting (off by default). */
+    private var glassOn = false
     private var layouts = listOf(KeyLayouts.QWERTY)
 
     // What this field allows.
@@ -166,6 +167,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         window.window?.decorView?.let { decor ->
             decor.setViewTreeLifecycleOwner(this); decor.setViewTreeSavedStateRegistryOwner(this); decor.setViewTreeViewModelStoreOwner(this)
         }
+        glassOn = getSharedPreferences("extras", Context.MODE_PRIVATE).let { it.getBoolean("kbBlur", false) && it.getInt("kbStyle", 0) == 0 }
         setUpGlassWindow()
         registry.currentState = Lifecycle.State.RESUMED
         return ComposeView(this).also { view ->
@@ -176,8 +178,13 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         }
     }
 
-    /** The keyboard's window is see-through and blurs the app behind it, like iOS's glass keyboard, where Android allows cross-window
-     * blur (it switches it off in battery saver, and some phones never have it); otherwise the panel is simply drawn more opaque.
+    /**
+     * The keyboard's window can blur the app behind it, like iOS's glass keyboard, where Android allows cross-window blur (it switches it
+     * off in battery saver, and some phones never have it); otherwise, and by default, the panel is simply drawn nearly opaque.
+     *
+     * Off by default: on a Pixel, with the glass style on and this blur on, text in Signal's message box flickered between the typed text and
+     * gibberish once it wrapped onto a second line; Classic (which never asks for blur) and, on an emulator, glass did not. Blur is the only
+     * thing the styles do differently to any window but our own, so it is opt-in until it is known to be safe on real hardware.
      */
     private fun setUpGlassWindow() {
         val w = window.window ?: return
@@ -252,7 +259,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         soundOn = prefs.getBoolean("kbSound", prefs.getBoolean("sounds", false))
         ui.classic = prefs.getInt("kbStyle", 0) == 1
         // The classic look is opaque, so it never asks the window to blur.
-        val glass = prefs.getBoolean("kbGlass", true) && !ui.classic
+        val glass = prefs.getBoolean("kbBlur", false) && !ui.classic
         if (glass != glassOn) { glassOn = glass; setUpGlassWindow() }
         layouts = KeyLayouts.parse(prefs.getString("kbLayouts", null))
         if (ui.layout !in layouts) setLayout(layouts.first())

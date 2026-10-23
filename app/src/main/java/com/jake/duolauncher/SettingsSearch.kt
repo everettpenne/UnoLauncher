@@ -95,7 +95,7 @@ internal object SettingsSearch {
         SettingEntry("Keyboard layouts", CustomizationPage.KEYBOARD, "keyboard language qwertz azerty dvorak colemak workman russian greek"),
         SettingEntry("Keyboard height", CustomizationPage.KEYBOARD, "keyboard size taller shorter"),
         SettingEntry("Key style: Liquid glass or Classic", CustomizationPage.KEYBOARD, "keyboard look old 0.97 flat theme appearance"),
-        SettingEntry("See-through glass", CustomizationPage.KEYBOARD, "keyboard blur transparent liquid glass"),
+        SettingEntry("Blur the app behind the keyboard", CustomizationPage.KEYBOARD, "keyboard blur transparent see-through liquid glass flicker"),
         SettingEntry("Key haptics feel: Soft, Crisp or Firm", CustomizationPage.KEYBOARD, "keyboard vibration strength"),
         SettingEntry("Key sounds", CustomizationPage.KEYBOARD, "keyboard click audio"),
         SettingEntry("Emoji key", CustomizationPage.KEYBOARD, "keyboard smiley"),

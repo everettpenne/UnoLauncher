@@ -446,7 +446,7 @@ private fun KeyboardSettingsBody(store: ExtrasStore, s: ExtrasState, keyboardCon
     LaunchedEffect(s.haptics, s.kbHapticStrength, s.kbHapticFeel) { haptics() }
 
     com.jake.duolauncher.keyboard.KeyboardSettingsPreview(com.jake.duolauncher.keyboard.KeyboardLook(s.kbLayouts, s.kbHeight, s.kbNumberRow, s.kbEmojiKey,
-        s.kbKeyPreview, s.kbGlass, s.kbOneHanded, s.kbSpaceCursor, classic = s.kbStyle == 1), Modifier.fillMaxWidth())
+        s.kbKeyPreview, s.kbBlur, s.kbOneHanded, s.kbSpaceCursor, classic = s.kbStyle == 1), Modifier.fillMaxWidth())
 
     Text(stringResource(R.string.kb_group_typing), style = group)
     SettingsSwitch("Suggestions", s.kbSuggestions, store::setKbSuggestions, "kb-suggestions-switch")
@@ -468,7 +468,10 @@ private fun KeyboardSettingsBody(store: ExtrasStore, s: ExtrasState, keyboardCon
     Text(stringResource(R.string.kb_style), style = MaterialTheme.typography.bodyLarge)
     ChoiceRow(stringResource(R.string.kb_style_glass), stringResource(R.string.kb_style_glass_note), s.kbStyle == 0, "kb-style-glass") { store.setKbStyle(0) }
     ChoiceRow(stringResource(R.string.kb_style_classic), stringResource(R.string.kb_style_classic_note), s.kbStyle == 1, "kb-style-classic") { store.setKbStyle(1) }
-    if (s.kbStyle == 0) SettingsSwitch("See-through glass", s.kbGlass, store::setKbGlass, "kb-glass-switch")
+    if (s.kbStyle == 0) {
+        SettingsSwitch("Blur the app behind the keyboard", s.kbBlur, store::setKbBlur, "kb-blur-switch")
+        Text(stringResource(R.string.kb_blur_note), style = note, color = muted)
+    }
     SettingsSwitch("Number row", s.kbNumberRow, store::setKbNumberRow, "kb-number-row-switch")
     SettingsSwitch("Emoji key", s.kbEmojiKey, store::setKbEmojiKey, "kb-emoji-key-switch")
     SettingsSwitch("Magnify keys as you type", s.kbKeyPreview, store::setKbKeyPreview, "kb-key-preview-switch")

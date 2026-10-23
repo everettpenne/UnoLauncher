@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.98.2-uno01
+
+- **The keyboard no longer blurs the app behind it unless you turn that on.** Reported: with the glass style, text in Signal's message box flickered between what was typed and gibberish once it wrapped onto a second line (the sent message was right); Classic style did not do it. Blur behind the keyboard window is the only thing the styles do differently to any window but the keyboard's own, so it is now the switch **Blur the app behind the keyboard**, off by default. The keys keep their glass look on a solid panel. The window also no longer asks for blur for a moment at start-up regardless of style. Not reproduced on the emulator, so this needs confirming on the phone.
+
 ## 0.98.1-uno01
 
 - **Fixed: text turning to gibberish in some apps (reported in Signal).** Uno Keyboard sent a correction as two steps (delete the word, then type the fix) and deleted from its own remembered copy of the text. An app that rewrites its text box as it changes could act on the half-done edit, the copy drifted from what was really there, and later corrections deleted the wrong characters, with the app and the keyboard each undoing the other. Every edit is now one batch edit the app sees whole; before anything is deleted the app's real text is checked and, if it differs, the keyboard re-reads it and changes nothing; and the keyboard recognises its own cursor updates in order, so an app's change that lands where an earlier keystroke left the cursor is no longer mistaken for its own.

@@ -34,12 +34,12 @@ internal fun CountdownFace(slot: Int, onOptions: () -> Unit) {
     var editing by remember { mutableStateOf(false) }
     GlassCard(onClick = { editing = true }, modifier = Modifier.testTag("uno-countdown-$slot")) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.Event, name)
+        CardTitle(Icons.Rounded.Event, name, widgetAccent(WidgetColors.Warm))
         if (target == null) Text(stringResource(com.jake.duolauncher.R.string.tap_to_set_a_date), color = ink.soft(), style = UnoType.footnote)
         else {
             val (big, unit) = Countdown.label(today, target)
             Column {
-                Text(big, color = widgetAccent(WidgetColors.Warm), fontSize = 42.sp, fontWeight = FontWeight.Light, lineHeight = 44.sp, maxLines = 1)
+                Text(big, color = widgetAccent(WidgetColors.Warm), style = WidgetType.number(42.sp), maxLines = 1)
                 if (unit.isNotEmpty()) Text(unit, color = ink.soft(), style = UnoType.footnote)
             }
             Text(target.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")) + if (yearly) " · every year" else "", color = ink.soft(), style = UnoType.caption2, maxLines = 1)

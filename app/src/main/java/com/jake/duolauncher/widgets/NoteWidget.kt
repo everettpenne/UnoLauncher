@@ -24,7 +24,7 @@ internal fun NoteFace(slot: Int, onOptions: () -> Unit) {
     var editing by remember { mutableStateOf(false) }
     GlassCard(onClick = { editing = true }, modifier = Modifier.testTag("uno-note-$slot")) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.EditNote, "Note")
+        CardTitle(Icons.Rounded.EditNote, "Note", widgetAccent(WidgetColors.Gold))
         if (note.isBlank()) Text(androidx.compose.ui.res.stringResource(com.jake.duolauncher.R.string.tap_to_write_a_note), color = ink.soft(), style = UnoType.footnote, modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 4.dp))
         else Row(Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp)) {
             Box(Modifier.width(3.dp).fillMaxHeight().clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(widgetAccent(WidgetColors.Gold)))

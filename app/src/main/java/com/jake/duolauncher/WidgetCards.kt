@@ -23,13 +23,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 @Composable
-internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.ui.unit.Dp = 14.dp, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+/** Every Uno widget's card. Its content sits 16 dp in from each edge, the margin iOS gives a widget's content. */
+internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.ui.unit.Dp = 16.dp, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val glass = LocalPageGlass.current
     val previewing = LocalWidgetPreview.current
     // Built-in widget text follows the wallpaper behind it: white on dark, dark ink on pale.
@@ -62,21 +65,31 @@ internal fun currentTime(everyMs: Long = 60_000L): LocalDateTime {
 internal fun ClockCard(onClick: () -> Unit) {
     val time = currentTime()
     val format = if (android.text.format.DateFormat.is24HourFormat(LocalContext.current)) "HH:mm" else "h:mm"
+    // As iOS's Clock widget reads: the place in the clock's orange at the top, the time large and semibold, the day under it.
     GlassCard(onClick = onClick) {
         val ink = LocalGlassInk.current
-        Icon(Icons.Rounded.Schedule, "Clock widget; tap to replace", tint = ink.primary, modifier = Modifier.size(20.dp))
-        Text(time.format(DateTimeFormatter.ofPattern(format)), color = ink.primary, fontWeight = FontWeight.Light, fontSize = 30.sp, maxLines = 1)
-        Text(stringResource(com.jake.duolauncher.R.string.local_time), color = ink.soft(.92f), style = UnoType.caption1.copy(fontWeight = FontWeight.Medium))
+        com.jake.duolauncher.widgets.CardTitle(Icons.Rounded.Schedule, stringResource(com.jake.duolauncher.R.string.local_time),
+            com.jake.duolauncher.widgets.widgetAccent(com.jake.duolauncher.widgets.WidgetColors.Warm))
+        Column {
+            Text(time.format(DateTimeFormatter.ofPattern(format)), color = ink.primary, style = com.jake.duolauncher.widgets.WidgetType.number(38.sp),
+                maxLines = 1, modifier = Modifier.semantics { contentDescription = "Clock widget; tap to replace" })
+            Text(time.format(DateTimeFormatter.ofPattern("EEE d MMM")), color = ink.soft(.92f), style = UnoType.caption1.copy(fontWeight = FontWeight.Medium), maxLines = 1)
+        }
     }
 }
 
 @Composable
 internal fun DateCard(onClick: () -> Unit) {
     val date = currentTime()
+    // As iOS's Calendar widget reads: the weekday in red capitals, the day of the month large, the month under it.
     GlassCard(onClick = onClick) {
         val ink = LocalGlassInk.current
-        Text(date.format(DateTimeFormatter.ofPattern("EEEE")), color = ink.primary, style = UnoType.caption1, maxLines = 1)
-        Text(date.dayOfMonth.toString(), color = ink.primary, fontWeight = FontWeight.Light, fontSize = 40.sp, lineHeight = 42.sp)
+        Column {
+            Text(date.format(DateTimeFormatter.ofPattern("EEEE")).uppercase(), maxLines = 1,
+                color = com.jake.duolauncher.widgets.WidgetType.legibleAccent(com.jake.duolauncher.widgets.widgetAccent(com.jake.duolauncher.widgets.WidgetColors.Rose), ink.primary),
+                style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold, letterSpacing = .4.sp))
+            Text(date.dayOfMonth.toString(), color = ink.primary, style = com.jake.duolauncher.widgets.WidgetType.number(52.sp), maxLines = 1)
+        }
         Text(date.format(DateTimeFormatter.ofPattern("MMMM")), color = ink.soft(.92f), style = UnoType.footnote.copy(fontWeight = FontWeight.Medium))
     }
 }

@@ -41,7 +41,7 @@ internal fun WorldClockFace(slot: Int, onOptions: () -> Unit) {
     var editing by remember { mutableStateOf(false) }
     GlassCard(onClick = { editing = true }, modifier = Modifier.testTag("uno-world-clock-$slot")) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.Public, "World clock")
+        CardTitle(Icons.Rounded.Public, "World clock", widgetAccent(WidgetColors.Blue))
         if (zones.isEmpty()) Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_a_place), color = ink.soft(), style = UnoType.footnote)
         else Column(Modifier.weight(1f).fillMaxWidth().padding(top = 2.dp), verticalArrangement = Arrangement.Center) {
             zones.forEach { zoneId ->

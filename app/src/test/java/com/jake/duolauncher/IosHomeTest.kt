@@ -86,3 +86,31 @@ class IosHomeTest {
         assertFalse(GlassFinish.clearEdge(dock, clear = false))
     }
 }
+
+class IosWidgetTypeTest {
+    @Test fun headersDarkenOnLightGlassAndKeepTheirColourOnDark() {
+        val gold = Color(0xFFFFD60A)
+        // Dark ink means a light wallpaper: the gold header is darkened so it reads.
+        val onLight = com.jake.duolauncher.widgets.WidgetType.legibleAccent(gold, Color(0xFF1C1C1E))
+        assertTrue(onLight.red < gold.red && onLight.green < gold.green)
+        assertEquals(gold, com.jake.duolauncher.widgets.WidgetType.legibleAccent(gold, Color.White))
+    }
+
+    @Test fun bigFiguresAreSemiboldTabularAndTight() {
+        val style = com.jake.duolauncher.widgets.WidgetType.number(androidx.compose.ui.unit.TextUnit(40f, androidx.compose.ui.unit.TextUnitType.Sp))
+        assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, style.fontWeight)
+        assertEquals("tnum", style.fontFeatureSettings)
+        assertTrue(style.letterSpacing.value < 0f)
+    }
+}
+
+class StatusIconsTest {
+    @Test fun iconsFollowTheWallpaperUnderTheStatusBar() {
+        assertFalse(com.jake.duolauncher.appearance.StatusIcons.dark(null, false))
+        assertFalse(com.jake.duolauncher.appearance.StatusIcons.dark(.02f, false))
+        assertTrue(com.jake.duolauncher.appearance.StatusIcons.dark(.8f, false))
+        // The dead band: once dark, a strip just under the crossover keeps them dark rather than flickering.
+        val edge = (0..100).map { it / 100f }.first { com.jake.duolauncher.appearance.StatusIcons.dark(it, false) }
+        assertTrue(com.jake.duolauncher.appearance.StatusIcons.dark(edge - .05f, true))
+    }
+}

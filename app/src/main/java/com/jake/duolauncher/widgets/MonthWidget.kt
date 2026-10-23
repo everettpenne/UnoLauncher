@@ -29,7 +29,7 @@ internal fun MonthFace(slot: Int, onOptions: () -> Unit) {
     val month = YearMonth.from(today)
     val first = WeekFields.of(Locale.getDefault()).firstDayOfWeek
     val cells = remember(month, first) { MonthGrid.cells(month, first) }
-    GlassCard(onClick = onOptions, padding = 10.dp, modifier = Modifier.testTag("uno-month-$slot")) {
+    GlassCard(onClick = onOptions, padding = 12.dp, modifier = Modifier.testTag("uno-month-$slot")) {
         val ink = LocalGlassInk.current
         val accent = widgetAccent(WidgetColors.Rose)
         Row(verticalAlignment = Alignment.Bottom) {

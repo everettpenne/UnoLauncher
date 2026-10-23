@@ -64,7 +64,7 @@ internal fun ConsoleFace(slot: Int, onOptions: () -> Unit) {
     val accent = widgetAccent(WidgetColors.Green)
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-console-$slot")) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.Terminal, "Console")
+        CardTitle(Icons.Rounded.Terminal, "Console", widgetAccent(WidgetColors.Green))
         if (events.isEmpty()) {
             Text(stringResource(com.jake.duolauncher.R.string.no_events_yet), color = ink.soft(), style = UnoType.caption1)
         } else {

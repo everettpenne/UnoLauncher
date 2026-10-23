@@ -129,8 +129,7 @@ internal fun LiquidBatteryFace(slot: Int, onOptions: () -> Unit) {
                 Text(androidx.compose.ui.res.stringResource(com.jake.duolauncher.R.string.battery_widget_title), color = if (fill > .84f) Color.White.copy(alpha = .85f) else ink.soft(), style = UnoType.caption1)
             }
             val shadow = if (onLiquid) androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = .28f), Offset(0f, 2f), 8f) else null
-            Text(if (reading.percent >= 0) "${reading.percent}%" else "—", color = primary, fontSize = 36.sp, fontWeight = FontWeight.Light,
-                style = androidx.compose.ui.text.TextStyle(shadow = shadow),
+            Text(if (reading.percent >= 0) "${reading.percent}%" else "—", color = primary, style = WidgetType.number(36.sp).copy(shadow = shadow),
                 modifier = Modifier.align(Alignment.Center).offset(y = 6.dp).testTag("liquid-battery-percent"))
             Text(reading.toFull ?: if (reading.charging) "Charging" else "On battery",
                 color = if (fill > .12f) Color.White.copy(alpha = .92f) else ink.soft(),

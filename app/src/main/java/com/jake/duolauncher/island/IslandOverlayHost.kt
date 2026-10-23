@@ -189,6 +189,10 @@ internal class IslandOverlayHost(
             var everywhere by androidx.compose.runtime.remember { mutableStateOf(true) }
             val visible = allowed && (everywhere || IslandRuntime.launcherInFront)
             var islandWideMode by androidx.compose.runtime.remember { mutableStateOf(readIslandWideMode(context)) }
+            // The iOS Home layout on a phone-sized screen: there the idle Home island is a ring round the camera, as the launcher's own is.
+            fun readIosHome() = context.getSharedPreferences("appearance", Context.MODE_PRIVATE).getString("homeStyle", null) == "IOS" &&
+                context.resources.configuration.screenWidthDp < 650
+            var iosHome by androidx.compose.runtime.remember { mutableStateOf(readIosHome()) }
             var resumeWindowMs by androidx.compose.runtime.remember { mutableStateOf(IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))) }
             var islandScale by androidx.compose.runtime.remember {
                 mutableStateOf(context.getSharedPreferences("appearance", Context.MODE_PRIVATE).lenientFloat("islandScale", .5f).coerceIn(0f, 1f))
@@ -213,6 +217,7 @@ internal class IslandOverlayHost(
                     allowed = OverlayPolicy.shouldShow(enabled, homeIsland, launcherInFront = true, (!needsOverlayPermission || Settings.canDrawOverlays(context)),
                         keyguard.isKeyguardLocked, power.isInteractive)
                     islandWideMode = readIslandWideMode(context)
+                    iosHome = readIosHome()
                     resumeWindowMs = IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))
                     islandScale = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
                         .lenientFloat("islandScale", .5f).coerceIn(0f, 1f)
@@ -232,7 +237,7 @@ internal class IslandOverlayHost(
                     feedHeadline = null,
                     sizeScale = islandScale,
                     // On Home alone the island keeps its full pill when idle, as the launcher's own did; the ring is for over other apps.
-                    alwaysWide = islandWideMode.keepWide || !everywhere,
+                    alwaysWide = islandWideMode.keepWide || (!everywhere && !iosHome),
                     wideFactor = islandWideMode.wideFactor,
                     belowStatusBar = needsOverlayPermission,
                     resumeWindowMs = resumeWindowMs,

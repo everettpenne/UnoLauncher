@@ -12,6 +12,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BatteryChargingFull
+import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -59,11 +61,11 @@ internal fun BatteryFace(slot: Int, onOptions: () -> Unit) {
     val reading = if (LocalWidgetPreview.current) SAMPLE_READING else live
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-battery-$slot")) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.BatteryChargingFull, "Battery")
-        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+        CardTitle(Icons.Rounded.BatteryChargingFull, "Battery", widgetAccent(WidgetColors.Green))
+        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
             val tint = when { reading.charging -> widgetAccent(WidgetColors.Green); reading.level in 0..20 -> widgetAccent(WidgetColors.Warm); else -> ink.primary }
             Canvas(Modifier.fillMaxHeight().aspectRatio(1f)) {
-                val stroke = 8.dp.toPx()
+                val stroke = 7.dp.toPx()
                 val inset = stroke * .9f
                 val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
                 val topLeft = Offset(inset, inset)
@@ -78,8 +80,12 @@ internal fun BatteryFace(slot: Int, onOptions: () -> Unit) {
                     }
                 }
             }
-            Text(if (reading.level >= 0) "${reading.level}%" else "—", color = ink.primary, style = UnoType.body.copy(fontWeight = FontWeight.Light))
+            // As iOS's Batteries widget: the device in the ring (a bolt beside it while charging) and the percentage under the ring.
+            Icon(if (reading.charging) Icons.Rounded.BatteryChargingFull else Icons.Rounded.Smartphone, null, tint = ink.primary,
+                modifier = Modifier.fillMaxHeight(.34f).aspectRatio(1f))
         }
+        Text(if (reading.level >= 0) "${reading.level}%" else "—", color = ink.primary, style = WidgetType.number(22.sp),
+            maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally))
         Text(reading.toFull ?: if (reading.charging) "Charging" else "On battery", color = ink.soft(), style = UnoType.caption2, maxLines = 1,
             modifier = Modifier.align(Alignment.CenterHorizontally))
     }

@@ -31,7 +31,7 @@ internal fun AnalogClockFace(slot: Int, onOptions: () -> Unit) {
     }
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-analog-clock-$slot")) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.Schedule, "Clock")
+        CardTitle(Icons.Rounded.Schedule, "Clock", widgetAccent(WidgetColors.Warm))
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
             val hour = AnalogClock.hourAngle(now.toLocalTime())
             val minute = AnalogClock.minuteAngle(now.toLocalTime())

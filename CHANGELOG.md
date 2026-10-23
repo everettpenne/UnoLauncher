@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.100.0-uno01
+
+- **Widgets that look like iOS's.** Each Uno widget's header is in its own colour and semibold (orange for timers and alarms, green for battery, blue for checklist and counter, gold for note and moon), darkened on a light wallpaper so it reads; big figures are semibold, tightly tracked and of one width instead of thin; content sits 16 dp in, as on iOS. The Date widget reads like Apple's Calendar widget (the weekday in red capitals, a large date), the Clock widget has an orange header, a large time and the date, and Battery shows the phone in its ring with the percentage under it.
+- **The island covers the status bar on the iOS layout.** The Home island is drawn in the launcher's window, under the status bar's, so the clock and icons showed on top of the open island. On the iOS layout the status bar now steps aside while the island is open, peeking, being pulled, flashing an event or growing into search, and comes back once it has landed. Home keeps the bar's room, so nothing moves.
+- **On the iOS layout the idle island is a ring round the camera.** Android keeps its status bar icons clear of the camera, so the ring never covers one; the island widens when it has something to show. "Extra wide" and the other keep-wide choices still keep it wide.
+- **Status bar icons follow the wallpaper.** They were always light, and faded out over a pale wallpaper; now they are dark over a light top strip and light over a dark one, with the glass ink's dead band so they never flicker.
+
 ## 0.99.0-uno01
 
 - **An iOS Home layout.** Launcher settings › Home › Home layout switches the phone screen between Uno's **Side dock** and **iOS**: a strict grid scaled from the iPhone's own measurements (square small widgets, medium and large four columns wide, 60 pt icons), widgets placed and resized only at **Small, Medium and Large**, and the dock a clear glass bar of four apps along the bottom with a **Search** pill above it that turns into the page dots while the pages move. The status bar shows instead of the status rail. The inner screen of a foldable keeps the side dock; widgets placed before keep their size until resized.

@@ -58,7 +58,7 @@ internal fun ScreenTimeFace(slot: Int, onOptions: () -> Unit) {
     GlassCard(onClick = { if (!hasUsageAccess(context)) openUsageAccess(context) else editingGoal = true },
         modifier = Modifier.testTag("uno-screentime-$slot")) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.HourglassTop, "Screen time")
+        CardTitle(Icons.Rounded.HourglassTop, "Screen time", widgetAccent(WidgetColors.Violet))
         if (!allowed) {
             Text(stringResource(com.jake.duolauncher.R.string.screen_time_allow), color = ink.soft(), style = UnoType.caption1)
             Spacer(Modifier.height(8.dp))
@@ -66,7 +66,7 @@ internal fun ScreenTimeFace(slot: Int, onOptions: () -> Unit) {
         } else {
             val total = ScreenTime.totalMinutes(usages)
             val over = ScreenTime.overGoal(total, goalMin)
-            Text(ScreenTime.formatDuration(total), color = ink.primary, fontSize = 30.sp, fontWeight = FontWeight.Light,
+            Text(ScreenTime.formatDuration(total), color = ink.primary, style = WidgetType.number(30.sp),
                 maxLines = 1, modifier = Modifier.testTag("screentime-total"))
             Text(stringResource(com.jake.duolauncher.R.string.screen_time_today), color = ink.soft(), style = UnoType.caption2)
             Spacer(Modifier.height(4.dp))

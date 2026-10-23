@@ -171,6 +171,11 @@ Launcher settings › Home › Home layout chooses the phone screen's layout; th
   remove badge as icons; the status bar is hidden and its row holds an Edit capsule (Add Widget, Customize, Add apps, pages) and Done. Tapping
   a widget offers Small, Medium and Large. Home keeps the status bar's room while it is hidden, so nothing moves as editing starts.
 
+**The island and the status bar on the iOS layout.** The Home island is drawn in the launcher's window, which Android always puts under the
+status bar, so the status bar steps aside (it is hidden, its room kept) while anything has grown out of the island: open, peeking, pulled, an
+event flash, or search. Idle, the island is a ring round the camera (`ringWhenIdle`), which Android's icons always keep clear of; it widens
+only with something to show. The status bar's icons are dark or light from the wallpaper's top strip (`StatusIcons`).
+
 **Clear glass** (Appearance, on by default) makes Home's light glass surfaces (tint alpha 0.2 or less: dock, rail, widgets, page dots, search
 pill) take a quarter of their tint and a brighter, wider edge with a sheen along the top (`GlassFinish`). Sheets and panels keep their tint.
 

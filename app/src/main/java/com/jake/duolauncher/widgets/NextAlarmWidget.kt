@@ -48,11 +48,11 @@ internal fun NextAlarmFace(slot: Int, onOptions: () -> Unit) {
     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(60_000L); nowMs = System.currentTimeMillis(); info = readNextAlarm(context) } }
     GlassCard(onClick = { if (!sendTapAction(context, info?.showIntent)) onOptions() }, modifier = Modifier.testTag("uno-next-alarm-$slot")) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.Alarm, "Next alarm")
+        CardTitle(Icons.Rounded.Alarm, "Next alarm", widgetAccent(WidgetColors.Warm))
         val alarm = info
         val preview = LocalWidgetPreview.current
         if (alarm == null && !preview) {
-            Text(stringResource(com.jake.duolauncher.R.string.no_alarm_set), color = ink.primary, fontSize = 18.sp, fontWeight = FontWeight.Light, modifier = Modifier.testTag("next-alarm-none"))
+            Text(stringResource(com.jake.duolauncher.R.string.no_alarm_set), color = ink.primary, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.testTag("next-alarm-none"))
             Text(stringResource(com.jake.duolauncher.R.string.set_one_in_your_clock_app), color = ink.soft(), style = UnoType.caption1)
         } else {
             val zone = ZoneId.systemDefault()
@@ -61,7 +61,7 @@ internal fun NextAlarmFace(slot: Int, onOptions: () -> Unit) {
             val parts = NextAlarmText.describe(Instant.ofEpochMilli(nowMs).atZone(zone), Instant.ofEpochMilli(trigger).atZone(zone),
                 android.text.format.DateFormat.is24HourFormat(context))
             Text(parts.day, color = ink.soft(), style = UnoType.caption1, maxLines = 1)
-            Text(parts.time, color = ink.primary, fontSize = 34.sp, fontWeight = FontWeight.Light, maxLines = 1, modifier = Modifier.testTag("next-alarm-time"))
+            Text(parts.time, color = ink.primary, style = WidgetType.number(34.sp), maxLines = 1, modifier = Modifier.testTag("next-alarm-time"))
             Box(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(widgetAccent(WidgetColors.Warm).copy(alpha = .26f))
                 .padding(horizontal = 9.dp, vertical = 3.dp)) {
                 Text(parts.remaining, color = ink.primary, style = UnoType.caption2, maxLines = 1)

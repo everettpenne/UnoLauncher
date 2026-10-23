@@ -26,7 +26,7 @@ internal fun ProgressFace(slot: Int, onOptions: () -> Unit) {
     val progress = TimeProgress.of(rememberNow(60_000))
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-progress-$slot")) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.Timelapse, "${LocalDate.now().year} · ${progress.daysLeftInYear} days left")
+        CardTitle(Icons.Rounded.Timelapse, "${LocalDate.now().year} · ${progress.daysLeftInYear} days left", widgetAccent(WidgetColors.Teal))
         Column(verticalArrangement = Arrangement.spacedBy(9.dp, Alignment.CenterVertically), modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 4.dp)) {
             listOf(Triple("Day", progress.day, WidgetColors.Warm), Triple("Month", progress.month, WidgetColors.Teal),
                 Triple("Year", progress.year, WidgetColors.Violet)).forEach { (label, fraction, hue) ->

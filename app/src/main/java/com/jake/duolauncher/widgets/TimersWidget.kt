@@ -34,10 +34,10 @@ internal fun TimersFace(slot: Int, onOptions: () -> Unit) {
     }
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-timers-$slot")) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.Timer, "Timer")
+        CardTitle(Icons.Rounded.Timer, "Timer", widgetAccent(WidgetColors.Warm))
         if (IslandTools.timerActive) {
-            Text(IslandClock.countdown(IslandClock.remainingMs(now, IslandTools.timerEndAt)), color = widgetAccent(WidgetColors.Warm), fontSize = 36.sp,
-                fontWeight = FontWeight.Light, maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally).testTag("timer-remaining"))
+            Text(IslandClock.countdown(IslandClock.remainingMs(now, IslandTools.timerEndAt)), color = widgetAccent(WidgetColors.Warm), style = WidgetType.number(36.sp),
+                maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally).testTag("timer-remaining"))
             Box(Modifier.align(Alignment.CenterHorizontally).clip(RoundedCornerShape(50)).background(ink.soft(.2f))
                 .clickable { IslandTools.cancelTimer(context) }.padding(horizontal = 18.dp, vertical = 6.dp).testTag("timer-stop")) {
                 Text(stringResource(com.jake.duolauncher.R.string.stop), color = ink.primary, style = UnoType.footnote)

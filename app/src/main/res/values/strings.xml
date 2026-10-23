@@ -435,10 +435,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">An iOS Home layout: a strict iPhone grid, widgets in Small, Medium and Large, and the dock along the bottom with Search above it. Launcher settings › Home › Home layout.</string>
-    <string name="whats_new_2">On the iOS layout, hold empty space to start editing, as on an iPhone: everything wiggles, widgets can be removed, and Edit adds a widget or customizes the look.</string>
-    <string name="whats_new_3">Clear glass: the dock, widgets and controls are clear with a bright edge, like iOS. Appearance › Clear glass.</string>
-    <string name="whats_new_4">The island and search open out of the island wherever and however big it is, and close back into it, anchored to the camera. The open island has a battery gauge, proper buttons and a soft shadow, and a long press opens the app behind what it shows.</string>
+    <string name="whats_new_1">Widgets look like iOS\'s: each widget\'s name in its own colour, big semibold figures, and Clock, Date and Battery redrawn after the iPhone\'s.</string>
+    <string name="whats_new_2">On the iOS layout the open island covers the status bar, as on an iPhone: the clock and icons step aside while it is open, peeking, flashing an event or growing into search.</string>
+    <string name="whats_new_3">On the iOS layout the idle island is a ring round the camera, so it never covers the status bar\'s icons; it widens when it has something to show.</string>
+    <string name="whats_new_4">The status bar\'s icons follow your wallpaper: dark over a light sky, light over a dark one.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

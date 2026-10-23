@@ -37,7 +37,7 @@ internal fun SunFace(slot: Int, onOptions: () -> Unit) {
     val format = DateTimeFormatter.ofPattern(if (android.text.format.DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm a")
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-sun-$slot")) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.WbSunny, "Sun")
+        CardTitle(Icons.Rounded.WbSunny, "Sun", widgetAccent(WidgetColors.Warm))
         when {
             schedule == null -> Text(stringResource(com.jake.duolauncher.R.string.set_a_place_in_wallpaper_glass), color = ink.soft(), style = UnoType.caption1)
             schedule.polar == PolarDaylight.DAY -> Text(stringResource(com.jake.duolauncher.R.string.the_sun_does_not_set_today), color = ink.primary, style = UnoType.subheadline)

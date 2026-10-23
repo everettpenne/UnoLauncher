@@ -144,3 +144,13 @@ internal fun rememberAdaptiveInk(tint: Color, tintAlpha: Float): AdaptiveInk {
         tween(220), label = "glass ink")
     return AdaptiveInk(color, track)
 }
+
+/** The status bar's icon colour from the wallpaper under it. Pure, so it is unit-tested. */
+internal object StatusIcons {
+    /** How much of the screen's height the status bar strip is taken as, for the wallpaper's brightness there. */
+    const val STRIP = .05f
+
+    /** Dark icons over a top strip of luminance [topLuminance] (null: not known yet, so light), with the glass ink's dead band from [currentlyDark]. */
+    fun dark(topLuminance: Float?, currentlyDark: Boolean): Boolean =
+        topLuminance != null && AdaptiveInkMath.useDarkInk(topLuminance, currentlyDark)
+}

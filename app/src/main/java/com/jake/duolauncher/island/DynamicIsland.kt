@@ -159,6 +159,9 @@ internal fun DynamicIsland(
     onWebSearch: ((String) -> Unit)? = null,
     /** Keep the pill wide when idle, instead of shrinking to a ring round the camera over other apps. */
     alwaysWide: Boolean = false,
+    /** Shrink to a ring round the camera when idle on Home too (the iOS layout, where the status bar shows beside the island). Android keeps its
+     *  status bar icons clear of the camera, so a ring never covers one; the island widens only when it has something to show. */
+    ringWhenIdle: Boolean = false,
     /** Scales the collapsed pill's wide side slots (1f = today's width, 1.5f = Extra wide); see IslandGeometry.frame. */
     wideFactor: Float = 1f,
     /** True when this island renders *below* the system status bar, so the strip's touches belong to SystemUI and a pill pull
@@ -413,7 +416,7 @@ internal fun DynamicIsland(
     // nothing to say it shrinks to a ring around the camera instead of covering those icons. Anything live (an event, a timer,
     // a call, playback) widens it again.
     val hasLiveContent = flashActive || IslandTools.ringing || liveKinds.isNotEmpty()
-    val compactTarget = if (anchoredToWindow && !hasLiveContent && !alwaysWide) 1f else 0f
+    val compactTarget = if ((anchoredToWindow || ringWhenIdle) && !hasLiveContent && !alwaysWide) 1f else 0f
     val compactnessState = motion.compactness.asState()
     // What the open island is showing, held while it closes. collapse() clears the card at once, but the island takes a
     // moment to shrink; reading it live made the face (and the body's height) switch to the ordinary open island, with the app shortcuts

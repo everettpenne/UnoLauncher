@@ -38,7 +38,7 @@ internal fun MoonFace(slot: Int, onOptions: () -> Unit) {
     val litFraction = if (previewing) SAMPLE_LIT else MoonPhase.illumination(at)
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-moon-$slot")) {
         val ink = LocalGlassInk.current
-        CardTitle(Icons.Rounded.Bedtime, "Moon")
+        CardTitle(Icons.Rounded.Bedtime, "Moon", widgetAccent(WidgetColors.Gold))
         val haloColor = widgetAccent(WidgetColors.Gold)
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxHeight().aspectRatio(1f)) {

@@ -36,7 +36,7 @@ internal fun ChecklistFace(slot: Int, onOptions: () -> Unit) {
     GlassCard(onClick = { adding = true }, modifier = Modifier.testTag("uno-checklist-$slot")) {
         val ink = LocalGlassInk.current
         val (done, total) = Checklist.doneCount(items)
-        CardTitle(Icons.Rounded.CheckCircle, "Checklist")
+        CardTitle(Icons.Rounded.CheckCircle, "Checklist", widgetAccent(WidgetColors.Blue))
         if (items.isEmpty()) {
             Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_a_task), color = ink.soft(), style = UnoType.footnote)
         } else {

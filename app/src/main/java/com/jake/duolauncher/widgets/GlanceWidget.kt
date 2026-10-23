@@ -54,7 +54,7 @@ internal fun GlanceFace(slot: Int, onOptions: () -> Unit) {
     GlassCard(onClick = onOptions, modifier = Modifier.testTag("uno-glance-$slot")) {
         val ink = LocalGlassInk.current
         Text(now.format(DateTimeFormatter.ofPattern(Glance.timePattern(is24))), color = ink.primary,
-            fontSize = 34.sp, fontWeight = FontWeight.Light, maxLines = 1, modifier = Modifier.testTag("glance-time"))
+            style = WidgetType.number(34.sp), maxLines = 1, modifier = Modifier.testTag("glance-time"))
         Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = ink.soft(), style = UnoType.caption1, maxLines = 1)
         if (alarm != null || sampleAlarm != null) Row(verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(widgetAccent(WidgetColors.Warm).copy(alpha = .22f))

@@ -140,6 +140,7 @@ internal fun LauncherScreen(
     onWallpaperDepth: (Boolean) -> Unit = {},
     onHomeStyle: (HomeStyle) -> Unit = {},
     onClearGlass: (Boolean) -> Unit = {},
+    onStatusIconsDark: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onTiltStrength: (Float) -> Unit = {},
     island: IslandState = IslandState(),
@@ -341,10 +342,15 @@ internal fun LauncherScreen(
     // The iOS layout (on a phone-sized screen) has no status rail: the system status bar shows instead, as on an iPhone.
     val iosLayout = appearance.homeStyle == HomeStyle.IOS && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 650
     val railShown = state.verticalStatus && !iosLayout
-    // Jiggle mode on the iOS layout hides the status bar too: its Edit and Done capsules take that row, as on an iPhone.
-    val statusHidden = railShown || (iosLayout && homeEditing)
-    LaunchedEffect(statusHidden) { onStatusMode(statusHidden) }
     SideEffect { GlassFinish.clear = appearance.clearGlass }
+    // The status bar's icons follow the wallpaper under them: dark on a light top strip, light on a dark one (they were always light, and
+    // faded out over a pale sky beside the black island). The same contrast rule and dead band as the glass ink, so it never flickers.
+    val wallpaperLuma = LocalWallpaperLuma.current
+    var statusIconsDark by remember { mutableStateOf(false) }
+    LaunchedEffect(wallpaperLuma) {
+        statusIconsDark = StatusIcons.dark(wallpaperLuma?.mean(0f, 0f, 1f, StatusIcons.STRIP), statusIconsDark)
+    }
+    LaunchedEffect(statusIconsDark) { onStatusIconsDark(statusIconsDark) }
     LaunchedEffect(homeRequests) { if (homeRequests > 0) {
         // An app can pause Home after the destination is visible but before its settle completes.
         val page = pager.currentPage.takeIf { it in 0 until homePages }
@@ -369,6 +375,20 @@ internal fun LauncherScreen(
     }
     var controlPanelOpen by remember { mutableStateOf(false) }
     var spotlightOpen by remember { mutableStateOf(false) }
+    // Jiggle mode on the iOS layout hides the status bar too: its Edit and Done capsules take that row, as on an iPhone.
+    //
+    // So does anything grown out of the island on the iOS layout (the island open, peeking or being pulled down, and search growing out of
+    // it). The Home island is drawn in the launcher's window, under SystemUI's status bar window, so the clock and icons were drawn on top of
+    // the open island; an iPhone's expanded island covers its status bar, so here the bar steps aside while the island is out. Home keeps the
+    // bar's room while it is hidden (homeInsets), so nothing moves. It comes back a moment after the island has gone back in, not while it is
+    // still shrinking over that row.
+    // An event flash (a VPN change, the ringer, an app's name) counts too: it widens the pill past the icons' gaps for its few seconds.
+    val islandOut by remember(island) { derivedStateOf { island.expanded || island.peeked || island.pullFraction != null || island.flashTitle != null } }
+    val islandCoversBar = iosLayout && (islandOut || spotlightOpen)
+    var barHeldForIsland by remember { mutableStateOf(false) }
+    LaunchedEffect(islandCoversBar) { if (islandCoversBar) barHeldForIsland = true else { delay(380); barHeldForIsland = false } }
+    val statusHidden = railShown || (iosLayout && (homeEditing || islandCoversBar || barHeldForIsland))
+    LaunchedEffect(statusHidden) { onStatusMode(statusHidden) }
     // The island reads this process-wide flag (through IslandEventArbiter) so a notification never auto-expands it
     // while Spotlight is open; see the "no auto-expand" rule in docs/design.md's Metaphor policy.
     LaunchedEffect(spotlightOpen) { IslandRuntime.spotlightOpen = spotlightOpen }
@@ -1027,6 +1047,7 @@ internal fun LauncherScreen(
                 exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160))) {
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.shownEntries.firstOrNull()?.title,
+                    ringWhenIdle = iosLayout && extras?.store?.state?.islandWideMode?.keepWide != true,
                     sizeScale = appearance.islandScale,
                     wideFactor = extras?.store?.state?.islandWideMode?.wideFactor ?: 1f,
                     belowStatusBar = true,

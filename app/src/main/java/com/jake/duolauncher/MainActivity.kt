@@ -230,6 +230,7 @@ class MainActivity : ComponentActivity() {
                     onWallpaperDepth = appearance::setWallpaperDepth,
                     onHomeStyle = appearance::setHomeStyle,
                     onClearGlass = appearance::setClearGlass,
+                    onStatusIconsDark = ::setStatusIconsDark,
                     onTiltHighlight = appearance::setTiltHighlight,
                     onTiltStrength = appearance::setTiltStrength,
                     island = island,
@@ -378,6 +379,7 @@ class MainActivity : ComponentActivity() {
         super.onWindowFocusChanged(hasFocus)
         // Re-applies what Home last asked for (the rail, or jiggle mode on the iOS layout, hides the status bar). A popup (the Edit menu)
         // takes focus for a moment, and re-applying the rail rule alone brought the status bar back in the middle of editing.
+        if (hasFocus) WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = statusIconsDark
         if (hasFocus) setStatusMode(lastStatusHidden ?: (model.state.value.verticalStatus &&
             !(appearance.state.homeStyle == HomeStyle.IOS && resources.configuration.screenWidthDp < 650)))
     }
@@ -706,6 +708,14 @@ class MainActivity : ComponentActivity() {
         appearanceLocationCancellation = null
         appearance.locationStatus(message)
         LiveDiscover.setExternalResultPending(this, "main", "appearance-location", false)
+    }
+
+    /** Whether Home last asked for dark status bar icons (a light wallpaper under them). */
+    private var statusIconsDark = false
+
+    private fun setStatusIconsDark(dark: Boolean) {
+        statusIconsDark = dark
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = dark
     }
 
     /** What Home last asked of the status bar (hidden or not); null until it has asked. */

@@ -155,6 +155,25 @@ Per-surface tint and blur (alpha over the theme/derived tint):
 | Glass sheet | surface @ 0.58 | 8 dp |
 | Widget gallery | 0.62 | 12 dp |
 
+## Home layouts: Side dock and iOS (`HomeStyle`, `iosHomeGeometry`)
+
+Launcher settings › Home › Home layout chooses the phone screen's layout; the inner screen of a foldable always has the side dock.
+
+- **Side dock** is Uno's own: a four-app dock column on the right under the status rail, beside a grid whose top two rows are a widget band.
+- **iOS** is the iPhone's, scaled from its 393 pt measurements by width/393 (0.85 to 1.15): widgets 27.5 pt in from the sides, 22 pt apart
+  across and 38 pt down, so a small widget (2 x 2) is square and medium (4 x 2) and large (4 x 4) are four columns wide; 60 pt icons. The grid
+  is uniform: `iosHomeGeometry` sets the widget band's pitch equal to the row pitch, so every place that measures Home's two pitches gets one.
+  A screen too short for six such rows shrinks the row pitch (and the icon if its name would not fit). Widgets are placed and resized only at
+  Small, Medium and Large (`IosWidgetSizes`); one that allows none of them keeps its own size, and widgets placed before keep theirs until
+  resized. The dock is a clear glass slab of four apps along the bottom, with a Search pill above it that gives way to the page dots while
+  the pages move; both slide down out of sight toward the feed and All apps. There is no status rail: the system status bar shows.
+- **Customization on the iOS layout** is the iPhone's: holding empty space goes straight into jiggle mode; widgets wiggle and carry the same
+  remove badge as icons; the status bar is hidden and its row holds an Edit capsule (Add Widget, Customize, Add apps, pages) and Done. Tapping
+  a widget offers Small, Medium and Large. Home keeps the status bar's room while it is hidden, so nothing moves as editing starts.
+
+**Clear glass** (Appearance, on by default) makes Home's light glass surfaces (tint alpha 0.2 or less: dock, rail, widgets, page dots, search
+pill) take a quarter of their tint and a brighter, wider edge with a sheen along the top (`GlassFinish`). Sheets and panels keep their tint.
+
 ## Island geometry (`IslandGeometry.kt`)
 
 Window-pixel pure layout, re-read from live insets on every layout (rotation safe).
@@ -360,7 +379,9 @@ The strength setting (`TiltMath.gainFor`, 1x to 6x) multiplies the roll, and `Gl
 
 ## Spotlight
 
-Search grows out of the island (`SpotlightEmerge`): the panel begins as the collapsed pill, true black, and grows to full size, driven by the enter and exit transition's own progress; the panel's content fades in during the second half. Without an island it opens from the top, inside the safe area.
+Search grows out of the island (`SpotlightEmerge`): the panel begins as the island's body exactly where and how big it was (the open island, when search is opened from its Search button), and its outline grows to the full panel with the island's own corner rule at every size (`IslandMorph.cornerPx`); the content is not scaled, it is uncovered and fades in during the second half. It shrinks back into the settled pill as drawn (`IslandState.restPill`, with the status bar grid's edges), so the island takes over without a jump. Without an island it opens from the top, inside the safe area.
+
+**Island motion is anchored to the camera** (`IslandMorph`): the body's pulse, press squash and morph stretch scale about the camera hole; the grid's edge corrections unwind with the width spring and the hand-set drop with the height spring; privacy dots and capsules stay on the camera's line; capsules split off only once the body has nearly landed. When a sheet, the control panel, search or a drag takes over Home, the island closes and fades rather than vanishing. A long press on the pill opens the app behind its leading activity (call, player, Live Update).
 
 `Spotlight.kt` is an overlay at the same level as the control panel, so it covers the whole window. `SpotlightRank` orders app matches (name prefix, then a word prefix, then contains, alphabetical) and feed matches (every word must appear), and it reuses `SearchSmarts` and `ContactsSearch`. The left pull-down is a setting (`LeftSwipe`) so notifications remain the default.
 

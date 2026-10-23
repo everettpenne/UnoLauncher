@@ -55,6 +55,9 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.layout.onSizeChanged
@@ -135,6 +138,8 @@ internal fun LauncherScreen(
     onWallpaperColor: (Boolean) -> Unit = {},
     onMaterialYou: (Boolean) -> Unit = {},
     onWallpaperDepth: (Boolean) -> Unit = {},
+    onHomeStyle: (HomeStyle) -> Unit = {},
+    onClearGlass: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onTiltStrength: (Float) -> Unit = {},
     island: IslandState = IslandState(),
@@ -168,6 +173,9 @@ internal fun LauncherScreen(
     var resizePitchY by remember { mutableFloatStateOf(1f) }
     var resizeTopPitch by remember { mutableFloatStateOf(1f) }
     var resizeAppPitch by remember { mutableFloatStateOf(1f) }
+    var resizeGapY by remember { mutableFloatStateOf(1f) }
+    // The iOS layout: resizing a widget steps through the iOS sizes only (see IosWidgetSizes).
+    var resizeIos by remember { mutableStateOf(false) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var appMoveMenu by rememberSaveable { mutableStateOf(false) }
     // Edit Home: icons wiggle and can be dragged at once, removed with their badge, and an + adds apps or a widget.
@@ -330,7 +338,13 @@ internal fun LauncherScreen(
         previousEditRevision = state.editRevision
     }
     LaunchedEffect(pager.settledPage) { if (pager.settledPage != homePages) focus.clearFocus() }
-    LaunchedEffect(state.verticalStatus) { onStatusMode(state.verticalStatus) }
+    // The iOS layout (on a phone-sized screen) has no status rail: the system status bar shows instead, as on an iPhone.
+    val iosLayout = appearance.homeStyle == HomeStyle.IOS && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 650
+    val railShown = state.verticalStatus && !iosLayout
+    // Jiggle mode on the iOS layout hides the status bar too: its Edit and Done capsules take that row, as on an iPhone.
+    val statusHidden = railShown || (iosLayout && homeEditing)
+    LaunchedEffect(statusHidden) { onStatusMode(statusHidden) }
+    SideEffect { GlassFinish.clear = appearance.clearGlass }
     LaunchedEffect(homeRequests) { if (homeRequests > 0) {
         // An app can pause Home after the destination is visible but before its settle completes.
         val page = pager.currentPage.takeIf { it in 0 until homePages }
@@ -377,7 +391,8 @@ internal fun LauncherScreen(
         val destination = if (drag.source?.target is DropTarget.Library) homePages else drag.originPage.coerceAtMost(homePages - 1)
         drag.clear(); scope.launch { pager.scrollToPage(destination) }
     } else if (selectedId != null) selectedId = null else { focus.clearFocus(); scope.launch { pager.animateScrollToPage(0) } } }
-    val editActions = remember(model) { HomeEditActions { app -> model.setPinned(app.id, false) } }
+    // In jiggle mode an app's badge takes it off Home, and a widget's removes the widget, as on iOS.
+    val editActions = remember(model, widgets) { HomeEditActions({ app -> model.setPinned(app.id, false) }, { slot -> widgets.remove(slot) }) }
     BackHandler(enabled = homeEditing && sheet.isEmpty() && !drag.active && selectedId == null && resizeSlot == null) { homeEditing = false }
     val openDiscover = { if (firstHome > 0) scope.launch { pager.animateScrollToPage(-1) } else onDiscover(); Unit }
     val openLibrary = { scope.launch { pager.animateScrollToPage(homePages) }; Unit }
@@ -605,20 +620,54 @@ internal fun LauncherScreen(
         // only, never for the soft keyboard. Spotlight's panel and the bottom glass consume the
         // IME themselves (and track it smoothly), so a keyboard never reflows the pager, dock,
         // rail, icons or wallpaper.
-        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))) {
+        // Jiggle mode's bar. The side layout draws it inside Home's safe area, below the status bar; the iOS layout draws it out here,
+        // across the whole window, in the status bar's row (hidden while editing), where its two capsules sit on an iPhone. Drawn inside
+        // the safe area and lifted up into that row, it took no touches: Compose delivers a touch only within a parent's bounds.
+        val editBarShown = homeEditing && sheet.isEmpty() && !drag.active && !controlPanelOpen && !spotlightOpen && !showFirstRun
+        val editBar: @Composable (Modifier) -> Unit = { barModifier ->
+                HomeEditBar(controlGlass, ios = iosLayout,
+                    onCustomize = { homeEditing = false; customizationPage = CustomizationPage.OVERVIEW; sheet = "settings:wallpaper" },
+                    onAddApps = { homeEditing = false; sheet = "pins" },
+                    onAddWidget = {
+                        val page = pager.currentPage.coerceIn(0, homePages - 1)
+                        homeEditing = false; widgetSlot = model.nextWidgetSlot(); widgetTargetIndex = page * HOME_CELLS
+                        widgetPackage = null; widgetProfileSerial = null; widgetExactTarget = false; sheet = "widgets"
+                    },
+                    onAddPage = { if (model.addHomePage()) scope.launch { pager.animateScrollToPage(model.state.value.homePages - 1) } },
+                    onRemovePage = pager.currentPage.takeIf { it in 1 until homePages && state.layout.pageIsEmpty(it) }?.let { page ->
+                        { model.removeHomePage(page); Unit }
+                    },
+                    onMovePageEarlier = pager.currentPage.takeIf { it in 1 until homePages }?.let { page ->
+                        { if (model.moveHomePage(page, -1)) scope.launch { pager.animateScrollToPage(page - 1) }; Unit }
+                    },
+                    onMovePageLater = pager.currentPage.takeIf { it in 0 until homePages - 1 }?.let { page ->
+                        { if (model.moveHomePage(page, 1)) scope.launch { pager.animateScrollToPage(page + 1) }; Unit }
+                    },
+                    onDone = { homeEditing = false }, modifier = barModifier)
+        }
+        // The iOS layout keeps the status bar's room even while the bar is hidden (in jiggle mode), so Home does not jump up as editing starts.
+        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+        val homeInsets = (if (iosLayout) WindowInsets.systemBarsIgnoringVisibility else WindowInsets.systemBars).union(WindowInsets.displayCutout)
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(homeInsets)) {
             val wide = maxWidth.value >= 650f
             val preset = if (wide) state.expanded else state.compact
             val density = LocalDensity.current
             val inLibrary = pager.currentPage == visibleHomePages
             var statusHeight by remember { mutableFloatStateOf(0f) }
-            val geometry = homeGeometry(maxWidth.value, maxHeight.value, preset, state.labels,
-                statusHeight = if (state.verticalStatus) statusHeight + 22f else 0f,
+            // The iOS layout applies to a phone-sized screen; the inner screen of a foldable keeps the side layout.
+            val iosHome = iosLayout && !wide
+            val geometry = if (iosHome) iosHomeGeometry(maxWidth.value, maxHeight.value, state.labels,
+                    labelHeight = with(density) { 14.sp.toDp().value } + 6f)
+                else homeGeometry(maxWidth.value, maxHeight.value, preset, state.labels,
+                statusHeight = if (railShown) statusHeight + 22f else 0f,
                 labelHeight = with(density) { 14.sp.toDp().value } + 6f, inLibrary = inLibrary,
                 homeBottomSpace = PageIndicatorLayout.reserveDp(isDefaultHome))
             SideEffect {
                 resizePitchX = with(density) { (geometry.gridWidth / GRID_COLUMNS).dp.toPx() }
-                resizePitchY = with(density) { minOf((geometry.widgetHeight + 18f) / 2f, geometry.rowHeight).dp.toPx() }
-                resizeTopPitch = with(density) { ((geometry.widgetHeight + 18f) / 2f).dp.toPx() }
+                resizePitchY = with(density) { minOf((geometry.widgetHeight + geometry.widgetGapY) / 2f, geometry.rowHeight).dp.toPx() }
+                resizeTopPitch = with(density) { ((geometry.widgetHeight + geometry.widgetGapY) / 2f).dp.toPx() }
+                resizeGapY = with(density) { geometry.widgetGapY.dp.toPx() }
+                resizeIos = geometry.ios
                 resizeAppPitch = with(density) { geometry.rowHeight.dp.toPx() }
             }
             LaunchedEffect(geometry.gridWidth, geometry.widgetHeight, geometry.rowHeight) { resizeSlot = null }
@@ -647,7 +696,8 @@ internal fun LauncherScreen(
             }
             val contentHeight = maxHeight
             val panelWidth = maxWidth - geometry.homeWidth.dp
-            val pagerWidth = maxWidth - preset.dockWidth.dp - 28.dp
+            // The iOS layout has no dock column: the pages run the full width, and the dock sits along the bottom.
+            val pagerWidth = if (iosHome) maxWidth else maxWidth - preset.dockWidth.dp - 28.dp
             val pagerWidthPx = with(density) { pagerWidth.toPx() }
             val screenWidthPx = with(density) { maxWidth.toPx() }
             // Home runs the pager under the dock and status rail, iOS-style, so page content
@@ -658,7 +708,8 @@ internal fun LauncherScreen(
             val pagerEndInset = maxWidth - pagerWidth
             val leftColumnOrigin = (maxWidth / 2f - geometry.gridWidth.dp) / 2f - 16.dp
             val homeStride = panelWidth - leftColumnOrigin
-            val bottomSpace = PageIndicatorLayout.reserveDp(isDefaultHome).dp
+            val bottomSpace = if (iosHome) (geometry.bottomBarReserve + if (isDefaultHome) 0f else PageIndicatorLayout.SETUP_BUTTON_DP).dp
+                else PageIndicatorLayout.reserveDp(isDefaultHome).dp
             val workspaceMotion = if (geometry.expanded) remember(firstHome, visibleHomePages, pagerWidth, homeStride, density) {
                 WorkspacePageMotion(firstHome, visibleHomePages, with(density) { pagerWidth.toPx() }, with(density) { homeStride.toPx() })
             } else null
@@ -808,7 +859,9 @@ internal fun LauncherScreen(
                                 onLaunch = onLaunchFrom, onActions = { selectedId = it.id },
                                 onWidget = { widgetSlot = it; sheet = "widgetActions" },
                                 onFolder = { openFolderId = it },
-                                onEmptyWidget = { emptyCellIndex = it },
+                                // The iOS layout: holding empty space goes straight into jiggle mode, as on an iPhone; its Edit menu has what the
+                                // side layout's empty-space sheet offers (a widget, the wallpaper and look).
+                                onEmptyWidget = { if (iosHome) { UnoFeedback.play(Cue.OPEN, haptic); homeEditing = true } else emptyCellIndex = it },
                                 onRefresh = model::refresh,
                                 onDoubleTapEmpty = if (extras?.store?.state?.doubleTapLock == true) ({ lockFromHome(context) }) else null)
                         }
@@ -826,7 +879,7 @@ internal fun LauncherScreen(
                 ScrollEdgeBlur(homeBackdrop.combined, atTop = true, height = topInset + EdgeBlur.TOP_EXTRA,
                     modifier = Modifier.align(Alignment.TopStart).offset(y = -topInset))
                 ScrollEdgeBlur(homeBackdrop.combined, atTop = false,
-                    height = bottomInset + PageIndicatorLayout.reserveDp(isDefaultHome).dp,
+                    height = bottomInset + bottomSpace,
                     modifier = Modifier.align(Alignment.BottomStart).offset(y = bottomInset))
             }
             // The dock and the status rail belong to the home screen: they stay pinned between home pages, but slide
@@ -836,7 +889,7 @@ internal fun LauncherScreen(
             val dockRailShiftPx = remember(visibleHomePages, screenWidthPx) {
                 derivedStateOf { EdgeDockShift.shiftPx(pager.position, visibleHomePages, screenWidthPx) }
             }
-            if (state.verticalStatus) {
+            if (railShown) {
                 val railInk = rememberAdaptiveInk(glassTint, if (glassEnabled) .12f else .0f)
                 if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.contentTop.dp)
                     .width(preset.dockWidth.dp).then(railInk.track)
@@ -856,29 +909,31 @@ internal fun LauncherScreen(
                         },
                     compact = contentHeight < 500.dp, iconSize = dockIconSize(geometry.iconSize).dp, ink = railInk.color)
             }
-            if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.dockTop.dp)
-                .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
-                .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
-                .graphicsLayer {
-                    compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
-                }.testTag("dock")) {
-                Column(Modifier.padding(vertical = 8.dp).verticalScroll(dockScroll)) {
-                    DockAppColumn(state.dock, previewLayout.dock, appsById, geometry.dockRowHeight,
-                        dockIconSize(geometry.iconSize), drag, insertionTarget,
-                        onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" }, glass = controlGlass)
-                }
-            } else Surface(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.dockTop.dp)
-                .width(preset.dockWidth.dp).height(geometry.dockHeight.dp).graphicsLayer {
-                    // Composite the dock independently of the shared pager layer, so its edge
-                    // slide never re-renders the pages behind it.
-                    compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
-                }.testTag("dock"),
-                shape = Corner.xlarge, color = Glass.copy(alpha = .32f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .3f))) {
-                Column(Modifier.padding(vertical = 8.dp).verticalScroll(dockScroll)) {
-                    DockAppColumn(state.dock, previewLayout.dock, appsById, geometry.dockRowHeight,
-                        dockIconSize(geometry.iconSize), drag, insertionTarget,
-                        onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" })
+            if (!iosHome) {
+                if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.dockTop.dp)
+                    .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
+                    .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
+                    .graphicsLayer {
+                        compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+                    }.testTag("dock")) {
+                    Column(Modifier.padding(vertical = 8.dp).verticalScroll(dockScroll)) {
+                        DockAppColumn(state.dock, previewLayout.dock, appsById, geometry.dockRowHeight,
+                            dockIconSize(geometry.iconSize), drag, insertionTarget,
+                            onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" }, glass = controlGlass)
+                    }
+                } else Surface(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.dockTop.dp)
+                    .width(preset.dockWidth.dp).height(geometry.dockHeight.dp).graphicsLayer {
+                        // Composite the dock independently of the shared pager layer, so its edge
+                        // slide never re-renders the pages behind it.
+                        compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+                    }.testTag("dock"),
+                    shape = Corner.xlarge, color = Glass.copy(alpha = .32f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .3f))) {
+                    Column(Modifier.padding(vertical = 8.dp).verticalScroll(dockScroll)) {
+                        DockAppColumn(state.dock, previewLayout.dock, appsById, geometry.dockRowHeight,
+                            dockIconSize(geometry.iconSize), drag, insertionTarget,
+                            onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" })
+                    }
                 }
             }
             // The floating bottom glass tracks the keyboard's top edge frame-by-frame. The inset is
@@ -886,61 +941,96 @@ internal fun LauncherScreen(
             // of imePadding(), which only updates at the discrete start/end of the animation.
             val imeInset = WindowInsets.ime
             val navBarInset = WindowInsets.navigationBars
-            Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).offset {
-                IntOffset(0, imeLiftPx(imeInset.getBottom(this), navBarInset.getBottom(this)))
-            }.padding(start = 16.dp, bottom = PageIndicatorLayout.BOTTOM_MARGIN_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                if (!isDefaultHome) FilledTonalButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
-                    Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.set_as_home_app))
+            if (!iosHome) {
+                Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).offset {
+                    IntOffset(0, imeLiftPx(imeInset.getBottom(this), navBarInset.getBottom(this)))
+                }.padding(start = 16.dp, bottom = PageIndicatorLayout.BOTTOM_MARGIN_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (!isDefaultHome) FilledTonalButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
+                        Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.set_as_home_app))
+                    }
+                    // The page dots ride in a small glass capsule, like iOS's page indicator, with a
+                    // selection lens that follows the pager and the finger.
+                    PageStrip(pager, homePages, visibleHomePages, showCompass = !drag.active, glass = controlGlass,
+                        onDiscover = openDiscover, onLibrary = openLibrary, onBounds = { pageStripBounds = it })
                 }
-                // The page dots ride in a small glass capsule, like iOS's page indicator, with a
-                // selection lens that follows the pager and the finger.
-                PageStrip(pager, homePages, visibleHomePages, showCompass = !drag.active, glass = controlGlass,
-                    onDiscover = openDiscover, onLibrary = openLibrary, onBounds = { pageStripBounds = it })
-            }
-            if (!inLibrary && !drag.active) Column(Modifier.align(Alignment.BottomEnd).offset {
-                IntOffset(0, imeLiftPx(imeInset.getBottom(this), navBarInset.getBottom(this)))
-            }.padding(end = 16.dp, bottom = 8.dp)
-                .width(preset.dockWidth.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val controlSize = dockIconSize(geometry.iconSize).dp
-                if (pager.currentPage == -1) CircleControl(Icons.AutoMirrored.Rounded.ArrowForward, "Back to home", "discover-home", controlSize, controlGlass) { scope.launch { pager.animateScrollToPage(0) } }
-                val searchBounds = remember { android.graphics.Rect() }
-                Box(Modifier.onGloballyPositioned { searchBounds.set(it.boundsInWindow().toAndroidBounds()) }) {
-                    CircleControl(Icons.Rounded.Search, if (state.googleSearch) "Search Google" else "Search apps", "search", controlSize, controlGlass) {
-                        if (!state.googleSearch || !onGoogleSearch(searchBounds)) openLibrary()
+                if (!inLibrary && !drag.active) Column(Modifier.align(Alignment.BottomEnd).offset {
+                    IntOffset(0, imeLiftPx(imeInset.getBottom(this), navBarInset.getBottom(this)))
+                }.padding(end = 16.dp, bottom = 8.dp)
+                    .width(preset.dockWidth.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val controlSize = dockIconSize(geometry.iconSize).dp
+                    if (pager.currentPage == -1) CircleControl(Icons.AutoMirrored.Rounded.ArrowForward, "Back to home", "discover-home", controlSize, controlGlass) { scope.launch { pager.animateScrollToPage(0) } }
+                    val searchBounds = remember { android.graphics.Rect() }
+                    Box(Modifier.onGloballyPositioned { searchBounds.set(it.boundsInWindow().toAndroidBounds()) }) {
+                        CircleControl(Icons.Rounded.Search, if (state.googleSearch) "Search Google" else "Search apps", "search", controlSize, controlGlass) {
+                            if (!state.googleSearch || !onGoogleSearch(searchBounds)) openLibrary()
+                        }
+                    }
+                }
+            } else {
+                // The iOS layout's bottom: the dock, a clear glass slab of four apps along the bottom, and above it the Search pill, which
+                // gives way to the page dots while the pages move. Both slide down out of sight as the pager crosses into the feed or All apps,
+                // as the iPhone's dock leaves its Today view and App Library.
+                val barSlide = remember(visibleHomePages, screenWidthPx) { derivedStateOf {
+                    kotlin.math.abs(EdgeDockShift.shiftPx(pager.position, visibleHomePages, screenWidthPx)) / screenWidthPx.coerceAtLeast(1f)
+                } }
+                val barSlidePx = with(density) { (geometry.bottomBarReserve + 24f).dp.toPx() }
+                // iOS's dock corner is about a third of its height, a little rounder than the widgets'.
+                val dockShape = RoundedCornerShape((geometry.dockBarHeight * .34f).dp)
+                Box(Modifier.align(Alignment.BottomCenter).graphicsLayer { translationY = barSlide.value * barSlidePx }
+                    .padding(start = geometry.dockBarSide.dp, end = geometry.dockBarSide.dp, bottom = geometry.dockBarBottom.dp)
+                    .fillMaxWidth().height(geometry.dockBarHeight.dp)
+                    .then(if (glassEnabled) Modifier.liquidGlass(homeBackdrop.combined, dockShape, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
+                        else Modifier.background(Glass.copy(alpha = .32f), dockShape).border(1.dp, Color.White.copy(alpha = .3f), dockShape))
+                    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                    .testTag("dock"), contentAlignment = Alignment.Center) {
+                    DockAppColumn(state.dock, previewLayout.dock, appsById, geometry.dockBarHeight, geometry.iconSize, drag, insertionTarget,
+                        onLaunch = onLaunchFrom, onChoose = { dockSlot = it; sheet = "dock" }, glass = controlGlass, horizontal = true)
+                }
+                // The dots show while the pages move (and a little after), and while something is being dragged; Search otherwise.
+                // Moving means between two pages: Home's own swipe drives the pager itself, so the pager's isScrollInProgress stays false.
+                val paging by remember { derivedStateOf { nativePager.isScrollInProgress ||
+                    kotlin.math.abs(pager.position - kotlin.math.round(pager.position)) > .01f } }
+                var dotsHeld by remember { mutableStateOf(false) }
+                LaunchedEffect(paging) { if (paging) dotsHeld = true else { delay(900); dotsHeld = false } }
+                val dots by animateFloatAsState(if (dotsHeld || paging || drag.active) 1f else 0f, tween(220), label = "dots or search")
+                if (dots <= .01f) SideEffect { pageStripBounds = androidx.compose.ui.geometry.Rect.Zero }
+                Column(Modifier.align(Alignment.BottomCenter).graphicsLayer { translationY = barSlide.value * barSlidePx }
+                    .padding(bottom = (geometry.dockBarBottom + geometry.dockBarHeight + geometry.pillGap).dp),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (!isDefaultHome) FilledTonalButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
+                        Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.set_as_home_app))
+                    }
+                    Box(contentAlignment = Alignment.Center) {
+                        val searchBounds = remember { android.graphics.Rect() }
+                        if (dots < .99f) HomeSearchPill(controlGlass, geometry.pillHeight.dp, onClick = {
+                            // As the iPhone's: search opens over Home (from the island, when there is one); "Search button opens Google" still applies.
+                            if (!state.googleSearch || !onGoogleSearch(searchBounds)) { UnoFeedback.play(Cue.OPEN, haptic); island.collapse(); spotlightOpen = true }
+                        }, Modifier.graphicsLayer { alpha = 1f - dots }.onGloballyPositioned { searchBounds.set(it.boundsInWindow().toAndroidBounds()) })
+                        if (dots > .01f) PageStrip(pager, homePages, visibleHomePages, showCompass = !drag.active, glass = controlGlass,
+                            onDiscover = openDiscover, onLibrary = openLibrary, onBounds = { pageStripBounds = it },
+                            modifier = Modifier.graphicsLayer { alpha = dots })
                     }
                 }
             }
-            if (homeEditing && sheet.isEmpty() && !drag.active && !controlPanelOpen && !spotlightOpen && !showFirstRun) {
-                HomeEditBar(controlGlass,
-                    onAddApps = { homeEditing = false; sheet = "pins" },
-                    onAddWidget = {
-                        val page = pager.currentPage.coerceIn(0, homePages - 1)
-                        homeEditing = false; widgetSlot = model.nextWidgetSlot(); widgetTargetIndex = page * HOME_CELLS
-                        widgetPackage = null; widgetProfileSerial = null; widgetExactTarget = false; sheet = "widgets"
-                    },
-                    onAddPage = { if (model.addHomePage()) scope.launch { pager.animateScrollToPage(model.state.value.homePages - 1) } },
-                    onRemovePage = pager.currentPage.takeIf { it in 1 until homePages && state.layout.pageIsEmpty(it) }?.let { page ->
-                        { model.removeHomePage(page); Unit }
-                    },
-                    onMovePageEarlier = pager.currentPage.takeIf { it in 1 until homePages }?.let { page ->
-                        { if (model.moveHomePage(page, -1)) scope.launch { pager.animateScrollToPage(page - 1) }; Unit }
-                    },
-                    onMovePageLater = pager.currentPage.takeIf { it in 0 until homePages - 1 }?.let { page ->
-                        { if (model.moveHomePage(page, 1)) scope.launch { pager.animateScrollToPage(page + 1) }; Unit }
-                    },
-                    onDone = { homeEditing = false }, modifier = Modifier.align(Alignment.TopCenter))
-            }
-            // The island is not composed while Spotlight is open, so a tap on the camera cutout can never expand it
+            if (!iosLayout && editBarShown) editBar(Modifier.align(Alignment.TopCenter))
+            // The island is not composed while Spotlight is open (once its short fade is done), so a tap on the camera cutout can never expand it
             // underneath the search: the Spotlight scrim/panel owns that touch (it does nothing there).
             // The overlay (the accessibility service's window) draws the Home island when it is running, so it never moves with this window.
-            if (appearance.island && !islandEverywhere && !IslandRuntime.overlayActive && sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen && !spotlightOpen) {
+            //
+            // It is not cut away, though: when a sheet, the control panel, search or a drag takes over, the island closes (if open) and fades
+            // as it goes, and fades back in after. Removed at once, an open island vanished in one frame the moment one of its own buttons
+            // (Settings, Search) was tapped. Search grows out of the island's body from the same frame, on top of it, so it hides the fade.
+            if (appearance.island && !islandEverywhere && !IslandRuntime.overlayActive) androidx.compose.animation.AnimatedVisibility(
+                sheet.isEmpty() && !showFirstRun && !drag.active && !controlPanelOpen && !spotlightOpen,
+                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200, delayMillis = 60)),
+                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160))) {
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.shownEntries.firstOrNull()?.title,
                     sizeScale = appearance.islandScale,
                     wideFactor = extras?.store?.state?.islandWideMode?.wideFactor ?: 1f,
                     belowStatusBar = true,
-                    statusRailShown = state.verticalStatus,
+                    statusRailShown = railShown,
                     resumeWindowMs = IslandPlayback.resumeWindowMs(extras?.store?.state?.mediaResumeMinutes ?: 2),
                     dockWidthPx = with(density) { preset.dockWidth.dp.toPx() },
                     onSearch = { island.collapse(); spotlightOpen = true },
@@ -1017,6 +1107,8 @@ internal fun LauncherScreen(
                             onWallpaperColor = onWallpaperColor,
                             onMaterialYou = onMaterialYou,
                             onWallpaperDepth = onWallpaperDepth,
+                            onHomeStyle = onHomeStyle,
+                            onClearGlass = onClearGlass,
                             onTiltHighlight = onTiltHighlight,
                             onTiltStrength = onTiltStrength,
                             backgrounds = launcherActivity.backgrounds,
@@ -1042,13 +1134,13 @@ internal fun LauncherScreen(
                             onInstallRelease = onInstallRelease,
                             onAutoUpdate = onAutoUpdate) }
                         "widgetActions" -> model.placement(widgetSlot)?.let { placement ->
-                            val topPitch = (geometry.widgetHeight + 18f) / 2f
+                            val topPitch = (geometry.widgetHeight + geometry.widgetGapY) / 2f
                             val gridSizing = WidgetGridSizing(GRID_COLUMNS, GRID_ROWS, geometry.gridWidth / GRID_COLUMNS,
-                                minOf(topPitch, geometry.rowHeight), maxOf(topPitch, geometry.rowHeight), 10f, 18f,
+                                minOf(topPitch, geometry.rowHeight), maxOf(topPitch, geometry.rowHeight), geometry.widgetGapX, geometry.widgetGapY,
                                 topRowHeightDp = topPitch, appRowHeightDp = geometry.rowHeight)
                             val constraints = if (placement.id == FOLDER_WIDGET) FOLDER_SPAN_CONSTRAINTS
                                 else widgets.manager.getAppWidgetInfo(placement.id)?.let { widgets.sizing(it, gridSizing) }
-                            WidgetActions(placement, constraints,
+                            WidgetActions(placement, constraints, iosSizes = geometry.ios,
                                 canConfigure = widgets.canReconfigure(placement.id),
                                 onConfigure = { widgets.reconfigure(placement.id); sheet = "" },
                                 isValid = { x, y -> (placement.id != FOLDER_WIDGET || x * y >= 2) &&
@@ -1149,13 +1241,15 @@ internal fun LauncherScreen(
                 val catalog by produceState<List<WidgetCatalogEntry>?>(null, providers, selectedProfile.userSerial, sheet) {
                     value = withContext(Dispatchers.IO) { widgetCatalog(launcherActivity, providers, selectedProfile) }
                 }
-                val topPitch = (geometry.widgetHeight + 18f) / 2f
+                val topPitch = (geometry.widgetHeight + geometry.widgetGapY) / 2f
                 val pickerSizing = remember(geometry) { WidgetGridSizing(GRID_COLUMNS, GRID_ROWS,
                     geometry.gridWidth / GRID_COLUMNS, minOf(topPitch, geometry.rowHeight),
-                    maxOf(topPitch, geometry.rowHeight), 10f, 18f,
+                    maxOf(topPitch, geometry.rowHeight), geometry.widgetGapX, geometry.widgetGapY,
                     topRowHeightDp = topPitch, appRowHeightDp = geometry.rowHeight) }
+                // On the iOS layout a widget comes at one of the iOS sizes (small, medium, large) that it allows.
                 val footprint: (AppWidgetProviderInfo) -> WidgetSpan? = { provider ->
-                    widgets.sizing(provider, pickerSizing)?.takeIf { it.minimumFitsGrid }?.preferred
+                    widgets.sizing(provider, pickerSizing)?.takeIf { it.minimumFitsGrid }?.let { c ->
+                        if (geometry.ios) IosWidgetSizes.snap(c.preferred, c) else c.preferred }
                 }
                 VisualWidgetPicker(catalog, catalogProfiles.ifEmpty { listOf(selectedProfile) }, selectedProfile, glass = controlGlass, previewGlass = pageGlass,
                     onSelectProfile = { widgetProfileSerial = it.userSerial; widgetPlacementMessage = null },
@@ -1169,7 +1263,8 @@ internal fun LauncherScreen(
                             val span = existing?.let { placement ->
                                 WidgetSpan(placement.spanX, placement.spanY).takeIf {
                                     constraints != null && it.width in constraints.minimum.width..constraints.maximum.width &&
-                                        it.height in constraints.minimum.height..constraints.maximum.height
+                                        it.height in constraints.minimum.height..constraints.maximum.height &&
+                                        (!geometry.ios || it in IosWidgetSizes.ALL)
                                 }
                             } ?: preferredSpan
                             val special = existing?.takeIf { it.row + it.spanY > GRID_ROWS }
@@ -1206,7 +1301,10 @@ internal fun LauncherScreen(
                             else -> UnoWidgets.byId(pickedId)?.let { WidgetSpan(it.spanX, it.spanY) } }
                         val existing = model.placement(widgetSlot)
                         val special = existing?.takeIf { it.row + it.spanY > GRID_ROWS }
-                        val span = pickedSpan ?: existing?.let { WidgetSpan(it.spanX, it.spanY) } ?: WidgetSpan(2, 2)
+                        val folderPick = pickedId == FOLDER_WIDE_PICK || pickedId == FOLDER_TALL_PICK
+                        val chosen = pickedSpan ?: existing?.let { WidgetSpan(it.spanX, it.spanY) } ?: WidgetSpan(2, 2)
+                        // An Uno widget draws at any size, so on the iOS layout it takes the nearest iOS size; a large folder keeps its own shape.
+                        val span = if (geometry.ios && !folderPick) IosWidgetSizes.snap(chosen) else chosen
                         if (special != null) {
                             widgetSession = WidgetPickerSession(null, widgetSlot, span, Offset.Zero,
                                 dragging = false, candidate = special, builtinId = builtinId)
@@ -1315,15 +1413,15 @@ internal fun LauncherScreen(
                             val density = LocalDensity.current
                             val cellWidthPx = with(density) { (geometry.gridWidth / GRID_COLUMNS).dp.toPx() }
                             fun pickerRowTop(row: Int): Float = if (row <= 2) row * with(density) { topPitch.dp.toPx() }
-                                else with(density) { (geometry.widgetHeight + 18f + (row - 2) * geometry.rowHeight).dp.toPx() }
+                                else with(density) { (geometry.widgetHeight + geometry.widgetGapY + (row - 2) * geometry.rowHeight).dp.toPx() }
                             val candidateRow = homeCellLocal(visualIndex ?: 0) / GRID_COLUMNS
                             val previewWidth = specialAnchor?.let { with(density) { it.width.toDp() } }
-                                ?: with(density) { (cellWidthPx * session.span.width - 10.dp.toPx()).toDp() }
+                                ?: with(density) { (cellWidthPx * session.span.width - geometry.widgetGapX.dp.toPx()).toDp() }
                             val previewHeight = specialAnchor?.let { with(density) { it.height.toDp() } }
                                 ?: with(density) { (pickerRowTop(candidateRow + session.span.height) -
-                                    pickerRowTop(candidateRow) - 18.dp.toPx()).coerceAtLeast(48.dp.toPx()).toDp() }
+                                    pickerRowTop(candidateRow) - geometry.widgetGapY.dp.toPx()).coerceAtLeast(48.dp.toPx()).toDp() }
                             val previewX = if (specialAnchor != null) anchor.left
-                                else anchor.left + with(density) { 5.dp.toPx() }
+                                else anchor.left + with(density) { (geometry.widgetGapX / 2f).dp.toPx() }
                             // Cell bounds are in root coordinates and this layer is drawn inside the launcher root, so its origin is taken off (as the
                             // drag ghost does); without that the preview sits off from where the widget lands whenever the root is not at the origin.
                             Surface(Modifier.offset { IntOffset((previewX - drag.rootOrigin.x).roundToInt(), (anchor.top - drag.rootOrigin.y).roundToInt()) }
@@ -1377,12 +1475,16 @@ internal fun LauncherScreen(
         // The control panel lives out here, beside the inset-padded Home content, so its dimming layer covers the whole
         // window. Inside that content it stopped at the status and navigation bars, leaving two undimmed strips that
         // read as the edges of a panel behind the glass; the panel itself applies the safe-area padding.
-        // Search grows out of the island: the panel starts as the collapsed pill and opens to full size (and shrinks back into
-        // it on the way out). The enter and exit are driven by this transition's own progress, not by a fade.
-        val spotlightPill = if (appearance.island) island.restPill else null
+        // Search grows out of the island: the panel starts as the island's body, wherever and whatever size it was (the open island when
+        // search is opened from it), opens to full size, and shrinks back into the settled pill on the way out. The enter and exit are driven
+        // by this transition's own progress, not by a fade. Where it grows from is read the moment search opens.
+        val spotlightFrom = remember(spotlightOpen) { if (spotlightOpen && appearance.island) island.liveFrame else null }
         androidx.compose.animation.AnimatedVisibility(spotlightOpen,
             enter = androidx.compose.animation.EnterTransition.None,
             exit = androidx.compose.animation.ExitTransition.None) {
+            // Read in here, so a change to the pill (an event widening it) recomposes only search while it is open, not all of Home.
+            val spotlightPill = if (appearance.island) island.restPill else null
+            // Read here, in composition: a transition's value read only inside the panel's draw did not redraw it, so it jumped open.
             val grow by transition.animateFloat(transitionSpec = {
                 androidx.compose.animation.core.spring(dampingRatio = .78f, stiffness = 320f)
             }, label = "search grows from the island") { if (it == androidx.compose.animation.EnterExitState.Visible) 1f else 0f }
@@ -1390,7 +1492,7 @@ internal fun LauncherScreen(
                 onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },
                 onOpenFeedLink = { link -> spotlightOpen = false; onFeedOpenEntry(link) },
                 onOpenContact = { contact -> spotlightOpen = false; ContactsSearch.open(launcherActivity, contact) },
-                onDismiss = { spotlightOpen = false }, progress = grow, visible = spotlightOpen, pill = spotlightPill,
+                onDismiss = { spotlightOpen = false }, progress = { grow }, visible = spotlightOpen, pill = spotlightPill, from = spotlightFrom,
                 noteSlot = state.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
                 focusOn = { extras?.store?.state?.focusOn == true },
                 onToggleFocus = { extras?.toggleFocus?.invoke() })
@@ -1483,7 +1585,7 @@ internal fun LauncherScreen(
                 val density = LocalDensity.current
                 fun resizeRowTop(row: Int) = homeRowTop(row, resizeTopPitch, resizeAppPitch)
                 val heightPx = (resizeRowTop(placement.row + resizeHeight) - resizeRowTop(placement.row) -
-                    with(density) { 18.dp.toPx() }).coerceAtLeast(resizePitchY)
+                    resizeGapY).coerceAtLeast(resizePitchY)
                 Box(Modifier.offset { IntOffset(bounds.left.roundToInt(), bounds.top.roundToInt()) }
                     .size(with(density) { widthPx.toDp() }, with(density) { heightPx.toDp() })
                     .border(3.dp, if (valid) Color.White else Color(0xFFFF6B6B), Corner.large)
@@ -1501,6 +1603,12 @@ internal fun LauncherScreen(
                                     resizeWidth = (startWidth + (dx / resizePitchX).roundToInt()).coerceIn(minW, maxW)
                                 if (feasible && resizeConstraints?.canResizeVertically != false)
                                     resizeHeight = resizeRowsFor(placement.row, startHeight, dy, resizeTopPitch, resizeAppPitch, minH, maxH)
+                                // The iOS layout: the handle steps between the iOS sizes that fit here, nearest the finger.
+                                if (feasible && resizeIos) {
+                                    val room = resizeConstraints?.let { c -> c.copy(maximum = WidgetSpan(minOf(c.maximum.width, maxW), minOf(c.maximum.height, maxH))) }
+                                        ?: WidgetSpanConstraints(WidgetSpan(minW, minH), WidgetSpan(minW, minH), WidgetSpan(maxW, maxH), true, true)
+                                    IosWidgetSizes.snap(WidgetSpan(resizeWidth, resizeHeight), room).let { resizeWidth = it.width; resizeHeight = it.height }
+                                }
                             })
                         }, contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.OpenInFull, "Drag to resize widget", tint = Ink, modifier = Modifier.size(22.dp))
@@ -1657,6 +1765,8 @@ internal fun LauncherScreen(
                     modifier = Modifier.testTag("widget-reconfigure-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) } })
         }
         }
+        // Jiggle mode's bar on the iOS layout: here, in the launcher's root and outside the safe area, so it can take the status bar's row.
+        if (iosLayout && editBarShown) editBar(Modifier)
     }
 }
 

@@ -15,12 +15,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -160,5 +162,23 @@ internal fun PageStrip(
                 .glassLens(lensBackdrop, RoundedCornerShape(percent = 50), lift = lift, settings = glass.settings)
                 .testTag("page-lens"))
         }
+    }
+}
+
+/**
+ * The iOS layout's Search pill: a small clear-glass capsule above the dock with a magnifier and "Search", which opens search. As on iOS 16 and
+ * later it stands in for the page dots while Home is still, and the dots take its place while the pages are moving (see the caller).
+ */
+@Composable
+internal fun HomeSearchPill(glass: PageGlass?, height: androidx.compose.ui.unit.Dp, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val ink = rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .12f else .0f)
+    Row(modifier.height(height).then(ink.track)
+        .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.pill, glass.tint.copy(alpha = .12f), blurRadius = .75f, settings = glass.settings)
+            else Modifier.background(Glass.copy(alpha = .3f), Corner.pill))
+        .clip(Corner.pill).clickable(onClick = onClick).padding(horizontal = 14.dp)
+        .testTag("home-search-pill"),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Icon(androidx.compose.material.icons.Icons.Rounded.Search, null, tint = ink.color, modifier = Modifier.size(15.dp))
+        Text(androidx.compose.ui.res.stringResource(com.jake.duolauncher.R.string.home_search), color = ink.color, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
     }
 }

@@ -30,6 +30,8 @@ Swipe up anywhere on Home to open **Launcher settings** (not when the swipe star
 - **Keyboard:** the Uno Keyboard's suggestions, autocorrect, haptics and one-handed mode.
 - **Backup & about:** save or restore your layout and settings, updates, and help & setup.
 
+**Home layout** (Launcher settings › Home) switches the phone screen between Uno's **Side dock** and **iOS**: a strict iPhone grid with widgets in Small, Medium and Large, the dock along the bottom and Search above it. On the iOS layout, hold empty space to start editing; **Edit** at the top left adds a widget or apps and customizes the look, and widgets can be removed with their **−**. **Clear glass** (Appearance) makes Home's glass clear with a bright edge.
+
 **Edit Home** works like iOS's jiggle mode. Long press empty space and choose **Edit Home** (an app's options have it too). Icons wiggle and carry a **−** badge. Drag any icon at once, without a long press, to any free cell: free cells show as faint squares and the one under your finger fills in, and a drop that just misses a cell lands in the nearest one. Tap **−** to take an app off Home (it stays in All apps). The **+** at the top left adds apps or a widget; **Done**, or Back, leaves. Dropping one app on the middle of another still makes a folder.
 
 After a layout edit, **Undo last layout change** appears in Launcher settings. It covers the latest supported layout change, so use it before making another edit.

@@ -141,8 +141,15 @@ internal class IslandState {
     /** Bumped on every flash, so the same event twice in a row still pulses and times out afresh. */
     var flashKey by mutableIntStateOf(0)
         private set
-    /** The collapsed pill in window coordinates, as the island itself laid it out around the camera; search grows out of it. */
+    /**
+     * The collapsed pill in window coordinates, settled, exactly as the island draws it: with the status bar grid's edges, an event's width and
+     * the hand adjustment. Search shrinks back into it. (It used to be the bare pill before any of those, so search grew from, and closed into,
+     * a pill a few dp off the real one, and the island jumped when it took over again.)
+     */
     var restPill by mutableStateOf<IslandFrame?>(null)
+    /** Where the island's body is on screen this frame, whatever it is doing (open, part way, widened): search grows out of this. Not state, so
+     * writing it every frame of a morph recomposes nothing. */
+    @Volatile var liveFrame: IslandFrame? = null
     var playing by mutableStateOf(false)
         private set
     var lastPlayingAt by mutableLongStateOf(0L)

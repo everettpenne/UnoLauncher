@@ -11,7 +11,6 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.layout.layout
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -78,6 +77,8 @@ import androidx.compose.ui.util.lerp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
+import androidx.compose.ui.draw.drawWithContent
 import kotlinx.coroutines.withContext
 
 /** The panel's maximum height: 560 dp minus the requested ~25 px (24 dp — the closest 8 dp-grid step), so a
@@ -237,29 +238,20 @@ internal object SpotlightRank {
 }
 
 /**
- * How the search panel grows out of the island. At [progress] 0 the panel is exactly the collapsed pill (same width and height,
- * same centre, black like the pill); at 1 it is the full panel. The panel's own content is drawn once and scaled, so the
- * only numbers needed are the pill's size and where its centre is.
+ * How the search panel grows out of the island. At [progress] 0 the panel is exactly the island's body where it was (the open island, if search
+ * was opened from it; the pill otherwise); at 1 it is the full panel. On the way out it shrinks into the settled pill, exactly where the island
+ * draws it, so the island takes over without a jump.
+ *
+ * It is a real change of shape: the panel's outline moves from one rectangle to the other, with the island's own corner rule at every size, and
+ * the content stays where it will be and is uncovered. It used to be the finished panel scaled down to the pill's size, a different amount each
+ * way, which squashed its corners flat (a pill-sized panel had nearly square corners) and squeezed the text, and it grew from a pill drawn without
+ * the status bar grid's edges, a few dp off the real island.
  */
 internal object SpotlightEmerge {
-    /** The panel's horizontal scale: the pill's width as a fraction of the panel's, growing to 1. */
-    fun scaleX(progress: Float, pillWidth: Float, panelWidth: Float): Float {
-        if (panelWidth <= 0f) return 1f
-        val from = (pillWidth / panelWidth).coerceIn(.05f, 1f)
-        return from + (1f - from) * progress.coerceIn(0f, 1f)
-    }
+    /** The panel's outline at [progress], from [start] (the island's body, in the panel's own px) to the whole [panel]. */
+    fun rect(progress: Float, start: PxRect, panel: PxRect): PxRect = IslandMorph.lerp(start, panel, progress.coerceIn(0f, 1f))
 
-    /** The panel's vertical scale, from the pill's height as a fraction of the panel's. */
-    fun scaleY(progress: Float, pillHeight: Float, panelHeight: Float): Float {
-        if (panelHeight <= 0f) return 1f
-        val from = (pillHeight / panelHeight).coerceIn(.03f, 1f)
-        return from + (1f - from) * progress.coerceIn(0f, 1f)
-    }
-
-    /** Sideways shift that keeps the panel's centre moving from the pill's centre to its own as it grows. */
-    fun shiftX(progress: Float, pillCenterX: Float, panelCenterX: Float) = (pillCenterX - panelCenterX) * (1f - progress.coerceIn(0f, 1f))
-
-    /** The fields and results fade in during the second half of the growth, so they are never seen squashed. */
+    /** The fields and results fade in during the second half of the growth, so they are never seen cut off by a small outline. */
     fun contentAlpha(progress: Float) = ((progress - .45f) / .55f).coerceIn(0f, 1f)
 }
 
@@ -293,14 +285,16 @@ internal fun Spotlight(
     onOpenContact: (ContactResult) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    /** 0 = the collapsed island pill, 1 = fully open; driven by the caller's enter/exit transition. */
-    progress: Float = 1f,
+    /** 0 = the island's body, 1 = fully open; driven by the caller's enter/exit transition, and read only where the panel draws. */
+    progress: () -> Float = { 1f },
     /** True from the moment Spotlight is opened until the moment its close begins (the open/close
      *  decision, not the animation progress). Drives focus and the keyboard, so the keyboard is
      *  requested on the same frame the emerge starts and hidden as the dismiss starts. */
     visible: Boolean = true,
-    /** The collapsed pill the panel grows from (null without an island: the panel then grows from the top edge). */
+    /** The settled island pill, as drawn, that the panel shrinks back into (null without an island: the panel then grows from the top edge). */
     pill: IslandFrame? = null,
+    /** Where the island's body was when search opened (the open island, if it was opened from there); it grows out of this. Null: the pill. */
+    from: IslandFrame? = null,
     /** The slot of a Note widget on Home, if one is placed; the "note" action writes to it. */
     noteSlot: Int? = null,
     /** Whether Focus is on right now, for "focus on"/"focus off" to know if there is anything to do. */
@@ -371,8 +365,8 @@ internal fun Spotlight(
     val quiet = remember { MutableInteractionSource() }
     val density = LocalDensity.current
     val capCorner = IslandGeometry.CORNER_CAP_DP.dp
-    val pillCorner = pill?.let { with(density) { (it.height / 2f).toDp() } } ?: capCorner
-    val shape = RoundedCornerShape(if (pill != null) androidx.compose.ui.unit.lerp(pillCorner, capCorner, progress.coerceIn(0f, 1f)) else capCorner)
+    val capShape = RoundedCornerShape(capCorner)
+    val panelScale = IslandThemes.active.panel.scale
     // Swipe-up-to-close, mirroring the island's swipe-up-close: the finger's upward travel is low-passed and mapped to a reduced
     // emerge progress (IslandDrag.closeFraction), so the panel shrinks back into the pill as the finger moves instead of sliding off
     // the top. On release it closes past the distance or a flick (IslandDrag.closeDecide) and the exit transition finishes the
@@ -396,11 +390,27 @@ internal fun Spotlight(
     // The collapse under the finger takes the smaller of the parent's enter/exit progress and the gesture's own 1 → 0 progress,
     // so the panel shrinks into the pill even while the parent transition still reads fully open. Read only in draw lambdas
     // (graphicsLayer / drawBehind), never in composition, so a swipe changes drawing and not the panel's composition.
-    val effectiveProgress: () -> Float = { minOf(progress, swipeProgress.value) }
+    val effectiveProgress: () -> Float = { minOf(progress(), swipeProgress.value) }
     var panelSize by remember { mutableStateOf(IntSize.Zero) }
-    var panelLeft by remember { mutableFloatStateOf(0f) }
+    var panelPos by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     val pillTop = pill?.top ?: 0f
     val pillBottom = pill?.let { it.top + it.height } ?: 0f
+    // Which island body the outline starts from: where the island was when search opened, until the panel has fully opened or begins to close;
+    // from then on the settled pill, so a close (a tap outside, a swipe up, a launch) always shrinks into where the island will be drawn. A close
+    // that begins before the panel finished opening glides between the two instead of jumping.
+    val towardPill = remember { Animatable(if (from == null) 1f else 0f) }
+    LaunchedEffect(visible) {
+        if (!visible) towardPill.animateTo(1f, spring(dampingRatio = 1f, stiffness = 900f))
+        else if (towardPill.value < 1f) { snapshotFlow { progress() }.first { it >= .999f }; towardPill.snapTo(1f) }
+    }
+    // The panel's outline now, in its own px, or null before it has been measured (or without an island).
+    fun outline(): PxRect? {
+        val rest = pill ?: return null
+        if (panelSize.width <= 0) return null
+        val startFrame = IslandMorph.lerp(IslandMorph.rectOf(from ?: rest), IslandMorph.rectOf(rest), towardPill.value)
+        val start = PxRect(startFrame.left - panelPos.x, startFrame.top - panelPos.y, startFrame.right - panelPos.x, startFrame.bottom - panelPos.y)
+        return SpotlightEmerge.rect(effectiveProgress(), start, PxRect(0f, 0f, panelSize.width.toFloat(), panelSize.height.toFloat()))
+    }
 
     // The panel's parent may sit below the top of the window (under the status bar or the camera cutout, depending on how the window is
     // laid out), so the island's position in window coordinates would land too low, and the dimming would stop short of the top edge,
@@ -425,20 +435,37 @@ internal fun Spotlight(
             .imePadding().padding(horizontal = 12.dp)
             .widthIn(max = IslandGeometry.expandedWidthDp(LocalConfiguration.current.screenWidthDp.toFloat()).dp)
             .fillMaxWidth().heightIn(max = SPOTLIGHT_MAX_HEIGHT_DP.dp)
-            .onGloballyPositioned { panelSize = it.size; panelLeft = it.positionInWindow().x }
+            .onGloballyPositioned { panelSize = it.size; panelPos = it.positionInWindow() }
             .graphicsLayer {
                 transformOrigin = TransformOrigin(.5f, 0f)
                 val p = effectiveProgress()
-                if (pill != null) {
-                    scaleX = SpotlightEmerge.scaleX(p, pill.width, panelSize.width.toFloat())
-                    scaleY = SpotlightEmerge.scaleY(p, pill.height, panelSize.height.toFloat())
-                    translationX = SpotlightEmerge.shiftX(p, pill.left + pill.width / 2f, panelLeft + panelSize.width / 2f)
+                val r = outline()
+                if (r != null) {
+                    // Clipped to the outline, which moves from the island's body to the panel with the island's corners at every size.
+                    shape = MorphRectShape(r, IslandMorph.cornerPx(r.width, r.height, density.density, panelScale))
+                } else if (pill != null) {
+                    // Not measured yet: nothing to show until it is (one frame), rather than a full panel flashing up.
+                    alpha = 0f
                 } else {
                     alpha = p.coerceIn(0f, 1f)
                     scaleX = .9f + .1f * p; scaleY = .9f + .1f * p
+                    shape = capShape
                 }
+                clip = true
             }
-            .clip(shape).background(Color.Black).border(1.dp, Color.White.copy(alpha = .10f), shape)
+            .drawWithContent {
+                drawRect(Color.Black)
+                drawContent()
+                // The hairline rim, on the outline as it grows (the island has none on its pill, so it comes in with the panel).
+                val r = outline()
+                val rim = Color.White.copy(alpha = .10f * (if (pill != null) effectiveProgress().coerceIn(0f, 1f) else 1f))
+                if (r != null) drawRoundRect(rim, topLeft = androidx.compose.ui.geometry.Offset(r.left, r.top),
+                    size = androidx.compose.ui.geometry.Size(r.width, r.height),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(IslandMorph.cornerPx(r.width, r.height, density.density, panelScale)),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+                else if (pill == null) drawRoundRect(rim, cornerRadius = androidx.compose.ui.geometry.CornerRadius(capCorner.toPx()),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+            }
             .clickable(interactionSource = quiet, indication = null) {}
             .pointerInput(Unit) {
                 // A swipe up from the bottom of the panel collapses it back into the island, like the island's swipe-up-close: the
@@ -500,7 +527,12 @@ internal fun Spotlight(
             }
             .padding(14.dp).testTag("spotlight")) {
           // Everything inside fades in once the panel is big enough to hold it; the top is kept clear of the camera hole.
-          Column(Modifier.graphicsLayer { alpha = if (pill != null) SpotlightEmerge.contentAlpha(effectiveProgress()) else 1f }) {
+          // It settles down into place from the island as it fades in, and lifts back up into it as it fades out.
+          Column(Modifier.graphicsLayer {
+              val a = if (pill != null) SpotlightEmerge.contentAlpha(effectiveProgress()) else 1f
+              alpha = a
+              if (animationsOn) { translationY = -(1f - a) * 8.dp.toPx(); val s = .97f + .03f * a; scaleX = s; scaleY = s; transformOrigin = TransformOrigin(.5f, 0f) }
+          }) {
             if (pill != null) Spacer(Modifier.height(with(density) { (pillBottom - pillTop).toDp() }.coerceAtLeast(0.dp)))
             CompositionLocalProvider(LocalContentColor provides ink) {
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().focusRequester(focus).testTag("spotlight-field"),

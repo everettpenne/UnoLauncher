@@ -228,6 +228,8 @@ class MainActivity : ComponentActivity() {
                     onWallpaperColor = appearance::setWallpaperColor,
                     onMaterialYou = appearance::setMaterialYou,
                     onWallpaperDepth = appearance::setWallpaperDepth,
+                    onHomeStyle = appearance::setHomeStyle,
+                    onClearGlass = appearance::setClearGlass,
                     onTiltHighlight = appearance::setTiltHighlight,
                     onTiltStrength = appearance::setTiltStrength,
                     island = island,
@@ -374,7 +376,10 @@ class MainActivity : ComponentActivity() {
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) setStatusMode(model.state.value.verticalStatus)
+        // Re-applies what Home last asked for (the rail, or jiggle mode on the iOS layout, hides the status bar). A popup (the Edit menu)
+        // takes focus for a moment, and re-applying the rail rule alone brought the status bar back in the middle of editing.
+        if (hasFocus) setStatusMode(lastStatusHidden ?: (model.state.value.verticalStatus &&
+            !(appearance.state.homeStyle == HomeStyle.IOS && resources.configuration.screenWidthDp < 650)))
     }
     override fun onSaveInstanceState(outState: Bundle) {
         widgets.save(outState)
@@ -703,7 +708,11 @@ class MainActivity : ComponentActivity() {
         LiveDiscover.setExternalResultPending(this, "main", "appearance-location", false)
     }
 
+    /** What Home last asked of the status bar (hidden or not); null until it has asked. */
+    private var lastStatusHidden: Boolean? = null
+
     private fun setStatusMode(vertical: Boolean) {
+        lastStatusHidden = vertical
         LiveDiscover.host.get()?.statusMode(vertical)
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE

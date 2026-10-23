@@ -64,6 +64,8 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onWallpaperColor: (Boolean) -> Unit = {},
     onMaterialYou: (Boolean) -> Unit = {},
     onWallpaperDepth: (Boolean) -> Unit = {},
+    onHomeStyle: (HomeStyle) -> Unit = {},
+    onClearGlass: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onTiltStrength: (Float) -> Unit = {},
     onRefractionHeight: (Float) -> Unit = {},
@@ -198,6 +200,11 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                                 modifier = Modifier.testTag("tilt-readout"))
                         }
                     }
+                    if (appearance.liquidGlass) {
+                        SettingsSwitch(stringResource(com.jake.duolauncher.R.string.clear_glass), appearance.clearGlass, onClearGlass, "clear-glass-switch")
+                        Text(stringResource(com.jake.duolauncher.R.string.clear_glass_note), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     SettingsSwitch("Wallpaper depth", appearance.wallpaperDepth, onWallpaperDepth, "wallpaper-depth-switch")
                     Text(stringResource(com.jake.duolauncher.R.string.wallpaper_depth_note), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -217,10 +224,13 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     }
                 }
                 CustomizationPage.HOME -> HomeLayoutSettings(state, wide, { wide = it }, model, homePage,
-                    onEditPins, onWidget, onAddWidget, onRemoveWidget)
+                    onEditPins, onWidget, onAddWidget, onRemoveWidget, appearance.homeStyle, onHomeStyle)
                 CustomizationPage.GESTURES -> {
                     SettingsSwitch("Show app names", state.labels, model::setLabels, "label-switch")
+                    // The iOS layout has no status rail on a phone-sized screen (the system status bar shows), so the switch says so.
                     SettingsSwitch("Show status at upper right", state.verticalStatus, model::setVerticalStatus, "status-switch")
+                    if (appearance.homeStyle == HomeStyle.IOS) Text(stringResource(com.jake.duolauncher.R.string.home_layout_ios_rail_note),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(stringResource(com.jake.duolauncher.R.string.swipe_sideways_anywhere_on_home_to),
                         style = MaterialTheme.typography.bodyMedium)
                     if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.GESTURES)
@@ -533,19 +543,35 @@ private fun signedPercent(v: Float): String = (v * 100).toInt().let { if (it > 0
 
 @Composable private fun HomeLayoutSettings(state: LauncherState, wide: Boolean, onWide: (Boolean) -> Unit,
     model: LauncherModel, homePage: Int, onEditPins: () -> Unit, onWidget: (Int) -> Unit,
-    onAddWidget: (Int) -> Unit, onRemoveWidget: (Int) -> Unit) {
+    onAddWidget: (Int) -> Unit, onRemoveWidget: (Int) -> Unit, homeStyle: HomeStyle = HomeStyle.SIDE, onHomeStyle: (HomeStyle) -> Unit = {}) {
     val p = if (wide) state.expanded else state.compact
+    // The phone screen's layout: Uno's side dock, or the iPhone's (see HomeStyle). The inner screen always has the side dock.
+    if (!wide) {
+        Text(stringResource(com.jake.duolauncher.R.string.home_layout_label), style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GlassChip(homeStyle == HomeStyle.SIDE, { onHomeStyle(HomeStyle.SIDE) }, label = { Text(stringResource(com.jake.duolauncher.R.string.home_layout_side)) },
+                modifier = Modifier.testTag("home-layout-side"))
+            GlassChip(homeStyle == HomeStyle.IOS, { onHomeStyle(HomeStyle.IOS) }, label = { Text(stringResource(com.jake.duolauncher.R.string.home_layout_ios)) },
+                modifier = Modifier.testTag("home-layout-ios"))
+        }
+        Text(stringResource(if (homeStyle == HomeStyle.IOS) com.jake.duolauncher.R.string.home_layout_ios_note else com.jake.duolauncher.R.string.home_layout_side_note),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    // The iOS grid sets its own icon size, spacing and dock; those sliders are for the side layout.
+    val iosHere = homeStyle == HomeStyle.IOS && !wide
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         GlassChip(!wide, { onWide(false) }, label = { Text(stringResource(com.jake.duolauncher.R.string.cover)) })
         GlassChip(wide, { onWide(true) }, label = { Text(stringResource(com.jake.duolauncher.R.string.inner)) })
     }
     GlassButton(onClick = onEditPins, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.choose_home_apps)) }
-    CustomizationSlider("App icon size", "${p.iconSize.toInt()} dp", p.iconSize, 40f..68f) { model.setPreset(wide, p.copy(iconSize = it)) }
-    CustomizationSlider("Space between rows", "${p.rowGap.toInt()} dp", p.rowGap, 0f..28f) { model.setPreset(wide, p.copy(rowGap = it)) }
-    CustomizationSlider("Dock width", "${p.dockWidth.toInt()} dp", p.dockWidth, 56f..84f) { model.setPreset(wide, p.copy(dockWidth = it)) }
-    SettingsSwitch("Align dock with app rows", p.dockAlignToGrid, { model.setPreset(wide, p.copy(dockAlignToGrid = it)) })
-    if (!p.dockAlignToGrid) CustomizationSlider("Dock height on screen", "${(p.dockPosition * 100).toInt()}%", p.dockPosition, .25f.. .75f) { model.setPreset(wide, p.copy(dockPosition = it)) }
-    GlassButton(onClick = { model.setPreset(wide, LayoutPreset()) }, Modifier.fillMaxWidth()) { Text(stringResource(com.jake.duolauncher.R.string.reset_this_layout)) }
+    if (!iosHere) {
+        CustomizationSlider("App icon size", "${p.iconSize.toInt()} dp", p.iconSize, 40f..68f) { model.setPreset(wide, p.copy(iconSize = it)) }
+        CustomizationSlider("Space between rows", "${p.rowGap.toInt()} dp", p.rowGap, 0f..28f) { model.setPreset(wide, p.copy(rowGap = it)) }
+        CustomizationSlider("Dock width", "${p.dockWidth.toInt()} dp", p.dockWidth, 56f..84f) { model.setPreset(wide, p.copy(dockWidth = it)) }
+        SettingsSwitch("Align dock with app rows", p.dockAlignToGrid, { model.setPreset(wide, p.copy(dockAlignToGrid = it)) })
+        if (!p.dockAlignToGrid) CustomizationSlider("Dock height on screen", "${(p.dockPosition * 100).toInt()}%", p.dockPosition, .25f.. .75f) { model.setPreset(wide, p.copy(dockPosition = it)) }
+        GlassButton(onClick = { model.setPreset(wide, LayoutPreset()) }, Modifier.fillMaxWidth()) { Text(stringResource(com.jake.duolauncher.R.string.reset_this_layout)) }
+    }
     HorizontalDivider(Modifier.padding(vertical = 6.dp))
     Text("Widgets · Page ${homePage + 1}", style = MaterialTheme.typography.titleMedium)
     state.widgetPlacements.filter { it.page == homePage || (wide && it.page == -1) }.forEach { placement ->

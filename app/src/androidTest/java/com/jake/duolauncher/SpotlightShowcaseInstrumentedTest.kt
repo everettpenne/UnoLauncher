@@ -31,7 +31,7 @@ class SpotlightShowcaseInstrumentedTest {
         compose.setContent {
             DuoTheme(false) {
                 Spotlight(null, apps, emptySet(), emptyList(), false, HandoffResolver(context, ExtrasState()),
-                    onLaunch = {}, onOpenFeedLink = {}, onOpenContact = {}, onDismiss = {}, progress = 1f, pill = null)
+                    onLaunch = {}, onOpenFeedLink = {}, onOpenContact = {}, onDismiss = {}, progress = { 1f }, pill = null)
             }
         }
         compose.waitForIdle()

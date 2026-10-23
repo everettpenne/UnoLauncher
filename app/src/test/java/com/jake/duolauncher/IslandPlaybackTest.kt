@@ -88,19 +88,27 @@ class IslandPlaybackTest {
 }
 
 class SpotlightEmergeTest {
-    @Test fun startsAsThePillAndEndsAsThePanel() {
-        assertEquals(.25f, SpotlightEmerge.scaleX(0f, 100f, 400f), 1e-4f)
-        assertEquals(1f, SpotlightEmerge.scaleX(1f, 100f, 400f), 1e-4f)
-        assertEquals(.1f, SpotlightEmerge.scaleY(0f, 50f, 500f), 1e-4f)
-        assertEquals(1f, SpotlightEmerge.scaleY(1f, 50f, 500f), 1e-4f)
-        assertEquals(0f, SpotlightEmerge.shiftX(1f, 300f, 540f), 1e-4f)
-        assertEquals(-240f, SpotlightEmerge.shiftX(0f, 300f, 540f), 1e-4f)
+    private val pill = PxRect(400f, 20f, 680f, 120f)
+    private val panel = PxRect(0f, 0f, 1000f, 1600f)
+
+    @Test fun startsAsTheIslandAndEndsAsThePanel() {
+        assertEquals(pill, SpotlightEmerge.rect(0f, pill, panel))
+        assertEquals(panel, SpotlightEmerge.rect(1f, pill, panel))
+        val half = SpotlightEmerge.rect(.5f, pill, panel)
+        assertEquals(200f, half.left, 1e-3f); assertEquals(840f, half.right, 1e-3f); assertEquals(860f, half.bottom, 1e-3f)
     }
 
-    @Test fun sizesAreSafeBeforeThePanelIsMeasuredAndNeverBelowAFloor() {
-        assertEquals(1f, SpotlightEmerge.scaleX(0f, 100f, 0f), 0f)
-        assertEquals(1f, SpotlightEmerge.scaleY(0f, 50f, 0f), 0f)
-        assertEquals(.05f, SpotlightEmerge.scaleX(0f, 1f, 1000f), 1e-4f)
+    @Test fun anOvershootingSpringNeverCarriesItPastEitherEnd() {
+        assertEquals(panel, SpotlightEmerge.rect(1.2f, pill, panel))
+        assertEquals(pill, SpotlightEmerge.rect(-.1f, pill, panel))
+    }
+
+    @Test fun itKeepsTheIslandsShapeAtEverySize() {
+        // A pill-sized outline is a full capsule (half its height), and the panel has the open island's capped corner: never the squashed,
+        // nearly square corners the scaled panel had while it was pill-sized.
+        val d = 2.625f
+        assertEquals(pill.height / 2f, IslandMorph.cornerPx(pill.width, pill.height, d), 1e-3f)
+        assertEquals(IslandGeometry.CORNER_CAP_DP * d, IslandMorph.cornerPx(panel.width, panel.height, d), 1e-3f)
     }
 
     @Test fun contentAppearsOnlyOnceThereIsRoomForIt() {

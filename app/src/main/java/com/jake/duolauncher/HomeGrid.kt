@@ -283,15 +283,15 @@ internal fun HomePagePane(
             }
         }
         .onGloballyPositioned { paneBounds = it.boundsInRoot() }
-        .width((geometry.gridWidth + 16f).dp)
+        .width((geometry.gridWidth + geometry.gridStart).dp)
         .height((contentHeight - bottomSpace).coerceAtLeast(0.dp))) {
-        Box(Modifier.width(16.dp).fillMaxHeight().testTag("home-options-margin-$page")
+        Box(Modifier.width(geometry.gridStart.dp).fillMaxHeight().testTag("home-options-margin-$page")
             .pointerInput(backgroundTarget, drag.active) {
                 detectTapGestures(onLongPress = {
                     if (!drag.active) onEmptyWidget(backgroundTarget)
                 })
             })
-        Column(Modifier.offset(x = 16.dp).width(geometry.gridWidth.dp).fillMaxHeight()
+        Column(Modifier.offset(x = geometry.gridStart.dp).width(geometry.gridWidth.dp).fillMaxHeight()
             .verticalScroll(homeScroll).padding(top = geometry.contentTop.dp, bottom = 8.dp)) {
             SharedHomeGrid(page, state.homeSlots, state.leadingSlots, previewSlots, previewLeadingSlots, previewWidgetPlacements,
                 appsById, geometry, state.labels, widgets, drag, target,
@@ -368,8 +368,10 @@ internal fun SharedHomeGrid(
     val editing = LocalHomeEditing.current
     val editActions = LocalHomeEditActions.current
     val coveredCells = remember(pageWidgets) { pageWidgets.flatMapTo(mutableSetOf()) { it.coveredIndices() } }
-    val topPitch = (geometry.widgetHeight + 18f) / 2f
-    fun rowTop(row: Int) = if (row <= 2) row * topPitch else geometry.widgetHeight + 18f + (row - 2) * rowHeight
+    // The widget band's pitch and the app rows' pitch. On the iOS layout they are the same (see iosHomeGeometry), so the grid is uniform.
+    val gapY = geometry.widgetGapY
+    val topPitch = (geometry.widgetHeight + gapY) / 2f
+    fun rowTop(row: Int) = if (row <= 2) row * topPitch else geometry.widgetHeight + gapY + (row - 2) * rowHeight
     BoxWithConstraints(Modifier.fillMaxWidth().height(rowTop(renderedRows).dp)) {
         val density = LocalDensity.current
         val cellWidth = maxWidth / 4
@@ -461,10 +463,10 @@ internal fun SharedHomeGrid(
         }
         pageWidgets.forEach { placement ->
             key("widget-${placement.slot}") {
-                val x = cellWidth * placement.column + 5.dp
-                val width = (cellWidth * placement.spanX - 10.dp).coerceAtLeast(1.dp)
+                val x = cellWidth * placement.column + (geometry.widgetGapX / 2f).dp
+                val width = (cellWidth * placement.spanX - geometry.widgetGapX.dp).coerceAtLeast(1.dp)
                 val y = rowTop(placement.row)
-                val height = (rowTop(placement.row + placement.spanY) - y - 18f).coerceAtLeast(48f)
+                val height = (rowTop(placement.row + placement.spanY) - y - gapY).coerceAtLeast(48f)
                 if (placement == pending) Surface(Modifier.offset(x = x, y = y.dp).width(width).height(height.dp)
                     .testTag("widget-pending-${placement.slot}").semantics(mergeDescendants = true) {
                         contentDescription = "Pending ${widgets.pendingProvider?.shortClassName ?: "widget"}"
@@ -475,8 +477,15 @@ internal fun SharedHomeGrid(
                         CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
                         Spacer(Modifier.height(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.finish_widget_setup), color = Ink)
                     }
-                } else MovableWidget(placement.id, placement.slot, widgets, drag, target,
-                    Modifier.offset(x = x, y = y.dp).width(width).height(height.dp), page = page) { onWidget(placement.slot) }
+                } else {
+                    // Jiggle mode: widgets wiggle with the icons (a little less, being bigger) and carry the same remove badge, as on iOS.
+                    val widgetStill = !editing || drag.source?.target == DropTarget.Widget(placement.slot)
+                    MovableWidget(placement.id, placement.slot, widgets, drag, target,
+                        Modifier.offset(x = x, y = y.dp).width(width).height(height.dp).homeWiggle(!widgetStill, placement.slot * 31 + 7, scale = .45f),
+                        page = page) { onWidget(placement.slot) }
+                    if (editing && !drag.active) RemoveBadge(widgetLabel(placement.id, widgets),
+                        Modifier.offset(x = x - 14.dp, y = (y - 10f).dp)) { editActions?.removeWidget?.invoke(placement.slot) }
+                }
             }
         }
     }
@@ -494,6 +503,8 @@ internal fun DockAppColumn(
     onLaunch: (AppEntry, android.graphics.Rect?) -> Unit,
     onChoose: (Int) -> Unit,
     glass: PageGlass? = null,
+    /** The iOS dock: the four apps side by side in a row [rowHeight] tall, each in a quarter of its width. */
+    horizontal: Boolean = false,
 ) {
     val draggedId = drag.source?.appId
     val dockTarget = (target as? DropTarget.Dock)?.index
@@ -513,20 +524,24 @@ internal fun DockAppColumn(
     }
     val density = LocalDensity.current
     val rowHeightPx = with(density) { rowHeight.dp.toPx() }
-    Box(Modifier.fillMaxWidth().height((rowHeight * savedDock.size).dp)) {
+    BoxWithConstraints(Modifier.fillMaxWidth().height((if (horizontal) rowHeight else rowHeight * savedDock.size).dp)) {
+        // One slot's size and where slot [i] is: down a column, or across a row.
+        val slotWidth = if (horizontal) maxWidth / savedDock.size.coerceAtLeast(1) else maxWidth
+        val slotWidthPx = with(density) { slotWidth.toPx() }
+        fun slotOffset(i: Int) = if (horizontal) IntOffset((i * slotWidthPx).roundToInt(), 0) else IntOffset(0, (i * rowHeightPx).roundToInt())
         savedDock.indices.forEach { index ->
             val cell = DropTarget.Dock(index)
             val savedApp = appsById[savedDock[index]]
             val previewId = previewDock.getOrNull(index)
             val highlighted = drag.active && target == cell
             val gap = hiddenIndex == index
-            Box(Modifier.fillMaxWidth().height(rowHeight.dp).offset(y = (rowHeight * index).dp),
+            Box(Modifier.offset { slotOffset(index) }.width(slotWidth).height(rowHeight.dp),
                 contentAlignment = Alignment.Center) {
                 when {
                     previewId == null -> Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(24.dp))
                 }
             }
-            Box(Modifier.fillMaxWidth().height(rowHeight.dp).offset(y = (rowHeight * index).dp)
+            Box(Modifier.offset { slotOffset(index) }.width(slotWidth).height(rowHeight.dp)
                 .testTag("dock-slot-$index").dropRegion(drag, cell, savedApp?.id)
                 .semantics(mergeDescendants = true) { contentDescription = savedApp?.label ?: "Choose dock app ${index + 1}" }
                 .combinedClickable(interactionSource = interactions[index], indication = LocalIndication.current, role = Role.Button, onClick = {
@@ -545,14 +560,13 @@ internal fun DockAppColumn(
                 // Each icon is recorded on its own so a press lens can magnify it (one layer backdrop holds one layer).
                 val iconBackdrop = rememberLayerBackdrop()
                 val lensBackdrop = if (glass != null) rememberCombinedBackdrop(glass.backdrop, iconBackdrop) else null
-                val animatedOffset by animateIntOffsetAsState(
-                    IntOffset(0, (renderIndex * rowHeightPx).roundToInt()), label = "dock insertion $id")
+                val animatedOffset by animateIntOffsetAsState(slotOffset(renderIndex), label = "dock insertion $id")
                 val visible = previewIndex >= 0 && renderIndex != hiddenIndex
                 val opacity by animateFloatAsState(
                     if (!visible) 0f else if (dimDragged && id == draggedId) .28f else 1f,
                     label = "dock insertion visibility $id",
                 )
-                Box(Modifier.offset { animatedOffset }.fillMaxWidth().height(rowHeight.dp).alpha(opacity)
+                Box(Modifier.offset { animatedOffset }.width(slotWidth).height(rowHeight.dp).alpha(opacity)
                     .testTag("dock-app-$id"), contentAlignment = Alignment.Center) {
                     Image(app.image, null, Modifier.size(iconSize.dp).testTag("dock-icon-$id")
                         .then(if (lensBackdrop != null) Modifier.layerBackdrop(iconBackdrop) else Modifier)
@@ -594,7 +608,7 @@ internal fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: 
         // wallpaper, where the lens has almost nothing to bend, and the lens on every tile crashed the view tree when it was torn down.
         Box(Modifier.size(size.dp)
             .then(if (folderGlass != null) Modifier.clip(Corner.icon)
-                    .background(folderGlass.tint.copy(alpha = .34f))
+                    .background(folderGlass.tint.copy(alpha = if (GlassFinish.clear) .16f else .34f))
                     .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.White.copy(alpha = .26f), Color.White.copy(alpha = .05f))))
                     .border(1.2.dp, androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(alpha = .85f), Color.White.copy(alpha = .14f),
                         Color.White.copy(alpha = .5f))), Corner.icon)

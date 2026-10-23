@@ -234,12 +234,15 @@ internal fun Modifier.fadeAtBodyBottom(fade: BodyFade): Modifier {
 /** Brings a face in and out of the island as it morphs: it fades, grows from a little smaller and sharpens out of a blur as the body opens around it,
  * and does the reverse as it closes. (iOS does the same: the content is part of the liquid, not a picture laid over it.) With animations off it only fades.
  */
-internal fun Modifier.morphFace(alphaOf: () -> Float, blurOk: Boolean, fade: BodyFade? = null): Modifier = then(if (fade == null) Modifier else Modifier.fadeAtBodyBottom(fade)).graphicsLayer {
+internal fun Modifier.morphFace(alphaOf: () -> Float, blurOk: Boolean, fade: BodyFade? = null, fromCamera: Boolean = fade != null): Modifier = then(if (fade == null) Modifier else Modifier.fadeAtBodyBottom(fade)).graphicsLayer {
     val a = alphaOf()
     alpha = a
     val scale = if (blurOk) .94f + .06f * a else 1f
     scaleX = scale; scaleY = scale
-    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, .2f)
+    // The open face grows out of the camera at its top centre and settles down into place, and shrinks back up into it; the collapsed face
+    // swells and shrinks in place about its middle.
+    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, if (fromCamera) 0f else .5f)
+    if (fromCamera && blurOk) translationY = -(1f - a) * 6.dp.toPx()
     renderEffect = if (blurOk && a > .01f && a < .98f) {
         val radius = (1f - a) * 12.dp.toPx()
         androidx.compose.ui.graphics.BlurEffect(radius, radius, androidx.compose.ui.graphics.TileMode.Decal)

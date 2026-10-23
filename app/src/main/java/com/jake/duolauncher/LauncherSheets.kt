@@ -77,6 +77,8 @@ internal fun SettingSlider(label: String, valueLabel: String, value: Float, rang
 internal fun WidgetActions(
     placement: WidgetPlacement,
     constraints: WidgetSpanConstraints?,
+    /** The iOS layout: the widget is resized by choosing Small, Medium or Large (see IosWidgetSizes), not cell by cell. */
+    iosSizes: Boolean = false,
     canConfigure: Boolean,
     onConfigure: () -> Unit,
     isValid: (Int, Int) -> Boolean,
@@ -120,13 +122,29 @@ internal fun WidgetActions(
         if (canConfigure) ActionRow(Icons.Rounded.Settings, "Widget settings", onConfigure,
             Modifier.testTag("widget-settings-${placement.slot}"))
         Text(stringResource(com.jake.duolauncher.R.string.resize), style = MaterialTheme.typography.titleMedium)
-        Button(enabled = feasible, onClick = { onStartResize(width, height) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.resize_on_home)) }
+        if (iosSizes) {
+            // The iOS sizes this widget allows, in the room it has from where it sits; one tap applies.
+            val room = WidgetSpanConstraints(WidgetSpan(minWidth, minHeight), WidgetSpan(minWidth, minHeight), WidgetSpan(maxWidth, maxHeight), true, true)
+            val sizes = IosWidgetSizes.allowed(room)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState()).testTag("widget-ios-sizes")) {
+                IosWidgetSizes.ALL.forEach { size ->
+                    val current = size.width == placement.spanX && size.height == placement.spanY
+                    GlassChip(current, onClick = {
+                        if (feasible && size in sizes && isValid(size.width, size.height)) { onResize(size.width, size.height); onClose() }
+                    }, enabled = feasible && size in sizes && (current || isValid(size.width, size.height)),
+                        label = { Text("${IosWidgetSizes.label(size)} · ${size.width}×${size.height}") },
+                        modifier = Modifier.testTag("widget-ios-size-${size.width}x${size.height}"))
+                }
+            }
+            if (sizes.isEmpty()) Text(stringResource(com.jake.duolauncher.R.string.widget_no_ios_size), style = MaterialTheme.typography.bodySmall)
+        }
+        if (!iosSizes) Button(enabled = feasible, onClick = { onStartResize(width, height) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.resize_on_home)) }
         if (!feasible) Text(stringResource(com.jake.duolauncher.R.string.move_this_widget_into_the_six), color = MaterialTheme.colorScheme.error)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
             repeat(homePages) { page -> TextButton(onClick = { onMoveToPage(page) },
                 modifier = Modifier.testTag("widget-move-${placement.slot}-page-$page")) { Text("Move to page ${page + 1}") } }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        if (!iosSizes) Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(com.jake.duolauncher.R.string.width), Modifier.weight(1f))
             IconButton(enabled = constraints?.canResizeHorizontally != false,
                 onClick = { if (feasible) width = (width - 1).coerceAtLeast(minWidth) }) {
@@ -138,7 +156,7 @@ internal fun WidgetActions(
                 Icon(Icons.Rounded.Add, "Increase widget width")
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        if (!iosSizes) Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(com.jake.duolauncher.R.string.height), Modifier.weight(1f))
             IconButton(enabled = constraints?.canResizeVertically != false,
                 onClick = { if (feasible) height = (height - 1).coerceAtLeast(minHeight) }) {
@@ -151,9 +169,11 @@ internal fun WidgetActions(
             }
         }
         Text(stringResource(com.jake.duolauncher.R.string.sizes_that_overlap_another_item_are), style = MaterialTheme.typography.bodySmall)
-        if (!valid) Text(stringResource(com.jake.duolauncher.R.string.that_size_overlaps_another_item_or), color = MaterialTheme.colorScheme.error)
-        Button(enabled = valid, onClick = { onResize(width, height); onClose() },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.apply_size)) }
+        if (!iosSizes) {
+            if (!valid) Text(stringResource(com.jake.duolauncher.R.string.that_size_overlaps_another_item_or), color = MaterialTheme.colorScheme.error)
+            Button(enabled = valid, onClick = { onResize(width, height); onClose() },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.apply_size)) }
+        }
         ActionRow(Icons.Rounded.FindReplace, "Replace", onReplace)
         HorizontalDivider()
         ActionRow(Icons.Rounded.DeleteOutline, "Remove", onRemove, tint = MaterialTheme.colorScheme.error)

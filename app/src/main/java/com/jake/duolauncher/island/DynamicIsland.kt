@@ -237,7 +237,6 @@ internal fun DynamicIsland(
     var environment by remember { mutableStateOf(environmentOverride
         ?: IslandEnvironment(null, initialWidth.toFloat(), 0f)) }
     var origin by remember { mutableStateOf(Offset.Zero) }
-    LaunchedEffect(environment, sizeScale, d, wideFactor) { state.restPill = IslandGeometry.frame(environment, d, 0f, sizeScale, wideFactor = wideFactor) }
     LaunchedEffect(configuration, environmentOverride) {
         environment = environmentOverride ?: readIslandEnvironment(view, dockWidthPx, initialWidth, initialHeight)
     }
@@ -311,7 +310,9 @@ internal fun DynamicIsland(
         val end = minOf(.4f, peekState.floatValue * .92f)
         val tall = ((revealState.value - (end - .2f)) / .2f).coerceIn(0f, 1f)
         val p = progressState.value
-        val wide = ((if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value) - .72f) / .28f
+        // From 60 % of the panel's width: at .72 the body was an empty black slab for several frames of every open and close. The face is
+        // still scaled in and sharpened from a blur over that range (morphFace), so its edges are not seen cut off.
+        val wide = ((if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value) - .6f) / .4f
         tall * wide.coerceIn(0f, 1f)
     } }
     val pastHalfOpen by remember { derivedStateOf { progressState.value >= .5f } }
@@ -475,7 +476,10 @@ internal fun DynamicIsland(
     val clockShiftDp = remember(clockMs / 60_000L, is24Hour) {
         StatusBarGrid.clockShiftDp(java.util.Calendar.getInstance().apply { timeInMillis = clockMs }.get(java.util.Calendar.HOUR), is24Hour)
     }
-    val capsulesWanted = !(state.expanded || state.peeked || pulling || flashActive || IslandTools.ringing)
+    // The capsules split off the pill only once the body has nearly landed back on the camera. They used to come out the moment a close began,
+    // from the middle of the still-open panel's sides, and fly up to the status bar while the panel shrank past them.
+    val nearlyShut by remember { derivedStateOf { progressState.value < .12f } }
+    val capsulesWanted = !(state.expanded || state.peeked || pulling || flashActive || IslandTools.ringing) && nearlyShut
     val capsulePlan = if (capsulesWanted) IslandBubbles.layout(liveKinds) else emptyList()
     val capsuleMinDp = restTarget.height / d
     // The edges the island would have with its shipped width (and, showing an app, its wider one) and any hand adjustment.
@@ -502,9 +506,14 @@ internal fun DynamicIsland(
     }
     val frameState = remember(environment, d, sizeScale, extraBody, coupling, wideFactor) { derivedStateOf {
         val p = progressState.value
-        val base = IslandGeometry.frame(environment, d, if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value, sizeScale,
+        val w = if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value
+        val base = IslandGeometry.frame(environment, d, w, sizeScale,
             extraBodyDp = extraBody, extraWidthDp = eventWidthState.value, compactness = compactnessState.value, wideFactor = wideFactor, heightProgress = p)
-        withDebugAdjust(withEdgeShift(base, 1f - p, motion.edgeLeft.value, motion.edgeRight.value), 1f - p, 0f, 0f, mainDy, d, environment.screenWidth)
+        // The grid's edge corrections are sideways, so they unwind with the width, and the hand-set drop is vertical, so it unwinds with the
+        // height. Both used to follow the height: on a motion whose width is slower than its height (Droplet, or any pull, which leads with the
+        // width), the pill's snapped edges were let go before it had widened, so it shifted sideways and shrank for a moment before it grew,
+        // and on the way back the edges snapped out after it had landed.
+        withDebugAdjust(withEdgeShift(base, 1f - w, motion.edgeLeft.value, motion.edgeRight.value), 1f - p, 0f, 0f, mainDy, d, environment.screenWidth)
     } }
     // The collapsed pill's top edge in window pixels: below it (in the launcher's own space) a pull belongs to the island; above it the
     // system status-bar strip owns the touch, so a pull must not engage there when the island renders below SystemUI.
@@ -535,14 +544,20 @@ internal fun DynamicIsland(
     // manager per frame while the island opens and closes. Now it is told the size the island is heading for as soon as a change
     // starts, and kept at the largest size seen until the animation has settled, then snapped to the settled size.
     val headingFor = remember(environment, d, sizeScale, extraBody, state.expanded, state.peeked, eventTargetDp, compactTarget, wideFactor) {
-        IslandGeometry.frame(environment, d, if (state.expanded) 1f else if (state.peeked) peekState.floatValue else 0f, sizeScale, extraBodyDp = extraBody,
-            extraWidthDp = eventTargetDp, compactness = compactTarget, wideFactor = wideFactor) }
+        // A peek is the panel's full width and only part of its height, as the live frame is (its width target is 1, its height the peek).
+        IslandGeometry.frame(environment, d, if (state.expanded || state.peeked) 1f else 0f, sizeScale, extraBodyDp = extraBody,
+            extraWidthDp = eventTargetDp, compactness = compactTarget, wideFactor = wideFactor,
+            heightProgress = if (state.expanded) 1f else if (state.peeked) peekState.floatValue else 0f) }
     // The frame the island settles to, with the same adjustments the live frame gets (the grid's edges, the debug offset): what the touch window should
     // be when nothing is moving. It must match the settled live frame; if it does not, the touch window never shrinks back (see the effect that reports it).
+    // The edges follow the width and the drop the height, as in [frameState].
     val headingCollapsed = if (state.expanded) 0f else if (state.peeked) 1f - peekState.floatValue else 1f
+    val headingNarrow = if (state.expanded || state.peeked) 0f else 1f
     val headingAdjusted = withDebugAdjust(
-        withEdgeShift(headingFor, headingCollapsed, islandLayout.pillLeft * d - restTarget.left, islandLayout.pillRight * d - (restTarget.left + restTarget.width)),
+        withEdgeShift(headingFor, headingNarrow, islandLayout.pillLeft * d - restTarget.left, islandLayout.pillRight * d - (restTarget.left + restTarget.width)),
         headingCollapsed, 0f, 0f, mainDy, d, environment.screenWidth)
+    // The settled pill, as drawn, for search to shrink back into (see IslandState.restPill). Only written when it changes.
+    if (!state.expanded && !state.peeked) SideEffect { if (state.restPill != headingAdjusted) state.restPill = headingAdjusted }
     val reported = remember { arrayOfNulls<IslandFrame>(1) }
     val bodyFade = remember(openFrame, d) { BodyFade({ frameState.value.height }, openFrame.height, 10f * d) }
     val morphSpeed = remember { MorphVelocity() }
@@ -552,10 +567,11 @@ internal fun DynamicIsland(
     val cornerPx = remember(panelScale, d) { derivedStateOf {
         val f = frameState.value
         // Never negative: a frame measured before the screen's size is known (width 0) can come out narrower than nothing, and a negative
-        // corner radius throws in the shape code, which crashed the island's own window.
-        val half = (minOf(f.width, f.height) / 2f).coerceAtLeast(0f)
-        if (panelScale < 1f) minOf(half, IslandGeometry.CORNER_CAP_DP * d) * panelScale else minOf(half, IslandGeometry.CORNER_CAP_DP * d * panelScale)
+        // corner radius throws in the shape code, which crashed the island's own window. (IslandMorph.cornerPx keeps it at zero or more.)
+        IslandMorph.cornerPx(f.width, f.height, d, panelScale)
     } }
+    // The same outline as one shape for every size the body passes through, for its shadow.
+    val bodyShape = remember(panelScale, d) { IslandBodyShape(d, panelScale) }
     val sideways = openFrame.side != IslandSide.TOP
     // The colour fade for music: while the music is one of the things the pill shows (or the panel is open), and nothing else has the island.
     val glowAlpha = animateFloatAsState(
@@ -674,6 +690,7 @@ internal fun DynamicIsland(
             // after the first time the island opened, taking touches meant for the top of the app underneath.
             var first = true
             snapshotFlow { frameState.value }.collect { live ->
+                state.liveFrame = live
                 val next = if (live.nearly(headingAdjusted)) headingAdjusted else (reported[0] ?: live).union(live).union(headingAdjusted)
                 if (first || next != reported[0]) { reported[0] = next; onFrameChanged?.invoke(next, windowRect) }
                 first = false
@@ -719,11 +736,14 @@ internal fun DynamicIsland(
                 Box(Modifier
                     .offset {
                         val frame = frameState.value
-                        // Inside the island, against its right end: dot [index] of [privacyKinds.size], counting from the left.
-                        val x = frame.left + frame.width - (IslandPrivacy.END_PAD_DP + (privacyKinds.size.coerceAtLeast(index + 1) - index) * IslandPrivacy.STEP_DP) * d
-                        val y = frame.top + (frame.height - IslandPrivacy.DOT_DP * d) / 2f
+                        // Inside the island, against its right end, on the camera's line: dot [index] of [privacyKinds.size], counting from the left.
+                        // They ride the body's swell and squash (an event's pulse, a press) about the camera, as the body does, so they stay put
+                        // inside it; and as it opens they stay up beside the camera rather than sliding down the open panel's side.
+                        val (cx, cy) = IslandMorph.dotCenter(frame, index, privacyKinds.size, d, cornerPx.value)
+                        val (x, y) = IslandMorph.scaled(frame, cx, cy, pulse.value * motion.pressX.value, pulse.value * motion.pressY.value)
+                        val half = IslandPrivacy.DOT_DP * d / 2f
                         androidx.compose.ui.unit.IntOffset(
-                            (x - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
+                            (x - half - (windowRect?.left ?: origin.x)).roundToInt(), (y - half - (windowRect?.top ?: origin.y)).roundToInt())
                     }
                     // Drawn above the island, which is composed after them: they sit inside its right end.
                     .zIndex(2f)
@@ -782,15 +802,21 @@ internal fun DynamicIsland(
                 val fill = themeFill
                 // The neck's path is made once and rewound each frame, instead of allocating a Path per frame while the capsule pulls away.
                 val neckPath = remember { androidx.compose.ui.graphics.Path() }
+                // The round end of the pill a capsule comes out of: the pill's own end, settled; while the body is open, a pill-sized end at the
+                // top corner, so the neck is drawn to the camera's line and not to a circle as tall as the open panel.
+                fun endRadius(frame: IslandFrame) = minOf(frame.height, capsuleH) / 2f
                 fun capsuleX(frame: IslandFrame): Float {
                     // Settled, the capsule is where the grid put it; it comes out of (and goes back into) the island's end on its side.
-                    val startX = if (shape.left) frame.left + frame.height / 2f - capsuleW / 2f else frame.left + frame.width - frame.height / 2f - capsuleW / 2f
+                    val r = endRadius(frame)
+                    val startX = if (shape.left) frame.left + r - capsuleW / 2f else frame.left + frame.width - r - capsuleW / 2f
                     return startX + (slotX - startX) * appear.value
                 }
                 Box(Modifier
                     .offset {
                         val frame = frameState.value
-                        val y = frame.top + (frame.height - capsuleH) / 2f + adjust.dy * d
+                        // On the camera's line (the pill's middle, settled), so a capsule going back into an island that has started to open
+                        // is drawn in at the top, where the pill was, not halfway down the growing panel.
+                        val y = IslandMorph.stripCenterY(frame) - capsuleH / 2f + adjust.dy * d
                         androidx.compose.ui.unit.IntOffset(
                             (capsuleX(frame) - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
                     }
@@ -798,7 +824,7 @@ internal fun DynamicIsland(
                         val t = appear.value
                         if (t < .99f) {
                             val frame = frameState.value
-                            val r1 = frame.height / 2f
+                            val r1 = endRadius(frame)
                             val c1 = Metaball.Pt((if (shape.left) frame.left + r1 else frame.left + frame.width - r1) - capsuleX(frame), capsuleH / 2f - adjust.dy * d)
                             val c2 = Metaball.Pt(capsuleH / 2f, capsuleH / 2f)
                             val grow = (.55f + .45f * t).coerceAtLeast(.4f)
@@ -858,6 +884,12 @@ internal fun DynamicIsland(
         }
         // A press squashes the island wide and flat, like a thumb on a water balloon, and it springs back with the motion's own wobble
         // (a calm theme barely moves; a jelly one jiggles).
+        val openLeading: (() -> Unit)? = if (state.expanded || state.peeked || flashActive || IslandTools.ringing) null else when (plan.leading) {
+            LiveKind.CALL -> NotificationFeed.ongoingCall?.openIntent?.let { intent -> { sendTapAction(context, intent); Unit } }
+            LiveKind.MEDIA -> NotificationFeed.nowPlaying?.controller?.let { controller -> { openPlayer(context, controller) } }
+            LiveKind.UPDATE -> updates.firstOrNull()?.openIntent?.let { intent -> { sendTapAction(context, intent); Unit } }
+            else -> null
+        }
         val islandTouch = remember { MutableInteractionSource() }
         val islandPressed by islandTouch.collectIsPressedAsState()
         val squash = IslandThemes.active.motion.pulse - 1f
@@ -882,6 +914,20 @@ internal fun DynamicIsland(
                 val stretch = if (animationsOn && !fingerDriven) MorphVelocity.stretch(morphSpeed.update(progressState.value, System.nanoTime(), settledAt), squashGain)
                     else { morphSpeed.update(progressState.value, System.nanoTime(), progressState.value); 0f }
                 scaleX = pulse.value * motion.pressX.value * (1f - stretch * .8f); scaleY = pulse.value * motion.pressY.value * (1f + stretch)
+                // All of it about the camera: the body swells round the camera and squashes onto it, and a fast morph stretches the panel down
+                // from it. About the body's centre (the default), the open panel's top lifted off the camera and dropped back on every press.
+                val (fx, fy) = IslandMorph.pivot(frameState.value)
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(fx, fy)
+                // The open island lifts off what is behind it: a soft shadow that grows as it opens (none on the pill, which sits in the status
+                // bar). While music is playing the shadow takes the track's colour, so the open island glows faintly with it.
+                val open = progressState.value.coerceIn(0f, 1f)
+                shadowElevation = if (open > .01f) open * 16f * d else 0f
+                shape = bodyShape
+                if (open > .01f) {
+                    val glow = glowAlpha.value
+                    val tint = if (glow > .01f) androidx.compose.ui.graphics.lerp(Color.Black, artTint, (glow * 1.6f).coerceAtMost(1f)) else Color.Black
+                    ambientShadowColor = tint; spotShadowColor = tint
+                }
             }
             .islandSized { frameState.value }
             .islandBody(glass?.backdrop, { cornerPx.value }, settings = glass?.settings ?: GlassSettings.Default)
@@ -1023,6 +1069,10 @@ internal fun DynamicIsland(
             }
             .combinedClickable(interactionSource = islandTouch, indication = null,
                 onClickLabel = if (state.expanded) "Close" else "Open",
+                // A long press on the pill goes straight to what its leading activity belongs to: the call screen, the player, the app behind a
+                // Live Update. A tap still opens the island. Nothing to go to (idle, a timer, an event), and a long press is only a press.
+                onLongClickLabel = if (openLeading != null) "Open ${plan.leading?.let { IslandLive.label(it) } ?: ""}".trim() else null,
+                onLongClick = openLeading?.let { open -> { UnoFeedback.play(Cue.OPEN, haptic); open() } },
                 onClick = {
                     // A ringing timer is silenced by a tap before anything else.
                     if (IslandTools.ringing) { UnoFeedback.play(Cue.OPEN, haptic); IslandTools.stopRinging(context) }
@@ -1147,7 +1197,8 @@ internal fun DynamicIsland(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(now.format(timeFormatter), color = themeInk,
-                            fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+                            fontSize = 24.sp, fontWeight = FontWeight.SemiBold,
+                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum", letterSpacing = (-.3).sp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = themeInk.copy(alpha = .85f), fontSize = 12.sp, maxLines = 1)
                             nextAlarm?.let { alarm ->
@@ -1160,9 +1211,14 @@ internal fun DynamicIsland(
                         }
                     }
                     Column(horizontalAlignment = Alignment.End) {
-                        Text(if (deviceStatus.battery != null) "${deviceStatus.battery}%" else "—",
-                            color = if (deviceStatus.charging == true) IslandThemes.active.charging else themeInk,
-                            fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (deviceStatus.battery != null) "${deviceStatus.battery}%" else "—",
+                                color = if (deviceStatus.charging == true) IslandThemes.active.charging else themeInk,
+                                fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"))
+                            Spacer(Modifier.width(6.dp))
+                            BatteryGlyph(deviceStatus.battery, deviceStatus.charging == true)
+                        }
                         chargeLeft?.let { Text(it, color = IslandThemes.active.charging.copy(alpha = .85f), fontSize = 11.sp, maxLines = 1,
                             modifier = Modifier.testTag("island-charge-left")) }
                     }
@@ -1228,16 +1284,20 @@ internal fun DynamicIsland(
                         }.testTag("island-quick-app"))
                     }
                 }
-                if (showActions) Row(Modifier.testTag("island-actions"), horizontalArrangement = Arrangement.spacedBy(10.dp),
+                if (showActions) Row(Modifier.fillMaxWidth().testTag("island-actions"), horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     if (onWebSearch != null) {
                         IslandSearchField(onWebSearch, onSearch, Modifier.weight(1f))
                         IslandAction(Icons.Rounded.RssFeed, "Feed", false, onOpenFeed)
                         IslandAction(Icons.Rounded.Tune, "Settings", false, onCustomize)
                     } else {
-                        IslandAction(Icons.Rounded.Search, "Search", actionLabelsFit, onSearch)
-                        IslandAction(Icons.Rounded.RssFeed, "Feed", actionLabelsFit, onOpenFeed)
-                        IslandAction(Icons.Rounded.Tune, "Settings", actionLabelsFit, onCustomize)
+                        // Three equal chips across the panel; icon-only ones keep their own size and sit centred.
+                        val share = if (actionLabelsFit) Modifier.weight(1f) else Modifier
+                        if (!actionLabelsFit) Spacer(Modifier.weight(1f))
+                        IslandAction(Icons.Rounded.Search, "Search", actionLabelsFit, onSearch, share)
+                        IslandAction(Icons.Rounded.RssFeed, "Feed", actionLabelsFit, onOpenFeed, share)
+                        IslandAction(Icons.Rounded.Tune, "Settings", actionLabelsFit, onCustomize, share)
+                        if (!actionLabelsFit) Spacer(Modifier.weight(1f))
                     }
                 }
             }

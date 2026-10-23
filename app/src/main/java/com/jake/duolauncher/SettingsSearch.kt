@@ -19,11 +19,13 @@ internal object SettingsSearch {
         SettingEntry("Tilt-following highlight", CustomizationPage.APPEARANCE, "glass shine light gyroscope"),
         SettingEntry("Tilt strength", CustomizationPage.APPEARANCE, "glass shine light"),
         SettingEntry("Wallpaper depth", CustomizationPage.APPEARANCE, "parallax 3d"),
+        SettingEntry("Clear glass", CustomizationPage.APPEARANCE, "liquid glass transparent ios edge frosted tint"),
         SettingEntry("Material You colors", CustomizationPage.APPEARANCE, "theme dynamic colour accent"),
         SettingEntry("Color from wallpaper", CustomizationPage.APPEARANCE, "theme colour accent"),
         SettingEntry("Light and dark", CustomizationPage.APPEARANCE, "dark mode night theme sunset sunrise appearance"),
         SettingEntry("App icons", CustomizationPage.APPEARANCE, "icon pack shape themed"),
         // Home layout
+        SettingEntry("Home layout", CustomizationPage.HOME, "ios iphone dock bottom side grid widgets small medium large"),
         SettingEntry("App icon size", CustomizationPage.HOME, "bigger smaller grid"),
         SettingEntry("Space between rows", CustomizationPage.HOME, "grid spacing gap"),
         SettingEntry("Dock width", CustomizationPage.HOME, "rail side"),

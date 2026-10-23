@@ -285,20 +285,59 @@ internal fun MediaButton(icon: ImageVector, label: String, onClick: () -> Unit, 
     }
 }
 
+/**
+ * One of the open island's buttons (Search, Feed, Settings): a chip in the theme's control shape, filled faintly with the ink so it reads as a
+ * button and not as loose text, that dips under the finger with the same spring as the media buttons. They used to be bare text with no
+ * edge and no press, which made the bottom of the open island look unfinished. [modifier] lets a row share its width out evenly.
+ */
 @Composable
-internal fun IslandAction(icon: ImageVector, label: String, showLabel: Boolean, onClick: () -> Unit) {
+internal fun IslandAction(icon: ImageVector, label: String, showLabel: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val haptic = LocalHapticFeedback.current
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) .92f else 1f, IslandThemes.active.spring(.55f, 700f), label = "island action press")
+    val chip = modifier.graphicsLayer { scaleX = scale; scaleY = scale }.clip(IslandThemes.active.controlShape())
+        .background(themeInk.copy(alpha = if (pressed) .2f else .12f))
+        .clickable(interactionSource = source, indication = null, role = Role.Button) { UnoFeedback.play(Cue.TICK, haptic); onClick() }
     if (!showLabel) {
-        Box(Modifier.size(44.dp).clip(IslandThemes.active.controlShape()).clickable(onClick = onClick)
-            .semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = themeInk, modifier = Modifier.size(20.dp))
+        Box(chip.size(40.dp).semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = themeInk, modifier = Modifier.size(19.dp))
         }
         return
     }
-    Row(Modifier.clip(IslandThemes.active.controlShape())
-        .clickable { onClick() }.padding(horizontal = 10.dp, vertical = 6.dp),
+    // Sized so the three still fit at PanelHeight.actionsFit's narrowest panel (about 85 dp a chip), which is where they drop to icons.
+    Row(chip.height(36.dp).padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        Icon(icon, label, tint = themeInk, modifier = Modifier.size(15.dp))
-        Text(label, color = themeInk, fontSize = 12.sp)
+        horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally)) {
+        Icon(icon, null, tint = themeInk, modifier = Modifier.size(15.dp))
+        Text(label, color = themeInk, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
+    }
+}
+
+/**
+ * The battery as a small drawn cell, the way the status bar draws one: an outline with a nub, filled to the level, green while charging and
+ * red at 20% or less. On the open island beside its percentage, so the level reads at a glance and not only as a number.
+ */
+@Composable
+internal fun BatteryGlyph(level: Int?, charging: Boolean, modifier: Modifier = Modifier) {
+    val ink = themeInk
+    val fill = when {
+        charging -> IslandThemes.active.charging
+        level != null && level <= 20 -> Color(0xFFFF453A)
+        else -> ink
+    }
+    androidx.compose.foundation.Canvas(modifier.size(width = 25.dp, height = 12.dp).testTag("island-battery-glyph")) {
+        val nub = 2.dp.toPx()
+        val stroke = 1.dp.toPx()
+        val body = Size(size.width - nub - 1.dp.toPx(), size.height)
+        val r = CornerRadius(3.5.dp.toPx())
+        drawRoundRect(ink.copy(alpha = .45f), topLeft = Offset(stroke / 2f, stroke / 2f), size = Size(body.width - stroke, body.height - stroke),
+            cornerRadius = r, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+        drawRoundRect(ink.copy(alpha = .45f), topLeft = Offset(body.width + 1.dp.toPx() - stroke / 2f, size.height * .32f),
+            size = Size(nub, size.height * .36f), cornerRadius = CornerRadius(nub))
+        val inset = 2.dp.toPx()
+        val fraction = ((level ?: 0) / 100f).coerceIn(0f, 1f)
+        val w = (body.width - 2 * inset) * fraction
+        if (w > 0f) drawRoundRect(fill, topLeft = Offset(inset, inset), size = Size(w, body.height - 2 * inset), cornerRadius = CornerRadius(2.dp.toPx()))
     }
 }

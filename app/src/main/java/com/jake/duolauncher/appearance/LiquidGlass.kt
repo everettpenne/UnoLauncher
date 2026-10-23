@@ -124,6 +124,42 @@ internal object GlassRim {
 }
 
 /**
+ * Home's glass finish (see [AppearanceState.clearGlass]). Clear glass is iOS's Liquid Glass: the surface takes almost no tint, so the wallpaper
+ * shows through bent but uncoloured, and its edge catches the light, brighter and a little wider than the frosted rim, with a soft sheen
+ * along the top. Only light surfaces (a tint of [LIGHT_TINT_MAX] alpha or less: the dock, the rail, widgets, page dots, the search pill)
+ * turn clear; a sheet or panel with text on a heavier tint keeps it. Snapshot state, so a change redraws glass without recomposing it.
+ */
+internal object GlassFinish {
+    private val clearState = androidx.compose.runtime.mutableStateOf(true)
+    var clear: Boolean
+        get() = clearState.value
+        set(value) { clearState.value = value }
+
+    /** The heaviest tint that still counts as a light surface. */
+    const val LIGHT_TINT_MAX = .2f
+    /** What is left of a light surface's tint when the glass is clear: enough to hold its ink, not enough to colour it. */
+    const val CLEAR_TINT_SHARE = .25f
+
+    /** The tint [tint] is drawn with under the current finish. Pure, so it is unit-tested. */
+    fun tint(tint: Color, clear: Boolean = this.clear): Color =
+        if (clear && tint.alpha <= LIGHT_TINT_MAX) tint.copy(alpha = tint.alpha * CLEAR_TINT_SHARE) else tint
+
+    /** Whether a surface tinted [tint] gets the clear edge. */
+    fun clearEdge(tint: Color, clear: Boolean = this.clear) = clear && tint.alpha <= LIGHT_TINT_MAX
+
+    /** The bright edge of clear glass: the shared directional rim, wider and stronger. */
+    val Edge: Highlight
+        get() {
+            val b = GlassRim.boost
+            return Highlight.Default.copy(width = (1.1f + .5f * b).dp,
+                style = com.kyant.backdrop.highlight.HighlightStyle.Default(intensity = .95f, angle = GlassRim.angle, falloff = 1f + 8f * b))
+        }
+
+    /** The sheen along the top of clear glass: white fading out over the top 40 % of the surface. */
+    val Sheen = androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.White.copy(alpha = .14f), .4f to Color.Transparent)
+}
+
+/**
  * The depth every glass surface shares: the library's own default shadow (a soft 24 dp shadow, nudged down), which is what its catalog
  * uses under its panels, so the surface sits on the page as a thick piece of glass and not a flat tinted pane. The library draws an
  * inner shadow only on a held control (see the switch and slider thumbs), never on a resting panel, so this adds none. One definition,
@@ -223,9 +259,12 @@ internal fun Modifier.liquidGlass(
             chromaticAberration = settings.chromatic > 0.05f,
         )
     },
-    highlight = { GlassRim.Light },
+    highlight = { if (GlassFinish.clearEdge(tint)) GlassFinish.Edge else GlassRim.Light },
     shadow = { if (depth) GlassDepth.shadow() else null },
-    onDrawSurface = { drawRect(tint) },
+    onDrawSurface = {
+        drawRect(GlassFinish.tint(tint))
+        if (GlassFinish.clearEdge(tint)) drawRect(GlassFinish.Sheen)
+    },
     )
 }
 

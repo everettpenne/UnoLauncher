@@ -91,13 +91,16 @@ internal fun IslandSettingsPreview(controller: IslandPreviewController, settings
     val view = LocalView.current
     val metrics = context.resources.displayMetrics
     val d = metrics.density
-    // This phone's real camera hole and status bar, so the preview is the island's real size and shape; a phone with none gets a centred hole.
+    // This phone's real camera hole and status bar, so the preview is the island's real size and shape; a phone with none gets a centred
+    // hole the size of a Pixel 10a's. Bugfix (0.104.2): the preview took Android's cutout bounding rectangle, which on a Pixel 10a is far
+    // taller than the hole (it was drawn as a tall oval, and the pill round it came out chunky); it now reads the hole's own outline, as
+    // the real island does (readDisplayCutout).
     val insets = view.rootWindowInsets
     val cutout = remember(insets) {
-        insets?.displayCutout?.boundingRects?.map { PxRect(it.left.toFloat(), it.top.toFloat(), it.right.toFloat(), it.bottom.toFloat()) }
-            ?.let { IslandGeometry.pickCutout(it, metrics.widthPixels.toFloat(), metrics.heightPixels.toFloat()) }
-            ?.takeIf { IslandGeometry.sideOf(it, metrics.widthPixels.toFloat(), metrics.heightPixels.toFloat()) == IslandSide.TOP }
-            ?: (metrics.widthPixels / 2f).let { c -> PxRect(c - 13f * d, 12f * d, c + 13f * d, 38f * d) }
+        val w = metrics.widthPixels.toFloat(); val h = metrics.heightPixels.toFloat()
+        (view.display ?: context.display)?.let { readDisplayCutout(it, w, h) }
+            ?.takeIf { IslandGeometry.sideOf(it, w, h) == IslandSide.TOP }
+            ?: (w / 2f).let { c -> PxRect(c - 9.5f * d, 9f * d, c + 9.5f * d, 28f * d) }
     }
     val statusBarPx = (insets?.getInsets(android.view.WindowInsets.Type.statusBars())?.top ?: (50f * d).toInt()).toFloat().coerceAtLeast(cutout.bottom + 6f * d)
     val env = remember(cutout, statusBarPx) { IslandEnvironment(cutout, metrics.widthPixels.toFloat(), statusBarPx, screenHeight = metrics.heightPixels.toFloat()) }
@@ -212,11 +215,14 @@ private fun caption(scene: PreviewScene, s: PreviewSettings): String = when (sce
 private fun StatusBarMock(env: IslandEnvironment, k: Float, ink: Color) {
     val density = LocalDensity.current
     val barHeight = with(density) { (env.statusBarHeight * k).toDp() }
-    Row(Modifier.fillMaxWidth().height(barHeight).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.island_preview_time), color = Color.White, style = UnoType.footnote.tight, fontWeight = FontWeight.SemiBold)
+    // Android's status bar at its own sizes (a 14 sp clock, 18 dp icons, 24 dp side margins), scaled down with the stage like everything
+    // else in it; fixed 13 sp text and 14 dp icons looked tiny beside the island.
+    val clock = with(density) { (14.dp * k).toSp() }
+    Row(Modifier.fillMaxWidth().height(barHeight).padding(horizontal = 24.dp * k), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.island_preview_time), color = Color.White, style = UnoType.footnote.tight.copy(fontSize = clock), fontWeight = FontWeight.Medium)
         Spacer(Modifier.weight(1f))
         listOf(Icons.Rounded.SignalCellularAlt, Icons.Rounded.Wifi, Icons.Rounded.BatteryFull).forEach {
-            Icon(it, null, tint = Color.White, modifier = Modifier.padding(start = 3.dp).size(14.dp))
+            Icon(it, null, tint = Color.White, modifier = Modifier.padding(start = 4.dp * k).size(18.dp * k))
         }
     }
 }

@@ -354,7 +354,7 @@
     <string name="whats_new_1">Launcher settings are reorganized like iOS Settings: grouped lists with short names and the detail underneath, and about half as many settings.</string>
     <string name="whats_new_2">A new wallpaper editor, as on iOS: the photo fills the screen; swipe to try styles like Black &amp; White and Duotone, pinch to frame it, and preview your Home over it.</string>
     <string name="whats_new_3">The accent is Uno orange, or one colour from your wallpaper. Glass is a single choice: Clear, Frosted or Off. Corners nest evenly throughout.</string>
-    <string name="whats_new_4">The resting island is about 13.5 mm wide, and glass everywhere is one of two kinds, clear or frosted, as on iOS 26.</string>
+    <string name="whats_new_4">The resting island is about 16 mm wide and as tall as the camera, and glass everywhere is one of two kinds, clear or frosted, as on iOS 26.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>
@@ -387,7 +387,7 @@
     <string name="island_preview_notification">Notification</string>
     <string name="island_preview_privacy">Camera in use</string>
     <string name="island_preview_open">Open</string>
-    <string name="island_preview_caption_idle">At rest: a pill about 13.5 mm wide at the camera, the width of the iPhone 18 Pro\'s.</string>
+    <string name="island_preview_caption_idle">At rest: a pill about 16 mm wide, as tall as the camera.</string>
     <string name="island_preview_caption_music_off">Music playing. With wide mode off, the pill keeps its usual width.</string>
     <string name="island_preview_caption_music_wide">Music playing, with the pill kept wide.</string>
     <string name="island_preview_caption_music_extra">Music playing, with the pill extra wide.</string>

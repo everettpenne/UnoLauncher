@@ -105,12 +105,15 @@ internal object IslandGeometry {
     private const val EXPANDED_WIDTH_DP = 336f
     /** A punch-hole camera: the hole is at most this wide, in dp. Phones like the Pixel 10a have one, centred and high on the screen. */
     private const val PUNCH_HOLE_MAX_DP = 28f
-    /** On a punch-hole phone the island may sit this close to the top edge (a little closer than the 6 dp kept elsewhere) and keeps this much
-     * island round the hole. The hole is small and close to the top, so the old margins left a pill barely taller than the hole: a thin,
-     * hard-to-read and hard-to-hit capsule.
-     */
+    /** On a punch-hole phone the island may sit this close to the top edge (a little closer than the 6 dp kept elsewhere). */
     private const val PUNCH_TOP_MARGIN_DP = 4f
-    private const val PUNCH_MIN_RING_DP = 4f
+    /**
+     * On a punch-hole phone the collapsed island is as tall as the hole itself, with just this much island above and below it, as an
+     * iPhone's island is its own cutout. 0.104.1 still sized it from the old size setting (the hole plus half the room above it, about
+     * 8 dp a side), which on a Pixel 10a stood well proud of the camera above and below. The ring is half a dp so the hole's own
+     * anti-aliased edge never shows past the pill.
+     */
+    const val PUNCH_REST_RING_DP = .5f
     /** The open panel takes this share of the screen's width (as the iOS island does), between the old fixed width and [MAX_EXPANDED_DP]. */
     private const val EXPANDED_SHARE = .92f
     private const val MAX_EXPANDED_DP = 372f
@@ -185,9 +188,10 @@ internal object IslandGeometry {
      * ring around the hole. The overlay over other apps is compact while it has nothing to say, so it does not cover the system
      * status bar's own icons; it is 0 (full width) on Home and whenever there is content to show.
      */
-    /** The idle pill's width on the phone, in millimetres: about 13.5 mm, as asked for on the Pixel 10a (224 px at its 422.2 PPI). A physical
-     * width, so it is the same size in the hand on any phone. */
-    const val REST_WIDTH_MM = 13.5f
+    /** The idle pill's width on the phone, in millimetres: 16 mm (266 px on a Pixel 10a at 422.2 PPI), between the leaked widths of the
+     * iPhone 18 Pro's island (13.5 to 15 mm); 13.5 mm read a little small on the 10a. A physical width, so it is the same size in the hand
+     * on any phone. */
+    const val REST_WIDTH_MM = 16f
 
     /** [mm] in dp on a screen whose real horizontal density is [xdpi] (dots per inch) and whose layout density is [density] (px per dp).
      * Some phones report an xdpi far from the truth; one more than 30 % off the layout's own dpi (160 x [density]) is not trusted. */
@@ -241,7 +245,7 @@ internal object IslandGeometry {
             val holeHalf = cutout.height / 2f
             val punch = max(cutout.width, cutout.height) <= PUNCH_HOLE_MAX_DP * d
             val room = max(0f, (cutout.centerY - (if (punch) PUNCH_TOP_MARGIN_DP else TOP_MARGIN_DP) * d) - holeHalf)
-            val ring = mix(min((if (punch) PUNCH_MIN_RING_DP else MIN_RING_DP) * d, room), room, size)
+            val ring = if (punch) min(PUNCH_REST_RING_DP * d, max(room, 0f)) else mix(min(MIN_RING_DP * d, room), room, size)
             val half = holeHalf + ring
             top = cutout.centerY - half
             collapsedHeight = half * 2f

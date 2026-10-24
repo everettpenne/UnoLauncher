@@ -14,22 +14,23 @@ class IslandPixel10aTest {
     private val hole = PxRect(515f, 23f, 565f, 73f)
     private fun env(dockDp: Float = 0f) = IslandEnvironment(hole, screenW, 63f, dockWidthPx = dockDp * d, screenHeight = 2424f)
 
-    @Test fun theCollapsedPillIsThickEnoughToReadAndToHit() {
+    /** The pill is the camera hole's own height, as an iPhone's island is its cutout (it stood about 8 dp proud of the hole above and below). */
+    @Test fun theCollapsedPillIsAsTallAsTheCamera() {
         val pill = IslandGeometry.frame(env(), d, 0f, .5f)
-        assertTrue("pill is ${pill.height / d} dp tall", pill.height / d in 27f..34f)
+        assertTrue("pill is ${pill.height / d} dp tall", pill.height / d in 19f..21f)
         assertEquals("centred on the hole", hole.centerY, pill.top + pill.height / 2f, .5f)
         assertTrue("clear of the top edge by ${pill.top / d} dp", pill.top / d >= 3.9f)
         assertTrue("wide enough for a timer on one side: ${pill.width / d} dp", pill.width / d in 130f..165f)
         assertEquals("the hole is centred in it", pill.width / 2f, pill.hole!!.centerX, .5f)
     }
 
-    @Test fun theSizeSettingStillSpansARange() {
-        // The hole is high on the screen, so the pill can only grow a little taller; the setting mostly makes it wider.
+    @Test fun theSizeSettingOnlyChangesTheWidth() {
         val small = IslandGeometry.frame(env(), d, 0f, 0f)
         val large = IslandGeometry.frame(env(), d, 0f, 1f)
         assertTrue("small ${small.width / d} dp, large ${large.width / d} dp", large.width - small.width >= 50f * d)
         assertTrue("never above the top margin", large.top / d >= 3.9f && small.top / d >= 3.9f)
-        assertTrue("never thinner than the hole and a ring", small.height / d >= 26f)
+        assertEquals("the height is the hole's at every size", small.height, large.height, .5f)
+        assertTrue("never thinner than the hole", small.height >= hole.height)
     }
 
     @Test fun theOpenPanelUsesMostOfTheWidthWhenThereIsNoDock() {

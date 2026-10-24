@@ -19,7 +19,9 @@ class IslandGeometryTest {
         val hole = frame.hole!!
         assertEquals("vertically centered on the hole", frame.height / 2f, hole.centerY, 0.5f)
         assertTrue("hole inside the island with room around it", hole.left > 20f && hole.right < frame.width - 20f)
-        assertTrue(hole.top >= 3f * d && hole.bottom <= frame.height - 3f * d)
+        // A punch hole: the pill is the hole's own height, with half a dp of island above and below it.
+        assertTrue(hole.top >= 0f && hole.bottom <= frame.height)
+        assertEquals("as tall as the hole", centered.height + 2f * IslandGeometry.PUNCH_REST_RING_DP * d, frame.height, 0.5f)
         assertTrue("island stays on screen", frame.top >= 0f)
         // The island's own coordinates map back to the cutout's window position.
         assertEquals(centered.left, frame.left + hole.left, 0.5f)
@@ -89,7 +91,8 @@ class IslandGeometryTest {
         val camera = PxRect(514f, 40f, 566f, 92f)
         val small = IslandGeometry.frame(env(camera), d, 0f, scale = 0f)
         val large = IslandGeometry.frame(env(camera), d, 0f, scale = 1f)
-        assertTrue(large.height > small.height)
+        // Round a punch hole the pill is always the hole's height; the scale only changes the room for content beside it.
+        assertEquals(small.height, large.height, 0.5f)
         assertTrue(large.width > small.width)
         // The hole must stay fully wrapped at every size.
         assertTrue(small.hole!!.top >= 0f && small.hole.bottom <= small.height)
@@ -282,15 +285,15 @@ class IslandGeometryTest {
     }
 
     // ---- the size setting needs room, which only the refined hole leaves ----
-    @Test fun theSizeSettingChangesTheIslandWhenTheHoleIsRefinedButNotWhenItIsTheTallRectangle() {
+    @Test fun theRefinedHoleGivesAPillAsTallAsTheCameraAndTheTallRectangleDoesNot() {
         val tallRect = PxRect(484f, 0f, 596f, 130f)        // what the display reports: starts at the top edge
         val hole = PxRect(514f, 40f, 566f, 92f)             // the actual punch hole, from the cutout path
         val refined = IslandGeometry.holeFor(listOf(tallRect), hole, 1080f, 2424f)!!
         assertEquals(hole, refined)
         fun height(cutout: PxRect, size: Float) =
             IslandGeometry.frame(IslandEnvironment(cutout, 1080f, 80f, screenHeight = 2424f), 2.625f, 0f, size).height
-        assertTrue("with the refined hole the slider has a range", height(refined, 1f) > height(refined, 0f) + 20f)
-        assertEquals("with the raw rectangle it did nothing, which is the bug", height(tallRect, 1f), height(tallRect, 0f), 0.5f)
+        assertEquals("with the refined hole the pill is the hole's height", hole.height + 2f * IslandGeometry.PUNCH_REST_RING_DP * 2.625f, height(refined, .5f), 0.5f)
+        assertTrue("the raw rectangle would make it far taller than the camera", height(tallRect, .5f) > height(refined, .5f) + 50f)
         assertEquals(tallRect, IslandGeometry.holeFor(listOf(tallRect), null, 1080f, 2424f))
     }
 

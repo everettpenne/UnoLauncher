@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.104.2-uno01
+
+- **A 16 mm island, as tall as the camera.** At rest the pill is about 16 mm wide (13.5 mm read a little small), still growing at most 8 dp a side so it never cuts a status bar icon in half. On punch-hole phones it is now as tall as the camera hole, with half a dp of black round it: its height still came from the retired size setting, about 8 dp of island above and below the camera, so on a Pixel 10a it was much taller than the cutout. Live activities, music and the open island grow from it as before.
+- **A truthful island preview.** The settings preview sized itself from the rectangle Android reports round the camera, which on the Pixel 10a is far taller than the hole, so its camera was a tall oval and the pill came out chunky. It now uses the hole's real outline, the same one the island uses, and draws its status bar at Android's real sizes scaled with the preview.
+
 ## 0.104.1-uno01
 
 - **The resting island is the 13.5 mm pill, everywhere.** Over other apps, on the iOS layout, and (since 0.104 draws the Home island in the accessibility service's window) on Home too, the idle island shrank to a ring round the camera, about 7 mm on a Pixel 10a, so the 13.5 mm width never showed. It is now always a pill about 13.5 mm wide centred on the camera, the leaked width of the iPhone 18 Pro's island. As before, it can grow a little (at most 8 dp a side) so it never cuts a status bar icon in half, and live activities, music and notifications widen it. The island settings preview shows the same.

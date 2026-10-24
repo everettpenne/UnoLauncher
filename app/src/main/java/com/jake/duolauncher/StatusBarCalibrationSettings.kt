@@ -7,6 +7,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -57,6 +59,8 @@ internal fun StatusBarCalibrationSettings() {
             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }, Modifier.fillMaxWidth().heightIn(min = 48.dp), tag = "status-auto-open")
     Spacer(Modifier.height(8.dp))
+    StatusBarTidySection()
+    Spacer(Modifier.height(8.dp))
     Text(stringResource(R.string.status_manual_title), style = MaterialTheme.typography.titleMedium)
     Text(stringResource(R.string.status_grid_intro), style = MaterialTheme.typography.bodySmall, color = muted)
     CalibrationStepper(stringResource(R.string.status_grid_left), cal.leftShift, "grid-left") { StatusBarCalibration.set(cal.copy(leftShift = it)) }
@@ -97,4 +101,48 @@ private fun StatusBarGuides(cal: GridCalibration) {
             xs.forEach { x -> drawLine(Color(0xFFFF2D9B), androidx.compose.ui.geometry.Offset(x.dp.toPx(), 0f), androidx.compose.ui.geometry.Offset(x.dp.toPx(), size.height), strokeWidth = 1.5.dp.toPx()) }
         }
     }
+}
+
+/**
+ * Android's status bar can hide some of its icons through the hidden icon list (the `icon_blacklist` secure setting, read by SystemUI's tuner
+ * and kept by GrapheneOS). A launcher cannot write it without a system permission, but one adb command from a computer can. This builds that
+ * command from the icons the person picks, with the command that undoes it. Pure, so it is unit-tested.
+ */
+internal object StatusBarTidy {
+    /** SystemUI's slot names, and what each is called here. */
+    val SLOTS = listOf("alarm_clock" to "Alarm", "bluetooth" to "Bluetooth", "headset" to "Headphones", "rotate" to "Rotation",
+        "volume" to "Vibrate or silent", "zen" to "Do Not Disturb", "nfc" to "NFC", "hotspot" to "Hotspot", "cast" to "Cast",
+        "vpn" to "VPN", "managed_profile" to "Work profile", "data_saver" to "Data Saver")
+
+    fun command(slots: Collection<String>): String? =
+        slots.filter { s -> SLOTS.any { it.first == s } }.sortedBy { s -> SLOTS.indexOfFirst { it.first == s } }.takeIf { it.isNotEmpty() }
+            ?.let { "adb shell settings put secure icon_blacklist ${it.joinToString(",")}" }
+
+    const val RESET = "adb shell settings delete secure icon_blacklist"
+}
+
+@Composable
+private fun StatusBarTidySection() {
+    val context = LocalContext.current
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    var chosen by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(listOf<String>()) }
+    Text(stringResource(R.string.status_tidy_title), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.status_tidy_note), style = MaterialTheme.typography.bodySmall, color = muted)
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+        StatusBarTidy.SLOTS.forEach { (slot, label) ->
+            com.jake.duolauncher.appearance.GlassChip(slot in chosen, { chosen = if (slot in chosen) chosen - slot else chosen + slot },
+                label = { Text(label) }, modifier = Modifier.testTag("tidy-$slot"))
+        }
+    }
+    fun copy(text: String) {
+        context.getSystemService(android.content.ClipboardManager::class.java)
+            ?.setPrimaryClip(android.content.ClipData.newPlainText("adb command", text))
+    }
+    StatusBarTidy.command(chosen)?.let { cmd ->
+        Text(cmd, style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
+            modifier = Modifier.testTag("tidy-command"))
+        GlassButton(stringResource(R.string.status_tidy_copy), { copy(cmd) }, Modifier.fillMaxWidth().heightIn(min = 48.dp), tag = "tidy-copy")
+    }
+    Text(stringResource(R.string.status_tidy_reset, StatusBarTidy.RESET), style = MaterialTheme.typography.bodySmall, color = muted)
 }

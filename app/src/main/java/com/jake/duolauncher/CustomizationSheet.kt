@@ -66,6 +66,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onWallpaperDepth: (Boolean) -> Unit = {},
     onHomeStyle: (HomeStyle) -> Unit = {},
     onClearGlass: (Boolean) -> Unit = {},
+    onUnoStatusBar: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onTiltStrength: (Float) -> Unit = {},
     onRefractionHeight: (Float) -> Unit = {},
@@ -224,7 +225,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     }
                 }
                 CustomizationPage.HOME -> HomeLayoutSettings(state, wide, { wide = it }, model, homePage,
-                    onEditPins, onWidget, onAddWidget, onRemoveWidget, appearance.homeStyle, onHomeStyle)
+                    onEditPins, onWidget, onAddWidget, onRemoveWidget, appearance.homeStyle, onHomeStyle, appearance.unoStatusBar, onUnoStatusBar)
                 CustomizationPage.GESTURES -> {
                     SettingsSwitch("Show app names", state.labels, model::setLabels, "label-switch")
                     // The iOS layout has no status rail on a phone-sized screen (the system status bar shows), so the switch says so.
@@ -543,7 +544,8 @@ private fun signedPercent(v: Float): String = (v * 100).toInt().let { if (it > 0
 
 @Composable private fun HomeLayoutSettings(state: LauncherState, wide: Boolean, onWide: (Boolean) -> Unit,
     model: LauncherModel, homePage: Int, onEditPins: () -> Unit, onWidget: (Int) -> Unit,
-    onAddWidget: (Int) -> Unit, onRemoveWidget: (Int) -> Unit, homeStyle: HomeStyle = HomeStyle.SIDE, onHomeStyle: (HomeStyle) -> Unit = {}) {
+    onAddWidget: (Int) -> Unit, onRemoveWidget: (Int) -> Unit, homeStyle: HomeStyle = HomeStyle.SIDE, onHomeStyle: (HomeStyle) -> Unit = {},
+    unoStatusBar: Boolean = false, onUnoStatusBar: (Boolean) -> Unit = {}) {
     val p = if (wide) state.expanded else state.compact
     // The phone screen's layout: Uno's side dock, or the iPhone's (see HomeStyle). The inner screen always has the side dock.
     if (!wide) {
@@ -556,6 +558,11 @@ private fun signedPercent(v: Float): String = (v * 100).toInt().let { if (it > 0
         }
         Text(stringResource(if (homeStyle == HomeStyle.IOS) com.jake.duolauncher.R.string.home_layout_ios_note else com.jake.duolauncher.R.string.home_layout_side_note),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (homeStyle == HomeStyle.IOS) {
+            SettingsSwitch(stringResource(com.jake.duolauncher.R.string.uno_status_bar), unoStatusBar, onUnoStatusBar, "uno-status-bar-switch")
+            Text(stringResource(com.jake.duolauncher.R.string.uno_status_bar_note), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
     // The iOS grid sets its own icon size, spacing and dock; those sliders are for the side layout.
     val iosHere = homeStyle == HomeStyle.IOS && !wide

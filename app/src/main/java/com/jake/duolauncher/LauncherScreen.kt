@@ -141,6 +141,7 @@ internal fun LauncherScreen(
     onHomeStyle: (HomeStyle) -> Unit = {},
     onClearGlass: (Boolean) -> Unit = {},
     onStatusIconsDark: (Boolean) -> Unit = {},
+    onUnoStatusBar: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onTiltStrength: (Float) -> Unit = {},
     island: IslandState = IslandState(),
@@ -387,7 +388,9 @@ internal fun LauncherScreen(
     val islandCoversBar = iosLayout && (islandOut || spotlightOpen)
     var barHeldForIsland by remember { mutableStateOf(false) }
     LaunchedEffect(islandCoversBar) { if (islandCoversBar) barHeldForIsland = true else { delay(380); barHeldForIsland = false } }
-    val statusHidden = railShown || (iosLayout && (homeEditing || islandCoversBar || barHeldForIsland))
+    // Uno's own status bar (iOS layout, if chosen) replaces Android's on Home, so Android's stays hidden there.
+    val ownStatusBar = iosLayout && appearance.unoStatusBar
+    val statusHidden = railShown || ownStatusBar || (iosLayout && (homeEditing || islandCoversBar || barHeldForIsland))
     LaunchedEffect(statusHidden) { onStatusMode(statusHidden) }
     // The island reads this process-wide flag (through IslandEventArbiter) so a notification never auto-expands it
     // while Spotlight is open; see the "no auto-expand" rule in docs/design.md's Metaphor policy.
@@ -1047,7 +1050,9 @@ internal fun LauncherScreen(
                 exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160))) {
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.shownEntries.firstOrNull()?.title,
-                    ringWhenIdle = iosLayout && extras?.store?.state?.islandWideMode?.keepWide != true,
+                    // With Uno's own status bar the idle island is the iPhone's pill (nothing to cover); otherwise a ring round the camera.
+                    ringWhenIdle = iosLayout && !ownStatusBar && extras?.store?.state?.islandWideMode?.keepWide != true,
+                    ownStatusBar = ownStatusBar,
                     sizeScale = appearance.islandScale,
                     wideFactor = extras?.store?.state?.islandWideMode?.wideFactor ?: 1f,
                     belowStatusBar = true,
@@ -1130,6 +1135,7 @@ internal fun LauncherScreen(
                             onWallpaperDepth = onWallpaperDepth,
                             onHomeStyle = onHomeStyle,
                             onClearGlass = onClearGlass,
+                            onUnoStatusBar = onUnoStatusBar,
                             onTiltHighlight = onTiltHighlight,
                             onTiltStrength = onTiltStrength,
                             backgrounds = launcherActivity.backgrounds,
@@ -1785,6 +1791,19 @@ internal fun LauncherScreen(
                 dismissButton = { GlassButton(onClick = widgets::cancelPendingReconfigure,
                     modifier = Modifier.testTag("widget-reconfigure-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) } })
         }
+        }
+        // Uno's own status bar (iOS layout): at the launcher's root, in the status bar's row, laid out around the island at rest. It steps aside
+        // as Android's would: in jiggle mode, and while the island is out (open, peeking, pulled, an event, search).
+        if (ownStatusBar) {
+            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+            val barTop = WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding()
+            val shown = !homeEditing && !islandCoversBar && !barHeldForIsland && sheet.isEmpty() && pager.currentPage in 0 until homePages
+            val barAlpha by animateFloatAsState(if (shown) 1f else 0f, tween(if (shown) 220 else 120), label = "uno status bar")
+            val pill = island.restPill.takeIf { appearance.island }
+            val barDensity = LocalDensity.current.density
+            val widthDp = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.toFloat()
+            if (barAlpha > .01f) UnoStatusBar(deviceStatus, statusIconsDark, pill?.let { it.left / barDensity }, pill?.let { (it.left + it.width) / barDensity },
+                barTop.value, widthDp, Modifier.graphicsLayer { alpha = barAlpha })
         }
         // Jiggle mode's bar on the iOS layout: here, in the launcher's root and outside the safe area, so it can take the status bar's row.
         if (iosLayout && editBarShown) editBar(Modifier)

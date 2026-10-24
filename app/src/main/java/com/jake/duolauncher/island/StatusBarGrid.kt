@@ -95,6 +95,68 @@ internal object StatusBarGrid {
         return Layout(pillLeft, pillRight, left, right)
     }
 
+    /** How far an island's edge keeps from an icon, in dp: its end is round and falls back about 1.6 dp at an icon's top and bottom. */
+    const val EDGE_CLEAR_DP = 1.75f
+    /** The seam between the main island and a capsule beside it, in dp. */
+    const val SEAM_DP = 3f
+    /** The least room either side of the island to the screen's edge, in dp. */
+    private const val SCREEN_MARGIN_DP = 6f
+
+    /**
+     * The status bar's icons as the measured grid has them, for when the bar itself has not been read: on the left the clock and each notification
+     * icon between two gaps, on the right each slot between two gaps (the battery last). Conservative: a slot the grid keeps (do not disturb, say)
+     * counts as an icon even when nothing is showing there.
+     */
+    fun gridIcons(screenWidthDp: Float, clockShiftDp: Float, cal: GridCalibration = GridCalibration()): List<Span> {
+        val lg = leftGaps(clockShiftDp, cal); val rg = rightGaps(screenWidthDp, cal)
+        val half = 2.5f
+        val left = listOf(Span(lg[0] - 30f, lg[0] - half)) + (0 until lg.size - 1).map { Span(lg[it] + half, lg[it + 1] - half) }
+        val right = (0 until rg.size - 1).map { Span(rg[it] + half, rg[it + 1] - half) }
+        return left + right
+    }
+
+    /**
+     * The island symmetric about the camera: one half-width for both sides, the smallest at least as wide as it wants (and as its privacy dots
+     * need) for which *both* edges fall clear of every icon, so each icon is wholly under the island or wholly beside it. Snapping each edge to its
+     * own nearest gap ([layout]) left the island a few dp longer on one side than the other, off centre on the camera; with the icons' real places
+     * (or the grid's) the edges can instead be chosen together. The clock and the battery are never covered.
+     *
+     * A capsule beside it keeps [SEAM_DP] from the island and grows outward to the first point clear of icons at least [capsuleMinWidth] away.
+     * Null when no symmetric width fits (the caller then snaps each edge on its own).
+     */
+    fun symmetric(desiredLeft: Float, desiredRight: Float, holeLeft: Float, holeRight: Float, icons: List<Span>, screenWidthDp: Float,
+        wantLeft: Boolean, wantRight: Boolean, dots: Int, capsuleMinWidth: Float): Layout? {
+        val cx = (holeLeft + holeRight) / 2f
+        val m = EDGE_CLEAR_DP
+        val leftIcons = icons.filter { (it.left + it.right) / 2f < cx }.sortedBy { it.left }
+        val rightIcons = icons.filter { (it.left + it.right) / 2f >= cx }.sortedBy { it.left }
+        // Never over the clock (the first icon on the left) or the battery (the last on the right).
+        val minX = (leftIcons.firstOrNull()?.right?.plus(m)) ?: SCREEN_MARGIN_DP
+        val maxX = (rightIcons.lastOrNull()?.left?.minus(m)) ?: (screenWidthDp - SCREEN_MARGIN_DP)
+        fun freeLeft(x: Float) = x >= minX && leftIcons.none { x > it.left - m && x < it.right + m }
+        fun freeRight(x: Float) = x <= maxX && rightIcons.none { x > it.left - m && x < it.right + m }
+        val dotRoom = if (dots > 0) IslandPrivacy.widthDp(dots) else 0f
+        val wanted = maxOf(cx - desiredLeft, desiredRight - cx, (holeRight - holeLeft) / 2f + HOLE_WRAP_DP) + dotRoom
+        // The half-widths at which an edge just clears an icon, from either side; the answer is one of these or the wanted width itself.
+        val candidates = (listOf(wanted) + leftIcons.map { cx - (it.left - m) } + rightIcons.map { (it.right + m) - cx })
+            .filter { it >= wanted }.sorted()
+        val half = candidates.firstOrNull { freeLeft(cx - it) && freeRight(cx + it) } ?: return null
+        val pillLeft = cx - half; val pillRight = cx + half
+        // A capsule's outer edge: the first clear point at least [capsuleMinWidth] out from its inner edge.
+        fun outward(inner: Float, dir: Int, free: (Float) -> Boolean, limit: Float): Float? {
+            var x = inner + dir * capsuleMinWidth
+            val stops = (if (dir < 0) leftIcons else rightIcons).map { if (dir < 0) it.left - m else it.right + m }
+                .filter { if (dir < 0) it <= x else it >= x }.sortedBy { kotlin.math.abs(it - x) }
+            if (!free(x)) x = stops.firstOrNull { free(it) } ?: return null
+            return x.takeIf { if (dir < 0) it >= limit else it <= limit }
+        }
+        val left = if (wantLeft) (pillLeft - SEAM_DP).takeIf { freeLeft(it) }?.let { inner ->
+            outward(inner, -1, ::freeLeft, minX)?.let { Span(it, inner) } } else null
+        val right = if (wantRight) (pillRight + SEAM_DP).takeIf { freeRight(it) }?.let { inner ->
+            outward(inner, 1, ::freeRight, maxX)?.let { Span(inner, it) } } else null
+        return Layout(pillLeft, pillRight, left, right)
+    }
+
     /** The layout when the status bar's icons are not known to be where they are on a Pixel (no top camera, say): the main island as wanted,
      * and each capsule beside it with a small gap, [capsuleMinWidth] wide. */
     fun flush(desiredLeft: Float, desiredRight: Float, wantLeft: Boolean, wantRight: Boolean, capsuleMinWidth: Float, gap: Float = 6f): Layout =

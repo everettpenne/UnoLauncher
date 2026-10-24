@@ -170,6 +170,19 @@ service, separate from the shade service and off unless they turn it on), the is
 - One gotcha found on the emulator: SystemUI's Compose host reports itself not visible while the icons inside it are, so every node's
   children are walked and only leaves are checked for visibility.
 
+## 12. Symmetric about the camera, Uno's status bar, and tidying (0.102.0)
+
+- **Symmetric.** `StatusBarGrid.symmetric` picks one half-width for both sides: the smallest at least as wide as wanted (and as the privacy dots
+  need) where *both* edges clear every icon by `EDGE_CLEAR_DP`, never over the clock or the battery. Candidates are the wanted width and each
+  width at which an edge just clears an icon. Icons are the status bar as read (`StatusBarLive`) or, without a reading, the grid's slots
+  (`gridIcons`, conservative). Capsules sit `SEAM_DP` beside the island and grow outward to the first clear point. If no width fits, the old
+  edge-by-edge snapping is used. On the Pixel 10a's measured bar the resting island comes out 355..725 px (centred on 540) where it was 345..729.
+- **Uno's status bar** (iOS layout, Launcher settings › Home): Android's bar is hidden on Home and `UnoStatusBar` draws the time centred left of
+  the island and alarm, Do Not Disturb, VPN, signal, Wi-Fi and battery centred right of it. The island then has nothing to avoid and is centred
+  (`symmetric` with no icons) at the iPhone's pill width. Android's camera and microphone indicators are not drawn; the island's own dots are.
+- **Tidy the status bar** (on Line up with the status bar): builds `adb shell settings put secure icon_blacklist ...` from chosen slots, with the
+  command that undoes it. Uno cannot write the setting itself.
+
 ## Recorded values
 
 Found with the debug page on 2026-10-19 and shipped as `IslandLayoutDefaults`. They are the width the island would *like*; the grid then grows

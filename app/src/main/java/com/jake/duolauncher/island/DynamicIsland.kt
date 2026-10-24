@@ -162,6 +162,9 @@ internal fun DynamicIsland(
     /** Shrink to a ring round the camera when idle on Home too (the iOS layout, where the status bar shows beside the island). Android keeps its
      *  status bar icons clear of the camera, so a ring never covers one; the island widens only when it has something to show. */
     ringWhenIdle: Boolean = false,
+    /** Home draws its own status bar around the island (the iOS layout's Uno status bar): there are no system icons to keep clear of, so the
+     *  island is simply centred on the camera. */
+    ownStatusBar: Boolean = false,
     /** Scales the collapsed pill's wide side slots (1f = today's width, 1.5f = Extra wide); see IslandGeometry.frame. */
     wideFactor: Float = 1f,
     /** True when this island renders *below* the system status bar, so the strip's touches belong to SystemUI and a pill pull
@@ -474,7 +477,9 @@ internal fun DynamicIsland(
         IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = eventTargetDp, compactness = compactTarget, wideFactor = wideFactor) }
     // Where the system status bar's icons are, so no island edge cuts one in half (see [StatusBarGrid]). The grid is a Pixel's: it is used only
     // with a camera at the top of the screen, and not for the ring the island shrinks to over other apps when it has nothing to say.
-    val gridOn = environment.cutout != null && openFrame.side == IslandSide.TOP && compactTarget < .5f
+    val gridOn = environment.cutout != null && openFrame.side == IslandSide.TOP && compactTarget < .5f && !ownStatusBar
+    // With Uno's own status bar there is nothing to avoid: the symmetric layout with no icons centres the island and places its capsules.
+    val centredOnly = ownStatusBar && environment.cutout != null && openFrame.side == IslandSide.TOP && compactTarget < .5f
     // Worked out once a minute, not on every tick of the island's clock (which is ten times a second while a stopwatch runs).
     val clockShiftDp = remember(clockMs / 60_000L, is24Hour) {
         StatusBarGrid.clockShiftDp(java.util.Calendar.getInstance().apply { timeInMillis = clockMs }.get(java.util.Calendar.HOUR), is24Hour)
@@ -494,7 +499,12 @@ internal fun DynamicIsland(
     val islandLayout = restTarget.hole.let { hole ->
         val measuredGaps = if (measuredBar != null && hole != null)
             StatusBarScan.gaps(measuredBar.icons, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d) else null
-        if (gridOn && hole != null) StatusBarGrid.layout(wantLeftDp, wantRightDp, environment.screenWidth / d, clockShiftDp,
+        // Symmetric about the camera when a width fits that leaves every icon wholly covered or wholly clear on both sides (the icons as read,
+        // or as the grid has them); otherwise each edge snaps to its own nearest gap, as before.
+        if ((gridOn || centredOnly) && hole != null) StatusBarGrid.symmetric(wantLeftDp, wantRightDp, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
+            if (centredOnly) emptyList() else measuredBar?.icons ?: StatusBarGrid.gridIcons(environment.screenWidth / d, clockShiftDp, StatusBarCalibration.current), environment.screenWidth / d,
+            wantLeft = capsulePlan.any { it.left }, wantRight = capsulePlan.any { !it.left }, dots = privacyNow.size, capsuleMinWidth = capsuleMinDp)
+            ?: StatusBarGrid.layout(wantLeftDp, wantRightDp, environment.screenWidth / d, clockShiftDp,
             (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
             wantLeft = capsulePlan.any { it.left }, wantRight = capsulePlan.any { !it.left }, dots = privacyNow.size, capsuleMinWidth = capsuleMinDp,
             cal = StatusBarCalibration.current, measuredLeft = measuredGaps?.first, measuredRight = measuredGaps?.second)

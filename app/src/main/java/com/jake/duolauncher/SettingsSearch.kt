@@ -26,6 +26,7 @@ internal object SettingsSearch {
         SettingEntry("App icons", CustomizationPage.APPEARANCE, "icon pack shape themed"),
         // Home layout
         SettingEntry("Home layout", CustomizationPage.HOME, "ios iphone dock bottom side grid widgets small medium large"),
+        SettingEntry("Uno's status bar on Home", CustomizationPage.HOME, "ios iphone status bar time battery signal wifi own"),
         SettingEntry("App icon size", CustomizationPage.HOME, "bigger smaller grid"),
         SettingEntry("Space between rows", CustomizationPage.HOME, "grid spacing gap"),
         SettingEntry("Dock width", CustomizationPage.HOME, "rail side"),
@@ -55,6 +56,7 @@ internal object SettingsSearch {
         SettingEntry("Paused music and podcasts", CustomizationPage.ISLAND, "resume minutes media"),
         SettingEntry("Hide notifications containing these words", CustomizationPage.ISLAND, "block filter peek"),
         SettingEntry("Line up with the status bar", CustomizationPage.STATUS_GRID, "island icons clipped cut calibrate align gaps"),
+        SettingEntry("Tidy the status bar", CustomizationPage.STATUS_GRID, "hide icons adb icon_blacklist alarm bluetooth nfc rotate"),
         // Notifications & privacy
         SettingEntry("Badges on app icons", CustomizationPage.PRIVACY, "notification dot count"),
         SettingEntry("Badge style: Count or Dot", CustomizationPage.PRIVACY, "notification number"),

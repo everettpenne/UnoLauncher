@@ -231,6 +231,7 @@ class MainActivity : ComponentActivity() {
                     onHomeStyle = appearance::setHomeStyle,
                     onClearGlass = appearance::setClearGlass,
                     onStatusIconsDark = ::setStatusIconsDark,
+                    onUnoStatusBar = appearance::setUnoStatusBar,
                     onTiltHighlight = appearance::setTiltHighlight,
                     onTiltStrength = appearance::setTiltStrength,
                     island = island,
@@ -380,8 +381,10 @@ class MainActivity : ComponentActivity() {
         // Re-applies what Home last asked for (the rail, or jiggle mode on the iOS layout, hides the status bar). A popup (the Edit menu)
         // takes focus for a moment, and re-applying the rail rule alone brought the status bar back in the middle of editing.
         if (hasFocus) WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = statusIconsDark
-        if (hasFocus) setStatusMode(lastStatusHidden ?: (model.state.value.verticalStatus &&
-            !(appearance.state.homeStyle == HomeStyle.IOS && resources.configuration.screenWidthDp < 650)))
+        if (hasFocus) setStatusMode(lastStatusHidden ?: run {
+            val iosPhone = appearance.state.homeStyle == HomeStyle.IOS && resources.configuration.screenWidthDp < 650
+            if (iosPhone) appearance.state.unoStatusBar else model.state.value.verticalStatus
+        })
     }
     override fun onSaveInstanceState(outState: Bundle) {
         widgets.save(outState)

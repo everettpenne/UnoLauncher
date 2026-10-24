@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.102.0-uno01
+
+- **The island is symmetric about the camera.** Its edges used to snap each to its own nearest gap between status bar icons, which left it a few dp longer on one side, off centre on the camera. Now one half-width is chosen for both sides: the smallest at least as wide as it wants (and as its privacy dots need) where both edges clear every icon, so each icon is wholly under it or wholly beside it; it never covers the clock or the battery. It uses the status bar's real icons when island alignment is on, and the measured grid otherwise; if no centred width fits, it falls back to snapping each edge. Capsules sit 3 dp beside it on clear ground. On the Pixel 10a's measured bar the resting island is 355..725 px, centred on 540 (it was 345..729).
+- **Uno's status bar** (iOS layout, Launcher settings › Home, off by default). Home hides Android's status bar and draws its own around the island as an iPhone does: the time left of it; alarm, Do Not Disturb and VPN (when on), signal, Wi-Fi and the battery right of it, in ink that follows the wallpaper. The island is then centred at the iPhone's pill width. Android's camera and microphone indicators are not drawn there; the island always shows its own privacy dots.
+- **Tidy the status bar** (Line up with the status bar). Pick icons to hide (alarm, Bluetooth, headphones, rotation, NFC and more) and copy the adb command that hides them through Android's hidden icon list, with the command that undoes it. Uno cannot change the setting itself.
+
 ## 0.101.0-uno01
 
 - **The island lines up with the real status bar.** A new, optional accessibility service, **Uno Launcher island alignment**, reads where the status bar's icons are (their positions only, from SystemUI's status bar window, never their text or any other app's window, kept in memory and never sent). With it on, the island puts its edges in the real gaps between icons on either side of the camera, on any phone, at any font or display size, and whatever icons are showing; it never covers the clock. Without it the island uses the spacing measured on a Pixel 10a and the guides on the calibration page, as before. It is separate from the shade service, which still reads nothing.

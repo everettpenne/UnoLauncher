@@ -383,6 +383,8 @@ internal fun LauncherScreen(
     LaunchedEffect(islandCoversBar) { if (islandCoversBar) barHeldForIsland = true else { delay(380); barHeldForIsland = false } }
     val statusHidden = railShown || (iosLayout && (homeEditing || islandCoversBar || barHeldForIsland))
     LaunchedEffect(statusHidden) { onStatusMode(statusHidden) }
+    // The overlay's island (drawn over Home when the accessibility service is on) follows Home's bar and rail too.
+    SideEffect { IslandRuntime.homeStatusHidden = statusHidden; IslandRuntime.homeRailShown = railShown }
     // The island reads this process-wide flag (through IslandEventArbiter) so a notification never auto-expands it
     // while Spotlight is open; see the "no auto-expand" rule in docs/design.md's Metaphor policy.
     LaunchedEffect(spotlightOpen) { IslandRuntime.spotlightOpen = spotlightOpen }
@@ -1048,6 +1050,7 @@ internal fun LauncherScreen(
                     wideFactor = extras?.store?.state?.islandWideMode?.wideFactor ?: 1f,
                     belowStatusBar = true,
                     statusRailShown = railShown,
+                    statusBarShown = !statusHidden,
                     resumeWindowMs = IslandPlayback.resumeWindowMs(extras?.store?.state?.mediaResumeMinutes ?: 2),
                     dockWidthPx = with(density) { preset.dockWidth.dp.toPx() },
                     onSearch = { island.collapse(); spotlightOpen = true },

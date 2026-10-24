@@ -37,11 +37,16 @@ internal object IslandRingLogic {
         else -> null
     }
 
-    /** The arc (start..end as distances along the outline) for [fraction] of a loop. The outline is built to begin at
-     * the top centre and run clockwise, so the arc always starts at 0.
+    /** The arc (start..end as distances along the outline) for [fraction] of a loop. The outline begins at the top centre and runs
+     * clockwise, so its bottom centre is half way round; the arc is centred there and grows evenly up both sides, meeting at the top when
+     * full, like a level rising in the pill. It used to start at the top centre and run clockwise, which left the pill lopsided: one side
+     * lit, the other dark.
      */
-    fun arc(length: Float, fraction: Float): ClosedFloatingPointRange<Float>? =
-        if (length <= 0f || fraction <= 0f) null else 0f..(length * fraction.coerceIn(0f, 1f))
+    fun arc(length: Float, fraction: Float): ClosedFloatingPointRange<Float>? {
+        if (length <= 0f || fraction <= 0f) return null
+        val half = length * fraction.coerceIn(0f, 1f) / 2f
+        return (length / 2f - half)..(length / 2f + half)
+    }
 }
 
 /** Draws [ring] as a progress arc hugging the island's outline, clockwise from the top centre, over a faint track. */

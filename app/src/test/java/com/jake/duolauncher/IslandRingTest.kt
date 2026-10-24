@@ -28,9 +28,12 @@ class IslandRingTest {
         assertEquals(1f, pick(charging = true, battery = 140)!!.fraction, 0f)
     }
 
-    @Test fun theArcCoversTheRequestedShareOfTheOutlineFromTheStart() {
-        assertEquals(0f..50f, IslandRingLogic.arc(200f, .25f))
+    @Test fun theArcIsCentredOnTheBottomAndGrowsEvenlyUpBothSides() {
+        // The outline starts at the top centre, so its bottom centre is at 100 of 200.
+        assertEquals(75f..125f, IslandRingLogic.arc(200f, .25f))
         assertEquals(0f..200f, IslandRingLogic.arc(200f, 5f))
+        val r = IslandRingLogic.arc(200f, .69f)!!
+        assertEquals("symmetric about the bottom", 100f - r.start, r.endInclusive - 100f, .001f)
         assertNull(IslandRingLogic.arc(200f, 0f))
         assertNull(IslandRingLogic.arc(0f, .5f))
     }

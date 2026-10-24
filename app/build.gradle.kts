@@ -38,9 +38,12 @@ android {
         applicationId = "com.jake.duolauncher"
         minSdk = 31
         targetSdk = 36
-        versionCode = 166
-        versionName = "0.105.0-uno01"
+        versionCode = 167
+        versionName = "0.105.1-uno01"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["appLabel"] = "Uno Launcher"
+        manifestPlaceholders["shadeLabel"] = "@string/shade_service_label"
+        manifestPlaceholders["readerLabel"] = "@string/status_reader_service_label"
     }
     signingConfigs {
         if (releaseStoreFile != null) {
@@ -53,6 +56,14 @@ android {
         }
     }
     buildTypes {
+        // -PunoDev builds a debug copy with its own id ("Uno Dev"), so it installs beside a release install on a real phone without
+        // replacing it (and its layout): the two are signed with different keys, and Android will not update one with the other.
+        if (project.hasProperty("unoDev")) getByName("debug") {
+            applicationIdSuffix = ".dev"
+            manifestPlaceholders["appLabel"] = "Uno Dev"
+            manifestPlaceholders["shadeLabel"] = "Uno Dev shade gestures"
+            manifestPlaceholders["readerLabel"] = "Uno Dev island alignment"
+        }
         getByName("release") {
             isMinifyEnabled = true
             isShrinkResources = true

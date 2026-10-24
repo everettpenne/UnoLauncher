@@ -148,6 +148,18 @@ internal object StatusBarGrid {
         return withCapsules(cx - half, cx + half, icons, holeLeft, holeRight, screenWidthDp, wantLeft, wantRight, capsuleMinWidth)
     }
 
+    /**
+     * [layout] made symmetric about the camera, at its wider half: the fallback when [symmetric] finds no width within its growth limit.
+     * Snapping each edge on its own (the old fallback) left the island visibly off centre (5 px to the right over apps on a Pixel 10a);
+     * using the wider half keeps both edges at least as clear as the per-edge snap left the further one, and the island centred.
+     */
+    fun centred(layout: Layout, holeLeft: Float, holeRight: Float, icons: List<Span>, screenWidthDp: Float, wantLeft: Boolean,
+        wantRight: Boolean, capsuleMinWidth: Float): Layout {
+        val cx = (holeLeft + holeRight) / 2f
+        val half = maxOf(cx - layout.pillLeft, layout.pillRight - cx).coerceAtMost(minOf(cx, screenWidthDp - cx) - SCREEN_MARGIN_DP)
+        return withCapsules(cx - half, cx + half, icons, holeLeft, holeRight, screenWidthDp, wantLeft, wantRight, capsuleMinWidth)
+    }
+
     /** [pillLeft]..[pillRight] with a capsule on each wanted side: [SEAM_DP] from the island, out to the first point clear of [icons] at least
      * [capsuleMinWidth] away, never over the clock or the battery; a side with no room gets none. */
     private fun withCapsules(pillLeft: Float, pillRight: Float, icons: List<Span>, holeLeft: Float, holeRight: Float, screenWidthDp: Float,

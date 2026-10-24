@@ -246,6 +246,9 @@ internal class IslandOverlayHost(
                     // round the camera (about 7 mm on a Pixel 10a), and the 13.5 mm width applies only to the pill, so it never showed. Once
                     // 0.104 made this window draw the Home island whenever the accessibility service is on, the ring showed on Home as well.
                     alwaysWide = true,
+                    // On Home this window draws the Home island, so it follows Home's status bar and rail; over apps both are the system's.
+                    statusBarShown = !(IslandRuntime.launcherInFront && IslandRuntime.homeStatusHidden),
+                    statusRailShown = IslandRuntime.launcherInFront && IslandRuntime.homeRailShown,
                     wideFactor = islandWideMode.wideFactor,
                     belowStatusBar = needsOverlayPermission,
                     resumeWindowMs = resumeWindowMs,

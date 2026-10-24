@@ -152,6 +152,9 @@ internal fun DynamicIsland(
     anchoredToWindow: Boolean = false,
     /** The status rail is on screen beside the island and already shows the time and the battery level; see docs/design.md (one owner). */
     statusRailShown: Boolean = false,
+    /** Whether Android's status bar is on screen above the island. With it hidden (Home with the side dock's status column) there are no
+     * icons to keep clear of, so the island is not snapped to their gaps and stays exactly centred on the camera. */
+    statusBarShown: Boolean = true,
     showActions: Boolean = true,
     /** Over other apps: the island's frame, and the fixed window rectangle it is drawn in (null when the window wraps it). */
     onFrameChanged: ((IslandFrame, PxRect?) -> Unit)? = null,
@@ -475,7 +478,7 @@ internal fun DynamicIsland(
         IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = eventTargetDp, compactness = compactTarget, wideFactor = wideFactor) }
     // Where the system status bar's icons are, so no island edge cuts one in half (see [StatusBarGrid]). The grid is a Pixel's: it is used only
     // with a camera at the top of the screen, and not for the ring the island shrinks to over other apps when it has nothing to say.
-    val gridOn = environment.cutout != null && openFrame.side == IslandSide.TOP && compactTarget < .5f
+    val gridOn = environment.cutout != null && openFrame.side == IslandSide.TOP && compactTarget < .5f && statusBarShown
     // Worked out once a minute, not on every tick of the island's clock (which is ten times a second while a stopwatch runs).
     val clockShiftDp = remember(clockMs / 60_000L, is24Hour) {
         StatusBarGrid.clockShiftDp(java.util.Calendar.getInstance().apply { timeInMillis = clockMs }.get(java.util.Calendar.HOUR), is24Hour)
@@ -508,12 +511,15 @@ internal fun DynamicIsland(
         if (gridOn && hole != null) StatusBarGrid.symmetric(wantLeftDp, wantRightDp, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
             measuredBar?.icons ?: StatusBarGrid.gridIcons(environment.screenWidth / d, clockShiftDp, StatusBarCalibration.current), environment.screenWidth / d,
             wantLeft = capsulePlan.any { it.left }, wantRight = capsulePlan.any { !it.left }, dots = privacyNow.size, capsuleMinWidth = capsuleMinDp)
-            ?: measuredBar?.let { StatusBarGrid.nearest(wantLeftDp, wantRightDp, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
+            ?: StatusBarGrid.centred(measuredBar?.let { StatusBarGrid.nearest(wantLeftDp, wantRightDp, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
                 it.icons, environment.screenWidth / d, capsulePlan.any { c -> c.left }, capsulePlan.any { c -> !c.left }, privacyNow.size, capsuleMinDp) }
             ?: StatusBarGrid.layout(wantLeftDp, wantRightDp, environment.screenWidth / d, clockShiftDp,
             (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
             wantLeft = capsulePlan.any { it.left }, wantRight = capsulePlan.any { !it.left }, dots = privacyNow.size, capsuleMinWidth = capsuleMinDp,
-            cal = StatusBarCalibration.current, measuredLeft = measuredGaps?.first, measuredRight = measuredGaps?.second)
+            cal = StatusBarCalibration.current, measuredLeft = measuredGaps?.first, measuredRight = measuredGaps?.second),
+            (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
+            measuredBar?.icons ?: StatusBarGrid.gridIcons(environment.screenWidth / d, clockShiftDp, StatusBarCalibration.current), environment.screenWidth / d,
+            capsulePlan.any { it.left }, capsulePlan.any { !it.left }, capsuleMinDp)
         else StatusBarGrid.flush(if (compactTarget < .5f) wantLeftDp else restTarget.left / d, if (compactTarget < .5f) wantRightDp else (restTarget.left + restTarget.width) / d,
             capsulePlan.any { it.left }, capsulePlan.any { !it.left }, capsuleMinDp)
     }
@@ -1166,11 +1172,10 @@ internal fun DynamicIsland(
                     } else if (recentLive) {
                         // A notification came in the last half minute: a dot in its app's colour says it can still be looked at.
                         Box(Modifier.size(7.dp).clip(CircleShape).background(recent?.tint?.let { Color(it) } ?: themeInk).testTag("island-recent-dot"))
-                    } else if (deviceStatus.charging == true) {
-                        Icon(Icons.Rounded.BatteryChargingFull, null, tint = IslandThemes.active.charging, modifier = Modifier.size(16.dp))
                     }
-                    // The battery level is no longer written on the pill, wide or not: the status bar owns it, and the island speaks
-                    // about the battery only while charging (above) and on the open panel.
+                    // Charging at rest is the ring round the pill (from the bottom, evenly up both sides), not a glyph on one side: a lone
+                    // battery glyph right of the camera left the resting pill lopsided. Plugging in still flashes "Charging N%", and the open
+                    // panel has the level. The battery level itself is the status bar's (or the rail's).
                 }
                 CollapsedFace(frameState, d, collapsedAlpha, animationsOn, leading, trailing)
             }

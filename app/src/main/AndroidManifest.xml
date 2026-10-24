@@ -90,7 +90,7 @@
             <action android:name="android.intent.action.SET_ALARM" />
         </intent>
     </queries>
-    <application android:label="Uno Launcher" android:icon="@drawable/ic_launcher"
+    <application android:label="${appLabel}" android:icon="@drawable/ic_launcher"
         android:name=".DuoApplication"
         android:theme="@style/Theme.Duo" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="true"
         android:networkSecurityConfig="@xml/network_security_config">
@@ -127,7 +127,7 @@
         </service>
         <service android:name=".island.IslandOverlayService" android:exported="false" />
         <service android:name=".SystemShadeAccessibilityService"
-            android:label="@string/shade_service_label"
+            android:label="${shadeLabel}"
             android:description="@string/shade_service_description"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true">
@@ -139,7 +139,7 @@
         </service>
         <!-- Optional and separate from the shade service: reads only where the status bar's icons are (their bounds), for the island. -->
         <service android:name=".island.StatusBarReaderService"
-            android:label="@string/status_reader_service_label"
+            android:label="${readerLabel}"
             android:description="@string/status_reader_service_description"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true">
@@ -150,7 +150,7 @@
                 android:resource="@xml/status_bar_reader_service" />
         </service>
         <provider android:name="androidx.core.content.FileProvider"
-            android:authorities="com.jake.duolauncher.fileprovider" android:exported="false"
+            android:authorities="${applicationId}.fileprovider" android:exported="false"
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>

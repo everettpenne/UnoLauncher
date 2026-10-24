@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.105.1-uno01
+
+- **A symmetric island, checked on a Pixel 10a.** On Home with the side dock, Android's status bar is hidden, but the island still snapped its edges to that bar's icon gaps, which left it 2 to 5 px off the camera and wider on one side; with no bar it now stays exactly centred at its 16 mm width (270 px on the 10a, centred within half a pixel). The accessibility service's island, which draws the Home island too, now follows Home's status bar and rail. Over apps, when no symmetric fit is found within the growth limit, the island is centred at the wider of the two snapped halves instead of snapping each edge on its own.
+- **An even charge ring.** The ring round the pill fills from the bottom centre evenly up both sides, like a level rising, instead of clockwise from the top (one side lit, the other dark). The lone battery glyph to the right of the camera while charging is gone; the ring, the "Charging N%" flash and the open panel say it. Where the status column shows the battery (Home with the side dock), there is no ring.
+- **Uno Dev builds.** `-PunoDev` builds a debug copy with its own package and labels, so it installs beside a release install on a real phone for testing.
+
 ## 0.105.0-uno01
 
 - **The pill is the camera's height on the Pixel 10a.** 0.104.2 made the resting pill as tall as a punch-hole camera, but only for holes at most 28 dp across; the 10a's cutout outline is larger than that (about 30 dp, drawn a little wider than the glass), so it was still sized as a notch and padded well above and below the camera. A punch hole is now recognised by its shape (round, below the top edge, small beside the screen).

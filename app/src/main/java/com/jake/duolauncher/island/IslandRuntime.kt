@@ -28,6 +28,10 @@ internal object IslandRuntime {
     /** True while the launcher's Home is the screen in front. With the island on Home only (not everywhere), the overlay shows it just then, so
      * it sits still at the camera instead of moving with Android's animations of the launcher's own window (an unlock, an app closing). */
     var launcherInFront by mutableStateOf(false)
+    /** Home hides Android's status bar (the side dock's status column shows instead) and shows the rail, as last set by Home. The overlay
+     * draws the Home island too, so it needs to know: no status bar means no icon gaps to snap to, and the rail owns the battery level. */
+    var homeStatusHidden by mutableStateOf(false)
+    var homeRailShown by mutableStateOf(false)
     /** The package of the app in front, only while the person has chosen apps to hide the island over (the accessibility service reports it
      * then and only then); null otherwise. Nothing else about the app or its window is kept. */
     var foregroundPackage by mutableStateOf<String?>(null)

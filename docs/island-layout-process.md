@@ -177,9 +177,12 @@ service, separate from the shade service and off unless they turn it on), the is
   width at which an edge just clears an icon. Icons are the status bar as read (`StatusBarLive`) or, without a reading, the grid's slots
   (`gridIcons`, conservative). Capsules sit `SEAM_DP` beside the island and grow outward to the first clear point. If no width fits, the old
   edge-by-edge snapping is used. On the Pixel 10a's measured bar the resting island comes out 355..725 px (centred on 540) where it was 345..729.
-- **Uno's status bar** (iOS layout, Launcher settings › Home): Android's bar is hidden on Home and `UnoStatusBar` draws the time centred left of
-  the island and alarm, Do Not Disturb, VPN, signal, Wi-Fi and battery centred right of it. The island then has nothing to avoid and is centred
-  (`symmetric` with no icons) at the iPhone's pill width. Android's camera and microphone indicators are not drawn; the island's own dots are.
+- **No balloon (0.103.0).** The symmetric search may grow the island at most `MAX_SYMMETRIC_GROW_DP` past the width it wants on each side; past
+  that it falls back. Uncapped, it kept widening until a clear spot lined up on both sides, which with the grid's conservative slots (every
+  notification slot counted as full) made the resting island ultra-wide. With a status bar reading, the fallback is `nearest`: each edge stays
+  where the island wants it unless that is inside an icon, then steps just past it (snapping to gap middles sent an edge out past the last icon
+  when few were showing). Without a reading, the fallback is the grid's edge-by-edge snapping, as before 0.102.0.
+- **Uno's status bar** was tried in 0.102.0 and removed in 0.103.0: the island widening for what it has to show is enough.
 - **Tidy the status bar** (on Line up with the status bar): builds `adb shell settings put secure icon_blacklist ...` from chosen slots, with the
   command that undoes it. Uno cannot write the setting itself.
 

@@ -231,7 +231,6 @@ class MainActivity : ComponentActivity() {
                     onHomeStyle = appearance::setHomeStyle,
                     onClearGlass = appearance::setClearGlass,
                     onStatusIconsDark = ::setStatusIconsDark,
-                    onUnoStatusBar = appearance::setUnoStatusBar,
                     onTiltHighlight = appearance::setTiltHighlight,
                     onTiltStrength = appearance::setTiltStrength,
                     island = island,
@@ -383,7 +382,7 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = statusIconsDark
         if (hasFocus) setStatusMode(lastStatusHidden ?: run {
             val iosPhone = appearance.state.homeStyle == HomeStyle.IOS && resources.configuration.screenWidthDp < 650
-            if (iosPhone) appearance.state.unoStatusBar else model.state.value.verticalStatus
+            !iosPhone && model.state.value.verticalStatus
         })
     }
     override fun onSaveInstanceState(outState: Bundle) {

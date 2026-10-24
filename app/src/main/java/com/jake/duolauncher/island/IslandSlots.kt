@@ -168,13 +168,13 @@ internal fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Bo
     when (kind) {
         LiveKind.CAMERA -> if (glyph) Icon(Icons.Rounded.Videocam, "Camera in use", tint = IosGreen,
             modifier = Modifier.size(glyphSize).testTag("island-camera"))
-            else Text(stringResource(com.jake.duolauncher.R.string.camera), color = IosGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            else Text(stringResource(com.jake.duolauncher.R.string.camera), color = IosGreen, style = UnoType.caption1.tight, fontWeight = FontWeight.SemiBold, maxLines = 1)
         LiveKind.MIC -> if (glyph) Icon(Icons.Rounded.Mic, "Microphone in use", tint = PRIVACY_MIC,
             modifier = Modifier.size(glyphSize).testTag("island-mic"))
-            else Text(stringResource(com.jake.duolauncher.R.string.mic), color = PRIVACY_MIC, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            else Text(stringResource(com.jake.duolauncher.R.string.mic), color = PRIVACY_MIC, style = UnoType.caption1.tight, fontWeight = FontWeight.SemiBold, maxLines = 1)
         LiveKind.RECORDING -> if (glyph) Icon(Icons.Rounded.FiberManualRecord, "Screen is being recorded", tint = IslandSymbol.RECORDING.tint,
             modifier = Modifier.size(glyphSize).testTag("island-recording"))
-            else Text(stringResource(com.jake.duolauncher.R.string.recording), color = IslandSymbol.RECORDING.tint, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            else Text(stringResource(com.jake.duolauncher.R.string.recording), color = IslandSymbol.RECORDING.tint, style = UnoType.caption1.tight, fontWeight = FontWeight.SemiBold, maxLines = 1)
         LiveKind.CALL -> if (glyph) Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(glyphSize))
             // How long the call has lasted, in green, like the other things that count time (the timer, the stopwatch). The caller's name
             // is on the open island's call card: a name cut to five letters says little, a clock says how long.
@@ -275,7 +275,7 @@ internal fun UpdateCard(update: LiveUpdate, clockMs: Long, onOpen: () -> Unit) {
                     maxLines = if (navigating) 2 else 1, overflow = TextOverflow.Ellipsis)
             }
             // A navigation card already leads with the distance, so it does not repeat it on the right.
-            if (!navigating) Text(LiveUpdateLogic.glance(update, clockMs) + percentage(update), color = tint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+            if (!navigating) Text(LiveUpdateLogic.glance(update, clockMs) + percentage(update), color = tint, style = UnoType.subheadline.tight, fontWeight = FontWeight.SemiBold, maxLines = 1,
                 modifier = Modifier.padding(start = 8.dp))
             if (swapped) { Spacer(Modifier.width(10.dp)); UpdateGlyph(update, NavigationText.ARROW_DP.dp) }
         }

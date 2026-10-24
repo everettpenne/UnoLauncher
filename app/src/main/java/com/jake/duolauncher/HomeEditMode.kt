@@ -127,7 +127,7 @@ internal fun HomeEditBar(glass: PageGlass?, onAddApps: () -> Unit, onAddWidget: 
             }
         }
         if (ios) EditCapsule(stringResource(com.jake.duolauncher.R.string.done), glass, Modifier.testTag("home-edit-done"), strong = true, onClick = onDone)
-        else FilledTonalButton(onClick = onDone, Modifier.heightIn(min = 48.dp).testTag("home-edit-done")) { Text(stringResource(com.jake.duolauncher.R.string.done)) }
+        else GlassButton(onClick = onDone, Modifier.heightIn(min = 48.dp).testTag("home-edit-done")) { Text(stringResource(com.jake.duolauncher.R.string.done)) }
     }
 }
 
@@ -140,7 +140,7 @@ private fun EditCapsule(text: String, glass: PageGlass?, modifier: Modifier = Mo
             .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.pill, glass.tint.copy(alpha = .12f), blurRadius = .75f, settings = glass.settings)
                 else Modifier.background(Glass.copy(alpha = .4f), Corner.pill))
             .clip(Corner.pill).clickable(onClick = onClick).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-            Text(text, color = ink.color, fontSize = 15.sp,
+            Text(text, color = ink.color, style = UnoType.subheadline,
                 fontWeight = if (strong) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Medium)
         }
     }

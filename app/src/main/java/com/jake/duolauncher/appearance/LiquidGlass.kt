@@ -147,16 +147,17 @@ internal object GlassFinish {
     /** Whether a surface tinted [tint] gets the clear edge. */
     fun clearEdge(tint: Color, clear: Boolean = this.clear) = clear && tint.alpha <= LIGHT_TINT_MAX
 
-    /** The bright edge of clear glass: the shared directional rim, wider and stronger. */
+    /** The edge of clear glass: a fine line of light, bright where it faces the light and fading quickly away from it, as Liquid Glass's
+     * is. It was 1.1 dp at full strength with a slow fall-off, which read as a drawn outline round the dock and the search pill. */
     val Edge: Highlight
         get() {
             val b = GlassRim.boost
-            return Highlight.Default.copy(width = (1.1f + .5f * b).dp,
-                style = com.kyant.backdrop.highlight.HighlightStyle.Default(intensity = .95f, angle = GlassRim.angle, falloff = 1f + 8f * b))
+            return Highlight.Default.copy(width = (.75f + .4f * b).dp,
+                style = com.kyant.backdrop.highlight.HighlightStyle.Default(intensity = .8f, angle = GlassRim.angle, falloff = 2.5f + 8f * b))
         }
 
     /** The sheen along the top of clear glass: white fading out over the top 40 % of the surface. */
-    val Sheen = androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.White.copy(alpha = .14f), .4f to Color.Transparent)
+    val Sheen = androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.White.copy(alpha = .10f), .35f to Color.Transparent)
 }
 
 /**

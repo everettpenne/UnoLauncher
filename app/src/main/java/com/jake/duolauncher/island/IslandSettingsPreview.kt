@@ -206,7 +206,7 @@ private fun StatusBarMock(env: IslandEnvironment, k: Float, ink: Color) {
     val density = LocalDensity.current
     val barHeight = with(density) { (env.statusBarHeight * k).toDp() }
     Row(Modifier.fillMaxWidth().height(barHeight).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.island_preview_time), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.island_preview_time), color = Color.White, style = UnoType.footnote.tight, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.weight(1f))
         listOf(Icons.Rounded.SignalCellularAlt, Icons.Rounded.Wifi, Icons.Rounded.BatteryFull).forEach {
             Icon(it, null, tint = Color.White, modifier = Modifier.padding(start = 3.dp).size(14.dp))
@@ -253,7 +253,7 @@ private fun SceneFace(scene: PreviewScene, s: PreviewSettings, theme: IslandThem
                 Icon(Icons.Rounded.ChatBubble, null, tint = Color.White, modifier = Modifier.size(glyph * .6f))
             }
             Spacer(Modifier.weight(1f))
-            Text(stringResource(R.string.island_preview_app), color = ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(stringResource(R.string.island_preview_app), color = ink, style = UnoType.caption1.tight, fontWeight = FontWeight.SemiBold, maxLines = 1)
         } else Column(Modifier.fillMaxSize().padding(start = 14.dp, end = 14.dp, top = bodyTop, bottom = 10.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -261,15 +261,15 @@ private fun SceneFace(scene: PreviewScene, s: PreviewSettings, theme: IslandThem
                     Icon(Icons.Rounded.ChatBubble, null, tint = Color.White, modifier = Modifier.size(16.dp))
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.island_preview_sender), color = ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                    if (s.peekLevel == 2) Text(stringResource(R.string.island_preview_message), color = ink.copy(alpha = .75f), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    else Text(stringResource(R.string.island_preview_app), color = ink.copy(alpha = .6f), fontSize = 11.sp, maxLines = 1)
+                    Text(stringResource(R.string.island_preview_sender), color = ink, style = UnoType.footnote.tight, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    if (s.peekLevel == 2) Text(stringResource(R.string.island_preview_message), color = ink.copy(alpha = .75f), style = UnoType.caption1.tight, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    else Text(stringResource(R.string.island_preview_app), color = ink.copy(alpha = .6f), style = UnoType.caption2.tight, maxLines = 1)
                 }
             }
             if (s.peekActions) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(R.string.island_preview_reply, R.string.island_preview_mark_read).forEach { label ->
                     Box(Modifier.clip(theme.controlShape()).background(theme.chip()).padding(horizontal = 12.dp, vertical = 5.dp)) {
-                        Text(stringResource(label), color = ink, fontSize = 11.sp)
+                        Text(stringResource(label), color = ink, style = UnoType.caption2.tight)
                     }
                 }
             }
@@ -278,8 +278,8 @@ private fun SceneFace(scene: PreviewScene, s: PreviewSettings, theme: IslandThem
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.island_preview_time), color = ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.island_preview_date), color = ink.copy(alpha = .65f), fontSize = 11.sp)
+                    Text(stringResource(R.string.island_preview_time), color = ink, style = UnoType.title2.tight, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.island_preview_date), color = ink.copy(alpha = .65f), style = UnoType.caption2.tight)
                 }
                 Box(Modifier.clip(theme.controlShape()).background(theme.chip()).padding(horizontal = 12.dp, vertical = 6.dp)) {
                     Icon(Icons.Rounded.Search, null, tint = ink, modifier = Modifier.size(16.dp))

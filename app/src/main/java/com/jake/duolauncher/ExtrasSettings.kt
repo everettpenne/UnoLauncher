@@ -116,6 +116,8 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
             Modifier.testTag("icons-themed"))
         GlassChip(s.iconStyle == IconStyle.TINTED, { store.setIconStyle(IconStyle.TINTED) }, { Text(stringResource(com.jake.duolauncher.R.string.tinted)) },
             Modifier.testTag("icons-tinted"))
+        GlassChip(s.iconStyle == IconStyle.DARK, { store.setIconStyle(IconStyle.DARK) }, { Text(stringResource(com.jake.duolauncher.R.string.icons_dark)) },
+            Modifier.testTag("icons-dark"))
     }
     Text(stringResource(com.jake.duolauncher.R.string.tinted_takes_its_colour_from_your),
         style = note, color = muted)

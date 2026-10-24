@@ -235,15 +235,15 @@ internal fun VisualWidgetPicker(
         .testTag("visual-widget-picker"),
         color = if (glass != null) Color.Transparent else Glass.copy(alpha = .96f)) {
         Column(Modifier.fillMaxSize().then(if (glass != null) Modifier.padding(top = 8.dp)
-            else Modifier.statusBarsPadding().navigationBarsPadding()).padding(horizontal = 18.dp)) {
+            else Modifier.statusBarsPadding().navigationBarsPadding()).padding(horizontal = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
                 Text(stringResource(com.jake.duolauncher.R.string.widgets), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
             }
-            GlassField(query, { query = it }, Modifier.fillMaxWidth().padding(vertical = 10.dp)
+            GlassField(query, { query = it }, Modifier.fillMaxWidth().padding(vertical = 12.dp)
                 .testTag("widget-catalog-search"), singleLine = true, placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_widgets)) },
                 leadingIcon = { Icon(Icons.Rounded.Search, null) })
-            if (profiles.any { it.isWork }) Row(Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            if (profiles.any { it.isWork }) Row(Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 profiles.forEach { profile ->
                     GlassChip(selected = profile.userSerial == selectedProfile.userSerial,
@@ -267,7 +267,7 @@ internal fun VisualWidgetPicker(
                 }
                 if (words.isEmpty() && selectedProfile.isPersonal) {
                     item("duo-widgets") { Text(stringResource(com.jake.duolauncher.R.string.uno_launcher), style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 10.dp, start = 4.dp)) }
+                        modifier = Modifier.padding(top = 12.dp, start = 4.dp)) }
                     // Clock and Date are drawn as they will look on Home; the rest are plain cards.
                     item("builtin-previews") {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -295,7 +295,7 @@ internal fun VisualWidgetPicker(
                 val unoMatches = UnoWidgets.all.filter { words.isEmpty() || "${it.label} ${it.blurb}".lowercase().contains(words) }
                 if (selectedProfile.isPersonal && unoMatches.isNotEmpty()) {
                     item("uno-library") { Text(stringResource(com.jake.duolauncher.R.string.uno_widgets), style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 10.dp, start = 4.dp)) }
+                        modifier = Modifier.padding(top = 12.dp, start = 4.dp)) }
                     // Each Uno widget is its own live face, drawn at the size it will have on Home, so what you tap is what you get.
                     items(unoMatches.chunked(2), key = { row -> "uno-row-${row.first().id}" }) { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -310,7 +310,7 @@ internal fun VisualWidgetPicker(
                 }
                 filtered.groupBy { it.appLabel }.forEach { (app, group) ->
                     item("header-$app") { Text(app, style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 10.dp, start = 4.dp)) }
+                        modifier = Modifier.padding(top = 12.dp, start = 4.dp)) }
                     items(group, key = { it.provider.provider.flattenToString() }) { entry ->
                         val span = footprint(entry.provider)
                         var origin by remember { mutableStateOf(Offset.Zero) }
@@ -331,7 +331,7 @@ internal fun VisualWidgetPicker(
                             color = Glass.copy(alpha = .55f),
                             border = BorderStroke(1.dp, Color.White.copy(alpha = .55f)),
                             shape = Corner.large) {
-                            Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp)) {
                                 Column(Modifier.padding(bottom = 12.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(entry.providerLabel, style = MaterialTheme.typography.titleMedium)
@@ -359,7 +359,7 @@ internal fun VisualWidgetPicker(
                         }
                     }
                 }
-                if (entries != null && filtered.isEmpty()) item { Text(stringResource(com.jake.duolauncher.R.string.no_widgets_found), Modifier.padding(20.dp)) }
+                if (entries != null && filtered.isEmpty()) item { Text(stringResource(com.jake.duolauncher.R.string.no_widgets_found), Modifier.padding(16.dp)) }
             }
         }
     }

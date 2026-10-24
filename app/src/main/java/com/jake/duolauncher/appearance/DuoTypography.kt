@@ -47,6 +47,10 @@ internal val InterFamily = FontFamily(
  * semibold (600) forms used for compact labels and buttons are taken from these tokens with
  * `copy(fontWeight = …)`, so a weight change stays anchored to the same size and rhythm.
  */
+/** A scale style with the line height left to the font: for the island, whose open panel's height is budgeted on rows exactly as tall as their
+ * text (see DynamicIsland's LocalTextStyle), so it keeps the scale's size, weight and tracking without its extra line height. */
+internal val TextStyle.tight: TextStyle get() = copy(lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified)
+
 internal object UnoType {
     private fun style(size: Int, lineHeight: Int, trackingEm: Double, weight: Int = 400) = TextStyle(
         fontFamily = InterFamily,

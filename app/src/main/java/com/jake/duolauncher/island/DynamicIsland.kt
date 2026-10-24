@@ -162,9 +162,6 @@ internal fun DynamicIsland(
     /** Shrink to a ring round the camera when idle on Home too (the iOS layout, where the status bar shows beside the island). Android keeps its
      *  status bar icons clear of the camera, so a ring never covers one; the island widens only when it has something to show. */
     ringWhenIdle: Boolean = false,
-    /** Home draws its own status bar around the island (the iOS layout's Uno status bar): there are no system icons to keep clear of, so the
-     *  island is simply centred on the camera. */
-    ownStatusBar: Boolean = false,
     /** Scales the collapsed pill's wide side slots (1f = today's width, 1.5f = Extra wide); see IslandGeometry.frame. */
     wideFactor: Float = 1f,
     /** True when this island renders *below* the system status bar, so the strip's touches belong to SystemUI and a pill pull
@@ -477,9 +474,7 @@ internal fun DynamicIsland(
         IslandGeometry.frame(environment, d, 0f, sizeScale, extraWidthDp = eventTargetDp, compactness = compactTarget, wideFactor = wideFactor) }
     // Where the system status bar's icons are, so no island edge cuts one in half (see [StatusBarGrid]). The grid is a Pixel's: it is used only
     // with a camera at the top of the screen, and not for the ring the island shrinks to over other apps when it has nothing to say.
-    val gridOn = environment.cutout != null && openFrame.side == IslandSide.TOP && compactTarget < .5f && !ownStatusBar
-    // With Uno's own status bar there is nothing to avoid: the symmetric layout with no icons centres the island and places its capsules.
-    val centredOnly = ownStatusBar && environment.cutout != null && openFrame.side == IslandSide.TOP && compactTarget < .5f
+    val gridOn = environment.cutout != null && openFrame.side == IslandSide.TOP && compactTarget < .5f
     // Worked out once a minute, not on every tick of the island's clock (which is ten times a second while a stopwatch runs).
     val clockShiftDp = remember(clockMs / 60_000L, is24Hour) {
         StatusBarGrid.clockShiftDp(java.util.Calendar.getInstance().apply { timeInMillis = clockMs }.get(java.util.Calendar.HOUR), is24Hour)
@@ -501,9 +496,11 @@ internal fun DynamicIsland(
             StatusBarScan.gaps(measuredBar.icons, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d) else null
         // Symmetric about the camera when a width fits that leaves every icon wholly covered or wholly clear on both sides (the icons as read,
         // or as the grid has them); otherwise each edge snaps to its own nearest gap, as before.
-        if ((gridOn || centredOnly) && hole != null) StatusBarGrid.symmetric(wantLeftDp, wantRightDp, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
-            if (centredOnly) emptyList() else measuredBar?.icons ?: StatusBarGrid.gridIcons(environment.screenWidth / d, clockShiftDp, StatusBarCalibration.current), environment.screenWidth / d,
+        if (gridOn && hole != null) StatusBarGrid.symmetric(wantLeftDp, wantRightDp, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
+            measuredBar?.icons ?: StatusBarGrid.gridIcons(environment.screenWidth / d, clockShiftDp, StatusBarCalibration.current), environment.screenWidth / d,
             wantLeft = capsulePlan.any { it.left }, wantRight = capsulePlan.any { !it.left }, dots = privacyNow.size, capsuleMinWidth = capsuleMinDp)
+            ?: measuredBar?.let { StatusBarGrid.nearest(wantLeftDp, wantRightDp, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
+                it.icons, environment.screenWidth / d, capsulePlan.any { c -> c.left }, capsulePlan.any { c -> !c.left }, privacyNow.size, capsuleMinDp) }
             ?: StatusBarGrid.layout(wantLeftDp, wantRightDp, environment.screenWidth / d, clockShiftDp,
             (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
             wantLeft = capsulePlan.any { it.left }, wantRight = capsulePlan.any { !it.left }, dots = privacyNow.size, capsuleMinWidth = capsuleMinDp,
@@ -1146,7 +1143,7 @@ internal fun DynamicIsland(
                             fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(end = 4.dp))
                     } else if (IslandTools.ringing) {
-                        Text(stringResource(com.jake.duolauncher.R.string.timer_done), color = IslandThemes.active.timer, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        Text(stringResource(com.jake.duolauncher.R.string.timer_done), color = IslandThemes.active.timer, style = UnoType.caption1.tight, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, modifier = Modifier.testTag("island-timer-done"))
                     } else if (plan.leading != null) {
                         // The leading activity's detail, on the other side of the camera from its glyph. The trailing activity is
@@ -1189,10 +1186,10 @@ internal fun DynamicIsland(
                         peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) }
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(peek.appLabel, color = themeInk.copy(alpha = .65f), fontSize = 11.sp, maxLines = 1)
-                            peek.title?.let { Text(it, color = themeInk, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                            Text(peek.appLabel, color = themeInk.copy(alpha = .65f), style = UnoType.caption2.tight, maxLines = 1)
+                            peek.title?.let { Text(it, color = themeInk, style = UnoType.subheadline.tight, fontWeight = FontWeight.SemiBold, maxLines = 1,
                                 overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-peek-title")) }
-                            peek.text?.let { Text(it, color = themeInk.copy(alpha = .85f), fontSize = 13.sp, maxLines = 2,
+                            peek.text?.let { Text(it, color = themeInk.copy(alpha = .85f), style = UnoType.footnote.tight, maxLines = 2,
                                 overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-peek-text")) }
                         }
                         }
@@ -1208,7 +1205,7 @@ internal fun DynamicIsland(
             if (showOpenFace && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop).testTag("island-main-face")) {
                 if (narration != null) {
-                    Text(narration, color = themeInk.copy(alpha = .6f), fontSize = 11.sp, fontWeight = FontWeight.Medium,
+                    Text(narration, color = themeInk.copy(alpha = .6f), style = UnoType.caption2.tight, fontWeight = FontWeight.Medium,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-narration"))
                     Spacer(Modifier.height(4.dp))
                 }
@@ -1218,12 +1215,12 @@ internal fun DynamicIsland(
                             fontSize = 24.sp, fontWeight = FontWeight.SemiBold,
                             style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum", letterSpacing = (-.3).sp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = themeInk.copy(alpha = .85f), fontSize = 12.sp, maxLines = 1)
+                            Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = themeInk.copy(alpha = .85f), style = UnoType.caption1.tight, maxLines = 1)
                             nextAlarm?.let { alarm ->
                                 Spacer(Modifier.width(8.dp))
                                 Icon(Icons.Rounded.Alarm, "Next alarm", tint = IslandThemes.active.timer, modifier = Modifier.size(12.dp))
                                 Spacer(Modifier.width(3.dp))
-                                Text(alarm, color = IslandThemes.active.timer.copy(alpha = .9f), fontSize = 12.sp, maxLines = 1,
+                                Text(alarm, color = IslandThemes.active.timer.copy(alpha = .9f), style = UnoType.caption1.tight, maxLines = 1,
                                     modifier = Modifier.testTag("island-next-alarm"))
                             }
                         }
@@ -1237,7 +1234,7 @@ internal fun DynamicIsland(
                             Spacer(Modifier.width(6.dp))
                             BatteryGlyph(deviceStatus.battery, deviceStatus.charging == true)
                         }
-                        chargeLeft?.let { Text(it, color = IslandThemes.active.charging.copy(alpha = .85f), fontSize = 11.sp, maxLines = 1,
+                        chargeLeft?.let { Text(it, color = IslandThemes.active.charging.copy(alpha = .85f), style = UnoType.caption2.tight, maxLines = 1,
                             modifier = Modifier.testTag("island-charge-left")) }
                     }
                 }
@@ -1290,7 +1287,7 @@ internal fun DynamicIsland(
                 }
                 Spacer(Modifier.height(8.dp))
                 feedHeadline?.let { headline ->
-                    Text(headline, color = themeInk.copy(alpha = .95f), fontSize = 13.sp,
+                    Text(headline, color = themeInk.copy(alpha = .95f), style = UnoType.footnote.tight,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(6.dp))
                 }

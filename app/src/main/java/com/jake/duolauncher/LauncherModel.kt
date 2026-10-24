@@ -700,14 +700,29 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
  */
 private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGINAL, dark: Boolean = false,
     accent: WallpaperAccent? = null, lit: Boolean = false): Bitmap {
-    if (drawable !is AdaptiveIconDrawable) return drawable.toBitmap(144, 144)
     val bitmap = Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
+    if (drawable !is AdaptiveIconDrawable) drawLegacyIcon(canvas, drawable, style == IconStyle.DARK)
+    else {
     drawable.setBounds(0, 0, 144, 144)
     if (style.recolours) drawThemed(canvas, drawable, dark, accent)
     else {
-        drawable.background?.draw(canvas)
-        drawable.foreground?.draw(canvas)
+        // The artwork as iOS shows an app's: a logo drawn small in the middle of its tile is enlarged to fill it (within Android's safe zone),
+        // and on the Dark style it sits on a near-black tile, lifted if it was drawn dark for a light one.
+        val foreground = drawable.foreground?.let { fg -> Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888).also { fg.draw(Canvas(it)) } }
+        val stats = foreground?.let { IconArt.stats(it) }
+        if (style == IconStyle.DARK) drawDarkTile(canvas) else drawable.background?.draw(canvas)
+        canvas.save()
+        val grow = IconArt.fillScale(stats?.extent ?: 1f)
+        canvas.scale(grow, grow, 72f, 72f)
+        val monochrome = if (android.os.Build.VERSION.SDK_INT >= 33) drawable.monochrome else null
+        if (style == IconStyle.DARK && (stats?.luminance ?: 1f) < IconArt.DARK_ART && monochrome != null)
+            monochrome.mutate().apply { setBounds(0, 0, 144, 144); setTint(0xFFE5E5EA.toInt()) }.draw(canvas)
+        else if (foreground != null) canvas.drawBitmap(foreground, 0f, 0f, if (style == IconStyle.DARK && (stats?.luminance ?: 1f) < IconArt.DARK_ART)
+            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { colorFilter = android.graphics.LightingColorFilter(0x888888, 0x777777) }
+            else android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
+        canvas.restore()
+    }
     }
     val outside = Path().also { Squircle.build(144f, 144f, 144f * Corner.ICON_FRACTION, AndroidPathSink(it)) }
     outside.fillType = Path.FillType.INVERSE_WINDING
@@ -797,3 +812,66 @@ private fun drawThemed(canvas: Canvas, drawable: AdaptiveIconDrawable, dark: Boo
 }
 
 private fun withAlpha(color: Int, alpha: Int) = (color and 0x00FFFFFF) or (alpha.coerceIn(0, 255) shl 24)
+
+/** iOS's dark icon tile: graphite at the top shading to black. */
+private fun drawDarkTile(canvas: Canvas) {
+    canvas.drawRect(0f, 0f, 144f, 144f, android.graphics.Paint().apply {
+        shader = android.graphics.LinearGradient(0f, 0f, 0f, 144f, 0xFF2C2C2E.toInt(), 0xFF0A0A0B.toInt(), android.graphics.Shader.TileMode.CLAMP) })
+}
+
+/**
+ * An app whose icon is not adaptive (an old or a round icon). Drawn as it came, it kept its own outline (a circle, a rounded square) among the
+ * squircles. Now it sits in the squircle: full size if it is opaque to its corners, else at [IconArt.LEGACY_INSET] of the tile on a background in
+ * its own edge colour (white if it has none), or the Dark style's tile.
+ */
+private fun drawLegacyIcon(canvas: Canvas, drawable: Drawable, darkStyle: Boolean) {
+    val art = drawable.toBitmap(144, 144)
+    val corners = listOf(art.getPixel(3, 3), art.getPixel(140, 3), art.getPixel(3, 140), art.getPixel(140, 140))
+    if (corners.all { android.graphics.Color.alpha(it) > 220 }) { canvas.drawBitmap(art, 0f, 0f, null); return }
+    if (darkStyle) drawDarkTile(canvas) else canvas.drawColor(IconArt.edgeColour(art) ?: android.graphics.Color.WHITE)
+    val s = IconArt.LEGACY_INSET
+    canvas.save(); canvas.scale(s, s, 72f, 72f)
+    canvas.drawBitmap(art, 0f, 0f, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG))
+    canvas.restore()
+}
+
+/** The measurements behind the icon renderer's choices. Pure arithmetic over pixels, so it is unit-tested. */
+internal object IconArt {
+    /** How much of the tile (its larger side) the artwork should span at least; smaller artwork is enlarged up to [MAX_GROW]. */
+    const val TARGET_EXTENT = .6f
+    const val MAX_GROW = 1.2f
+    /** Artwork darker than this (mean luminance of its opaque pixels) would vanish on the Dark style's tile, so it is lifted. */
+    const val DARK_ART = .28f
+    /** How much of the tile a legacy icon with transparent corners takes. */
+    const val LEGACY_INSET = .8f
+
+    class Stats(val extent: Float, val luminance: Float)
+
+    /** The share of the tile the artwork's opaque pixels span (its larger side), and their mean luminance. */
+    fun stats(bitmap: Bitmap): Stats {
+        val w = bitmap.width; val h = bitmap.height
+        val px = IntArray(w * h).also { bitmap.getPixels(it, 0, w, 0, 0, w, h) }
+        var minX = w; var minY = h; var maxX = -1; var maxY = -1; var lum = 0.0; var n = 0
+        for (y in 0 until h step 2) for (x in 0 until w step 2) {
+            val c = px[y * w + x]
+            if ((c ushr 24) < 40) continue
+            if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y
+            lum += (.2126 * ((c shr 16) and 255) + .7152 * ((c shr 8) and 255) + .0722 * (c and 255)) / 255.0; n++
+        }
+        if (n == 0) return Stats(1f, 1f)
+        return Stats(maxOf(maxX - minX, maxY - minY).toFloat() / w, (lum / n).toFloat())
+    }
+
+    /** How much to enlarge artwork spanning [extent] of the tile: none at [TARGET_EXTENT] or more, at most [MAX_GROW]. */
+    fun fillScale(extent: Float): Float = if (extent <= 0f || extent >= TARGET_EXTENT) 1f else (TARGET_EXTENT / extent).coerceAtMost(MAX_GROW)
+
+    /** The colour along an icon's edge where it is opaque (its own background), or null when its edge is clear. */
+    fun edgeColour(bitmap: Bitmap): Int? {
+        val w = bitmap.width; val h = bitmap.height
+        val samples = (0 until w step 6).flatMap { listOf(bitmap.getPixel(it, h / 2), bitmap.getPixel(w / 2, it)) }
+            .filter { (it ushr 24) > 220 }
+        if (samples.isEmpty()) return null
+        fun avg(shift: Int) = samples.map { (it shr shift) and 255 }.average().toInt()
+        return android.graphics.Color.rgb(avg(16), avg(8), avg(0))
+    }
+}

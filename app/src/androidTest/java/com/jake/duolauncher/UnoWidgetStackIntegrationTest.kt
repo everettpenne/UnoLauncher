@@ -46,19 +46,27 @@ class UnoWidgetStackIntegrationTest {
             compose.waitUntil(10_000) { model().state.value.layout.placement(memberSlot) == null }
             val code = StackRules.unoCode(UnoWidgets.COUNTER, memberSlot)
             assertEquals(listOf(code), WidgetStacks.members(baseSlot))
-            compose.waitUntil(10_000) { present("stack-rail") }
+            // The dots show only for a moment (as iOS's do), so the stack is driven through its accessibility actions, which are always there.
+            fun stateOf() = runCatching { compose.onNodeWithTag("widget-slot-$baseSlot").fetchSemanticsNode()
+                .config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription] }.getOrNull()
+            fun step(label: String) {
+                val actions = compose.onNodeWithTag("widget-slot-$baseSlot").fetchSemanticsNode()
+                    .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions]
+                compose.runOnUiThread { actions.first { it.label == label }.action() }
+            }
+            compose.waitUntil(10_000) { stateOf() != null }
             compose.waitForIdle()
             assertEquals("the stacked widget's data survives leaving the grid", "kept", WidgetData.get(memberSlot, "probe"))
             assertTrue("its slot is not handed to a new widget", model().nextWidgetSlot() > memberSlot)
 
-            compose.onNodeWithTag("stack-dot-1").performClick()
+            step("Next widget in stack")
             compose.waitUntil(10_000) { present("uno-counter-$memberSlot") }
             assertFalse(present("uno-note-$baseSlot"))
-            compose.onNodeWithTag("stack-dot-0").performClick()
+            step("Previous widget in stack")
             compose.waitUntil(10_000) { present("uno-note-$baseSlot") }
 
             // Removing the widget that is showing takes it out of the stack for real: its page goes and the base widget is shown.
-            compose.onNodeWithTag("stack-dot-1").performClick()
+            step("Next widget in stack")
             compose.waitUntil(10_000) { present("uno-counter-$memberSlot") }
             compose.onNodeWithTag("widget-slot-$baseSlot").performSemanticsAction(SemanticsActions.OnLongClick)
             compose.waitUntil(10_000) { present("widget-unstack-$code") }

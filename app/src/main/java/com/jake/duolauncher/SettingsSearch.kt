@@ -26,7 +26,6 @@ internal object SettingsSearch {
         SettingEntry("App icons", CustomizationPage.APPEARANCE, "icon pack shape themed"),
         // Home layout
         SettingEntry("Home layout", CustomizationPage.HOME, "ios iphone dock bottom side grid widgets small medium large"),
-        SettingEntry("Uno's status bar on Home", CustomizationPage.HOME, "ios iphone status bar time battery signal wifi own"),
         SettingEntry("App icon size", CustomizationPage.HOME, "bigger smaller grid"),
         SettingEntry("Space between rows", CustomizationPage.HOME, "grid spacing gap"),
         SettingEntry("Dock width", CustomizationPage.HOME, "rail side"),

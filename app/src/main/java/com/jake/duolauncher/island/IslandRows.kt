@@ -179,7 +179,7 @@ internal fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: 
                 Text(title ?: if (playing) "Playing" else "Paused", color = themeInk, fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag("island-track"))
-                artist?.let { Text(it, color = themeInk.copy(alpha = .72f), fontSize = 13.sp,
+                artist?.let { Text(it, color = themeInk.copy(alpha = .72f), style = UnoType.footnote.tight,
                     maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
@@ -253,7 +253,7 @@ internal fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
         Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
-            Text(call.caller, color = themeInk, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            Text(call.caller, color = themeInk, style = UnoType.footnote.tight, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("On call · ${IslandClock.countdown((nowMs - call.startedAt).coerceAtLeast(0L))}",
                 color = IosGreen, fontSize = 11.sp, maxLines = 1)
@@ -262,7 +262,7 @@ internal fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
             // The call app's own hang-up action, sent as it would be from its notification.
             Box(Modifier.padding(end = 6.dp).height(26.dp).clip(RoundedCornerShape(50)).background(Color(0xFFFF453A))
                 .clickable { runCatching { end.send() } }.padding(horizontal = 12.dp).testTag("island-call-end"),
-                contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.end), color = themeInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.end), color = themeInk, style = UnoType.caption1.tight, fontWeight = FontWeight.SemiBold) }
         }
         Icon(Icons.AutoMirrored.Rounded.OpenInNew, "Open call", tint = themeInk.copy(alpha = .7f),
             modifier = Modifier.size(14.dp).padding(end = 4.dp))
@@ -310,7 +310,7 @@ internal fun IslandAction(icon: ImageVector, label: String, showLabel: Boolean, 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally)) {
         Icon(icon, null, tint = themeInk, modifier = Modifier.size(15.dp))
-        Text(label, color = themeInk, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
+        Text(label, color = themeInk, style = UnoType.caption1.tight, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
     }
 }
 

@@ -36,10 +36,11 @@ internal object PullDownRouting {
  * of the interface.
  */
 internal enum class IconStyle {
-    ORIGINAL, THEMED, TINTED;
+    /** [DARK] is iOS's dark icons: each app's own artwork on a near-black tile. */
+    ORIGINAL, THEMED, TINTED, DARK;
 
-    /** Whether icons are redrawn at all (so the light/dark palette matters). */
-    val recolours: Boolean get() = this != ORIGINAL
+    /** Whether icons are redrawn as glass in the palette (so the light/dark palette matters). */
+    val recolours: Boolean get() = this == THEMED || this == TINTED
     /** Whether the wallpaper's colours go into the icons, given the "Color from wallpaper" switch. */
     fun usesWallpaper(wallpaperColor: Boolean): Boolean = this == TINTED || (this == THEMED && wallpaperColor)
 

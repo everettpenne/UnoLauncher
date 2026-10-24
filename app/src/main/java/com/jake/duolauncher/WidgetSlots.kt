@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.composed
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -116,12 +117,12 @@ internal fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifi
                     restoreMessage?.let { Text(it, color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center) }
                     Row {
-                        TextButton(onClick = {
+                        GlassButton(onClick = {
                             if (!controller.rebindRestoredWidget(slot, contentSize = displayedContentSize))
                                 restoreMessage = "That provider or profile isn’t available. Choose a replacement."
                         },
                             modifier = Modifier.testTag("widget-restore-reconnect-$slot")) { Text(stringResource(com.jake.duolauncher.R.string.reconnect)) }
-                        TextButton(onClick = onAdd, modifier = Modifier.testTag("widget-restore-replace-$slot")) { Text(stringResource(com.jake.duolauncher.R.string.replace)) }
+                        GlassButton(onClick = onAdd, modifier = Modifier.testTag("widget-restore-replace-$slot")) { Text(stringResource(com.jake.duolauncher.R.string.replace)) }
                     }
                 }
             }
@@ -148,19 +149,26 @@ internal fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifi
             transitionSpec = {
                 // The next widget rises in from below, the previous one comes down from above.
                 val up = order.indexOf(targetState) > order.indexOf(initialState)
-                (androidx.compose.animation.slideInVertically { if (up) it / 3 else -it / 3 } + androidx.compose.animation.fadeIn()) togetherWith
-                    (androidx.compose.animation.slideOutVertically { if (up) -it / 3 else it / 3 } + androidx.compose.animation.fadeOut())
+                (androidx.compose.animation.slideInVertically(UnoMotion.glide()) { if (up) it / 3 else -it / 3 } + androidx.compose.animation.fadeIn(UnoMotion.glide())) togetherWith
+                    (androidx.compose.animation.slideOutVertically(UnoMotion.glide()) { if (up) -it / 3 else it / 3 } + androidx.compose.animation.fadeOut(UnoMotion.glide()))
             }) { pageId -> pageContentFor(pageId, pageId == id) }
         var nameVisible by remember { mutableStateOf(false) }
         LaunchedEffect(shown) { if (members.isNotEmpty()) { nameVisible = true; delay(1100); nameVisible = false } }
         androidx.compose.animation.AnimatedVisibility(nameVisible && members.isNotEmpty(), Modifier.align(Alignment.TopCenter).padding(top = 6.dp),
             enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
             Text(stackMemberLabel(shownId, controller), color = Color.White, fontSize = 11.sp, maxLines = 1,
-                modifier = Modifier.background(Color.Black.copy(alpha = .45f), Corner.pill).padding(horizontal = 10.dp, vertical = 3.dp)
+                modifier = Modifier.background(Color.Black.copy(alpha = .45f), Corner.pill).padding(horizontal = 12.dp, vertical = 3.dp)
                     .testTag("stack-widget-name"))
         }
-        if (members.isNotEmpty()) StackRail(shown, members.size + 1, { stackPage = it },
-            Modifier.align(Alignment.CenterEnd).padding(end = 4.dp))
+        // As iOS's stacks: the dots show for a moment when the widget changes (and at first), then fade, so they never sit over the widget's
+        // content. They were a dark pill always on top of the widget's right edge, over its text or picture. While shown they can be tapped or
+        // dragged; hidden, they take no touches.
+        var railVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(shown, members.size) { if (members.isNotEmpty()) { railVisible = true; delay(STACK_DOTS_SHOWN_MS); railVisible = false } }
+        androidx.compose.animation.AnimatedVisibility(railVisible && members.isNotEmpty(), Modifier.align(Alignment.CenterEnd).padding(end = 5.dp),
+            enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(400))) {
+            StackRail(shown, members.size + 1, { stackPage = it; railVisible = true })
+        }
     }
 }
 
@@ -229,7 +237,8 @@ internal fun StackRail(selected: Int, count: Int, onSelect: (Int) -> Unit, modif
     }
     val registryKey = remember { Any() }
     DisposableEffect(Unit) { onDispose { StackRailRegistry.bounds.remove(registryKey) } }
-    Column(modifier.width(28.dp).background(Color.Black.copy(alpha = .22f), Corner.pill).padding(vertical = 8.dp)
+    // Small dots with a soft shadow and no plate, as iOS draws a stack's: legible on any widget without covering it.
+    Column(modifier.width(14.dp).padding(vertical = 4.dp)
         .onSizeChanged { heightPx = it.height }
         // The pager above must leave a touch that starts on the rail alone, or its swipe-up (settings) and swipe-down (panels)
         // take the rail's own vertical drag.
@@ -239,14 +248,18 @@ internal fun StackRail(selected: Int, count: Int, onSelect: (Int) -> Unit, modif
         }.pointerInput(count, selected) {
             detectDragGestures { change, _ -> change.consume(); pick(change.position.y) }
         }.semantics { hideFromAccessibility() }.testTag("stack-rail"),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         repeat(count) { index ->
-            Box(Modifier.size(if (index == selected) 8.dp else 6.dp)
-                .background(Color.White.copy(alpha = if (index == selected) .95f else .5f), CircleShape)
+            Box(Modifier.size(if (index == selected) 6.dp else 5.dp)
+                .shadow(1.5.dp, CircleShape, ambientColor = Color.Black, spotColor = Color.Black)
+                .background(Color.White.copy(alpha = if (index == selected) .95f else .45f), CircleShape)
                 .testTag("stack-dot-$index"))
         }
     }
 }
+
+/** How long a stack's dots stay after the widget changes before they fade. */
+internal const val STACK_DOTS_SHOWN_MS = 1_600L
 
 /** A large folder may be as small as 2 x 1 or 1 x 2 (never 1 x 1), up to the whole grid. */
 internal val FOLDER_SPAN_CONSTRAINTS = WidgetSpanConstraints(WidgetSpan(2, 2), WidgetSpan(1, 1), WidgetSpan(GRID_COLUMNS, GRID_ROWS), true, true)

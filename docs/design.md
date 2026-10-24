@@ -179,6 +179,18 @@ only with something to show. The status bar's icons are dark or light from the w
 **Clear glass** (Appearance, on by default) makes Home's light glass surfaces (tint alpha 0.2 or less: dock, rail, widgets, page dots, search
 pill) take a quarter of their tint and a brighter, wider edge with a sheen along the top (`GlassFinish`). Sheets and panels keep their tint.
 
+## Polish rules (0.103.0)
+
+- **Springs** come from `UnoMotion` (open, glide, settle, press) for Uno's own surfaces; the island keeps its themed motion and the glass
+  controls their own physics.
+- **Spacing** comes from `Space` (4, 8, 12, 16, 24 dp) outside the island, the keyboard and widget interiors.
+- **Type**: `UnoType`; in the island, `.tight` keeps the scale's size and tracking with the line height left to the font (its panel's
+  height budget assumes it).
+- **Buttons** in sheets and settings are `GlassButton`, never Material's.
+- **Icons**: `launcherIcon` enlarges small artwork (`IconArt.fillScale`), fits legacy icons into the squircle, and draws the Dark style;
+  icon lighting is baked in, and `glassIcon()` adds its shadow where icons sit on the wallpaper.
+- **Widget stacks** show their dots only for `STACK_DOTS_SHOWN_MS` after a change; tests drive stacks through their accessibility actions.
+
 ## Island geometry (`IslandGeometry.kt`)
 
 Window-pixel pure layout, re-read from live insets on every layout (rotation safe).

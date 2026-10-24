@@ -56,6 +56,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -472,7 +473,7 @@ internal fun SharedHomeGrid(
                         contentDescription = "Pending ${widgets.pendingProvider?.shortClassName ?: "widget"}"
                     }, color = Glass.copy(alpha = .72f),
                     shape = Corner.large, border = androidx.compose.foundation.BorderStroke(2.dp, Color.White)) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.Center,
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
                         Spacer(Modifier.height(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.finish_widget_setup), color = Ink)
@@ -575,6 +576,7 @@ internal fun DockAppColumn(
                             val p = slotProgress[renderIndex]
                             scaleX = 1f - .08f * p; scaleY = 1f - .08f * p
                         }
+                        .glassIcon()
                         .pressGlow(slotProgress[renderIndex], Corner.icon))
                     Box(Modifier.size(iconSize.dp)) { AppBadge(badgeCount(app.packageName), Modifier.align(Alignment.TopEnd)) }
                     // The press lens: clear glass that lifts and magnifies the icon under your finger.
@@ -652,6 +654,7 @@ internal fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modi
         Box {
             Image(app.image, null, Modifier.size(iconSize).onGloballyPositioned { bounds.set(it.boundsInWindow().toAndroidBounds()) }
                 .graphicsLayer { scaleX = 1f - .08f * progress; scaleY = 1f - .08f * progress }
+                .glassIcon()
                 .pressGlow(progress, Corner.icon))
             AppBadge(badgeCount(app.packageName), Modifier.align(Alignment.TopEnd))
         }
@@ -659,19 +662,22 @@ internal fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modi
     }
 }
 
-/** An icon's name on Home. White on the wallpaper, so it has to stay readable over sand and sky alike: a soft dark halo is blurred behind the
- * letters (it darkens the wallpaper locally, which a text shadow alone barely does at this size), and a tight shadow keeps the edges crisp. It
- * measured about 2:1 against a light wallpaper with the shadow alone. The halo copy is hidden from screen readers.
+/** An icon's name on Home: plain white with a soft shadow, as iOS's are. Over a bright part of the wallpaper (where white alone measured about
+ * 2:1) a soft dark halo is blurred behind the letters to darken the wallpaper locally; over a dark part there is none. It used to be there
+ * everywhere, a dark smudge behind every name. The halo copy is hidden from screen readers.
  */
 @Composable
 internal fun HomeLabel(text: String, modifier: Modifier = Modifier) {
-    Box(modifier.padding(top = 4.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = Color.Black.copy(alpha = .78f), fontSize = LABEL_SP.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+    // The same wallpaper reading as the glass ink: dark ink means a bright wallpaper behind this label.
+    val behind = rememberAdaptiveInk(Color.Transparent, 0f)
+    val halo by animateFloatAsState(if (behind.color.luminance() < .5f) .5f else 0f, label = "label halo")
+    Box(modifier.padding(top = 4.dp).then(behind.track), contentAlignment = Alignment.Center) {
+        if (halo > .01f) Text(text, color = Color.Black.copy(alpha = halo), fontSize = LABEL_SP.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-            modifier = Modifier.blur(3.5.dp, BlurredEdgeTreatment.Unbounded).clearAndSetSemantics { })
+            modifier = Modifier.blur(4.dp, BlurredEdgeTreatment.Unbounded).clearAndSetSemantics { })
         Text(text, color = Color.White, fontSize = LABEL_SP.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-            style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .7f), Offset(0f, 1f), 2.5f)))
+            style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .45f), Offset(0f, 1f), 4f)))
     }
 }
 

@@ -141,7 +141,6 @@ internal fun LauncherScreen(
     onHomeStyle: (HomeStyle) -> Unit = {},
     onClearGlass: (Boolean) -> Unit = {},
     onStatusIconsDark: (Boolean) -> Unit = {},
-    onUnoStatusBar: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onTiltStrength: (Float) -> Unit = {},
     island: IslandState = IslandState(),
@@ -343,7 +342,7 @@ internal fun LauncherScreen(
     // The iOS layout (on a phone-sized screen) has no status rail: the system status bar shows instead, as on an iPhone.
     val iosLayout = appearance.homeStyle == HomeStyle.IOS && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 650
     val railShown = state.verticalStatus && !iosLayout
-    SideEffect { GlassFinish.clear = appearance.clearGlass }
+    SideEffect { GlassFinish.clear = appearance.clearGlass; IconFinish.on = extras?.store?.state?.iconLighting ?: true }
     // The status bar's icons follow the wallpaper under them: dark on a light top strip, light on a dark one (they were always light, and
     // faded out over a pale sky beside the black island). The same contrast rule and dead band as the glass ink, so it never flickers.
     val wallpaperLuma = LocalWallpaperLuma.current
@@ -388,9 +387,7 @@ internal fun LauncherScreen(
     val islandCoversBar = iosLayout && (islandOut || spotlightOpen)
     var barHeldForIsland by remember { mutableStateOf(false) }
     LaunchedEffect(islandCoversBar) { if (islandCoversBar) barHeldForIsland = true else { delay(380); barHeldForIsland = false } }
-    // Uno's own status bar (iOS layout, if chosen) replaces Android's on Home, so Android's stays hidden there.
-    val ownStatusBar = iosLayout && appearance.unoStatusBar
-    val statusHidden = railShown || ownStatusBar || (iosLayout && (homeEditing || islandCoversBar || barHeldForIsland))
+    val statusHidden = railShown || (iosLayout && (homeEditing || islandCoversBar || barHeldForIsland))
     LaunchedEffect(statusHidden) { onStatusMode(statusHidden) }
     // The island reads this process-wide flag (through IslandEventArbiter) so a notification never auto-expands it
     // while Spotlight is open; see the "no auto-expand" rule in docs/design.md's Metaphor policy.
@@ -968,7 +965,7 @@ internal fun LauncherScreen(
                 Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).offset {
                     IntOffset(0, imeLiftPx(imeInset.getBottom(this), navBarInset.getBottom(this)))
                 }.padding(start = 16.dp, bottom = PageIndicatorLayout.BOTTOM_MARGIN_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (!isDefaultHome) FilledTonalButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
+                    if (!isDefaultHome) GlassButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
                         Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.set_as_home_app))
                     }
                     // The page dots ride in a small glass capsule, like iOS's page indicator, with a
@@ -1021,7 +1018,7 @@ internal fun LauncherScreen(
                 Column(Modifier.align(Alignment.BottomCenter).graphicsLayer { translationY = barSlide.value * barSlidePx }
                     .padding(bottom = (geometry.dockBarBottom + geometry.dockBarHeight + geometry.pillGap).dp),
                     horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (!isDefaultHome) FilledTonalButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
+                    if (!isDefaultHome) GlassButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
                         Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.set_as_home_app))
                     }
                     Box(contentAlignment = Alignment.Center) {
@@ -1050,9 +1047,7 @@ internal fun LauncherScreen(
                 exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160))) {
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.shownEntries.firstOrNull()?.title,
-                    // With Uno's own status bar the idle island is the iPhone's pill (nothing to cover); otherwise a ring round the camera.
-                    ringWhenIdle = iosLayout && !ownStatusBar && extras?.store?.state?.islandWideMode?.keepWide != true,
-                    ownStatusBar = ownStatusBar,
+                    ringWhenIdle = iosLayout && extras?.store?.state?.islandWideMode?.keepWide != true,
                     sizeScale = appearance.islandScale,
                     wideFactor = extras?.store?.state?.islandWideMode?.wideFactor ?: 1f,
                     belowStatusBar = true,
@@ -1107,8 +1102,8 @@ internal fun LauncherScreen(
                                 title = "Open ${first.label} with…")
                         }
                         "pins" -> Column(Modifier.fillMaxHeight(.9f).imePadding()) {
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.End) {
-                                TextButton(onClick = { sheet = "" }) { Text(stringResource(com.jake.duolauncher.R.string.done)) }
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
+                                GlassButton(onClick = { sheet = "" }) { Text(stringResource(com.jake.duolauncher.R.string.done)) }
                             }
                             AppLibrary(state, pinQuery, { pinQuery = it }, onLaunch, model::setPinned,
                                 onActions = { selectedId = it.id; sheet = "" }, editing = true, modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -1135,7 +1130,6 @@ internal fun LauncherScreen(
                             onWallpaperDepth = onWallpaperDepth,
                             onHomeStyle = onHomeStyle,
                             onClearGlass = onClearGlass,
-                            onUnoStatusBar = onUnoStatusBar,
                             onTiltHighlight = onTiltHighlight,
                             onTiltStrength = onTiltStrength,
                             backgrounds = launcherActivity.backgrounds,
@@ -1405,7 +1399,7 @@ internal fun LauncherScreen(
                         Row(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp)
                             .background(Glass.copy(alpha = .97f), Corner.pill)
                             .testTag("widget-placement-toolbar"), verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = widgetPickerBack) { Text(stringResource(com.jake.duolauncher.R.string.back_to_widgets)) }
+                            GlassButton(onClick = widgetPickerBack) { Text(stringResource(com.jake.duolauncher.R.string.back_to_widgets)) }
                             if (session.candidate != null) Text(stringResource(com.jake.duolauncher.R.string.replace_here), color = Ink,
                                 modifier = Modifier.testTag("widget-replacement-locked"))
                             val targetPage = homeCellPage(session.targetIndex ?: 0)
@@ -1423,7 +1417,7 @@ internal fun LauncherScreen(
                                 widgetSession = session.copy(targetIndex = homeCellIndex(page, local))
                                 scope.launch { pager.animateScrollToPage(page.coerceAtLeast(0)) }
                             }) { Icon(Icons.Rounded.ChevronRight, "Next home page") }
-                            if (!session.dragging) TextButton(enabled = widgetDraft != null, onClick = {
+                            if (!session.dragging) GlassButton(enabled = widgetDraft != null, onClick = {
                                 widgetDraft?.let { draft ->
                                     val contentSize = specialAnchor?.let { bounds -> with(placementDensity) {
                                         WidgetContentSize(bounds.width.toDp().value, bounds.height.toDp().value)
@@ -1433,7 +1427,7 @@ internal fun LauncherScreen(
                                     widgetSession = null; sheet = ""; widgetPackage = null
                                 }
                             }, modifier = Modifier.testTag("widget-placement-apply")) { Text(stringResource(com.jake.duolauncher.R.string.place)) }
-                            TextButton(onClick = { leaveTemporaryWidgetPage(); widgetSession = null; sheet = ""; widgetPackage = null },
+                            GlassButton(onClick = { leaveTemporaryWidgetPage(); widgetSession = null; sheet = ""; widgetPackage = null },
                                 modifier = Modifier.testTag("widget-placement-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
                         }
                         if (anchor != null) {
@@ -1494,7 +1488,7 @@ internal fun LauncherScreen(
                     }
                 }
                 widgetPlacementMessage?.let { message ->
-                    Surface(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(20.dp),
+                    Surface(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp),
                         color = Glass, shape = Corner.medium) { Text(message, Modifier.padding(16.dp), color = Ink) }
                 }
             }
@@ -1513,10 +1507,11 @@ internal fun LauncherScreen(
             val spotlightPill = if (appearance.island) island.restPill else null
             // Read here, in composition: a transition's value read only inside the panel's draw did not redraw it, so it jumped open.
             val grow by transition.animateFloat(transitionSpec = {
-                androidx.compose.animation.core.spring(dampingRatio = .78f, stiffness = 320f)
+                UnoMotion.open()
             }, label = "search grows from the island") { if (it == androidx.compose.animation.EnterExitState.Visible) 1f else 0f }
             Spotlight(controlGlass, state.apps, state.hiddenApps, feed.shownEntries, extras?.store?.state?.contactSearch == true, handoffResolver,
                 onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },
+                onLaunchFrom = { app, bounds -> spotlightOpen = false; onLaunchFrom(app, bounds) },
                 onOpenFeedLink = { link -> spotlightOpen = false; onFeedOpenEntry(link) },
                 onOpenContact = { contact -> spotlightOpen = false; ContactsSearch.open(launcherActivity, contact) },
                 onDismiss = { spotlightOpen = false }, progress = { grow }, visible = spotlightOpen, pill = spotlightPill, from = spotlightFrom,
@@ -1525,8 +1520,8 @@ internal fun LauncherScreen(
                 onToggleFocus = { extras?.toggleFocus?.invoke() })
         }
         androidx.compose.animation.AnimatedVisibility(controlPanelOpen,
-            enter = androidx.compose.animation.slideInVertically { -it / 2 } + androidx.compose.animation.fadeIn(),
-            exit = androidx.compose.animation.slideOutVertically { -it / 2 } + androidx.compose.animation.fadeOut()) {
+            enter = androidx.compose.animation.slideInVertically(UnoMotion.glide()) { -it / 2 } + androidx.compose.animation.fadeIn(UnoMotion.glide()),
+            exit = androidx.compose.animation.slideOutVertically(UnoMotion.settle()) { -it / 2 } + androidx.compose.animation.fadeOut(UnoMotion.settle())) {
             ControlPanel(controlGlass, extras?.store?.state ?: ExtrasState(), state.apps,
                 onToggleFocus = { extras?.toggleFocus?.invoke() },
                 onLaunchApp = { app -> controlPanelOpen = false; onLaunch(app) },
@@ -1574,7 +1569,7 @@ internal fun LauncherScreen(
             }
             if (blockedDock) Surface(
                 Modifier.align(Alignment.TopCenter).statusBarsPadding()
-                    .padding(top = 10.dp, start = 20.dp, end = 100.dp),
+                    .padding(top = 12.dp, start = 16.dp, end = 100.dp),
                 color = Glass.copy(alpha = .96f), shape = Corner.medium
             ) {
                 Text(stringResource(com.jake.duolauncher.R.string.dock_full_move_an_app_out),
@@ -1642,8 +1637,8 @@ internal fun LauncherScreen(
                     }
                     Row(Modifier.align(Alignment.TopCenter).padding(top = 8.dp)
                         .background(Glass.copy(alpha = .96f), Corner.medium)) {
-                        TextButton(onClick = { resizeSlot = null }) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
-                        TextButton(enabled = valid, onClick = {
+                        GlassButton(onClick = { resizeSlot = null }) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
+                        GlassButton(enabled = valid, onClick = {
                             model.resizeWidget(slot, resizeWidth, resizeHeight); resizeSlot = null
                         }) { Text(stringResource(com.jake.duolauncher.R.string.apply)) }
                     }
@@ -1778,7 +1773,7 @@ internal fun LauncherScreen(
         if (widgets.pendingPlacement != null && widgets.setupStatus != null) {
             GlassAlertDialog(onDismissRequest = {}, title = { Text(stringResource(com.jake.duolauncher.R.string.finish_widget_setup)) },
                 text = { Text(stringResource(com.jake.duolauncher.R.string.the_widget_is_waiting_at_its)) },
-                confirmButton = { Button(onClick = widgets::finishPendingSetup,
+                confirmButton = { GlassButton(onClick = widgets::finishPendingSetup,
                     modifier = Modifier.semantics { contentDescription = "Continue widget setup" }) { Text(stringResource(com.jake.duolauncher.R.string.finish_setup)) } },
                 dismissButton = { GlassButton(onClick = { leaveTemporaryWidgetPage(); widgets.cancelPendingSetup() },
                     modifier = Modifier.semantics { contentDescription = "Cancel widget setup" }) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) } })
@@ -1786,24 +1781,11 @@ internal fun LauncherScreen(
         widgets.reconfigureWidgetId?.let {
             GlassAlertDialog(onDismissRequest = {}, title = { Text(stringResource(com.jake.duolauncher.R.string.widget_settings)) },
                 text = { Text(stringResource(com.jake.duolauncher.R.string.widget_settings_were_interrupted_resume_co)) },
-                confirmButton = { Button(onClick = widgets::finishPendingReconfigure,
+                confirmButton = { GlassButton(onClick = widgets::finishPendingReconfigure,
                     modifier = Modifier.testTag("widget-reconfigure-resume")) { Text(stringResource(com.jake.duolauncher.R.string.resume)) } },
                 dismissButton = { GlassButton(onClick = widgets::cancelPendingReconfigure,
                     modifier = Modifier.testTag("widget-reconfigure-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) } })
         }
-        }
-        // Uno's own status bar (iOS layout): at the launcher's root, in the status bar's row, laid out around the island at rest. It steps aside
-        // as Android's would: in jiggle mode, and while the island is out (open, peeking, pulled, an event, search).
-        if (ownStatusBar) {
-            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-            val barTop = WindowInsets.statusBarsIgnoringVisibility.asPaddingValues().calculateTopPadding()
-            val shown = !homeEditing && !islandCoversBar && !barHeldForIsland && sheet.isEmpty() && pager.currentPage in 0 until homePages
-            val barAlpha by animateFloatAsState(if (shown) 1f else 0f, tween(if (shown) 220 else 120), label = "uno status bar")
-            val pill = island.restPill.takeIf { appearance.island }
-            val barDensity = LocalDensity.current.density
-            val widthDp = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.toFloat()
-            if (barAlpha > .01f) UnoStatusBar(deviceStatus, statusIconsDark, pill?.let { it.left / barDensity }, pill?.let { (it.left + it.width) / barDensity },
-                barTop.value, widthDp, Modifier.graphicsLayer { alpha = barAlpha })
         }
         // Jiggle mode's bar on the iOS layout: here, in the launcher's root and outside the safe area, so it can take the status bar's row.
         if (iosLayout && editBarShown) editBar(Modifier)

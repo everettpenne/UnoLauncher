@@ -172,7 +172,7 @@ internal fun ControlPanel(
                 exportedBackdrop = panelBackdrop,
                 onDrawSurface = { drawRect(surface) })
             else Modifier.background(MaterialTheme.colorScheme.surface, shape))
-            .padding(14.dp).testTag("control-panel"),
+            .padding(16.dp).testTag("control-panel"),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val rows = PanelLayout.rows(PanelLayout.visible(extras.tileOrder, extras.hiddenTiles))
             rows.forEach { row ->
@@ -189,7 +189,7 @@ private val TileShape: Shape = Corner.large
 @Composable
 private fun TileRow(ink: Color, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     Row(modifier.fillMaxWidth().heightIn(min = 52.dp).clip(TileShape).background(ink.copy(alpha = .08f))
-        .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, content = content)
+        .padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, content = content)
 }
 
 @Composable

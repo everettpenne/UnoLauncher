@@ -81,6 +81,7 @@
     <string name="focus">Focus</string>
     <string name="hides_the_apps_you_pick_from">Hides the apps you pick from Home and All apps until Focus is off. Nothing is uninstalled, and your layout is not changed; hidden apps leave an empty spot.</string>
     <string name="icon_style">Icon style</string>
+    <string name="icons_dark">Dark</string>
     <string name="original">Original</string>
     <string name="themed">Themed</string>
     <string name="tinted">Tinted</string>
@@ -380,8 +381,6 @@
     <string name="home_search">Search</string>
     <string name="home_edit">Edit</string>
     <string name="home_customize">Customize</string>
-    <string name="uno_status_bar">Uno\'s status bar on Home</string>
-    <string name="uno_status_bar_note">Home hides Android\'s status bar and draws its own around the island, as an iPhone does: the time on the left, alarm, Do Not Disturb, VPN, signal, Wi-Fi and battery on the right. Android\'s camera and microphone indicators are not drawn there; the island always shows its own. Swipe down from the top as usual for notifications. Other apps keep Android\'s status bar.</string>
     <string name="clear_glass">Clear glass</string>
     <string name="clear_glass_note">Home\'s glass is clear with a bright edge, as on iOS. Off, it keeps a light frosted tint. Sheets and panels keep their tint either way.</string>
     <string name="wallpaper_depth_note">The wallpaper drifts a little the other way as you swipe between pages, so it sits behind them. It stays still when Android\'s animations are off.</string>
@@ -451,10 +450,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">The island is centred on the camera: both edges are chosen together so it is symmetric and still never cuts a status bar icon in half.</string>
-    <string name="whats_new_2">On the iOS layout, Uno\'s own status bar (Launcher settings › Home): the time left of the island and signal, Wi-Fi and battery right of it, as on an iPhone.</string>
-    <string name="whats_new_3">Tidy the status bar: pick icons to hide and copy the one adb command that hides them (Line up with the status bar).</string>
-    <string name="whats_new_4">With island alignment on, the centred island uses your status bar\'s real icons on any phone.</string>
+    <string name="whats_new_1">A more polished Home: stack dots that show only while you change widgets, finer glass edges, cleaner icon names, and one type and spacing scale throughout.</string>
+    <string name="whats_new_2">Icons look more native: small logos fill their tile, old round icons sit in the iOS shape, and a new Dark icon style puts each app on a dark tile.</string>
+    <string name="whats_new_3">Apps open out of their icon from folders and search too, and folders, search, the control panel and widget stacks share one set of springs.</string>
+    <string name="whats_new_4">The island is back to a sensible width at rest and still centred when it can be; Uno\'s status bar is gone, as the island widens for what it shows.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

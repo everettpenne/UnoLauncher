@@ -54,11 +54,11 @@ internal fun DiscoverContent(modifier: Modifier = Modifier, feed: FeedState = Fe
                 Spacer(Modifier.height(16.dp))
                 Text(message ?: "", style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(20.dp))
-                FilledTonalButton(onClick = LiveDiscover::retry, Modifier.testTag("discover-retry")) { Text(stringResource(com.jake.duolauncher.R.string.retry)) }
-                if (googleIntent != null) TextButton(onClick = {
+                GlassButton(onClick = LiveDiscover::retry, Modifier.testTag("discover-retry")) { Text(stringResource(com.jake.duolauncher.R.string.retry)) }
+                if (googleIntent != null) GlassButton(onClick = {
                     runCatching { context.startActivity(googleIntent) }
                 }, Modifier.testTag("discover-open-google")) { Text(stringResource(com.jake.duolauncher.R.string.open_google)) }
-                TextButton(onClick = { LiveDiscover.onHomeRequest?.invoke() },
+                GlassButton(onClick = { LiveDiscover.onHomeRequest?.invoke() },
                     Modifier.testTag("discover-return-home")) { Text(stringResource(com.jake.duolauncher.R.string.back_to_home_2)) }
             }
         }

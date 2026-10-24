@@ -35,7 +35,7 @@ internal fun HiddenAppsSetting(hidden: List<AppEntry>, onUnhide: (AppEntry) -> U
         Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("hidden-app-${app.id}"), verticalAlignment = Alignment.CenterVertically) {
             Image(app.image, null, Modifier.size(40.dp).clip(Corner.icon))
             Text(app.label, Modifier.weight(1f).padding(start = 12.dp), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            TextButton(onClick = { onUnhide(app) }) { Text(stringResource(com.jake.duolauncher.R.string.show_again)) }
+            GlassButton(onClick = { onUnhide(app) }) { Text(stringResource(com.jake.duolauncher.R.string.show_again)) }
         }
     }
 }

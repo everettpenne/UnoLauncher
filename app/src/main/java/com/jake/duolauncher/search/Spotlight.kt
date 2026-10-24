@@ -1,5 +1,6 @@
 package com.jake.duolauncher.search
 
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.feed.*
@@ -281,6 +282,8 @@ internal fun Spotlight(
     contactsEnabled: Boolean,
     handoff: HandoffResolver,
     onLaunch: (AppEntry) -> Unit,
+    /** Launches with the app icon's place in the window, so the app opens out of the icon as it does from Home; null uses [onLaunch]. */
+    onLaunchFrom: ((AppEntry, android.graphics.Rect?) -> Unit)? = null,
     onOpenFeedLink: (String) -> Unit,
     onOpenContact: (ContactResult) -> Unit,
     onDismiss: () -> Unit,
@@ -319,7 +322,8 @@ internal fun Spotlight(
     val searchable = remember(apps, hiddenApps, query) { HiddenApps.shown(apps, hiddenApps, query, { it.id }, { it.label }) }
     val appResults = remember(searchable, query) { SpotlightRank.apps(searchable, query, { it.label }, { scores[it.id] ?: 0.0 }) }
     val suggested = remember(apps, hiddenApps) { SpotlightRank.suggested(apps.filter { it.id !in hiddenApps }) { scores[it.id] ?: 0.0 } }
-    val launch = { app: AppEntry -> history.record(app.id); onLaunch(app) }
+    val iconBounds = remember { HashMap<String, android.graphics.Rect>() }
+    val launch = { app: AppEntry -> history.record(app.id); onLaunchFrom?.invoke(app, iconBounds[app.id]) ?: onLaunch(app) }
     var copied by remember(query) { mutableStateOf(false) }
     val feedResults = remember(feedEntries, query) { SpotlightRank.feed(feedEntries, query) }
     val smart = remember(query) { SearchSmarts.answer(query) }
@@ -384,7 +388,7 @@ internal fun Spotlight(
     LaunchedEffect(animationsOn) {
         snapshotFlow { swipeTarget }.collectLatest { target ->
             if (target.dragging || !animationsOn) swipeProgress.snapTo(target.progress)
-            else swipeProgress.animateTo(target.progress, spring(dampingRatio = 1f, stiffness = 600f))
+            else swipeProgress.animateTo(target.progress, UnoMotion.settle())
         }
     }
     // The collapse under the finger takes the smaller of the parent's enter/exit progress and the gesture's own 1 → 0 progress,
@@ -525,7 +529,7 @@ internal fun Spotlight(
                     }
                 }
             }
-            .padding(14.dp).testTag("spotlight")) {
+            .padding(16.dp).testTag("spotlight")) {
           // Everything inside fades in once the panel is big enough to hold it; the top is kept clear of the camera hole.
           // It settles down into place from the island as it fades in, and lifts back up into it as it fades out.
           Column(Modifier.graphicsLayer {
@@ -561,7 +565,7 @@ internal fun Spotlight(
             val nothing = smart == null && singleQuick == null && actionContacts.isEmpty() && settingsHits.isEmpty() && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()
             val typed = query.isNotBlank()
             val webOffered = suggestions.any { it.kind == HandoffKind.WEB }
-            LazyColumn(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            LazyColumn(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (smart != null) item("smart") {
                     Column(Modifier.fillMaxWidth().clip(Corner.medium).background(ink.copy(alpha = .10f))
                         .clickable {
@@ -569,7 +573,7 @@ internal fun Spotlight(
                             clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Spotlight answer", smart.text))
                             copied = true
                         }
-                        .padding(horizontal = 16.dp, vertical = 10.dp).testTag("spotlight-answer")) {
+                        .padding(horizontal = 16.dp, vertical = 12.dp).testTag("spotlight-answer")) {
                         Text(smart.detail, color = ink.copy(alpha = .7f), style = UnoType.caption1)
                         Text(smart.text, color = ink, style = UnoType.title2)
                         Text(stringResource(if (copied) com.jake.duolauncher.R.string.spotlight_copied else com.jake.duolauncher.R.string.spotlight_tap_to_copy),
@@ -608,7 +612,8 @@ internal fun Spotlight(
                     item("suggested-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_suggested), ink) }
                     items(suggested, key = { "suggested-${it.id}" }) { app ->
                         SpotlightRow(app.label, null, "spotlight-app-${app.id}", false, ink, { launch(app) }) {
-                            Image(app.image, null, Modifier.size(40.dp).clip(Corner.icon))
+                            Image(app.image, null, Modifier.size(40.dp)
+                            .onGloballyPositioned { iconBounds[app.id] = it.boundsInWindow().toAndroidBounds() }.glassIcon(lift = false).clip(Corner.icon))
                         }
                     }
                 }
@@ -632,7 +637,8 @@ internal fun Spotlight(
                     SpotlightRow(app.label, if (index == 0) stringResource(com.jake.duolauncher.R.string.spotlight_top_hit) else null,
                         "spotlight-app-${app.id}", index == 0, ink, { launch(app) },
                         match = SpotlightRank.highlightRange(app.label, query)) {
-                        Image(app.image, null, Modifier.size(40.dp).clip(Corner.icon))
+                        Image(app.image, null, Modifier.size(40.dp)
+                            .onGloballyPositioned { iconBounds[app.id] = it.boundsInWindow().toAndroidBounds() }.glassIcon(lift = false).clip(Corner.icon))
                     }
                 }
                 if (contacts.isNotEmpty()) item("contacts-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_contacts), ink) }

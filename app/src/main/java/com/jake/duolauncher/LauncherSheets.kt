@@ -40,12 +40,12 @@ internal fun AppPicker(apps: List<AppEntry>, dockSlot: Int?, onSelect: (AppEntry
     title: String? = null) {
     var query by rememberSaveable { mutableStateOf("") }
     val filtered = remember(apps, query) { apps.filter { it.label.contains(query.trim(), ignoreCase = true) } }
-    Column(Modifier.fillMaxWidth().fillMaxHeight(.88f).padding(horizontal = 20.dp).imePadding()) {
+    Column(Modifier.fillMaxWidth().fillMaxHeight(.88f).padding(horizontal = 24.dp).imePadding()) {
         Text(title ?: if (dockSlot == null) "Your apps" else "Dock position ${dockSlot + 1}", style = MaterialTheme.typography.headlineSmall)
         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(vertical = 16.dp).testTag("search-field"),
             placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_apps)) }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, singleLine = true,
             trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search") } }, shape = Corner.medium)
-        if (dockSlot != null) TextButton(onClick = onClear) { Text(stringResource(com.jake.duolauncher.R.string.leave_this_position_empty)) }
+        if (dockSlot != null) GlassButton(onClick = onClear) { Text(stringResource(com.jake.duolauncher.R.string.leave_this_position_empty)) }
         if (blockedHint != null) Text(blockedHint, color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp).testTag("dock-full-guidance"))
         LazyColumn(Modifier.weight(1f)) {
@@ -55,7 +55,7 @@ internal fun AppPicker(apps: List<AppEntry>, dockSlot: Int?, onSelect: (AppEntry
                 Row(Modifier.fillMaxWidth().testTag("picker-app-${app.id}")
                     .combinedClickable(enabled = enabled, onClick = { onSelect(app) }, onLongClick = { onLongClick(app) })
                     .alpha(if (enabled) 1f else .45f)
-                    .padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    .padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Image(app.image, null, Modifier.size(44.dp).clip(Corner.icon))
                     Text(app.label, Modifier.padding(start = 16.dp).weight(1f), maxLines = 2)
                     if (dockSlot != null && enabled) Icon(Icons.Rounded.Add, "Choose ${app.label}")
@@ -67,7 +67,7 @@ internal fun AppPicker(apps: List<AppEntry>, dockSlot: Int?, onSelect: (AppEntry
 
 @Composable
 internal fun SettingSlider(label: String, valueLabel: String, value: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
-    Column(Modifier.padding(top = 14.dp)) {
+    Column(Modifier.padding(top = 16.dp)) {
         Row { Text(label, Modifier.weight(1f)); Text(valueLabel, color = MaterialTheme.colorScheme.secondary) }
         Slider(value, onChange, valueRange = range, modifier = Modifier.semantics { contentDescription = label })
     }
@@ -138,10 +138,10 @@ internal fun WidgetActions(
             }
             if (sizes.isEmpty()) Text(stringResource(com.jake.duolauncher.R.string.widget_no_ios_size), style = MaterialTheme.typography.bodySmall)
         }
-        if (!iosSizes) Button(enabled = feasible, onClick = { onStartResize(width, height) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.resize_on_home)) }
+        if (!iosSizes) GlassButton(enabled = feasible, onClick = { onStartResize(width, height) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.resize_on_home)) }
         if (!feasible) Text(stringResource(com.jake.duolauncher.R.string.move_this_widget_into_the_six), color = MaterialTheme.colorScheme.error)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-            repeat(homePages) { page -> TextButton(onClick = { onMoveToPage(page) },
+            repeat(homePages) { page -> GlassButton(onClick = { onMoveToPage(page) },
                 modifier = Modifier.testTag("widget-move-${placement.slot}-page-$page")) { Text("Move to page ${page + 1}") } }
         }
         if (!iosSizes) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -171,7 +171,7 @@ internal fun WidgetActions(
         Text(stringResource(com.jake.duolauncher.R.string.sizes_that_overlap_another_item_are), style = MaterialTheme.typography.bodySmall)
         if (!iosSizes) {
             if (!valid) Text(stringResource(com.jake.duolauncher.R.string.that_size_overlaps_another_item_or), color = MaterialTheme.colorScheme.error)
-            Button(enabled = valid, onClick = { onResize(width, height); onClose() },
+            GlassButton(enabled = valid, onClick = { onResize(width, height); onClose() },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.apply_size)) }
         }
         ActionRow(Icons.Rounded.FindReplace, "Replace", onReplace)

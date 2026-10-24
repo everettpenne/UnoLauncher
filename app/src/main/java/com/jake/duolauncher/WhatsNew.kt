@@ -60,7 +60,7 @@ internal fun WhatsNewDialog(version: String, onDone: () -> Unit) {
         listOf(com.jake.duolauncher.R.string.whats_new_1, com.jake.duolauncher.R.string.whats_new_2,
             com.jake.duolauncher.R.string.whats_new_3, com.jake.duolauncher.R.string.whats_new_4).forEach { id ->
             Row {
-                Text("•", Modifier.padding(end = 10.dp), style = MaterialTheme.typography.bodyMedium)
+                Text("•", Modifier.padding(end = 12.dp), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(id), style = MaterialTheme.typography.bodyMedium)
             }
         }

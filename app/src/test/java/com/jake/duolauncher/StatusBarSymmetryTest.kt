@@ -20,15 +20,19 @@ class StatusBarSymmetryTest {
 
     private fun clear(x: Float, icons: List<Span>) = icons.none { x > it.left - 1.5f && x < it.right + 1.5f }
 
-    @Test fun theIslandIsCentredOnTheCameraAndClearOfEveryIcon() {
+    @Test fun whenItIsCentredItIsClearOfEveryIconAndBarelyWider() {
+        var centred = 0
         for (want in 330..470 step 4) {
-            val l = StatusBarGrid.symmetric(want / d, (1080 - want) / d, holeL, holeR, pixel, width, false, false, 0, 32f)
-            assertNotNull("no symmetric width for $want", l); l!!
+            val l = StatusBarGrid.symmetric(want / d, (1080 - want) / d, holeL, holeR, pixel, width, false, false, 0, 32f) ?: continue
+            centred++
             assertEquals("not centred for $want", cx - l.pillLeft, l.pillRight - cx, 1e-3f)
             assertTrue("left edge in an icon for $want", clear(l.pillLeft, pixel))
             assertTrue("right edge in an icon for $want", clear(l.pillRight, pixel))
             assertTrue("never narrower than wanted", l.pillLeft <= want / d + 1e-3f)
+            // It may grow only a little to centre itself; it never balloons (0.102.0 grew until both sides cleared, far wider than wanted).
+            assertTrue("grew too much for $want", want / d - l.pillLeft <= StatusBarGrid.MAX_SYMMETRIC_GROW_DP + 1e-3f)
         }
+        assertTrue("centred for most widths on the measured bar", centred >= 10)
     }
 
     @Test fun itNeverCoversTheClockOrTheBattery() {
@@ -40,42 +44,51 @@ class StatusBarSymmetryTest {
     }
 
     @Test fun anOffCentreWantStillGivesACentredIsland() {
-        // The island showing an app's name wants to sit a few dp left; symmetric, it is wide enough for that on both sides instead.
-        val l = StatusBarGrid.symmetric(340f / d, 700f / d, holeL, holeR, pixel, width, false, false, 0, 32f)!!
-        assertEquals(cx - l.pillLeft, l.pillRight - cx, 1e-3f)
-        assertTrue(l.pillLeft <= 340f / d)
+        // The island showing an app's name wants to sit a few dp left; when centred, it is wide enough for that on both sides instead.
+        val l = (330..400 step 2).asSequence().mapNotNull { w -> StatusBarGrid.symmetric(w / d, (w + 352) / d, holeL, holeR, pixel, width, false, false, 0, 32f)
+            ?.let { w to it } }.first()
+        assertEquals(cx - l.second.pillLeft, l.second.pillRight - cx, 1e-3f)
+        assertTrue(l.second.pillLeft <= l.first / d + 1e-3f)
     }
-
     @Test fun privacyDotsWidenItOnBothSides() {
-        val plain = StatusBarGrid.symmetric(360f / d, 720f / d, holeL, holeR, pixel, width, false, false, 0, 32f)!!
-        val dots = StatusBarGrid.symmetric(360f / d, 720f / d, holeL, holeR, pixel, width, false, false, 2, 32f)!!
-        assertTrue(dots.pillRight - dots.pillLeft > plain.pillRight - plain.pillLeft)
-        assertEquals(cx - dots.pillLeft, dots.pillRight - cx, 1e-3f)
+        val pairs = (300..440 step 2).mapNotNull { w ->
+            val plain = StatusBarGrid.symmetric(w / d, (1080 - w) / d, holeL, holeR, pixel, width, false, false, 0, 32f)
+            val dots = StatusBarGrid.symmetric(w / d, (1080 - w) / d, holeL, holeR, pixel, width, false, false, 2, 32f)
+            if (plain != null && dots != null) plain to dots else null
+        }
+        assertTrue(pairs.isNotEmpty())
+        pairs.forEach { (plain, dots) ->
+            assertTrue(dots.pillRight - dots.pillLeft > plain.pillRight - plain.pillLeft)
+            assertEquals(cx - dots.pillLeft, dots.pillRight - cx, 1e-3f)
+        }
     }
-
     @Test fun capsulesSitBesideItClearOfIconsWithASeam() {
-        val l = StatusBarGrid.symmetric(380f / d, 700f / d, holeL, holeR, pixel, width, true, true, 0, 32f)!!
-        l.left?.let {
-            assertEquals(l.pillLeft - StatusBarGrid.SEAM_DP, it.right, 1e-3f)
-            assertTrue(it.width >= 32f - 1e-3f); assertTrue(clear(it.left, pixel)); assertTrue(it.left >= 160f / d)
-        }
-        l.right?.let {
-            assertEquals(l.pillRight + StatusBarGrid.SEAM_DP, it.left, 1e-3f)
-            assertTrue(it.width >= 32f - 1e-3f); assertTrue(clear(it.right, pixel)); assertTrue(it.right <= 919f / d)
+        val layouts = (300..440 step 2).mapNotNull { w -> StatusBarGrid.symmetric(w / d, (1080 - w) / d, holeL, holeR, pixel, width, true, true, 0, 32f) }
+        assertTrue(layouts.isNotEmpty())
+        layouts.forEach { l ->
+            l.left?.let {
+                assertEquals(l.pillLeft - StatusBarGrid.SEAM_DP, it.right, 1e-3f)
+                assertTrue(it.width >= 32f - 1e-3f); assertTrue(clear(it.left, pixel)); assertTrue(it.left >= 160f / d)
+            }
+            l.right?.let {
+                assertEquals(l.pillRight + StatusBarGrid.SEAM_DP, it.left, 1e-3f)
+                assertTrue(it.width >= 32f - 1e-3f); assertTrue(clear(it.right, pixel)); assertTrue(it.right <= 919f / d)
+            }
         }
     }
-
     @Test fun withNoRoomItGivesUp() {
         // Icons packed edge to edge on the right leave no clear point at any width short of the battery.
         val packed = listOf(Span(30f, 60f)) + (0 until 20).map { Span(cx + 12f + it * 9f, cx + 21f + it * 9f) }
         assertNull(StatusBarGrid.symmetric(cx - 40f, cx + 40f, holeL, holeR, packed, width, false, false, 0, 32f))
     }
 
-    @Test fun theGridsOwnIconsGiveASymmetricIslandToo() {
+    @Test fun theGridsOwnIconsNeverMakeItBalloon() {
         val icons = StatusBarGrid.gridIcons(width, 0f)
-        val l = StatusBarGrid.symmetric(366f / d, 715f / d, holeL, holeR, icons, width, false, false, 0, 32f)
-        assertNotNull(l)
-        assertEquals(cx - l!!.pillLeft, l.pillRight - cx, 1e-3f)
+        for (want in 330..470 step 4) {
+            val l = StatusBarGrid.symmetric(want / d, (1080 - want) / d, holeL, holeR, icons, width, false, false, 0, 32f) ?: continue
+            assertEquals(cx - l.pillLeft, l.pillRight - cx, 1e-3f)
+            assertTrue(want / d - l.pillLeft <= StatusBarGrid.MAX_SYMMETRIC_GROW_DP + 1e-3f)
+        }
     }
 }
 
@@ -89,15 +102,32 @@ class StatusBarTidyTest {
     }
 }
 
-class UnoStatusBarLayoutTest {
-    @Test fun theEarsAreTheSpacesBesideTheIsland() {
-        val e = UnoStatusBarLayout.ears(411f, 135f, 276f)
-        assertEquals(UnoStatusBarLayout.EDGE_DP, e[0], 0f)
-        assertEquals(135f - UnoStatusBarLayout.GAP_DP, e[1], 1e-3f)
-        assertEquals(276f + UnoStatusBarLayout.GAP_DP, e[2], 1e-3f)
-        assertEquals(411f - UnoStatusBarLayout.EDGE_DP, e[3], 1e-3f)
-        // Without an island the middle is kept clear, symmetric about the centre.
-        val n = UnoStatusBarLayout.ears(400f, null, null)
-        assertEquals(200f - n[1], n[2] - 200f, 1e-3f)
+class StatusBarNearestTest {
+    private val d = 2.625f
+    private val width = 1080f / d
+    private val holeL = 516f / d; private val holeR = 564f / d
+
+    @Test fun withFewIconsTheIslandStaysTheWidthItWants() {
+        // The phone in the report: a clock and one notification icon on the left, Wi-Fi and the battery on the right. Snapping to the gaps' middles
+        // sent the left edge out to the gap after the notification icon; with the icons' real places it stays where it wants.
+        val icons = listOf(Span(28f, 52f), Span(56f, 66f), Span(330f, 346f), Span(352f, 378f))
+        val l = StatusBarGrid.nearest(140f, 272f, holeL, holeR, icons, width, false, false, 0, 32f)
+        assertEquals(140f, l.pillLeft, 1e-3f)
+        assertEquals(272f, l.pillRight, 1e-3f)
+    }
+
+    @Test fun anEdgeInAnIconStepsJustPastIt() {
+        val icons = listOf(Span(28f, 52f), Span(130f, 145f), Span(268f, 280f), Span(352f, 378f))
+        val l = StatusBarGrid.nearest(140f, 272f, holeL, holeR, icons, width, true, true, 0, 32f)
+        assertEquals(130f - StatusBarGrid.EDGE_CLEAR_DP, l.pillLeft, 1e-3f)
+        assertEquals(280f + StatusBarGrid.EDGE_CLEAR_DP, l.pillRight, 1e-3f)
+        l.left?.let { assertEquals(l.pillLeft - StatusBarGrid.SEAM_DP, it.right, 1e-3f); assertTrue(it.left >= 52f) }
+        l.right?.let { assertEquals(l.pillRight + StatusBarGrid.SEAM_DP, it.left, 1e-3f); assertTrue(it.right <= 352f) }
+    }
+
+    @Test fun itNeverCoversTheClockOrTheBattery() {
+        val icons = listOf(Span(28f, 52f), Span(352f, 378f))
+        val l = StatusBarGrid.nearest(40f, 360f, holeL, holeR, icons, width, false, false, 0, 32f)
+        assertTrue(l.pillLeft >= 52f); assertTrue(l.pillRight <= 352f)
     }
 }

@@ -81,7 +81,7 @@ internal fun PageStrip(
     var scrubbing by remember { mutableStateOf(false) }
     var scrubJob by remember { mutableStateOf<Job?>(null) }
     val lift by animateFloatAsState(if (scrubbing) 1f else 0f,
-        spring(dampingRatio = .55f, stiffness = 380f), label = "lens lift")
+        UnoMotion.press(), label = "lens lift")
 
     Box(modifier.onGloballyPositioned { onBounds(it.boundsInRoot()) }
             .then(ink.track).then(if (glass != null) Modifier.liquidGlass(glass.backdrop,
@@ -143,7 +143,7 @@ internal fun PageStrip(
                     else Box(Modifier.size(if (index == pager.currentPage) 6.dp else 4.dp)
                         .background(ink.color.copy(alpha = if (index == pager.currentPage) 1f else .4f), CircleShape))
                 }
-            } else Text("${minOf(pager.currentPage + 1, homePages)} / $homePages", color = ink.color, fontSize = 12.sp)
+            } else Text("${minOf(pager.currentPage + 1, homePages)} / $homePages", color = ink.color, style = UnoType.caption1)
             IconButton(onClick = onLibrary, Modifier.size(PageStripLayout.ICON_DP.dp).testTag("library-page-link")) {
                 Icon(Icons.AutoMirrored.Rounded.FormatListBulleted, "All apps page",
                     tint = ink.color.copy(alpha = if (pager.currentPage == visibleHomePages) 1f else .6f),
@@ -175,10 +175,10 @@ internal fun HomeSearchPill(glass: PageGlass?, height: androidx.compose.ui.unit.
     Row(modifier.height(height).then(ink.track)
         .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.pill, glass.tint.copy(alpha = .12f), blurRadius = .75f, settings = glass.settings)
             else Modifier.background(Glass.copy(alpha = .3f), Corner.pill))
-        .clip(Corner.pill).clickable(onClick = onClick).padding(horizontal = 14.dp)
+        .clip(Corner.pill).clickable(onClick = onClick).padding(horizontal = 16.dp)
         .testTag("home-search-pill"),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         Icon(androidx.compose.material.icons.Icons.Rounded.Search, null, tint = ink.color, modifier = Modifier.size(15.dp))
-        Text(androidx.compose.ui.res.stringResource(com.jake.duolauncher.R.string.home_search), color = ink.color, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+        Text(androidx.compose.ui.res.stringResource(com.jake.duolauncher.R.string.home_search), color = ink.color, style = UnoType.footnote, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
     }
 }

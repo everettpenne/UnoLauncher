@@ -65,7 +65,7 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
     ModalDialogBackHandler { if (moving) onMoving(false) else onClose() }
     val maxHeight = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * .88f).toDp() }
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
-        .padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
+        .padding(horizontal = 24.dp).padding(bottom = 16.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
             if (moving) IconButton(onClick = { onMoving(false) }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
             Image(app.image, null, Modifier.size(48.dp).clip(Corner.icon))
@@ -128,7 +128,7 @@ internal fun EmptySpaceActionSheet(onWidgets: () -> Unit, onWallpaper: () -> Uni
     onCustomize: () -> Unit, onClose: () -> Unit, onEditHome: (() -> Unit)? = null) {
     val maxHeight = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * .75f).toDp() }
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
-        .padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
+        .padding(horizontal = 24.dp).padding(bottom = 16.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(com.jake.duolauncher.R.string.this_space), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close empty space options") }
@@ -147,7 +147,7 @@ internal fun ActionRow(icon: ImageVector, label: String, onClick: () -> Unit,
     modifier: Modifier = Modifier, tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary) {
     Surface(onClick = onClick, modifier = modifier.fillMaxWidth().heightIn(min = 52.dp), color = androidx.compose.ui.graphics.Color.Transparent,
         shape = Corner.medium) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(34.dp).background(tint.copy(alpha = .12f), Corner.icon), contentAlignment = Alignment.Center) {
                 Icon(icon, null, Modifier.size(20.dp), tint = tint)
             }

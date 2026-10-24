@@ -39,9 +39,7 @@ data class AppearanceState(val mode: AppearanceMode = AppearanceMode.LIGHT, val 
     val homeStyle: HomeStyle = HomeStyle.SIDE,
     /** Home's glass (the dock, the status rail, widgets, the page dots and the search pill) is clear, with a bright edge, as iOS's Liquid
      * Glass is; off, it keeps its light frosted tint. Sheets and panels keep their tint either way, since their text sits on them. */
-    val clearGlass: Boolean = true,
-    /** The iOS layout only: Home hides Android's status bar and draws its own around the island (see UnoStatusBar). */
-    val unoStatusBar: Boolean = false)
+    val clearGlass: Boolean = true)
 
 class AppearanceStore(private val context: Context) {
     private val prefs = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
@@ -67,7 +65,6 @@ class AppearanceStore(private val context: Context) {
             wallpaperDepth = runCatching { prefs.getBoolean("wallpaperDepth", true) }.getOrDefault(true),
             homeStyle = runCatching { HomeStyle.valueOf(prefs.getString("homeStyle", null) ?: "SIDE") }.getOrDefault(HomeStyle.SIDE),
             clearGlass = runCatching { prefs.getBoolean("clearGlass", true) }.getOrDefault(true),
-            unoStatusBar = runCatching { prefs.getBoolean("unoStatusBar", false) }.getOrDefault(false),
             tiltHighlight = runCatching { prefs.getBoolean("tiltHighlight", false) }.getOrDefault(false),
             tiltStrength = prefs.lenientFloat("tiltStrength", DEFAULT_STRENGTH).coerceIn(0f, 1f),
             island = runCatching { prefs.getBoolean("island", true) }.getOrDefault(true),
@@ -78,7 +75,6 @@ class AppearanceStore(private val context: Context) {
     fun setWallpaperDepth(value: Boolean) { save(state.copy(wallpaperDepth = value), currentSystemDark()) }
     fun setHomeStyle(value: HomeStyle) { save(state.copy(homeStyle = value), currentSystemDark()) }
     fun setClearGlass(value: Boolean) { save(state.copy(clearGlass = value), currentSystemDark()) }
-    fun setUnoStatusBar(value: Boolean) { save(state.copy(unoStatusBar = value), currentSystemDark()) }
     fun setMaterialYou(value: Boolean) { save(state.copy(materialYou = value), currentSystemDark()) }
     fun setWallpaperColor(value: Boolean) { save(state.copy(wallpaperColor = value), currentSystemDark()) }
     fun setTiltHighlight(value: Boolean) { save(state.copy(tiltHighlight = value), currentSystemDark()) }
@@ -115,7 +111,7 @@ class AppearanceStore(private val context: Context) {
             .putFloat("refractionChroma", value.refractionChroma).putBoolean("island", value.island)
             .putBoolean("wallpaperColor", value.wallpaperColor).putBoolean("tiltHighlight", value.tiltHighlight).putFloat("tiltStrength", value.tiltStrength)
             .putBoolean("materialYou", value.materialYou).putBoolean("wallpaperDepth", value.wallpaperDepth)
-            .putString("homeStyle", value.homeStyle.name).putBoolean("clearGlass", value.clearGlass).putBoolean("unoStatusBar", value.unoStatusBar)
+            .putString("homeStyle", value.homeStyle.name).putBoolean("clearGlass", value.clearGlass).remove("unoStatusBar")
             .putFloat("islandScale", value.islandScale).apply()
         state = resolve(value, systemDark)
         DuoAppearanceRuntime.dark = state.dark

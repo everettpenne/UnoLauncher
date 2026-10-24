@@ -95,12 +95,12 @@ internal fun AppLibrary(
         border = if (glass && liquid == null) BorderStroke(1.dp, Color.White.copy(alpha = .38f)) else null) {
         Column(Modifier.background(Brush.verticalGradient(if (glass)
             listOf(Color.White.copy(alpha = .09f), Color.Transparent) else listOf(Color.Transparent, Color.Transparent)))
-            .padding(horizontal = 16.dp).padding(top = 18.dp)) {
+            .padding(horizontal = 16.dp).padding(top = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(if (editing) "Choose home apps" else "All apps", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
                 Text(if (editing) "${pinned.size} pinned" else "${visibleApps.size}", color = ink, style = UnoType.caption1)
             }
-            if (hasWork) Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (hasWork) Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassChip(selected = !showWork, onClick = { showWork = false }, label = { Text(stringResource(com.jake.duolauncher.R.string.personal)) })
                 GlassChip(selected = showWork, onClick = { showWork = true }, label = { Text(stringResource(com.jake.duolauncher.R.string.work)) })
             }
@@ -118,7 +118,7 @@ internal fun AppLibrary(
                 state = listState,
                 contentPadding = PaddingValues(bottom = 12.dp)) {
                 if (smart != null) item("smart-answer") {
-                    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(Corner.medium).background(ink.copy(alpha = .10f))
+                    Column(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(Corner.medium).background(ink.copy(alpha = .10f))
                         .clickable {
                             clipScope.launch { clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("", smart.text))) }
                             android.widget.Toast.makeText(toastContext, "Copied ${smart.text}", android.widget.Toast.LENGTH_SHORT).show()
@@ -129,13 +129,13 @@ internal fun AppLibrary(
                     }
                 }
                 if (showWork && selectedProfile?.available == false) item("work-paused") {
-                    Column(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(if (selectedProfile.quiet) "Work apps are paused" else "Work profile is unavailable")
                         if (selectedProfile.quiet) GlassButton(onClick = { onTurnOnWork(selectedProfile.userSerial) }, prominent = true,
-                            modifier = Modifier.padding(top = 10.dp).testTag("turn-on-work")) { Text(stringResource(com.jake.duolauncher.R.string.turn_on_work_apps)) }
+                            modifier = Modifier.padding(top = 12.dp).testTag("turn-on-work")) { Text(stringResource(com.jake.duolauncher.R.string.turn_on_work_apps)) }
                     }
                 }
-                if (groups.isEmpty() && contacts.isEmpty() && smart == null) item { Text(if (state.loading) "Loading apps…" else "No apps found", Modifier.padding(vertical = 20.dp)) }
+                if (groups.isEmpty() && contacts.isEmpty() && smart == null) item { Text(if (state.loading) "Loading apps…" else "No apps found", Modifier.padding(vertical = 16.dp)) }
                 groups.forEach { (letter, entries) ->
                     stickyHeader(key = "heading-$letter") {
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -146,7 +146,7 @@ internal fun AppLibrary(
                                 Corner.small), contentAlignment = Alignment.Center) {
                                 Text(letter, color = ink, style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
                             }
-                            if (glass) HorizontalDivider(Modifier.weight(1f).padding(start = 10.dp), color = Color.White.copy(alpha = .24f))
+                            if (glass) HorizontalDivider(Modifier.weight(1f).padding(start = 12.dp), color = Color.White.copy(alpha = .24f))
                         }
                     }
                     items(entries, key = { it.id }) { app ->
@@ -159,7 +159,7 @@ internal fun AppLibrary(
                                 else Modifier.clickable(onClick = click).semantics { onLongClick("App options") { onActions(app); true } })
                             .padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Image(app.image, null, Modifier.size(40.dp)
-                                .onGloballyPositioned { launchBounds.set(it.boundsInWindow().toAndroidBounds()) }.clip(Corner.icon))
+                                .onGloballyPositioned { launchBounds.set(it.boundsInWindow().toAndroidBounds()) }.glassIcon(lift = false).clip(Corner.icon))
                             Text(app.label, Modifier.weight(1f).padding(start = 12.dp), maxLines = 2, style = UnoType.subheadline)
                             if (editing) IconButton(onClick = { onPin(app.id, !isPinned) }, Modifier.testTag("pin-${app.id}")) {
                                 Icon(if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,

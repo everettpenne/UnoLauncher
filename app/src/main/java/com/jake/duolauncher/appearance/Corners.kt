@@ -161,3 +161,15 @@ internal val DuoMaterialShapes = androidx.compose.material3.Shapes(
     extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp),
     extraLarge = RoundedCornerShape(32.dp))
+
+/**
+ * The spacing scale: every gap and padding in Uno's own screens is one of these (dp). Sheets, settings, panels, search and folders were moved
+ * onto it from a scatter of 10, 14, 18 and 20 dp; the island, the keyboard and the insides of widgets keep their tuned spacing.
+ */
+internal object Space {
+    const val XS = 4
+    const val S = 8
+    const val M = 12
+    const val L = 16
+    const val XL = 24
+}

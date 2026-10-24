@@ -45,7 +45,7 @@ internal fun PermissionLedgerSection(actions: ExtrasActions) {
             }
             Text("Used for: ${row.usedFor}", style = note, color = muted)
             Text("Can see: ${row.canSee}", style = note, color = muted)
-            if (row.change != LedgerAction.NONE) OutlinedButton(onClick = { openLedgerAction(context, row.change) },
+            if (row.change != LedgerAction.NONE) GlassButton(onClick = { openLedgerAction(context, row.change) },
                 Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("ledger-open-${row.id}")) { Text(stringResource(com.jake.duolauncher.R.string.change_in_android_s_settings)) }
         }
     }

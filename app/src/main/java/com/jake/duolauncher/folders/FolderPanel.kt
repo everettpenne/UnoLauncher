@@ -1,5 +1,7 @@
 package com.jake.duolauncher.folders
 
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.appearance.*
@@ -71,7 +73,7 @@ internal fun FolderPanel(
     val title = fieldValue.text
     // Spring open from the icon's scale, as iOS does; a plain fade would feel like a different feature.
     val open = remember { Animatable(.86f) }
-    LaunchedEffect(Unit) { open.animateTo(1f, spring(dampingRatio = .72f, stiffness = 420f)) }
+    LaunchedEffect(Unit) { open.animateTo(1f, UnoMotion.open()) }
     val scope = rememberCoroutineScope()
     var closing by remember { mutableStateOf(false) }
     // Closing from any route (the scrim, Back, the keyboard's Done) keeps what was typed; an emptied title keeps the old name.
@@ -82,7 +84,7 @@ internal fun FolderPanel(
         if (!closing) {
             closing = true
             scope.launch {
-                open.animateTo(.86f, spring(dampingRatio = .72f, stiffness = 420f))
+                open.animateTo(.86f, UnoMotion.open())
                 onDismiss()
             }
         }
@@ -149,7 +151,7 @@ private fun FolderPanelBody(
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = remember { FocusRequester() }
     LaunchedEffect(editTitle, folder.id) { if (editTitle) runCatching { focus.requestFocus() } }
-    Column(Modifier.padding(horizontal = 18.dp).padding(top = 16.dp, bottom = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.padding(horizontal = 16.dp).padding(top = 16.dp, bottom = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         // The title is the text itself, centred and bare: no outline, label or button, like iOS. Tapping it edits it in place.
         BasicTextField(fieldValue, onFieldValue,
             Modifier.fillMaxWidth().focusRequester(focus).testTag("folder-name"),
@@ -167,7 +169,7 @@ private fun FolderPanelBody(
             })
         val pages = FolderPages.pageCount(folder.appIds.size)
         val pager = rememberPagerState { pages }
-        HorizontalPager(pager, Modifier.fillMaxWidth().padding(top = 14.dp).testTag("folder-pages"), beyondViewportPageCount = 1) { index ->
+        HorizontalPager(pager, Modifier.fillMaxWidth().padding(top = 16.dp).testTag("folder-pages"), beyondViewportPageCount = 1) { index ->
             val ids = FolderPages.page(folder.appIds, index)
             Column(Modifier.fillMaxWidth().heightIn(min = (rows * 92).dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ids.chunked(FolderPages.COLUMNS).forEach { row ->
@@ -201,12 +203,15 @@ private fun FolderChild(
     var menu by remember { mutableStateOf(false) }
     // iOS shows a folder's apps as bare icons with labels on the panel, no cards. The move menu is a small dot at the icon's corner
     // rather than a card-wide kebab, so the icon stays the main target.
+    // The app opens out of its icon, as it does from Home (the icon's place is passed to the launch).
+    val iconBounds = remember { android.graphics.Rect() }
     Box(Modifier.fillMaxWidth().testTag("folder-child-${app.id}")) {
         Column(Modifier.fillMaxWidth().dropRegion(drag, DropTarget.Library(app.id), app.id, page,
-            folderId = folderId, scope = folderId).clickable(enabled = app.available) { onLaunch(app, null) }
+            folderId = folderId, scope = folderId).clickable(enabled = app.available) { onLaunch(app, iconBounds) }
             .padding(horizontal = 2.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box {
-                Image(app.image, null, Modifier.size(58.dp).clip(Corner.icon).alpha(if (app.available) 1f else .45f))
+                Image(app.image, null, Modifier.size(58.dp).onGloballyPositioned { iconBounds.set(it.boundsInWindow().toAndroidBounds()) }
+                    .glassIcon().clip(Corner.icon).alpha(if (app.available) 1f else .45f))
                 AppBadge(badgeCount(app.packageName), Modifier.align(Alignment.TopEnd))
             }
             Text(app.label, Modifier.padding(top = 5.dp), maxLines = 1, overflow = TextOverflow.Ellipsis,

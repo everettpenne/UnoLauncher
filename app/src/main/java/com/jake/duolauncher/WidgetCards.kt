@@ -106,11 +106,11 @@ internal fun ExpandedCard(onClick: () -> Unit) {
         Column {
             Icon(Icons.Rounded.Widgets, null, tint = ink.primary, modifier = Modifier.size(32.dp))
             Spacer(Modifier.height(16.dp))
-            Text(stringResource(com.jake.duolauncher.R.string.a_little_more_room), color = ink.primary, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Light)
+            Text(stringResource(com.jake.duolauncher.R.string.a_little_more_room), color = ink.primary, style = UnoType.title1, lineHeight = 32.sp, fontWeight = FontWeight.Light)
             Spacer(Modifier.height(12.dp))
             Text(stringResource(com.jake.duolauncher.R.string.add_a_calendar_photos_or_another), color = ink.soft(.85f), style = UnoType.subheadline)
             Spacer(Modifier.height(20.dp))
-            FilledTonalButton(onClick = onClick) { Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(com.jake.duolauncher.R.string.add_widget)) }
+            GlassButton(onClick = onClick) { Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(com.jake.duolauncher.R.string.add_widget)) }
         }
     }
 }

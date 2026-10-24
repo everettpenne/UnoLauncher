@@ -137,7 +137,7 @@ private fun AddFeedDialog(onDismiss: () -> Unit, onAdd: (String, (FeedAddResult)
                     label = { Text(stringResource(com.jake.duolauncher.R.string.feed_address)) }, singleLine = true, enabled = !pending,
                     placeholder = { Text(stringResource(com.jake.duolauncher.R.string.https_example_com_feed_xml)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
-                Text(stringResource(com.jake.duolauncher.R.string.suggested), Modifier.padding(top = 10.dp), style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(com.jake.duolauncher.R.string.suggested), Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium)
                 SUGGESTED_FEEDS.forEach { suggestion ->
                     GlassButton(onClick = { url = suggestion.url; status = null }, enabled = !pending,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {

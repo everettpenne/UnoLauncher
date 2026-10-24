@@ -57,7 +57,8 @@ class WidgetStackGesturesIntegrationTest {
                 WidgetStacks.add(note, StackRules.unoCode(UnoWidgets.COUNTER, counter))
                 model().removePlacement(DropTarget.Widget(counter))
             }
-            compose.waitUntil(10_000) { present("stack-rail") }
+            compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag("widget-slot-$note").fetchSemanticsNode()
+                .config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription] }.getOrNull() != null }
             assertTrue(present("uno-note-$note"))
             compose.onNodeWithTag("widget-slot-$note").performTouchInput { swipeUp() }
             compose.waitUntil(10_000) { present("uno-counter-$counter") }
@@ -115,7 +116,8 @@ class WidgetStackGesturesIntegrationTest {
                 WidgetStacks.add(note, StackRules.unoCode(UnoWidgets.COUNTER, counter))
                 model().removePlacement(DropTarget.Widget(counter))
             }
-            compose.waitUntil(10_000) { present("stack-rail") }
+            compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag("widget-slot-$note").fetchSemanticsNode()
+                .config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription] }.getOrNull() != null }
             fun node() = compose.onNodeWithTag("widget-slot-$note").fetchSemanticsNode()
             assertEquals("Widget 1 of 2: Note", node().config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription])
             var actions = node().config[androidx.compose.ui.semantics.SemanticsActions.CustomActions]

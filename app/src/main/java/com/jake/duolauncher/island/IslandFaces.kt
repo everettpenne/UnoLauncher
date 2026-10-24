@@ -190,9 +190,9 @@ internal fun RecentNotificationRow(peek: PeekNotification, state: IslandState, c
         }.testTag("island-recent-open"), verticalAlignment = Alignment.CenterVertically) {
             peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(34.dp).clip(RoundedCornerShape(9.dp))); Spacer(Modifier.width(10.dp)) }
             Column(Modifier.weight(1f)) {
-                Text(peek.appLabel, color = themeInk.copy(alpha = .65f), fontSize = 11.sp, maxLines = 1)
+                Text(peek.appLabel, color = themeInk.copy(alpha = .65f), style = UnoType.caption2.tight, maxLines = 1)
                 peek.title?.let { Text(it, color = themeInk, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                peek.text?.let { Text(it, color = themeInk.copy(alpha = .85f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                peek.text?.let { Text(it, color = themeInk.copy(alpha = .85f), style = UnoType.caption1.tight, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
         if (peek.actions.isNotEmpty()) PeekActionsRow(peek, state, canReply)
@@ -273,7 +273,7 @@ internal fun PeekActionsRow(peek: PeekNotification, state: IslandState, canReply
                 }
                 .semantics { role = androidx.compose.ui.semantics.Role.Button; contentDescription = action.title }
                 .testTag("island-peek-action"), contentAlignment = Alignment.Center) {
-                Text(action.title, color = themeInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                Text(action.title, color = themeInk, style = UnoType.caption1.tight, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(horizontal = 8.dp))
             }
         }
@@ -326,12 +326,12 @@ internal fun PrivacyRow(line: PrivacyLine.Line, camera: Boolean, mic: Boolean, r
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(line.title, color = themeInk, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (line.subtitle.isNotEmpty()) Text(line.subtitle, color = themeInk.copy(alpha = .72f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(line.title, color = themeInk, style = UnoType.footnote.tight, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (line.subtitle.isNotEmpty()) Text(line.subtitle, color = themeInk.copy(alpha = .72f), style = UnoType.caption2.tight, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Box(Modifier.padding(start = 8.dp).height(30.dp).clip(IslandThemes.active.controlShape()).background(themeInk.copy(alpha = .14f))
             .clickable(onClick = onReview).padding(horizontal = 12.dp).semantics { contentDescription = "Review privacy settings" }.testTag("island-privacy-review"),
-            contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.island_review), color = themeInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+            contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.island_review), color = themeInk, style = UnoType.caption1.tight, fontWeight = FontWeight.SemiBold) }
     }
 }
 

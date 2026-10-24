@@ -66,7 +66,6 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onWallpaperDepth: (Boolean) -> Unit = {},
     onHomeStyle: (HomeStyle) -> Unit = {},
     onClearGlass: (Boolean) -> Unit = {},
-    onUnoStatusBar: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onTiltStrength: (Float) -> Unit = {},
     onRefractionHeight: (Float) -> Unit = {},
@@ -103,7 +102,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                 es.liveCompactLevel, es.peekLevel, es.peekActions, es.islandShortcuts, es.privacyIndicators, es.liveUpdates), Modifier.padding(bottom = 8.dp))
         }
         CompositionLocalProvider(com.jake.duolauncher.island.LocalIslandPreview provides islandPreview) {
-        Column(Modifier.weight(1f).verticalScroll(bodyScroll).padding(bottom = 20.dp),
+        Column(Modifier.weight(1f).verticalScroll(bodyScroll).padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (page) {
                 CustomizationPage.OVERVIEW -> {
@@ -225,7 +224,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     }
                 }
                 CustomizationPage.HOME -> HomeLayoutSettings(state, wide, { wide = it }, model, homePage,
-                    onEditPins, onWidget, onAddWidget, onRemoveWidget, appearance.homeStyle, onHomeStyle, appearance.unoStatusBar, onUnoStatusBar)
+                    onEditPins, onWidget, onAddWidget, onRemoveWidget, appearance.homeStyle, onHomeStyle)
                 CustomizationPage.GESTURES -> {
                     SettingsSwitch("Show app names", state.labels, model::setLabels, "label-switch")
                     // The iOS layout has no status rail on a phone-sized screen (the system status bar shows), so the switch says so.
@@ -361,14 +360,14 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
 
 /** The small grey heading above a group of rows on the settings overview, as in iOS Settings. */
 @Composable private fun SettingsGroupLabel(text: String) {
-    Text(text.uppercase(), Modifier.padding(start = 6.dp, top = 10.dp), style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold),
+    Text(text.uppercase(), Modifier.padding(start = 6.dp, top = 12.dp), style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold),
         color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable private fun CustomizationDestination(icon: ImageVector, title: String, detail: String, tag: String, onClick: () -> Unit) {
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag(tag),
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), shape = Corner.medium) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.titleMedium); Text(detail,
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -544,8 +543,7 @@ private fun signedPercent(v: Float): String = (v * 100).toInt().let { if (it > 0
 
 @Composable private fun HomeLayoutSettings(state: LauncherState, wide: Boolean, onWide: (Boolean) -> Unit,
     model: LauncherModel, homePage: Int, onEditPins: () -> Unit, onWidget: (Int) -> Unit,
-    onAddWidget: (Int) -> Unit, onRemoveWidget: (Int) -> Unit, homeStyle: HomeStyle = HomeStyle.SIDE, onHomeStyle: (HomeStyle) -> Unit = {},
-    unoStatusBar: Boolean = false, onUnoStatusBar: (Boolean) -> Unit = {}) {
+    onAddWidget: (Int) -> Unit, onRemoveWidget: (Int) -> Unit, homeStyle: HomeStyle = HomeStyle.SIDE, onHomeStyle: (HomeStyle) -> Unit = {}) {
     val p = if (wide) state.expanded else state.compact
     // The phone screen's layout: Uno's side dock, or the iPhone's (see HomeStyle). The inner screen always has the side dock.
     if (!wide) {
@@ -558,11 +556,6 @@ private fun signedPercent(v: Float): String = (v * 100).toInt().let { if (it > 0
         }
         Text(stringResource(if (homeStyle == HomeStyle.IOS) com.jake.duolauncher.R.string.home_layout_ios_note else com.jake.duolauncher.R.string.home_layout_side_note),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (homeStyle == HomeStyle.IOS) {
-            SettingsSwitch(stringResource(com.jake.duolauncher.R.string.uno_status_bar), unoStatusBar, onUnoStatusBar, "uno-status-bar-switch")
-            Text(stringResource(com.jake.duolauncher.R.string.uno_status_bar_note), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
     }
     // The iOS grid sets its own icon size, spacing and dock; those sliders are for the side layout.
     val iosHere = homeStyle == HomeStyle.IOS && !wide

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.103.0-uno01
+
+- **The island is a sensible width again.** In 0.102.0 the centred island could keep widening until a clear spot lined up on both sides; without a status bar reading every notification slot counted as full, so at rest it was very wide. It may now grow at most 8 dp a side to centre itself, and otherwise snaps each edge on its own. With island alignment on, an edge now stays where the island wants it unless it would land in an icon (snapping to gap middles had sent it out past the last icon when few were showing).
+- **Uno's status bar is removed.** The island widening for what it has to show is enough; Android's status bar is used again.
+- **Stack dots like iOS's.** A widget stack's dots are small, sit at its edge without a plate, and show only for a moment when the widget changes; they were a dark pill always over the widget's content (the Moon widget's text, a photo).
+- **Finer glass.** Clear glass's edge is a thin line of light that fades quickly away from the light, not an outline; the top sheen is softer.
+- **Cleaner icon names.** Plain white with a soft shadow; the dark halo is kept only where the wallpaper behind a name is bright.
+- **Icons that look native.** A logo drawn small in its tile is enlarged to fill it (within Android's safe zone); icons that are not adaptive (old or round ones) sit in the iOS shape on their own edge colour instead of keeping their outline. A new **Dark** icon style puts each app's own artwork on a near-black tile, lifting artwork drawn dark. Icon lighting now also gives icons a soft shadow on Home, in the dock and in folders.
+- **One type and spacing scale.** The island and settings previews use Uno's type scale; sheets, settings, panels, search and folders use one spacing scale (4, 8, 12, 16, 24 dp). The remaining stock Material buttons in sheets and settings are the glass kit's.
+- **Motion.** Apps open out of their icon from folders and search as they do from Home. Folders, search, the control panel, widget stacks and the page dots' lens share one set of springs.
+
 ## 0.102.0-uno01
 
 - **The island is symmetric about the camera.** Its edges used to snap each to its own nearest gap between status bar icons, which left it a few dp longer on one side, off centre on the camera. Now one half-width is chosen for both sides: the smallest at least as wide as it wants (and as its privacy dots need) where both edges clear every icon, so each icon is wholly under it or wholly beside it; it never covers the clock or the battery. It uses the status bar's real icons when island alignment is on, and the measured grid otherwise; if no centred width fits, it falls back to snapping each edge. Capsules sit 3 dp beside it on clear ground. On the Pixel 10a's measured bar the resting island is 355..725 px, centred on 540 (it was 345..729).

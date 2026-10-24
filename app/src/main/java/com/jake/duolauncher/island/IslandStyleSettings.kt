@@ -93,7 +93,7 @@ internal fun IslandStyleSection(controller: IslandThemeController?) {
         GlassButton(stringResource(com.jake.duolauncher.R.string.island_theme_paste), { controller?.pasteTheme() }, Modifier.fillMaxWidth(), enabled = controller != null, tag = "island-theme-paste")
         GlassButton("Reset to Classic", { IslandThemes.reset(); notice = null; controller?.clearMessage() }, Modifier.fillMaxWidth(), tag = "island-theme-reset")
         GlassNote("Themes are small text files. Only install ones from people you trust; a theme can change how the island looks and moves, never what it does or what it can see.")
-        if (message != null) Text(message, color = ink, style = UnoType.footnote, modifier = Modifier.testTag("island-theme-message"))
+        if (message != null) Text(message, color = ink, style = UnoType.footnote.tight, modifier = Modifier.testTag("island-theme-message"))
     }
 
     val pending = controller?.preview
@@ -101,7 +101,7 @@ internal fun IslandStyleSection(controller: IslandThemeController?) {
         GlassButton("Cancel", { controller.cancelPreview() }, tag = "island-theme-cancel")
         GlassButton("Apply", { controller.applyPreview() }, prominent = true, tag = "island-theme-apply")
     }) {
-        Text(pending.name, style = UnoType.headline)
+        Text(pending.name, style = UnoType.headline.tight)
         if (pending.author.isNotEmpty()) GlassNote("by ${pending.author}")
         IslandThemePreview(pending)
         GlassNote("Panel: ${pending.panel.label}. Buttons: ${pending.controls.label}. Motion: ${pending.motion.label}.")
@@ -116,12 +116,12 @@ private fun IslandThemePreview(theme: IslandTheme) {
         contentAlignment = Alignment.Center) {
         Row(Modifier.clip(bodyShape).background(theme.fill).padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(stringResource(com.jake.duolauncher.R.string.n_12_41), color = theme.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(com.jake.duolauncher.R.string.n_12_41), color = theme.ink, style = UnoType.subheadline.tight, fontWeight = FontWeight.SemiBold)
             listOf(theme.playback, theme.charging, theme.timer, theme.focus).forEach { c ->
                 Box(Modifier.size(12.dp).clip(CircleShape).background(c))
             }
             Box(Modifier.height(26.dp).clip(theme.controlShape()).background(theme.chip()).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-                Text(stringResource(com.jake.duolauncher.R.string.open), color = theme.ink, fontSize = 12.sp)
+                Text(stringResource(com.jake.duolauncher.R.string.open), color = theme.ink, style = UnoType.caption1.tight)
             }
         }
     }
@@ -131,7 +131,7 @@ private fun IslandThemePreview(theme: IslandTheme) {
 private fun SwatchRow(label: String, selected: Color, palette: List<Color>, key: String, onPick: (Color) -> Unit) {
     val ink = MaterialTheme.colorScheme.onSurface
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, color = ink, style = UnoType.subheadline)
+        Text(label, color = ink, style = UnoType.subheadline.tight)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             palette.forEach { c ->
                 val on = c == selected

@@ -84,7 +84,7 @@ internal fun FirstRunSetupSheet(
     }
     Column(
         Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
-            .navigationBarsPadding().padding(horizontal = 24.dp).padding(bottom = 20.dp),
+            .navigationBarsPadding().padding(horizontal = 24.dp).padding(bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {

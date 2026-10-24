@@ -30,27 +30,40 @@ data class WallpaperAdjust(
     val saturation: Float = 1f,
     /** -1 cool .. 0 as taken .. 1 warm. */
     val warmth: Float = 0f,
+    /** A look over the whole photo, chosen by swiping in the editor as on iOS's wallpaper screen; the four tone controls apply on top. */
+    val style: WallpaperStyle = WallpaperStyle.NATURAL,
 ) {
     val isNeutral: Boolean get() = this == WallpaperAdjust()
     val framingChanged: Boolean get() = zoom != 1f || panX != 0f || panY != 0f
-    val toneChanged: Boolean get() = brightness != 0f || blur != 0f || saturation != 1f || warmth != 0f
+    val toneChanged: Boolean get() = brightness != 0f || blur != 0f || saturation != 1f || warmth != 0f || style != WallpaperStyle.NATURAL
 
     /** Clamped into range, so a stored value from a future version or a stray gesture can never produce a broken picture. */
     fun clamped(): WallpaperAdjust = WallpaperAdjust(zoom.coerceIn(1f, MAX_ZOOM), panX.coerceIn(-1f, 1f), panY.coerceIn(-1f, 1f),
-        brightness.coerceIn(-1f, 1f), blur.coerceIn(0f, 1f), saturation.coerceIn(0f, 2f), warmth.coerceIn(-1f, 1f))
+        brightness.coerceIn(-1f, 1f), blur.coerceIn(0f, 1f), saturation.coerceIn(0f, 2f), warmth.coerceIn(-1f, 1f), style)
 
-    /** Seven numbers, comma separated, for keeping in preferences. */
-    fun encode(): String = listOf(zoom, panX, panY, brightness, blur, saturation, warmth).joinToString(",")
+    /** Seven numbers and the style's index, comma separated, for keeping in preferences. */
+    fun encode(): String = (listOf(zoom, panX, panY, brightness, blur, saturation, warmth) + style.ordinal.toFloat()).joinToString(",")
 
     companion object {
         const val MAX_ZOOM = 4f
 
         fun decode(text: String?): WallpaperAdjust {
             val v = text?.split(',')?.mapNotNull { it.trim().toFloatOrNull() } ?: return WallpaperAdjust()
-            if (v.size != 7 || v.any { it.isNaN() || it.isInfinite() }) return WallpaperAdjust()
-            return WallpaperAdjust(v[0], v[1], v[2], v[3], v[4], v[5], v[6]).clamped()
+            // Seven numbers were saved before styles existed (0.104); those photos are Natural.
+            if ((v.size != 7 && v.size != 8) || v.any { it.isNaN() || it.isInfinite() }) return WallpaperAdjust()
+            val style = WallpaperStyle.entries.getOrNull(v.getOrNull(7)?.toInt() ?: 0) ?: WallpaperStyle.NATURAL
+            return WallpaperAdjust(v[0], v[1], v[2], v[3], v[4], v[5], v[6], style).clamped()
         }
     }
+}
+
+/**
+ * The photo styles of the wallpaper editor, in swipe order, after iOS's: each is a colour matrix (see [WallpaperAdjustMath.styleMatrix]), so
+ * it costs nothing extra to preview or bake. Duotone and Color Wash use fixed colours (a deep blue under a warm orange, and Uno's orange),
+ * not the accent, so a wallpaper does not change when the accent does.
+ */
+enum class WallpaperStyle(val label: String) {
+    NATURAL("Natural"), VIVID("Vivid"), MONO("Black & White"), DUOTONE("Duotone"), WASH("Color Wash"), DIM("Studio Dim")
 }
 
 /** A rectangle in photo pixels (plain numbers, so the framing arithmetic is testable off the device). */
@@ -80,13 +93,46 @@ internal object WallpaperAdjustMath {
      */
     fun colorMatrix(adjust: WallpaperAdjust): FloatArray {
         val a = adjust.clamped()
-        val m = ColorMatrix().apply { setSaturation(a.saturation) }
+        val m = ColorMatrix(styleMatrix(a.style))
+        m.postConcat(ColorMatrix().apply { setSaturation(a.saturation) })
         val w = a.warmth * .12f
         m.postConcat(ColorMatrix(floatArrayOf(1f + w, 0f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 1f - w, 0f, 0f, 0f, 0f, 0f, 1f, 0f)))
         val scale = if (a.brightness < 0f) 1f + a.brightness * .7f else 1f + a.brightness * .35f
         val lift = if (a.brightness > 0f) a.brightness * 18f else 0f
         m.postConcat(ColorMatrix(floatArrayOf(scale, 0f, 0f, 0f, lift, 0f, scale, 0f, 0f, lift, 0f, 0f, scale, 0f, lift, 0f, 0f, 0f, 1f, 0f)))
         return m.array.copyOf()
+    }
+
+    /** One style as a 4×5 colour matrix. The identity for [WallpaperStyle.NATURAL]. */
+    fun styleMatrix(style: WallpaperStyle): FloatArray {
+        // Rec. 709 luma weights, for the styles that start from the photo's brightness alone.
+        val lr = .2126f; val lg = .7152f; val lb = .0722f
+        fun ramp(dark: Int, light: Int, mix: Float = 1f): FloatArray {
+            // Each channel goes from the dark colour at black to the light colour at white, mixed [mix] of the way from the photo itself.
+            fun ch(c: Int, shift: Int) = (c shr shift and 0xFF).toFloat()
+            val rows = listOf(16, 8, 0).mapIndexed { i, shift ->
+                val d = ch(dark, shift); val span = (ch(light, shift) - d) / 255f
+                val own = FloatArray(3).also { it[i] = 1f - mix }
+                floatArrayOf(own[0] + mix * span * lr, own[1] + mix * span * lg, own[2] + mix * span * lb, 0f, mix * d)
+            }
+            return rows[0] + rows[1] + rows[2] + floatArrayOf(0f, 0f, 0f, 1f, 0f)
+        }
+        return when (style) {
+            WallpaperStyle.NATURAL -> ColorMatrix().array.copyOf()
+            WallpaperStyle.VIVID -> ColorMatrix().apply {
+                setSaturation(1.35f)
+                // a little more contrast about the middle grey
+                postConcat(ColorMatrix(floatArrayOf(1.08f, 0f, 0f, 0f, -10f, 0f, 1.08f, 0f, 0f, -10f, 0f, 0f, 1.08f, 0f, -10f, 0f, 0f, 0f, 1f, 0f)))
+            }.array.copyOf()
+            WallpaperStyle.MONO -> ColorMatrix().apply {
+                setSaturation(0f)
+                postConcat(ColorMatrix(floatArrayOf(1.12f, 0f, 0f, 0f, -14f, 0f, 1.12f, 0f, 0f, -14f, 0f, 0f, 1.12f, 0f, -14f, 0f, 0f, 0f, 1f, 0f)))
+            }.array.copyOf()
+            WallpaperStyle.DUOTONE -> ramp(0xFF1B2A5C.toInt(), 0xFFFFC27A.toInt())
+            WallpaperStyle.WASH -> ramp(0xFF6A2A00.toInt(), 0xFFFFD9A8.toInt(), mix = .55f)
+            WallpaperStyle.DIM -> ColorMatrix(floatArrayOf(.62f, 0f, 0f, 0f, 0f, 0f, .62f, 0f, 0f, 0f, 0f, 0f, .62f, 0f, 0f, 0f, 0f, 0f, 1f, 0f))
+                .apply { postConcat(ColorMatrix().apply { setSaturation(.85f) }) }.array.copyOf()
+        }
     }
 
     /** The blur radius as a fraction of the picture's shorter side, so the preview (small) and the saved picture (large) blur alike. */

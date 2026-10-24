@@ -164,7 +164,7 @@ internal fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: 
     art: androidx.compose.ui.graphics.ImageBitmap? = null, onPrevious: () -> Unit, onPlayPause: () -> Unit,
     onNext: () -> Unit, progress: Float? = null, durationMs: Long? = null, onSeek: ((Float) -> Unit)? = null, onOpenPlayer: (() -> Unit)? = null) {
     Column(Modifier.fillMaxWidth().testTag("island-media")) {
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+        Row(Modifier.fillMaxWidth().clip(islandCardShape())
             .then(if (onOpenPlayer != null) Modifier.clickable(onClick = onOpenPlayer).testTag("island-open-player") else Modifier),
             verticalAlignment = Alignment.CenterVertically) {
             // The cover when the player gives one; otherwise the bars, which are still while paused and move while playing.

@@ -88,7 +88,7 @@ internal fun AppLibrary(
     val liquid = LocalPageGlass.current?.takeIf { glass }
     CompositionLocalProvider(LocalKitInk provides ink) {
     Surface(modifier.then(if (liquid != null) Modifier.liquidGlass(liquid.backdrop, Corner.large,
-            liquid.tint.copy(alpha = .40f), blurRadius = 6f, settings = liquid.settings) else Modifier),
+            liquid.tint, kind = GlassKind.REGULAR, settings = liquid.settings) else Modifier),
         shape = Corner.large,
         color = if (liquid != null) Color.Transparent else if (glass) Glass.copy(alpha = .48f) else MaterialTheme.colorScheme.surface,
         contentColor = ink,
@@ -118,7 +118,7 @@ internal fun AppLibrary(
                 state = listState,
                 contentPadding = PaddingValues(bottom = 12.dp)) {
                 if (smart != null) item("smart-answer") {
-                    Column(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(Corner.medium).background(ink.copy(alpha = .10f))
+                    Column(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(LibraryRowShape).background(ink.copy(alpha = .10f))
                         .clickable {
                             clipScope.launch { clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("", smart.text))) }
                             android.widget.Toast.makeText(toastContext, "Copied ${smart.text}", android.widget.Toast.LENGTH_SHORT).show()
@@ -154,7 +154,7 @@ internal fun AppLibrary(
                         val launchBounds = remember { android.graphics.Rect() }
                         val dragModifier = if (drag != null) Modifier.dropRegion(drag, DropTarget.Library(app.id), app.id, page) else Modifier
                         val click = { if (editing) onPin(app.id, !isPinned) else onLaunchFrom(app, launchBounds) }
-                        Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).then(dragModifier).clip(Corner.small).testTag("library-app-${app.id}")
+                        Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).then(dragModifier).clip(LibraryRowShape).testTag("library-app-${app.id}")
                             .then(if (drag == null) Modifier.combinedClickable(onClick = click, onLongClick = { onActions(app) })
                                 else Modifier.clickable(onClick = click).semantics { onLongClick("App options") { onActions(app); true } })
                             .padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -184,7 +184,7 @@ internal fun AppLibrary(
                             color = ink.copy(alpha = .6f), style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
                     }
                     items(contacts, key = { "contact-${it.id}" }) { contact ->
-                        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.small).clickable { onContact(contact) }
+                        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(LibraryRowShape).clickable { onContact(contact) }
                             .testTag("contact-${contact.id}").padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), androidx.compose.foundation.shape.CircleShape),
                                 contentAlignment = Alignment.Center) {
@@ -199,3 +199,6 @@ internal fun AppLibrary(
     }
     }
 }
+
+/** Rows and cards in the library nest in its panel: the panel's 24 dp corner less the 16 dp they sit in from its edge. */
+private val LibraryRowShape = Corner.inside(24.dp, 16.dp)

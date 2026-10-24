@@ -1,8 +1,5 @@
 package com.jake.duolauncher
 
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -11,8 +8,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.jake.duolauncher.appearance.*
 import com.jake.duolauncher.search.*
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -23,26 +18,21 @@ class MaterialYouAndSpotlightSourcesInstrumentedTest {
     @get:Rule val compose = createComposeRule()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
-    @Test fun materialYouThemesMaterialWithThePhonesDynamicPalette() {
-        var primary = Color.Unspecified
-        var unoPrimary = Color.Unspecified
-        compose.setContent {
-            DuoTheme(dark = false, materialYou = true) { primary = MaterialTheme.colorScheme.primary }
-            DuoTheme(dark = false, materialYou = false) { unoPrimary = MaterialTheme.colorScheme.primary }
-        }
-        compose.waitForIdle()
-        assertEquals(dynamicLightColorScheme(context).primary, primary)
-        assertEquals(Color(0xFF30596D), unoPrimary)
-        assertNotEquals(unoPrimary, primary)
-    }
-
-    @Test fun materialYouIsSavedAndRestored() {
-        val store = AppearanceStore(context)
-        val before = store.state.materialYou
+    /** Material You was folded into Accent › From wallpaper (0.104): someone who had it on keeps a wallpaper accent, and it is not saved again. */
+    @Test fun materialYouBecomesTheWallpaperAccent() {
+        val prefs = context.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE)
+        val before = prefs.all.toMap()
         try {
-            store.setMaterialYou(true)
-            assertTrue(AppearanceStore(context).state.materialYou)
-        } finally { store.setMaterialYou(before) }
+            prefs.edit().putBoolean("materialYou", true).putBoolean("wallpaperColor", false).commit()
+            val store = AppearanceStore(context)
+            assertTrue(store.state.wallpaperColor)
+            store.setWallpaperColor(false)
+            assertTrue(!prefs.contains("materialYou"))
+            assertTrue(!AppearanceStore(context).state.wallpaperColor)
+        } finally {
+            prefs.edit().clear().apply { before.forEach { (k, v) -> when (v) { is Boolean -> putBoolean(k, v); is String -> putString(k, v)
+                is Float -> putFloat(k, v); is Int -> putInt(k, v); is Long -> putLong(k, v) } } }.commit()
+        }
     }
 
     private fun spotlight() = compose.setContent {

@@ -79,7 +79,6 @@ internal fun GlassDropdownMenu(
     }
     val open = remember { Animatable(0f, .001f) }
     LaunchedEffect(Unit) { open.animateTo(1f, spring(.72f, 520f, .001f)) }
-    val tone = rememberGlassTone()
     val shape = Corner.large
     val tint = MaterialTheme.colorScheme.surface.copy(alpha = .45f)
     // The panel samples the page's backdrop from inside its own window, which starts at the pop-up's corner: draw it shifted back.
@@ -91,17 +90,7 @@ internal fun GlassDropdownMenu(
                 scaleX = grow; scaleY = grow; alpha = open.value.coerceIn(0f, 1f); transformOrigin = origin
             }
             .widthIn(min = 200.dp, max = 300.dp).width(IntrinsicSize.Max)
-            .drawBackdrop(
-                backdrop = shifted,
-                shape = { shape },
-                effects = {
-                    glassColor(tone)
-                    blur(10f.dp.toPx())
-                    lens(14f.dp.toPx(), 28f.dp.toPx())
-                },
-                highlight = { GlassRim.Light },
-                shadow = null,
-                onDrawSurface = { drawRect(tint) })
+            .liquidGlass(shifted, shape, tint, GlassKind.REGULAR, glass.settings)
             .padding(vertical = 8.dp)) {
             CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface, content = { content() })
         }

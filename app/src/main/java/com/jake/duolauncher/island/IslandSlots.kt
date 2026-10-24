@@ -259,7 +259,7 @@ internal fun UpdateGlyph(update: LiveUpdate, size: androidx.compose.ui.unit.Dp, 
 @Composable
 internal fun UpdateCard(update: LiveUpdate, clockMs: Long, onOpen: () -> Unit) {
     val tint = updateTint(update)
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onOpen).testTag("island-update")) {
+    Column(Modifier.fillMaxWidth().clip(islandCardShape()).clickable(onClick = onOpen).testTag("island-update")) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             val navigating = update.source == ActivitySource.NAVIGATION && update.largeIcon != null
             // A theme can put the turn arrow on the right and the distance on the left (HyperBridge's "swap sides").

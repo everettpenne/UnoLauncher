@@ -101,7 +101,6 @@ internal fun GlassDialog(
     }
     val shape = Corner.xlarge
     val panelBackdrop = rememberLayerBackdrop()
-    val dialogTone = rememberGlassTone()
     val accent = LocalWallpaperAccent.current
     val surface = MaterialTheme.colorScheme.surface.let { base ->
         if (accent != null) androidx.compose.ui.graphics.lerp(base, accent.glass, .5f) else base
@@ -113,18 +112,7 @@ internal fun GlassDialog(
             .safeDrawingPadding().padding(24.dp), contentAlignment = Alignment.Center) {
             Column(modifier.widthIn(max = 420.dp).fillMaxWidth()
                 .pointerInput(Unit) { detectTapGestures { } }   // taps inside the card are not "outside"
-                .drawBackdrop(
-                    backdrop = glass.backdrop,
-                    shape = { shape },
-                    effects = {
-                        glassColor(dialogTone)
-                        blur(8f.dp.toPx())
-                        lens(lerp(8f, 44f, glass.settings.height).dp.toPx(), lerp(16f, 132f, glass.settings.amount).dp.toPx(),
-                            depthEffect = true, chromaticAberration = glass.settings.chromatic > 0.05f)
-                    },
-                    highlight = { GlassRim.Light },
-                    exportedBackdrop = panelBackdrop,
-                    onDrawSurface = { drawRect(surface) })
+                .liquidGlass(glass.backdrop, shape, surface, GlassKind.REGULAR, glass.settings, exportedBackdrop = panelBackdrop)
                 .padding(16.dp)) {
                 CompositionLocalProvider(LocalPageGlass provides panelGlass, LocalContentColor provides GlassInkOnPanel) {
                     Text(title, style = MaterialTheme.typography.titleLarge, color = GlassInkOnPanel)
@@ -204,7 +192,8 @@ internal fun GlassSwitchRow(label: String, checked: Boolean, onChecked: (Boolean
 @Composable
 internal fun GlassRow(title: String, onClick: () -> Unit, modifier: Modifier = Modifier, subtitle: String? = null,
     leading: (@Composable () -> Unit)? = null, trailing: (@Composable () -> Unit)? = null) {
-    Row(modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.medium).clickable(role = Role.Button, onClick = onClick)
+    // Concentric with the glass dialog it sits in (32 dp, 16 dp in).
+    Row(modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.inside(32.dp, 16.dp)).clickable(role = Role.Button, onClick = onClick)
         .padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (leading != null) { leading(); Spacer(Modifier.width(8.dp)) }
         Column(Modifier.weight(1f)) {

@@ -212,8 +212,8 @@ class LauncherIntegrationTest {
         compose.openHomeCustomization()
         compose.onNodeWithTag("default-home-settings").assertIsDisplayed()
         compose.onNodeWithTag("customization-home").performClick()
-        compose.onNodeWithText("Choose Home apps").assertIsDisplayed()
-        compose.onNodeWithText("Add widget to this page").performScrollTo()
+        compose.onNodeWithText("Pinned Apps").assertIsDisplayed()
+        compose.onNodeWithText("Add Widget").performScrollTo()
         compose.onNodeWithTag("customization-back").performClick()
         compose.onNodeWithTag("default-home-settings").assertIsDisplayed()
     }
@@ -262,7 +262,7 @@ class LauncherIntegrationTest {
             val target = apps[16]
             compose.openHomeCustomization()
             compose.onNodeWithTag("customization-home").performClick()
-            compose.onNodeWithText("Choose Home apps").performClick()
+            compose.onNodeWithText("Pinned Apps").performClick()
             compose.onNodeWithTag("pin-search").performTextInput(target.label)
             compose.onNodeWithTag("pin-${target.id}").performClick()
             compose.waitForIdle()

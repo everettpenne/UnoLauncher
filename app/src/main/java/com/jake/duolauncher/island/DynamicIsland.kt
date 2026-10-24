@@ -486,8 +486,15 @@ internal fun DynamicIsland(
     val capsulePlan = if (capsulesWanted) IslandBubbles.layout(liveKinds) else emptyList()
     val capsuleMinDp = restTarget.height / d
     // The edges the island would have with its shipped width (and, showing an app, its wider one) and any hand adjustment.
-    val wantLeftDp = (restTarget.left - (mainBase.dw + IslandDebug.pill.dw) * d / 2f + (mainBase.dx + IslandDebug.pill.dx) * d) / d
-    val wantRightDp = (restTarget.left + restTarget.width + (mainBase.dw + IslandDebug.pill.dw) * d / 2f + (mainBase.dx + IslandDebug.pill.dx) * d) / d
+    val wantLeftDp0 = (restTarget.left - (mainBase.dw + IslandDebug.pill.dw) * d / 2f + (mainBase.dx + IslandDebug.pill.dx) * d) / d
+    val wantRightDp0 = (restTarget.left + restTarget.width + (mainBase.dw + IslandDebug.pill.dw) * d / 2f + (mainBase.dx + IslandDebug.pill.dx) * d) / d
+    // Idle (nothing live, no event, the pill and not the ring round the camera), the island is a physical width centred on the camera:
+    // IslandGeometry.REST_WIDTH_MM, the same in the hand on any phone. It widens from there for whatever it has to show.
+    val restWidthDp = remember(d) { IslandGeometry.mmToDp(IslandGeometry.REST_WIDTH_MM, context.resources.displayMetrics.xdpi, d) }
+    val idlePill = !hasLiveContent && !showingApp && compactTarget < .5f && restTarget.hole != null && openFrame.side == IslandSide.TOP
+    val holeCentreDp = restTarget.hole?.let { (restTarget.left + it.centerX) / d } ?: 0f
+    val wantLeftDp = if (idlePill) holeCentreDp - restWidthDp / 2f - IslandDebug.pill.dw / 2f + IslandDebug.pill.dx else wantLeftDp0
+    val wantRightDp = if (idlePill) holeCentreDp + restWidthDp / 2f + IslandDebug.pill.dw / 2f + IslandDebug.pill.dx else wantRightDp0
     // The status bar's real gaps, when the optional alignment service has read them at this screen width (see StatusBarReader); otherwise
     // the grid measured on a Pixel 10a, moved by the calibration page.
     val measuredBar = StatusBarLive.usable(environment.screenWidth / d)

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.104.0-uno01
+
+- **Settings like iOS Settings.** Every page is a grouped list: a small heading, an inset card of rows divided by hairlines, and a footer with the explanation, so row names are short and Title Case. The overview lists the pages with coloured icon tiles; the top bar has the way back, the page's name and Done. Choices show a check mark; actions are rows in the accent. **Backup & about** is now **General**, and the island's style has its own page.
+- **About half as many settings.** Glass is one choice (Clear, Frosted or Off), the lens sliders are fixed, and tilt is one switch. **Material You is gone**: the accent is **Uno orange** by default or **from the wallpaper** (Material You users keep a wallpaper accent). The island's width modes, size slider and Live Update text choice are fixed; Bluetooth, headphone and VPN/USB alerts are one **System Alerts** switch; turn-by-turn follows **Navigation**; the Home island stays still automatically when the accessibility service is on. The keyboard has about 13 settings: no blur, the emoji key, magnified keys and space-bar cursor always on, **Learned Words** in one group, and haptics as Off, Soft, Crisp or Firm. Show App Names moved to Home Screen; the status rail switch shows only with the side dock, which stays for foldables.
+- **A wallpaper editor like iOS 26's.** Choosing or editing a photo, or a built-in scene, opens it full screen with Cancel and Done in glass capsules. Swipe sideways for styles (Natural, Vivid, Black & White, Duotone, Color Wash, Studio Dim), pinch and drag with two fingers to frame it, and use the glass buttons for Blur, Adjust (brightness, colour, warmth, blur) and a preview of your Home over it. Photos adjusted before keep their look.
+- **Concentric corners.** Settings cards, control panel tiles, App Library rows, dialog rows and the cards in the open island are their container's corner less the inset between them; the island's cards follow its panel shape.
+- **A 13.5 mm island.** At rest with nothing to show, the island is about 13.5 mm wide, worked out from the display's real pixel density.
+- **One glass language.** Glass is one of two kinds, as on iOS 26: clear (a light blur, a thin bright edge) for Home's dock, rail, widgets and controls, and frosted for sheets, menus, dialogs, panels, folders and the App Library.
+
 ## 0.103.0-uno01
 
 - **The island is a sensible width again.** In 0.102.0 the centred island could keep widening until a clear spot lined up on both sides; without a status bar reading every notification slot counted as full, so at rest it was very wide. It may now grow at most 8 dp a side to centre itself, and otherwise snaps each edge on its own. With island alignment on, an edge now stays where the island wants it unless it would land in an icon (snapping to gap middles had sent it out past the last icon when few were showing).

@@ -132,7 +132,7 @@ class ExpandedWorkspaceIntegrationTest {
 
     private fun undo() {
         compose.openHomeCustomization()
-        compose.onNodeWithText("Undo last layout change").performClick()
+        compose.onNodeWithText("Undo Last Layout Change").performClick()
         compose.waitForIdle()
     }
 

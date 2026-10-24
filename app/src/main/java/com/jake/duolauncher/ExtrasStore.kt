@@ -133,7 +133,9 @@ internal class ExtrasStore(context: Context) {
     /** Re-reads everything from the preferences (after a settings restore). */
     fun reload() { state = load() }
 
-    private fun load() = ExtrasState(
+    private fun load(): ExtrasState { fixRetiredSettings(prefs); return read() }
+
+    private fun read() = ExtrasState(
         // A new key, so everyone gets the new default rather than a value saved by an earlier version.
         pullDown = PullDownRouting.migrate(prefs.getString("pullDown", null), prefs.getString("leftSwipe", null)),
         rightSwipe = runCatching { RightSwipe.valueOf(prefs.getString("rightSwipe", null)!!) }.getOrDefault(RightSwipe.PANEL),
@@ -342,6 +344,26 @@ internal class ExtrasStore(context: Context) {
         save(state.copy(handoffStores = if (id in state.handoffStores) state.handoffStores - id else state.handoffStores + id))
     fun setHaptics(value: Boolean) = save(state.copy(haptics = value))
     fun setSounds(value: Boolean) = save(state.copy(sounds = value))
+}
+
+/**
+ * Settings that 0.104 took out of Launcher settings, pinned to the one value each now has. Many are read straight from the preferences by
+ * the island overlay, the keyboard service and the notification listener, so the value is written to the preference itself; done on every
+ * load, so a settings backup from an older version cannot bring a retired value back.
+ * - The island's idle width is the plain pill (Off); the Wide and Extra wide modes are gone. Live Updates show their short status.
+ * - "Keep the Home island still" is automatic: whenever the optional accessibility service is on, it draws the Home island.
+ * - Turn-by-turn cards follow the Navigation switch; the audio-device alerts follow the one System alerts switch.
+ * - The keyboard never blurs the app behind it, and always has the emoji key, magnified keys and the space-bar cursor.
+ */
+internal fun fixRetiredSettings(prefs: android.content.SharedPreferences) {
+    prefs.edit()
+        .putInt("islandWideMode", IslandWideMode.OFF.ordinal).remove("islandWide")
+        .putInt("liveCompactLevel", 1)
+        .putBoolean("homeIslandOverlay", true)
+        .putBoolean("navigationCues", prefs.getBoolean("navigationTasks", true))
+        .putBoolean("audioAlerts", prefs.getBoolean("securityAlerts", true))
+        .putBoolean("kbBlur", false).putBoolean("kbEmojiKey", true).putBoolean("kbKeyPreview", true).putBoolean("kbSpaceCursor", true)
+        .apply()
 }
 
 /** What the extras settings page and the control panel need from the activity: the store, plus the

@@ -34,7 +34,7 @@ class WorkspaceIntegrationTest {
     private fun undo() {
         compose.onNodeWithText("Layout updated").assertDoesNotExist()
         compose.openHomeCustomization()
-        compose.onNodeWithText("Undo last layout change").performClick()
+        compose.onNodeWithText("Undo Last Layout Change").performClick()
         compose.waitForIdle()
     }
     private fun restore(before: HomeLayout) {

@@ -364,3 +364,18 @@ internal object IslandThemes {
         prefs?.edit()?.remove("json")?.apply()
     }
 }
+
+/** How far the open island's faces sit in from its edge (DynamicIsland's faceStart and faceEnd away from the camera). */
+internal const val ISLAND_FACE_INSET_DP = 18f
+
+/**
+ * A card inside the open island (the music card, a Live Update, the recent notification, the widget), concentric with the island itself: the
+ * panel's corner ([IslandGeometry.CORNER_CAP_DP] at the theme's panel scale) less the [ISLAND_FACE_INSET_DP] the card sits in from the edge.
+ * A Square panel's cards bottom out at Corner.inside's 4 dp.
+ */
+internal fun islandCardShape(theme: IslandTheme = IslandThemes.active): Shape =
+    com.jake.duolauncher.appearance.Corner.inside((IslandGeometry.CORNER_CAP_DP * theme.panel.scale).dp, ISLAND_FACE_INSET_DP.dp)
+
+/** A control inside an [islandCardShape] card that is itself inset [inset] from the card's edge. */
+internal fun islandInnerShape(inset: Float, theme: IslandTheme = IslandThemes.active): Shape =
+    com.jake.duolauncher.appearance.Corner.inside((IslandGeometry.CORNER_CAP_DP * theme.panel.scale - ISLAND_FACE_INSET_DP).coerceAtLeast(4f).dp, inset.dp)

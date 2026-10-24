@@ -81,7 +81,7 @@ internal fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifi
     // Glass sits behind the provider's RemoteViews; it shows through transparent widgets
     // and is covered by widgets that paint their own opaque background.
     BoxWithConstraints(modifier.then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.large,
-        glass.tint.copy(alpha = .14f), blurRadius = 1f, settings = glass.settings) else Modifier)
+        glass.tint, kind = GlassKind.CLEAR, settings = glass.settings) else Modifier)
         .clip(Corner.large)
         .onGloballyPositioned {
             windowTopLeft = it.boundsInWindow().topLeft

@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,7 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,7 +37,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-internal enum class CustomizationPage { OVERVIEW, APPEARANCE, HOME, GESTURES, SEARCH, ISLAND, KEYBOARD, PRIVACY, FEED, BACKUP, DEBUG, STATUS_GRID }
+internal enum class CustomizationPage { OVERVIEW, APPEARANCE, HOME, GESTURES, SEARCH, ISLAND, KEYBOARD, PRIVACY, FEED, BACKUP, DEBUG, STATUS_GRID, ISLAND_STYLE }
+
+/** Where the back arrow goes from a page: a sub-page goes back to its parent, every other page to the overview. */
+internal fun CustomizationPage.parent(): CustomizationPage = when (this) {
+    CustomizationPage.STATUS_GRID, CustomizationPage.ISLAND_STYLE -> CustomizationPage.ISLAND
+    else -> CustomizationPage.OVERVIEW
+}
 
 @Composable
 internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, model: LauncherModel,
@@ -60,258 +67,189 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     glassBackdrop: com.kyant.backdrop.Backdrop? = null,
     glassTint: Color = Glass.copy(alpha = .62f),
     settings: GlassSettings = GlassSettings.Default,
-    onLiquidGlass: (Boolean) -> Unit = {},
+    onGlass: (GlassChoice) -> Unit = {},
     onWallpaperColor: (Boolean) -> Unit = {},
-    onMaterialYou: (Boolean) -> Unit = {},
     onWallpaperDepth: (Boolean) -> Unit = {},
     onHomeStyle: (HomeStyle) -> Unit = {},
-    onClearGlass: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
-    onTiltStrength: (Float) -> Unit = {},
-    onRefractionHeight: (Float) -> Unit = {},
     onIsland: (Boolean) -> Unit = {},
-    onIslandScale: (Float) -> Unit = {},
     islandEverywhere: Boolean = false,
     onIslandEverywhere: (Boolean) -> Unit = {},
     updates: UpdateState = UpdateState(),
     onCheckUpdates: () -> Unit = {},
     onInstallRelease: (String) -> Unit = {},
     onAutoUpdate: (Boolean) -> Unit = {},
-    onRefractionAmount: (Float) -> Unit = {},
-    onRefractionChroma: (Float) -> Unit = {},
 ) {
     var wide by rememberSaveable { mutableStateOf(initiallyWide) }
     val title = SettingsSearch.pageName(page)
     val bodyScroll = rememberScrollState()
+    val apps = model.state.collectAsState().value.apps
     LaunchedEffect(page) { bodyScroll.scrollTo(0) }
+    // A photo or a built-in scene waiting to be applied opens the full-screen editor, whichever page is showing.
+    SideEffect { backgrounds.dark = appearance.dark }
+    WallpaperEditor(backgrounds, state, appearance.dark)
     Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)
         .then(if (glassBackdrop != null) Modifier.liquidGlass(glassBackdrop, Corner.xlarge,
-            glassTint, blurRadius = 4f, settings = settings) else Modifier)
-        .padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (page != CustomizationPage.OVERVIEW) IconButton(onClick = { onPage(CustomizationPage.OVERVIEW) },
-                Modifier.testTag("customization-back")) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close settings") }
+            glassTint, kind = GlassKind.REGULAR, settings = settings) else Modifier)
+        .padding(horizontal = SHEET_INSET).padding(bottom = 12.dp)) {
+        // iOS's navigation bar: the way back on the left, the page's name in the middle, and Done on the right.
+        Box(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+            if (page != CustomizationPage.OVERVIEW) Row(Modifier.align(Alignment.CenterStart).clip(Corner.pill)
+                .clickable(role = androidx.compose.ui.semantics.Role.Button) { onPage(page.parent()) }
+                .padding(end = 8.dp, top = 8.dp, bottom = 8.dp).testTag("customization-back")
+                .semantics(mergeDescendants = true) { contentDescription = "Back" }, verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, null, Modifier.size(30.dp), tint = SettingsAccent)
+                Text(SettingsSearch.pageName(page.parent()).let { if (page.parent() == CustomizationPage.OVERVIEW) "Settings" else it },
+                    color = SettingsAccent, maxLines = 1)
+            }
+            Text(title, Modifier.align(Alignment.Center).padding(horizontal = 96.dp), style = UnoType.headline, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(stringResource(com.jake.duolauncher.R.string.wallpaper_done), Modifier.align(Alignment.CenterEnd).clip(Corner.pill).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClose)
+                .padding(8.dp).semantics { contentDescription = "Close settings" }, color = SettingsAccent,
+                style = UnoType.body.copy(fontWeight = FontWeight.SemiBold))
         }
         // The island page keeps a live copy of the island above its settings, so a change can be watched as it is made.
         val islandPreview = remember { com.jake.duolauncher.island.IslandPreviewController() }
-        if (page == CustomizationPage.ISLAND && appearance.island && extras != null) {
+        if ((page == CustomizationPage.ISLAND || page == CustomizationPage.ISLAND_STYLE) && appearance.island && extras != null) {
             val es = extras.store.state
             com.jake.duolauncher.island.IslandSettingsPreview(islandPreview, com.jake.duolauncher.island.PreviewSettings(appearance.islandScale, es.islandWideMode,
                 es.liveCompactLevel, es.peekLevel, es.peekActions, es.islandShortcuts, es.privacyIndicators, es.liveUpdates), Modifier.padding(bottom = 8.dp))
         }
         CompositionLocalProvider(com.jake.duolauncher.island.LocalIslandPreview provides islandPreview) {
-        Column(Modifier.weight(1f).verticalScroll(bodyScroll).padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(bodyScroll).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(Space.L.dp)) {
             when (page) {
-                CustomizationPage.OVERVIEW -> {
-                    // Search every setting by name, and go straight to its page.
-                    var settingsQuery by rememberSaveable { mutableStateOf("") }
-                    OutlinedTextField(settingsQuery, { settingsQuery = it }, Modifier.fillMaxWidth().testTag("settings-search"),
-                        placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_settings)) },
-                        leadingIcon = { Icon(Icons.Rounded.Search, null) }, singleLine = true, shape = RoundedCornerShape(percent = 50))
-                    val found = SettingsSearch.search(settingsQuery)
-                    if (settingsQuery.isNotBlank()) {
-                        if (found.isEmpty()) Text(stringResource(com.jake.duolauncher.R.string.no_settings_match), style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                        found.take(12).forEach { e ->
-                            CustomizationDestination(Icons.Rounded.Tune, e.title, SettingsSearch.pageName(e.page), "settings-result") { settingsQuery = ""; onPage(e.page) }
-                        }
-                    } else {
-                    if (!isDefaultHome) GlassButton(prominent = true, onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                        .testTag("default-home-settings")) { Text(stringResource(com.jake.duolauncher.R.string.set_as_home_app)) }
-                    if (state.canUndoEdit) GlassButton(onClick = { model.undoEdit(); onClose() },
-                        Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.undo_last_layout_change)) }
-                    MiniHomePreview(backgrounds.previewBitmap, state, 176.dp)
-                    CustomizationDestination(Icons.Rounded.Wallpaper, "Appearance",
-                        if (backgrounds.previewPending) "Photo ready to review" else "Background, glass, icons, light and dark",
-                        "customization-wallpaper") { onPage(CustomizationPage.APPEARANCE) }
-                    CustomizationDestination(Icons.Rounded.GridView, "Home layout",
-                        "Icons, spacing, dock, and widgets", "customization-home") { onPage(CustomizationPage.HOME) }
-                    CustomizationDestination(IslandPillIcon, "The island",
-                        "Size, style, live activities, and apps allowed", "customization-island") { onPage(CustomizationPage.ISLAND) }
-                    CustomizationDestination(Icons.Rounded.Lock, "Notifications & privacy",
-                        "Access, badges, cards, and the permission ledger", "customization-privacy") { onPage(CustomizationPage.PRIVACY) }
-                    CustomizationDestination(Icons.Rounded.Gesture, "Gestures & feel",
-                        "Swipes, panel, haptics and sounds", "customization-gestures") { onPage(CustomizationPage.GESTURES) }
-                    CustomizationDestination(Icons.Rounded.Search, "Search",
-                        "Google button, suggestions, contacts", "customization-search") { onPage(CustomizationPage.SEARCH) }
-                    CustomizationDestination(Icons.Rounded.RssFeed, "News feed",
-                        "Your own headlines in place of Discover", "customization-feed") { onPage(CustomizationPage.FEED) }
-                    CustomizationDestination(Icons.Rounded.Keyboard, "Keyboard",
-                        "Uno Keyboard: suggestions, autocorrect, one-handed", "customization-keyboard") { onPage(CustomizationPage.KEYBOARD) }
-                    CustomizationDestination(Icons.Rounded.Save, "Backup & about",
-                        "Save or restore, updates, and help", "customization-backup") { onPage(CustomizationPage.BACKUP) }
-                    // Only a debug build has the island debug page; a release build neither shows it nor reads anything it saved.
-                    if (androidx.compose.ui.platform.LocalContext.current.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0)
-                        CustomizationDestination(Icons.Rounded.Tune, "Island debug",
-                            "Dummy live activities, and width and position by hand", "customization-debug") { onPage(CustomizationPage.DEBUG) }
-                    if (isDefaultHome) GlassButton(onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                        .testTag("default-home-settings")) { Text(stringResource(com.jake.duolauncher.R.string.change_home_app)) }
-                    }
-                }
+                CustomizationPage.OVERVIEW -> OverviewPage(state, model, isDefaultHome, onMakeDefault, onPage, onClose)
                 CustomizationPage.APPEARANCE -> {
-                    SideEffect { backgrounds.dark = appearance.dark }
-                    WallpaperSection(backgrounds, state, appearance.dark)
-                    if (backgrounds.photoSelected && !backgrounds.previewPending) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GlassButton(onClick = backgrounds::adjustCurrent, enabled = !backgrounds.loading, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                            .testTag("background-adjust")) { Text(stringResource(com.jake.duolauncher.R.string.wallpaper_adjust_photo)) }
-                        GlassButton(onClick = backgrounds::reset, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                            .testTag("background-reset")) { Text(stringResource(com.jake.duolauncher.R.string.remove_photo)) }
-                    }
-                    if (backgrounds.loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("background-loading"))
-                    (backgrounds.errorMessage ?: backgrounds.successMessage)?.let { message ->
-                        GlassButton(onClick = backgrounds::clearMessage, modifier = Modifier.fillMaxWidth().testTag("background-message")) { Text(message) }
-                    }
-                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                    Text(stringResource(com.jake.duolauncher.R.string.android_wallpaper), style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(com.jake.duolauncher.R.string.opens_android_s_preview_to_change),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    SettingsSwitch("Also set home and lock screen", backgrounds.systemSync, backgrounds::chooseSystemSync, "system-wallpaper-sync-switch")
-                    Text(stringResource(com.jake.duolauncher.R.string.when_on_choosing_a_background_here),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    GlassButton(onClick = onWallpaperPreview, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                        .testTag("wallpaper-preview")) { Icon(Icons.Rounded.Wallpaper, null); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.preview_android_wallpaper)) }
-                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                    SettingsSwitch("Liquid glass", appearance.liquidGlass, onLiquidGlass, "liquid-glass-switch")
-                    if (appearance.liquidGlass) {
-                        CustomizationSlider("Refraction height", "${(appearance.refractionHeight * 100).toInt()}%",
-                            appearance.refractionHeight, 0f..1f, tag = "refraction-height-slider") { onRefractionHeight(it) }
-                        CustomizationSlider("Refraction amount", "${(appearance.refractionAmount * 100).toInt()}%",
-                            appearance.refractionAmount, 0f..1f, tag = "refraction-amount-slider") { onRefractionAmount(it) }
-                        CustomizationSlider("Chromatic aberration", "${(appearance.refractionChroma * 100).toInt()}%",
-                            appearance.refractionChroma, 0f..1f, tag = "chromatic-slider") { onRefractionChroma(it) }
-                    }
-                    if (appearance.liquidGlass) {
-                        SettingsSwitch("Tilt-following highlight", appearance.tiltHighlight, onTiltHighlight, "tilt-highlight-switch")
-                        Text(stringResource(com.jake.duolauncher.R.string.the_glass_edge_light_stays_put),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (appearance.tiltHighlight) {
-                            CustomizationSlider("Tilt strength", "${(appearance.tiltStrength * 100).toInt()}%",
-                                appearance.tiltStrength, 0f..1f, tag = "tilt-strength-slider") { onTiltStrength(it) }
-                            Text(stringResource(com.jake.duolauncher.R.string.higher_swings_the_light_further_for),
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            // Live readout, so you can tell whether the sensor reaches the launcher at all.
-                            val samples = GlassRim.samples.intValue
-                            Text(if (samples == 0) "No motion readings yet. If you use GrapheneOS, allow Sensors for Uno Launcher in its app settings."
-                                else "Motion sensor working. Light angle ${GlassRim.angle.toInt()}\u00B0 (45\u00B0 when upright).",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.testTag("tilt-readout"))
-                        }
-                    }
-                    if (appearance.liquidGlass) {
-                        SettingsSwitch(stringResource(com.jake.duolauncher.R.string.clear_glass), appearance.clearGlass, onClearGlass, "clear-glass-switch")
-                        Text(stringResource(com.jake.duolauncher.R.string.clear_glass_note), style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    SettingsSwitch("Wallpaper depth", appearance.wallpaperDepth, onWallpaperDepth, "wallpaper-depth-switch")
-                    Text(stringResource(com.jake.duolauncher.R.string.wallpaper_depth_note), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    SettingsSwitch("Material You colors", appearance.materialYou, onMaterialYou, "material-you-switch")
-                    Text(stringResource(com.jake.duolauncher.R.string.material_you_note), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    SettingsSwitch("Color from wallpaper", appearance.wallpaperColor, onWallpaperColor, "wallpaper-color-switch")
-                    Text(stringResource(com.jake.duolauncher.R.string.takes_one_color_from_your_wallpaper),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(stringResource(com.jake.duolauncher.R.string.height_widens_the_glass_rim_the),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                    WallpaperGroups(backgrounds, state, appearance.dark, onWallpaperPreview)
                     AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear, onAppearanceCancelLocation)
-                    if (extras != null) {
-                        SettingsGroupLabel("App icons")
-                        ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.ICONS)
-                    }
+                    GlassGroups(appearance, onGlass, onTiltHighlight, onWallpaperColor, onWallpaperDepth)
+                    if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.ICONS)
                 }
                 CustomizationPage.HOME -> HomeLayoutSettings(state, wide, { wide = it }, model, homePage,
                     onEditPins, onWidget, onAddWidget, onRemoveWidget, appearance.homeStyle, onHomeStyle)
                 CustomizationPage.GESTURES -> {
-                    SettingsSwitch("Show app names", state.labels, model::setLabels, "label-switch")
-                    // The iOS layout has no status rail on a phone-sized screen (the system status bar shows), so the switch says so.
-                    SettingsSwitch("Show status at upper right", state.verticalStatus, model::setVerticalStatus, "status-switch")
-                    if (appearance.homeStyle == HomeStyle.IOS) Text(stringResource(com.jake.duolauncher.R.string.home_layout_ios_rail_note),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(stringResource(com.jake.duolauncher.R.string.swipe_sideways_anywhere_on_home_to),
-                        style = MaterialTheme.typography.bodyMedium)
-                    if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.GESTURES)
+                    if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.GESTURES)
+                    // The status rail belongs to the side dock; the iPhone layout shows the system status bar instead.
+                    if (appearance.homeStyle == HomeStyle.SIDE || wide) SettingsGroup(footer = "Battery, time and signal in a glass column above the side dock.") {
+                        row { SettingsSwitch("Status at Upper Right", state.verticalStatus, model::setVerticalStatus, "status-switch") }
+                    }
+                    SettingsGroup(footer = "Swipe sideways on Home to change pages, and up anywhere to open these settings.") {}
                 }
                 CustomizationPage.SEARCH -> {
-                    SettingsSwitch("Search button opens Google", state.googleSearch, model::setGoogleSearch, "google-search-switch")
-                    Text(stringResource(com.jake.duolauncher.R.string.all_apps_always_keeps_local_app), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.SEARCH)
-                }
-                CustomizationPage.ISLAND -> {
-                    val islandApps = model.state.collectAsState().value.apps
-                    if (appearance.island && extras != null) Text(stringResource(com.jake.duolauncher.R.string.island_preview_note),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.island_group_basics))
-                    SettingsSwitch("Dynamic island", appearance.island, onIsland, "island-switch")
-                    SettingsSwitch("Island everywhere", islandEverywhere, onIslandEverywhere, "island-everywhere-switch")
-                    Text(stringResource(com.jake.duolauncher.R.string.shows_the_island_above_other_apps),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    // Over other apps through "display over other apps" (not Uno's accessibility service), Android draws the island at 80% opacity
-                    // so touches can pass through it: grey, not black. Say so, and how to get the solid island.
-                    if (islandEverywhere && !SystemShadeAccessibilityService.isConnected()) Text(stringResource(com.jake.duolauncher.R.string.island_overlay_grey_note),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("island-grey-note"))
-                    if (extras != null) IslandSettingsPart(extras, islandApps, IslandPart.HOME_STILL)
-                    if (appearance.island) CustomizationSlider("Island size",
-                        "${(appearance.islandScale * 100).toInt()}%", appearance.islandScale, 0f..1f,
-                        tag = "island-scale-slider") { onIslandScale(it); islandPreview.show(com.jake.duolauncher.island.PreviewScene.IDLE) }
-                    Text(stringResource(com.jake.duolauncher.R.string.a_liquid_capsule_at_the_camera),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (appearance.island) CustomizationDestination(Icons.Rounded.Straighten, "Line up with the status bar",
-                        "So the island never cuts an icon in half", "customization-status-grid") { onPage(CustomizationPage.STATUS_GRID) }
-                    if (appearance.island) {
-                        SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.island_group_looks))
-                        if (extras != null) IslandSettingsPart(extras, islandApps, IslandPart.LOOKS)
-                        IslandStyleSection(IslandThemeController.current)
+                    SettingsGroup(footer = "The search pill opens Google's own search page in your browser. All Apps always searches your apps on the phone.") {
+                        row { SettingsSwitch("Search Button Opens Google", state.googleSearch, model::setGoogleSearch, "google-search-switch") }
                     }
-                    if (extras != null) {
-                        SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.island_group_shows))
-                        IslandSettingsPart(extras, islandApps, IslandPart.SHOWS)
-                        SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.island_group_notifications))
-                        IslandSettingsPart(extras, islandApps, IslandPart.NOTIFICATIONS)
-                        SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.island_group_timer))
-                        IslandSettingsPart(extras, islandApps, IslandPart.TIMER)
-                        SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.island_group_reference))
-                        IslandSettingsPart(extras, islandApps, IslandPart.REFERENCE)
-                        IslandSettingsPart(extras, islandApps, IslandPart.DEBUG)
-                    }
+                    if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.SEARCH)
                 }
-                CustomizationPage.KEYBOARD -> if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.KEYBOARD)
+                CustomizationPage.ISLAND -> IslandPage(appearance, extras, apps, islandEverywhere, onIsland, onIslandEverywhere, onPage)
+                CustomizationPage.ISLAND_STYLE -> SettingsGroup { row { IslandStyleSection(IslandThemeController.current) } }
+                CustomizationPage.KEYBOARD -> if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.KEYBOARD)
                 CustomizationPage.PRIVACY -> {
-                    if (extras != null) ExtrasSettingsPage(extras, model.state.collectAsState().value.apps, ExtrasSection.PRIVACY)
+                    if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.PRIVACY)
                     val hiddenState = model.state.collectAsState().value
-                    HiddenAppsSetting(hiddenState.apps.filter { it.id in hiddenState.hiddenApps }) { model.unhideApp(it.id) }
-                    if (extras != null) PermissionLedgerSection(extras)
+                    SettingsGroup { row { Column(Modifier.padding(vertical = Space.M.dp)) {
+                        HiddenAppsSetting(hiddenState.apps.filter { it.id in hiddenState.hiddenApps }) { model.unhideApp(it.id) } } } }
+                    if (extras != null) SettingsGroup { row { Column(Modifier.padding(vertical = Space.M.dp)) { PermissionLedgerSection(extras) } } }
                 }
                 CustomizationPage.DEBUG -> IslandDebugSettings()
                 CustomizationPage.STATUS_GRID -> StatusBarCalibrationSettings()
                 CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onSourceEnabled, onImportOpml, onKeepPerFeed)
                 CustomizationPage.BACKUP -> {
-                    SettingsGroupLabel("Backup")
-                    Text(stringResource(com.jake.duolauncher.R.string.save_the_current_home_layout_folders),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GlassButton(onClick = onExportLayout, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("layout-export")) { Text(stringResource(com.jake.duolauncher.R.string.save)) }
-                        GlassButton(prominent = true, onClick = onImportLayout, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("layout-import")) { Text(stringResource(com.jake.duolauncher.R.string.restore)) }
+                    SettingsGroup(header = "Backup", footer = "Saves Home, folders, widgets and your Uno settings to a file. Restore shows a review before anything changes.") {
+                        row { ActionRow("Save Backup…", "layout-export", onClick = onExportLayout) }
+                        row { ActionRow("Restore Backup…", "layout-import", onClick = onImportLayout) }
                     }
-                    Text(stringResource(com.jake.duolauncher.R.string.restore_shows_a_review_before_changing), style = MaterialTheme.typography.bodySmall)
-                    SettingsGroupLabel("Updates")
-                    UpdatesPanel(updates, onCheckUpdates, onInstallRelease, onAutoUpdate)
-                    SettingsGroupLabel("Help & setup")
-                    LauncherHelp(
-                        isDefaultHome = isDefaultHome,
-                        onHomeSettings = onMakeDefault,
-                        onAddWidget = { onAddWidget(homePage) },
-                        onShadeSetup = onShadeSetup,
-                    )
+                    SettingsGroup(header = "Updates") { row { Column(Modifier.padding(vertical = Space.M.dp), verticalArrangement = Arrangement.spacedBy(Space.S.dp)) {
+                        UpdatesPanel(updates, onCheckUpdates, onInstallRelease, onAutoUpdate) } } }
+                    LauncherHelp(isDefaultHome = isDefaultHome, onHomeSettings = onMakeDefault, onAddWidget = { onAddWidget(homePage) }, onShadeSetup = onShadeSetup)
                 }
             }
         }
         }
     }
+}
+
+/** The first page: search, then the pages in iOS's grouped rows, each with its coloured icon tile. */
+@Composable
+private fun OverviewPage(state: LauncherState, model: LauncherModel, isDefaultHome: Boolean, onMakeDefault: () -> Unit,
+    onPage: (CustomizationPage) -> Unit, onClose: () -> Unit) {
+    // Search every setting by name, and go straight to its page.
+    var settingsQuery by rememberSaveable { mutableStateOf("") }
+    GlassTextField(settingsQuery, { settingsQuery = it }, Modifier.fillMaxWidth(), placeholder = stringResource(com.jake.duolauncher.R.string.search_settings),
+        singleLine = true, minHeight = 40.dp, tag = "settings-search")
+    val found = SettingsSearch.search(settingsQuery)
+    if (settingsQuery.isNotBlank()) {
+        SettingsGroup(footer = if (found.isEmpty()) stringResource(com.jake.duolauncher.R.string.no_settings_match) else null) {
+            found.take(12).forEach { e -> row { NavRow(e.title, "settings-result", value = SettingsSearch.pageName(e.page)) { settingsQuery = ""; onPage(e.page) } } }
+        }
+        return
+    }
+    if (!isDefaultHome || state.canUndoEdit) SettingsGroup {
+        if (!isDefaultHome) row { ActionRow(stringResource(com.jake.duolauncher.R.string.set_as_home_app), "default-home-settings", onClick = onMakeDefault) }
+        if (state.canUndoEdit) row { ActionRow(stringResource(com.jake.duolauncher.R.string.undo_last_layout_change), "undo-layout") { model.undoEdit(); onClose() } }
+    }
+    SettingsGroup {
+        row { NavRow("Appearance", "customization-wallpaper", icon = Icons.Rounded.Wallpaper, iconTint = Color(0xFF0A84FF)) { onPage(CustomizationPage.APPEARANCE) } }
+        row { NavRow("Home Screen", "customization-home", icon = Icons.Rounded.GridView, iconTint = Color(0xFF5E5CE6)) { onPage(CustomizationPage.HOME) } }
+        row { NavRow("Island", "customization-island", icon = IslandPillIcon, iconTint = Color(0xFF1C1C1E)) { onPage(CustomizationPage.ISLAND) } }
+    }
+    SettingsGroup {
+        row { NavRow("Notifications & Privacy", "customization-privacy", icon = Icons.Rounded.Notifications, iconTint = Color(0xFFFF3B30)) { onPage(CustomizationPage.PRIVACY) } }
+        row { NavRow("Gestures", "customization-gestures", icon = Icons.Rounded.Gesture, iconTint = Color(0xFF8E8E93)) { onPage(CustomizationPage.GESTURES) } }
+        row { NavRow("Search", "customization-search", icon = Icons.Rounded.Search, iconTint = Color(0xFF8E8E93)) { onPage(CustomizationPage.SEARCH) } }
+        row { NavRow("Keyboard", "customization-keyboard", icon = Icons.Rounded.Keyboard, iconTint = Color(0xFF8E8E93)) { onPage(CustomizationPage.KEYBOARD) } }
+        row { NavRow("News Feed", "customization-feed", icon = Icons.Rounded.RssFeed, iconTint = IosOrange) { onPage(CustomizationPage.FEED) } }
+    }
+    val debuggable = androidx.compose.ui.platform.LocalContext.current.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+    SettingsGroup {
+        row { NavRow("General", "customization-backup", icon = Icons.Rounded.Settings, iconTint = Color(0xFF8E8E93)) { onPage(CustomizationPage.BACKUP) } }
+        // Only a debug build has the island debug page; a release build neither shows it nor reads anything it saved.
+        if (debuggable) row { NavRow("Island Debug", "customization-debug", icon = Icons.Rounded.BugReport, iconTint = Color(0xFF30D158)) { onPage(CustomizationPage.DEBUG) } }
+    }
+    if (isDefaultHome) SettingsGroup { row { ActionRow(stringResource(com.jake.duolauncher.R.string.change_home_app), "default-home-settings", onClick = onMakeDefault) } }
+}
+
+/** Glass, accent and depth: Appearance's groups below the wallpaper and light and dark. */
+@Composable
+private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> Unit, onTiltHighlight: (Boolean) -> Unit,
+    onWallpaperColor: (Boolean) -> Unit, onWallpaperDepth: (Boolean) -> Unit) {
+    val samples = GlassRim.samples.intValue
+    SettingsGroup(header = "Glass", footer = buildString {
+        append("Clear is iOS's Liquid Glass: see-through, with a bright edge. Frosted keeps a soft tint behind text. Sheets stay frosted either way.")
+        if (appearance.liquidGlass) append(" Tilt Highlight moves the edge light as you tilt the phone.")
+        if (appearance.liquidGlass && appearance.tiltHighlight && samples == 0) append(" No motion readings yet: on GrapheneOS, allow Sensors for Uno Launcher.")
+    }) {
+        row { SegmentRow(GlassChoice.entries, appearance.glassKind, { when (it) { GlassChoice.CLEAR -> "Clear"; GlassChoice.FROSTED -> "Frosted"; GlassChoice.OFF -> "Off" } },
+            { "glass-${it.name.lowercase()}" }, onGlass) }
+        if (appearance.liquidGlass) row { SettingsSwitch("Tilt Highlight", appearance.tiltHighlight, onTiltHighlight, "tilt-highlight-switch") }
+    }
+    SettingsGroup(header = "Accent", footer = "The colour of switches, sliders, check marks and highlights. From Wallpaper picks one colour from your background and keeps text readable.") {
+        row { CheckRow("Uno Orange", !appearance.wallpaperColor, "accent-orange") { onWallpaperColor(false) } }
+        row { CheckRow("From Wallpaper", appearance.wallpaperColor, "accent-wallpaper") { onWallpaperColor(true) } }
+    }
+    SettingsGroup(footer = "The wallpaper drifts a little against the pages as you swipe. It stays still when Android's animations are off.") {
+        row { SettingsSwitch("Wallpaper Depth", appearance.wallpaperDepth, onWallpaperDepth, "wallpaper-depth-switch") }
+    }
+}
+
+/** The island's page: on and where, a way to line it up, what it shows, notifications, and its style a page further in. */
+@Composable
+private fun IslandPage(appearance: AppearanceState, extras: ExtrasActions?, apps: List<AppEntry>, islandEverywhere: Boolean,
+    onIsland: (Boolean) -> Unit, onIslandEverywhere: (Boolean) -> Unit, onPage: (CustomizationPage) -> Unit) {
+    val greyOverlay = islandEverywhere && !SystemShadeAccessibilityService.isConnected()
+    SettingsGroup(footer = buildString {
+        append("A capsule at the camera that shows the time, music, timers and what apps are doing, and opens with a tap.")
+        append(" Over Other Apps keeps it there in every app.")
+        if (greyOverlay) append(" Without Uno's accessibility service Android draws it slightly see-through over apps, so it looks grey; turn the service on for a solid island that also covers the status bar.")
+        else append(" With Uno's accessibility service on, the Home island stays still at the camera while Android animates the launcher.")
+    }) {
+        row { SettingsSwitch("Island", appearance.island, onIsland, "island-switch") }
+        row { SettingsSwitch("Over Other Apps", islandEverywhere, onIslandEverywhere, "island-everywhere-switch") }
+        if (appearance.island) row { NavRow("Line Up with Status Bar", "customization-status-grid") { onPage(CustomizationPage.STATUS_GRID) } }
+        if (appearance.island) row { NavRow("Style", "customization-island-style", value = IslandThemes.active.name) { onPage(CustomizationPage.ISLAND_STYLE) } }
+    }
+    if (extras != null) IslandSettingsGroups(extras, apps)
 }
 
 @Composable
@@ -321,57 +259,29 @@ private fun LauncherHelp(
     onAddWidget: () -> Unit,
     onShadeSetup: () -> Unit,
 ) {
-    HelpSection(Icons.Rounded.Home, "Home app",
-        if (isDefaultHome) "Uno Launcher is your Home app. You can switch launchers in Android’s Home settings."
-        else "Choose Uno Launcher in Android’s Home settings to use it when you press Home.")
-    GlassButton(prominent = true, onClick = onHomeSettings, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-home-settings")) {
-        Text(if (isDefaultHome) "Change home app" else "Set Uno Launcher as Home")
+    SettingsGroup(header = "Help", footer = "Swipe up anywhere on Home to open these settings, or long-press empty space. If a page is full, long-press the slim area at its left edge.") {
+        row { HelpSection(Icons.Rounded.Home, "Home app",
+            if (isDefaultHome) "Uno Launcher is your Home app. You can switch launchers in Android’s Home settings."
+            else "Choose Uno Launcher in Android’s Home settings to use it when you press Home.") }
+        row { ActionRow(if (isDefaultHome) "Change Home App" else "Set Uno Launcher as Home", "help-home-settings", onClick = onHomeSettings) }
+        row { HelpSection(Icons.Rounded.Widgets, "Widgets", "Add Android widgets to empty Home cells. Hold a widget to move or remove it.") }
+        row { ActionRow("Add Widget to This Page", "help-add-widget", onClick = onAddWidget) }
+        row { HelpSection(Icons.Rounded.SwipeDown, "Notifications and Quick Settings",
+            "Optional. Swiping down on Home can open the system panels, but Android only allows that through an accessibility service you turn on yourself. It can’t read your screen or see other apps, and you can turn it off any time in Settings › Accessibility. If you decline, swiping down on Home just does nothing.") }
+        row { ActionRow("Set Up Shade Gestures", "help-shade-setup", onClick = onShadeSetup) }
+        row { HelpSection(Icons.Rounded.Explore, "Discover",
+            "Swipe right from the first Home page. If Google can't provide the feed, Uno Launcher keeps a Home return and recovery actions available. Add your own feeds under News Feed to fill this slot without Google.") }
     }
-    HorizontalDivider(Modifier.padding(vertical = 4.dp))
-    HelpSection(Icons.Rounded.TouchApp, "Settings on any page",
-        "Swipe up anywhere on Home to open these settings, or long-press empty space and choose Launcher settings. If a page is full, long-press the slim area at its left edge.")
-    HelpSection(Icons.Rounded.Widgets, "Widgets",
-        "Add Android widgets to empty Home cells. Hold a widget to move or remove it.")
-    GlassButton(onClick = onAddWidget, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-add-widget")) {
-        Text(stringResource(com.jake.duolauncher.R.string.add_widget_to_this_page))
-    }
-    HorizontalDivider(Modifier.padding(vertical = 4.dp))
-    HelpSection(Icons.Rounded.SwipeDown, "Notifications and quick settings",
-        "Optional. Swiping down on Home can open the system panels, but Android only allows that through an Accessibility service you turn on yourself. It can’t read your screen or see other apps, it stays off until you enable it, and you can turn it off any time in Settings → Accessibility. If you decline, swiping down on Home just does nothing.")
-    GlassButton(onClick = onShadeSetup, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("help-shade-setup")) {
-        Text(stringResource(com.jake.duolauncher.R.string.set_up_shade_gestures))
-    }
-    HelpSection(Icons.Rounded.Explore, "Discover",
-        "Swipe right from the first Home page. If Google can't provide the feed, Uno Launcher keeps a Home return and recovery actions available. Add your own feeds under News feed to fill this slot without Google.")
 }
 
 @Composable
 private fun HelpSection(icon: ImageVector, title: String, detail: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.Top) {
-        Icon(icon, null, Modifier.padding(top = 2.dp).size(22.dp), tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(12.dp))
+    Row(Modifier.fillMaxWidth().padding(vertical = Space.M.dp), verticalAlignment = Alignment.Top) {
+        Icon(icon, null, Modifier.padding(top = 2.dp).size(22.dp), tint = SettingsAccent)
+        Spacer(Modifier.width(Space.M.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(detail, style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-/** The small grey heading above a group of rows on the settings overview, as in iOS Settings. */
-@Composable private fun SettingsGroupLabel(text: String) {
-    Text(text.uppercase(), Modifier.padding(start = 6.dp, top = 12.dp), style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold),
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
-}
-
-@Composable private fun CustomizationDestination(icon: ImageVector, title: String, detail: String, tag: String, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag(tag),
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), shape = Corner.medium) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.titleMedium); Text(detail,
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            Icon(Icons.Rounded.ChevronRight, null)
+            Text(title, style = UnoType.body.copy(fontWeight = FontWeight.SemiBold))
+            Text(detail, style = UnoType.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -417,111 +327,50 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
 }
 
 /**
- * The background chooser: a phone-shaped preview of Home on top, then whatever is being decided. A photo being previewed can be dragged into
- * place, pinched to zoom, and toned (brightness, blur, colour, warmth) before Apply; a built-in scene being looked at is shown the same way,
- * with Apply and Cancel. Nothing changes the real background until Apply.
+ * Appearance's wallpaper groups: a phone-shaped preview of Home (tap it to edit the photo), then choosing a photo or a built-in scene, and
+ * Android's own wallpaper. Choosing either opens the full-screen editor ([WallpaperEditor]); nothing changes until Done there.
  */
-@Composable private fun WallpaperSection(backgrounds: LauncherBackgroundController, state: LauncherState, dark: Boolean) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val metrics = context.resources.displayMetrics
-    val screenAspect = minOf(metrics.widthPixels, metrics.heightPixels).toFloat() / maxOf(metrics.widthPixels, metrics.heightPixels)
-    val editing = backgrounds.previewPending && backgrounds.previewBitmap != null
-    val adjust = backgrounds.adjust
-    val adjusted = adjustedPreview(if (editing) backgrounds.previewBitmap else null, screenAspect, adjust)
-    val latestAdjust by rememberUpdatedState(adjust)
-    val drag = if (!editing) Modifier else Modifier.pointerInput(backgrounds.previewBitmap) {
-        detectTransformGestures { _, pan, zoom, _ ->
-            val a = latestAdjust
-            val z = (a.zoom * zoom).coerceIn(1f, WallpaperAdjust.MAX_ZOOM)
-            // a drag of the whole preview's width moves the crop from one edge to the other (at this zoom: less room, slower)
-            backgrounds.updateAdjust(a.copy(zoom = z, panX = a.panX - pan.x * 2f / size.width, panY = a.panY - pan.y * 2f / size.height))
-        }
+@Composable private fun WallpaperGroups(backgrounds: LauncherBackgroundController, state: LauncherState, dark: Boolean, onWallpaperPreview: () -> Unit) {
+    MiniHomePreview(null, state, 228.dp, dark = dark, surface = Modifier.clickable(enabled = backgrounds.photoSelected && !backgrounds.loading,
+        role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "Edit photo", onClick = backgrounds::adjustCurrent))
+    if (backgrounds.loading && !backgrounds.previewPending) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("background-loading"), color = SettingsAccent)
+    (backgrounds.errorMessage ?: backgrounds.successMessage)?.takeIf { !backgrounds.previewPending }?.let { message ->
+        GlassButton(onClick = backgrounds::clearMessage, modifier = Modifier.fillMaxWidth().testTag("background-message")) { Text(message) }
     }
-    MiniHomePreview(if (editing) adjusted ?: backgrounds.previewBitmap else backgrounds.previewBitmap, state, if (editing) 330.dp else 228.dp,
-        builtin = backgrounds.pendingBuiltin, dark = dark, aspect = if (editing) screenAspect else .632f, surface = drag)
-    if (editing) Text(stringResource(com.jake.duolauncher.R.string.wallpaper_drag_hint), style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-    // Apply and Cancel sit right under the preview, whichever kind of background is being decided.
-    if (backgrounds.previewPending) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        GlassButton(onClick = backgrounds::cancelPreview, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-            .testTag("background-preview-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
-        GlassButton(prominent = true, onClick = backgrounds::applyPreview, enabled = backgrounds.previewBitmap != null && !backgrounds.applying,
-            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("background-preview-apply")) { Text(stringResource(com.jake.duolauncher.R.string.apply)) }
+    SettingsGroup(header = "Wallpaper", footer = "Swipe to try styles and pinch with two fingers to frame the photo before you tap Done.") {
+        row { ActionRow(if (backgrounds.photoSelected) stringResource(com.jake.duolauncher.R.string.wallpaper_choose_different) else stringResource(com.jake.duolauncher.R.string.wallpaper_choose_photo),
+            "background-choose", enabled = !backgrounds.loading, onClick = backgrounds::choosePhoto) }
+        if (backgrounds.photoSelected) row { ActionRow("Edit Photo", "background-adjust", enabled = !backgrounds.loading, onClick = backgrounds::adjustCurrent) }
+        if (backgrounds.photoSelected) row { ActionRow("Remove Photo", "background-reset", destructive = true, onClick = backgrounds::reset) }
     }
-    backgrounds.pendingBuiltin?.let { pending ->
-        Text(stringResource(com.jake.duolauncher.R.string.wallpaper_builtin_pending, pending.label), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GlassButton(onClick = backgrounds::cancelBuiltin, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                .testTag("builtin-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
-            GlassButton(prominent = true, onClick = backgrounds::applyBuiltin, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                .testTag("builtin-apply")) { Text(stringResource(com.jake.duolauncher.R.string.apply)) }
-        }
+    SettingsGroup(header = "Built-in", footer = "The scenes follow light and dark.") {
+        row { Box(Modifier.padding(vertical = Space.M.dp)) { BuiltInBackgroundPicker(backgrounds.builtin.takeIf { !backgrounds.photoSelected }, backgrounds::chooseBuiltin, dark) } }
     }
-    if (editing) {
-        SettingsGroupLabel(stringResource(com.jake.duolauncher.R.string.wallpaper_adjust_heading))
-        CustomizationSlider(stringResource(com.jake.duolauncher.R.string.wallpaper_zoom), "${(adjust.zoom * 100).toInt()}%", adjust.zoom, 1f..WallpaperAdjust.MAX_ZOOM,
-            tag = "wallpaper-zoom") { backgrounds.updateAdjust(adjust.copy(zoom = it)) }
-        CustomizationSlider(stringResource(com.jake.duolauncher.R.string.wallpaper_brightness), signedPercent(adjust.brightness), adjust.brightness, -1f..1f,
-            tag = "wallpaper-brightness") { backgrounds.updateAdjust(adjust.copy(brightness = it)) }
-        CustomizationSlider(stringResource(com.jake.duolauncher.R.string.wallpaper_blur), "${(adjust.blur * 100).toInt()}%", adjust.blur, 0f..1f,
-            tag = "wallpaper-blur") { backgrounds.updateAdjust(adjust.copy(blur = it)) }
-        CustomizationSlider(stringResource(com.jake.duolauncher.R.string.wallpaper_saturation), "${(adjust.saturation * 100).toInt()}%", adjust.saturation, 0f..2f,
-            tag = "wallpaper-saturation") { backgrounds.updateAdjust(adjust.copy(saturation = it)) }
-        CustomizationSlider(stringResource(com.jake.duolauncher.R.string.wallpaper_warmth), signedPercent(adjust.warmth), adjust.warmth, -1f..1f,
-            tag = "wallpaper-warmth") { backgrounds.updateAdjust(adjust.copy(warmth = it)) }
-        if (!adjust.isNeutral) GlassButton(onClick = { backgrounds.updateAdjust(WallpaperAdjust()) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            .testTag("wallpaper-adjust-reset")) { Text(stringResource(com.jake.duolauncher.R.string.wallpaper_adjust_reset)) }
-        HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    }
-    Text(stringResource(com.jake.duolauncher.R.string.launcher_background), style = MaterialTheme.typography.titleMedium)
-    Text(stringResource(com.jake.duolauncher.R.string.changes_the_image_behind_uno_launcher), style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
-    BuiltInBackgroundPicker(backgrounds.pendingBuiltin ?: backgrounds.builtin,
-        backgrounds::chooseBuiltin, dark)
-    GlassButton(prominent = true, onClick = backgrounds::choosePhoto, enabled = !backgrounds.loading,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("background-choose")) {
-        Text(if (backgrounds.previewPending) stringResource(com.jake.duolauncher.R.string.wallpaper_choose_different) else stringResource(com.jake.duolauncher.R.string.wallpaper_choose_photo))
+    SettingsGroup(footer = "Android Wallpaper Too also sets the phone's own Home and lock screen to the picture you choose here, replacing what is there. Nothing leaves the phone.") {
+        row { SettingsSwitch("Android Wallpaper Too", backgrounds.systemSync, backgrounds::chooseSystemSync, "system-wallpaper-sync-switch") }
+        row { ActionRow("Open Android Wallpaper", "wallpaper-preview", onClick = onWallpaperPreview) }
     }
 }
 
-private fun signedPercent(v: Float): String = (v * 100).toInt().let { if (it > 0) "+$it%" else "$it%" }
-
-/**
- * The previewed photo with the adjustments applied, made by the same code that makes the saved picture ([WallpaperAdjustMath.bake]) at a small
- * size, off the main thread, newest adjustment winning. Null until the first one is ready (the caller shows the plain photo meanwhile).
- */
-@Composable private fun adjustedPreview(source: android.graphics.Bitmap?, aspect: Float, adjust: WallpaperAdjust): android.graphics.Bitmap? {
-    val small = remember(source) {
-        source?.let { s -> val k = minOf(1f, 720f / maxOf(s.width, s.height))
-            if (k >= 1f) s else android.graphics.Bitmap.createScaledBitmap(s, maxOf(1, (s.width * k).toInt()), maxOf(1, (s.height * k).toInt()), true) }
-    }
-    var out by remember(source) { mutableStateOf<android.graphics.Bitmap?>(null) }
-    LaunchedEffect(small, aspect, adjust) {
-        val s = small ?: return@LaunchedEffect
-        out = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { WallpaperAdjustMath.bake(s, aspect, adjust, 720) }
-    }
-    return out
-}
-
-@Composable private fun BuiltInBackgroundPicker(selected: BuiltinBackground, onSelect: (BuiltinBackground) -> Unit, dark: Boolean) {
+/** The built-in scenes, three to a row; [selected] (null while a photo is the background) is ringed in the accent. Tiles nest concentrically:
+ *  a small-cornered tile, and the scene inside it inset 6 dp with its radius 6 dp less. */
+@Composable private fun BuiltInBackgroundPicker(selected: BuiltinBackground?, onSelect: (BuiltinBackground) -> Unit, dark: Boolean) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(com.jake.duolauncher.R.string.built_in_background), style = MaterialTheme.typography.titleSmall)
         // Three to a row, each tall enough to show the scene itself.
         BuiltinBackground.entries.chunked(3).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { builtin ->
                     val active = builtin == selected
                     // The chosen wallpaper wears the launcher's one accent (it was Material's lavender container and a teal ring).
-                    val accent = LocalWallpaperAccent.current?.accent ?: IosOrange
+                    val accent = SettingsAccent
                     Surface(onClick = { onSelect(builtin) },
                         modifier = Modifier.weight(1f).heightIn(min = 148.dp).testTag("builtin-${builtin.name.lowercase()}"),
-                        shape = Corner.medium,
+                        shape = Corner.small,
                         color = if (active) accent.copy(alpha = .16f)
                             else MaterialTheme.colorScheme.onSurface.copy(alpha = .08f),
                         border = if (active) BorderStroke(2.dp, accent) else null) {
                         Column(Modifier.padding(6.dp)) {
-                            Box(Modifier.fillMaxWidth().height(112.dp).clip(Corner.small)) { BuiltinPreview(builtin, dark) }
+                            Box(Modifier.fillMaxWidth().height(112.dp).clip(Corner.inside(12.dp, 6.dp))) { BuiltinPreview(builtin, dark) }
                             // Two lines, so "Dune glass" and "Dune range" stay distinct at large text sizes.
                             Text(builtin.label, Modifier.fillMaxWidth().padding(top = 4.dp), maxLines = 2,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -541,63 +390,66 @@ private fun signedPercent(v: Float): String = (v * 100).toInt().let { if (it > 0
     Canvas(modifier.fillMaxSize()) { drawBuiltin(builtin, dark) }
 }
 
+/**
+ * Home Screen: the layout (Uno's side dock, which suits foldables and wide screens, or the iPhone's), the pinned apps and labels, the side
+ * dock's measurements when it is in use, and the widgets on this page.
+ */
 @Composable private fun HomeLayoutSettings(state: LauncherState, wide: Boolean, onWide: (Boolean) -> Unit,
     model: LauncherModel, homePage: Int, onEditPins: () -> Unit, onWidget: (Int) -> Unit,
     onAddWidget: (Int) -> Unit, onRemoveWidget: (Int) -> Unit, homeStyle: HomeStyle = HomeStyle.SIDE, onHomeStyle: (HomeStyle) -> Unit = {}) {
     val p = if (wide) state.expanded else state.compact
+    SettingsGroup(header = "Screen", footer = "A foldable has a layout for each screen. The inner screen always uses the side dock.") {
+        row { SegmentRow(listOf(false, true), wide, { if (it) "Inner" else "Cover" }, { if (it) "home-screen-inner" else "home-screen-cover" }, onWide) }
+    }
     // The phone screen's layout: Uno's side dock, or the iPhone's (see HomeStyle). The inner screen always has the side dock.
-    if (!wide) {
-        Text(stringResource(com.jake.duolauncher.R.string.home_layout_label), style = MaterialTheme.typography.titleMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GlassChip(homeStyle == HomeStyle.SIDE, { onHomeStyle(HomeStyle.SIDE) }, label = { Text(stringResource(com.jake.duolauncher.R.string.home_layout_side)) },
-                modifier = Modifier.testTag("home-layout-side"))
-            GlassChip(homeStyle == HomeStyle.IOS, { onHomeStyle(HomeStyle.IOS) }, label = { Text(stringResource(com.jake.duolauncher.R.string.home_layout_ios)) },
-                modifier = Modifier.testTag("home-layout-ios"))
-        }
-        Text(stringResource(if (homeStyle == HomeStyle.IOS) com.jake.duolauncher.R.string.home_layout_ios_note else com.jake.duolauncher.R.string.home_layout_side_note),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (!wide) SettingsGroup(header = "Layout", footer = if (homeStyle == HomeStyle.IOS)
+            "iPhone: a strict iOS grid with Small, Medium and Large widgets, and the dock along the bottom with Search above it. The status bar shows instead of the status rail."
+            else "Side Dock: four apps in a column on the right, under the status rail. Good on foldables and wide screens.") {
+        row { CheckRow("Side Dock", homeStyle == HomeStyle.SIDE, "home-layout-side") { onHomeStyle(HomeStyle.SIDE) } }
+        row { CheckRow("iPhone", homeStyle == HomeStyle.IOS, "home-layout-ios") { onHomeStyle(HomeStyle.IOS) } }
     }
-    // The iOS grid sets its own icon size, spacing and dock; those sliders are for the side layout.
-    val iosHere = homeStyle == HomeStyle.IOS && !wide
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        GlassChip(!wide, { onWide(false) }, label = { Text(stringResource(com.jake.duolauncher.R.string.cover)) })
-        GlassChip(wide, { onWide(true) }, label = { Text(stringResource(com.jake.duolauncher.R.string.inner)) })
+    SettingsGroup {
+        row { NavRow("Pinned Apps", "home-pinned-apps", onClick = onEditPins) }
+        row { SettingsSwitch("Show App Names", state.labels, model::setLabels, "label-switch") }
     }
-    GlassButton(onClick = onEditPins, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.choose_home_apps)) }
-    if (!iosHere) {
-        CustomizationSlider("App icon size", "${p.iconSize.toInt()} dp", p.iconSize, 40f..68f) { model.setPreset(wide, p.copy(iconSize = it)) }
-        CustomizationSlider("Space between rows", "${p.rowGap.toInt()} dp", p.rowGap, 0f..28f) { model.setPreset(wide, p.copy(rowGap = it)) }
-        CustomizationSlider("Dock width", "${p.dockWidth.toInt()} dp", p.dockWidth, 56f..84f) { model.setPreset(wide, p.copy(dockWidth = it)) }
-        SettingsSwitch("Align dock with app rows", p.dockAlignToGrid, { model.setPreset(wide, p.copy(dockAlignToGrid = it)) })
-        if (!p.dockAlignToGrid) CustomizationSlider("Dock height on screen", "${(p.dockPosition * 100).toInt()}%", p.dockPosition, .25f.. .75f) { model.setPreset(wide, p.copy(dockPosition = it)) }
-        GlassButton(onClick = { model.setPreset(wide, LayoutPreset()) }, Modifier.fillMaxWidth()) { Text(stringResource(com.jake.duolauncher.R.string.reset_this_layout)) }
+    // The iOS grid sets its own icon size, spacing and dock; these are for the side layout.
+    if (homeStyle != HomeStyle.IOS || wide) SettingsGroup(header = "Side Dock") {
+        row { CustomizationSlider("Icon Size", "${p.iconSize.toInt()} dp", p.iconSize, 40f..68f) { model.setPreset(wide, p.copy(iconSize = it)) } }
+        row { CustomizationSlider("Row Spacing", "${p.rowGap.toInt()} dp", p.rowGap, 0f..28f) { model.setPreset(wide, p.copy(rowGap = it)) } }
+        row { CustomizationSlider("Dock Width", "${p.dockWidth.toInt()} dp", p.dockWidth, 56f..84f) { model.setPreset(wide, p.copy(dockWidth = it)) } }
+        row { SettingsSwitch("Align Dock with Rows", p.dockAlignToGrid, { model.setPreset(wide, p.copy(dockAlignToGrid = it)) }) }
+        if (!p.dockAlignToGrid) row { CustomizationSlider("Dock Position", "${(p.dockPosition * 100).toInt()}%", p.dockPosition, .25f.. .75f) { model.setPreset(wide, p.copy(dockPosition = it)) } }
+        row { ActionRow("Reset Layout", "home-reset-layout") { model.setPreset(wide, LayoutPreset()) } }
     }
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    Text("Widgets · Page ${homePage + 1}", style = MaterialTheme.typography.titleMedium)
-    state.widgetPlacements.filter { it.page == homePage || (wide && it.page == -1) }.forEach { placement ->
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (placement.page == -1) "Wide-screen page" else "${placement.spanX} × ${placement.spanY} widget · row ${placement.row + 1}", Modifier.weight(1f))
-            IconButton(onClick = { onRemoveWidget(placement.slot) }, modifier = Modifier.semantics { contentDescription = if (placement.page == -1) "Remove widget from Wide-screen page" else "Remove widget" }) { Icon(Icons.Rounded.DeleteOutline, null) }
-            GlassButton(onClick = { onWidget(placement.slot) }) { Text(stringResource(com.jake.duolauncher.R.string.replace)) }
-        }
+    val placements = state.widgetPlacements.filter { it.page == homePage || (wide && it.page == -1) }
+    SettingsGroup(header = "Widgets · Page ${homePage + 1}") {
+        placements.forEach { placement -> row {
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (placement.page == -1) "Wide-screen page" else "${placement.spanX} × ${placement.spanY} · Row ${placement.row + 1}", Modifier.weight(1f))
+                Text(stringResource(com.jake.duolauncher.R.string.replace), Modifier.clip(Corner.small).clickable { onWidget(placement.slot) }.padding(8.dp),
+                    color = SettingsAccent)
+                IconButton(onClick = { onRemoveWidget(placement.slot) }, modifier = Modifier.semantics { contentDescription = if (placement.page == -1) "Remove widget from Wide-screen page" else "Remove widget" }) {
+                    Icon(Icons.Rounded.RemoveCircle, null, tint = Color(0xFFFF3B30)) }
+            }
+        } }
+        row { ActionRow("Add Widget", "home-add-widget") { onAddWidget(homePage) } }
     }
-    GlassButton(onClick = { onAddWidget(homePage) }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(com.jake.duolauncher.R.string.add_widget_to_this_page)) }
 }
 
 @Composable internal fun SettingsSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit, tag: String? = null) {
     val glass = LocalPageGlass.current
     // The label and the switch are one control for a screen reader ("label, on, switch"), and the switch has a 48 dp touch target.
-    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f))
         LiquidSwitchControl(checked, onChecked, glass, Modifier.then(if (tag != null) Modifier.testTag(tag) else Modifier))
     }
 }
 
-@Composable private fun CustomizationSlider(label: String, valueLabel: String, value: Float,
+@Composable internal fun CustomizationSlider(label: String, valueLabel: String, value: Float,
     range: ClosedFloatingPointRange<Float>, tag: String? = null, onChange: (Float) -> Unit) {
     val glass = LocalPageGlass.current
-    Column(Modifier.then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
-        Row { Text(label, Modifier.weight(1f)); Text(valueLabel, color = if (glass != null) (LocalWallpaperAccent.current?.accent ?: IosOrange) else MaterialTheme.colorScheme.primary) }
+    Column(Modifier.padding(top = Space.M.dp, bottom = Space.XS.dp).then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
+        Row { Text(label, Modifier.weight(1f)); Text(valueLabel, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         LiquidSliderControl(value, range, onChange, glass, Modifier.semantics { contentDescription = label })
     }
 }

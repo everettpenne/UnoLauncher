@@ -27,19 +27,25 @@ data class AppearanceState(val mode: AppearanceMode = AppearanceMode.LIGHT, val 
     val latitude: Double? = null, val longitude: Double? = null, val locationTime: Long = 0,
     val deviceLocation: Boolean = false, val dark: Boolean = false, val fallback: String? = null,
     val locationStatus: String? = null, val liquidGlass: Boolean = true, val island: Boolean = true,
-    val islandScale: Float = .5f,
-    val refractionHeight: Float = .55f, val refractionAmount: Float = .55f, val refractionChroma: Float = 0f,
+    /** The launcher's accent: Uno orange, or (on) one colour taken from the wallpaper. */
     val wallpaperColor: Boolean = false, val tiltHighlight: Boolean = false,
-    val tiltStrength: Float = DEFAULT_STRENGTH,
-    /** Use the phone's Material You colours (taken from the system wallpaper) for controls and glass. */
-    val materialYou: Boolean = false,
     /** The wallpaper drifts a little against the pages as they scroll, for depth. Off, or with Android's animations off, it stays put. */
     val wallpaperDepth: Boolean = true,
     /** Home's layout on a phone-sized screen (see [HomeStyle]). */
     val homeStyle: HomeStyle = HomeStyle.SIDE,
     /** Home's glass (the dock, the status rail, widgets, the page dots and the search pill) is clear, with a bright edge, as iOS's Liquid
      * Glass is; off, it keeps its light frosted tint. Sheets and panels keep their tint either way, since their text sits on them. */
-    val clearGlass: Boolean = true)
+    val clearGlass: Boolean = true) {
+    /** The retired knobs' fixed values (see AppearanceStore.load), kept as properties so their readers need not change. */
+    val islandScale: Float get() = .5f
+    val tiltStrength: Float get() = DEFAULT_STRENGTH
+    internal val glass: GlassSettings get() = GlassSettings.Default
+    /** Home's glass in one word, as the Appearance page offers it. */
+    val glassKind: GlassChoice get() = when { !liquidGlass -> GlassChoice.OFF; clearGlass -> GlassChoice.CLEAR; else -> GlassChoice.FROSTED }
+}
+
+/** Appearance › Glass: iOS's clear Liquid Glass, the frosted tint, or no lens at all. */
+enum class GlassChoice { CLEAR, FROSTED, OFF }
 
 class AppearanceStore(private val context: Context) {
     private val prefs = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
@@ -51,39 +57,30 @@ class AppearanceStore(private val context: Context) {
         val mode = runCatching { AppearanceMode.valueOf(prefs.getString("mode", "LIGHT")!!) }.getOrDefault(AppearanceMode.LIGHT)
         val lat = runCatching { prefs.getString("lat", null)?.toDoubleOrNull() }.getOrNull()
         val lon = runCatching { prefs.getString("lon", null)?.toDoubleOrNull() }.getOrNull()
-        // One-time migration from the single refraction slider to the three lens knobs.
-        val legacyRefraction = prefs.lenientFloat("refraction", .55f).coerceIn(0f, 1f)
+        // 0.104 retired the lens sliders (height, amount, colour fringe), the tilt strength, the island size and Material You: each now has
+        // one value (GlassSettings.Default, DEFAULT_STRENGTH, the middle size). Material You's place is taken by Accent › From wallpaper,
+        // so someone who had it on keeps colours taken from their wallpaper.
+        val materialYou = runCatching { prefs.getBoolean("materialYou", false) }.getOrDefault(false)
         return resolve(AppearanceState(mode, runCatching { prefs.getString("place", "") ?: "" }.getOrDefault(""), lat, lon,
             runCatching { prefs.getLong("locationTime", 0) }.getOrDefault(0),
             runCatching { prefs.getBoolean("deviceLocation", false) }.getOrDefault(false),
             liquidGlass = runCatching { prefs.getBoolean("liquidGlass", true) }.getOrDefault(true),
-            refractionHeight = prefs.lenientFloat("refractionHeight", legacyRefraction).coerceIn(0f, 1f),
-            refractionAmount = prefs.lenientFloat("refractionAmount", legacyRefraction).coerceIn(0f, 1f),
-            refractionChroma = prefs.lenientFloat("refractionChroma", if (legacyRefraction >= .5f) legacyRefraction else 0f).coerceIn(0f, 1f),
-            wallpaperColor = runCatching { prefs.getBoolean("wallpaperColor", false) }.getOrDefault(false),
-            materialYou = runCatching { prefs.getBoolean("materialYou", false) }.getOrDefault(false),
+            wallpaperColor = materialYou || runCatching { prefs.getBoolean("wallpaperColor", false) }.getOrDefault(false),
             wallpaperDepth = runCatching { prefs.getBoolean("wallpaperDepth", true) }.getOrDefault(true),
             homeStyle = runCatching { HomeStyle.valueOf(prefs.getString("homeStyle", null) ?: "SIDE") }.getOrDefault(HomeStyle.SIDE),
             clearGlass = runCatching { prefs.getBoolean("clearGlass", true) }.getOrDefault(true),
             tiltHighlight = runCatching { prefs.getBoolean("tiltHighlight", false) }.getOrDefault(false),
-            tiltStrength = prefs.lenientFloat("tiltStrength", DEFAULT_STRENGTH).coerceIn(0f, 1f),
-            island = runCatching { prefs.getBoolean("island", true) }.getOrDefault(true),
-            islandScale = prefs.lenientFloat("islandScale", .5f).coerceIn(0f, 1f)), systemDark)
+            island = runCatching { prefs.getBoolean("island", true) }.getOrDefault(true)), systemDark)
     }
     fun setMode(mode: AppearanceMode, systemDark: Boolean) { save(state.copy(mode = mode), systemDark) }
     fun setLiquidGlass(value: Boolean) { save(state.copy(liquidGlass = value), currentSystemDark()) }
     fun setWallpaperDepth(value: Boolean) { save(state.copy(wallpaperDepth = value), currentSystemDark()) }
     fun setHomeStyle(value: HomeStyle) { save(state.copy(homeStyle = value), currentSystemDark()) }
     fun setClearGlass(value: Boolean) { save(state.copy(clearGlass = value), currentSystemDark()) }
-    fun setMaterialYou(value: Boolean) { save(state.copy(materialYou = value), currentSystemDark()) }
+    fun setGlass(value: GlassChoice) { save(state.copy(liquidGlass = value != GlassChoice.OFF, clearGlass = value != GlassChoice.FROSTED), currentSystemDark()) }
     fun setWallpaperColor(value: Boolean) { save(state.copy(wallpaperColor = value), currentSystemDark()) }
     fun setTiltHighlight(value: Boolean) { save(state.copy(tiltHighlight = value), currentSystemDark()) }
-    fun setTiltStrength(value: Float) { save(state.copy(tiltStrength = value.coerceIn(0f, 1f)), currentSystemDark()) }
     fun setIsland(value: Boolean) { save(state.copy(island = value), currentSystemDark()) }
-    fun setIslandScale(value: Float) { save(state.copy(islandScale = value.coerceIn(0f, 1f)), currentSystemDark()) }
-    fun setRefractionHeight(value: Float) { save(state.copy(refractionHeight = value.coerceIn(0f, 1f)), currentSystemDark()) }
-    fun setRefractionAmount(value: Float) { save(state.copy(refractionAmount = value.coerceIn(0f, 1f)), currentSystemDark()) }
-    fun setRefractionChroma(value: Float) { save(state.copy(refractionChroma = value.coerceIn(0f, 1f)), currentSystemDark()) }
     fun setManual(place: String, latitude: Double, longitude: Double, systemDark: Boolean) {
         require(latitude in -90.0..90.0 && longitude in -180.0..180.0)
         save(state.copy(place = place.trim(), latitude = latitude, longitude = longitude,
@@ -106,13 +103,12 @@ class AppearanceStore(private val context: Context) {
             .putString("lat", value.latitude?.toString()).putString("lon", value.longitude?.toString())
             .putLong("locationTime", value.locationTime).putBoolean("deviceLocation", value.deviceLocation)
             .putBoolean("liquidGlass", value.liquidGlass)
-            .putFloat("refractionHeight", value.refractionHeight)
-            .putFloat("refractionAmount", value.refractionAmount)
-            .putFloat("refractionChroma", value.refractionChroma).putBoolean("island", value.island)
-            .putBoolean("wallpaperColor", value.wallpaperColor).putBoolean("tiltHighlight", value.tiltHighlight).putFloat("tiltStrength", value.tiltStrength)
-            .putBoolean("materialYou", value.materialYou).putBoolean("wallpaperDepth", value.wallpaperDepth)
+            .putBoolean("island", value.island)
+            .putBoolean("wallpaperColor", value.wallpaperColor).putBoolean("tiltHighlight", value.tiltHighlight)
+            .putBoolean("wallpaperDepth", value.wallpaperDepth)
             .putString("homeStyle", value.homeStyle.name).putBoolean("clearGlass", value.clearGlass).remove("unoStatusBar")
-            .putFloat("islandScale", value.islandScale).apply()
+            .remove("materialYou").remove("refraction").remove("refractionHeight").remove("refractionAmount").remove("refractionChroma")
+            .remove("tiltStrength").remove("islandScale").apply()
         state = resolve(value, systemDark)
         DuoAppearanceRuntime.dark = state.dark
     }

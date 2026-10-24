@@ -119,7 +119,7 @@ internal fun FolderPanel(
                 onLaunch, onMoveOut, commitAndClose, editTitle, rows, glass, pageGlass)
         }
         if (glassBackdrop != null) {
-            Box(panelModifier.liquidGlass(glassBackdrop, Corner.xlarge, glassTint, blurRadius = 4f, settings = settings)) { content() }
+            Box(panelModifier.liquidGlass(glassBackdrop, Corner.xlarge, glassTint, kind = GlassKind.REGULAR, settings = settings)) { content() }
         } else {
             Surface(panelModifier, color = glassTint, shape = Corner.xlarge,
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .6f))) { content() }

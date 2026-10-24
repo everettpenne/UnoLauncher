@@ -137,7 +137,7 @@ private fun EditCapsule(text: String, glass: PageGlass?, modifier: Modifier = Mo
     val ink = rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .12f else .0f)
     Box(modifier.heightIn(min = 48.dp), contentAlignment = Alignment.Center) {
         Box(Modifier.height(34.dp).then(ink.track)
-            .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.pill, glass.tint.copy(alpha = .12f), blurRadius = .75f, settings = glass.settings)
+            .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.pill, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings)
                 else Modifier.background(Glass.copy(alpha = .4f), Corner.pill))
             .clip(Corner.pill).clickable(onClick = onClick).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
             Text(text, color = ink.color, style = UnoType.subheadline,

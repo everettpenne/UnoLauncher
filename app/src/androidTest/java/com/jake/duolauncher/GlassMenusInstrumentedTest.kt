@@ -66,6 +66,7 @@ class GlassMenusInstrumentedTest {
         compose.waitForIdle()
         compose.openHomeCustomization()
         compose.onNodeWithTag("customization-island").performScrollTo().performClick()
+        compose.onNodeWithTag("customization-island-style").performScrollTo().performClick()
         compose.waitUntil(10_000) { present("island-style") }
         compose.onNodeWithTag("island-style").performScrollTo()
         IslandThemes.reset()
@@ -88,6 +89,7 @@ class GlassMenusInstrumentedTest {
         compose.onNodeWithContentDescription("Home page 1").performClick()
         compose.openHomeCustomization()
         compose.onNodeWithTag("customization-island").performScrollTo().performClick()
+        compose.onNodeWithTag("customization-island-style").performScrollTo().performClick()
         compose.waitUntil(10_000) { present("island-style") }
         compose.onNodeWithTag("island-theme-reset", useUnmergedTree = true).performScrollTo().performClick()
         compose.waitForIdle()

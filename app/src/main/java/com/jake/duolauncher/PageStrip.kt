@@ -85,7 +85,7 @@ internal fun PageStrip(
 
     Box(modifier.onGloballyPositioned { onBounds(it.boundsInRoot()) }
             .then(ink.track).then(if (glass != null) Modifier.liquidGlass(glass.backdrop,
-            Corner.pill, glass.tint.copy(alpha = .12f), blurRadius = .75f, settings = glass.settings) else Modifier)
+            Corner.pill, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings) else Modifier)
             .padding(horizontal = 6.dp),
         contentAlignment = Alignment.CenterStart) {
         Row(Modifier
@@ -173,7 +173,7 @@ internal fun PageStrip(
 internal fun HomeSearchPill(glass: PageGlass?, height: androidx.compose.ui.unit.Dp, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val ink = rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .12f else .0f)
     Row(modifier.height(height).then(ink.track)
-        .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.pill, glass.tint.copy(alpha = .12f), blurRadius = .75f, settings = glass.settings)
+        .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.pill, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings)
             else Modifier.background(Glass.copy(alpha = .3f), Corner.pill))
         .clip(Corner.pill).clickable(onClick = onClick).padding(horizontal = 16.dp)
         .testTag("home-search-pill"),

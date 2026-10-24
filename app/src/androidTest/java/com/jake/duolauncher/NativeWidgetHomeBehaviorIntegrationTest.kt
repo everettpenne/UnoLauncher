@@ -70,7 +70,7 @@ class NativeWidgetHomeBehaviorIntegrationTest {
                 if (listOf(candidate.text, candidate.contentDescription).any { it?.toString() == text }) return true
                 return (0 until candidate.childCount).any { contains(candidate.getChild(it), text) }
             }
-            val window = automation.windows.firstOrNull { contains(it.root, "Launcher settings") || contains(it.root, "Home layout") }
+            val window = automation.windows.firstOrNull { contains(it.root, "Home Screen") || contains(it.root, "Home Screen") }
             fun scrollable(candidate: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
                 if (candidate == null) return null
                 if (candidate.isVisibleToUser && candidate.isScrollable) return candidate
@@ -146,8 +146,8 @@ class NativeWidgetHomeBehaviorIntegrationTest {
                 slot = model.nextWidgetSlot()
             }
             tap("Home page 2")
-            openNativeHomeCustomization(automation) { click("Launcher settings") }; click("Home layout")
-            clickAfterScrolling("Add widget to this page")
+            openNativeHomeCustomization(automation) { click("Launcher settings") }; click("Home Screen")
+            clickAfterScrolling("Add Widget")
             val label = provider.loadLabel(main.packageManager).toString()
             search(label); await { find(label)?.isVisibleToUser == true }; click(label)
             await { find("Ready to place")?.isVisibleToUser == true }; click("Place")

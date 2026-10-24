@@ -92,7 +92,7 @@ class NativeAppearanceLocationIntegrationTest {
                 if (listOf(node.text, node.contentDescription).any { it?.toString() == text }) return true
                 return (0 until node.childCount).any { contains(node.getChild(it), text) }
             }
-            val settingsWindow = automation.windows.firstOrNull { contains(it.root, "Launcher settings") }
+            val settingsWindow = automation.windows.firstOrNull { contains(it.root, "Home Screen") }
             fun scrollable(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
                 if (node == null) return null
                 if (node.isVisibleToUser && node.isScrollable) return node
@@ -169,7 +169,7 @@ class NativeAppearanceLocationIntegrationTest {
 
             openNativeHomeCustomization(automation) { click("Launcher settings") }
             click("Appearance")
-            clickAfterScrolling("Sunrise / sunset")
+            clickAfterScrolling("Sunset to Sunrise")
             val launcherBefore = launcherPrefs.all.toMap()
             val appearanceBefore = appearancePrefs.all.toMap()
             val backgroundBefore = backgroundPrefs.all.toMap()

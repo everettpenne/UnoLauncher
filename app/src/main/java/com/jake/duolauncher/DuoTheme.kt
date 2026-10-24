@@ -13,20 +13,16 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 
-/** The theme for a saved appearance (light or dark, and Material You when it is on). */
+/** The theme for a saved appearance (light or dark). */
 @Composable
-fun DuoTheme(appearance: AppearanceState, content: @Composable () -> Unit) = DuoTheme(appearance.dark, appearance.materialYou, content)
+fun DuoTheme(appearance: AppearanceState, content: @Composable () -> Unit) = DuoTheme(appearance.dark, content = content)
 
 @Composable
-fun DuoTheme(dark: Boolean = false, materialYou: Boolean = false, content: @Composable () -> Unit) {
+fun DuoTheme(dark: Boolean = false, content: @Composable () -> Unit) {
     val palette = if (dark) DarkDuoPalette else LightDuoPalette
     CompositionLocalProvider(LocalDuoPalette provides palette) {
-        val context = androidx.compose.ui.platform.LocalContext.current
-        MaterialTheme(shapes = DuoMaterialShapes, typography = DuoTypography, colorScheme = if (materialYou && dark) androidx.compose.material3.dynamicDarkColorScheme(context)
-        else if (materialYou) androidx.compose.material3.dynamicLightColorScheme(context)
-        else if (dark) darkColorScheme(primary = Color(0xFF9BC5D7), onPrimary = Color(0xFF12303D),
+        MaterialTheme(shapes = DuoMaterialShapes, typography = DuoTypography, colorScheme = if (dark) darkColorScheme(primary = Color(0xFF9BC5D7), onPrimary = Color(0xFF12303D),
             surface = Color(0xFF17272E), onSurface = palette.ink, secondary = Color(0xFFD1BE98),
             secondaryContainer = Color(0xFF314852), onSecondaryContainer = palette.ink)
         else lightColorScheme(primary = Color(0xFF30596D), onPrimary = Color.White,

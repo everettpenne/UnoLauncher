@@ -189,11 +189,10 @@ class MainActivity : ComponentActivity() {
                 rawState.copy(apps = Focus.filter(rawState.apps, { it.id }, extrasState.focusOn, extrasState.focusHidden))
             }
             val deviceStatus = status.state.collectAsStateWithLifecycle().value
-            DuoTheme(appearance.state.dark, appearance.state.materialYou) {
+            DuoTheme(appearance.state.dark) {
                 androidx.compose.runtime.CompositionLocalProvider(LocalFeedFollow provides feeds::addFeed,
                     LocalWallpaperLuma provides rememberWallpaperLuma(appearance.state.dark),
-                    LocalWallpaperAccent provides (if (appearance.state.materialYou) rememberMaterialYouAccent(appearance.state.dark)
-                        else rememberWallpaperAccent(appearance.state.wallpaperColor, appearance.state.dark))) {
+                    LocalWallpaperAccent provides rememberWallpaperAccent(appearance.state.wallpaperColor, appearance.state.dark)) {
                 LauncherScreen(state, model, widgets, homeRequests.intValue,
                     onLaunch = { launchApp(it) }, onMakeDefault = ::makeDefault, onAppInfo = ::appInfo,
                     isDefaultHome = defaultHome.value, deviceStatus = deviceStatus, onStatusMode = ::setStatusMode, onWallpaperPreview = ::previewWallpaper,
@@ -224,15 +223,12 @@ class MainActivity : ComponentActivity() {
                     onSourceEnabled = feeds::setSourceEnabled,
                     onImportOpml = feeds::importOpml,
                     onKeepPerFeed = feeds::setKeepPerFeed,
-                    onLiquidGlass = appearance::setLiquidGlass,
+                    onGlass = appearance::setGlass,
                     onWallpaperColor = appearance::setWallpaperColor,
-                    onMaterialYou = appearance::setMaterialYou,
                     onWallpaperDepth = appearance::setWallpaperDepth,
                     onHomeStyle = appearance::setHomeStyle,
-                    onClearGlass = appearance::setClearGlass,
                     onStatusIconsDark = ::setStatusIconsDark,
                     onTiltHighlight = appearance::setTiltHighlight,
-                    onTiltStrength = appearance::setTiltStrength,
                     island = island,
                     onIsland = appearance::setIsland,
                     islandEverywhere = extrasStore.state.islandEverywhere,
@@ -240,11 +236,7 @@ class MainActivity : ComponentActivity() {
                     updates = updates.state.collectAsStateWithLifecycle().value,
                     onCheckUpdates = updates::checkNow,
                     onInstallRelease = updates::installRelease,
-                    onAutoUpdate = updates::setAutoUpdate,
-                    onIslandScale = appearance::setIslandScale,
-                    onRefractionHeight = appearance::setRefractionHeight,
-                    onRefractionAmount = appearance::setRefractionAmount,
-                    onRefractionChroma = appearance::setRefractionChroma)
+                    onAutoUpdate = updates::setAutoUpdate)
                 }
             }
         }

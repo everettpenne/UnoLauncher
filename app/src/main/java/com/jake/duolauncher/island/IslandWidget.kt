@@ -75,7 +75,7 @@ internal fun IslandWidgetPanel(modifier: Modifier = Modifier) {
     }
     val info = remember(id) { if (id >= 0) AppWidgetManager.getInstance(context).getAppWidgetInfo(id) else null }
     if (info != null) AndroidView(factory = { c -> host.createView(c, id, info) },
-        modifier = modifier.clip(RoundedCornerShape(14.dp)).testTag("island-widget"))
+        modifier = modifier.clip(islandCardShape()).testTag("island-widget"))
 }
 
 /** Picks, binds and removes the island's widget from Customize. */

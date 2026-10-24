@@ -185,6 +185,18 @@ internal object IslandGeometry {
      * ring around the hole. The overlay over other apps is compact while it has nothing to say, so it does not cover the system
      * status bar's own icons; it is 0 (full width) on Home and whenever there is content to show.
      */
+    /** The idle pill's width on the phone, in millimetres: about 13.5 mm, as asked for on the Pixel 10a (224 px at its 422.2 PPI). A physical
+     * width, so it is the same size in the hand on any phone. */
+    const val REST_WIDTH_MM = 13.5f
+
+    /** [mm] in dp on a screen whose real horizontal density is [xdpi] (dots per inch) and whose layout density is [density] (px per dp).
+     * Some phones report an xdpi far from the truth; one more than 30 % off the layout's own dpi (160 x [density]) is not trusted. */
+    fun mmToDp(mm: Float, xdpi: Float, density: Float): Float {
+        val layoutDpi = 160f * density
+        val dpi = if (xdpi > 0f && kotlin.math.abs(xdpi / layoutDpi - 1f) <= .3f) xdpi else layoutDpi
+        return mm / 25.4f * dpi / density
+    }
+
     /** How far past fully open a spring may carry the island: room for a bounce, a stretch or a splash. */
     const val MAX_OVERSHOOT = 1.35f
 

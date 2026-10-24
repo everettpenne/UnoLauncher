@@ -104,7 +104,7 @@ class NativeWidgetLifecycleIntegrationTest {
                 if (listOf(node.text, node.contentDescription).any { it?.toString() == text }) return true
                 return (0 until node.childCount).any { contains(node.getChild(it), text) }
             }
-            val window = automation.windows.firstOrNull { contains(it.root, "Launcher settings") || contains(it.root, "Home layout") }
+            val window = automation.windows.firstOrNull { contains(it.root, "Home Screen") || contains(it.root, "Home Screen") }
             fun scrollable(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
                 if (node == null) return null
                 if (node.isVisibleToUser && node.isScrollable) return node
@@ -182,8 +182,8 @@ class NativeWidgetLifecycleIntegrationTest {
 
             tap("Home page 2")
             shell("appwidget revokebind --package com.jake.duolauncher --user 0")
-            openNativeHomeCustomization(automation) { click("Launcher settings") }; click("Home layout")
-            clickAfterScrolling("Add widget to this page")
+            openNativeHomeCustomization(automation) { click("Launcher settings") }; click("Home Screen")
+            clickAfterScrolling("Add Widget")
             typeWidgetSearch(provider.loadLabel(main.packageManager).toString())
             click(provider.loadLabel(main.packageManager).toString())
             await { find("Ready to place")?.isVisibleToUser == true }
@@ -198,8 +198,8 @@ class NativeWidgetLifecycleIntegrationTest {
             assertFalse("Canceling system widget consent must delete its allocated ID",
                 bindCanceledId in widgets.host.appWidgetIds)
 
-            openNativeHomeCustomization(automation) { click("Launcher settings") }; click("Home layout")
-            clickAfterScrolling("Add widget to this page")
+            openNativeHomeCustomization(automation) { click("Launcher settings") }; click("Home Screen")
+            clickAfterScrolling("Add Widget")
             typeWidgetSearch(provider.loadLabel(main.packageManager).toString())
             click(provider.loadLabel(main.packageManager).toString())
             await { find("Ready to place")?.isVisibleToUser == true }
@@ -238,8 +238,8 @@ class NativeWidgetLifecycleIntegrationTest {
             assertNull(model.placement(slot))
             assertFalse(canceledId in widgets.host.appWidgetIds)
 
-            openNativeHomeCustomization(automation) { click("Launcher settings") }; click("Home layout")
-            clickAfterScrolling("Add widget to this page")
+            openNativeHomeCustomization(automation) { click("Launcher settings") }; click("Home Screen")
+            clickAfterScrolling("Add Widget")
             typeWidgetSearch(provider.loadLabel(main.packageManager).toString())
             click(provider.loadLabel(main.packageManager).toString())
             await { find("Ready to place")?.isVisibleToUser == true }

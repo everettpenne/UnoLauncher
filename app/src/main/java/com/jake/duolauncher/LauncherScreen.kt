@@ -134,27 +134,20 @@ internal fun LauncherScreen(
     onSourceEnabled: (String, Boolean) -> Unit = { _, _ -> },
     onImportOpml: (String) -> FeedOpmlResult = { _ -> FeedOpmlResult(0, 0) },
     onKeepPerFeed: (Int) -> Unit = {},
-    onLiquidGlass: (Boolean) -> Unit = {},
+    onGlass: (GlassChoice) -> Unit = {},
     onWallpaperColor: (Boolean) -> Unit = {},
-    onMaterialYou: (Boolean) -> Unit = {},
     onWallpaperDepth: (Boolean) -> Unit = {},
     onHomeStyle: (HomeStyle) -> Unit = {},
-    onClearGlass: (Boolean) -> Unit = {},
     onStatusIconsDark: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
-    onTiltStrength: (Float) -> Unit = {},
     island: IslandState = IslandState(),
     onIsland: (Boolean) -> Unit = {},
-    onIslandScale: (Float) -> Unit = {},
     islandEverywhere: Boolean = false,
     onIslandEverywhere: (Boolean) -> Unit = {},
     updates: UpdateState = UpdateState(),
     onCheckUpdates: () -> Unit = {},
     onInstallRelease: (String) -> Unit = {},
     onAutoUpdate: (Boolean) -> Unit = {},
-    onRefractionHeight: (Float) -> Unit = {},
-    onRefractionAmount: (Float) -> Unit = {},
-    onRefractionChroma: (Float) -> Unit = {},
 ) {
     var sheet by rememberSaveable { mutableStateOf("") }
     var dockSlot by rememberSaveable { mutableIntStateOf(0) }
@@ -608,7 +601,7 @@ internal fun LauncherScreen(
         onFinish = { cancelled -> finishDrag(cancelled) })) {
         val homeBackdrop = rememberHomeBackdrop()
         val glassEnabled = appearance.liquidGlass
-        val glassSettings = GlassSettings(appearance.refractionHeight, appearance.refractionAmount, appearance.refractionChroma)
+        val glassSettings = appearance.glass
         // With "Color from wallpaper" on, the glass takes the wallpaper's hue as well as the muted palette tint.
         val wallpaperAccent = LocalWallpaperAccent.current
         val glassTint = (if (glassEnabled) rememberGlassTint(Glass) else Glass).let { base ->
@@ -913,7 +906,7 @@ internal fun LauncherScreen(
                 val railInk = rememberAdaptiveInk(glassTint, if (glassEnabled) .12f else .0f)
                 if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.contentTop.dp)
                     .width(preset.dockWidth.dp).then(railInk.track)
-                    .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
+                    .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint, kind = GlassKind.CLEAR, settings = glassSettings)
                     .padding(vertical = 8.dp)) {
                     StatusRail(deviceStatus, Modifier.fillMaxWidth().onSizeChanged {
                         statusHeight = (with(density) { it.height.toDp().value } -
@@ -932,7 +925,7 @@ internal fun LauncherScreen(
             if (!iosHome) {
                 if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.dockTop.dp)
                     .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
-                    .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
+                    .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint, kind = GlassKind.CLEAR, settings = glassSettings)
                     .graphicsLayer {
                         compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                     }.testTag("dock")) {
@@ -1000,7 +993,7 @@ internal fun LauncherScreen(
                 Box(Modifier.align(Alignment.BottomCenter).graphicsLayer { translationY = barSlide.value * barSlidePx }
                     .padding(start = geometry.dockBarSide.dp, end = geometry.dockBarSide.dp, bottom = geometry.dockBarBottom.dp)
                     .fillMaxWidth().height(geometry.dockBarHeight.dp)
-                    .then(if (glassEnabled) Modifier.liquidGlass(homeBackdrop.combined, dockShape, glassTint.copy(alpha = .12f), blurRadius = .75f, settings = glassSettings)
+                    .then(if (glassEnabled) Modifier.liquidGlass(homeBackdrop.combined, dockShape, glassTint, kind = GlassKind.CLEAR, settings = glassSettings)
                         else Modifier.background(Glass.copy(alpha = .32f), dockShape).border(1.dp, Color.White.copy(alpha = .3f), dockShape))
                     .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
                     .testTag("dock"), contentAlignment = Alignment.Center) {
@@ -1126,12 +1119,9 @@ internal fun LauncherScreen(
                             onShadeSetup = { sheet = ""; onShadeSetup() },
                             extras = extras,
                             onWallpaperColor = onWallpaperColor,
-                            onMaterialYou = onMaterialYou,
                             onWallpaperDepth = onWallpaperDepth,
                             onHomeStyle = onHomeStyle,
-                            onClearGlass = onClearGlass,
                             onTiltHighlight = onTiltHighlight,
-                            onTiltStrength = onTiltStrength,
                             backgrounds = launcherActivity.backgrounds,
                             onWallpaperPreview = { sheet = ""; onWallpaperPreview() }, homePage = pager.currentPage.coerceIn(0, homePages - 1),
                             feed = feed, onFeedRefresh = onFeedRefresh,
@@ -1142,12 +1132,8 @@ internal fun LauncherScreen(
                             glassBackdrop = null,
                             glassTint = glassTint.copy(alpha = .62f),
                             settings = glassSettings,
-                            onLiquidGlass = onLiquidGlass,
-                            onRefractionHeight = onRefractionHeight,
-                            onRefractionAmount = onRefractionAmount,
-                            onRefractionChroma = onRefractionChroma,
+                            onGlass = onGlass,
                             onIsland = onIsland,
-                            onIslandScale = onIslandScale,
                             islandEverywhere = islandEverywhere,
                             onIslandEverywhere = onIslandEverywhere,
                             updates = updates,

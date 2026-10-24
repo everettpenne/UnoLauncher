@@ -233,26 +233,47 @@ internal fun rememberGlassTone(): GlassTone {
 internal fun BackdropEffectScope.glassColor(tone: GlassTone) =
     colorControls(brightness = tone.brightness, contrast = tone.contrast, saturation = 1.5f)
 
-/** Liquid-glass surface: vibrancy, blur, and lens refraction over the recorded backdrop,
- * tuned by the three [GlassSettings] knobs so every surface reads as one family.
+/**
+ * The two materials of Uno's glass, after iOS 26's. Every glass surface is one or the other; what makes it glass (vibrancy, the lens from the
+ * glass settings, the directional rim, the shared shadow) is the same for both, and only these differ. Interactive controls (buttons, chips,
+ * the switch and slider thumbs) are a third kind with their own press behaviour (GlassUi, LiquidControls), built on the same rim.
+ *
+ * Before this, each surface set its own blur (0.75 to 12 dp) and tint (0.12 to 0.62), so the dock, a folder, search results and the widget
+ * picker were four different glasses.
+ */
+internal enum class GlassKind(val blurDp: Float, val tintAlpha: Float) {
+    /** Floating over the wallpaper with little or no text of its own: the dock, the status rail, the page dots, pills, widgets, round
+     *  controls. Nearly clear; with Clear glass on (see [GlassFinish]) clearer still, with a fine bright edge. */
+    CLEAR(.75f, .12f),
+    /** Holding text and controls: sheets, dialogs, menus, the control panel, folders, the feed, All apps, the widget picker. Frosted enough
+     *  to read on any wallpaper. */
+    REGULAR(8f, .56f),
+}
+
+/** Liquid-glass surface of [kind]: vibrancy, blur and lens refraction over the recorded backdrop, tuned by the [GlassSettings] knobs so every
+ * surface reads as one family. [tint]'s colour is the surface's own; how strong it is comes from [kind].
  */
 @Composable
 internal fun Modifier.liquidGlass(
     backdrop: Backdrop,
     shape: Shape,
-    tint: Color = Glass.copy(alpha = .3f),
-    blurRadius: Float = 2f,
+    tint: Color = Glass,
+    kind: GlassKind = GlassKind.CLEAR,
     settings: GlassSettings = GlassSettings.Default,
     /** The shared shadow (see [GlassDepth]); off for tiny controls that draw their own. */
     depth: Boolean = true,
+    /** A backdrop this surface records itself into, for controls on it to bend (a panel's switches and sliders). */
+    exportedBackdrop: LayerBackdrop? = null,
 ): Modifier {
     val tone = rememberGlassTone()
+    val surface = tint.copy(alpha = kind.tintAlpha)
+    val clear = kind == GlassKind.CLEAR
     return drawBackdrop(
     backdrop = backdrop,
     shape = { shape },
     effects = {
         glassColor(tone)
-        blur(blurRadius.dp.toPx())
+        blur(kind.blurDp.dp.toPx())
         lens(
             refractionHeight = lerp(8f, 44f, settings.height).coerceAtMost(72f).dp.toPx(),
             refractionAmount = lerp(16f, 132f, settings.amount).dp.toPx(),
@@ -260,11 +281,12 @@ internal fun Modifier.liquidGlass(
             chromaticAberration = settings.chromatic > 0.05f,
         )
     },
-    highlight = { if (GlassFinish.clearEdge(tint)) GlassFinish.Edge else GlassRim.Light },
+    highlight = { if (clear && GlassFinish.clear) GlassFinish.Edge else GlassRim.Light },
     shadow = { if (depth) GlassDepth.shadow() else null },
+    exportedBackdrop = exportedBackdrop,
     onDrawSurface = {
-        drawRect(GlassFinish.tint(tint))
-        if (GlassFinish.clearEdge(tint)) drawRect(GlassFinish.Sheen)
+        drawRect(if (clear) GlassFinish.tint(surface) else surface)
+        if (clear && GlassFinish.clear) drawRect(GlassFinish.Sheen)
     },
     )
 }
@@ -317,7 +339,6 @@ internal fun GlassModalSheet(
     }
     val shape = Corner.xlarge
     val sheetBackdrop = rememberLayerBackdrop()
-    val sheetTone = rememberGlassTone()
     val accent = LocalWallpaperAccent.current
     val sheetSurface = MaterialTheme.colorScheme.surface.let { base ->
         if (accent != null) androidx.compose.ui.graphics.lerp(base, accent.glass, .5f) else base
@@ -328,20 +349,7 @@ internal fun GlassModalSheet(
         tonalElevation = 0.dp, scrimColor = Color.Black.copy(alpha = .22f), dragHandle = null,
         properties = properties) {
         Column(Modifier.padding(horizontal = 8.dp).padding(bottom = 8.dp).fillMaxWidth()
-            .drawBackdrop(
-                backdrop = glass.backdrop,
-                shape = { shape },
-                effects = {
-                    glassColor(sheetTone)
-                    blur(8f.dp.toPx())
-                    lens(lerp(8f, 44f, glass.settings.height).dp.toPx(),
-                        lerp(16f, 132f, glass.settings.amount).dp.toPx(),
-                        depthEffect = true,
-                        chromaticAberration = glass.settings.chromatic > 0.05f)
-                },
-                highlight = { GlassRim.Light },
-                exportedBackdrop = sheetBackdrop,
-                onDrawSurface = { drawRect(sheetSurface) })
+            .liquidGlass(glass.backdrop, shape, sheetSurface, GlassKind.REGULAR, glass.settings, exportedBackdrop = sheetBackdrop)
             ) {
             CompositionLocalProvider(LocalPageGlass provides sheetGlass) {
                 BottomSheetDefaults.DragHandle(Modifier.align(Alignment.CenterHorizontally))

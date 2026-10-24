@@ -328,7 +328,7 @@ internal fun UpdatesPanel(
     onInstall: (String) -> Unit,
     onAutoUpdate: (Boolean) -> Unit,
 ) {
-    SettingsSwitch("Auto-update", updates.autoUpdate, onAutoUpdate, "auto-update-switch")
+    SettingsSwitch("Automatic Updates", updates.autoUpdate, onAutoUpdate, "auto-update-switch")
     Text(stringResource(com.jake.duolauncher.R.string.checks_github_every_few_hours_downloads),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

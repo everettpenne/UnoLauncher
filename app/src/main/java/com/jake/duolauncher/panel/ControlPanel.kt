@@ -17,7 +17,6 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.*
@@ -73,7 +72,6 @@ internal fun ControlPanel(
     val haptic = LocalHapticFeedback.current
     val tick = { UnoFeedback.play(Cue.TICK, haptic) }
     val shape = Corner.xlarge
-    val panelTone = rememberGlassTone()
     // The panel's surface takes the wallpaper hue too when "Color from wallpaper" is on, like every other glass surface.
     val accent = LocalWallpaperAccent.current
     val surface = MaterialTheme.colorScheme.surface.let { base ->
@@ -158,19 +156,7 @@ internal fun ControlPanel(
         contentAlignment = Alignment.TopCenter) {
         Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 12.dp).padding(top = 8.dp).widthIn(max = 460.dp).fillMaxWidth()
             .clickable(interactionSource = noRipple, indication = null) {} // taps on the panel don't dismiss it
-            .then(if (glass != null) Modifier.drawBackdrop(
-                backdrop = glass.backdrop,
-                shape = { shape },
-                effects = {
-                    glassColor(panelTone)
-                    blur(8f.dp.toPx())
-                    lens(lerp(8f, 44f, glass.settings.height).dp.toPx(),
-                        lerp(16f, 132f, glass.settings.amount).dp.toPx(),
-                        depthEffect = true, chromaticAberration = glass.settings.chromatic > 0.05f)
-                },
-                highlight = { GlassRim.Light },
-                exportedBackdrop = panelBackdrop,
-                onDrawSurface = { drawRect(surface) })
+            .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, shape, surface, GlassKind.REGULAR, glass.settings, exportedBackdrop = panelBackdrop)
             else Modifier.background(MaterialTheme.colorScheme.surface, shape))
             .padding(16.dp).testTag("control-panel"),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -184,7 +170,8 @@ internal fun ControlPanel(
     }
 }
 
-private val TileShape: Shape = Corner.large
+/** Tiles nest in the panel: its 32 dp corner less the 16 dp they sit in from its edge. */
+private val TileShape: Shape = Corner.inside(32.dp, 16.dp)
 
 @Composable
 private fun TileRow(ink: Color, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
@@ -251,7 +238,7 @@ private fun RingerTile(controls: SystemControls, ink: Color, modifier: Modifier,
         .testTag("cp-ringer"), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         segments.forEach { (mode, icon, label) ->
             val selected = controls.ringerMode == mode
-            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(percent = 50))
+            Box(Modifier.weight(1f).fillMaxHeight().clip(Corner.inside(16.dp, 4.dp))
                 .background(if (selected) ink.copy(alpha = .85f) else Color.Transparent)
                 .clickable {
                     tick()

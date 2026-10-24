@@ -310,8 +310,7 @@ internal fun CircleControl(icon: ImageVector, label: String, tag: String, visual
     val ink = rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .12f else .22f)
     IconButton(onClick = action, modifier = Modifier.size(visualSize.coerceAtLeast(48.dp)).testTag(tag)) {
         Box(Modifier.size(visualSize).testTag("$tag-visual").then(ink.track).then(
-            if (glass != null) Modifier.liquidGlass(glass.backdrop, CircleShape, glass.tint.copy(alpha = .12f),
-                blurRadius = .75f, settings = glass.settings)
+            if (glass != null) Modifier.liquidGlass(glass.backdrop, CircleShape, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings)
             else Modifier.background(Glass.copy(alpha = .22f), CircleShape).border(1.dp, Color.White.copy(alpha = .25f), CircleShape)),
             contentAlignment = Alignment.Center) {
             Icon(icon, label, tint = ink.color, modifier = Modifier.size(22.dp))

@@ -10,105 +10,92 @@ internal data class SettingEntry(val title: String, val page: CustomizationPage,
 internal object SettingsSearch {
     val entries: List<SettingEntry> = listOf(
         // Appearance
-        SettingEntry("Wallpaper", CustomizationPage.APPEARANCE, "background photo image lock screen"),
-        SettingEntry("Also set home and lock screen", CustomizationPage.APPEARANCE, "wallpaper system"),
-        SettingEntry("Liquid glass", CustomizationPage.APPEARANCE, "blur frosted dock material"),
-        SettingEntry("Refraction height", CustomizationPage.APPEARANCE, "glass lens rim"),
-        SettingEntry("Refraction amount", CustomizationPage.APPEARANCE, "glass lens bend"),
-        SettingEntry("Chromatic aberration", CustomizationPage.APPEARANCE, "glass colour fringe rainbow"),
-        SettingEntry("Tilt-following highlight", CustomizationPage.APPEARANCE, "glass shine light gyroscope"),
-        SettingEntry("Tilt strength", CustomizationPage.APPEARANCE, "glass shine light"),
-        SettingEntry("Wallpaper depth", CustomizationPage.APPEARANCE, "parallax 3d"),
-        SettingEntry("Clear glass", CustomizationPage.APPEARANCE, "liquid glass transparent ios edge frosted tint"),
-        SettingEntry("Material You colors", CustomizationPage.APPEARANCE, "theme dynamic colour accent"),
-        SettingEntry("Color from wallpaper", CustomizationPage.APPEARANCE, "theme colour accent"),
-        SettingEntry("Light and dark", CustomizationPage.APPEARANCE, "dark mode night theme sunset sunrise appearance"),
-        SettingEntry("App icons", CustomizationPage.APPEARANCE, "icon pack shape themed"),
-        // Home layout
-        SettingEntry("Home layout", CustomizationPage.HOME, "ios iphone dock bottom side grid widgets small medium large"),
-        SettingEntry("App icon size", CustomizationPage.HOME, "bigger smaller grid"),
-        SettingEntry("Space between rows", CustomizationPage.HOME, "grid spacing gap"),
-        SettingEntry("Dock width", CustomizationPage.HOME, "rail side"),
-        SettingEntry("Align dock with app rows", CustomizationPage.HOME, "rail grid"),
-        SettingEntry("Dock height on screen", CustomizationPage.HOME, "rail position"),
+        SettingEntry("Wallpaper", CustomizationPage.APPEARANCE, "background photo image choose edit styles duotone black white blur crop"),
+        SettingEntry("Edit Photo", CustomizationPage.APPEARANCE, "wallpaper adjust crop zoom brightness warmth style"),
+        SettingEntry("Android Wallpaper Too", CustomizationPage.APPEARANCE, "wallpaper system lock screen home also set"),
+        SettingEntry("Light & Dark", CustomizationPage.APPEARANCE, "dark mode night theme sunset sunrise appearance automatic"),
+        SettingEntry("Glass: Clear, Frosted or Off", CustomizationPage.APPEARANCE, "liquid glass blur frosted transparent ios edge tint dock material"),
+        SettingEntry("Tilt Highlight", CustomizationPage.APPEARANCE, "glass shine light gyroscope motion sensor"),
+        SettingEntry("Accent: Uno Orange or From Wallpaper", CustomizationPage.APPEARANCE, "theme colour color material you dynamic orange"),
+        SettingEntry("Wallpaper Depth", CustomizationPage.APPEARANCE, "parallax 3d"),
+        SettingEntry("App Icons", CustomizationPage.APPEARANCE, "icon style original themed tinted dark"),
+        SettingEntry("Icon Lighting", CustomizationPage.APPEARANCE, "icons lit flat glass shine"),
+        SettingEntry("Icon Pack", CustomizationPage.APPEARANCE, "icons adw nova lawnchair"),
+        // Home Screen
+        SettingEntry("Home Layout: Side Dock or iPhone", CustomizationPage.HOME, "ios iphone dock bottom side grid foldable"),
+        SettingEntry("Pinned Apps", CustomizationPage.HOME, "dock favourites favorites home apps"),
+        SettingEntry("Show App Names", CustomizationPage.HOME, "labels icons"),
+        SettingEntry("Icon Size", CustomizationPage.HOME, "bigger smaller grid app"),
+        SettingEntry("Row Spacing", CustomizationPage.HOME, "grid spacing gap rows"),
+        SettingEntry("Dock Width", CustomizationPage.HOME, "rail side"),
+        SettingEntry("Align Dock with Rows", CustomizationPage.HOME, "rail grid"),
+        SettingEntry("Dock Position", CustomizationPage.HOME, "rail height"),
         SettingEntry("Widgets", CustomizationPage.HOME, "add widget weather calendar photos"),
-        SettingEntry("Pinned apps", CustomizationPage.HOME, "dock favourites favorites"),
-        // The island
-        SettingEntry("Dynamic island", CustomizationPage.ISLAND, "pill camera notch"),
-        SettingEntry("Island everywhere", CustomizationPage.ISLAND, "over other apps overlay accessibility"),
-        SettingEntry("Island size", CustomizationPage.ISLAND, "bigger smaller"),
-        SettingEntry("Keep the Home island still", CustomizationPage.ISLAND, "animation unlock moves flies jumps overlay"),
-        SettingEntry("Island width: Off, Wide or Extra wide", CustomizationPage.ISLAND, "wide extra keep wide idle"),
-        SettingEntry("Island style", CustomizationPage.ISLAND, "theme colours spring motion"),
-        SettingEntry("Camera and microphone indicators", CustomizationPage.ISLAND, "privacy dots recording"),
-        SettingEntry("VPN and USB data alerts", CustomizationPage.ISLAND, "events"),
-        SettingEntry("App shortcuts in the island", CustomizationPage.ISLAND, "quick apps"),
-        SettingEntry("Headphone and Bluetooth audio alerts", CustomizationPage.ISLAND, "earbuds connect"),
-        SettingEntry("Bluetooth device alerts", CustomizationPage.ISLAND, "connect battery"),
-        SettingEntry("Live Updates in the island", CustomizationPage.ISLAND, "ride delivery timer status android 16"),
-        SettingEntry("Live Update text: Glyph only, Short status or Title", CustomizationPage.ISLAND, "compact"),
-        SettingEntry("Downloads and other progress", CustomizationPage.ISLAND, "upload install"),
-        SettingEntry("Navigation in the island", CustomizationPage.ISLAND, "maps directions driving turn"),
-        SettingEntry("Drop down for each turn", CustomizationPage.ISLAND, "navigation maps"),
-        SettingEntry("Show calls in the island", CustomizationPage.ISLAND, "phone call"),
-        SettingEntry("Island preview", CustomizationPage.ISLAND, "demo try see watch example"),
-        SettingEntry("Paused music and podcasts", CustomizationPage.ISLAND, "resume minutes media"),
-        SettingEntry("Hide notifications containing these words", CustomizationPage.ISLAND, "block filter peek"),
-        SettingEntry("Line up with the status bar", CustomizationPage.STATUS_GRID, "island icons clipped cut calibrate align gaps"),
-        SettingEntry("Tidy the status bar", CustomizationPage.STATUS_GRID, "hide icons adb icon_blacklist alarm bluetooth nfc rotate"),
-        // Notifications & privacy
-        SettingEntry("Badges on app icons", CustomizationPage.PRIVACY, "notification dot count"),
-        SettingEntry("Badge style: Count or Dot", CustomizationPage.PRIVACY, "notification number"),
-        SettingEntry("Track title and artwork in media", CustomizationPage.PRIVACY, "music song"),
-        SettingEntry("Show new notifications in the island", CustomizationPage.ISLAND, "card peek"),
-        SettingEntry("Action buttons on the card", CustomizationPage.ISLAND, "reply notification"),
-        SettingEntry("What a notification card shows", CustomizationPage.ISLAND, "app name title text privacy"),
-        SettingEntry("Focus on", CustomizationPage.PRIVACY, "do not disturb dnd quiet"),
-        SettingEntry("Also set the ringer to vibrate", CustomizationPage.PRIVACY, "focus silent"),
-        SettingEntry("Hidden apps", CustomizationPage.PRIVACY, "hide unhide"),
-        SettingEntry("Permission ledger", CustomizationPage.PRIVACY, "permissions privacy access log"),
-        // Gestures & feel
-        SettingEntry("Show app names", CustomizationPage.GESTURES, "labels icons"),
-        SettingEntry("Show status at upper right", CustomizationPage.GESTURES, "battery clock rail"),
+        // Island
+        SettingEntry("Island", CustomizationPage.ISLAND, "dynamic island pill camera notch"),
+        SettingEntry("Over Other Apps", CustomizationPage.ISLAND, "island everywhere overlay accessibility"),
+        SettingEntry("Island Style", CustomizationPage.ISLAND_STYLE, "theme colours colors spring motion panel shape"),
+        SettingEntry("Live Updates", CustomizationPage.ISLAND, "island ride delivery timer status android 16"),
+        SettingEntry("Downloads & Progress", CustomizationPage.ISLAND, "island upload install"),
+        SettingEntry("Navigation", CustomizationPage.ISLAND, "island maps directions driving turn"),
+        SettingEntry("Calls", CustomizationPage.ISLAND, "island phone call"),
+        SettingEntry("Camera & Mic Indicators", CustomizationPage.ISLAND, "island privacy dots recording microphone"),
+        SettingEntry("System Alerts", CustomizationPage.ISLAND, "island vpn usb headphones bluetooth earbuds connect"),
+        SettingEntry("App Shortcuts", CustomizationPage.ISLAND, "island quick apps"),
+        SettingEntry("Show Notifications", CustomizationPage.ISLAND, "island card peek"),
+        SettingEntry("Action Buttons", CustomizationPage.ISLAND, "island reply notification"),
+        SettingEntry("What a Notification Card Shows", CustomizationPage.ISLAND, "island app name title text privacy"),
+        SettingEntry("Hide Words", CustomizationPage.ISLAND, "island block filter peek notifications containing"),
+        SettingEntry("Paused Media", CustomizationPage.ISLAND, "island resume minutes music podcasts"),
+        SettingEntry("Island Widget", CustomizationPage.ISLAND, "widget in the island"),
+        SettingEntry("Island Apps", CustomizationPage.ISLAND, "apps allowed linked timeout"),
+        SettingEntry("Island Preview", CustomizationPage.ISLAND, "demo try see watch example"),
+        SettingEntry("Line Up with Status Bar", CustomizationPage.STATUS_GRID, "island icons clipped cut calibrate align gaps"),
+        SettingEntry("Tidy the Status Bar", CustomizationPage.STATUS_GRID, "hide icons adb icon_blacklist alarm bluetooth nfc rotate"),
+        // Notifications & Privacy
+        SettingEntry("Notification Access", CustomizationPage.PRIVACY, "notifications listener permission"),
+        SettingEntry("Badges", CustomizationPage.PRIVACY, "notification dot count number"),
+        SettingEntry("Media Details", CustomizationPage.PRIVACY, "music song title artwork track"),
+        SettingEntry("Focus", CustomizationPage.PRIVACY, "do not disturb dnd quiet hide apps"),
+        SettingEntry("Vibrate Only", CustomizationPage.PRIVACY, "focus silent ringer"),
+        SettingEntry("Hidden Apps", CustomizationPage.PRIVACY, "hide unhide"),
+        SettingEntry("Permission Ledger", CustomizationPage.PRIVACY, "permissions privacy access log"),
+        // Gestures
+        SettingEntry("Status at Upper Right", CustomizationPage.GESTURES, "battery clock rail status"),
         SettingEntry("Haptics", CustomizationPage.GESTURES, "vibration feedback"),
         SettingEntry("Sounds", CustomizationPage.GESTURES, "clicks audio"),
-        SettingEntry("Swipe down layout", CustomizationPage.GESTURES, "like ios notifications search control panel left"),
-        SettingEntry("Android mode", CustomizationPage.GESTURES, "swipe down shade"),
-        SettingEntry("Double-tap to lock", CustomizationPage.GESTURES, "screen off sleep"),
+        SettingEntry("Pull Down on Home", CustomizationPage.GESTURES, "swipe like ios notifications search control panel left"),
+        SettingEntry("Android Mode", CustomizationPage.GESTURES, "swipe down shade quick settings right"),
+        SettingEntry("Double-Tap to Lock", CustomizationPage.GESTURES, "screen off sleep"),
+        SettingEntry("Control Panel Tiles", CustomizationPage.GESTURES, "wifi bluetooth torch order"),
         // Search
-        SettingEntry("Search button opens Google", CustomizationPage.SEARCH, "web"),
-        SettingEntry("Suggest other apps and the web", CustomizationPage.SEARCH, "spotlight suggestions"),
-        SettingEntry("Search contacts from All apps", CustomizationPage.SEARCH, "people phone"),
+        SettingEntry("Search Button Opens Google", CustomizationPage.SEARCH, "web google"),
+        SettingEntry("App & Web Suggestions", CustomizationPage.SEARCH, "spotlight suggestions stores browser"),
+        SettingEntry("Contacts", CustomizationPage.SEARCH, "people phone all apps"),
         // News feed
-        SettingEntry("News feed", CustomizationPage.FEED, "rss headlines discover articles opml"),
+        SettingEntry("News Feed", CustomizationPage.FEED, "rss headlines discover articles opml"),
         // Keyboard
         SettingEntry("Uno Keyboard", CustomizationPage.KEYBOARD, "typing ime turn on"),
-        SettingEntry("Suggestions", CustomizationPage.KEYBOARD, "keyboard words predictions"),
+        SettingEntry("Predictive", CustomizationPage.KEYBOARD, "keyboard suggestions words predictions"),
         SettingEntry("Autocorrect", CustomizationPage.KEYBOARD, "keyboard typo spelling"),
-        SettingEntry("Number row", CustomizationPage.KEYBOARD, "keyboard digits"),
-        SettingEntry("Double-space to type a period", CustomizationPage.KEYBOARD, "keyboard full stop"),
-        SettingEntry("Slide on space bar to move the cursor", CustomizationPage.KEYBOARD, "keyboard trackpad"),
-        SettingEntry("One-handed keyboard: Off, Left or Right", CustomizationPage.KEYBOARD, "one hand"),
-        SettingEntry("Swipe to type", CustomizationPage.KEYBOARD, "keyboard gesture glide slide typing"),
-        SettingEntry("Learn my words", CustomizationPage.KEYBOARD, "keyboard personal dictionary predictions learning"),
-        SettingEntry("Your words", CustomizationPage.KEYBOARD, "keyboard personal dictionary add forget"),
-        SettingEntry("Forget everything learned", CustomizationPage.KEYBOARD, "keyboard clear history privacy"),
-        SettingEntry("Emoji suggestions", CustomizationPage.KEYBOARD, "keyboard emoji predictions"),
-        SettingEntry("Clipboard history", CustomizationPage.KEYBOARD, "keyboard clips pin copy paste"),
-        SettingEntry("Keyboard layouts", CustomizationPage.KEYBOARD, "keyboard language qwertz azerty dvorak colemak workman russian greek"),
-        SettingEntry("Keyboard height", CustomizationPage.KEYBOARD, "keyboard size taller shorter"),
-        SettingEntry("Key style: Liquid glass or Classic", CustomizationPage.KEYBOARD, "keyboard look old 0.97 flat theme appearance"),
-        SettingEntry("Blur the app behind the keyboard", CustomizationPage.KEYBOARD, "keyboard blur transparent see-through liquid glass flicker"),
-        SettingEntry("Key haptics feel: Soft, Crisp or Firm", CustomizationPage.KEYBOARD, "keyboard vibration strength"),
-        SettingEntry("Key sounds", CustomizationPage.KEYBOARD, "keyboard click audio"),
-        SettingEntry("Emoji key", CustomizationPage.KEYBOARD, "keyboard smiley"),
-        SettingEntry("Magnify keys as you type", CustomizationPage.KEYBOARD, "keyboard popup preview"),
-        SettingEntry("Capitalize sentences", CustomizationPage.KEYBOARD, "keyboard auto caps shift"),
-        // Backup & about
+        SettingEntry("Slide to Type", CustomizationPage.KEYBOARD, "keyboard swipe gesture glide typing"),
+        SettingEntry("Auto-Capitalization", CustomizationPage.KEYBOARD, "keyboard auto caps shift sentences"),
+        SettingEntry("“.” Shortcut", CustomizationPage.KEYBOARD, "keyboard double space period full stop"),
+        SettingEntry("Emoji Suggestions", CustomizationPage.KEYBOARD, "keyboard emoji predictions"),
+        SettingEntry("Clipboard History", CustomizationPage.KEYBOARD, "keyboard clips pin copy paste"),
+        SettingEntry("Learn New Words", CustomizationPage.KEYBOARD, "keyboard learned personal dictionary predictions learning your words forget"),
+        SettingEntry("Number Row", CustomizationPage.KEYBOARD, "keyboard digits"),
+        SettingEntry("Keyboard Look: Liquid Glass or Classic", CustomizationPage.KEYBOARD, "keyboard style key old 0.97 flat theme"),
+        SettingEntry("Height", CustomizationPage.KEYBOARD, "keyboard size taller shorter"),
+        SettingEntry("Key Sounds", CustomizationPage.KEYBOARD, "keyboard click audio"),
+        SettingEntry("Key Haptics: Off, Soft, Crisp or Firm", CustomizationPage.KEYBOARD, "keyboard vibration feel feedback"),
+        SettingEntry("One-Handed", CustomizationPage.KEYBOARD, "keyboard one hand left right"),
+        SettingEntry("Keyboard Layouts", CustomizationPage.KEYBOARD, "keyboard language qwertz azerty dvorak colemak workman russian greek"),
+        // General
         SettingEntry("Backup", CustomizationPage.BACKUP, "save restore layout export import"),
         SettingEntry("Updates", CustomizationPage.BACKUP, "version new release"),
-        SettingEntry("Auto-update", CustomizationPage.BACKUP, "updates automatic"),
-        SettingEntry("Help & setup", CustomizationPage.BACKUP, "tour guide first run"),
+        SettingEntry("Automatic Updates", CustomizationPage.BACKUP, "updates auto"),
+        SettingEntry("Help", CustomizationPage.BACKUP, "tour guide first run setup"),
     )
 
     /** The settings matching [query], best first: a title that starts with it, then one that contains it, then a keyword that does. Every
@@ -126,17 +113,18 @@ internal object SettingsSearch {
 
     /** The page's name as Launcher settings shows it. */
     fun pageName(page: CustomizationPage): String = when (page) {
-        CustomizationPage.OVERVIEW -> "Launcher settings"
+        CustomizationPage.OVERVIEW -> "Settings"
         CustomizationPage.APPEARANCE -> "Appearance"
-        CustomizationPage.HOME -> "Home layout"
-        CustomizationPage.GESTURES -> "Gestures & feel"
+        CustomizationPage.HOME -> "Home Screen"
+        CustomizationPage.GESTURES -> "Gestures"
         CustomizationPage.SEARCH -> "Search"
-        CustomizationPage.ISLAND -> "The island"
+        CustomizationPage.ISLAND -> "Island"
         CustomizationPage.KEYBOARD -> "Keyboard"
-        CustomizationPage.PRIVACY -> "Notifications & privacy"
-        CustomizationPage.FEED -> "News feed"
-        CustomizationPage.BACKUP -> "Backup & about"
-        CustomizationPage.DEBUG -> "Island debug"
-        CustomizationPage.STATUS_GRID -> "Line up with the status bar"
+        CustomizationPage.PRIVACY -> "Notifications & Privacy"
+        CustomizationPage.FEED -> "News Feed"
+        CustomizationPage.BACKUP -> "General"
+        CustomizationPage.DEBUG -> "Island Debug"
+        CustomizationPage.STATUS_GRID -> "Line Up with Status Bar"
+        CustomizationPage.ISLAND_STYLE -> "Island Style"
     }
 }

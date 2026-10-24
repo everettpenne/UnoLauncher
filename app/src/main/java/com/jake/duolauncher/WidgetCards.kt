@@ -39,8 +39,7 @@ internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.
     val ink = rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .14f else .24f)
     CompositionLocalProvider(LocalGlassInk provides ink.glassInk) {
         if (glass != null) {
-            Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.large, glass.tint.copy(alpha = .14f),
-                blurRadius = 1f, settings = glass.settings).clip(Corner.large).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick))
+            Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.large, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings).clip(Corner.large).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick))
                 .padding(padding), verticalArrangement = Arrangement.SpaceBetween, content = content)
         } else {
             Surface(modifier.fillMaxSize().then(ink.track).clip(Corner.large).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)),

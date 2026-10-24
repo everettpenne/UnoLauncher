@@ -2,8 +2,6 @@ package com.jake.duolauncher
 
 import com.jake.duolauncher.island.PreviewScene
 
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.search.*
@@ -21,357 +19,238 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 /** Which part of the extras a Customize page shows (each is its own page, reached from the overview). */
-internal enum class ExtrasSection { KEYBOARD, GESTURES, ICONS, ISLAND, SEARCH, PRIVACY }
+internal enum class ExtrasSection { KEYBOARD, GESTURES, ICONS, SEARCH, PRIVACY }
 
-/** One of the extras pages of the Customize sheet. */
+/** One of the extras pages of the Customize sheet, as grouped lists (see SettingsGroup): short names, the detail in each group's footer. */
 @Composable
 internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, section: ExtrasSection) {
     val store = actions.store
     val s = store.state
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val note = MaterialTheme.typography.bodySmall
-
-    if (section == ExtrasSection.KEYBOARD) {
-    Text(stringResource(com.jake.duolauncher.R.string.uno_keyboard), style = MaterialTheme.typography.titleMedium)
-    val keyboardContext = androidx.compose.ui.platform.LocalContext.current
-    // Android 14+ forbids reading the enabled/selected IME settings for targetSdk > 33, so the
-    // enabled list comes from the public InputMethodManager API and the selected state degrades
-    // to "unknown" where the secure setting can't be read.
-    val enabledKeyboards = runCatching {
-        keyboardContext.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
-            ?.enabledInputMethodList.orEmpty()
-    }.getOrDefault(emptyList())
-    val keyboardEnabled = enabledKeyboards.any { it.packageName == keyboardContext.packageName }
-    val keyboardSelected = runCatching {
-        android.provider.Settings.Secure.getString(keyboardContext.contentResolver,
-            android.provider.Settings.Secure.DEFAULT_INPUT_METHOD)
-    }.getOrNull()?.startsWith(keyboardContext.packageName + "/")
-    Text(when {
-        keyboardSelected == true -> "Uno Keyboard is your keyboard."
-        keyboardEnabled && keyboardSelected == null -> "Enabled. Android no longer tells apps which keyboard is selected, so check with the switcher below."
-        keyboardEnabled -> "Enabled, but another keyboard is selected."
-        else -> "Off. Android asks you to turn a keyboard on before it can be used."
-    },
-        style = note, color = muted, modifier = Modifier.testTag("keyboard-status"))
-    if (!keyboardEnabled) GlassButton(onClick = { keyboardContext.startActivity(android.content.Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS)
-        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("keyboard-enable")) { Text(stringResource(com.jake.duolauncher.R.string.turn_on_uno_keyboard)) }
-    else if (keyboardSelected != true) GlassButton(onClick = { keyboardContext.getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.showInputMethodPicker() },
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("keyboard-switch")) { Text(stringResource(com.jake.duolauncher.R.string.switch_to_uno_keyboard)) }
-    KeyboardSettingsBody(store, s, keyboardContext)
-    }
-
-    if (section == ExtrasSection.GESTURES) {
-    Text(stringResource(com.jake.duolauncher.R.string.feel_and_sound), style = MaterialTheme.typography.titleMedium)
-    SettingsSwitch("Haptics", s.haptics, store::setHaptics, "haptics-switch")
-    SettingsSwitch("Sounds", s.sounds, store::setSounds, "sounds-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.haptics_tick_on_page_changes_sliders),
-        style = note, color = muted)
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    Text(stringResource(com.jake.duolauncher.R.string.pulling_down_on_home), style = MaterialTheme.typography.titleMedium)
-    ChoiceRow("Like iOS (recommended)", "From the top edge: notifications on the left, the control panel on the right. From anywhere lower: search",
-        s.pullDown == PullDown.SMART, "pull-smart") { store.setPullDown(PullDown.SMART) }
-    ChoiceRow("Notifications on the left", "The left side always opens notifications; search is on the island's button",
-        s.pullDown == PullDown.NOTIFICATIONS, "pull-notifications") { store.setPullDown(PullDown.NOTIFICATIONS) }
-    ChoiceRow("Search on the left", "The left side always opens search, even from the top",
-        s.pullDown == PullDown.SEARCH, "pull-search") { store.setPullDown(PullDown.SEARCH) }
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    Text(stringResource(com.jake.duolauncher.R.string.right_hand_swipe_down), style = MaterialTheme.typography.titleMedium)
-    ChoiceRow("Control panel", "The launcher's own panel; needs no accessibility service",
-        s.rightSwipe == RightSwipe.PANEL, "swipe-panel") { store.setRightSwipe(RightSwipe.PANEL) }
-    ChoiceRow("Android mode", "Opens Android's own Quick Settings instead; needs the optional shade accessibility service",
-        s.rightSwipe == RightSwipe.SYSTEM, "swipe-system") { store.setRightSwipe(RightSwipe.SYSTEM) }
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    Text(stringResource(com.jake.duolauncher.R.string.control_panel_tiles), style = MaterialTheme.typography.titleMedium)
-    s.tileOrder.forEachIndexed { index, tile ->
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            LiquidSwitchControl(tile !in s.hiddenTiles, { store.setTileHidden(tile, !it) }, LocalPageGlass.current,
-                Modifier.testTag("tile-switch-${tile.name}"))
-            Text(tile.label, Modifier.weight(1f).padding(start = 12.dp))
-            IconButton(onClick = { store.moveTile(tile, -1) }, enabled = index > 0, modifier = Modifier.testTag("tile-up-${tile.name}")) {
-                Icon(Icons.Rounded.KeyboardArrowUp, "Move ${tile.label} up") }
-            IconButton(onClick = { store.moveTile(tile, 1) }, enabled = index < s.tileOrder.lastIndex, modifier = Modifier.testTag("tile-down-${tile.name}")) {
-                Icon(Icons.Rounded.KeyboardArrowDown, "Move ${tile.label} down") }
-        }
-    }
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    Text(stringResource(com.jake.duolauncher.R.string.shortcuts_in_the_panel), style = MaterialTheme.typography.titleMedium)
-    Text("Up to ${PanelLayout.MAX_SHORTCUTS} apps; choosing a sixth replaces the oldest.", style = note, color = muted)
-    AppChecklist(apps, s.shortcuts.toSet(), "shortcut") { store.toggleShortcut(it) }
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    SettingsSwitch("Double-tap to lock", s.doubleTapLock, store::setDoubleTapLock, "double-tap-lock-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.double_tap_lock_note), style = note, color = muted)
-    }
-
-    if (section == ExtrasSection.ICONS) {
-    Text(stringResource(com.jake.duolauncher.R.string.icon_style), style = MaterialTheme.typography.titleMedium)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        GlassChip(s.iconStyle == IconStyle.ORIGINAL, { store.setIconStyle(IconStyle.ORIGINAL) }, { Text(stringResource(com.jake.duolauncher.R.string.original)) },
-            Modifier.testTag("icons-original"))
-        GlassChip(s.iconStyle == IconStyle.THEMED, { store.setIconStyle(IconStyle.THEMED) }, { Text(stringResource(com.jake.duolauncher.R.string.themed)) },
-            Modifier.testTag("icons-themed"))
-        GlassChip(s.iconStyle == IconStyle.TINTED, { store.setIconStyle(IconStyle.TINTED) }, { Text(stringResource(com.jake.duolauncher.R.string.tinted)) },
-            Modifier.testTag("icons-tinted"))
-        GlassChip(s.iconStyle == IconStyle.DARK, { store.setIconStyle(IconStyle.DARK) }, { Text(stringResource(com.jake.duolauncher.R.string.icons_dark)) },
-            Modifier.testTag("icons-dark"))
-    }
-    Text(stringResource(com.jake.duolauncher.R.string.tinted_takes_its_colour_from_your),
-        style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.icon_lighting), style = MaterialTheme.typography.titleMedium)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        GlassChip(s.iconLighting, { store.setIconLighting(true) }, { Text(stringResource(com.jake.duolauncher.R.string.icon_lighting_on)) },
-            Modifier.testTag("icons-lit"))
-        GlassChip(!s.iconLighting, { store.setIconLighting(false) }, { Text(stringResource(com.jake.duolauncher.R.string.icon_lighting_off)) },
-            Modifier.testTag("icons-flat"))
-    }
-    Text(stringResource(com.jake.duolauncher.R.string.icon_lighting_note), style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.themed_uses_each_app_s_own),
-        style = note, color = muted)
-    IconPackSettings(s.iconPack, store::setIconPack)
-    }
-
-    if (section == ExtrasSection.SEARCH) {
-    Text(stringResource(com.jake.duolauncher.R.string.search_suggestions), style = MaterialTheme.typography.titleMedium)
-    val resolver = rememberHandoffResolver(s)
-    SettingsSwitch("Suggest other apps and the web", s.handoff, store::setHandoff, "handoff-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.when_no_installed_app_matches_a),
-        style = note, color = muted)
-    if (s.handoff) {
-        Text(stringResource(com.jake.duolauncher.R.string.app_stores), style = MaterialTheme.typography.titleSmall)
-        HandoffLogic.KNOWN_STORES.forEach { storeInfo ->
-            val present = resolver.isStoreInstalled(storeInfo)
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Corner.small)
-                .toggleable(value = storeInfo.id in s.handoffStores, enabled = present, role = androidx.compose.ui.semantics.Role.Checkbox) {
-                    store.toggleHandoffStore(storeInfo.id) }.testTag("handoff-store-${storeInfo.id}"),
-                verticalAlignment = Alignment.CenterVertically) {
-                GlassCheckbox(storeInfo.id in s.handoffStores, null, enabled = present)
-                Column(Modifier.padding(start = 8.dp)) {
-                    Text(storeInfo.label)
-                    if (!present) Text(stringResource(com.jake.duolauncher.R.string.not_installed), style = note, color = muted)
-                }
-            }
-        }
-        Text(stringResource(com.jake.duolauncher.R.string.web_search_app), style = MaterialTheme.typography.titleSmall)
-        ChoiceRow("Automatic", "Vanadium if installed, otherwise any browser", s.webPackage == null, "web-auto") { store.setWebPackage(null) }
-        resolver.installedBrowsers().forEach { (pkg, label) ->
-            ChoiceRow(label, pkg, s.webPackage == pkg, "web-$pkg") { store.setWebPackage(pkg) }
-        }
-    }
-    }
-
-    if (section == ExtrasSection.PRIVACY) {
-    Text(stringResource(com.jake.duolauncher.R.string.notifications_optional), style = MaterialTheme.typography.titleMedium)
-    val accessOn = actions.hasNotificationAccess()
-    Text(if (accessOn) "Notification access is on." else "Notification access is off. The launcher reads nothing until you turn it on in Android's settings, and you can turn it off there at any time.",
-        style = note, color = muted)
-    GlassButton(onClick = actions.openNotificationAccess, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("notification-access")) {
-        Text(if (accessOn) "Manage notification access" else "Open notification access settings")
-    }
-    SettingsSwitch("Badges on app icons", s.badges, store::setBadges, "badges-switch")
-    if (s.badges) {
-        ChoiceRow("Count", "The number of unread notifications", !s.badgeDots, "badge-style-count") { store.setBadgeDots(false) }
-        ChoiceRow("Dot", "A plain dot, no number", s.badgeDots, "badge-style-dot") { store.setBadgeDots(true) }
-        Text(stringResource(com.jake.duolauncher.R.string.badge_mute_note), style = note, color = muted)
-    }
-    SettingsSwitch("Track title and artwork in media", s.mediaDetails, store::setMediaDetails, "media-details-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.everything_stays_on_this_device_badges),
-        style = note, color = muted)
-    HorizontalDivider(Modifier.padding(vertical = 6.dp))
-    Text(stringResource(com.jake.duolauncher.R.string.focus), style = MaterialTheme.typography.titleMedium)
-    SettingsSwitch("Focus on", s.focusOn, { actions.toggleFocus() }, "focus-switch")
-    SettingsSwitch("Also set the ringer to vibrate", s.focusVibrate, store::setFocusVibrate, "focus-vibrate-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.hides_the_apps_you_pick_from),
-        style = note, color = muted)
-    AppChecklist(apps, s.focusHidden, "focus") { store.toggleFocusHidden(it) }
-    }
-    if (section == ExtrasSection.SEARCH) {
-    Text(stringResource(com.jake.duolauncher.R.string.contacts_in_search_optional), style = MaterialTheme.typography.titleMedium)
-    SettingsSwitch("Search contacts from All apps", s.contactSearch, { on ->
-        if (on) { store.setContactSearch(true); if (!actions.hasContactsPermission()) actions.requestContacts() }
-        else store.setContactSearch(false)
-    }, "contact-search-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.asks_android_s_contacts_permission_names),
-        style = note, color = muted)
+    when (section) {
+        ExtrasSection.KEYBOARD -> KeyboardPage(store, s)
+        ExtrasSection.GESTURES -> GesturesGroups(store, s, apps)
+        ExtrasSection.ICONS -> IconGroups(store, s)
+        ExtrasSection.SEARCH -> SearchGroups(actions, store, s)
+        ExtrasSection.PRIVACY -> PrivacyGroups(actions, store, s, apps)
     }
 }
 
-/** The island page's parts, drawn by the page in its own order and under its own headings (see CustomizationSheet). */
-internal enum class IslandPart { HOME_STILL, LOOKS, SHOWS, NOTIFICATIONS, TIMER, REFERENCE, DEBUG }
+@Composable
+private fun GesturesGroups(store: ExtrasStore, s: ExtrasState, apps: List<AppEntry>) {
+    SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.pulling_down_on_home),
+        footer = "Like iOS: from the top edge, notifications on the left and the control panel on the right; from lower down, search.") {
+        row { CheckRow("Like iOS", s.pullDown == PullDown.SMART, "pull-smart") { store.setPullDown(PullDown.SMART) } }
+        row { CheckRow("Notifications on the Left", s.pullDown == PullDown.NOTIFICATIONS, "pull-notifications") { store.setPullDown(PullDown.NOTIFICATIONS) } }
+        row { CheckRow("Search on the Left", s.pullDown == PullDown.SEARCH, "pull-search") { store.setPullDown(PullDown.SEARCH) } }
+    }
+    SettingsGroup(header = "Right Side",
+        footer = "Android Mode opens Android's own Quick Settings in place of Uno's control panel. It needs the optional shade accessibility service.") {
+        row { CheckRow("Control Panel", s.rightSwipe == RightSwipe.PANEL, "swipe-panel") { store.setRightSwipe(RightSwipe.PANEL) } }
+        row { CheckRow("Android Mode", s.rightSwipe == RightSwipe.SYSTEM, "swipe-system") { store.setRightSwipe(RightSwipe.SYSTEM) } }
+    }
+    SettingsGroup(footer = "Double-tap an empty spot on Home to lock the screen. Android allows this only through Uno's accessibility service, which you turn on yourself.") {
+        row { SettingsSwitch("Double-Tap to Lock", s.doubleTapLock, store::setDoubleTapLock, "double-tap-lock-switch") }
+    }
+    SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.feel_and_sound),
+        footer = "Haptics tick on page changes, sliders and the control panel. Sounds are Android's own touch sounds and follow its volume and silent mode.") {
+        row { SettingsSwitch("Haptics", s.haptics, store::setHaptics, "haptics-switch") }
+        row { SettingsSwitch("Sounds", s.sounds, store::setSounds, "sounds-switch") }
+    }
+    SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.control_panel_tiles), footer = "Switch a tile off to hide it; the arrows change the order.") {
+        s.tileOrder.forEachIndexed { index, tile -> row {
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(tile.label, Modifier.weight(1f))
+                IconButton(onClick = { store.moveTile(tile, -1) }, enabled = index > 0, modifier = Modifier.testTag("tile-up-${tile.name}")) {
+                    Icon(Icons.Rounded.KeyboardArrowUp, "Move ${tile.label} up") }
+                IconButton(onClick = { store.moveTile(tile, 1) }, enabled = index < s.tileOrder.lastIndex, modifier = Modifier.testTag("tile-down-${tile.name}")) {
+                    Icon(Icons.Rounded.KeyboardArrowDown, "Move ${tile.label} down") }
+                LiquidSwitchControl(tile !in s.hiddenTiles, { store.setTileHidden(tile, !it) }, LocalPageGlass.current,
+                    Modifier.testTag("tile-switch-${tile.name}"))
+            }
+        } }
+    }
+    val shortcutsOpen = rememberChecklistOpen("shortcut")
+    SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.shortcuts_in_the_panel),
+        footer = "Up to ${PanelLayout.MAX_SHORTCUTS} apps; choosing another replaces the oldest.") {
+        appChecklist(shortcutsOpen, apps, s.shortcuts.toSet(), "shortcut") { store.toggleShortcut(it.id) }
+    }
+}
+
+@Composable
+private fun IconGroups(store: ExtrasStore, s: ExtrasState) {
+    SettingsGroup(header = "App Icons", footer = "Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Icon Lighting gives original icons a soft lit edge, like iOS.") {
+        row { SegmentRow(IconStyle.entries, s.iconStyle, { when (it) { IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark" } },
+            { when (it) { IconStyle.ORIGINAL -> "icons-original"; IconStyle.THEMED -> "icons-themed"; IconStyle.TINTED -> "icons-tinted"; IconStyle.DARK -> "icons-dark" } },
+            store::setIconStyle) }
+        row { SettingsSwitch("Icon Lighting", s.iconLighting, store::setIconLighting, "icons-lit") }
+    }
+    IconPackSettings(s.iconPack, store::setIconPack)
+}
+
+@Composable
+private fun SearchGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasState) {
+    val resolver = rememberHandoffResolver(s)
+    SettingsGroup(footer = "When no app on the phone matches, search offers app stores and a web search.") {
+        row { SettingsSwitch("App & Web Suggestions", s.handoff, store::setHandoff, "handoff-switch") }
+    }
+    if (s.handoff) {
+        SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.app_stores)) {
+            HandoffLogic.KNOWN_STORES.forEach { storeInfo -> row {
+                val present = resolver.isStoreInstalled(storeInfo)
+                ToggleCheckRow(storeInfo.label, storeInfo.id in s.handoffStores, "handoff-store-${storeInfo.id}", enabled = present,
+                    detail = if (present) null else stringResource(com.jake.duolauncher.R.string.not_installed)) { store.toggleHandoffStore(storeInfo.id) }
+            } }
+        }
+        SettingsGroup(header = "Web Search", footer = "Automatic uses Vanadium if it is installed, otherwise any browser.") {
+            row { CheckRow("Automatic", s.webPackage == null, "web-auto") { store.setWebPackage(null) } }
+            resolver.installedBrowsers().forEach { (pkg, label) -> row { CheckRow(label, s.webPackage == pkg, "web-$pkg") { store.setWebPackage(pkg) } } }
+        }
+    }
+    SettingsGroup(footer = "All Apps also finds people. Asks for Android's contacts permission; names stay on the phone.") {
+        row { SettingsSwitch("Contacts", s.contactSearch, { on ->
+            if (on) { store.setContactSearch(true); if (!actions.hasContactsPermission()) actions.requestContacts() }
+            else store.setContactSearch(false)
+        }, "contact-search-switch") }
+    }
+}
+
+@Composable
+private fun PrivacyGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasState, apps: List<AppEntry>) {
+    val accessOn = actions.hasNotificationAccess()
+    SettingsGroup(header = "Notifications", footer = (if (accessOn) "Notification access is on." else "Notification access is off: Uno reads nothing until you turn it on in Android's settings.") +
+        " Everything stays on this phone. Badges count unread notifications per app. Long-press an app to turn its badges off.") {
+        row { ActionRow(if (accessOn) "Notification Access Settings" else "Turn On Notification Access", "notification-access", onClick = actions.openNotificationAccess) }
+        row { SettingsSwitch("Badges", s.badges, store::setBadges, "badges-switch") }
+        if (s.badges) {
+            row { CheckRow("Count", !s.badgeDots, "badge-style-count") { store.setBadgeDots(false) } }
+            row { CheckRow("Dot", s.badgeDots, "badge-style-dot") { store.setBadgeDots(true) } }
+        }
+        row { SettingsSwitch("Media Details", s.mediaDetails, store::setMediaDetails, "media-details-switch") }
+    }
+    val focusOpen = rememberChecklistOpen("focus")
+    SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.focus),
+        footer = "Focus hides the apps you pick from Home and All Apps until it is off. Nothing is uninstalled and your layout does not change.") {
+        row { SettingsSwitch("Focus", s.focusOn, { actions.toggleFocus() }, "focus-switch") }
+        row { SettingsSwitch("Vibrate Only", s.focusVibrate, store::setFocusVibrate, "focus-vibrate-switch") }
+        appChecklist(focusOpen, apps, s.focusHidden, "focus") { store.toggleFocusHidden(it.id) }
+    }
+}
 
 /**
- * One part of the island's settings. A row that changes how the island looks or moves also asks the preview at the top of the page
- * ([LocalIslandPreview]) to play the situation that shows it, so the change can be seen before leaving the page.
+ * The island's groups below its on/off switches: what it shows, notifications, paused media, its widget, the apps allowed to use it and the
+ * timer. A row that changes how the island looks asks the preview at the top of the page ([LocalIslandPreview]) to play the situation that
+ * shows it, so the change can be seen before leaving the page.
  */
 @Composable
-internal fun IslandSettingsPart(actions: ExtrasActions, apps: List<AppEntry>, part: IslandPart) {
+internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) {
     val store = actions.store
     val s = store.state
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val note = MaterialTheme.typography.bodySmall
     val preview = com.jake.duolauncher.island.LocalIslandPreview.current
     fun demo(scene: PreviewScene) { preview?.show(scene) }
-
-    when (part) {
-    IslandPart.HOME_STILL -> {
-    // Draw the Home island in the accessibility service's own window, so it stays still while Android animates the launcher's window.
-    val homePrefs = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("extras", android.content.Context.MODE_PRIVATE)
-    var homeOverlay by remember { mutableStateOf(homePrefs.getBoolean("homeIslandOverlay", false)) }
-    SettingsSwitch("Keep the Home island still", homeOverlay, { homeOverlay = it; homePrefs.edit().putBoolean("homeIslandOverlay", it).apply() }, "home-island-overlay-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.home_island_overlay_note), style = note, color = muted)
+    val systemAlerts = s.securityAlerts
+    SettingsGroup(header = "Shows",
+        footer = "Live Updates are Android 16's ongoing notifications (a ride, a delivery). Navigation drops the island down for each turn. System Alerts flash for VPN, USB data, headphones and Bluetooth devices; Bluetooth names need Android's Nearby devices permission.") {
+        row { SettingsSwitch("Live Updates", s.liveUpdates, { store.setLiveUpdates(it); demo(PreviewScene.LIVE) }, "live-updates-switch") }
+        row { SettingsSwitch("Downloads & Progress", s.progressTasks, store::setProgressTasks, "progress-tasks-switch") }
+        row { SettingsSwitch("Navigation", s.navigationTasks, { store.setNavigationTasks(it); store.setNavigationCues(it) }, "navigation-tasks-switch") }
+        row { SettingsSwitch("Calls", s.callDetails, store::setCallDetails, "call-details-switch") }
+        row { SettingsSwitch("Camera & Mic Indicators", s.privacyIndicators, { store.setPrivacyIndicators(it); demo(PreviewScene.PRIVACY) }, "privacy-indicators-switch") }
+        row { SettingsSwitch("System Alerts", systemAlerts, { on ->
+            store.setSecurityAlerts(on); store.setAudioAlerts(on); store.setBluetoothAlerts(on)
+            if (on && !actions.hasBluetoothPermission()) actions.requestBluetooth()
+        }, "security-alerts-switch") }
+        row { SettingsSwitch("App Shortcuts", s.islandShortcuts, { store.setIslandShortcuts(it); demo(PreviewScene.OPEN) }, "island-shortcuts-switch") }
     }
-
-    IslandPart.LOOKS -> {
-    Text(stringResource(com.jake.duolauncher.R.string.paused_music_and_podcasts), style = MaterialTheme.typography.titleSmall)
-    ChoiceRow("Off", "Over other apps the pill shrinks to a ring round the camera when idle",
-        s.islandWideMode == IslandWideMode.OFF, "island-wide-off") { store.setIslandWideMode(IslandWideMode.OFF); demo(PreviewScene.MUSIC) }
-    ChoiceRow("Wide", "The pill stays wide at today's width, for sound that is playing",
-        s.islandWideMode == IslandWideMode.WIDE, "island-wide-wide") { store.setIslandWideMode(IslandWideMode.WIDE); demo(PreviewScene.MUSIC) }
-    ChoiceRow("Extra wide", "As wide as the island at the 75% size setting, at the height you chose; on a narrow phone it stops at the screen's edge",
-        s.islandWideMode == IslandWideMode.EXTRA_WIDE, "island-wide-extra") { store.setIslandWideMode(IslandWideMode.EXTRA_WIDE); demo(PreviewScene.MUSIC) }
-    Text(stringResource(com.jake.duolauncher.R.string.over_other_apps_the_island_normally), style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.compact_live_update_text), style = MaterialTheme.typography.titleSmall)
-    ChoiceRow("Glyph only", "Just the app's icon or turn arrow on the pill", s.liveCompactLevel == 0, "live-compact-glyph") { store.setLiveCompactLevel(0); demo(PreviewScene.LIVE) }
-    ChoiceRow("Short status", "The app's own short line, like “4 min”", s.liveCompactLevel == 1, "live-compact-status") { store.setLiveCompactLevel(1); demo(PreviewScene.LIVE) }
-    ChoiceRow("Title", "The update's title instead of the short status", s.liveCompactLevel == 2, "live-compact-title") { store.setLiveCompactLevel(2); demo(PreviewScene.LIVE) }
+    SettingsGroup(header = "Notifications", footer = "How much a new notification shows when the island drops down for it. To show the text, Uno reads it and keeps nothing.") {
+        row { SettingsSwitch("Show Notifications", s.notificationPeek, { store.setNotificationPeek(it); demo(PreviewScene.NOTIFICATION) }, "peek-switch") }
+        if (s.notificationPeek) {
+            row { CheckRow("App Name", s.peekLevel == 0, "peek-level-name") { store.setPeekLevel(0); demo(PreviewScene.NOTIFICATION) } }
+            row { CheckRow("Name & Title", s.peekLevel == 1, "peek-level-title") { store.setPeekLevel(1); demo(PreviewScene.NOTIFICATION) } }
+            row { CheckRow("Name, Title & Text", s.peekLevel == 2, "peek-level-text") { store.setPeekLevel(2); demo(PreviewScene.NOTIFICATION) } }
+            row { SettingsSwitch("Action Buttons", s.peekActions, { store.setPeekActions(it); demo(PreviewScene.NOTIFICATION) }, "peek-actions-switch") }
+        }
     }
-
-    IslandPart.SHOWS -> {
-    SettingsSwitch("Live Updates in the island", s.liveUpdates, { store.setLiveUpdates(it); demo(PreviewScene.LIVE) }, "live-updates-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.android_16_apps_can_post_a), style = note, color = muted)
-    SettingsSwitch("Downloads and other progress", s.progressTasks, store::setProgressTasks, "progress-tasks-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.a_download_upload_or_install_with), style = note, color = muted)
-    SettingsSwitch("Navigation in the island", s.navigationTasks, store::setNavigationTasks, "navigation-tasks-switch")
-    if (s.navigationTasks) {
-        SettingsSwitch("Drop down for each turn", s.navigationCues, store::setNavigationCues, "navigation-cues-switch")
-        Text(stringResource(com.jake.duolauncher.R.string.navigation_cues_note), style = note, color = muted)
+    if (s.notificationPeek) SettingsGroup(footer = stringResource(com.jake.duolauncher.R.string.separate_with_commas_a_match_shows)) {
+        row { Box(Modifier.padding(vertical = Space.M.dp)) {
+            GlassField(s.peekBlocked, { store.setPeekBlocked(it) }, Modifier.fillMaxWidth().testTag("peek-blocked"), minLines = 1, maxLines = 3,
+                placeholder = { Text(stringResource(com.jake.duolauncher.R.string.island_hide_words)) })
+        } }
     }
-    Text(stringResource(com.jake.duolauncher.R.string.while_a_maps_app_shows_turn), style = note, color = muted)
-    SettingsSwitch("Show calls in the island", s.callDetails, store::setCallDetails, "call-details-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.while_a_call_is_active_the), style = note, color = muted)
-    SettingsSwitch("Camera and microphone indicators", s.privacyIndicators, { store.setPrivacyIndicators(it); demo(PreviewScene.PRIVACY) }, "privacy-indicators-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.the_island_shows_a_green_camera), style = note, color = muted)
-    SettingsSwitch("VPN and USB data alerts", s.securityAlerts, store::setSecurityAlerts, "security-alerts-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.the_island_flashes_when_a_vpn), style = note, color = muted)
-    SettingsSwitch("Headphone and Bluetooth audio alerts", s.audioAlerts, store::setAudioAlerts, "audio-alerts-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.the_island_flashes_the_name_of), style = note, color = muted)
-    SettingsSwitch("Bluetooth device alerts", s.bluetoothAlerts, { on ->
-        if (on) { store.setBluetoothAlerts(true); if (!actions.hasBluetoothPermission()) actions.requestBluetooth() }
-        else store.setBluetoothAlerts(false)
-    }, "bluetooth-alerts-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.bluetooth_alerts_note), style = note, color = muted)
-    SettingsSwitch("App shortcuts in the island", s.islandShortcuts, { store.setIslandShortcuts(it); demo(PreviewScene.OPEN) }, "island-shortcuts-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.the_open_island_shows_the_apps), style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.the_wide_pill_is_for_sound), style = MaterialTheme.typography.titleSmall)
-    IslandPlayback.RESUME_CHOICES_MIN.forEach { minutes ->
-        ChoiceRow(if (minutes == 1) "1 minute" else "$minutes minutes", if (minutes == 2) "The default" else "",
-            s.mediaResumeMinutes == minutes, "media-resume-$minutes") { store.setMediaResumeMinutes(minutes) }
+    SettingsGroup(header = "Paused Media", footer = "How long paused music or a podcast stays in the island.") {
+        IslandPlayback.RESUME_CHOICES_MIN.forEach { minutes -> row {
+            CheckRow(if (minutes == 1) "1 Minute" else "$minutes Minutes", s.mediaResumeMinutes == minutes, "media-resume-$minutes") { store.setMediaResumeMinutes(minutes) }
+        } }
     }
-    IslandWidgetSetting(actions.islandWidget, note, muted)
-    IslandLinksSetting(actions, apps, note, muted)
-    }
-
-    IslandPart.NOTIFICATIONS -> {
-    SettingsSwitch("Show new notifications in the island", s.notificationPeek, { store.setNotificationPeek(it); demo(PreviewScene.NOTIFICATION) }, "peek-switch")
-    Text(stringResource(com.jake.duolauncher.R.string.how_much_a_new_notification_shows), style = note, color = muted)
-    if (s.notificationPeek) {
-        SettingsSwitch("Action buttons on the card", s.peekActions, { store.setPeekActions(it); demo(PreviewScene.NOTIFICATION) }, "peek-actions-switch")
-        Text(stringResource(com.jake.duolauncher.R.string.peek_actions_note), style = note, color = muted)
-    }
-    ChoiceRow("App name only", "A flash of the app's icon and name, never what it says", s.peekLevel == 0, "peek-level-name") { store.setPeekLevel(0); demo(PreviewScene.NOTIFICATION) }
-    ChoiceRow("Name and title", "A card with the sender or subject; tap it to open the notification", s.peekLevel == 1, "peek-level-title") { store.setPeekLevel(1); demo(PreviewScene.NOTIFICATION) }
-    ChoiceRow("Name, title and text", "The card also shows the first lines of the text. Uno reads that text to show it, and keeps nothing",
-        s.peekLevel == 2, "peek-level-text") { store.setPeekLevel(2); demo(PreviewScene.NOTIFICATION) }
-    GlassField(s.peekBlocked, { store.setPeekBlocked(it) }, Modifier.fillMaxWidth().testTag("peek-blocked"), minLines = 1, maxLines = 3,
-        label = { Text(stringResource(com.jake.duolauncher.R.string.hide_notifications_containing_these_words)) }, supportingText = { Text(stringResource(com.jake.duolauncher.R.string.separate_with_commas_a_match_shows)) })
-    }
-
-    IslandPart.TIMER -> {
+    IslandWidgetSetting(actions.islandWidget)
+    IslandLinksSetting(actions, apps)
     val context = androidx.compose.ui.platform.LocalContext.current
     val exact = IslandTools.exactAlarmsAllowed(context)
-    Text(if (exact) "Exact alarms are allowed, so the timer ends on time even with Home closed."
-        else "The timer ends on time while the launcher is running, and within a minute or so otherwise. Allow exact alarms for to-the-second timing.",
-        style = note, color = muted)
-    if (!exact) GlassButton(onClick = {
-        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
-            android.net.Uri.parse("package:${context.packageName}")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-    }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("exact-alarm")) { Text(stringResource(com.jake.duolauncher.R.string.allow_exact_alarms)) }
+    SettingsGroup(header = "Timer", footer = if (exact) "Exact alarms are allowed, so the timer ends on time even with Home closed."
+        else "The timer ends on time while the launcher is running, and within a minute or so otherwise. Allow exact alarms for to-the-second timing.") {
+        if (!exact) row { ActionRow(stringResource(com.jake.duolauncher.R.string.allow_exact_alarms), "exact-alarm") {
+            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                android.net.Uri.parse("package:${context.packageName}")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        } }
     }
-
-    IslandPart.REFERENCE -> {
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_intro), style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_ongoing), style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_notification), style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_system), style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_privacy), style = note, color = muted)
-    Text(stringResource(com.jake.duolauncher.R.string.what_shows_where_time), style = note, color = muted)
-    }
-
-    IslandPart.DEBUG -> {
+    SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.what_shows_where), footer = listOf(
+        com.jake.duolauncher.R.string.what_shows_where_intro, com.jake.duolauncher.R.string.what_shows_where_ongoing,
+        com.jake.duolauncher.R.string.what_shows_where_notification, com.jake.duolauncher.R.string.what_shows_where_system,
+        com.jake.duolauncher.R.string.what_shows_where_privacy, com.jake.duolauncher.R.string.what_shows_where_time).map { stringResource(it) }.joinToString("\n")) {}
     // Developer HUD: only offered by debuggable builds, so a release build has neither the switch nor the overlay.
-    val hudContext = androidx.compose.ui.platform.LocalContext.current
-    if (hudContext.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-        val hudPrefs = remember { hudContext.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE) }
+    if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+        val hudPrefs = remember { context.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE) }
         var hudOn by remember { mutableStateOf(hudPrefs.getBoolean("debugHud", false)) }
-        SettingsSwitch("Developer HUD (debug build)", hudOn, { hudOn = it; hudPrefs.edit().putBoolean("debugHud", it).apply() }, "debug-hud-switch")
-        Text(stringResource(com.jake.duolauncher.R.string.shows_frame_times_jank_the_island), style = note, color = muted)
-    }
-    }
-    }
-}
-
-@Composable
-private fun ChoiceRow(title: String, subtitle: String, selected: Boolean, tag: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(Corner.small)
-        .selectable(selected = selected, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onClick).testTag(tag),
-        verticalAlignment = Alignment.CenterVertically) {
-        GlassRadio(selected, null)
-        Column(Modifier.padding(start = 8.dp)) {
-            Text(title)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsGroup(footer = stringResource(com.jake.duolauncher.R.string.shows_frame_times_jank_the_island)) {
+            row { SettingsSwitch("Developer HUD (debug build)", hudOn, { hudOn = it; hudPrefs.edit().putBoolean("debugHud", it).apply() }, "debug-hud-switch") }
         }
     }
 }
 
-/** A collapsed list of every app with a checkbox; expands on demand so a long list isn't drawn until wanted. */
-@Composable
-private fun AppChecklist(apps: List<AppEntry>, selected: Set<String>, tag: String, onToggle: (String) -> Unit) {
-    var open by rememberSaveable(tag) { mutableStateOf(false) }
-    GlassButton(onClick = { open = !open }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("$tag-choose")) {
-        Text(if (open) "Done" else "Choose apps (${selected.size} selected)")
-    }
-    if (open) apps.forEach { app ->
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Corner.small)
-            .toggleable(value = app.id in selected, role = androidx.compose.ui.semantics.Role.Checkbox) { onToggle(app.id) }
-            .testTag("$tag-app-${app.id}"), verticalAlignment = Alignment.CenterVertically) {
-            GlassCheckbox(app.id in selected, null)
-            Image(app.image, null, Modifier.size(32.dp).clip(Corner.icon))
-            Text(app.label, Modifier.padding(start = 12.dp), maxLines = 1)
+/**
+ * A collapsed list of every app, each checked or not; "Choose Apps" opens it, so a long list isn't drawn until wanted. Its rows join the
+ * group it is in. [open] is held by the page, so the group knows which rows to show.
+ */
+private fun SettingsRows.appChecklist(open: MutableState<Boolean>, apps: List<AppEntry>, selected: Set<String>, tag: String,
+    count: Int = selected.size, isOn: (AppEntry) -> Boolean = { it.id in selected }, trailing: (@Composable (AppEntry) -> Unit)? = null,
+    onToggle: (AppEntry) -> Unit) {
+    row {
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = androidx.compose.ui.semantics.Role.Button) { open.value = !open.value }
+            .testTag("$tag-choose"), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (open.value) "Done" else "Choose Apps", Modifier.weight(1f), color = SettingsAccent)
+            Text("$count", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(if (open.value) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+    if (open.value) apps.forEach { app -> row {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                ToggleCheckRow(app.label, isOn(app), "$tag-app-${app.id}", leading = { Image(app.image, null, Modifier.size(30.dp).clip(Corner.icon)) }) { onToggle(app) }
+            }
+            trailing?.invoke(app)
+        }
+    } }
 }
+
+/** The page's own state for an [appChecklist]. */
+@Composable private fun rememberChecklistOpen(tag: String): MutableState<Boolean> = rememberSaveable(tag) { mutableStateOf(false) }
 
 /** Choose, change or remove the one widget the open island shows. */
 @Composable
-private fun IslandWidgetSetting(controller: IslandWidgetController?, note: androidx.compose.ui.text.TextStyle, muted: androidx.compose.ui.graphics.Color) {
+private fun IslandWidgetSetting(controller: IslandWidgetController?) {
     if (controller == null) return
     var picking by remember { mutableStateOf(false) }
     val id = IslandWidgetState.id
-    Text(stringResource(com.jake.duolauncher.R.string.widget_in_the_island), style = MaterialTheme.typography.titleMedium)
-    Text(if (id >= 0) "Showing: ${controller.currentLabel() ?: "an unavailable widget"}" else "None chosen",
-        modifier = Modifier.testTag("island-widget-current"))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        GlassButton(onClick = { picking = true }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("island-widget-choose")) {
-            Text(if (id >= 0) "Change" else "Choose widget")
-        }
-        if (id >= 0) GlassButton(onClick = controller::remove, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("island-widget-remove")) { Text(stringResource(com.jake.duolauncher.R.string.remove)) }
+    SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.widget_in_the_island),
+        footer = controller.message ?: "The open island shows this widget below its controls.") {
+        row { ValueRow("Widget", if (id >= 0) controller.currentLabel() ?: "Unavailable" else "None", "island-widget-current") }
+        row { ActionRow(if (id >= 0) "Change Widget" else "Choose Widget", "island-widget-choose") { picking = true } }
+        if (id >= 0) row { ActionRow(stringResource(com.jake.duolauncher.R.string.remove), "island-widget-remove", destructive = true, onClick = controller::remove) }
     }
-    controller.message?.let { Text(it, color = MaterialTheme.colorScheme.error, style = note) }
-    Text(stringResource(com.jake.duolauncher.R.string.the_open_island_shows_this_widget),
-        style = note, color = muted)
     if (picking) {
         val providers = remember { controller.providers() }
         GlassAlertDialog(onDismissRequest = { picking = false }, title = { Text(stringResource(com.jake.duolauncher.R.string.widget_in_the_island)) }, text = {
@@ -391,26 +270,16 @@ private fun IslandWidgetSetting(controller: IslandWidgetController?, note: andro
  * cards stay (Auto is 6 seconds). Tap the time to change it.
  */
 @Composable
-private fun IslandLinksSetting(actions: ExtrasActions, apps: List<AppEntry>, note: androidx.compose.ui.text.TextStyle, muted: androidx.compose.ui.graphics.Color) {
+private fun IslandLinksSetting(actions: ExtrasActions, apps: List<AppEntry>) {
     val s = actions.store.state
-    var open by rememberSaveable { mutableStateOf(false) }
+    val open = rememberChecklistOpen("island-link")
     val timeouts = PeekTimeouts.parse(s.peekTimeouts)
-    Text(stringResource(com.jake.duolauncher.R.string.apps_that_can_use_the_island), style = MaterialTheme.typography.titleMedium)
-    Text(stringResource(com.jake.duolauncher.R.string.every_app_is_linked_until_you),
-        style = note, color = muted)
-    GlassButton(onClick = { open = !open }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("island-link-choose")) {
-        Text(if (open) "Done" else "Choose apps (${apps.count { IslandLinks.allowed(it.packageName, s.islandMuted) }} linked)")
-    }
-    if (open) apps.forEach { app ->
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Corner.small)
-            .toggleable(value = IslandLinks.allowed(app.packageName, s.islandMuted), role = androidx.compose.ui.semantics.Role.Checkbox) { actions.store.toggleIslandLink(app.packageName) }
-            .testTag("island-link-app-${app.id}"), verticalAlignment = Alignment.CenterVertically) {
-            GlassCheckbox(IslandLinks.allowed(app.packageName, s.islandMuted), null)
-            Image(app.image, null, Modifier.size(32.dp).clip(Corner.icon))
-            Text(app.label, Modifier.padding(start = 12.dp).weight(1f), maxLines = 1)
-            GlassButton(onClick = { actions.store.cyclePeekTimeout(app.packageName) }, modifier = Modifier.testTag("island-timeout-${app.id}")) {
-                Text(PeekTimeouts.label(timeouts, app.packageName))
-            }
+    SettingsGroup(header = "Apps", footer = "Every app can use the island until you uncheck it. The time is how long its notification cards stay; tap it to change.") {
+        appChecklist(open, apps, emptySet(), "island-link", count = apps.count { IslandLinks.allowed(it.packageName, s.islandMuted) },
+            isOn = { IslandLinks.allowed(it.packageName, s.islandMuted) },
+            trailing = { app -> Text(PeekTimeouts.label(timeouts, app.packageName), Modifier.clip(Corner.small)
+                .clickable { actions.store.cyclePeekTimeout(app.packageName) }.padding(8.dp).testTag("island-timeout-${app.id}"), color = SettingsAccent) }) {
+            actions.store.toggleIslandLink(it.packageName)
         }
     }
 }
@@ -420,127 +289,119 @@ private fun IslandLinksSetting(actions: ExtrasActions, apps: List<AppEntry>, not
 private fun IconPackSettings(selected: String, onSelect: (String) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val packs = remember { IconPacks.installed(context) }
-    Text(stringResource(com.jake.duolauncher.R.string.icon_pack), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
     if (packs.isEmpty()) {
-        Text(stringResource(com.jake.duolauncher.R.string.icon_pack_none_installed), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (selected.isNotEmpty()) GlassButton(onClick = { onSelect("") }, modifier = Modifier.testTag("icon-pack-none")) {
-            Text(stringResource(com.jake.duolauncher.R.string.icon_pack_stop_using)) }
+        SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.icon_pack), footer = stringResource(com.jake.duolauncher.R.string.icon_pack_none_installed)) {
+            if (selected.isNotEmpty()) row { ActionRow(stringResource(com.jake.duolauncher.R.string.icon_pack_stop_using), "icon-pack-none") { onSelect("") } }
+        }
         return
     }
     val options = listOf(IconPackInfo("", stringResource(com.jake.duolauncher.R.string.icon_pack_none))) + packs
-    options.forEach { pack ->
-        ChoiceRow(pack.label, if (pack.packageName.isEmpty()) stringResource(com.jake.duolauncher.R.string.icon_pack_none_detail) else pack.packageName,
-            selected = pack.packageName == selected, tag = "icon-pack-${pack.packageName.ifEmpty { "none" }}") { onSelect(pack.packageName) }
+    SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.icon_pack), footer = stringResource(com.jake.duolauncher.R.string.icon_pack_note)) {
+        options.forEach { pack -> row {
+            CheckRow(pack.label, pack.packageName == selected, "icon-pack-${pack.packageName.ifEmpty { "none" }}") { onSelect(pack.packageName) }
+        } }
     }
-    Text(stringResource(com.jake.duolauncher.R.string.icon_pack_note), style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** The keyboard page below its on/off status: a live keyboard to see and feel each change, then the settings in four groups. */
+/**
+ * The keyboard page: whether Uno Keyboard is on, a live keyboard to see and feel each change, then about a dozen settings in iOS's order.
+ * The emoji key, magnified keys and the space-bar cursor are always on, and the keyboard never blurs the app behind it (see
+ * fixRetiredSettings).
+ */
+@Composable
+private fun KeyboardPage(store: ExtrasStore, s: ExtrasState) {
+    val keyboardContext = androidx.compose.ui.platform.LocalContext.current
+    // Android 14+ forbids reading the enabled/selected IME settings for targetSdk > 33, so the
+    // enabled list comes from the public InputMethodManager API and the selected state degrades
+    // to "unknown" where the secure setting can't be read.
+    val enabledKeyboards = runCatching {
+        keyboardContext.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+            ?.enabledInputMethodList.orEmpty()
+    }.getOrDefault(emptyList())
+    val keyboardEnabled = enabledKeyboards.any { it.packageName == keyboardContext.packageName }
+    val keyboardSelected = runCatching {
+        android.provider.Settings.Secure.getString(keyboardContext.contentResolver,
+            android.provider.Settings.Secure.DEFAULT_INPUT_METHOD)
+    }.getOrNull()?.startsWith(keyboardContext.packageName + "/")
+    SettingsGroup(footer = when {
+        keyboardSelected == true -> "Uno Keyboard is your keyboard."
+        keyboardEnabled && keyboardSelected == null -> "Enabled. Android no longer tells apps which keyboard is selected, so check with the switcher."
+        keyboardEnabled -> "Enabled, but another keyboard is selected."
+        else -> "Off. Android asks you to turn a keyboard on before it can be used."
+    }, tag = "keyboard-status") {
+        if (!keyboardEnabled) row { ActionRow(stringResource(com.jake.duolauncher.R.string.turn_on_uno_keyboard), "keyboard-enable") {
+            keyboardContext.startActivity(android.content.Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+        else if (keyboardSelected != true) row { ActionRow(stringResource(com.jake.duolauncher.R.string.switch_to_uno_keyboard), "keyboard-switch") {
+            keyboardContext.getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.showInputMethodPicker() } }
+    }
+    KeyboardSettingsBody(store, s, keyboardContext)
+}
+
+/** The keyboard page below its on/off status: a live keyboard to see and feel each change, then the settings in groups. */
 @Composable
 private fun KeyboardSettingsBody(store: ExtrasStore, s: ExtrasState, keyboardContext: android.content.Context) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val note = MaterialTheme.typography.bodySmall
-    val group = MaterialTheme.typography.titleSmall
     fun haptics(strength: Float = s.kbHapticStrength, feel: Int = s.kbHapticFeel) =
         com.jake.duolauncher.keyboard.KeyHaptics.configure(keyboardContext, if (s.haptics) strength else 0f, feel)
     LaunchedEffect(s.haptics, s.kbHapticStrength, s.kbHapticFeel) { haptics() }
 
-    com.jake.duolauncher.keyboard.KeyboardSettingsPreview(com.jake.duolauncher.keyboard.KeyboardLook(s.kbLayouts, s.kbHeight, s.kbNumberRow, s.kbEmojiKey,
-        s.kbKeyPreview, s.kbBlur, s.kbOneHanded, s.kbSpaceCursor, classic = s.kbStyle == 1), Modifier.fillMaxWidth())
+    com.jake.duolauncher.keyboard.KeyboardSettingsPreview(com.jake.duolauncher.keyboard.KeyboardLook(s.kbLayouts, s.kbHeight, s.kbNumberRow, true,
+        true, false, s.kbOneHanded, true, classic = s.kbStyle == 1), Modifier.fillMaxWidth())
 
-    Text(stringResource(R.string.kb_group_typing), style = group)
-    SettingsSwitch("Suggestions", s.kbSuggestions, store::setKbSuggestions, "kb-suggestions-switch")
-    SettingsSwitch("Autocorrect", s.kbAutocorrect, store::setKbAutocorrect, "kb-autocorrect-switch")
-    SettingsSwitch("Swipe to type", s.kbSwipe, store::setKbSwipe, "kb-swipe-switch")
-    SettingsSwitch("Capitalize sentences", s.kbAutoCaps, store::setKbAutoCaps, "kb-auto-caps-switch")
-    SettingsSwitch("Double-space to type a period", s.kbDoubleSpace, store::setKbDoubleSpace, "kb-double-space-switch")
-    SettingsSwitch("Slide on space bar to move the cursor", s.kbSpaceCursor, store::setKbSpaceCursor, "kb-space-cursor-switch")
+    SettingsGroup(header = stringResource(R.string.kb_group_typing),
+        footer = "Double-tap the space bar to type a period. Slide on the space bar to move the cursor.") {
+        row { SettingsSwitch("Predictive", s.kbSuggestions, store::setKbSuggestions, "kb-suggestions-switch") }
+        row { SettingsSwitch("Autocorrect", s.kbAutocorrect, store::setKbAutocorrect, "kb-autocorrect-switch") }
+        row { SettingsSwitch("Slide to Type", s.kbSwipe, store::setKbSwipe, "kb-swipe-switch") }
+        row { SettingsSwitch("Auto-Capitalization", s.kbAutoCaps, store::setKbAutoCaps, "kb-auto-caps-switch") }
+        row { SettingsSwitch("“.” Shortcut", s.kbDoubleSpace, store::setKbDoubleSpace, "kb-double-space-switch") }
+        row { SettingsSwitch("Emoji Suggestions", s.kbEmojiSuggestions, store::setKbEmojiSuggestions, "kb-emoji-suggestions-switch") }
+        row { SettingsSwitch("Clipboard History", s.kbClipHistory, store::setKbClipHistory, "kb-clip-history-switch") }
+    }
+    PersonalWords(store, s.kbLearn)
 
-    Text(stringResource(R.string.kb_group_smarts), style = group)
-    SettingsSwitch("Learn my words", s.kbLearn, store::setKbLearn, "kb-learn-switch")
-    SettingsSwitch("Emoji suggestions", s.kbEmojiSuggestions, store::setKbEmojiSuggestions, "kb-emoji-suggestions-switch")
-    SettingsSwitch("Clipboard history", s.kbClipHistory, store::setKbClipHistory, "kb-clip-history-switch")
-    Text(stringResource(R.string.kb_learn_note), style = note, color = muted)
-    Text(stringResource(R.string.kb_clip_note), style = note, color = muted)
-    PersonalWords(s.kbLearn)
+    SettingsGroup(header = "Look", footer = "Classic is the flat look of Uno 0.97; everything new still works with it.") {
+        row { CheckRow(stringResource(R.string.kb_style_glass), s.kbStyle == 0, "kb-style-glass") { store.setKbStyle(0) } }
+        row { CheckRow("Classic", s.kbStyle == 1, "kb-style-classic") { store.setKbStyle(1) } }
+        row { SettingsSwitch("Number Row", s.kbNumberRow, store::setKbNumberRow, "kb-number-row-switch") }
+        row { CustomizationSlider("Height", "${(s.kbHeight * 100).toInt()}%", s.kbHeight, .8f..1.3f, tag = "kb-height-slider") { store.setKbHeight(it) } }
+    }
 
-    Text(stringResource(R.string.kb_group_look), style = group)
-    Text(stringResource(R.string.kb_style), style = MaterialTheme.typography.bodyLarge)
-    ChoiceRow(stringResource(R.string.kb_style_glass), stringResource(R.string.kb_style_glass_note), s.kbStyle == 0, "kb-style-glass") { store.setKbStyle(0) }
-    ChoiceRow(stringResource(R.string.kb_style_classic), stringResource(R.string.kb_style_classic_note), s.kbStyle == 1, "kb-style-classic") { store.setKbStyle(1) }
-    if (s.kbStyle == 0) {
-        SettingsSwitch("Blur the app behind the keyboard", s.kbBlur, store::setKbBlur, "kb-blur-switch")
-        Text(stringResource(R.string.kb_blur_note), style = note, color = muted)
-    }
-    SettingsSwitch("Number row", s.kbNumberRow, store::setKbNumberRow, "kb-number-row-switch")
-    SettingsSwitch("Emoji key", s.kbEmojiKey, store::setKbEmojiKey, "kb-emoji-key-switch")
-    SettingsSwitch("Magnify keys as you type", s.kbKeyPreview, store::setKbKeyPreview, "kb-key-preview-switch")
-    SettingsSwitch("Key sounds", s.kbSound, store::setKbSound, "kb-sound-switch")
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.kb_height), Modifier.weight(1f))
-        Text("${(s.kbHeight * 100).toInt()}%", color = muted)
-    }
-    LiquidSliderControl(s.kbHeight, .8f..1.3f, { store.setKbHeight(it) }, LocalPageGlass.current, Modifier.testTag("kb-height-slider"))
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.key_haptics), Modifier.weight(1f))
-        Text(if (s.kbHapticStrength <= .01f) "Off" else "${(s.kbHapticStrength * 100).toInt()}%", color = muted)
-    }
-    LiquidSliderControl(s.kbHapticStrength, 0f..1f, { value -> store.setKbHapticStrength(value); haptics(strength = value) },
-        LocalPageGlass.current, Modifier.testTag("kb-haptic-slider"))
-    Text(stringResource(R.string.kb_haptic_feel), style = MaterialTheme.typography.bodyLarge)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf(R.string.kb_feel_soft, R.string.kb_feel_crisp, R.string.kb_feel_firm).forEachIndexed { i, label ->
-            val on = s.kbHapticFeel == i
-            GlassButton(onClick = {
-                // Choosing a feel plays it, so the choice is felt at once.
-                store.setKbHapticFeel(i); haptics(feel = i)
+    // Off, or one of three feels at the standard strength; choosing a feel plays it, so the choice is felt at once.
+    val feel = if (s.kbHapticStrength <= .01f) -1 else s.kbHapticFeel
+    val feelNames = listOf("Off", stringResource(R.string.kb_feel_soft), stringResource(R.string.kb_feel_crisp), stringResource(R.string.kb_feel_firm))
+    SettingsGroup(header = "Feedback", footer = "A light tick as each key goes down, firmer for space and Return. It follows Android's touch feedback setting and Gestures › Haptics.") {
+        row { SettingsSwitch("Key Sounds", s.kbSound, store::setKbSound, "kb-sound-switch") }
+        row { SegmentRow(listOf(-1, 0, 1, 2), feel, { feelNames[it + 1] },
+            { "kb-feel-$it" }) { choice ->
+            if (choice < 0) { store.setKbHapticStrength(0f); haptics(strength = 0f) }
+            else {
+                val strength = com.jake.duolauncher.keyboard.HapticProfile.DEFAULT_STRENGTH
+                store.setKbHapticStrength(strength); store.setKbHapticFeel(choice); haptics(strength, choice)
                 val h = android.os.Handler(android.os.Looper.getMainLooper())
                 listOf(com.jake.duolauncher.keyboard.HapticKind.LETTER, com.jake.duolauncher.keyboard.HapticKind.LETTER, com.jake.duolauncher.keyboard.HapticKind.SPACE)
                     .forEachIndexed { n, k -> h.postDelayed({ com.jake.duolauncher.keyboard.KeyHaptics.fire(k) }, 60L + n * 130L) }
-            }, Modifier.weight(1f).heightIn(min = 44.dp).testTag("kb-feel-$i")) {
-                Text(stringResource(label) + if (on) " ✓" else "")
             }
-        }
+        } }
     }
-    GlassButton(onClick = {
-        // A short run of what typing feels like, so you can set the strength without opening a text field.
-        haptics()
-        val kinds = listOf(com.jake.duolauncher.keyboard.HapticKind.LETTER, com.jake.duolauncher.keyboard.HapticKind.LETTER,
-            com.jake.duolauncher.keyboard.HapticKind.SPACE, com.jake.duolauncher.keyboard.HapticKind.AUTOCORRECT, com.jake.duolauncher.keyboard.HapticKind.DELETE,
-            com.jake.duolauncher.keyboard.HapticKind.SHIFT_LOCK, com.jake.duolauncher.keyboard.HapticKind.RETURN)
-        val h = android.os.Handler(android.os.Looper.getMainLooper())
-        kinds.forEachIndexed { i, k -> h.postDelayed({ com.jake.duolauncher.keyboard.KeyHaptics.fire(k) }, i * 150L) }
-    }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("kb-haptic-try")) { Text(stringResource(R.string.feel_it)) }
-    Text(stringResource(R.string.a_light_tick_on_touch_down), style = note, color = muted)
-    Text(stringResource(R.string.one_handed_keyboard), style = MaterialTheme.typography.bodyLarge)
-    ChoiceRow("Off", "The keys use the full width", s.kbOneHanded == 0, "kb-one-handed-off") { store.setKbOneHanded(0) }
-    ChoiceRow("Left", "The keys sit against the left edge, a little narrower", s.kbOneHanded == 1, "kb-one-handed-left") { store.setKbOneHanded(1) }
-    ChoiceRow("Right", "The keys sit against the right edge, a little narrower", s.kbOneHanded == 2, "kb-one-handed-right") { store.setKbOneHanded(2) }
 
-    Text(stringResource(R.string.kb_group_layouts), style = group)
-    Text(stringResource(R.string.kb_layouts_note), style = note, color = muted)
+    SettingsGroup(header = "One-Handed") {
+        row { CheckRow("Off", s.kbOneHanded == 0, "kb-one-handed-off") { store.setKbOneHanded(0) } }
+        row { CheckRow("Left", s.kbOneHanded == 1, "kb-one-handed-left") { store.setKbOneHanded(1) } }
+        row { CheckRow("Right", s.kbOneHanded == 2, "kb-one-handed-right") { store.setKbOneHanded(2) } }
+    }
+
     val on = com.jake.duolauncher.keyboard.KeyLayouts.parse(s.kbLayouts).map { it.id }
-    com.jake.duolauncher.keyboard.KeyLayouts.ALL.forEach { layout ->
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Corner.small)
-            .toggleable(value = layout.id in on, role = androidx.compose.ui.semantics.Role.Checkbox) { store.toggleKbLayout(layout.id) }
-            .testTag("kb-layout-${layout.id}"), verticalAlignment = Alignment.CenterVertically) {
-            GlassCheckbox(layout.id in on, null)
-            Column(Modifier.padding(start = 8.dp)) {
-                Text(layout.name)
-                Text(layout.rows.first().uppercase(), style = note, color = muted)
-            }
-        }
+    SettingsGroup(header = stringResource(R.string.kb_group_layouts), footer = stringResource(R.string.kb_layouts_note)) {
+        com.jake.duolauncher.keyboard.KeyLayouts.ALL.forEach { layout -> row {
+            ToggleCheckRow(layout.name, layout.id in on, "kb-layout-${layout.id}", detail = layout.rows.first().uppercase()) { store.toggleKbLayout(layout.id) }
+        } }
     }
-
-    Text(stringResource(R.string.a_glass_styled_keyboard_with_key), style = note, color = muted)
+    SettingsGroup(footer = stringResource(R.string.a_glass_styled_keyboard_with_key)) {}
 }
 
-/** The words the keyboard has learned: each can be forgotten, one can be added, and everything can be forgotten at once. */
+/** Learned words in one group: learning on or off, the words it has learned (each can be forgotten, one can be added), and forgetting all. */
 @Composable
-private fun PersonalWords(learning: Boolean) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+private fun PersonalWords(store: ExtrasStore, learning: Boolean) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var version by remember { mutableIntStateOf(0) }
     var loaded by remember { mutableStateOf(com.jake.duolauncher.keyboard.PersonalStore.loaded) }
@@ -551,31 +412,37 @@ private fun PersonalWords(learning: Boolean) {
     var open by rememberSaveable { mutableStateOf(false) }
     var draft by rememberSaveable { mutableStateOf("") }
     var forgotten by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(Corner.small).clickable { open = !open }.testTag("kb-your-words"),
-        verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.kb_your_words), Modifier.weight(1f))
-        Text("${words.size}", color = muted)
-        Icon(if (open) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, null, tint = muted)
-    }
-    if (open) {
-        if (words.isEmpty()) Text(stringResource(R.string.kb_no_words), style = MaterialTheme.typography.bodySmall, color = muted)
-        words.take(200).forEach { w ->
-            Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(w, Modifier.weight(1f))
-                IconButton(onClick = { com.jake.duolauncher.keyboard.PersonalStore.model.forget(w); com.jake.duolauncher.keyboard.PersonalStore.saveSoon(); version++ },
-                    modifier = Modifier.testTag("kb-forget-$w")) { Icon(Icons.Rounded.Close, "Forget $w", tint = muted) }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    SettingsGroup(header = "Learned Words", footer = (if (forgotten) stringResource(R.string.kb_forgotten) + " " else "") + stringResource(R.string.kb_learn_note)) {
+        row { SettingsSwitch("Learn New Words", learning, store::setKbLearn, "kb-learn-switch") }
+        row {
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { open = !open }.testTag("kb-your-words"), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.kb_your_words), Modifier.weight(1f))
+                Text("${words.size}", color = muted)
+                Icon(if (open) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, null, tint = muted)
             }
         }
-        if (learning) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GlassField(draft, { draft = it }, Modifier.weight(1f).testTag("kb-add-word"), minLines = 1, maxLines = 1,
-                placeholder = { Text(stringResource(R.string.kb_add_word)) })
-            GlassButton(onClick = {
-                com.jake.duolauncher.keyboard.PersonalStore.model.add(draft, (System.currentTimeMillis() / 86_400_000L).toInt())
-                com.jake.duolauncher.keyboard.PersonalStore.saveSoon(); draft = ""; version++
-            }, Modifier.heightIn(min = 48.dp).testTag("kb-add-word-button")) { Text(stringResource(R.string.kb_add)) }
+        if (open) {
+            if (words.isEmpty()) row { Text(stringResource(R.string.kb_no_words), Modifier.padding(vertical = Space.M.dp), style = UnoType.footnote, color = muted) }
+            words.take(200).forEach { w -> row {
+                Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(w, Modifier.weight(1f))
+                    IconButton(onClick = { com.jake.duolauncher.keyboard.PersonalStore.model.forget(w); com.jake.duolauncher.keyboard.PersonalStore.saveSoon(); version++ },
+                        modifier = Modifier.testTag("kb-forget-$w")) { Icon(Icons.Rounded.RemoveCircle, "Forget $w", tint = Color(0xFFFF3B30)) }
+                }
+            } }
+            if (learning) row {
+                Row(Modifier.fillMaxWidth().padding(vertical = Space.S.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.S.dp)) {
+                    GlassField(draft, { draft = it }, Modifier.weight(1f).testTag("kb-add-word"), minLines = 1, maxLines = 1,
+                        placeholder = { Text(stringResource(R.string.kb_add_word)) })
+                    Text(stringResource(R.string.kb_add), Modifier.clip(Corner.small).clickable {
+                        com.jake.duolauncher.keyboard.PersonalStore.model.add(draft, (System.currentTimeMillis() / 86_400_000L).toInt())
+                        com.jake.duolauncher.keyboard.PersonalStore.saveSoon(); draft = ""; version++
+                    }.padding(Space.S.dp).testTag("kb-add-word-button"), color = SettingsAccent)
+                }
+            }
         }
+        row { ActionRow("Forget All Learned Words", "kb-forget-everything", destructive = true) {
+            com.jake.duolauncher.keyboard.PersonalStore.forgetEverything(); forgotten = true; version++ } }
     }
-    GlassButton(onClick = { com.jake.duolauncher.keyboard.PersonalStore.forgetEverything(); forgotten = true; version++ },
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("kb-forget-everything")) { Text(stringResource(R.string.kb_forget_everything)) }
-    if (forgotten) Text(stringResource(R.string.kb_forgotten), style = MaterialTheme.typography.bodySmall, color = muted)
 }

@@ -68,6 +68,8 @@ private fun ledgerInputs(context: Context, actions: ExtrasActions): LedgerInputs
         islandEverywhere = actions.store.state.islandEverywhere,
         alignmentEnabled = StatusBarReaderService.isEnabled(context),
         alignmentRunning = StatusBarReaderService.isConnected(),
+        sensorsAllowed = GrapheneSensors.allowed(context),
+        hideOverApps = actions.store.state.let { it.islandEverywhere && it.islandHideOverOn && it.islandHideOver.isNotEmpty() },
     )
 }
 
@@ -81,4 +83,20 @@ private fun openLedgerAction(context: Context, action: LedgerAction) {
         LedgerAction.NONE -> return
     }
     runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+}
+
+/**
+ * GrapheneOS's Sensors permission (OTHER_SENSORS): the accelerometer, gyroscope, compass and the rest of the sensors no Android permission
+ * covers. GrapheneOS gives it to every app and lets the person turn it off per app; a denied app gets no error, only readings that never
+ * change, so asking about this launcher's own grant is the one way to tell. That needs no privilege. Whether Android's phone-wide "Sensors
+ * off" tile is on is not readable without system privileges, so it is not shown.
+ */
+internal object GrapheneSensors {
+    private const val PERMISSION = "android.permission.OTHER_SENSORS"
+
+    /** True or false on GrapheneOS; null where the permission does not exist (stock Android), so nothing claims a toggle that is not there. */
+    fun allowed(context: Context): Boolean? {
+        val exists = runCatching { context.packageManager.getPermissionInfo(PERMISSION, 0) }.isSuccess
+        return if (exists) context.checkSelfPermission(PERMISSION) == android.content.pm.PackageManager.PERMISSION_GRANTED else null
+    }
 }

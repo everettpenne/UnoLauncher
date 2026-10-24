@@ -43,6 +43,10 @@ internal data class LedgerInputs(
     /** The optional island alignment service (StatusBarReaderService): turned on in settings, and running. */
     val alignmentEnabled: Boolean = false,
     val alignmentRunning: Boolean = false,
+    /** GrapheneOS's Sensors permission for this launcher: true or false there, null on Android without it (no row is shown). */
+    val sensorsAllowed: Boolean? = null,
+    /** The person chose apps to hide the island over, so the shade service is told which app is in front. */
+    val hideOverApps: Boolean = false,
 )
 
 internal object PermissionLedger {
@@ -63,7 +67,8 @@ internal object PermissionLedger {
                 i.accessibilityRunning,
                 "Opening the notifications and Quick Settings panels from Home gestures, locking the screen when you double-tap empty Home space (only if you switch that on), and drawing the island above the status bar (as an accessibility overlay window) so it can be tapped over other apps." +
                     if (blocked) " Android is not running it. Advanced Protection or a restricted-settings block can do this; the plain overlay is used instead." else "",
-                "Nothing. It subscribes to no events and cannot read the screen or other apps.",
+                if (i.hideOverApps) "Only the name of the app in front, because you chose apps to hide the island over (Island settings); never what is in it or on screen. The latest name is kept in memory and nothing is sent."
+                else "Nothing. It subscribes to no events and cannot read the screen or other apps.",
                 LedgerAction.ACCESSIBILITY_SETTINGS),
             LedgerRow("alignment", "Accessibility service (island alignment)",
                 when {
@@ -105,7 +110,14 @@ internal object PermissionLedger {
                 "The island's camera, microphone and screen-recording marks, and VPN, USB-data and audio-device alerts. Screen recording uses Android's install-time DETECT_SCREEN_RECORDING permission.",
                 "Only that something is happening, never what was captured. Android does not tell any app which app is using the camera or microphone, so the island says how long, and (if you have allowed usage access) which app was in front. Android reports these to every app.",
                 LedgerAction.NONE),
-        )
+        ) + listOfNotNull(i.sensorsAllowed?.let { allowed ->
+            LedgerRow("sensors", "Sensors (GrapheneOS)",
+                if (allowed) "Allowed" else "Not allowed", allowed,
+                "Which way the phone is tilted, for the light that moves across glass and icons when Tilt Highlight is on, and the liquid in the Battery widget." +
+                    if (allowed) "" else " With it off GrapheneOS gives the launcher still readings, so the light and the liquid stay level; nothing else changes.",
+                "The direction of gravity only (the gravity sensor, or the accelerometer where there is none), read while Home or the widget is on screen. Not motion history, steps or location. Nothing is stored or sent.",
+                LedgerAction.APP_INFO)
+        })
     }
 
     /** The plain-language line under the title: which island you actually have right now. */

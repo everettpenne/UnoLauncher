@@ -21,6 +21,8 @@ internal data class PeekNotification(
     val actions: List<PeekAction> = emptyList(),
     /** A turn-by-turn instruction, drawn large (the arrow, the distance and the street) so it can be read while driving. */
     val navigation: Boolean = false,
+    /** A quick-actions card for a live activity (a long press on the pill), not a notification: never kept as the recent notification. */
+    val quickActions: Boolean = false,
 )
 
 /** Pure rules for what the drop-down card shows, kept apart so they are unit-tested. */

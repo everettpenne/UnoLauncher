@@ -30,7 +30,9 @@ import androidx.core.graphics.drawable.toBitmap
 internal data class OngoingCall(val caller: String, val packageName: String, val startedAt: Long,
     val openIntent: android.app.PendingIntent?,
     /** The call notification's own hang-up action, when it has one (an ongoing call); the island's End button sends it. */
-    val hangUp: android.app.PendingIntent? = null)
+    val hangUp: android.app.PendingIntent? = null,
+    /** Null for a call in the personal profile, else its profile's serial. */
+    val userSerial: Long? = null)
 
 /** Pure rules for recognising a live call from a notification's public fields. */
 internal object CallLogic {
@@ -92,6 +94,33 @@ class UnoNotificationListener : NotificationListenerService() {
     private var latest: List<MediaController> = emptyList()
     private var chosenToken: android.media.session.MediaSession.Token? = null
     private val lastPeek = mutableMapOf<String, Long>()
+    private val launcherApps by lazy { getSystemService(android.content.pm.LauncherApps::class.java) }
+    private val users by lazy { getSystemService(android.os.UserManager::class.java) }
+
+    /** Null for a notification from the personal profile; else that profile's serial and short name ("Work", "Private"). */
+    private fun profileOf(sbn: StatusBarNotification): Pair<Long, String>? {
+        val user = sbn.user ?: return null
+        if (user == android.os.Process.myUserHandle()) return null
+        val type = if (android.os.Build.VERSION.SDK_INT >= 35) runCatching { launcherApps.getLauncherUserInfo(user)?.userType }.getOrNull() else null
+        return users.getSerialNumberForUser(user) to NotificationProfiles.profileName(type)
+    }
+
+    /** The posting app's info from its own profile: the personal package manager does not know an app installed only in the work profile. */
+    private fun appInfoOf(sbn: StatusBarNotification): android.content.pm.ApplicationInfo? = runCatching {
+        if (profileOf(sbn) == null) packageManager.getApplicationInfo(sbn.packageName, 0)
+        else launcherApps.getApplicationInfo(sbn.packageName, 0, sbn.user)
+    }.getOrNull()
+
+    /** The app's name, marked with its profile when it is not the personal one. */
+    private fun appLabelOf(sbn: StatusBarNotification): String? =
+        appInfoOf(sbn)?.let { NotificationProfiles.label(packageManager.getApplicationLabel(it).toString(), profileOf(sbn)?.second) }
+
+    /** The app's icon, with Android's profile badge (the work briefcase) when it is not the personal one. */
+    private fun appIconOf(sbn: StatusBarNotification, size: Int): Bitmap? = runCatching {
+        val info = appInfoOf(sbn) ?: return@runCatching null
+        val icon = packageManager.getApplicationIcon(info)
+        (if (sbn.user != null && sbn.user != android.os.Process.myUserHandle()) packageManager.getUserBadgedIcon(icon, sbn.user) else icon).toBitmap(size, size)
+    }.getOrNull()
     private val prefs by lazy { getSharedPreferences("extras", Context.MODE_PRIVATE) }
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
         handler?.post { recount(); syncMedia(); syncLiveUpdates() }
@@ -172,8 +201,7 @@ class UnoNotificationListener : NotificationListenerService() {
                     e.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false), liveOn, navOn, tasksOn) ?: return@runCatching null
                 val title = e.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
                 if (title.isEmpty()) return@runCatching null
-                val label = runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString() }
-                    .getOrDefault(sbn.packageName)
+                val label = appLabelOf(sbn) ?: sbn.packageName
                 val chrono = if (e.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false)) n.`when` else null
                 // The short status exists only on Android 16; older versions have no such field to read.
                 val shortCritical = if (android.os.Build.VERSION.SDK_INT >= 36) n.shortCriticalText else null
@@ -194,7 +222,7 @@ class UnoNotificationListener : NotificationListenerService() {
                     chronometerBase = chrono,
                     countDown = e.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN, false),
                     // The app's own colour if it gave one, else the colour of its icon.
-                    color = n.color.takeIf { it != 0 } ?: AppTints.of(sbn.packageName) { runCatching { packageManager.getApplicationIcon(sbn.packageName).toBitmap(48, 48) }.getOrNull() } ?: 0,
+                    color = n.color.takeIf { it != 0 } ?: AppTints.of(sbn.packageName) { appIconOf(sbn, 48) } ?: 0,
                 ).copy(
                     icon = smallIconOf(n),
                     openIntent = n.contentIntent,
@@ -251,12 +279,13 @@ class UnoNotificationListener : NotificationListenerService() {
             val n = sbn.notification
             val hangUpAt = CallActions.hangUpIndex(n.extras.getInt("android.callType", 0), n.actions?.size ?: 0)
             NotificationFeed.ongoingCall = OngoingCall(caller, sbn.packageName, sbn.postTime, n.contentIntent,
-                hangUpAt?.let { n.actions[it].actionIntent })
+                hangUpAt?.let { n.actions[it].actionIntent }, userSerial = profileOf(sbn)?.first)
         }
     }
 
     private fun untrackCall(sbn: StatusBarNotification) {
-        if (NotificationFeed.ongoingCall?.packageName == sbn.packageName) {
+        // Only a removal from the profile the call is in ends it: the same dialer in the other profile is a different call.
+        if (NotificationFeed.ongoingCall?.packageName == sbn.packageName && NotificationFeed.ongoingCall?.userSerial == profileOf(sbn)?.first) {
             NotificationFeed.ongoingCall = null
         }
     }
@@ -269,7 +298,8 @@ class UnoNotificationListener : NotificationListenerService() {
         NotificationFeed.badges = BadgeLogic.counts(active.filter { it.packageName != packageName && it.packageName !in muted }.map {
             ListedNotification(it.packageName,
                 ongoing = it.notification.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE) != 0,
-                groupSummary = it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0)
+                groupSummary = it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0,
+                userSerial = profileOf(it)?.first)
         })
     }
 
@@ -280,11 +310,11 @@ class UnoNotificationListener : NotificationListenerService() {
         if (flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE or Notification.FLAG_GROUP_SUMMARY) != 0) return
         val now = System.currentTimeMillis()
         // One peek per app every few seconds, so a chat that sends ten messages doesn't flicker the island.
-        if (now - (lastPeek[sbn.packageName] ?: 0L) < PEEK_GAP_MS) return
-        lastPeek[sbn.packageName] = now
-        val label = runCatching {
-            packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString()
-        }.getOrNull() ?: return
+        // Per profile: a work chat and the personal one are two apps as far as the person is concerned.
+        val peekKey = NotificationProfiles.badgeKey(sbn.packageName, profileOf(sbn)?.first)
+        if (now - (lastPeek[peekKey] ?: 0L) < PEEK_GAP_MS) return
+        lastPeek[peekKey] = now
+        val label = appLabelOf(sbn) ?: return
         // The notification's own words are read only when the person chose a level that shows them, and then only to show them (or to
         // check them against the blocked words); nothing is kept.
         val level = PeekLevel.of(prefs.getInt("peekLevel", 0))
@@ -295,7 +325,7 @@ class UnoNotificationListener : NotificationListenerService() {
                 PeekContent.parseWords(prefs.getString("peekBlocked", null)))
         }
         val seconds = PeekTimeouts.seconds(PeekTimeouts.parse(prefs.getString("peekTimeouts", null)), sbn.packageName)
-        val icon = runCatching { packageManager.getApplicationIcon(sbn.packageName).toBitmap(96, 96) }.getOrNull()
+        val icon = appIconOf(sbn, 96)
         val tint = AppTints.of(sbn.packageName) { icon }
         // The notification's own buttons go on the card only where its words do: a card that is just the app's name stays just that.
         val actions = if (shown != null && prefs.getBoolean("peekActions", true)) peekActions(sbn.notification) else emptyList()

@@ -166,7 +166,7 @@ private fun Drawable.catalogBitmap(): Bitmap {
 @Composable
 internal fun WidgetProviderPreview(entry: WidgetCatalogEntry, span: WidgetSpan, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val preview by produceState<CatalogPreview?>(null, entry.provider, span, context.resources.displayMetrics.densityDpi) {
+    val preview by produceState<CatalogPreview?>(null, entry.provider, span, androidx.compose.ui.platform.LocalResources.current.displayMetrics.densityDpi) {
         value = loadWidgetPreview(context, entry.provider, span)
     }
     Box(modifier.background(Glass.copy(alpha = .38f)), contentAlignment = Alignment.Center) {

@@ -41,6 +41,10 @@ internal fun AppBadge(count: Int, modifier: Modifier = Modifier) {
 /** Unread count for [packageName] from the notification listener (always 0 while it is off). */
 internal fun badgeCount(packageName: String): Int = NotificationFeed.badges[packageName] ?: 0
 
+/** [app]'s own count: a work or Private Space app counts only its own profile's notifications. */
+internal fun badgeCount(app: AppEntry): Int = NotificationFeed.badges[NotificationProfiles.badgeKey(app.packageName,
+    app.userSerial.takeIf { app.user != android.os.Process.myUserHandle() })] ?: 0
+
 /** The apps whose icons never carry a badge, kept as one comma-separated string in the settings. */
 internal object BadgeMute {
     fun parse(raw: String?): Set<String> = raw.orEmpty().split(',').map(String::trim).filter(String::isNotEmpty).toSet()

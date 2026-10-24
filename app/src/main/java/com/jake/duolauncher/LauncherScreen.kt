@@ -2,6 +2,7 @@
 
 package com.jake.duolauncher
 
+import androidx.lifecycle.compose.currentStateAsState
 import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.feed.*
@@ -385,6 +386,9 @@ internal fun LauncherScreen(
     // The island reads this process-wide flag (through IslandEventArbiter) so a notification never auto-expands it
     // while Spotlight is open; see the "no auto-expand" rule in docs/design.md's Metaphor policy.
     LaunchedEffect(spotlightOpen) { IslandRuntime.spotlightOpen = spotlightOpen }
+    // Home's island is fed while the launcher is in front, whether or not a sheet or search is covering the island.
+    val lifecycleState by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    HoldIslandEvents("home", appearance.island && lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED))
     BackHandler(enabled = spotlightOpen) { spotlightOpen = false }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { spotlightOpen = false }
     // A soft tick as each page settles (not on the first composition).
@@ -1053,10 +1057,7 @@ internal fun LauncherScreen(
                         if (pager.currentPage != -1) scope.launch { pager.animateScrollToPage(-1) }
                     },
                     onCustomize = { island.collapse(); customizationPage = CustomizationPage.OVERVIEW; sheet = "settings" })
-                // Charging transitions flash through the island.
-                LaunchedEffect(deviceStatus.charging) {
-                    if (deviceStatus.charging == true) island.showCharging(deviceStatus.battery)
-                }
+                // Charging and low battery flash through the island from its system events (BatteryMoments), on Home and over apps alike.
             }
             if (sheet.isNotEmpty() && sheet != "widgets") {
                 val activeCustomizationPage = if (sheet == "settings:wallpaper") CustomizationPage.APPEARANCE else customizationPage

@@ -262,10 +262,6 @@ internal class IslandState {
     /** Whether the flash on show is a notification's (its app's icon) with somewhere to go when tapped. */
     fun flashOpensSomething() = flashTitle != null && flashSymbol == IslandSymbol.APP && (flashOpen != null || flashComponent != null)
 
-    fun showCharging(percent: Int?) {
-        if (flashTitle == null) showEvent(IslandEvents.charging(percent))
-    }
-
     /** Records whether audio is playing; the stop time is what starts the resume window. */
     fun setPlaying(nowMs: Long, value: Boolean) {
         if (value || playing) lastPlayingAt = nowMs
@@ -299,7 +295,7 @@ internal class IslandState {
     fun showPeekCard(peek: PeekNotification) {
         // Remembered even when the card itself cannot be shown now (the island is open for something else, or a timer is ringing), so it is
         // still there to look at afterwards. A turn-by-turn instruction is not a notification to come back to; its own card is on the panel.
-        if (!peek.navigation) { recentCard = peek; recentAt = System.currentTimeMillis() }
+        if (!peek.navigation && !peek.quickActions) { recentCard = peek; recentAt = System.currentTimeMillis() }
         if (expanded && peekCard == null) return
         // A ringing timer has the island until it is dealt with.
         if (IslandTools.ringing) return

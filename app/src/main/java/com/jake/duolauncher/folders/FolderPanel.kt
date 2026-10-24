@@ -212,7 +212,7 @@ private fun FolderChild(
             Box {
                 Image(app.image, null, Modifier.size(58.dp).onGloballyPositioned { iconBounds.set(it.boundsInWindow().toAndroidBounds()) }
                     .glassIcon().clip(Corner.icon).alpha(if (app.available) 1f else .45f))
-                AppBadge(badgeCount(app.packageName), Modifier.align(Alignment.TopEnd))
+                AppBadge(badgeCount(app), Modifier.align(Alignment.TopEnd))
             }
             Text(app.label, Modifier.padding(top = 5.dp), maxLines = 1, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.labelMedium.copy(color = GlassInkOnPanel))

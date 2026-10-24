@@ -11,7 +11,8 @@ import kotlin.math.min
 import kotlin.math.sin
 
 /** One button on a notification card: what the app calls it, and what to send when it is tapped. A reply carries the input the app asked for. */
-internal class PeekAction(val title: String, val intent: PendingIntent, val reply: RemoteInput? = null)
+/** A button on a card: a notification's own ([intent], with [reply] for a typed answer), or one of Uno's ([run]) on a quick-actions card. */
+internal class PeekAction(val title: String, val intent: PendingIntent?, val reply: RemoteInput? = null, val run: (() -> Unit)? = null)
 
 /** What the notification offers, before it is turned into buttons. Kept apart from the Android types so the choice is unit-tested. */
 internal data class RawAction(val title: String?, val sendable: Boolean, val freeFormReply: Boolean, val contextual: Boolean = false)

@@ -188,10 +188,12 @@ internal class IslandOverlayHost(
             var allowed by androidx.compose.runtime.remember { mutableStateOf(true) }
             var everywhere by androidx.compose.runtime.remember { mutableStateOf(true) }
             val visible = allowed && (everywhere || IslandRuntime.launcherInFront)
+            // While the island may show over apps, its events run, even while it is hidden for a full-screen app.
+            HoldIslandEvents("overlay", visible)
             var islandWideMode by androidx.compose.runtime.remember { mutableStateOf(readIslandWideMode(context)) }
-            var resumeWindowMs by androidx.compose.runtime.remember { mutableStateOf(IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))) }
+            var resumeWindowMs by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))) }
             var islandScale by androidx.compose.runtime.remember {
-                mutableStateOf(context.getSharedPreferences("appearance", Context.MODE_PRIVATE).lenientFloat("islandScale", .5f).coerceIn(0f, 1f))
+                androidx.compose.runtime.mutableFloatStateOf(context.getSharedPreferences("appearance", Context.MODE_PRIVATE).lenientFloat("islandScale", .5f).coerceIn(0f, 1f))
             }
             // Out of the way of a full-screen app (see FullScreenPolicy): hidden once the status bar has been gone half a second.
             var fullScreen by androidx.compose.runtime.remember { mutableStateOf(false) }
@@ -199,8 +201,12 @@ internal class IslandOverlayHost(
             LaunchedEffect(barVisible) {
                 if (barVisible) fullScreen = false else { delay(FullScreenPolicy.HIDE_AFTER_MS); fullScreen = FullScreenPolicy.shouldHide(false, FullScreenPolicy.HIDE_AFTER_MS) }
             }
-            LaunchedEffect(visible, fullScreen) {
-                val show = visible && !fullScreen
+            // Over an app the person chose to hide it over (Island settings), the island goes; its events keep running (held above).
+            var hideOverOn by androidx.compose.runtime.remember { mutableStateOf(false) }
+            var hideOver by androidx.compose.runtime.remember { mutableStateOf(emptySet<String>()) }
+            val hiddenOverApp = HideOverApps.hidden(hideOverOn, hideOver, IslandRuntime.foregroundPackage, IslandRuntime.launcherInFront)
+            LaunchedEffect(visible, fullScreen, hiddenOverApp) {
+                val show = visible && !fullScreen && !hiddenOverApp
                 hiddenForFullScreen = fullScreen
                 if (shown != show) { shown = show; applyLayout() } else updateHud()
             }
@@ -213,6 +219,10 @@ internal class IslandOverlayHost(
                     allowed = OverlayPolicy.shouldShow(enabled, homeIsland, launcherInFront = true, (!needsOverlayPermission || Settings.canDrawOverlays(context)),
                         keyguard.isKeyguardLocked, power.isInteractive)
                     islandWideMode = readIslandWideMode(context)
+                    context.getSharedPreferences("extras", Context.MODE_PRIVATE).let {
+                        hideOverOn = it.getBoolean("islandHideOverOn", false)
+                        hideOver = IslandLinks.parse(it.getString("islandHideOver", null))
+                    }
                     resumeWindowMs = IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))
                     islandScale = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
                         .lenientFloat("islandScale", .5f).coerceIn(0f, 1f)

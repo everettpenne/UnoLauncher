@@ -282,12 +282,12 @@ internal fun Spotlight(
     contactsEnabled: Boolean,
     handoff: HandoffResolver,
     onLaunch: (AppEntry) -> Unit,
+    modifier: Modifier = Modifier,
     /** Launches with the app icon's place in the window, so the app opens out of the icon as it does from Home; null uses [onLaunch]. */
     onLaunchFrom: ((AppEntry, android.graphics.Rect?) -> Unit)? = null,
     onOpenFeedLink: (String) -> Unit,
     onOpenContact: (ContactResult) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
     /** 0 = the island's body, 1 = fully open; driven by the caller's enter/exit transition, and read only where the panel draws. */
     progress: () -> Float = { 1f },
     /** True from the moment Spotlight is opened until the moment its close begins (the open/close
@@ -633,8 +633,10 @@ internal fun Spotlight(
                 }
                 if (appResults.isNotEmpty()) item("apps-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_apps), ink) }
                 itemsIndexed(appResults, key = { _, app -> "app-${app.id}" }) { index, app ->
-                    // The first result is what Enter opens, so it is marked as the top hit.
-                    SpotlightRow(app.label, if (index == 0) stringResource(com.jake.duolauncher.R.string.spotlight_top_hit) else null,
+                    // The first result is what Enter opens, so it is marked as the top hit. A work app says so, so the personal and work
+                    // copies of one app are told apart by more than the small briefcase.
+                    val topHit = if (index == 0) stringResource(com.jake.duolauncher.R.string.spotlight_top_hit) else null
+                    SpotlightRow(app.label, listOfNotNull(topHit, app.profileLabel.takeIf { app.isWork }).joinToString(" · ").ifEmpty { null },
                         "spotlight-app-${app.id}", index == 0, ink, { launch(app) },
                         match = SpotlightRank.highlightRange(app.label, query)) {
                         Image(app.image, null, Modifier.size(40.dp)

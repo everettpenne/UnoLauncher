@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.105.0-uno01
+
+- **The pill is the camera's height on the Pixel 10a.** 0.104.2 made the resting pill as tall as a punch-hole camera, but only for holes at most 28 dp across; the 10a's cutout outline is larger than that (about 30 dp, drawn a little wider than the glass), so it was still sized as a notch and padded well above and below the camera. A punch hole is now recognised by its shape (round, below the top edge, small beside the screen).
+- **One owner for the island's events.** Audio, ringer, Do Not Disturb, camera, microphone, screen recording, VPN, USB, Bluetooth and battery listeners ran inside whichever island was drawn, so they stopped under a sheet on Home or while the overlay hid for a full-screen app (a camera that came on meanwhile was timed from when the island came back). They now run once, held by Home while it is in front and by the overlay while the island may show over apps. The island's timing rules are pure functions with tests.
+- **Quick actions.** A long press on the pill opens a card for its leading activity with that activity's own buttons: +1 Min and Cancel for a timer, Pause and Reset for the stopwatch, Previous, Play/Pause and Next for music, End and Open for a call, Open for a Live Update.
+- **Battery moments.** The island shows plugging in (with the level), reaching full, and Low Battery at 20 % and 10 %, over apps as well as on Home. Charging used to flash only on Home, and again each time Home reappeared while plugged in.
+- **Hide the island over chosen apps** (Island › Hide Over Apps, off by default, island over other apps only). While on with apps chosen, Uno's accessibility service is told the package name of the app in front and nothing else; the permission ledger says so.
+- **Focus with Do Not Disturb.** Focus can turn on and off with Android's Do Not Disturb and its schedules.
+- **Lock Screen clock widget.** The date over a large time, straight on the wallpaper as on iOS's lock screen, 4 × 2; tap it to choose Classic, Heavy, Thin, Serif or Mono, in white or the accent.
+- **App Library categories.** An A–Z / Categories choice groups apps by the category each declares, named by Android, with the largest groups first; searching is always A–Z.
+- **Profiles.** Notifications from the work profile and Private Space are named "App (Work)" or "App (Private)" with Android's profile badge, badge only that profile's copy of the app, and are no longer dropped for apps installed only in that profile. Search marks work apps.
+- **GrapheneOS Sensors.** The permission ledger shows whether Uno has GrapheneOS's Sensors permission and what stays still without it; Tilt Highlight's note says so plainly.
+- **Privacy.** A cable or Wi-Fi transfer to a new phone no longer copies Uno's data (learned words included): `allowBackup="false"` did not cover device-to-device transfer on Android 12+.
+- **Tidier code.** Lint warnings went from 171 to 1; the rest are fixed or documented in `app/lint.xml`. The Google feed's frame no longer allocates a path every frame, and the status bar reading says "1 item".
+
 ## 0.104.2-uno01
 
 - **A 16 mm island, as tall as the camera.** At rest the pill is about 16 mm wide (13.5 mm read a little small), still growing at most 8 dp a side so it never cuts a status bar icon in half. On punch-hole phones it is now as tall as the camera hole, with half a dp of black round it: its height still came from the retired size setting, about 8 dp of island above and below the camera, so on a Pixel 10a it was much taller than the cutout. Live activities, music and the open island grow from it as before.

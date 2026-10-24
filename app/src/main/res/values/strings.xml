@@ -7,7 +7,10 @@
     <string name="status_reader_service_description">Optional. Lets Uno Launcher\'s island line its edges up with the status bar\'s icons on any phone. It reads only where those icons are on screen (their positions), from the status bar alone: never their text, never other apps\' windows. It keeps only the latest positions in memory, takes no actions and sends nothing.</string>
     <string name="status_auto_title">Automatic</string>
     <string name="status_auto_note">With Uno Launcher island alignment turned on in Android\'s accessibility settings, the island reads where the status bar\'s icons really are and keeps its edges between them on any phone, font size or set of icons. It reads only the icons\' positions, never their text, and nothing leaves the phone. The guides below are then not needed.</string>
-    <string name="status_auto_reading">On: lining up with %1$d status bar items.</string>
+    <plurals name="status_auto_reading">
+        <item quantity="one">On: lining up with %1$d status bar item.</item>
+        <item quantity="other">On: lining up with %1$d status bar items.</item>
+    </plurals>
     <string name="status_auto_waiting">On: waiting for the status bar to change.</string>
     <string name="status_auto_blocked">Turned on, but Android is not running it (a restricted-settings block can do this).</string>
     <string name="status_auto_off">Off: the island uses the guides below.</string>
@@ -351,10 +354,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Launcher settings are reorganized like iOS Settings: grouped lists with short names and the detail underneath, and about half as many settings.</string>
-    <string name="whats_new_2">A new wallpaper editor, as on iOS: the photo fills the screen; swipe to try styles like Black &amp; White and Duotone, pinch to frame it, and preview your Home over it.</string>
-    <string name="whats_new_3">The accent is Uno orange, or one colour from your wallpaper. Glass is a single choice: Clear, Frosted or Off. Corners nest evenly throughout.</string>
-    <string name="whats_new_4">The resting island is about 16 mm wide and as tall as the camera, and glass everywhere is one of two kinds, clear or frosted, as on iOS 26.</string>
+    <string name="whats_new_1">The island fits the camera: on punch-hole phones like the Pixel 10a its resting pill is as tall as the hole. Long-press it for the activity\'s own buttons: pause, skip, +1 min, end call.</string>
+    <string name="whats_new_2">A Lock Screen clock widget: the date over a large time, straight on the wallpaper, in five typefaces. The App Library can group apps by category, worked out on the phone.</string>
+    <string name="whats_new_3">Battery moments in the island (charging, full, low at 20% and 10%), Focus that follows Do Not Disturb, and an option to hide the island over apps you choose.</string>
+    <string name="whats_new_4">Work and Private Space notifications say which profile they are from, and GrapheneOS\'s Sensors permission shows in the permission ledger.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>
@@ -424,4 +427,7 @@
     <string name="wallpaper_done">Done</string>
     <string name="wallpaper_show_home">Show Home</string>
     <string name="island_hide_words">Hide notifications containing…</string>
+    <string name="library_a_to_z">A–Z</string>
+    <string name="library_categories">Categories</string>
+    <string name="library_other">Other</string>
 </resources>

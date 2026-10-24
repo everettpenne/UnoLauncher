@@ -89,7 +89,7 @@ internal fun IslandSettingsPreview(controller: IslandPreviewController, settings
     val density = LocalDensity.current
     val context = LocalContext.current
     val view = LocalView.current
-    val metrics = context.resources.displayMetrics
+    val metrics = androidx.compose.ui.platform.LocalResources.current.displayMetrics
     val d = metrics.density
     // This phone's real camera hole and status bar, so the preview is the island's real size and shape; a phone with none gets a centred
     // hole the size of a Pixel 10a's. Bugfix (0.104.2): the preview took Android's cutout bounding rectangle, which on a Pixel 10a is far

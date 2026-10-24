@@ -24,6 +24,22 @@ class IslandPixel10aTest {
         assertEquals("the hole is centred in it", pill.width / 2f, pill.hole!!.centerX, .5f)
     }
 
+    /** A cutout outline drawn larger than the glass (here 84 px, 32 dp) is still a punch hole: it was sized as a notch, padded well above and below. */
+    @Test fun aLargerOutlineStillGivesAPillAsTallAsIt() {
+        val big = PxRect(498f, 10f, 582f, 94f)
+        val pill = IslandGeometry.frame(IslandEnvironment(big, screenW, 63f, screenHeight = 2424f), d, 0f, .5f)
+        // Only 10 px below the top edge, there is no room for the half-dp ring above it, so the pill is the outline's own height.
+        assertTrue("pill ${pill.height / d} dp for a ${big.height / d} dp outline", pill.height in big.height - .5f..big.height + 1f * d)
+        assertEquals(big.centerY, pill.top + pill.height / 2f, .5f)
+    }
+
+    @Test fun aNotchIsNotAPunchHole() {
+        assertTrue(IslandGeometry.isPunchHole(hole, screenW))
+        assertTrue(IslandGeometry.isPunchHole(PxRect(498f, 10f, 582f, 94f), screenW))
+        assertTrue("touches the top edge", !IslandGeometry.isPunchHole(PxRect(400f, 0f, 680f, 80f), screenW))
+        assertTrue("wide", !IslandGeometry.isPunchHole(PxRect(380f, 10f, 700f, 90f), screenW))
+    }
+
     @Test fun theSizeSettingOnlyChangesTheWidth() {
         val small = IslandGeometry.frame(env(), d, 0f, 0f)
         val large = IslandGeometry.frame(env(), d, 0f, 1f)

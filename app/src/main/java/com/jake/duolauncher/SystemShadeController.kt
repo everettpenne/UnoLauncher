@@ -15,13 +15,15 @@ internal enum class ShadeOpenResult { OPENED, SERVICE_DISABLED, SERVICE_STARTING
 
 /**
  * The platform exposes shade expansion to third-party apps only as accessibility global actions.
- * This service deliberately observes no events and cannot inspect windows or inject gestures.
+ * This service observes no events and cannot inspect windows or inject gestures, with one opt-in exception: while the person has chosen
+ * apps to hide the island over, it receives window-change events and keeps only the package name of the app in front (see [syncEvents]).
  */
 class SystemShadeAccessibilityService : AccessibilityService() {
     private var islandHost: IslandOverlayHost? = null
     private val prefs by lazy { getSharedPreferences("extras", MODE_PRIVATE) }
     private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == "islandEverywhere" || key == "island" || key == "homeIslandOverlay") syncIsland()
+        if (key == "islandHideOverOn" || key == "islandHideOver" || key == "islandEverywhere") syncEvents()
     }
     private val appearancePrefs by lazy { getSharedPreferences("appearance", MODE_PRIVATE) }
 
@@ -33,6 +35,23 @@ class SystemShadeAccessibilityService : AccessibilityService() {
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
         appearancePrefs.registerOnSharedPreferenceChangeListener(prefListener)
         syncIsland()
+        syncEvents()
+    }
+
+    /**
+     * Window-change events, only while the island is shown over apps and the person has chosen apps to hide it over: then the package of
+     * each new window is all that is read (the service still cannot read window content), to know when one of those apps comes to the front.
+     * Otherwise the service is unsubscribed from everything, as it always was.
+     */
+    private fun syncEvents() {
+        val wanted = prefs.getBoolean("islandEverywhere", false) && prefs.getBoolean("islandHideOverOn", false) &&
+            !prefs.getString("islandHideOver", null).isNullOrBlank()
+        serviceInfo = serviceInfo.apply {
+            eventTypes = if (wanted) AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED else 0
+            // The declaration limits events to Uno itself; the window changes wanted here are other apps', so the limit is lifted only then.
+            packageNames = if (wanted) null else arrayOf(packageName)
+        }
+        if (!wanted) IslandRuntime.foregroundPackage = null
     }
 
     /** The island above other apps, as an accessibility overlay: that window type is layered above the status bar,
@@ -53,10 +72,18 @@ class SystemShadeAccessibilityService : AccessibilityService() {
         }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val pkg = event.packageName?.toString() ?: return
+        val keyboard = runCatching { android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.DEFAULT_INPUT_METHOD) }
+            .getOrNull()?.substringBefore('/')
+        if (HideOverApps.ignored(pkg, keyboard)) return
+        IslandRuntime.foregroundPackage = pkg
+    }
     override fun onInterrupt() = Unit
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         runCatching { prefs.unregisterOnSharedPreferenceChangeListener(prefListener); appearancePrefs.unregisterOnSharedPreferenceChangeListener(prefListener) }
+        IslandRuntime.foregroundPackage = null
         islandHost?.stop(); islandHost = null
         if (instance.get() === this) instance.clear()
         return super.onUnbind(intent)

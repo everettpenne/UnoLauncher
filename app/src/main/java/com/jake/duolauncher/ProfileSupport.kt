@@ -64,3 +64,23 @@ fun isSupportedWorkProfile(launcherApps: LauncherApps, user: UserHandle): Boolea
     Build.VERSION.SDK_INT < 35 || runCatching {
         launcherApps.getLauncherUserInfo(user)?.userType == UserManager.USER_TYPE_PROFILE_MANAGED
     }.getOrDefault(false)
+
+/**
+ * Which profile a notification came from, for the island and the badges. A launcher's notification listener hears the work profile and
+ * Private Space as well as the personal profile, all under the same package names, so without this a work Slack message badged the
+ * personal Slack icon and an app installed only in the work profile never got a card at all.
+ */
+internal object NotificationProfiles {
+    /** The badge key: the package for the personal profile, and "serial:package" for any other, matching [AppEntry]'s profile. */
+    fun badgeKey(packageName: String, userSerial: Long?): String = if (userSerial == null) packageName else "$userSerial:$packageName"
+
+    /** The name shown on a card or activity: the app's name, and the profile's in brackets when it is not the personal one. */
+    fun label(appLabel: String, profile: String?): String = if (profile == null) appLabel else "$appLabel ($profile)"
+
+    /** The profile's short name from Android's user type (API 35+); older versions give a launcher only managed (work) profiles. */
+    fun profileName(userType: String?): String = when (userType) {
+        UserManager.USER_TYPE_PROFILE_PRIVATE -> "Private"
+        UserManager.USER_TYPE_PROFILE_CLONE -> "Clone"
+        else -> "Work"
+    }
+}

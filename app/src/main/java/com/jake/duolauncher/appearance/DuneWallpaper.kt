@@ -51,7 +51,7 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 @Composable
-internal fun DuneWallpaper(modifier: Modifier = Modifier.fillMaxSize()) {
+internal fun DuneWallpaper(modifier: Modifier = Modifier) {
     val palette = LocalDuoPalette.current
     val context = LocalContext.current.applicationContext
     val revision = LauncherBackgroundCache.revision.intValue
@@ -69,7 +69,7 @@ internal fun DuneWallpaper(modifier: Modifier = Modifier.fillMaxSize()) {
     }.value
     // Read here, in composition, so a scene finishing redraws this even if the drawing's own watch of it were missed.
     val sceneVersion = DuneSceneCache.version.intValue
-    Canvas(modifier) { if (sceneVersion >= 0) drawLauncherBackground(photo?.asImageBitmap(), palette.dark) }
+    Canvas(Modifier.fillMaxSize().then(modifier)) { if (sceneVersion >= 0) drawLauncherBackground(photo?.asImageBitmap(), palette.dark) }
 }
 
 internal fun DrawScope.drawLauncherBackground(photo: ImageBitmap?, dark: Boolean = false) {

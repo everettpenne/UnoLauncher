@@ -39,3 +39,6 @@ docs/images/*
 *.p12
 *.pem
 *.key
+
+# Local screenshots of design previews, never published.
+previews/

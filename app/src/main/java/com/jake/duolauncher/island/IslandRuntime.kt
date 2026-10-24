@@ -28,6 +28,9 @@ internal object IslandRuntime {
     /** True while the launcher's Home is the screen in front. With the island on Home only (not everywhere), the overlay shows it just then, so
      * it sits still at the camera instead of moving with Android's animations of the launcher's own window (an unlock, an app closing). */
     var launcherInFront by mutableStateOf(false)
+    /** The package of the app in front, only while the person has chosen apps to hide the island over (the accessibility service reports it
+     * then and only then); null otherwise. Nothing else about the app or its window is kept. */
+    var foregroundPackage by mutableStateOf<String?>(null)
     /** When the launcher last opened the notification shade (0 if never), so the island does not re-announce a
      * notification the shade has just presented (see [IslandEventArbiter.notificationSurface]). */
     @Volatile var shadeOpenedAtMs = 0L
@@ -107,4 +110,15 @@ internal fun rememberBatteryStatus(): DeviceStatus {
         try { awaitCancellation() } finally { runCatching { context.unregisterReceiver(receiver) } }
     }
     return status
+}
+
+/** Hiding the island over chosen apps (Island settings): which apps' windows count as "the app in front". */
+internal object HideOverApps {
+    /** Windows that open over an app without replacing it (the shade, a keyboard) leave the app in front as it was. */
+    fun ignored(packageName: String, keyboardPackage: String?): Boolean =
+        packageName == "com.android.systemui" || packageName == keyboardPackage || packageName == "android"
+
+    /** Whether the island stays off screen now: over a chosen app, never on Home. */
+    fun hidden(on: Boolean, chosen: Set<String>, foreground: String?, launcherInFront: Boolean): Boolean =
+        on && !launcherInFront && foreground != null && foreground in chosen
 }

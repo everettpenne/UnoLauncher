@@ -250,9 +250,9 @@ internal fun HomePagePane(
     onActions: (AppEntry) -> Unit,
     onWidget: (Int) -> Unit,
     onFolder: (String) -> Unit,
+    modifier: Modifier = Modifier,
     onEmptyWidget: (Int) -> Unit = {},
     onRefresh: () -> Unit,
-    modifier: Modifier = Modifier,
     /** A double tap on empty Home space, when the person has asked for one to do something (lock the screen); null leaves it a plain tap. */
     onDoubleTapEmpty: (() -> Unit)? = null,
 ) {
@@ -577,7 +577,7 @@ internal fun DockAppColumn(
                         }
                         .glassIcon()
                         .pressGlow(slotProgress[renderIndex], Corner.icon))
-                    Box(Modifier.size(iconSize.dp)) { AppBadge(badgeCount(app.packageName), Modifier.align(Alignment.TopEnd)) }
+                    Box(Modifier.size(iconSize.dp)) { AppBadge(badgeCount(app), Modifier.align(Alignment.TopEnd)) }
                     // The press lens: clear glass that lifts and magnifies the icon under your finger.
                     // A plain rounded shape, not Corner.icon: the glass library rejects squircle outlines.
                     val press = slotProgress[renderIndex]
@@ -655,7 +655,7 @@ internal fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modi
                 .graphicsLayer { scaleX = 1f - .08f * progress; scaleY = 1f - .08f * progress }
                 .glassIcon()
                 .pressGlow(progress, Corner.icon))
-            AppBadge(badgeCount(app.packageName), Modifier.align(Alignment.TopEnd))
+            AppBadge(badgeCount(app), Modifier.align(Alignment.TopEnd))
         }
         if (labels) HomeLabel(app.label)
     }

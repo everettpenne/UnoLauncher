@@ -215,10 +215,17 @@ private fun OverviewPage(state: LauncherState, model: LauncherModel, isDefaultHo
 private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> Unit, onTiltHighlight: (Boolean) -> Unit,
     onWallpaperColor: (Boolean) -> Unit, onWallpaperDepth: (Boolean) -> Unit) {
     val samples = GlassRim.samples.intValue
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Read when the page opens and when the switch changes; reopening the page after allowing Sensors clears the note.
+    val sensorsAllowed = remember(appearance.tiltHighlight) { GrapheneSensors.allowed(context) }
     SettingsGroup(header = "Glass", footer = buildString {
         append("Clear is iOS's Liquid Glass: see-through, with a bright edge. Frosted keeps a soft tint behind text. Sheets stay frosted either way.")
         if (appearance.liquidGlass) append(" Tilt Highlight moves the edge light as you tilt the phone.")
-        if (appearance.liquidGlass && appearance.tiltHighlight && samples == 0) append(" No motion readings yet: on GrapheneOS, allow Sensors for Uno Launcher.")
+        if (appearance.liquidGlass && appearance.tiltHighlight) when {
+            // GrapheneOS answers a denied app with readings that never change, not an error, so the grant itself is the reliable sign.
+            sensorsAllowed == false -> append(" Sensors is off for Uno Launcher, so the highlight stays still. Allow it in App info › Permissions.")
+            samples == 0 -> append(" No motion readings yet.")
+        }
     }) {
         row { SegmentRow(GlassChoice.entries, appearance.glassKind, { when (it) { GlassChoice.CLEAR -> "Clear"; GlassChoice.FROSTED -> "Frosted"; GlassChoice.OFF -> "Off" } },
             { "glass-${it.name.lowercase()}" }, onGlass) }
@@ -289,11 +296,11 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
 /**
  * A small Home screen: the background (the photo being previewed, or [builtin] when a built-in scene is being looked at, otherwise the current
  * background) under the person's own icons and dock. [aspect] is width over height; the photo editor passes the phone's own, so the preview is
- * cropped exactly as the screen will be. [surface] goes on the picture, for the editor's drag and pinch.
+ * cropped exactly as the screen will be. [modifier] goes on the picture, for the editor's drag and pinch.
  */
 @Composable private fun MiniHomePreview(stagedBitmap: android.graphics.Bitmap?, state: LauncherState,
-    previewHeight: androidx.compose.ui.unit.Dp, builtin: BuiltinBackground? = null, dark: Boolean = false, aspect: Float = .632f,
-    surface: Modifier = Modifier) {
+    previewHeight: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier, builtin: BuiltinBackground? = null, dark: Boolean = false,
+    aspect: Float = .632f) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val backgroundRevision = LauncherBackgroundCache.revision.intValue
     val committedBitmap = remember(backgroundRevision) { cachedLauncherBackground(context) }
@@ -305,7 +312,7 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     fun unit(value: Float) = (value * scale).dp
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Box(Modifier.height(previewHeight).width(previewHeight * aspect).clip(RoundedCornerShape(unit(24f)))
-            .testTag("customization-home-preview").then(surface)) {
+            .testTag("customization-home-preview").then(modifier)) {
             if (builtin != null) BuiltinPreview(builtin, dark) else DuneWallpaper()
             bitmap?.let { Image(it.asImageBitmap(), null, Modifier.matchParentSize(),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop) }
@@ -331,7 +338,7 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
  * Android's own wallpaper. Choosing either opens the full-screen editor ([WallpaperEditor]); nothing changes until Done there.
  */
 @Composable private fun WallpaperGroups(backgrounds: LauncherBackgroundController, state: LauncherState, dark: Boolean, onWallpaperPreview: () -> Unit) {
-    MiniHomePreview(null, state, 228.dp, dark = dark, surface = Modifier.clickable(enabled = backgrounds.photoSelected && !backgrounds.loading,
+    MiniHomePreview(null, state, 228.dp, dark = dark, modifier = Modifier.clickable(enabled = backgrounds.photoSelected && !backgrounds.loading,
         role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "Edit photo", onClick = backgrounds::adjustCurrent))
     if (backgrounds.loading && !backgrounds.previewPending) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("background-loading"), color = SettingsAccent)
     (backgrounds.errorMessage ?: backgrounds.successMessage)?.takeIf { !backgrounds.previewPending }?.let { message ->

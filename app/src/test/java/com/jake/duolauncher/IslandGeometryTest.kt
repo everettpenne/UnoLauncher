@@ -114,22 +114,25 @@ class IslandGeometryTest {
         val visible = IslandGeometry.refine(camera, PxRect(500f, 44f, 580f, 124f))
         val small = IslandGeometry.frame(env(visible), d, 0f, scale = 0f)
         val large = IslandGeometry.frame(env(visible), d, 0f, scale = 1f)
-        assertTrue("height should change", large.height - small.height >= 24f)
+        // An 80 px (30 dp) hole was over the old 28 dp punch-hole limit, so it was padded as a notch; it is the hole's height now.
+        assertEquals("as tall as the hole at any size", visible.height + 2f * IslandGeometry.PUNCH_REST_RING_DP * d, small.height, .5f)
+        assertEquals(small.height, large.height, .5f)
         assertTrue("width should change", large.width - small.width >= 32f)
         for (frame in listOf(small, large)) {
             val hole = frame.hole!!
             assertTrue(hole.top >= 0f && hole.bottom <= frame.height)
-            assertTrue("pill clears the top edge", frame.top >= 6f * d - .5f)
+            assertTrue("pill clears the top edge", frame.top >= 4f * d - .5f)
         }
     }
 
-    @Test fun withOnlyTheBoundingRectangleTheSliderStillWorksButStaysOffTheTopEdge() {
-        // If no cutout path is available the rectangle is all there is: less room, same rules.
+    @Test fun withOnlyTheBoundingRectangleThePillHugsItAndStaysOffTheTopEdge() {
+        // If no cutout path is available the rectangle is all there is: the pill is its height, and the slider changes the width.
         val camera = PxRect(486f, 30f, 594f, 140f)
         val small = IslandGeometry.frame(env(camera), d, 0f, scale = 0f)
         val large = IslandGeometry.frame(env(camera), d, 0f, scale = 1f)
-        assertTrue("height still changes", large.height > small.height + 8f)
-        assertTrue(small.top >= 6f * d - .5f && large.top >= 6f * d - .5f)
+        assertEquals(small.height, large.height, .5f)
+        assertTrue(large.width > small.width)
+        assertTrue(small.top >= 4f * d - .5f && large.top >= 4f * d - .5f)
     }
 
     @Test fun expandedIslandClearsTheDockStrip() {
@@ -163,11 +166,11 @@ class IslandGeometryTest {
         }
     }
 
-    @Test fun sizeSliderChangesTheCollapsedHeightOverItsWholeRange() {
+    @Test fun theRefinedHoleSetsTheHeightAndTheSliderOnlyTheWidth() {
         val hole = IslandGeometry.refine(tallRect, visibleHole)
-        val heights = listOf(0f, .25f, .5f, .75f, 1f).map { IslandGeometry.frame(env(hole), d, 0f, it).height }
-        heights.zipWithNext().forEach { (a, b) -> assertTrue("$heights strictly grows", b > a) }
-        assertTrue("never shorter than the hole", heights.first() >= hole.height)
+        val frames = listOf(0f, .25f, .5f, .75f, 1f).map { IslandGeometry.frame(env(hole), d, 0f, it) }
+        frames.forEach { assertEquals("as tall as the hole", hole.height + 2f * IslandGeometry.PUNCH_REST_RING_DP * d, it.height, .5f) }
+        frames.zipWithNext().forEach { (a, b) -> assertTrue("widths grow", b.width > a.width) }
     }
 
     @Test fun usingTheRawTallRectangleIsWhatMadeTheSliderADeadControl() {

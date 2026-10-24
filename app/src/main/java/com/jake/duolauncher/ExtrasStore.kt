@@ -47,6 +47,12 @@ internal data class ExtrasState(
     /** Packages switched off for the island (Live Updates and notification peeks); see IslandLinks. */
     val islandMuted: Set<String> = emptySet(),
     val focusVibrate: Boolean = false,
+    /** Focus turns on and off with Android's Do Not Disturb. */
+    val focusWithDnd: Boolean = false,
+    /** Hide the island over the apps in [islandHideOver] (needs the accessibility service, which then learns which app is in front). */
+    val islandHideOverOn: Boolean = false,
+    /** Package names the island is hidden over. */
+    val islandHideOver: Set<String> = emptySet(),
     val badges: Boolean = false,
     /** Badges as a plain dot instead of a count. */
     val badgeDots: Boolean = false,
@@ -149,6 +155,9 @@ internal class ExtrasStore(context: Context) {
         focusHidden = PanelLayout.parseIds(prefs.getString("focusHidden", null)).toSet(),
         islandMuted = IslandLinks.parse(prefs.getString("islandMuted", null)),
         focusVibrate = prefs.getBoolean("focusVibrate", false),
+        focusWithDnd = prefs.getBoolean("focusWithDnd", false),
+        islandHideOverOn = prefs.getBoolean("islandHideOverOn", false),
+        islandHideOver = IslandLinks.parse(prefs.getString("islandHideOver", null)),
         badges = prefs.getBoolean("badges", false),
         badgeDots = prefs.getBoolean("badgeDots", false),
         badgeMuted = prefs.getString("badgeMuted", "") ?: "",
@@ -217,6 +226,9 @@ internal class ExtrasStore(context: Context) {
             .putString("focusHidden", PanelLayout.serializeIds(next.focusHidden.toList()))
             .putString("islandMuted", IslandLinks.serialize(next.islandMuted))
             .putBoolean("focusVibrate", next.focusVibrate)
+            .putBoolean("focusWithDnd", next.focusWithDnd)
+            .putBoolean("islandHideOverOn", next.islandHideOverOn)
+            .putString("islandHideOver", IslandLinks.serialize(next.islandHideOver))
             .putBoolean("badges", next.badges)
             .putBoolean("badgeDots", next.badgeDots)
             .putString("badgeMuted", next.badgeMuted)
@@ -286,6 +298,9 @@ internal class ExtrasStore(context: Context) {
         save(state.copy(focusHidden = if (id in state.focusHidden) state.focusHidden - id else state.focusHidden + id))
     fun toggleIslandLink(packageName: String) = save(state.copy(islandMuted = IslandLinks.toggle(state.islandMuted, packageName)))
     fun setFocusVibrate(value: Boolean) = save(state.copy(focusVibrate = value))
+    fun setFocusWithDnd(value: Boolean) = save(state.copy(focusWithDnd = value))
+    fun setIslandHideOverOn(value: Boolean) = save(state.copy(islandHideOverOn = value))
+    fun toggleIslandHideOver(packageName: String) = save(state.copy(islandHideOver = IslandLinks.toggle(state.islandHideOver, packageName)))
     fun setBadges(value: Boolean) = save(state.copy(badges = value))
     fun setBadgeDots(value: Boolean) = save(state.copy(badgeDots = value))
     /** Turns badges off (or back on) for one app. */

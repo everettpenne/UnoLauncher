@@ -134,8 +134,9 @@ private fun PrivacyGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasS
     }
     val focusOpen = rememberChecklistOpen("focus")
     SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.focus),
-        footer = "Focus hides the apps you pick from Home and All Apps until it is off. Nothing is uninstalled and your layout does not change.") {
+        footer = "Focus hides the apps you pick from Home and All Apps until it is off. Nothing is uninstalled and your layout does not change. With Do Not Disturb, it turns on and off with Android's Do Not Disturb (and its schedules).") {
         row { SettingsSwitch("Focus", s.focusOn, { actions.toggleFocus() }, "focus-switch") }
+        row { SettingsSwitch("With Do Not Disturb", s.focusWithDnd, store::setFocusWithDnd, "focus-dnd-switch") }
         row { SettingsSwitch("Vibrate Only", s.focusVibrate, store::setFocusVibrate, "focus-vibrate-switch") }
         appChecklist(focusOpen, apps, s.focusHidden, "focus") { store.toggleFocusHidden(it.id) }
     }
@@ -188,6 +189,21 @@ internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) 
     }
     IslandWidgetSetting(actions.islandWidget)
     IslandLinksSetting(actions, apps)
+    if (s.islandEverywhere) {
+        val hideOpen = rememberChecklistOpen("island-hide-over")
+        val serviceOn = SystemShadeAccessibilityService.isConnected()
+        SettingsGroup(header = "Hide Over Apps", footer = buildString {
+            append("The island leaves the screen while one of these apps is in front, and comes back when you leave it. ")
+            append("To know which app is in front, Uno's accessibility service is told the name of each app that comes to the front, and nothing else: not what is in it or on screen. It keeps only the latest name, in memory, and stops being told when this is off or no apps are chosen.")
+            if (!serviceOn) append(" Needs Uno's accessibility service, which is off.")
+        }) {
+            row { SettingsSwitch("Hide Over Chosen Apps", s.islandHideOverOn, store::setIslandHideOverOn, "island-hide-over-switch") }
+            if (s.islandHideOverOn) appChecklist(hideOpen, apps.filter { it.user == android.os.Process.myUserHandle() }.distinctBy { it.packageName },
+                emptySet(), "island-hide-over", count = s.islandHideOver.size, isOn = { it.packageName in s.islandHideOver }) {
+                store.toggleIslandHideOver(it.packageName)
+            }
+        }
+    }
     val context = androidx.compose.ui.platform.LocalContext.current
     val exact = IslandTools.exactAlarmsAllowed(context)
     SettingsGroup(header = "Timer", footer = if (exact) "Exact alarms are allowed, so the timer ends on time even with Home closed."

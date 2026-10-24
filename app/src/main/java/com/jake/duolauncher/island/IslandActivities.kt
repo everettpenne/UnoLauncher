@@ -35,6 +35,7 @@ internal enum class IslandSymbol(val tint: Color) {
     HEADPHONES(Color.White),
     BLUETOOTH(Color(0xFF0A84FF)),
     RECORDING(Color(0xFFFF453A)),
+    LOW_BATTERY(Color(0xFFFF453A)),
 }
 
 /** A brief event shown in the collapsed island, like iOS's ringer, charging and Focus flashes. */
@@ -56,6 +57,23 @@ internal object AudioDevices {
             android.media.AudioDeviceInfo.TYPE_USB_HEADSET -> name.ifEmpty { "USB headset" }
             else -> null
         }
+    }
+}
+
+/**
+ * The battery's moments, as iOS shows them: plugging in (with the level), reaching full while plugged in, and running low (20 % and 10 %,
+ * once each on the way down). Fed from the battery broadcast; the first reading is the state the phone is already in, so it is no event.
+ */
+internal object BatteryMoments {
+    data class Reading(val percent: Int, val plugged: Boolean)
+    val LOW_LEVELS = listOf(20, 10)
+
+    fun event(previous: Reading?, now: Reading): IslandEvent? = when {
+        previous == null -> null
+        now.plugged && !previous.plugged -> IslandEvents.charging(now.percent)
+        now.plugged && previous.percent < 100 && now.percent >= 100 -> IslandEvents.charged()
+        !now.plugged -> LOW_LEVELS.firstOrNull { previous.percent > it && now.percent <= it }?.let { IslandEvents.lowBattery(now.percent) }
+        else -> null
     }
 }
 
@@ -97,6 +115,8 @@ internal object IslandEvents {
         IslandEvent(if (connected) "$label connected" else "$label disconnected", IslandSymbol.HEADPHONES)
 
     fun charging(percent: Int?) = IslandEvent(if (percent != null) "Charging $percent%" else "Charging", IslandSymbol.CHARGING)
+    fun charged() = IslandEvent("Charged", IslandSymbol.CHARGING)
+    fun lowBattery(percent: Int) = IslandEvent("Low Battery $percent%", IslandSymbol.LOW_BATTERY)
 }
 
 /** Whether [symbol] describes the ringer rather than a Focus change. */
@@ -282,19 +302,21 @@ internal fun launchIslandApp(context: Context, component: android.content.Compon
     }
 }
 
-/** Feeds the island with what the system reports while it is on screen: whether audio is playing, and
- * ringer, airplane and Do Not Disturb changes. All of it is permission-free and unregistered the
- * moment the island leaves composition, so nothing runs while Home is not visible.
+/** Feeds the island with what the system reports: whether audio is playing; ringer, airplane, Do Not Disturb, VPN, USB and audio
+ * device changes; and the camera, microphone and screen-recording marks. All of it is permission-free (Bluetooth names aside) and runs
+ * only while an island host holds it (see [IslandEventsOwner]): Home while the launcher is in front, the overlay while the island is
+ * allowed over apps. It used to run inside the island's composable, so it stopped whenever no island was drawn (a sheet open on Home, the
+ * overlay hidden for a full-screen app) and a camera that came on meanwhile was timed from when the island came back.
  *
  * Every call into the audio and notification services is a binder round trip that can stall for
  * seconds when those services are busy, so none of it happens on the main thread: registration, the
  * initial query, the playback callback and the receiver all run on a private worker thread, and only
  * the resulting state writes (which are thread-safe) reach the UI.
  */
-@Composable
-internal fun IslandSystemEvents(state: IslandState) {
-    val context = LocalContext.current
-    DisposableEffect(context) {
+internal class IslandSystemEvents(private val context: Context, private val state: IslandState) : AutoCloseable {
+    private val stop: () -> Unit
+
+    init {
         val worker = HandlerThread("island-system").apply { start() }
         val handler = Handler(worker.looper)
         val audio = context.getSystemService(AudioManager::class.java)
@@ -464,14 +486,33 @@ internal fun IslandSystemEvents(state: IslandState) {
                 }
             }
         }
+        // Plugging in, reaching full and running low (see BatteryMoments). The battery broadcast is sticky: its first delivery is the
+        // current state, which only seeds the comparison. This used to be Home's alone (and flashed again each time Home reappeared while
+        // charging); here it is seen over other apps too, and once.
+        var lastBattery: BatteryMoments.Reading? = null
+        val batteryReceiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) {
+                intent ?: return
+                val level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
+                val scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+                if (level < 0) return
+                val now = BatteryMoments.Reading(level * 100 / scale, intent.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0)
+                val event = BatteryMoments.event(lastBattery, now)
+                lastBattery = now
+                if (event != null) state.showEvent(event)
+            }
+        }
+        ContextCompat.registerReceiver(context, batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), null, handler,
+            ContextCompat.RECEIVER_NOT_EXPORTED)
         ContextCompat.registerReceiver(context, receiver, IntentFilter().apply {
             addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
             addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED)
             addAction(NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED)
         }, null, handler, ContextCompat.RECEIVER_NOT_EXPORTED)
-        onDispose {
+        stop = {
             state.recheckPlayback = null
             context.unregisterReceiver(receiver)
+            runCatching { context.unregisterReceiver(batteryReceiver) }
             runCatching { context.unregisterReceiver(usbReceiver) }
             runCatching { context.unregisterReceiver(bluetoothReceiver) }
             runCatching { connectivity?.unregisterNetworkCallback(vpnCallback) }
@@ -489,4 +530,47 @@ internal fun IslandSystemEvents(state: IslandState) {
             }
         }
     }
+
+    override fun close() = stop()
 }
+
+/**
+ * The one owner of [IslandSystemEvents]: hosts hold it by name and the events run while any does, once. Main thread only. A change to
+ * one of the settings the events read at registration restarts them, so a switch takes effect without the island having to reappear.
+ */
+internal object IslandEventsOwner {
+    private val holders = mutableSetOf<String>()
+    private var events: IslandSystemEvents? = null
+    private var appContext: Context? = null
+    private val KEYS = setOf("privacyIndicators", "securityAlerts", "bluetoothAlerts", "audioAlerts")
+    private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key in KEYS && events != null) { events?.close(); events = appContext?.let { IslandSystemEvents(it, IslandRuntime.state) } }
+    }
+
+    val running: Boolean get() = events != null
+
+    fun hold(holder: String, context: Context) {
+        if (!holders.add(holder) || events != null) return
+        val app = context.applicationContext
+        appContext = app
+        app.getSharedPreferences("extras", Context.MODE_PRIVATE).registerOnSharedPreferenceChangeListener(prefsListener)
+        events = IslandSystemEvents(app, IslandRuntime.state)
+    }
+
+    fun release(holder: String) {
+        if (!holders.remove(holder) || holders.isNotEmpty()) return
+        appContext?.getSharedPreferences("extras", Context.MODE_PRIVATE)?.unregisterOnSharedPreferenceChangeListener(prefsListener)
+        events?.close(); events = null
+    }
+}
+
+/** Holds the island's system events for as long as this is composed and [active] (see [IslandEventsOwner]). */
+@Composable
+internal fun HoldIslandEvents(holder: String, active: Boolean) {
+    val context = LocalContext.current
+    DisposableEffect(holder, active) {
+        if (active) IslandEventsOwner.hold(holder, context)
+        onDispose { if (active) IslandEventsOwner.release(holder) }
+    }
+}
+

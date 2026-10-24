@@ -103,8 +103,14 @@ internal object IslandGeometry {
     /** Clearance between the hole and the island's edge that the island must keep at all times. */
     private const val WRAP_DP = 4f
     private const val EXPANDED_WIDTH_DP = 336f
-    /** A punch-hole camera: the hole is at most this wide, in dp. Phones like the Pixel 10a have one, centred and high on the screen. */
-    private const val PUNCH_HOLE_MAX_DP = 28f
+    /**
+     * A punch-hole camera, as on the Pixel 10a: a round hole below the screen's top edge, small beside the screen. This was a fixed size
+     * (at most 28 dp across), but a cutout's outline is often drawn a little larger than the glass, so a phone whose outline came out just
+     * over it was treated as a notch and its pill padded by half the room above the hole; 0.104.2's camera-height pill then never showed.
+     * A notch (a wide cutout running down from the top edge) is still not one.
+     */
+    fun isPunchHole(hole: PxRect, screenWidth: Float): Boolean =
+        hole.top > .5f && hole.width <= hole.height * 1.5f && hole.height <= hole.width * 1.5f && hole.width <= screenWidth * .15f
     /** On a punch-hole phone the island may sit this close to the top edge (a little closer than the 6 dp kept elsewhere). */
     private const val PUNCH_TOP_MARGIN_DP = 4f
     /**
@@ -243,7 +249,7 @@ internal object IslandGeometry {
             // TOP_MARGIN_DP clear above it, so the slider always has an effect and the pill never
             // runs to the top edge. A hole already close to the top simply gets the least ring.
             val holeHalf = cutout.height / 2f
-            val punch = max(cutout.width, cutout.height) <= PUNCH_HOLE_MAX_DP * d
+            val punch = isPunchHole(cutout, env.screenWidth)
             val room = max(0f, (cutout.centerY - (if (punch) PUNCH_TOP_MARGIN_DP else TOP_MARGIN_DP) * d) - holeHalf)
             val ring = if (punch) min(PUNCH_REST_RING_DP * d, max(room, 0f)) else mix(min(MIN_RING_DP * d, room), room, size)
             val half = holeHalf + ring

@@ -61,6 +61,8 @@ internal class DiscoverFrame(private val activity: Activity, private val vertica
         if (view != null || activity.isDestroyed) return
         val frame = object : View(activity) {
             private val painter = CanvasDrawScope()
+            /** The frame's outline, rebuilt in place each frame (it moves with the swipe) rather than allocated per frame. */
+            private val outline = Path()
             private val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = 0x66ffffff; style = Paint.Style.STROKE; strokeWidth = resources.displayMetrics.density
             }
@@ -99,9 +101,10 @@ internal class DiscoverFrame(private val activity: Activity, private val vertica
                                     "layer=${layer?.size} matrix=${values.contentToString()}")
                         }
                     }
-                    val shape = Path().apply { addRoundRect(left, 0f, right, height.toFloat(), 16*d, 16*d, Path.Direction.CW) }
+                    outline.reset()
+                    outline.addRoundRect(left, 0f, right, height.toFloat(), 16*d, 16*d, Path.Direction.CW)
                     val save = canvas.save()
-                    canvas.clipOutPath(shape)
+                    canvas.clipOutPath(outline)
                     val layer = LiveDiscover.homeLayer
                     if (layer != null && !layer.isReleased) {
                         canvas.translate(-LiveDiscover.viewport.left.toFloat(), -LiveDiscover.viewport.top.toFloat())
@@ -115,7 +118,8 @@ internal class DiscoverFrame(private val activity: Activity, private val vertica
                     return
                 }
                 val insets = rootWindowInsets?.getInsets(WindowInsets.Type.systemBars())
-                val path = Path().apply {
+                val path = outline.apply {
+                    reset()
                     if (DiscoverBounds.available) addRoundRect(0f, 0f, width.toFloat(), height.toFloat(), 16*d, 16*d, Path.Direction.CW)
                     else addRoundRect(2*d, (insets?.top ?: 0) + 12*d, width - 2*d,
                         height - (insets?.bottom ?: 0) - 12*d, 26*d, 26*d, Path.Direction.CW)

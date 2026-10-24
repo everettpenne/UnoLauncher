@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Warnings that are deliberate here, each with its reason, so a new warning stands out instead of joining ~170 old ones. -->
+<lint>
+    <!-- Style only (core-ktx helpers such as toUri() and edit { }); the code reads the same either way. -->
+    <issue id="UseKtx" severity="ignore" />
+    <!-- Dependencies are bumped on purpose, in their own change, not whenever a newer one exists. -->
+    <issue id="GradleDependency" severity="ignore" />
+    <issue id="NewerVersionAvailable" severity="ignore" />
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+
+    <!-- The fold render harness and its stand-in are a debug tool: its labels are readouts, never shown to people. -->
+    <issue id="SetTextI18n"><ignore path="src/debug/java/com/jake/duolauncher/FoldRenderExperiment.kt" /></issue>
+    <issue id="DrawAllocation">
+        <ignore path="src/debug/java/com/jake/duolauncher/FoldRenderExperiment.kt" />
+    </issue>
+    <!-- Debug builds only: the test icon pack is found by name (res/xml/appfilter.xml), as a real pack is; the receiver lets adb post a
+         test Live Update. Release builds carry neither. -->
+    <issue id="UnusedResources"><ignore path="src/debug/res" /></issue>
+    <issue id="ExportedReceiver"><ignore path="src/debug/AndroidManifest.xml" /></issue>
+    <!-- SetupExperience commits synchronously so process death cannot bring the finished setup sheet back. -->
+    <issue id="ApplySharedPref"><ignore path="src/main/java/com/jake/duolauncher/SetupExperience.kt" /></issue>
+    <!-- IslandTools keeps only the application context, for the timer's in-app fallback ring; IslandEventsOwner keeps it for its listeners. -->
+    <issue id="StaticFieldLeak">
+        <ignore path="src/main/java/com/jake/duolauncher/island/IslandTools.kt" />
+        <ignore path="src/main/java/com/jake/duolauncher/island/IslandActivities.kt" />
+    </issue>
+    <!-- The status bar's height is read to fit the island under it before insets arrive; there is no public resource for it. -->
+    <issue id="InternalInsetResource">
+        <ignore path="src/main/java/com/jake/duolauncher/island/IslandOverlayHost.kt" />
+        <ignore path="src/main/java/com/jake/duolauncher/island/StatusBarReader.kt" />
+    </issue>
+    <issue id="DiscouragedApi">
+        <ignore path="src/main/java/com/jake/duolauncher/island/IslandOverlayHost.kt" />
+        <ignore path="src/main/java/com/jake/duolauncher/island/StatusBarReader.kt" />
+    </issue>
+    <!-- The screen-recording constant is only compared inside an SDK 35 check (and is inlined). -->
+    <issue id="InlinedApi"><ignore path="src/main/java/com/jake/duolauncher/island/IslandActivities.kt" /></issue>
+    <!-- The Google feed's window is placed by physical x; START would mirror it in right-to-left languages. -->
+    <issue id="RtlHardcoded"><ignore path="src/main/java/com/jake/duolauncher/DiscoverClient.kt" /></issue>
+    <!-- Width classes (phone or unfolded) are wanted here, which is the screen's width; the window's container size is zero until the
+         first layout, which would flash the wrong layout on start. -->
+    <issue id="ConfigurationScreenWidthHeight">
+        <ignore path="src/main/java/com/jake/duolauncher/LauncherScreen.kt" />
+        <ignore path="src/main/java/com/jake/duolauncher/search/Spotlight.kt" />
+        <ignore path="src/main/java/com/jake/duolauncher/StatusBarCalibrationSettings.kt" />
+    </issue>
+    <!-- The overlay's touch listener only watches ACTION_OUTSIDE (a tap in another window) and never consumes a touch, so it is not a click. -->
+    <issue id="ClickableViewAccessibility"><ignore path="src/main/java/com/jake/duolauncher/island/IslandOverlayHost.kt" /></issue>
+</lint>

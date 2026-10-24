@@ -567,7 +567,7 @@ class LauncherBackgroundController(
     private fun forgetPreviewGrant(operation: String?) {
         val recordedOperation = runCatching { prefs.getString(PREVIEW_GRANT_OPERATION, null) }.getOrNull()
         if (operation != null && recordedOperation != operation) return
-        prefs.edit().remove(PREVIEW_GRANT_URI).remove(PREVIEW_GRANT_OPERATION).commit()
+        prefs.edit().remove(PREVIEW_GRANT_URI).remove(PREVIEW_GRANT_OPERATION).apply()
     }
 
     /** The photo as chosen, before adjusting, kept beside the applied one so it can be adjusted again. */

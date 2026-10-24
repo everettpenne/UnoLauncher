@@ -25,6 +25,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.viewModels
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.view.WindowCompat
@@ -87,6 +88,20 @@ class MainActivity : ComponentActivity() {
         extrasStore.setFocusOn(next)
         FocusMode.applyRinger(this, next, extrasStore.state.focusVibrate)
         island.showEvent(IslandEvent(if (next) "Focus on" else "Focus off", IslandSymbol.FOCUS))
+    }
+    /**
+     * Focus with Do Not Disturb: Focus follows the phone's Do Not Disturb (and its schedules and modes). Focus only changes Home, so this is
+     * checked when Home comes to the front and on each change while it is there. The island already flashes Do Not Disturb, so no second
+     * "Focus" flash is shown, and the ringer is left to Do Not Disturb.
+     */
+    private fun syncFocusWithDnd() {
+        if (!extrasStore.state.focusWithDnd) return
+        val filter = getSystemService(android.app.NotificationManager::class.java)?.currentInterruptionFilter ?: return
+        val on = FocusMode.dndOn(filter)
+        if (on != extrasStore.state.focusOn) extrasStore.setFocusOn(on)
+    }
+    private val dndReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) { syncFocusWithDnd() }
     }
     internal lateinit var updates: UpdateStore
         private set
@@ -184,6 +199,7 @@ class MainActivity : ComponentActivity() {
                 strength = appearance.state.tiltStrength)
             val rawState = model.state.collectAsStateWithLifecycle().value
             val extrasState = extrasStore.state
+            LaunchedEffect(extrasState.focusWithDnd) { syncFocusWithDnd() }
             // Focus hides apps at the last moment, so the saved layout and the model never change.
             val state = remember(rawState, extrasState.focusOn, extrasState.focusHidden) {
                 rawState.copy(apps = Focus.filter(rawState.apps, { it.id }, extrasState.focusOn, extrasState.focusHidden))
@@ -255,7 +271,10 @@ class MainActivity : ComponentActivity() {
                 addAction(Intent.ACTION_TIMEZONE_CHANGED); addAction(Intent.ACTION_DATE_CHANGED)
             }, ContextCompat.RECEIVER_NOT_EXPORTED)
             timeReceiverRegistered = true
+            ContextCompat.registerReceiver(this, dndReceiver, IntentFilter(android.app.NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED),
+                ContextCompat.RECEIVER_NOT_EXPORTED)
         }
+        syncFocusWithDnd()
         appearance.refresh(systemDark())
         com.jake.duolauncher.appearance.SystemWallpaperSync.check(this, systemDark())
     }
@@ -266,7 +285,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         // The first app of a split is now in front; give it a beat to settle, then open the second beside it.
         if (pendingSplitSecond != null) { splitLauncherStopped = true; splitHandler.removeCallbacks(openSplitSecond); splitHandler.postDelayed(openSplitSecond, SPLIT_SETTLE_MS) }
-        if (timeReceiverRegistered) { unregisterReceiver(timeReceiver); timeReceiverRegistered = false }
+        if (timeReceiverRegistered) { unregisterReceiver(timeReceiver); runCatching { unregisterReceiver(dndReceiver) }; timeReceiverRegistered = false }
         widgets.host.stopListening(); super.onStop()
     }
     override fun onDestroy() {

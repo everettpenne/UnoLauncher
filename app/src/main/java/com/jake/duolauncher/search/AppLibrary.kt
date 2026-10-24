@@ -78,8 +78,23 @@ internal fun AppLibrary(
         // Hidden apps are out of the list; typing one's exact name (not while choosing Home apps) brings it back.
         HiddenApps.shown(state.apps, state.hiddenApps, if (editing) "" else query, { it.id }, { it.label }).filter { (!hasWork || it.isWork == showWork) && it.label.contains(query.trim(), true) }
     }
-    val groups = remember(visibleApps) {
-        visibleApps.groupBy {
+    // A to Z, or by the category each app declares (Games, Social, Maps & Navigation...), as iOS's App Library groups them. Categories are
+    // read from the installed apps themselves (ApplicationInfo.category) and named by Android, on the phone; a search is always A to Z.
+    var byCategory by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val categorize = byCategory && !editing && query.isBlank()
+    val categories by produceState<Map<String, Int>?>(null, categorize, state.apps.size) {
+        if (categorize) value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            state.apps.map { it.packageName }.distinct().associateWith { pkg ->
+                runCatching { toastContext.packageManager.getApplicationInfo(pkg, 0).category }.getOrDefault(android.content.pm.ApplicationInfo.CATEGORY_UNDEFINED)
+            }
+        }
+    }
+    val otherLabel = stringResource(com.jake.duolauncher.R.string.library_other)
+    val groups = remember(visibleApps, categorize, categories, otherLabel) {
+        val known = categories
+        if (categorize && known != null) AppCategories.group(visibleApps, { known[it.packageName] ?: android.content.pm.ApplicationInfo.CATEGORY_UNDEFINED },
+            { c -> android.content.pm.ApplicationInfo.getCategoryTitle(toastContext, c)?.toString() }, { it.label }, otherLabel)
+        else visibleApps.groupBy {
             it.label.firstOrNull()?.takeIf(Char::isLetter)?.uppercaseChar()?.toString() ?: "#"
         }
     }
@@ -103,6 +118,12 @@ internal fun AppLibrary(
             if (hasWork) Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassChip(selected = !showWork, onClick = { showWork = false }, label = { Text(stringResource(com.jake.duolauncher.R.string.personal)) })
                 GlassChip(selected = showWork, onClick = { showWork = true }, label = { Text(stringResource(com.jake.duolauncher.R.string.work)) })
+            }
+            if (!editing) Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassChip(selected = !byCategory, onClick = { byCategory = false }, label = { Text(stringResource(com.jake.duolauncher.R.string.library_a_to_z)) },
+                    modifier = Modifier.testTag("library-a-z"))
+                GlassChip(selected = byCategory, onClick = { byCategory = true }, label = { Text(stringResource(com.jake.duolauncher.R.string.library_categories)) },
+                    modifier = Modifier.testTag("library-categories"))
             }
             GlassField(query, onQuery, Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag(if (editing) "pin-search" else "library-search"),
                 placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_apps)) }, singleLine = true,
@@ -140,11 +161,12 @@ internal fun AppLibrary(
                     stickyHeader(key = "heading-$letter") {
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             // An opaque small chip prevents text from showing through the sticky letter.
-                            Box(Modifier.size(width = 32.dp, height = 28.dp).background(
+                            Box(Modifier.widthIn(min = 32.dp).height(28.dp).background(
                                 if (glass) (if (palette.dark) Color(0xFF314852) else Color(0xFFB7CBD3))
                                 else MaterialTheme.colorScheme.secondaryContainer,
                                 Corner.small), contentAlignment = Alignment.Center) {
-                                Text(letter, color = ink, style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
+                                Text(letter, Modifier.padding(horizontal = if (letter.length > 1) 10.dp else 0.dp), color = ink,
+                                    style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold), maxLines = 1)
                             }
                             if (glass) HorizontalDivider(Modifier.weight(1f).padding(start = 12.dp), color = Color.White.copy(alpha = .24f))
                         }

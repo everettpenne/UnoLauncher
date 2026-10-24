@@ -59,8 +59,21 @@ class IslandActivitiesTest {
     @Test fun chargingDoesNotInterruptAnEventAlreadyShowing() {
         val state = IslandState()
         state.showEvent(IslandEvents.airplane(true))
-        state.showCharging(50)
+        state.showEvent(IslandEvents.charging(50))
         assertEquals("Airplane", state.flashTitle)
+    }
+
+    @Test fun theBatteryFlashesOnPlugInOnFullAndOnTheWayDownPastTwentyAndTen() {
+        fun r(p: Int, plugged: Boolean = false) = BatteryMoments.Reading(p, plugged)
+        assertNull("the first reading is the current state", BatteryMoments.event(null, r(50, true)))
+        assertEquals("Charging 54%", BatteryMoments.event(r(54), r(54, true))?.title)
+        assertEquals("Charged", BatteryMoments.event(r(99, true), r(100, true))?.title)
+        assertNull("already full", BatteryMoments.event(r(100, true), r(100, true)))
+        assertEquals("Low Battery 20%", BatteryMoments.event(r(21), r(20))?.title)
+        assertEquals(IslandSymbol.LOW_BATTERY, BatteryMoments.event(r(11), r(10))?.symbol)
+        assertNull("once on the way down", BatteryMoments.event(r(20), r(19)))
+        assertNull("not while charging", BatteryMoments.event(r(21, true), r(20, true)))
+        assertNull("unplugging is no event", BatteryMoments.event(r(60, true), r(60)))
     }
 
     @Test fun aRingerChangeRightAfterDoNotDisturbIsItsSideEffectAndIsDropped() {

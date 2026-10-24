@@ -25,6 +25,32 @@ class IslandSecurityTest {
             PermissionLedger.rows(inputs()).map { it.id })
     }
 
+    @Test fun theSensorsRowIsShownOnlyWhereGrapheneOsHasTheToggle() {
+        assertTrue(PermissionLedger.rows(inputs()).none { it.id == "sensors" })
+        val off = row(inputs().copy(sensorsAllowed = false), "sensors")
+        assertEquals("Not allowed", off.status)
+        assertFalse(off.on)
+        assertTrue("says what stops working", off.usedFor.contains("stay level"))
+        assertEquals(LedgerAction.APP_INFO, off.change)
+        assertEquals("Allowed", row(inputs().copy(sensorsAllowed = true), "sensors").status)
+        assertEquals("sensors", PermissionLedger.rows(inputs().copy(sensorsAllowed = true)).last().id)
+    }
+
+    @Test fun theShadeServiceSaysItSeesTheAppInFrontOnlyWhenHidingOverAppsIsOn() {
+        assertTrue(row(inputs(), "accessibility").canSee.startsWith("Nothing"))
+        assertTrue(row(inputs().copy(hideOverApps = true), "accessibility").canSee.contains("name of the app in front"))
+    }
+
+    @Test fun hidingOverAppsIgnoresTheShadeAndKeyboardAndNeverHidesOnHome() {
+        assertTrue(HideOverApps.ignored("com.android.systemui", null))
+        assertTrue(HideOverApps.ignored("com.example.kb", "com.example.kb"))
+        assertFalse(HideOverApps.ignored("com.bank", "com.example.kb"))
+        assertTrue(HideOverApps.hidden(true, setOf("com.bank"), "com.bank", launcherInFront = false))
+        assertFalse("never on Home", HideOverApps.hidden(true, setOf("com.bank"), "com.bank", launcherInFront = true))
+        assertFalse("switched off", HideOverApps.hidden(false, setOf("com.bank"), "com.bank", launcherInFront = false))
+        assertFalse(HideOverApps.hidden(true, setOf("com.bank"), "com.mail", launcherInFront = false))
+    }
+
     @Test fun anAccessibilityServiceThatIsOnButNotRunningIsCalledOutAsBlocked() {
         val r = row(inputs(enabled = true, running = false), "accessibility")
         assertEquals("Turned on, but not running", r.status)

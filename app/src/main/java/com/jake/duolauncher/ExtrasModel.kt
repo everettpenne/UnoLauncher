@@ -120,15 +120,16 @@ internal object Focus {
 }
 
 /** Counts for icon badges, from what the notification listener reports. */
-internal data class ListedNotification(val packageName: String, val ongoing: Boolean, val groupSummary: Boolean)
+/** [userSerial] is null for the personal profile, else the profile the notification was posted in. */
+internal data class ListedNotification(val packageName: String, val ongoing: Boolean, val groupSummary: Boolean, val userSerial: Long? = null)
 
 internal object BadgeLogic {
-    /** One badge count per package. Ongoing notifications (a running timer, a media player) aren't
+    /** One badge count per app in each profile (see [NotificationProfiles.badgeKey]). Ongoing notifications (a running timer, a media player) aren't
      * "unread", and a group summary stands in for its children, so counting it as well would double up.
      */
     fun counts(notifications: List<ListedNotification>): Map<String, Int> =
         notifications.filter { !it.ongoing && !it.groupSummary }
-            .groupingBy { it.packageName }.eachCount()
+            .groupingBy { NotificationProfiles.badgeKey(it.packageName, it.userSerial) }.eachCount()
 
     fun label(count: Int): String = if (count > 9) "9+" else count.toString()
 }

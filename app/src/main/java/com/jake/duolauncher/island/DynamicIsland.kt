@@ -145,6 +145,7 @@ internal fun DynamicIsland(
     glass: PageGlass?,
     deviceStatus: DeviceStatus,
     feedHeadline: String?,
+    modifier: Modifier = Modifier,
     sizeScale: Float = .5f,
     dockWidthPx: Float = 0f,
     environmentOverride: IslandEnvironment? = null,
@@ -171,7 +172,6 @@ internal fun DynamicIsland(
     resumeWindowMs: Long = IslandPlayback.DEFAULT_RESUME_MS,
     onOpenFeed: () -> Unit,
     onCustomize: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -210,7 +210,7 @@ internal fun DynamicIsland(
     // How long the camera, microphone or screen recording has been in use, and the app that was in front when it started. Android does not say which
     // app is using them; the app in front is only context, and only when the person has allowed usage access (Uno never asks for it for this).
     val anyPrivacy = state.cameraActive || state.micActive || state.recordingActive
-    LaunchedEffect(anyPrivacy) { state.privacySince = if (anyPrivacy) System.currentTimeMillis() else 0L }
+    LaunchedEffect(anyPrivacy) { state.privacySince = IslandPolicy.privacySince(anyPrivacy, System.currentTimeMillis()) }
     val inFront by produceState<String?>(null, anyPrivacy) {
         value = null
         if (anyPrivacy) value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching { ForegroundNow.label(context) }.getOrNull() }
@@ -225,9 +225,10 @@ internal fun DynamicIsland(
     // A timer whose alarm never reached us (the process was stopped, or Android delayed it) must still finish: once the
     // clock passes its end it rings from here. onAlarm ignores a second trigger, so this cannot double up.
     LaunchedEffect(clockMs) {
-        if (IslandTools.timerActive && !IslandTools.ringing && clockMs >= IslandTools.timerEndAt) IslandTools.onAlarm(context)
+        if (IslandPolicy.timerOverdue(IslandTools.timerActive, IslandTools.ringing, clockMs, IslandTools.timerEndAt)) IslandTools.onAlarm(context)
     }
-    IslandSystemEvents(state)
+    // The system events that feed [state] (audio, ringer, camera and microphone marks...) are held by the island's hosts, not here,
+    // so they keep running while this is not drawn (see IslandEventsOwner).
     SideEffect { IslandDiagnostics.compositions++ }
     val view = LocalView.current
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
@@ -358,7 +359,7 @@ internal fun DynamicIsland(
     }
     // A player that closes (its session ends) takes its controls with it unless something is still playing.
     val sessionPresent = nowPlaying != null
-    LaunchedEffect(sessionPresent) { if (!sessionPresent && !state.playing) state.endPlayback() }
+    LaunchedEffect(sessionPresent) { if (IslandPolicy.endPlaybackOnClose(sessionPresent, state.playing)) state.endPlayback() }
     val mediaPhase = IslandPlayback.phase(phaseNow, isPlaying, state.lastPlayingAt, resumable, resumeWindowMs)
     // The card in the open island stays for as long as there is anything to resume; the pill itself only carries playing and lingering media.
     val mediaVisible = mediaPhase != IslandPlayback.Phase.GONE
@@ -400,7 +401,7 @@ internal fun DynamicIsland(
         media = mediaOnPill || LiveKind.MEDIA in forced,
         update = updates.any { !LiveUpdateLogic.isStale(it, clockMs) })
     // A pinned activity that has ended is forgotten, so it does not jump to the front again if it restarts much later.
-    LaunchedEffect(canonicalKinds) { if (state.frontKind != null && state.frontKind !in canonicalKinds) state.bringToFront(null) }
+    LaunchedEffect(canonicalKinds) { if (IslandPolicy.forgetFront(state.frontKind, canonicalKinds)) state.bringToFront(null) }
     val liveKinds = IslandLive.withFront(canonicalKinds, state.frontKind)
     val plan = IslandLive.plan(liveKinds)
     // The dots beside the pill: what the phone really reports, plus any forced on from the debug page.
@@ -490,7 +491,8 @@ internal fun DynamicIsland(
     val wantRightDp0 = (restTarget.left + restTarget.width + (mainBase.dw + IslandDebug.pill.dw) * d / 2f + (mainBase.dx + IslandDebug.pill.dx) * d) / d
     // Idle (nothing live, no event, the pill and not the ring round the camera), the island is a physical width centred on the camera:
     // IslandGeometry.REST_WIDTH_MM, the same in the hand on any phone. It widens from there for whatever it has to show.
-    val restWidthDp = remember(d) { IslandGeometry.mmToDp(IslandGeometry.REST_WIDTH_MM, context.resources.displayMetrics.xdpi, d) }
+    val xdpi = androidx.compose.ui.platform.LocalResources.current.displayMetrics.xdpi
+    val restWidthDp = remember(d, xdpi) { IslandGeometry.mmToDp(IslandGeometry.REST_WIDTH_MM, xdpi, d) }
     val idlePill = !hasLiveContent && !showingApp && compactTarget < .5f && restTarget.hole != null && openFrame.side == IslandSide.TOP
     val holeCentreDp = restTarget.hole?.let { (restTarget.left + it.centerX) / d } ?: 0f
     val wantLeftDp = if (idlePill) holeCentreDp - restWidthDp / 2f - IslandDebug.pill.dw / 2f + IslandDebug.pill.dx else wantLeftDp0
@@ -633,19 +635,17 @@ internal fun DynamicIsland(
     }
     // Flash returns to the collapsed clock after a beat.
     LaunchedEffect(state.flashKey) {
-        if (state.flashTitle != null) { delay(2600); state.advanceFlash() }
+        if (state.flashTitle != null) { delay(IslandPolicy.FLASH_MS); state.advanceFlash() }
     }
     // An idle open island tucks itself back in. A finger resting on its bottom holds it open, and a pull in progress is not idle.
     LaunchedEffect(state.expanded, state.peeked, pulling, state.holdingOpen, IslandTools.interactions, isPlaying, state.peekKey, state.peekEditing) {
-        if (state.holdingOpen || pulling) return@LaunchedEffect
-        // The peek is only a glance: it goes by itself after a few seconds.
-        if (state.peeked && !state.expanded) { delay(IslandDrag.PEEK_HOLD_MS); state.peeked = false; return@LaunchedEffect }
-        // Longer while music plays, since that is when the buttons are being used; any button press restarts the wait. A notification card
-        // stays for the time chosen for its app.
-        if (state.expanded) {
-            val peek = state.peekCard
-            delay(if (peek != null && state.peekEditing) 30_000L else if (peek != null) peek.seconds * 1000L else if (isPlaying) 12_000L else 5000L)
-            state.collapse()
+        // The peek goes by itself; an open island waits longer while music plays or a card is up (see IslandPolicy). Any button press
+        // restarts the wait, since it is one of this effect's keys.
+        when (val step = IslandPolicy.idleStep(state.expanded, state.peeked, state.holdingOpen, pulling, state.peekCard?.seconds,
+            state.peekEditing, isPlaying)) {
+            IslandPolicy.IdleStep.Stay -> Unit
+            is IslandPolicy.IdleStep.EndPeek -> { delay(step.afterMs); state.peeked = false }
+            is IslandPolicy.IdleStep.Collapse -> { delay(step.afterMs); state.collapse() }
         }
     }
 
@@ -912,6 +912,7 @@ internal fun DynamicIsland(
             LiveKind.UPDATE -> updates.firstOrNull()?.openIntent?.let { intent -> { sendTapAction(context, intent); Unit } }
             else -> null
         }
+        val quickActionsOn = plan.leading != null && !(state.expanded || state.peeked || flashActive || IslandTools.ringing)
         val islandTouch = remember { MutableInteractionSource() }
         val islandPressed by islandTouch.collectIsPressedAsState()
         val squash = IslandThemes.active.motion.pulse - 1f
@@ -1091,10 +1092,14 @@ internal fun DynamicIsland(
             }
             .combinedClickable(interactionSource = islandTouch, indication = null,
                 onClickLabel = if (state.expanded) "Close" else "Open",
-                // A long press on the pill goes straight to what its leading activity belongs to: the call screen, the player, the app behind a
-                // Live Update. A tap still opens the island. Nothing to go to (idle, a timer, an event), and a long press is only a press.
-                onLongClickLabel = if (openLeading != null) "Open ${plan.leading?.let { IslandLive.label(it) } ?: ""}".trim() else null,
-                onLongClick = openLeading?.let { open -> { UnoFeedback.play(Cue.OPEN, haptic); open() } },
+                // A long press on the pill opens a small card for its leading activity with that activity's own buttons, as iOS does
+                // (IslandQuickActions); with nothing to offer it goes to the activity's app, as it used to. A tap still opens the island.
+                onLongClickLabel = if (quickActionsOn || openLeading != null) "Actions for ${plan.leading?.let { IslandLive.label(it) } ?: ""}".trim() else null,
+                onLongClick = if (!quickActionsOn && openLeading == null) null else { {
+                    val card = if (quickActionsOn) IslandQuickActions.card(context, plan.leading, System.currentTimeMillis()) else null
+                    UnoFeedback.play(Cue.OPEN, haptic)
+                    if (card != null && card.actions.isNotEmpty()) state.showPeekCard(card) else openLeading?.invoke()
+                } },
                 onClick = {
                     // A ringing timer is silenced by a tap before anything else.
                     if (IslandTools.ringing) { UnoFeedback.play(Cue.OPEN, haptic); IslandTools.stopRinging(context) }

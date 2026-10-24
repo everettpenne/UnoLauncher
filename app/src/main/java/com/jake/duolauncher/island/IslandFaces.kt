@@ -269,7 +269,11 @@ internal fun PeekActionsRow(peek: PeekNotification, state: IslandState, canReply
                     if (action.reply != null) {
                         // Over other apps the island cannot take the keyboard, so a reply opens the notification instead.
                         if (canReply) replying = action else { sendTapAction(context, peek.open); state.clearRecent(); state.collapse() }
-                    } else { sendTapAction(context, action.intent); state.clearRecent(); state.collapse() }
+                    } else {
+                        val run = action.run
+                        if (run != null) run() else sendTapAction(context, action.intent)
+                        state.clearRecent(); state.collapse()
+                    }
                 }
                 .semantics { role = androidx.compose.ui.semantics.Role.Button; contentDescription = action.title }
                 .testTag("island-peek-action"), contentAlignment = Alignment.Center) {
@@ -311,7 +315,7 @@ internal fun sendReply(context: android.content.Context, action: PeekAction, tex
         val fill = android.content.Intent()
         android.app.RemoteInput.addResultsToIntent(arrayOf(input), fill, android.os.Bundle().apply { putCharSequence(input.resultKey, text) })
         android.app.RemoteInput.setResultsSource(fill, android.app.RemoteInput.SOURCE_FREE_FORM_INPUT)
-        action.intent.send(context, 0, fill)
+        (action.intent ?: return false).send(context, 0, fill)
     }.isSuccess
 }
 

@@ -139,7 +139,7 @@ internal fun LiquidSliderControl(
         return
     }
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
-    var width by remember { mutableStateOf(0) }
+    var width by remember { mutableIntStateOf(0) }
     val fraction = SliderMath.fraction(value, valueRange)
     val progressAnim = remember { Animatable(fraction, .0005f) }
     // While the finger is down the thumb tracks the value 1:1 (a slider under a finger must not lag); only a tap or an

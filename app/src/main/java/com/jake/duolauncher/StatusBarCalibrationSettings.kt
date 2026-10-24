@@ -49,7 +49,7 @@ internal fun StatusBarCalibrationSettings() {
     Text(stringResource(R.string.status_auto_title), style = MaterialTheme.typography.titleMedium)
     Text(stringResource(R.string.status_auto_note), style = MaterialTheme.typography.bodySmall, color = muted)
     Text(when {
-            running && reading != null -> stringResource(R.string.status_auto_reading, reading.icons.size)
+            running && reading != null -> androidx.compose.ui.res.pluralStringResource(R.plurals.status_auto_reading, reading.icons.size, reading.icons.size)
             running -> stringResource(R.string.status_auto_waiting)
             enabled -> stringResource(R.string.status_auto_blocked)
             else -> stringResource(R.string.status_auto_off)

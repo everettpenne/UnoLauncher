@@ -22,6 +22,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.rounded.Usb
+import androidx.compose.material.icons.rounded.BatteryAlert
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.BluetoothConnected
 import androidx.compose.material.icons.rounded.FiberManualRecord
@@ -138,6 +139,7 @@ internal fun IslandSymbol.icon(): ImageVector = when (this) {
     IslandSymbol.BLUETOOTH -> Icons.Rounded.BluetoothConnected
     IslandSymbol.RECORDING -> Icons.Rounded.FiberManualRecord
     IslandSymbol.NOTIFICATION -> Icons.Rounded.NotificationsActive
+    IslandSymbol.LOW_BATTERY -> Icons.Rounded.BatteryAlert
 }
 
 /** The island's body: the lens-refracted glass rim the island is known for, around an interior of

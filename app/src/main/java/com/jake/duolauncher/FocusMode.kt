@@ -10,6 +10,10 @@ import android.media.AudioManager
 internal object FocusMode {
     private const val PREV = "focusPrevRinger"
 
+    /** Whether an interruption filter means Do Not Disturb is on (anything but "all", and not "unknown" while the service is starting). */
+    fun dndOn(filter: Int): Boolean =
+        filter != android.app.NotificationManager.INTERRUPTION_FILTER_ALL && filter != android.app.NotificationManager.INTERRUPTION_FILTER_UNKNOWN
+
     fun applyRinger(context: Context, on: Boolean, vibrate: Boolean) {
         if (!vibrate && on) return
         val app = context.applicationContext

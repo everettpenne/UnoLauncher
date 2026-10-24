@@ -58,6 +58,8 @@ internal object SettingsSearch {
         SettingEntry("Media Details", CustomizationPage.PRIVACY, "music song title artwork track"),
         SettingEntry("Focus", CustomizationPage.PRIVACY, "do not disturb dnd quiet hide apps"),
         SettingEntry("Vibrate Only", CustomizationPage.PRIVACY, "focus silent ringer"),
+        SettingEntry("With Do Not Disturb", CustomizationPage.PRIVACY, "focus dnd schedule automatic"),
+        SettingEntry("Hide Over Chosen Apps", CustomizationPage.ISLAND, "hide island apps banking games"),
         SettingEntry("Hidden Apps", CustomizationPage.PRIVACY, "hide unhide"),
         SettingEntry("Permission Ledger", CustomizationPage.PRIVACY, "permissions privacy access log"),
         // Gestures

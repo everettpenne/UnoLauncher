@@ -16,15 +16,18 @@ What is built, and what is still to do. This is a working list, not a promise.
 - **Buttons on notification cards** (a reply typed in the island on Home), a **camera and microphone row** with how long and, when usage access is already allowed, the app that was in front, **Bluetooth connect alerts**, **liquid motion** (stretch and squash, blur-in faces, a bubble that pulls away on a neck), and a size made for the Pixel 10a.
 - **Pull to peek, hold open, and a recent notification held for 30 seconds** (see the changelog), and **navigation set large enough to read while driving**.
 - **A permission ledger** (Launcher settings, Notifications & privacy): every permission, what it is for, what it can see, and a link to turn it off, and a plain line saying which island you actually have.
+- **GrapheneOS's Sensors permission** in the ledger and under Tilt Highlight: whether Uno has it, and what stays still without it. Only the launcher's own grant is readable without privileges (a denied app gets still readings, not an error); the phone-wide "Sensors off" tile is not, so it is not shown.
+- **One owner for the island's events.** The audio, ringer, camera, microphone, recording, VPN, USB, Bluetooth and battery listeners run once, held by Home while the launcher is in front and by the overlay while the island may show over apps (`IslandEventsOwner`), not inside whichever island is drawn; they keep running under a sheet or a full-screen app. The timing rules are pure and pinned (`IslandPolicy`).
+- **Hide over chosen apps.** Off by default; while on and apps are chosen, the shade service is told only the package of the app in front, and the ledger says so.
+- **Quick actions.** A long press on the pill opens a card for the leading activity with its own buttons (timer, stopwatch, music, call, Live Update).
+- **Battery moments.** Plugging in, reaching full, and 20 % and 10 % on the way down, over apps as well as on Home.
+- **Notifications know their profile.** A work-profile or Private Space notification is named "App (Work)" or "App (Private)" with Android's profile badge, badges only that profile's copy of the app, is rate-limited apart from the personal app, and works for apps installed only in that profile (their cards were dropped). Search marks work apps.
 
 ## To do
 
-1. **One owner for the island's state and effects.** Home and the overlay share one `IslandState` and each composable still runs its own effects against it. Move the policy and effects into one controller, behind tests that pin today's behaviour (the first of these, `IslandStateTest`, exists).
-2. **Hide over apps the person chooses.** An optional list, off by default, with its own consent. It needs the accessibility service to learn which app is in front, so it must not be on by default and its consent copy must say exactly what the service then receives.
-3. **Per-profile awareness.** Work profile, Private Space and secondary users: say whose notification or app an event is, and keep profiles from mixing in search and peeks.
-4. **Which app is using the camera or microphone.** Checked: Android's public API does not say (no package on the camera callback or on an audio recording), so the island shows how long, and the app that was in front when it started only as context.
-5. **Sensors switched off.** Show GrapheneOS's Sensors permission state if it can be read without privileges.
-6. **Be honest about what it is.** A drawn pill, not hardware; no hosts contacted; documenting exactly what each permission does.
+1. **Per-profile awareness, the rest.** Notifications are done (see Built). Left: Private Space apps are not listed at all (only managed profiles are), and a Live Update or call from another profile is not yet opened in that profile when its card has no tap action. Secondary users are separate users and never reach this launcher.
+2. **Which app is using the camera or microphone.** Checked: Android's public API does not say (no package on the camera callback or on an audio recording), so the island shows how long, and the app that was in front when it started only as context.
+3. **Be honest about what it is.** A drawn pill, not hardware; no hosts contacted; documenting exactly what each permission does.
 
 ## Ideas
 

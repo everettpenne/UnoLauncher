@@ -96,7 +96,7 @@ internal object GestureDecoder {
         // word that comes back to a key ("that") matches each visit to its own part of the path.
         val aspect = geometry.keyWidth / geometry.keyHeight.coerceAtLeast(1f)
         val n = sampled.size
-        var prev = DoubleArray(n) { 0.0 }
+        var prev = DoubleArray(n)
         var first = true
         for (ch in word) {
             val c = geometry.centres[ch] ?: return null

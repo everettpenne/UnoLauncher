@@ -176,6 +176,13 @@ private fun targetFor(scene: PreviewScene, s: PreviewSettings, env: IslandEnviro
             else IslandGeometry.frame(env, d, 1f, s.scale, extraBodyDp = if (s.peekLevel == 2) 26f else 0f)
         PreviewScene.OPEN -> IslandGeometry.frame(env, d, 1f, s.scale, extraBodyDp = if (s.shortcuts) 48f else 0f)
     }
+    if (scene == PreviewScene.IDLE) {
+        // At rest the island is the iPhone-width pill centred on the camera, as DynamicIsland draws it (IslandGeometry.REST_WIDTH_MM).
+        val m = android.content.res.Resources.getSystem().displayMetrics
+        val w = IslandGeometry.mmToDp(IslandGeometry.REST_WIDTH_MM, m.xdpi, d) * d
+        val centre = f.hole?.let { f.left + it.centerX } ?: (f.left + f.width / 2f)
+        return PreviewFrame(centre - w / 2f, w, f.height)
+    }
     return PreviewFrame(f.left, f.width, f.height)
 }
 
@@ -188,7 +195,7 @@ private fun sceneNames(): Map<PreviewScene, String> = mapOf(
 
 @Composable
 private fun caption(scene: PreviewScene, s: PreviewSettings): String = when (scene) {
-    PreviewScene.IDLE -> stringResource(R.string.island_preview_caption_idle, (s.scale * 100).toInt())
+    PreviewScene.IDLE -> stringResource(R.string.island_preview_caption_idle)
     PreviewScene.MUSIC -> stringResource(when (s.wideMode) {
         IslandWideMode.OFF -> R.string.island_preview_caption_music_off; IslandWideMode.WIDE -> R.string.island_preview_caption_music_wide
         IslandWideMode.EXTRA_WIDE -> R.string.island_preview_caption_music_extra })

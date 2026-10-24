@@ -1040,7 +1040,6 @@ internal fun LauncherScreen(
                 exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160))) {
                 DynamicIsland(island, controlGlass, deviceStatus,
                     feedHeadline = feed.shownEntries.firstOrNull()?.title,
-                    ringWhenIdle = iosLayout && extras?.store?.state?.islandWideMode?.keepWide != true,
                     sizeScale = appearance.islandScale,
                     wideFactor = extras?.store?.state?.islandWideMode?.wideFactor ?: 1f,
                     belowStatusBar = true,

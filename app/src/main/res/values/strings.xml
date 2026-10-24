@@ -387,7 +387,7 @@
     <string name="island_preview_notification">Notification</string>
     <string name="island_preview_privacy">Camera in use</string>
     <string name="island_preview_open">Open</string>
-    <string name="island_preview_caption_idle">At rest round the camera, at %1$d%% size.</string>
+    <string name="island_preview_caption_idle">At rest: a pill about 13.5 mm wide at the camera, the width of the iPhone 18 Pro\'s.</string>
     <string name="island_preview_caption_music_off">Music playing. With wide mode off, the pill keeps its usual width.</string>
     <string name="island_preview_caption_music_wide">Music playing, with the pill kept wide.</string>
     <string name="island_preview_caption_music_extra">Music playing, with the pill extra wide.</string>

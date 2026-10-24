@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.104.1-uno01
+
+- **The resting island is the 13.5 mm pill, everywhere.** Over other apps, on the iOS layout, and (since 0.104 draws the Home island in the accessibility service's window) on Home too, the idle island shrank to a ring round the camera, about 7 mm on a Pixel 10a, so the 13.5 mm width never showed. It is now always a pill about 13.5 mm wide centred on the camera, the leaked width of the iPhone 18 Pro's island. As before, it can grow a little (at most 8 dp a side) so it never cuts a status bar icon in half, and live activities, music and notifications widen it. The island settings preview shows the same.
+
 ## 0.104.0-uno01
 
 - **Settings like iOS Settings.** Every page is a grouped list: a small heading, an inset card of rows divided by hairlines, and a footer with the explanation, so row names are short and Title Case. The overview lists the pages with coloured icon tiles; the top bar has the way back, the page's name and Done. Choices show a check mark; actions are rows in the accent. **Backup & about** is now **General**, and the island's style has its own page.

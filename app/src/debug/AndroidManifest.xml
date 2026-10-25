@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <application>
         <receiver android:name=".debug.DebugLiveUpdateReceiver" android:exported="true" />
-        <!-- Debug builds only: a plain activity that hosts the island's waveform so a test can watch it on the real display. -->
-        <activity android:name=".EqualizerHostActivity" android:exported="false" />
+        <!-- Debug builds only: a plain activity that hosts the island's waveform (and, with "card", the music card and flame) so a test or adb can show it on the real display. -->
+        <activity android:name=".EqualizerHostActivity" android:exported="true" />
     </application>
 </manifest>

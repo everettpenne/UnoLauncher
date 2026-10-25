@@ -337,7 +337,7 @@ internal fun GlassModalSheet(
             properties = properties, content = content)
         return
     }
-    val shape = Corner.xlarge
+    val shape = Corner.sheet
     val sheetBackdrop = rememberLayerBackdrop()
     val accent = LocalWallpaperAccent.current
     val sheetSurface = MaterialTheme.colorScheme.surface.let { base ->

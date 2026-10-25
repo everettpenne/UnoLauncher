@@ -80,7 +80,7 @@ class SettingsReorganizationTest {
     }
 
     @Test fun settingsCardsAreConcentricWithTheSheet() {
-        org.junit.Assert.assertEquals(16f, (SHEET_RADIUS - SHEET_INSET).value, 0f)
+        org.junit.Assert.assertEquals("the Glass kit's and iOS 26's grouped card", 26f, (SHEET_RADIUS - SHEET_INSET).value, 0f)
     }
 
     @Test fun everyPageHasAName() {

@@ -156,6 +156,12 @@ class StatusBarReaderService : AccessibilityService() {
         /** Whether the person has turned the service on in Android's accessibility settings (it may not be running yet). */
         internal fun isEnabled(context: Context): Boolean {
             val component = ComponentName(context, StatusBarReaderService::class.java)
+            // Running counts as enabled, and so does Android's own setting: on a Pixel 10a the manager's list left the service out while it
+            // was enabled and bound, so the page said "Off" with the island reading the bar.
+            if (isConnected()) return true
+            val setting = runCatching { android.provider.Settings.Secure.getString(context.contentResolver,
+                android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) }.getOrNull().orEmpty()
+            if (setting.split(':').any { ComponentName.unflattenFromString(it) == component }) return true
             return context.getSystemService(AccessibilityManager::class.java).getEnabledAccessibilityServiceList(
                 android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK
             ).any { info -> info.resolveInfo?.serviceInfo?.let { ComponentName(it.packageName, it.name) } == component }

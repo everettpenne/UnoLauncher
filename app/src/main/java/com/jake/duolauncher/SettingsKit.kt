@@ -35,9 +35,9 @@ import androidx.compose.ui.unit.dp
  * sit [SHEET_INSET] inside it.
  */
 
-internal val SHEET_RADIUS: Dp = 32.dp
+internal val SHEET_RADIUS: Dp = Corner.SHEET_DP.dp
 internal val SHEET_INSET: Dp = 16.dp
-/** The settings card: concentric with the sheet it sits in (32 − 16 = 16 dp). */
+/** The settings card: concentric with the sheet it sits in (42 − 16 = 26 dp, the Glass kit's grouped card and iOS 26's). */
 internal val SettingsCardShape = Corner.inside(SHEET_RADIUS, SHEET_INSET)
 
 /** The rows of one group, collected in order (an `if` around `row { }` leaves a row out). */

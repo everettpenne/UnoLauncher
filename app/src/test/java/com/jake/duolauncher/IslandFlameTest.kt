@@ -9,8 +9,8 @@ class IslandFlameTest {
         for (i in 0 until FlameShape.TONGUES) for (step in 0..400) {
             val (x, h) = FlameShape.tongue(i, step * .25f)
             val home = (i + .5f) / FlameShape.TONGUES
-            assertTrue("tongue $i sways only a little ($x vs $home)", Math.abs(x - home) <= .036f)
-            assertTrue("tongue $i height $h stays between a flicker and just over half", h in .2f..0.62f)
+            assertTrue("tongue $i sways within its share of the width ($x vs $home)", Math.abs(x - home) <= .061f)
+            assertTrue("tongue $i height $h flickers but never reaches the top", h in .12f..0.88f)
         }
     }
 

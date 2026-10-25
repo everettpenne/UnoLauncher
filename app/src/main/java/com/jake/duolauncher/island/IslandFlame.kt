@@ -13,8 +13,8 @@ import kotlin.math.sin
 
 /**
  * The now-playing glow: the track's colour rising from the island's bottom edge, with a few soft tongues that sway and swell like a
- * low flame while the audio is really playing (paused, it rests as a still glow). The motion is slow and small on purpose: it is
- * meant to be felt at the edge of vision, not watched.
+ * low flame while the audio is really playing (paused, it rests as a still glow). Since 0.106 it is a livelier flame: the tongues sway
+ * further and a quick flicker rides on their slow swell, in a stronger colour.
  */
 internal object FlameShape {
     const val TONGUES = 5
@@ -28,13 +28,14 @@ internal object FlameShape {
     /** The tongue's centre along the island's width, as a fraction. Split from [tongue] so the draw loop reads it without a Pair per frame. */
     fun tongueX(i: Int, t: Float): Float {
         val phase = i * 1.3f
-        return (i + .5f) / TONGUES + .035f * sin(t * (.9f + .17f * i) + phase)
+        return (i + .5f) / TONGUES + .06f * sin(t * (1.4f + .23f * i) + phase)
     }
 
     /** The tongue's height, as a fraction of the island's height. */
     fun tongueH(i: Int, t: Float): Float {
         val phase = i * 1.3f
-        return .42f + .14f * sin(t * (1.3f + .21f * i) + phase * 1.7f) + .06f * sin(t * 2.9f + i)
+        // A slow swell, a quicker sway, and a fast flicker on top, each on its own period per tongue.
+        return .5f + .2f * sin(t * (1.9f + .31f * i) + phase * 1.7f) + .09f * sin(t * 4.6f + i) + .07f * sin(t * (9.3f + .7f * i) + i * 2.1f)
     }
 }
 
@@ -66,11 +67,14 @@ internal fun DrawScope.drawBottomGlow(wash: Brush, tongue: Brush, alpha: Float, 
 
 /**
  * A clock, in seconds, that ticks with the screen while [active] and stands still otherwise, so nothing redraws while no audio plays.
- * It wraps every ~17 minutes (the flame never repeats visibly anyway) to keep the number small enough for a float to stay smooth.
+ * It counts from when the flame starts, so it never wraps mid-song.
  */
 @Composable
 internal fun rememberFlameClock(active: Boolean): State<Float> = produceState(0f, active) {
     if (!active) return@produceState
     // Honours Compose's infinite-animation policy, so a test that waits for the screen to be idle is not held by a flame that never ends.
-    while (true) withInfiniteAnimationFrameNanos { nanos -> value = ((nanos / 1_000_000L) % 1_000_000L) / 1000f }
+    // Seconds since the flame started, not since boot wrapped every ~17 minutes: the wrap jumped every tongue at once (a visible flicker in
+    // the middle of a song). Counted from the start, a float keeps millisecond steps for many hours of one session.
+    var start = -1L
+    while (true) withInfiniteAnimationFrameNanos { nanos -> if (start < 0L) start = nanos; value = ((nanos - start) / 1_000_000L) / 1000f }
 }

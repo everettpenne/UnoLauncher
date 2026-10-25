@@ -103,6 +103,9 @@ internal object StatusBarGrid {
      * limit it kept growing until a clear spot lined up on both sides, which with the grid's conservative slots (every notification slot counted
      * as full) made the resting island far wider than it needed to be; past this it snaps each edge on its own instead. */
     const val MAX_SYMMETRIC_GROW_DP = 8f
+    /** How far [symmetricBestEffort] looks narrower and wider than the wanted width, in dp. */
+    const val BEST_EFFORT_SHRINK_DP = 6f
+    const val BEST_EFFORT_GROW_DP = 20f
     /** The least room either side of the island to the screen's edge, in dp. */
     private const val SCREEN_MARGIN_DP = 6f
 
@@ -146,6 +149,37 @@ internal object StatusBarGrid {
             .filter { it >= wanted && it <= wanted + MAX_SYMMETRIC_GROW_DP }.sorted()
         val half = candidates.firstOrNull { freeLeft(cx - it) && freeRight(cx + it) } ?: return null
         return withCapsules(cx - half, cx + half, icons, holeLeft, holeRight, screenWidthDp, wantLeft, wantRight, capsuleMinWidth)
+    }
+
+    /**
+     * As [symmetric], but always an answer: when no symmetric width near the wanted one clears every icon (a busy status bar, on a Pixel
+     * 10a a live pill between four notification icons and Do Not Disturb), the one within [BEST_EFFORT_SHRINK_DP] narrower to
+     * [BEST_EFFORT_GROW_DP] wider that leaves the least of any icon showing past an edge, preferring the width nearest the wanted one. The
+     * island always covers part of an icon then; this keeps that part a sliver at most rather than half an icon, and the island centred.
+     */
+    fun symmetricBestEffort(desiredLeft: Float, desiredRight: Float, holeLeft: Float, holeRight: Float, icons: List<Span>,
+        screenWidthDp: Float, wantLeft: Boolean, wantRight: Boolean, dots: Int, capsuleMinWidth: Float): Layout {
+        symmetric(desiredLeft, desiredRight, holeLeft, holeRight, icons, screenWidthDp, wantLeft, wantRight, dots, capsuleMinWidth)?.let { return it }
+        val cx = (holeLeft + holeRight) / 2f
+        val dotRoom = if (dots > 0) IslandPrivacy.widthDp(dots) else 0f
+        val wanted = maxOf(cx - desiredLeft, desiredRight - cx, (holeRight - holeLeft) / 2f + HOLE_WRAP_DP) + dotRoom
+        val leftIcons = icons.filter { (it.left + it.right) / 2f < cx }
+        val rightIcons = icons.filter { (it.left + it.right) / 2f >= cx }
+        val least = (holeRight - holeLeft) / 2f + HOLE_WRAP_DP + dotRoom
+        // Never over the clock (the first icon on the left) or the battery (the last on the right).
+        val limit = minOf(minOf(cx, screenWidthDp - cx) - SCREEN_MARGIN_DP,
+            leftIcons.minByOrNull { it.left }?.let { cx - (it.right + EDGE_CLEAR_DP) } ?: Float.MAX_VALUE,
+            rightIcons.maxByOrNull { it.right }?.let { (it.left - EDGE_CLEAR_DP) - cx } ?: Float.MAX_VALUE)
+        // How much of an icon an edge at [x] leaves showing on the far side, or covers on the near side: whichever is smaller is the sliver.
+        fun cut(x: Float, side: List<Span>) = side.sumOf { s -> if (x > s.left && x < s.right) minOf(x - s.left, s.right - x).toDouble() else 0.0 }
+        var best = wanted; var bestScore = Double.MAX_VALUE
+        var h = maxOf(least, wanted - BEST_EFFORT_SHRINK_DP)
+        while (h <= minOf(limit, wanted + BEST_EFFORT_GROW_DP)) {
+            val score = cut(cx - h, leftIcons) + cut(cx + h, rightIcons) + kotlin.math.abs(h - wanted) * .05
+            if (score < bestScore - 1e-6) { bestScore = score; best = h }
+            h += .25f
+        }
+        return withCapsules(cx - best, cx + best, icons, holeLeft, holeRight, screenWidthDp, wantLeft, wantRight, capsuleMinWidth)
     }
 
     /** [pillLeft]..[pillRight] with a capsule on each wanted side: [SEAM_DP] from the island, out to the first point clear of [icons] at least

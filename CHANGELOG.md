@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.107.0-uno01
+
+- **The alignment service's reading is used on a busy status bar.** The island took a symmetric width only if one within 8 dp of the wanted width cleared every icon; on a Pixel 10a with four notification icons and Do Not Disturb none did, so it kept a width that cut the Do Not Disturb icon in half. It now takes the symmetric width, within 6 dp narrower to 20 dp wider, that leaves the least of any icon cut, never over the clock or the battery. The alignment page also said "Off" while the service was running (Android's list of enabled services can leave it out); it now also reads the system setting.
+- **The music card**: a wavy progress line that drifts while playing (flat when paused or dragged), a filled play button in the cover's colour, and the playing bars at its corner.
+- **A livelier flame**: the cover's colour under the pill is stronger, its tongues sway further, and a quick flicker rides on their swell. Its clock wrapped every ~17 minutes, which jumped every tongue at once; it now counts from when it starts.
+- **Corners** are the suite's Glass kit's, which follow iOS: small 8 dp, medium 16 dp, large 24 dp, settings cards 26 dp (iOS 26's inset groups) in a 42 dp sheet.
+- **The island settings preview** sizes glyphs and their end insets as the island does, and draws the camera as a faint lens rather than a grey disc.
+
 ## 0.106.0-uno01
 
 - **A Height slider** (Island › Height). From "Camera", the camera's own height (the default), up to 6 dp more above and below it; the width stays 16 mm, the island stays centred on the camera, and the open panel is unchanged. The old size setting had been retired in 0.104.

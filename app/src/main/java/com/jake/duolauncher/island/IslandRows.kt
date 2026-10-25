@@ -182,15 +182,18 @@ internal fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: 
                 artist?.let { Text(it, color = themeInk.copy(alpha = .72f), style = UnoType.footnote.tight,
                     maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
+            // The "playing" mark at the card's corner, as iOS shows it beside the track (only with artwork: without it the bars are the cover).
+            if (art != null) { Spacer(Modifier.width(8.dp)); EqualizerBars(if (playing) tint else tint.copy(alpha = .55f), animate = playing) }
         }
         // The track's position, which can be tapped or dragged to seek (the interactive progress of HyperOS's island). Only when the
         // player reports a duration.
-        if (progress != null && onSeek != null) SeekBar(progress, tint, onSeek, durationMs) else Spacer(Modifier.height(14.dp))
+        if (progress != null && onSeek != null) SeekBar(progress, tint, onSeek, durationMs, playing = playing) else Spacer(Modifier.height(14.dp))
         Spacer(Modifier.height(2.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
             MediaButton(Icons.Rounded.SkipPrevious, "Previous", onPrevious)
+            // Play and pause is the card's one filled control, in the cover's colour, with the glyph in the island's black.
             MediaButton(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                if (playing) "Pause" else "Play", onPlayPause, tint = tint, size = 48.dp, iconSize = 30.dp)
+                if (playing) "Pause" else "Play", onPlayPause, tint = Color.Black, size = 48.dp, iconSize = 28.dp, fill = tint)
             MediaButton(Icons.Rounded.SkipNext, "Next", onNext)
         }
     }
@@ -200,7 +203,7 @@ internal fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: 
  * the finger lifts.
  */
 @Composable
-internal fun SeekBar(progress: Float, tint: Color, onSeek: (Float) -> Unit, durationMs: Long? = null) {
+internal fun SeekBar(progress: Float, tint: Color, onSeek: (Float) -> Unit, durationMs: Long? = null, playing: Boolean = false) {
     var width by remember { mutableFloatStateOf(1f) }
     var dragging by remember { mutableStateOf<Float?>(null) }
     val shown = (dragging ?: progress).coerceIn(0f, 1f)
@@ -217,9 +220,7 @@ internal fun SeekBar(progress: Float, tint: Color, onSeek: (Float) -> Unit, dura
                     dragging = (change.position.x / width).coerceIn(0f, 1f)
                 }
             }.testTag("island-seek"), contentAlignment = Alignment.Center) {
-            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(themeInk.copy(alpha = .18f))) {
-                Box(Modifier.fillMaxWidth(shown).fillMaxHeight().background(tint, RoundedCornerShape(50)))
-            }
+            WavyTrack(shown, tint, themeInk.copy(alpha = .18f), wavy = playing && dragging == null)
         }
         if (durationMs != null && durationMs > 0) Text(MediaTimes.remaining(shown, durationMs), style = timeStyle, maxLines = 1,
             textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.widthIn(min = 34.dp).testTag("island-remaining"))
@@ -271,7 +272,7 @@ internal fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
 
 @Composable
 internal fun MediaButton(icon: ImageVector, label: String, onClick: () -> Unit, tint: Color = themeInk,
-    size: androidx.compose.ui.unit.Dp = 44.dp, iconSize: androidx.compose.ui.unit.Dp = 24.dp) {
+    size: androidx.compose.ui.unit.Dp = 44.dp, iconSize: androidx.compose.ui.unit.Dp = 24.dp, fill: Color? = null) {
     val haptic = LocalHapticFeedback.current
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
@@ -280,7 +281,7 @@ internal fun MediaButton(icon: ImageVector, label: String, onClick: () -> Unit, 
         .clickable(interactionSource = source, indication = null) {
             UnoFeedback.play(Cue.TICK, haptic)
             onClick()
-        }, contentAlignment = Alignment.Center) {
+        }.then(if (fill != null) Modifier.background(fill) else Modifier), contentAlignment = Alignment.Center) {
         Icon(icon, label, tint = tint, modifier = Modifier.size(iconSize))
     }
 }
@@ -339,5 +340,40 @@ internal fun BatteryGlyph(level: Int?, charging: Boolean, modifier: Modifier = M
         val fraction = ((level ?: 0) / 100f).coerceIn(0f, 1f)
         val w = (body.width - 2 * inset) * fraction
         if (w > 0f) drawRoundRect(fill, topLeft = Offset(inset, inset), size = Size(w, body.height - 2 * inset), cornerRadius = CornerRadius(2.dp.toPx()))
+    }
+}
+
+/**
+ * The seek bar's track: the part played is a gentle wave that drifts while music plays (Material 3 Expressive's wavy progress, which the
+ * other Android islands use), and a straight line while paused or being dragged; the part to come is a faint straight line. The wave is
+ * drawn, not composed, so it costs no recomposition while it moves.
+ */
+@Composable
+private fun WavyTrack(fraction: Float, played: Color, rest: Color, wavy: Boolean) {
+    val phase = if (wavy) {
+        val t = rememberInfiniteTransition(label = "wave")
+        t.animateFloat(0f, (2 * Math.PI).toFloat(), infiniteRepeatable(tween(1400, easing = androidx.compose.animation.core.LinearEasing)), label = "phase")
+    } else null
+    val amplitude by animateFloatAsState(if (wavy) 1f else 0f, tween(260), label = "wave amplitude")
+    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(10.dp)) {
+        val y = size.height / 2f
+        val stroke = 3.dp.toPx()
+        val split = size.width * fraction.coerceIn(0f, 1f)
+        val gap = if (split > 0f && split < size.width) 4.dp.toPx() else 0f
+        // To come: a straight line from just past the played part to the end.
+        if (split + gap < size.width) drawLine(rest, androidx.compose.ui.geometry.Offset(split + gap, y), androidx.compose.ui.geometry.Offset(size.width, y),
+            strokeWidth = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        if (split <= 0f) return@Canvas
+        val amp = 2.dp.toPx() * amplitude
+        val wavelength = 18.dp.toPx()
+        val p = phase?.value ?: 0f
+        val path = androidx.compose.ui.graphics.Path()
+        var x = 0f
+        path.moveTo(0f, y + amp * kotlin.math.sin(p))
+        while (x < split) {
+            x = minOf(split, x + 2f)
+            path.lineTo(x, y + amp * kotlin.math.sin(p + x / wavelength * 2f * Math.PI.toFloat()))
+        }
+        drawPath(path, played, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
     }
 }

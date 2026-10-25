@@ -8,6 +8,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -139,7 +140,8 @@ internal fun IslandSettingsPreview(controller: IslandPreviewController, settings
             StatusBarMock(env, k, theme.ink)
             val px = { v: Float -> with(density) { (v * k).toDp() } }
             val frameLeft = left.value; val frameW = width.value; val frameH = height.value
-            val top = cutout.centerY - (targetFor(PreviewScene.IDLE, settings, env, d).height / 2f)
+            val restH = targetFor(PreviewScene.IDLE, settings, env, d).height
+            val top = cutout.centerY - (restH / 2f)
             if (scene == PreviewScene.THREE) {
                 // the second and third activities sit beside the island, as round capsules the pill's height
                 val gap = 6f * d
@@ -150,10 +152,10 @@ internal fun IslandSettingsPreview(controller: IslandPreviewController, settings
             Box(Modifier.offset(px(frameLeft), px(top)).size(px(frameW), px(frameH))
                 .graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }
                 .clip(RoundedCornerShape(corner)).background(theme.fill)) {
-                // the camera, as it shows through the pill
+                // The camera, as a faint lens in the black, as it reads on the phone (it was a grey disc, which no real island shows).
                 Box(Modifier.offset(px(cutout.left - frameLeft), px(cutout.top - top)).size(px(cutout.width), px(cutout.height))
-                    .clip(CircleShape).background(Color(0xFF15181C)))
-                Crossfade(scene, label = "preview-scene") { s -> SceneFace(s, settings, theme, k, cutout.height, bodyTop = px(cutout.bottom - top + 8f * d)) }
+                    .clip(CircleShape).background(Color(0xFF07080A)).border(.5.dp, Color.White.copy(alpha = .04f), CircleShape))
+                Crossfade(scene, label = "preview-scene") { s -> SceneFace(s, settings, theme, k, restH, bodyTop = px(cutout.bottom - top + 8f * d)) }
             }
         }
         Text(caption(scene, settings), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -236,32 +238,34 @@ private fun Capsule(x: Dp, y: Dp, size: Dp, tint: Color, icon: androidx.compose.
 
 /** What the island shows in each scene: the art and bars for music, the glyph and text for a Live Update, the card for a notification... */
 @Composable
-private fun SceneFace(scene: PreviewScene, s: PreviewSettings, theme: IslandTheme, k: Float, holePx: Float, bodyTop: Dp) {
+private fun SceneFace(scene: PreviewScene, s: PreviewSettings, theme: IslandTheme, k: Float, pillPx: Float, bodyTop: Dp) {
     val density = LocalDensity.current
-    val glyph = (with(density) { (holePx * k).toDp() } * 1.05f).coerceIn(14.dp, 30.dp)
+    // As the island draws them: a glyph GLYPH_FRACTION of the pill's height, centred in its end, the detail mirrored at the other end.
+    val glyph = with(density) { (pillPx * k * GLYPH_FRACTION).toDp() }.coerceAtLeast(10.dp)
+    val endInset = with(density) { (pillPx * k * (1f - GLYPH_FRACTION) / 2f).toDp() }
     val ink = theme.ink
     when (scene) {
         PreviewScene.IDLE -> Unit
-        PreviewScene.MUSIC -> Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        PreviewScene.MUSIC -> Row(Modifier.fillMaxSize().padding(horizontal = endInset), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(glyph).clip(RoundedCornerShape(6.dp)).background(Brush.linearGradient(listOf(theme.playback, theme.focus))))
             Spacer(Modifier.weight(1f))
             Equalizer(theme.playback, glyph)
         }
-        PreviewScene.LIVE -> Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        PreviewScene.LIVE -> Row(Modifier.fillMaxSize().padding(horizontal = endInset), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.DeliveryDining, null, tint = theme.highlight, modifier = Modifier.size(glyph))
             Spacer(Modifier.weight(1f))
             if (s.liveUpdates && s.compactLevel > 0) Text(stringResource(if (s.compactLevel == 1) R.string.island_preview_eta else R.string.island_preview_delivery),
                 color = ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Clip)
         }
-        PreviewScene.THREE -> Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        PreviewScene.THREE -> Row(Modifier.fillMaxSize().padding(horizontal = endInset), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.DeliveryDining, null, tint = theme.highlight, modifier = Modifier.size(glyph))
             Spacer(Modifier.weight(1f))
         }
-        PreviewScene.PRIVACY -> Row(Modifier.fillMaxSize().padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        PreviewScene.PRIVACY -> Row(Modifier.fillMaxSize().padding(horizontal = endInset), verticalAlignment = Alignment.CenterVertically) {
             Spacer(Modifier.weight(1f))
             if (s.privacyIndicators) Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF30D158)))
         }
-        PreviewScene.NOTIFICATION -> if (s.peekLevel == 0) Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        PreviewScene.NOTIFICATION -> if (s.peekLevel == 0) Row(Modifier.fillMaxSize().padding(horizontal = endInset), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(glyph).clip(theme.iconShapeOrCircle()).background(Color(0xFF34C759)), contentAlignment = Alignment.Center) {
                 Icon(Icons.Rounded.ChatBubble, null, tint = Color.White, modifier = Modifier.size(glyph * .6f))
             }

@@ -505,14 +505,13 @@ internal fun DynamicIsland(
     val measuredBar = StatusBarLive.usable(environment.screenWidth / d)
     val islandLayout = restTarget.hole.let { hole ->
         // Symmetric about the camera, always. With the alignment service's reading of the real icons, the island takes the smallest width
-        // that leaves every icon wholly covered or wholly clear on both sides, if one is close to the width it wants; otherwise it keeps that
-        // width. Bugfix: it used to snap to a Pixel status bar guessed when there was no reading, and to snap each edge on its own when no
+        // that leaves every icon wholly covered or wholly clear on both sides, if one is close to the width it wants; on a bar too busy for
+        // that, the nearby width that leaves the least of any icon cut (StatusBarGrid.symmetricBestEffort). With no reading it keeps its width. Bugfix: it used to snap to a Pixel status bar guessed when there was no reading, and to snap each edge on its own when no
         // symmetric width fitted; on a Pixel 10a the guess put icons where there were none, so the pill grew lopsided and over apps cut the
         // Do Not Disturb icon in half. Material Capsule and SmartIsland, two Android islands, keep fixed symmetric widths for the same reason.
-        if (gridOn && hole != null && measuredBar != null) StatusBarGrid.symmetric(wantLeftDp, wantRightDp, (restTarget.left + hole.left) / d,
+        if (gridOn && hole != null && measuredBar != null) StatusBarGrid.symmetricBestEffort(wantLeftDp, wantRightDp, (restTarget.left + hole.left) / d,
             (restTarget.left + hole.right) / d, measuredBar.icons, environment.screenWidth / d,
             wantLeft = capsulePlan.any { it.left }, wantRight = capsulePlan.any { !it.left }, dots = privacyNow.size, capsuleMinWidth = capsuleMinDp)
-            ?: StatusBarGrid.flush(wantLeftDp, wantRightDp, capsulePlan.any { it.left }, capsulePlan.any { !it.left }, capsuleMinDp)
         else StatusBarGrid.flush(if (compactTarget < .5f) wantLeftDp else restTarget.left / d, if (compactTarget < .5f) wantRightDp else (restTarget.left + restTarget.width) / d,
             capsulePlan.any { it.left }, capsulePlan.any { !it.left }, capsuleMinDp)
     }
@@ -608,11 +607,11 @@ internal fun DynamicIsland(
     // Building both brushes (and their colour lists) on every frame while audio played is what this replaces.
     val glowWash = remember(artTint) {
         androidx.compose.ui.graphics.Brush.verticalGradient(
-            listOf(Color.Transparent, artTint.copy(alpha = .16f), artTint.copy(alpha = .55f)))
+            listOf(Color.Transparent, artTint.copy(alpha = .26f), artTint.copy(alpha = .8f)))
     }
     val glowTongue = remember(artTint, flameAnimated) {
         androidx.compose.ui.graphics.Brush.radialGradient(
-            listOf(artTint.copy(alpha = .5f * if (flameAnimated) 1f else .6f), Color.Transparent),
+            listOf(artTint.copy(alpha = .85f * if (flameAnimated) 1f else .6f), Color.Transparent),
             center = Offset.Zero, radius = 1f)
     }
     // A progress ring around the collapsed pill: a running timer, or the battery level while charging.

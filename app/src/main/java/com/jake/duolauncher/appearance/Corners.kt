@@ -129,14 +129,19 @@ internal object Corner {
     /** App icons are 22.37% of their side, scale-independent, so they work at every size. */
     const val ICON_FRACTION = 0.2237f
 
+    // Small, medium and large are the suite's (the Glass kit's 8, 16 and 24 dp, as Thumper, Spice and Seekur use), which are iOS's own steps.
     /** Rows, highlights, and small tiles. */
-    val small: Shape = RoundedCornerShape(12.dp)
+    val small: Shape = RoundedCornerShape(8.dp)
     /** Cards and items sitting inside a panel. */
-    val medium: Shape = RoundedCornerShape(18.dp)
+    val medium: Shape = RoundedCornerShape(16.dp)
     /** Widgets, folders, and drop targets. */
     val large: Shape = RoundedCornerShape(24.dp)
-    /** Containers: the dock, the status rail, sheets, and panels. */
+    /** Containers: the dock, the status rail and panels. */
     val xlarge: Shape = RoundedCornerShape(32.dp)
+    /** Sheets (settings, the widget picker): [SHEET_DP], so the grouped cards 16 dp inside them come out at iOS 26's and the Glass kit's
+     * 26 dp. */
+    val sheet: Shape = RoundedCornerShape(SHEET_DP.dp)
+    const val SHEET_DP = 42f
     /** Capsules and circles, which have no corner to smooth. */
     val pill: Shape = RoundedCornerShape(percent = 50)
     /** The app-icon silhouette, with continuous (squircle) corners. */

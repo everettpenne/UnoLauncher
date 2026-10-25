@@ -90,7 +90,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     SideEffect { backgrounds.dark = appearance.dark }
     WallpaperEditor(backgrounds, state, appearance.dark)
     Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)
-        .then(if (glassBackdrop != null) Modifier.liquidGlass(glassBackdrop, Corner.xlarge,
+        .then(if (glassBackdrop != null) Modifier.liquidGlass(glassBackdrop, Corner.sheet,
             glassTint, kind = GlassKind.REGULAR, settings = settings) else Modifier)
         .padding(horizontal = SHEET_INSET).padding(bottom = 12.dp)) {
         // iOS's navigation bar: the way back on the left, the page's name in the middle, and Done on the right.

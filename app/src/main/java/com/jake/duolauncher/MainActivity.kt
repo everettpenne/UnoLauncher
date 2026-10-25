@@ -247,6 +247,7 @@ class MainActivity : ComponentActivity() {
                     onTiltHighlight = appearance::setTiltHighlight,
                     island = island,
                     onIsland = appearance::setIsland,
+                    onIslandHeight = appearance::setIslandHeight,
                     islandEverywhere = extrasStore.state.islandEverywhere,
                     onIslandEverywhere = ::setIslandEverywhere,
                     updates = updates.state.collectAsStateWithLifecycle().value,

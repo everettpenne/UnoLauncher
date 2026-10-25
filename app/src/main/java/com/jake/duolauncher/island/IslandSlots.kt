@@ -22,6 +22,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.rounded.Usb
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.BluetoothConnected
 import androidx.compose.material.icons.rounded.FiberManualRecord
@@ -153,9 +154,10 @@ internal const val SLOT_TEXT_SP = 12
 internal val PRIVACY_MIC = Color(0xFFFF9F0A)
 /** A detached capsule's body: a stadium with fully rounded ends, like the pill but small. */
 internal val capsuleShape = RoundedCornerShape(percent = 50)
-/** How much smaller than the pill's height an app icon or thumbnail is, in px: a ~4 px inset each side, so the circle sits
- * concentrically inside the pill. */
-internal const val GLYPH_INSET_PX = 14f
+/** An app icon or thumbnail on the pill is this share of the pill's height, centred in its rounded end, as iOS's compact activities
+ * are. It was the height less 14 px: on a Pixel 10a that filled the pill to within 2 dp of its edge, so a call or timer glyph looked
+ * oversized next to its small trailing text and crowded the pill's end. */
+internal const val GLYPH_FRACTION = .62f
 /** The smallest a glyph circle may be, in px, whatever the pill's height. */
 internal const val MIN_GLYPH_PX = 12f
 
@@ -202,6 +204,9 @@ internal fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Bo
             // The artwork when there is any, as a circle sized to sit concentrically inside the pill; otherwise the bars stand in.
             if (art != null && !plain) Image(art, null, Modifier.size(glyphSize).clip(CircleShape))
             else if (multi) EqualizerBars(if (playing) tint else tint.copy(alpha = .55f), animate = playing)
+            // No artwork: a note, so the pill is not empty on one side with only the bars on the other.
+            else Icon(androidx.compose.material.icons.Icons.Rounded.MusicNote, null, Modifier.size(glyphSize * .85f),
+                tint = if (playing) tint else tint.copy(alpha = .7f))
         } else {
             // Stays while a paused player can still be resumed, but only moves while audio is playing.
             EqualizerBars(if (playing) tint else tint.copy(alpha = .55f),

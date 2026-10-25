@@ -35,9 +35,13 @@ data class AppearanceState(val mode: AppearanceMode = AppearanceMode.LIGHT, val 
     val homeStyle: HomeStyle = HomeStyle.SIDE,
     /** Home's glass (the dock, the status rail, widgets, the page dots and the search pill) is clear, with a bright edge, as iOS's Liquid
      * Glass is; off, it keeps its light frosted tint. Sheets and panels keep their tint either way, since their text sits on them. */
-    val clearGlass: Boolean = true) {
+    val clearGlass: Boolean = true,
+    /** The island's height at rest, 0..1: 0 is the camera's own height (as an iPhone's island is its cutout), 1 the most the screen
+     * allows above and below it. The width stays the island's physical width (IslandGeometry.REST_WIDTH_MM) at every height. */
+    val islandHeight: Float = 0f) {
+    /** What the island's geometry calls its size (IslandGeometry.frame's scale): the height setting. */
+    val islandScale: Float get() = islandHeight
     /** The retired knobs' fixed values (see AppearanceStore.load), kept as properties so their readers need not change. */
-    val islandScale: Float get() = .5f
     val tiltStrength: Float get() = DEFAULT_STRENGTH
     internal val glass: GlassSettings get() = GlassSettings.Default
     /** Home's glass in one word, as the Appearance page offers it. */
@@ -69,6 +73,7 @@ class AppearanceStore(private val context: Context) {
             wallpaperDepth = runCatching { prefs.getBoolean("wallpaperDepth", true) }.getOrDefault(true),
             homeStyle = runCatching { HomeStyle.valueOf(prefs.getString("homeStyle", null) ?: "SIDE") }.getOrDefault(HomeStyle.SIDE),
             clearGlass = runCatching { prefs.getBoolean("clearGlass", true) }.getOrDefault(true),
+            islandHeight = prefs.lenientFloat("islandHeight", 0f).coerceIn(0f, 1f),
             tiltHighlight = runCatching { prefs.getBoolean("tiltHighlight", false) }.getOrDefault(false),
             island = runCatching { prefs.getBoolean("island", true) }.getOrDefault(true)), systemDark)
     }
@@ -81,6 +86,7 @@ class AppearanceStore(private val context: Context) {
     fun setWallpaperColor(value: Boolean) { save(state.copy(wallpaperColor = value), currentSystemDark()) }
     fun setTiltHighlight(value: Boolean) { save(state.copy(tiltHighlight = value), currentSystemDark()) }
     fun setIsland(value: Boolean) { save(state.copy(island = value), currentSystemDark()) }
+    fun setIslandHeight(value: Float) { save(state.copy(islandHeight = value.coerceIn(0f, 1f)), currentSystemDark()) }
     fun setManual(place: String, latitude: Double, longitude: Double, systemDark: Boolean) {
         require(latitude in -90.0..90.0 && longitude in -180.0..180.0)
         save(state.copy(place = place.trim(), latitude = latitude, longitude = longitude,
@@ -106,7 +112,8 @@ class AppearanceStore(private val context: Context) {
             .putBoolean("island", value.island)
             .putBoolean("wallpaperColor", value.wallpaperColor).putBoolean("tiltHighlight", value.tiltHighlight)
             .putBoolean("wallpaperDepth", value.wallpaperDepth)
-            .putString("homeStyle", value.homeStyle.name).putBoolean("clearGlass", value.clearGlass).remove("unoStatusBar")
+            .putString("homeStyle", value.homeStyle.name).putBoolean("clearGlass", value.clearGlass).putFloat("islandHeight", value.islandHeight)
+            .remove("unoStatusBar")
             .remove("materialYou").remove("refraction").remove("refractionHeight").remove("refractionAmount").remove("refractionChroma")
             .remove("tiltStrength").remove("islandScale").apply()
         state = resolve(value, systemDark)

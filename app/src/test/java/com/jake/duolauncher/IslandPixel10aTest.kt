@@ -16,11 +16,12 @@ class IslandPixel10aTest {
 
     /** The pill is the camera hole's own height, as an iPhone's island is its cutout (it stood about 8 dp proud of the hole above and below). */
     @Test fun theCollapsedPillIsAsTallAsTheCamera() {
-        val pill = IslandGeometry.frame(env(), d, 0f, .5f)
+        val pill = IslandGeometry.frame(env(), d, 0f, 0f)
         assertTrue("pill is ${pill.height / d} dp tall", pill.height / d in 19f..21f)
         assertEquals("centred on the hole", hole.centerY, pill.top + pill.height / 2f, .5f)
         assertTrue("clear of the top edge by ${pill.top / d} dp", pill.top / d >= 3.9f)
-        assertTrue("wide enough for a timer on one side: ${pill.width / d} dp", pill.width / d in 130f..165f)
+        // The content pill: a glyph one side, a short detail the other, about 1.45 times the 16 mm resting pill with the shipped widening.
+        assertTrue("wide enough for a timer on one side: ${pill.width / d} dp", pill.width / d in 115f..135f)
         assertEquals("the hole is centred in it", pill.width / 2f, pill.hole!!.centerX, .5f)
     }
 
@@ -40,12 +41,13 @@ class IslandPixel10aTest {
         assertTrue("wide", !IslandGeometry.isPunchHole(PxRect(380f, 10f, 700f, 90f), screenW))
     }
 
-    @Test fun theSizeSettingOnlyChangesTheWidth() {
+    @Test fun theHeightSettingOnlyChangesTheHeight() {
         val small = IslandGeometry.frame(env(), d, 0f, 0f)
         val large = IslandGeometry.frame(env(), d, 0f, 1f)
-        assertTrue("small ${small.width / d} dp, large ${large.width / d} dp", large.width - small.width >= 50f * d)
+        assertTrue("small ${small.height / d} dp, large ${large.height / d} dp", large.height - small.height >= 8f * d)
         assertTrue("never above the top margin", large.top / d >= 3.9f && small.top / d >= 3.9f)
-        assertEquals("the height is the hole's at every size", small.height, large.height, .5f)
+        assertEquals("the width does not change", small.width, large.width, .5f)
+        assertEquals("centred on the camera", hole.centerY, large.top + large.height / 2f, .5f)
         assertTrue("never thinner than the hole", small.height >= hole.height)
     }
 
@@ -70,7 +72,7 @@ class IslandPixel10aTest {
 
     @Test fun theCornerIsRoundEnoughForAPanelAndFullyRoundForThePill() {
         assertEquals(34f, IslandGeometry.CORNER_CAP_DP, 0f)
-        val pill = IslandGeometry.frame(env(), d, 0f, .5f)
+        val pill = IslandGeometry.frame(env(), d, 0f, 0f)
         assertTrue("a pill is a capsule: half its height (${pill.height / 2f / d} dp) is under the cap", pill.height / 2f / d < IslandGeometry.CORNER_CAP_DP)
         val open = IslandGeometry.frame(env(), d, 1f, .5f)
         assertTrue("an open panel is tall enough for the cap to apply", open.height / 2f / d > IslandGeometry.CORNER_CAP_DP)

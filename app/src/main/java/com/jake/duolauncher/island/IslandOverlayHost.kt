@@ -193,7 +193,7 @@ internal class IslandOverlayHost(
             var islandWideMode by androidx.compose.runtime.remember { mutableStateOf(readIslandWideMode(context)) }
             var resumeWindowMs by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))) }
             var islandScale by androidx.compose.runtime.remember {
-                androidx.compose.runtime.mutableFloatStateOf(context.getSharedPreferences("appearance", Context.MODE_PRIVATE).lenientFloat("islandScale", .5f).coerceIn(0f, 1f))
+                androidx.compose.runtime.mutableFloatStateOf(context.getSharedPreferences("appearance", Context.MODE_PRIVATE).lenientFloat("islandHeight", 0f).coerceIn(0f, 1f))
             }
             // Out of the way of a full-screen app (see FullScreenPolicy): hidden once the status bar has been gone half a second.
             var fullScreen by androidx.compose.runtime.remember { mutableStateOf(false) }
@@ -225,7 +225,7 @@ internal class IslandOverlayHost(
                     }
                     resumeWindowMs = IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))
                     islandScale = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
-                        .lenientFloat("islandScale", .5f).coerceIn(0f, 1f)
+                        .lenientFloat("islandHeight", 0f).coerceIn(0f, 1f)
                     // The debug HUD (debug builds only) follows its switch while the overlay runs.
                     if (IslandDebugHud.enabled(context)) {
                         if (hud == null) hud = IslandDebugHud(context, windowType).also { it.start() }

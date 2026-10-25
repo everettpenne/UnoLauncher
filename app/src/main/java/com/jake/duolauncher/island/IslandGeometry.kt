@@ -120,6 +120,8 @@ internal object IslandGeometry {
      * anti-aliased edge never shows past the pill.
      */
     const val PUNCH_REST_RING_DP = .5f
+    /** The most island the height setting puts above and below the camera, in dp. */
+    const val MAX_REST_RING_DP = 6f
     /** The open panel takes this share of the screen's width (as the iOS island does), between the old fixed width and [MAX_EXPANDED_DP]. */
     private const val EXPANDED_SHARE = .92f
     private const val MAX_EXPANDED_DP = 372f
@@ -210,6 +212,10 @@ internal object IslandGeometry {
     /** How far past fully open a spring may carry the island: room for a bounce, a stretch or a splash. */
     const val MAX_OVERSHOOT = 1.35f
 
+    /** The size the old size slider sat at by default; the pill's width with something on it and the open panel follow it, not the height. */
+    private const val LEGACY_SIZE = .5f
+    /** Where on the old size scale the content pill's side room sits (see the side room in [frame]). */
+    private const val CONTENT_SIZE = .2f
     /** The size-slider position whose width the "Extra wide" pill takes. */
     const val EXTRA_WIDE_SIZE = .75f
 
@@ -225,19 +231,22 @@ internal object IslandGeometry {
      * [EXTRA_WIDE_SIZE]), 1% wider (see [EXTRA_WIDE_BOOST]), and leaves its height alone. It never narrows, and the result is clamped so the pill still fits the screen with
      * its own margins and the expanded panel still clears the dock/rail strip.
      */
-    fun frame(env: IslandEnvironment, density: Float, progress: Float, scale: Float = .5f,
+    fun frame(env: IslandEnvironment, density: Float, progress: Float, scale: Float = 0f,
         extraBodyDp: Float = 0f, extraWidthDp: Float = 0f, compactness: Float = 0f,
         wideFactor: Float = 1f, heightProgress: Float = progress): IslandFrame {
         val d = density
         val pw = progress.coerceIn(0f, MAX_OVERSHOOT)
         val ph = heightProgress.coerceIn(0f, MAX_OVERSHOOT)
         val p = pw.coerceAtMost(1f)
-        val size = scale.coerceIn(0f, 1f)
+        // [scale] is the island's height setting (0 = the camera's height). Everything else that once followed the old size slider (the
+        // width of a pill with something on it, the open panel's height, the pill with no camera) keeps the value it had at the default.
+        val heightSetting = scale.coerceIn(0f, 1f)
+        val size = LEGACY_SIZE
         val margin = EDGE_MARGIN_DP * d
         val cutout = env.cutout
         val side = sideOf(cutout, env.screenWidth, env.screenHeight)
         if (cutout != null && side != IslandSide.TOP)
-            return sideFrame(env, cutout, side, d, p, size, extraBodyDp, extraWidthDp)
+            return sideFrame(env, cutout, side, d, p, heightSetting, extraBodyDp, extraWidthDp)
         val centerX: Float
         val top: Float
         var collapsedWidth: Float
@@ -251,14 +260,21 @@ internal object IslandGeometry {
             val holeHalf = cutout.height / 2f
             val punch = isPunchHole(cutout, env.screenWidth)
             val room = max(0f, (cutout.centerY - (if (punch) PUNCH_TOP_MARGIN_DP else TOP_MARGIN_DP) * d) - holeHalf)
-            val ring = if (punch) min(PUNCH_REST_RING_DP * d, max(room, 0f)) else mix(min(MIN_RING_DP * d, room), room, size)
+            // The height setting: from the camera's own height (a half-dp ring on a punch hole, a few dp round a notch) up to the most
+            // that keeps the top margin clear, evenly above and below the camera.
+            val least = if (punch) min(PUNCH_REST_RING_DP * d, max(room, 0f)) else min(MIN_RING_DP * d, room)
+            // At most [MAX_REST_RING_DP] a side: an iPhone's island is about 3.4 times as wide as it is tall, which at the island's 16 mm is
+            // about the camera's own height, so more than this reads as a slab rather than a pill (all the room, on a Pixel 10a, was 56 dp tall).
+            val ring = mix(least, max(min(room, MAX_REST_RING_DP * d), least), heightSetting)
             val half = holeHalf + ring
             top = cutout.centerY - half
             collapsedHeight = half * 2f
             val c = compactness.coerceIn(0f, 1f)
             // "Extra wide" (wideFactor > 1) gives the pill the width it has at the 75% size setting, whatever the slider says, while the
             // height still follows the slider. It never narrows: above 75% the slider's own width already is wider.
-            val sideRoom = (1f - c) * 2f * mix(44f, 80f, if (wideFactor > 1f) max(size, EXTRA_WIDE_SIZE) else size) * d
+            // Room beside the camera for a glyph on one side and a short detail on the other: about 1.45 times the resting pill, as compact
+            // as iOS's and the other Android islands' content pills (it was 62 dp a side, a 448 px pill on a Pixel 10a).
+            val sideRoom = (1f - c) * 2f * mix(44f, 80f, if (wideFactor > 1f) max(size, EXTRA_WIDE_SIZE) else CONTENT_SIZE) * d
             // The compact width is the hole plus a ring each side, never less than the wrap clearance used below: a pill
             // narrower than hole + 2 * wrap makes that clamp's range empty (min above max) and throws.
             collapsedWidth = cutout.width + sideRoom + c * 2f * max(ring, WRAP_DP * d) + extraWidthDp * d
@@ -301,9 +317,10 @@ internal object IslandGeometry {
     /** The island when the camera is on the left or right edge (phone turned sideways). It stays where the camera is: a vertical
      * pill hugging the hole, growing inward from the edge for an event or the full panel, centred on the camera.
      */
-    private fun sideFrame(env: IslandEnvironment, cutout: PxRect, side: IslandSide, d: Float, p: Float, size: Float,
+    private fun sideFrame(env: IslandEnvironment, cutout: PxRect, side: IslandSide, d: Float, p: Float, height: Float,
         extraBodyDp: Float, extraWidthDp: Float): IslandFrame {
-        val ring = mix(MIN_RING_DP * d, 10f * d, size)
+        val size = LEGACY_SIZE
+        val ring = mix(MIN_RING_DP * d, 10f * d, height)
         val collapsedHeight = cutout.height + 2f * ring
         // The pill reaches from the screen edge (or just past the hole's outer side) to just past its inner side.
         val outerEdge = if (side == IslandSide.LEFT) max(0f, cutout.left - ring) else min(env.screenWidth, cutout.right + ring)

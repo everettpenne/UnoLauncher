@@ -504,22 +504,15 @@ internal fun DynamicIsland(
     // the grid measured on a Pixel 10a, moved by the calibration page.
     val measuredBar = StatusBarLive.usable(environment.screenWidth / d)
     val islandLayout = restTarget.hole.let { hole ->
-        val measuredGaps = if (measuredBar != null && hole != null)
-            StatusBarScan.gaps(measuredBar.icons, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d) else null
-        // Symmetric about the camera when a width fits that leaves every icon wholly covered or wholly clear on both sides (the icons as read,
-        // or as the grid has them); otherwise each edge snaps to its own nearest gap, as before.
-        if (gridOn && hole != null) StatusBarGrid.symmetric(wantLeftDp, wantRightDp, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
-            measuredBar?.icons ?: StatusBarGrid.gridIcons(environment.screenWidth / d, clockShiftDp, StatusBarCalibration.current), environment.screenWidth / d,
+        // Symmetric about the camera, always. With the alignment service's reading of the real icons, the island takes the smallest width
+        // that leaves every icon wholly covered or wholly clear on both sides, if one is close to the width it wants; otherwise it keeps that
+        // width. Bugfix: it used to snap to a Pixel status bar guessed when there was no reading, and to snap each edge on its own when no
+        // symmetric width fitted; on a Pixel 10a the guess put icons where there were none, so the pill grew lopsided and over apps cut the
+        // Do Not Disturb icon in half. Material Capsule and SmartIsland, two Android islands, keep fixed symmetric widths for the same reason.
+        if (gridOn && hole != null && measuredBar != null) StatusBarGrid.symmetric(wantLeftDp, wantRightDp, (restTarget.left + hole.left) / d,
+            (restTarget.left + hole.right) / d, measuredBar.icons, environment.screenWidth / d,
             wantLeft = capsulePlan.any { it.left }, wantRight = capsulePlan.any { !it.left }, dots = privacyNow.size, capsuleMinWidth = capsuleMinDp)
-            ?: StatusBarGrid.centred(measuredBar?.let { StatusBarGrid.nearest(wantLeftDp, wantRightDp, (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
-                it.icons, environment.screenWidth / d, capsulePlan.any { c -> c.left }, capsulePlan.any { c -> !c.left }, privacyNow.size, capsuleMinDp) }
-            ?: StatusBarGrid.layout(wantLeftDp, wantRightDp, environment.screenWidth / d, clockShiftDp,
-            (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
-            wantLeft = capsulePlan.any { it.left }, wantRight = capsulePlan.any { !it.left }, dots = privacyNow.size, capsuleMinWidth = capsuleMinDp,
-            cal = StatusBarCalibration.current, measuredLeft = measuredGaps?.first, measuredRight = measuredGaps?.second),
-            (restTarget.left + hole.left) / d, (restTarget.left + hole.right) / d,
-            measuredBar?.icons ?: StatusBarGrid.gridIcons(environment.screenWidth / d, clockShiftDp, StatusBarCalibration.current), environment.screenWidth / d,
-            capsulePlan.any { it.left }, capsulePlan.any { !it.left }, capsuleMinDp)
+            ?: StatusBarGrid.flush(wantLeftDp, wantRightDp, capsulePlan.any { it.left }, capsulePlan.any { !it.left }, capsuleMinDp)
         else StatusBarGrid.flush(if (compactTarget < .5f) wantLeftDp else restTarget.left / d, if (compactTarget < .5f) wantRightDp else (restTarget.left + restTarget.width) / d,
             capsulePlan.any { it.left }, capsulePlan.any { !it.left }, capsuleMinDp)
     }
@@ -551,7 +544,7 @@ internal fun DynamicIsland(
     // The collapsed pill's height in px. App icons and thumbnails are circles sized from this (diameter = height - ~8 px), so they stay
     // concentric inside the pill and scale with the island size setting. The detached capsules share this height, so their glyphs match.
     val collapsedHeightPx = remember(environment, d, sizeScale) { IslandGeometry.frame(environment, d, 0f, sizeScale).height }
-    val glyphDiameterDp = ((collapsedHeightPx - GLYPH_INSET_PX).coerceAtLeast(MIN_GLYPH_PX) / d).dp
+    val glyphDiameterDp = ((collapsedHeightPx * GLYPH_FRACTION).coerceAtLeast(MIN_GLYPH_PX) / d).dp
     val capsuleHeightDp = (collapsedHeightPx / d).dp
     // How far open the peek rests: enough of the open panel to read its top (the time, then its first row, if it has one). The animation above
     // reads this through [peekState], so the panel's own content decides how much a peek shows.

@@ -91,19 +91,22 @@ class IslandGeometryTest {
         val camera = PxRect(514f, 40f, 566f, 92f)
         val small = IslandGeometry.frame(env(camera), d, 0f, scale = 0f)
         val large = IslandGeometry.frame(env(camera), d, 0f, scale = 1f)
-        // Round a punch hole the pill is always the hole's height; the scale only changes the room for content beside it.
-        assertEquals(small.height, large.height, 0.5f)
-        assertTrue(large.width > small.width)
+        // The height setting: the camera's own height at its least, taller at its most; the width does not change.
+        assertEquals(camera.height + 2f * IslandGeometry.PUNCH_REST_RING_DP * d, small.height, 0.5f)
+        assertTrue(large.height > small.height + 20f)
+        assertEquals(small.width, large.width, 0.5f)
+        assertEquals("centred on the camera at any height", camera.centerY, large.top + large.height / 2f, .5f)
         // The hole must stay fully wrapped at every size.
         assertTrue(small.hole!!.top >= 0f && small.hole.bottom <= small.height)
         assertTrue(large.hole!!.top >= 0f && large.hole.bottom <= large.height)
     }
 
-    @Test fun islandSizeScaleShrinksTheNoCutoutCapsule() {
+    @Test fun withNoCameraTheHeightSettingLeavesTheCapsuleAlone() {
+        // The setting is the room above and below the camera; with no camera there is none, so the capsule keeps its one size.
         val small = IslandGeometry.frame(env(null), d, 0f, scale = 0f)
         val large = IslandGeometry.frame(env(null), d, 0f, scale = 1f)
-        assertTrue(large.height > small.height)
-        assertTrue(large.width > small.width)
+        assertEquals(small.height, large.height, .01f)
+        assertEquals(small.width, large.width, .01f)
     }
 
     @Test fun punchHoleScaleChangesTheCapsuleVisiblyAndKeepsTheHoleWrapped() {
@@ -115,9 +118,9 @@ class IslandGeometryTest {
         val small = IslandGeometry.frame(env(visible), d, 0f, scale = 0f)
         val large = IslandGeometry.frame(env(visible), d, 0f, scale = 1f)
         // An 80 px (30 dp) hole was over the old 28 dp punch-hole limit, so it was padded as a notch; it is the hole's height now.
-        assertEquals("as tall as the hole at any size", visible.height + 2f * IslandGeometry.PUNCH_REST_RING_DP * d, small.height, .5f)
-        assertEquals(small.height, large.height, .5f)
-        assertTrue("width should change", large.width - small.width >= 32f)
+        assertEquals("as tall as the hole at its least", visible.height + 2f * IslandGeometry.PUNCH_REST_RING_DP * d, small.height, .5f)
+        assertTrue("taller at its most", large.height - small.height >= 24f)
+        assertEquals("the width does not change", small.width, large.width, .5f)
         for (frame in listOf(small, large)) {
             val hole = frame.hole!!
             assertTrue(hole.top >= 0f && hole.bottom <= frame.height)
@@ -125,13 +128,13 @@ class IslandGeometryTest {
         }
     }
 
-    @Test fun withOnlyTheBoundingRectangleThePillHugsItAndStaysOffTheTopEdge() {
-        // If no cutout path is available the rectangle is all there is: the pill is its height, and the slider changes the width.
+    @Test fun withOnlyTheBoundingRectangleThePillHugsItAndStaysOffTheTopEdgeAtAnyHeight() {
+        // If no cutout path is available the rectangle is all there is: the pill is its height at least, taller with the setting.
         val camera = PxRect(486f, 30f, 594f, 140f)
         val small = IslandGeometry.frame(env(camera), d, 0f, scale = 0f)
         val large = IslandGeometry.frame(env(camera), d, 0f, scale = 1f)
-        assertEquals(small.height, large.height, .5f)
-        assertTrue(large.width > small.width)
+        assertTrue(large.height > small.height)
+        assertEquals(small.width, large.width, .5f)
         assertTrue(small.top >= 4f * d - .5f && large.top >= 4f * d - .5f)
     }
 
@@ -162,15 +165,16 @@ class IslandGeometryTest {
         val hole = IslandGeometry.refine(tallRect, visibleHole)
         listOf(0f, .5f, 1f).forEach { scale ->
             val frame = IslandGeometry.frame(env(hole), d, 0f, scale)
-            assertTrue("top ${frame.top} at scale $scale leaves 6 dp clear", frame.top >= 6f * d - .5f)
+            // A punch hole may sit as close as 4 dp to the top edge (the 6 dp margin is for other cameras).
+            assertTrue("top ${frame.top} at scale $scale leaves 4 dp clear", frame.top >= 4f * d - .5f)
         }
     }
 
-    @Test fun theRefinedHoleSetsTheHeightAndTheSliderOnlyTheWidth() {
+    @Test fun theHeightSettingGrowsTheHeightFromTheCameraAndLeavesTheWidth() {
         val hole = IslandGeometry.refine(tallRect, visibleHole)
         val frames = listOf(0f, .25f, .5f, .75f, 1f).map { IslandGeometry.frame(env(hole), d, 0f, it) }
-        frames.forEach { assertEquals("as tall as the hole", hole.height + 2f * IslandGeometry.PUNCH_REST_RING_DP * d, it.height, .5f) }
-        frames.zipWithNext().forEach { (a, b) -> assertTrue("widths grow", b.width > a.width) }
+        assertEquals("as tall as the hole at its least", hole.height + 2f * IslandGeometry.PUNCH_REST_RING_DP * d, frames.first().height, .5f)
+        frames.zipWithNext().forEach { (a, b) -> assertTrue("heights grow", b.height > a.height); assertEquals(a.width, b.width, .5f) }
     }
 
     @Test fun usingTheRawTallRectangleIsWhatMadeTheSliderADeadControl() {
@@ -295,8 +299,8 @@ class IslandGeometryTest {
         assertEquals(hole, refined)
         fun height(cutout: PxRect, size: Float) =
             IslandGeometry.frame(IslandEnvironment(cutout, 1080f, 80f, screenHeight = 2424f), 2.625f, 0f, size).height
-        assertEquals("with the refined hole the pill is the hole's height", hole.height + 2f * IslandGeometry.PUNCH_REST_RING_DP * 2.625f, height(refined, .5f), 0.5f)
-        assertTrue("the raw rectangle would make it far taller than the camera", height(tallRect, .5f) > height(refined, .5f) + 50f)
+        assertEquals("with the refined hole the pill is the hole's height", hole.height + 2f * IslandGeometry.PUNCH_REST_RING_DP * 2.625f, height(refined, 0f), 0.5f)
+        assertTrue("the raw rectangle would make it far taller than the camera", height(tallRect, 0f) > height(refined, 0f) + 50f)
         assertEquals(tallRect, IslandGeometry.holeFor(listOf(tallRect), null, 1080f, 2424f))
     }
 
@@ -321,9 +325,8 @@ class IslandGeometryTest {
         val e = env(camera)
         val wide = IslandGeometry.frame(e, d, 0f, .5f)
         val extra = IslandGeometry.frame(e, d, 0f, .5f, wideFactor = 1.5f)
-        // The width is what the 75% size setting gives, 1% wider; the height is the slider's own.
-        assertEquals(IslandGeometry.frame(e, d, 0f, .75f).width * IslandGeometry.EXTRA_WIDE_BOOST, extra.width, .01f)
-        assertTrue(extra.width > wide.width)
+        // Wider than the usual pill; the height is the height setting's own.
+        assertTrue(extra.width > wide.width * IslandGeometry.EXTRA_WIDE_BOOST)
         assertEquals(wide.height, extra.height, .01f)
         // Above 75% it never narrows.
         assertTrue(IslandGeometry.frame(e, d, 0f, 1f, wideFactor = 1.5f).width >= IslandGeometry.frame(e, d, 0f, 1f).width)

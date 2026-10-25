@@ -73,6 +73,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onHomeStyle: (HomeStyle) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onIsland: (Boolean) -> Unit = {},
+    onIslandHeight: (Float) -> Unit = {},
     islandEverywhere: Boolean = false,
     onIslandEverywhere: (Boolean) -> Unit = {},
     updates: UpdateState = UpdateState(),
@@ -142,7 +143,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     }
                     if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.SEARCH)
                 }
-                CustomizationPage.ISLAND -> IslandPage(appearance, extras, apps, islandEverywhere, onIsland, onIslandEverywhere, onPage)
+                CustomizationPage.ISLAND -> IslandPage(appearance, extras, apps, islandEverywhere, onIsland, onIslandEverywhere, onIslandHeight, onPage)
                 CustomizationPage.ISLAND_STYLE -> SettingsGroup { row { IslandStyleSection(IslandThemeController.current) } }
                 CustomizationPage.KEYBOARD -> if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.KEYBOARD)
                 CustomizationPage.PRIVACY -> {
@@ -243,7 +244,7 @@ private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> U
 /** The island's page: on and where, a way to line it up, what it shows, notifications, and its style a page further in. */
 @Composable
 private fun IslandPage(appearance: AppearanceState, extras: ExtrasActions?, apps: List<AppEntry>, islandEverywhere: Boolean,
-    onIsland: (Boolean) -> Unit, onIslandEverywhere: (Boolean) -> Unit, onPage: (CustomizationPage) -> Unit) {
+    onIsland: (Boolean) -> Unit, onIslandEverywhere: (Boolean) -> Unit, onIslandHeight: (Float) -> Unit, onPage: (CustomizationPage) -> Unit) {
     val greyOverlay = islandEverywhere && !SystemShadeAccessibilityService.isConnected()
     SettingsGroup(footer = buildString {
         append("A capsule at the camera that shows the time, music, timers and what apps are doing, and opens with a tap.")
@@ -253,6 +254,9 @@ private fun IslandPage(appearance: AppearanceState, extras: ExtrasActions?, apps
     }) {
         row { SettingsSwitch("Island", appearance.island, onIsland, "island-switch") }
         row { SettingsSwitch("Over Other Apps", islandEverywhere, onIslandEverywhere, "island-everywhere-switch") }
+        // The island's height at rest: from the camera's own height to the most the screen allows. The preview above shows it as it moves.
+        if (appearance.island) row { CustomizationSlider("Height", if (appearance.islandHeight < .01f) "Camera" else "${(appearance.islandHeight * 100).toInt()}%",
+            appearance.islandHeight, 0f..1f, tag = "island-height-slider", onChange = onIslandHeight) }
         if (appearance.island) row { NavRow("Line Up with Status Bar", "customization-status-grid") { onPage(CustomizationPage.STATUS_GRID) } }
         if (appearance.island) row { NavRow("Style", "customization-island-style", value = IslandThemes.active.name) { onPage(CustomizationPage.ISLAND_STYLE) } }
     }

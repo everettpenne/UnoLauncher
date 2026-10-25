@@ -354,7 +354,7 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">The island is symmetric: exactly centred on the camera and as tall as it, with a charge ring that fills evenly up both sides. Long-press it for the activity\'s own buttons.</string>
+    <string name="whats_new_1">A Height slider for the island (Island settings): from the camera\'s own height up to a little taller, always a true pill. Live activities sit balanced on both sides of the camera.</string>
     <string name="whats_new_2">A Lock Screen clock widget: the date over a large time, straight on the wallpaper, in five typefaces. The App Library can group apps by category, worked out on the phone.</string>
     <string name="whats_new_3">Battery moments in the island (charging, full, low at 20% and 10%), Focus that follows Do Not Disturb, and an option to hide the island over apps you choose.</string>
     <string name="whats_new_4">Work and Private Space notifications say which profile they are from, and GrapheneOS\'s Sensors permission shows in the permission ledger.</string>

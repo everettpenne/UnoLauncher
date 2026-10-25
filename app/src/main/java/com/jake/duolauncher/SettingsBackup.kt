@@ -48,7 +48,7 @@ internal object SettingsBackup {
      */
     private val FLOAT_KEYS = mapOf(
         EXTRAS to setOf("kbHapticStrength", "kbHeight"),
-        APPEARANCE to setOf("refraction", "refractionHeight", "refractionAmount", "refractionChroma", "tiltStrength", "islandScale"),
+        APPEARANCE to setOf("refraction", "refractionHeight", "refractionAmount", "refractionChroma", "tiltStrength", "islandScale", "islandHeight"),
     )
     fun isFloatKey(file: String, key: String) = key in FLOAT_KEYS[file].orEmpty()
     private val KEY = Regex("[A-Za-z0-9_]{1,48}")

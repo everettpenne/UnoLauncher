@@ -147,15 +147,18 @@ internal fun CollapsedFace(frameState: State<IslandFrame>, d: Float, alphaOf: ()
                     }
                     if (frame.side == IslandSide.RIGHT) Spacer(Modifier.width(((frame.width - hole.left) / d).dp + gap))
                 } else if (hole != null) {
-                    // In the wide pill the leading glyph sits concentrically with the pill's left end cap (its centre at half the
-                    // pill's height), not centred in the whole left slot; the compact pill's left slot is already tight enough.
+                    // In the wide pill the leading glyph sits concentrically in the pill's left end (its centre half the pill's height
+                    // from the edge) and the trailing detail ends the same distance from the right end, so the two sides mirror each
+                    // other about the camera, as iOS's compact activities do. The compact pill's slots are already tight enough.
                     val wide = frame.width > frame.height * 1.05f
+                    val endInset = ((frame.height * (1f - GLYPH_FRACTION) / 2f) / d).dp
                     Box(Modifier.width(((hole.left / d).dp - gap).coerceAtLeast(0.dp)),
                         contentAlignment = if (wide) Alignment.CenterStart else Alignment.Center) {
-                        if (wide) Box(Modifier.padding(start = ((GLYPH_INSET_PX / 2f) / d).dp)) { leading() } else leading()
+                        if (wide) Box(Modifier.padding(start = endInset)) { leading() } else leading()
                     }
                     Spacer(Modifier.width((hole.width / d).dp + gap * 2))
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { trailing() }
+                    Box(Modifier.weight(1f).padding(end = if (wide) endInset else 0.dp),
+                        contentAlignment = if (wide) Alignment.CenterEnd else Alignment.Center) { trailing() }
                 } else {
                     Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {

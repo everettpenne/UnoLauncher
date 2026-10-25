@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.106.0-uno01
+
+- **A Height slider** (Island › Height). From "Camera", the camera's own height (the default), up to 6 dp more above and below it; the width stays 16 mm, the island stays centred on the camera, and the open panel is unchanged. The old size setting had been retired in 0.104.
+- **Balanced live activities.** A call, timer, stopwatch, music or Live Update glyph is 62 % of the pill's height, centred in its left end, and the detail ends the same distance from the right end, so the two sides mirror each other. The glyph used to be the pill's height less 14 px, which on a Pixel 10a filled it to within 2 dp of the edge beside small text. Music with no artwork shows a note instead of an empty side.
+- **A compact content pill**, about 1.45 times the resting width (390 px on the 10a; it was 448 px).
+- **Always symmetric, never guessing the status bar.** The island no longer snaps to a guessed Pixel status bar, and never snaps one edge without the other; with the alignment service's reading it still takes the nearest symmetric width that covers or clears each icon whole. The guess put icons where there were none on a Pixel 10a, so the pill grew lopsided and over apps cut the Do Not Disturb icon in half. Two other Android islands (Material Capsule, SmartIsland) use fixed symmetric widths for the same reason.
+
 ## 0.105.1-uno01
 
 - **A symmetric island, checked on a Pixel 10a.** On Home with the side dock, Android's status bar is hidden, but the island still snapped its edges to that bar's icon gaps, which left it 2 to 5 px off the camera and wider on one side; with no bar it now stays exactly centred at its 16 mm width (270 px on the 10a, centred within half a pixel). The accessibility service's island, which draws the Home island too, now follows Home's status bar and rail. Over apps, when no symmetric fit is found within the growth limit, the island is centred at the wider of the two snapped halves instead of snapping each edge on its own.

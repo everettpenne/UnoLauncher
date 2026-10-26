@@ -38,8 +38,8 @@ android {
         applicationId = "com.jake.duolauncher"
         minSdk = 31
         targetSdk = 36
-        versionCode = 171
-        versionName = "0.109.0-uno01"
+        versionCode = 172
+        versionName = "0.110.0-uno01"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["appLabel"] = "Uno Launcher"
         manifestPlaceholders["shadeLabel"] = "@string/shade_service_label"
@@ -72,6 +72,15 @@ android {
                 "proguard-rules.pro",
             )
             if (releaseStoreFile != null) signingConfig = signingConfigs.getByName("release")
+            // -PunoDev also gives the minified release build the "Uno Dev" id and the debug key, so it can be timed on a phone that
+            // has the real release installed (a debug build is far slower than what people run, and says little about smoothness).
+            if (project.hasProperty("unoDev")) {
+                applicationIdSuffix = ".dev"
+                manifestPlaceholders["appLabel"] = "Uno Dev"
+                manifestPlaceholders["shadeLabel"] = "Uno Dev shade gestures"
+                manifestPlaceholders["readerLabel"] = "Uno Dev island alignment"
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
     buildFeatures { compose = true }

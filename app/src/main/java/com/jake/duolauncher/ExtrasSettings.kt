@@ -132,6 +132,7 @@ private fun PrivacyGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasS
         }
         row { SettingsSwitch("Media Details", s.mediaDetails, store::setMediaDetails, "media-details-switch") }
     }
+    SensorLogGroup(store, s)
     val focusOpen = rememberChecklistOpen("focus")
     SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.focus),
         footer = "Focus hides the apps you pick from Home and All Apps until it is off. Nothing is uninstalled and your layout does not change. With Do Not Disturb, it turns on and off with Android's Do Not Disturb (and its schedules).") {
@@ -167,7 +168,10 @@ internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) 
         }, "security-alerts-switch") }
         row { SettingsSwitch("App Shortcuts", s.islandShortcuts, { store.setIslandShortcuts(it); demo(PreviewScene.OPEN) }, "island-shortcuts-switch") }
     }
-    SettingsGroup(header = "Notifications", footer = "How much a new notification shows when the island drops down for it. To show the text, Uno reads it and keeps nothing. People Only lets just messages from people drop it down. A chat that floods is quieted for a couple of minutes, and an app whose drop-downs you never open stops dropping down; it is listed below to bring back.") {
+    // Without notification access nothing below can happen, and the switches look like they work: say so here, with the way to fix it.
+    val accessOff = !actions.hasNotificationAccess()
+    SettingsGroup(header = "Notifications", footer = (if (accessOff) "Notification access is off, so nothing can drop down yet. Turning it on in Android's settings is the only step. " else "") + "How much a new notification shows when the island drops down for it. To show the text, Uno reads it and keeps nothing. People Only lets just messages from people drop it down. A chat that floods is quieted for a couple of minutes, and an app whose drop-downs you never open stops dropping down; it is listed below to bring back.") {
+        if (accessOff) row { ActionRow("Turn On Notification Access", "island-notification-access", onClick = actions.openNotificationAccess) }
         row { SettingsSwitch("Show Notifications", s.notificationPeek, { store.setNotificationPeek(it); demo(PreviewScene.NOTIFICATION) }, "peek-switch") }
         if (s.notificationPeek) {
             row { SettingsSwitch("People Only", s.peekPeopleOnly, store::setPeekPeopleOnly, "peek-people-switch") }
@@ -474,5 +478,27 @@ private fun PersonalWords(store: ExtrasStore, learning: Boolean) {
         }
         row { ActionRow("Forget All Learned Words", "kb-forget-everything", destructive = true) {
             com.jake.duolauncher.keyboard.PersonalStore.forgetEverything(); forgotten = true; version++ } }
+    }
+}
+
+/** The optional record of camera, microphone and screen-recording use: off by default, on this phone only, with no app names. */
+@Composable
+private fun SensorLogGroup(store: ExtrasStore, s: ExtrasState) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var revision by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val entries = remember(s.sensorLog, revision) { if (s.sensorLog) com.jake.duolauncher.island.SensorLog.entries(context).take(12) else emptyList() }
+    SettingsGroup(header = "Camera & Microphone",
+        footer = "Keeps a list of when the camera, the microphone or screen recording was in use and for how long, so you can look back. Android does not say which app used them, so none is named. It stays on this phone, holds the last 60 uses, and does nothing while this is off.") {
+        row { SettingsSwitch("Keep a Camera & Mic Log", s.sensorLog, { store.setSensorLog(it); if (!it) { com.jake.duolauncher.island.SensorLog.clear(context); revision++ } }, "sensor-log-switch") }
+        if (s.sensorLog && entries.isEmpty()) row { Text(stringResource(com.jake.duolauncher.R.string.sensor_log_empty), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = Space.M.dp)) }
+        entries.forEach { e ->
+            row { Column(Modifier.padding(vertical = Space.S.dp)) {
+                Text(com.jake.duolauncher.island.SensorLog.label(e.kind), style = MaterialTheme.typography.bodyLarge)
+                Text(android.text.format.DateFormat.format("MMM d, h:mm a", e.startMs).toString() + " · " + com.jake.duolauncher.island.SensorLog.length(e.durationMs),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } }
+        }
+        if (entries.isNotEmpty()) row { ActionRow("Clear Log", "sensor-log-clear", onClick = { com.jake.duolauncher.island.SensorLog.clear(context); revision++ }) }
     }
 }

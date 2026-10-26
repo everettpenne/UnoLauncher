@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.110.0-uno01
+
+- **The welcome sheet turns the island on.** A "Wake up the island" group beside the Home-app and widget steps shows whether Notification access and Island alignment are on, with a Turn on button that opens Android's own page for each; it rechecks when you come back. The alignment service was a settings hunt, and the island is noticeably better with it.
+- **The island settings preview plays on its own.** Left alone for a few seconds it tours music, a Live Update, a message and the open island, and stops when you pick a scene or change a setting.
+- **Notification access, said plainly.** With it off, the island's Notifications group says nothing can drop down yet and has a Turn On Notification Access button (the switches below looked like they worked).
+- **An optional Camera & Mic log** (Notifications & Privacy), off by default: when the camera, microphone or screen recording was in use and for how long, the last 60 uses, on this phone only, no app named (Android does not say which app). Uses under 1.5 s are not listed. Turning it off clears it.
+- **Fixes.** The settings Home preview had no name for screen readers. `-PunoDev` now also builds the minified release as "Uno Dev", for timing the launcher on a phone that has the real release. On-device test pass on a Pixel 10a: the 20 tests that fail there also fail on 0.104.2 (they are written for an emulator or a foldable), and the one island test that assumed a tapped-aside call was updated for urgency.
+
 ## 0.109.0-uno01
 
 - **Smarter drop-downs.** **People Only** (Island › Notifications) lets only conversations (Android's message category, a messaging-style notification, or a conversation shortcut) drop the island down. A conversation drops it at most once every 15 seconds, and an app that drops it four times in a minute is quiet for two minutes. An app whose drop-downs are never opened (from the island or the shade) ten times in a row stops dropping down; **Quieted Automatically** lists it, and one tap brings it back. All learned on the phone from notifications Uno already reads.

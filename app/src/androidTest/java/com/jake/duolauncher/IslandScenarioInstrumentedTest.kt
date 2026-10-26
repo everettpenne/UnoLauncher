@@ -302,14 +302,27 @@ class IslandScenarioInstrumentedTest {
     @Test fun tappingAnExtraCapsuleMergesItIntoThePillAndTheOldFrontSplitsOff() {
         show()
         playMusic(playing = true)
-        compose.runOnIdle { NotificationFeed.ongoingCall = call(); NotificationFeed.liveUpdates = listOf(freshUpdate()) }
+        // Not a call: since 0.108.0 a call always leads (IslandUrgency), so tapping beside it cannot bring another activity forward.
+        compose.runOnIdle { NotificationFeed.liveUpdates = listOf(freshUpdate()) }
         compose.waitForIdle()
         assertEquals("media is the extra capsule before", 1, capsuleCount("media"))
         compose.onNodeWithTag("island-capsule-media", useUnmergedTree = true).performClick()
         compose.waitForIdle()
         assertEquals("media merged into the pill, so it has no capsule", 0, capsuleCount("media"))
-        assertEquals("the old front detached into a capsule", 1, capsuleCount("call"))
+        assertEquals("the old front detached into a capsule", 1, capsuleCount("update"))
         shot("after-swap")
+    }
+
+    @Test fun anUrgentCallKeepsLeadingWhenAnotherCapsuleIsTapped() {
+        show()
+        playMusic(playing = true)
+        compose.runOnIdle { NotificationFeed.ongoingCall = call(); NotificationFeed.liveUpdates = listOf(freshUpdate()) }
+        compose.waitForIdle()
+        assertEquals("media is an extra capsule beside the call", 1, capsuleCount("media"))
+        compose.onNodeWithTag("island-capsule-media", useUnmergedTree = true).performClick()
+        compose.waitForIdle()
+        assertEquals("the call still leads, so media stays a capsule", 1, capsuleCount("media"))
+        assertEquals("and the call has no capsule of its own", 0, capsuleCount("call"))
     }
 
     @Test fun anActivityThatEndsFadesItsCapsuleOutAndLeavesNothingBehind() {

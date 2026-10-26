@@ -61,9 +61,20 @@ internal class IslandPreviewController {
     var replay by mutableIntStateOf(0)
         private set
 
-    fun show(next: PreviewScene) { scene = next; replay++ }
+    /** Whether the person has chosen a scene (a chip, or a setting row): once they have, the preview stops touring on its own. */
+    var driven by mutableStateOf(false)
+        private set
+
+    fun show(next: PreviewScene) { driven = true; scene = next; replay++ }
     fun replay() { replay++ }
+    /** The preview's own tour moves to the next scene without counting as the person's choice. */
+    fun tourTo(next: PreviewScene) { scene = next; replay++ }
 }
+
+/** The scenes the idle tour plays, in the order a day with the island goes: a quiet pill, music, a timer, a message, then the open island. */
+internal val PREVIEW_TOUR = listOf(PreviewScene.MUSIC, PreviewScene.LIVE, PreviewScene.NOTIFICATION, PreviewScene.OPEN, PreviewScene.IDLE)
+internal const val PREVIEW_TOUR_START_MS = 3_500L
+internal const val PREVIEW_TOUR_STEP_MS = 3_200L
 
 internal val LocalIslandPreview = staticCompositionLocalOf<IslandPreviewController?> { null }
 
@@ -108,6 +119,16 @@ internal fun IslandSettingsPreview(controller: IslandPreviewController, settings
 
     var stageWidthPx by remember { mutableFloatStateOf(metrics.widthPixels * .9f) }
     val k = (stageWidthPx / env.screenWidth).coerceIn(.3f, 1f)            // screen px → stage px
+
+    // Left alone, the preview shows what the island does: it plays through its situations until the person picks one themselves.
+    // Without this, a first look at the settings page was one still pill and a row of chips most people never pressed.
+    LaunchedEffect(controller.driven) {
+        if (controller.driven) return@LaunchedEffect
+        kotlinx.coroutines.delay(PREVIEW_TOUR_START_MS)
+        while (true) {
+            for (s in PREVIEW_TOUR) { controller.tourTo(s); kotlinx.coroutines.delay(PREVIEW_TOUR_STEP_MS) }
+        }
+    }
 
     val scene = controller.scene
     val target = remember(scene, settings, env) { targetFor(scene, settings, env, d) }

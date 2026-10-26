@@ -314,9 +314,11 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     val dockIcons = state.dock.mapNotNull { id -> id?.let(apps::get) }.take(5)
     val scale = previewHeight.value * aspect / 250f
     fun unit(value: Float) = (value * scale).dp
+    val homePreviewLabel = androidx.compose.ui.res.stringResource(com.jake.duolauncher.R.string.home_preview_label)
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Box(Modifier.height(previewHeight).width(previewHeight * aspect).clip(RoundedCornerShape(unit(24f)))
-            .testTag("customization-home-preview").then(modifier)) {
+            .testTag("customization-home-preview")
+            .semantics { contentDescription = homePreviewLabel }.then(modifier)) {
             if (builtin != null) BuiltinPreview(builtin, dark) else DuneWallpaper()
             bitmap?.let { Image(it.asImageBitmap(), null, Modifier.matchParentSize(),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop) }

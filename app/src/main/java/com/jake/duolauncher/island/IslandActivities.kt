@@ -363,7 +363,9 @@ internal class IslandSystemEvents(private val context: Context, private val stat
         val busyCameras = mutableSetOf<String>()
         val torchOn = mutableSetOf<String>()
         // The island's own flashlight is not "an app using the camera".
-        fun syncCamera() { state.cameraActive = busyCameras.isNotEmpty() && torchOn.isEmpty() }
+        // The optional on-phone log of camera, microphone and recording use (SensorLog); it does nothing unless the person turned it on.
+        fun logSensors() = SensorLog.record(context, state.cameraActive, state.micActive, state.recordingActive)
+        fun syncCamera() { state.cameraActive = busyCameras.isNotEmpty() && torchOn.isEmpty(); logSensors() }
         val cameraCallback = object : android.hardware.camera2.CameraManager.AvailabilityCallback() {
             override fun onCameraUnavailable(cameraId: String) { busyCameras += cameraId; syncCamera() }
             override fun onCameraAvailable(cameraId: String) { busyCameras -= cameraId; syncCamera() }
@@ -377,6 +379,7 @@ internal class IslandSystemEvents(private val context: Context, private val stat
         val recordingCallback = object : AudioManager.AudioRecordingCallback() {
             override fun onRecordingConfigChanged(configs: MutableList<android.media.AudioRecordingConfiguration>?) {
                 state.micActive = configs.orEmpty().any { !it.isClientSilenced }
+                logSensors()
             }
         }
         // VPN and USB-data alerts, from public callbacks that need no extra permission. Android replays the current state to a new
@@ -469,6 +472,7 @@ internal class IslandSystemEvents(private val context: Context, private val stat
         val windows = context.getSystemService(android.view.WindowManager::class.java)
         val recordingConsumer = java.util.function.Consumer<Int> { stateCode ->
             state.recordingActive = stateCode == android.view.WindowManager.SCREEN_RECORDING_STATE_VISIBLE
+            logSensors()
         }
         val recordingExecutor = java.util.concurrent.Executor { handler.post(it) }
         if (indicators && android.os.Build.VERSION.SDK_INT >= 35) {
@@ -528,6 +532,7 @@ internal class IslandSystemEvents(private val context: Context, private val stat
                 runCatching { cameras?.unregisterTorchCallback(torchCallback) }
                 runCatching { audio.unregisterAudioRecordingCallback(recordingCallback) }
                 state.micActive = false; state.cameraActive = false
+                logSensors()
                 worker.quitSafely()
             }
         }

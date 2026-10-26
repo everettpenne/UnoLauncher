@@ -18,6 +18,9 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.currentStateAsState
+import com.jake.duolauncher.island.StatusBarReaderService
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -134,6 +137,8 @@ internal fun FirstRunSetupSheet(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("setup-add-widget"),
                 ) { Text(stringResource(com.jake.duolauncher.R.string.add_a_widget)) }
                 HorizontalDivider()
+                IslandSetupGroup()
+                HorizontalDivider()
                 // What is easy to miss: three things that live behind a long-press or a tap.
                 SetupGuideRow(Icons.Rounded.TouchApp, stringResource(com.jake.duolauncher.R.string.tour_edit_title), stringResource(com.jake.duolauncher.R.string.tour_edit_detail))
                 SetupGuideRow(Icons.Rounded.Widgets, stringResource(com.jake.duolauncher.R.string.tour_island_title), stringResource(com.jake.duolauncher.R.string.tour_island_detail))
@@ -149,6 +154,42 @@ internal fun FirstRunSetupSheet(
             onClick = onSkip,
             modifier = Modifier.align(Alignment.CenterHorizontally).testTag("setup-skip"),
         ) { Text(stringResource(com.jake.duolauncher.R.string.not_now)) }
+    }
+}
+
+/** Whether a setup switch is on, rechecked each time the person comes back from Android's settings screen. */
+@Composable
+private fun rememberSwitchState(check: (Context) -> Boolean): Boolean {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val lifecycle by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    return androidx.compose.runtime.remember(lifecycle) { check(context) }
+}
+
+/** The two optional switches that make the island complete, each with its state and one button to Android's page for it. */
+@Composable
+private fun IslandSetupGroup() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val notifications = rememberSwitchState { androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(it).contains(it.packageName) }
+    val alignment = rememberSwitchState { StatusBarReaderService.isEnabled(it) }
+    SetupGuideRow(Icons.Rounded.Widgets, stringResource(com.jake.duolauncher.R.string.setup_island_title), stringResource(com.jake.duolauncher.R.string.setup_island_detail))
+    SetupSwitchRow(notifications, com.jake.duolauncher.R.string.setup_notifications_title, com.jake.duolauncher.R.string.setup_notifications_detail, "setup-notifications") {
+        runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+    }
+    SetupSwitchRow(alignment, com.jake.duolauncher.R.string.setup_alignment_title, com.jake.duolauncher.R.string.setup_alignment_detail, "setup-alignment") {
+        runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        android.widget.Toast.makeText(context, com.jake.duolauncher.R.string.setup_alignment_hint, android.widget.Toast.LENGTH_LONG).show()
+    }
+}
+
+@Composable
+private fun SetupSwitchRow(on: Boolean, title: Int, detail: Int, tag: String, onOpen: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().testTag(tag)) {
+        Column(Modifier.weight(1f).padding(start = 34.dp, end = 12.dp)) {
+            Text(stringResource(title), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (on) Icon(Icons.Rounded.Check, stringResource(com.jake.duolauncher.R.string.setup_is_on), tint = MaterialTheme.colorScheme.primary)
+        else GlassButton(onClick = onOpen, modifier = Modifier.heightIn(min = 44.dp)) { Text(stringResource(com.jake.duolauncher.R.string.setup_turn_on)) }
     }
 }
 

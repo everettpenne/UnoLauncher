@@ -161,6 +161,22 @@ internal const val GLYPH_FRACTION = .62f
 /** The smallest a glyph circle may be, in px, whatever the pill's height. */
 internal const val MIN_GLYPH_PX = 12f
 
+/**
+ * The words a live activity shows beside the camera (the call's length, the timer's time left, the stopwatch, a Live Update's status or
+ * title), or null when it shows none (music shows bars; the privacy marks are dots). One source for drawing it and for measuring it, so
+ * the pill is always sized for what it says (see IslandPillWidth).
+ */
+internal fun liveDetailText(kind: LiveKind, clockMs: Long, update: LiveUpdate?, liveCompactLevel: Int): String? = when (kind) {
+    LiveKind.CALL -> NotificationFeed.ongoingCall?.let { IslandClock.countdown((clockMs - it.startedAt).coerceAtLeast(0L)) }
+        ?: if (LiveKind.CALL in IslandDebug.forced) "1:23" else ""
+    LiveKind.TIMER -> if (IslandTools.timerActive || LiveKind.TIMER !in IslandDebug.forced)
+        IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)) else "9:59"
+    LiveKind.STOPWATCH -> if (IslandTools.swRunning || LiveKind.STOPWATCH !in IslandDebug.forced)
+        IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)) else IslandClock.stopwatch(12_300L)
+    LiveKind.UPDATE -> update?.let { LiveCompactText.choose(liveCompactLevel, LiveUpdateLogic.glance(it, clockMs), it.title) }
+    else -> null
+}
+
 /** One live activity as it appears in a side of the collapsed pill: its small glyph, or its detail (text or bars). */
 @Composable
 internal fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boolean, tint: Color,
@@ -180,21 +196,21 @@ internal fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Bo
         LiveKind.CALL -> if (glyph) Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(glyphSize))
             // How long the call has lasted, in green, like the other things that count time (the timer, the stopwatch). The caller's name
             // is on the open island's call card: a name cut to five letters says little, a clock says how long.
-            else Text(NotificationFeed.ongoingCall?.let { IslandClock.countdown((clockMs - it.startedAt).coerceAtLeast(0L)) } ?: if (LiveKind.CALL in IslandDebug.forced) "1:23" else "", color = IosGreen,
+            else Text(liveDetailText(kind, clockMs, update, liveCompactLevel).orEmpty(), color = IosGreen,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                 modifier = Modifier.padding(end = 4.dp).testTag("island-call"))
         LiveKind.TIMER -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = IslandThemes.active.timer, modifier = Modifier.size(glyphSize))
-            else Text(if (IslandTools.timerActive || LiveKind.TIMER !in IslandDebug.forced) IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)) else "9:59", color = IslandThemes.active.timer,
+            else Text(liveDetailText(kind, clockMs, update, liveCompactLevel).orEmpty(), color = IslandThemes.active.timer,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-timer"))
         LiveKind.STOPWATCH -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = themeInk, modifier = Modifier.size(glyphSize))
-            else Text(if (IslandTools.swRunning || LiveKind.STOPWATCH !in IslandDebug.forced) IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)) else IslandClock.stopwatch(12_300L), color = themeInk,
+            else Text(liveDetailText(kind, clockMs, update, liveCompactLevel).orEmpty(), color = themeInk,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
         LiveKind.UPDATE -> if (update != null) {
             val driving = update.source == ActivitySource.NAVIGATION
             if (glyph) UpdateGlyph(update, glyphSize, plain)
             else {
                 // The words beside the glyph, as the person chose: none (glyph alone), the short status, or the title.
-                val text = LiveCompactText.choose(liveCompactLevel, LiveUpdateLogic.glance(update, clockMs), update.title)
+                val text = liveDetailText(kind, clockMs, update, liveCompactLevel)
                 if (text != null) Text(text, color = updateTint(update), fontSize = (if (driving) NavigationText.PILL_SP else SLOT_TEXT_SP).sp,
                     fontWeight = if (driving) FontWeight.Bold else FontWeight.SemiBold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(end = 4.dp).testTag("island-live-update"))

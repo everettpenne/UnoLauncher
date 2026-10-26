@@ -193,10 +193,12 @@ internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) 
         val hideOpen = rememberChecklistOpen("island-hide-over")
         val serviceOn = SystemShadeAccessibilityService.isConnected()
         SettingsGroup(header = "Hide Over Apps", footer = buildString {
-            append("The island leaves the screen while one of these apps is in front, and comes back when you leave it. ")
-            append("To know which app is in front, Uno's accessibility service is told the name of each app that comes to the front, and nothing else: not what is in it or on screen. It keeps only the latest name, in memory, and stops being told when this is off or no apps are chosen.")
+            append("Step Aside in Its App takes an activity off the island while its own app is in front, as on iPhone: music while you are in the player, a ride while you are in its app. ")
+            append("Hide Over Chosen Apps takes the whole island away while one of the apps you pick is in front. ")
+            append("For either, Uno's accessibility service is told the name of each app that comes to the front, and nothing else: not what is in it or on screen. It keeps only the latest name, in memory, and stops being told when both are off.")
             if (!serviceOn) append(" Needs Uno's accessibility service, which is off.")
         }) {
+            row { SettingsSwitch("Step Aside in Its App", s.islandHideInOwnApp, store::setIslandHideInOwnApp, "island-own-app-switch") }
             row { SettingsSwitch("Hide Over Chosen Apps", s.islandHideOverOn, store::setIslandHideOverOn, "island-hide-over-switch") }
             if (s.islandHideOverOn) appChecklist(hideOpen, apps.filter { it.user == android.os.Process.myUserHandle() }.distinctBy { it.packageName },
                 emptySet(), "island-hide-over", count = s.islandHideOver.size, isOn = { it.packageName in s.islandHideOver }) {

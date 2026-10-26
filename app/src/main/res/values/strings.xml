@@ -354,10 +354,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Music on the island: a wavy progress line, a filled play button in the album\'s colour, and a livelier flame of its colour under the pill.</string>
-    <string name="whats_new_2">With Uno\'s alignment service on, the island picks the symmetric width that cuts the least of any status bar icon, even on a busy bar.</string>
-    <string name="whats_new_3">Corners follow the suite\'s and iOS\'s: settings cards are 26 dp, nested in a 42 dp sheet.</string>
-    <string name="whats_new_4">The island settings preview matches the real island, with a faint camera lens instead of a grey dot.</string>
+    <string name="whats_new_1">The island fits what it shows: a short time makes a small pill, a long status a wider one, and a counting clock never makes it twitch.</string>
+    <string name="whats_new_2">What is about to matter comes forward by itself: a timer in its last minute, a turn close ahead, a ride or delivery that is arriving.</string>
+    <string name="whats_new_3">Step Aside in Its App (Island settings): music leaves the island while you are in the player, as on iPhone.</string>
+    <string name="whats_new_4">Event flashes (charging, an app\'s name) are sized to their words, so long ones no longer run off the pill.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

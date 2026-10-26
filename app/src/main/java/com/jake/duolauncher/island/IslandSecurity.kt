@@ -67,7 +67,7 @@ internal object PermissionLedger {
                 i.accessibilityRunning,
                 "Opening the notifications and Quick Settings panels from Home gestures, locking the screen when you double-tap empty Home space (only if you switch that on), and drawing the island above the status bar (as an accessibility overlay window) so it can be tapped over other apps." +
                     if (blocked) " Android is not running it. Advanced Protection or a restricted-settings block can do this; the plain overlay is used instead." else "",
-                if (i.hideOverApps) "Only the name of the app in front, because you chose apps to hide the island over (Island settings); never what is in it or on screen. The latest name is kept in memory and nothing is sent."
+                if (i.hideOverApps) "Only the name of the app in front, because you turned on Step Aside in Its App or Hide Over Chosen Apps (Island settings); never what is in it or on screen. The latest name is kept in memory and nothing is sent."
                 else "Nothing. It subscribes to no events and cannot read the screen or other apps.",
                 LedgerAction.ACCESSIBILITY_SETTINGS),
             LedgerRow("alignment", "Accessibility service (island alignment)",

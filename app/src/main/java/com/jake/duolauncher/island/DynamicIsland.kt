@@ -398,14 +398,38 @@ internal fun DynamicIsland(
         prefs.registerOnSharedPreferenceChangeListener(listener)
         awaitDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
+    // Step Aside in Its App (Island settings), read the same way.
+    val hideInOwnApp by produceState(initialValue = false) {
+        val prefs = context.getSharedPreferences("extras", Context.MODE_PRIVATE)
+        value = prefs.getBoolean("islandHideInOwnApp", false)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "islandHideInOwnApp") value = prefs.getBoolean("islandHideInOwnApp", false)
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     // Everything live on the collapsed pill, most important first, and which goes in which slot (see IslandLive).
-    val canonicalKinds = IslandLive.active(call = callActive,
+    val canonicalKinds = IslandOwnApp.visible(IslandLive.active(call = callActive,
         timer = IslandTools.timerActive || LiveKind.TIMER in forced, stopwatch = IslandTools.swRunning || LiveKind.STOPWATCH in forced,
         media = mediaOnPill || LiveKind.MEDIA in forced,
-        update = updates.any { !LiveUpdateLogic.isStale(it, clockMs) })
+        update = updates.any { !LiveUpdateLogic.isStale(it, clockMs) }),
+        // While its own app is in front, an activity steps off the pill (music while in the player), if the person turned that on.
+        packageOf = { kind -> when (kind) {
+            LiveKind.CALL -> NotificationFeed.ongoingCall?.packageName
+            LiveKind.MEDIA -> NotificationFeed.nowPlaying?.controller?.packageName
+            LiveKind.UPDATE -> updates.firstOrNull()?.packageName
+            else -> null
+        } }, foreground = IslandRuntime.foregroundPackage, on = hideInOwnApp, launcherInFront = IslandRuntime.launcherInFront)
     // A pinned activity that has ended is forgotten, so it does not jump to the front again if it restarts much later.
     LaunchedEffect(canonicalKinds) { if (IslandPolicy.forgetFront(state.frontKind, canonicalKinds)) state.bringToFront(null) }
-    val liveKinds = IslandLive.withFront(canonicalKinds, state.frontKind)
+    // What is about to matter leads (a timer's last minute, a near turn, an arrival; IslandUrgency), then hands back to the person's flick.
+    val leadUpdate = updates.firstOrNull { !LiveUpdateLogic.isStale(it, clockMs) }
+    val urgentKind = IslandUrgency.urgent(canonicalKinds,
+        timerRemainingMs = if (IslandTools.timerActive) IslandClock.remainingMs(clockMs, IslandTools.timerEndAt) else null,
+        turnMeters = leadUpdate?.takeIf { it.source == ActivitySource.NAVIGATION }?.let { NavigationCue.parseMeters(it.title) },
+        updateArriving = leadUpdate != null && leadUpdate.source != ActivitySource.NAVIGATION &&
+            (IslandUrgency.arriving(LiveUpdateLogic.glance(leadUpdate, clockMs)) || IslandUrgency.arriving(leadUpdate.text)))
+    val liveKinds = IslandLive.withFront(canonicalKinds, IslandUrgency.front(state.frontKind, urgentKind))
     val plan = IslandLive.plan(liveKinds)
     // The dots beside the pill: what the phone really reports, plus any forced on from the debug page.
     val privacyNow = IslandLive.privacy(state.cameraActive || LiveKind.CAMERA in forced, state.micActive || LiveKind.MIC in forced,
@@ -498,8 +522,40 @@ internal fun DynamicIsland(
     val restWidthDp = remember(d, xdpi) { IslandGeometry.mmToDp(IslandGeometry.REST_WIDTH_MM, xdpi, d) }
     val idlePill = !hasLiveContent && !showingApp && compactTarget < .5f && restTarget.hole != null && openFrame.side == IslandSide.TOP
     val holeCentreDp = restTarget.hole?.let { (restTarget.left + it.centerX) / d } ?: 0f
-    val wantLeftDp = if (idlePill) holeCentreDp - restWidthDp / 2f - IslandDebug.pill.dw / 2f + IslandDebug.pill.dx else wantLeftDp0
-    val wantRightDp = if (idlePill) holeCentreDp + restWidthDp / 2f + IslandDebug.pill.dw / 2f + IslandDebug.pill.dx else wantRightDp0
+    // With something on it, the pill is as wide as what it shows (IslandPillWidth): the glyph left of the camera and the measured time,
+    // status or flash text right of it, the wider setting both sides. Text is measured with every digit at its widest, so a clock that
+    // counts never nudges the pill. It was a fixed width (with an estimate from the character count for a flash).
+    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val baseText = androidx.compose.material3.LocalTextStyle.current
+    val timerDoneText = stringResource(com.jake.duolauncher.R.string.timer_done)
+    fun measuredDp(text: String?, style: androidx.compose.ui.text.TextStyle): Float =
+        if (text.isNullOrEmpty()) 0f else textMeasurer.measure(IslandPillWidth.template(text), baseText.merge(style), maxLines = 1).size.width / d
+    val contentHalfDp: Float? = restTarget.hole?.takeIf { !idlePill && openFrame.side == IslandSide.TOP && compactTarget < .5f }?.let { hole ->
+        val pillDp = restTarget.height / d
+        val slot = androidx.compose.ui.text.TextStyle(fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold)
+        val leading = plan.leading
+        val trailDp = when {
+            flashActive -> measuredDp(state.flashTitle, androidx.compose.ui.text.TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold)) + 4f
+            IslandTools.ringing -> measuredDp(timerDoneText, UnoType.caption1.tight.copy(fontWeight = FontWeight.SemiBold))
+            leading == LiveKind.MEDIA -> 16f
+            leading == LiveKind.UPDATE && updates.firstOrNull()?.source == ActivitySource.NAVIGATION -> measuredDp(liveDetailText(leading, clockMs,
+                updates.firstOrNull(), liveCompactLevel), androidx.compose.ui.text.TextStyle(fontSize = NavigationText.PILL_SP.sp, fontWeight = FontWeight.Bold)) + 4f
+            leading != null -> measuredDp(liveDetailText(leading, clockMs, updates.firstOrNull(), liveCompactLevel), slot) + 4f
+            else -> 0f
+        }
+        IslandPillWidth.halfDp(hole.width / 2f / d, pillDp * GLYPH_FRACTION, trailDp, pillDp * (1f - GLYPH_FRACTION) / 2f,
+            restWidthDp / 2f, minOf(holeCentreDp, environment.screenWidth / d - holeCentreDp))
+    }
+    val wantLeftDp = when {
+        idlePill -> holeCentreDp - restWidthDp / 2f - IslandDebug.pill.dw / 2f + IslandDebug.pill.dx
+        contentHalfDp != null -> holeCentreDp - contentHalfDp - IslandDebug.pill.dw / 2f + IslandDebug.pill.dx
+        else -> wantLeftDp0
+    }
+    val wantRightDp = when {
+        idlePill -> holeCentreDp + restWidthDp / 2f + IslandDebug.pill.dw / 2f + IslandDebug.pill.dx
+        contentHalfDp != null -> holeCentreDp + contentHalfDp + IslandDebug.pill.dw / 2f + IslandDebug.pill.dx
+        else -> wantRightDp0
+    }
     // The status bar's real gaps, when the optional alignment service has read them at this screen width (see StatusBarReader); otherwise
     // the grid measured on a Pixel 10a, moved by the calibration page.
     val measuredBar = StatusBarLive.usable(environment.screenWidth / d)

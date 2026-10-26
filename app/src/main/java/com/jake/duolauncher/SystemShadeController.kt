@@ -23,7 +23,7 @@ class SystemShadeAccessibilityService : AccessibilityService() {
     private val prefs by lazy { getSharedPreferences("extras", MODE_PRIVATE) }
     private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == "islandEverywhere" || key == "island" || key == "homeIslandOverlay") syncIsland()
-        if (key == "islandHideOverOn" || key == "islandHideOver" || key == "islandEverywhere") syncEvents()
+        if (key == "islandHideOverOn" || key == "islandHideOver" || key == "islandHideInOwnApp" || key == "islandEverywhere") syncEvents()
     }
     private val appearancePrefs by lazy { getSharedPreferences("appearance", MODE_PRIVATE) }
 
@@ -44,8 +44,8 @@ class SystemShadeAccessibilityService : AccessibilityService() {
      * Otherwise the service is unsubscribed from everything, as it always was.
      */
     private fun syncEvents() {
-        val wanted = prefs.getBoolean("islandEverywhere", false) && prefs.getBoolean("islandHideOverOn", false) &&
-            !prefs.getString("islandHideOver", null).isNullOrBlank()
+        val wanted = prefs.getBoolean("islandEverywhere", false) && ((prefs.getBoolean("islandHideOverOn", false) &&
+            !prefs.getString("islandHideOver", null).isNullOrBlank()) || prefs.getBoolean("islandHideInOwnApp", false))
         serviceInfo = serviceInfo.apply {
             eventTypes = if (wanted) AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED else 0
             // The declaration limits events to Uno itself; the window changes wanted here are other apps', so the limit is lifted only then.

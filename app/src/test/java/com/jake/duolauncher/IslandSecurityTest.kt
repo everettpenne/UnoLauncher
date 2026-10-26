@@ -41,6 +41,15 @@ class IslandSecurityTest {
         assertTrue(row(inputs().copy(hideOverApps = true), "accessibility").canSee.contains("name of the app in front"))
     }
 
+    @Test fun anActivityStepsAsideOnlyInItsOwnAppAndOnlyWhenAsked() {
+        val pkg = { k: LiveKind -> when (k) { LiveKind.MEDIA -> "com.player"; LiveKind.UPDATE -> "com.ride"; else -> null } }
+        val kinds = listOf(LiveKind.TIMER, LiveKind.UPDATE, LiveKind.MEDIA)
+        assertEquals(listOf(LiveKind.TIMER, LiveKind.UPDATE), IslandOwnApp.visible(kinds, pkg, "com.player", on = true, launcherInFront = false))
+        assertEquals(kinds, IslandOwnApp.visible(kinds, pkg, "com.player", on = false, launcherInFront = false))
+        assertEquals("never on Home", kinds, IslandOwnApp.visible(kinds, pkg, "com.player", on = true, launcherInFront = true))
+        assertEquals(kinds, IslandOwnApp.visible(kinds, pkg, "com.mail", on = true, launcherInFront = false))
+    }
+
     @Test fun hidingOverAppsIgnoresTheShadeAndKeyboardAndNeverHidesOnHome() {
         assertTrue(HideOverApps.ignored("com.android.systemui", null))
         assertTrue(HideOverApps.ignored("com.example.kb", "com.example.kb"))

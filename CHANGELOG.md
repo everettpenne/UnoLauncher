@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.108.0-uno01
+
+- **The pill fits what it shows.** With something on it, the pill measures its own detail (the call's length, the timer, the stopwatch, a Live Update's status, an event flash's words) and is as wide as the wider of its two sides, symmetric about the camera, in 4 dp steps and never narrower than the resting pill. Digits are measured at their widest, so a counting clock never nudges it. It was a fixed width, and a flash's width was guessed from its character count, so a long app name ran off the pill and a short "1:23" sat in room built for far more. On a Pixel 10a a call is now 112 dp, the stopwatch 137 dp, music the resting 103 dp.
+- **What matters comes forward.** A call always leads; a timer leads in its last minute, a navigation instruction when the turn is within 200 m, and a Live Update that says it is arriving ("Arriving", "is here", "1 min"); then the pill hands back to what you had flicked to.
+- **Step Aside in Its App** (Island › Hide Over Apps, off by default): an activity leaves the island while its own app is in front, as on iPhone (music while you are in the player). It uses the same opt-in tracking as Hide Over Chosen Apps; the permission ledger says so.
+
 ## 0.107.0-uno01
 
 - **The alignment service's reading is used on a busy status bar.** The island took a symmetric width only if one within 8 dp of the wanted width cleared every icon; on a Pixel 10a with four notification icons and Do Not Disturb none did, so it kept a width that cut the Do Not Disturb icon in half. It now takes the symmetric width, within 6 dp narrower to 20 dp wider, that leaves the least of any icon cut, never over the clock or the battery. The alignment page also said "Off" while the service was running (Android's list of enabled services can leave it out); it now also reads the system setting.

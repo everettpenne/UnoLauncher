@@ -126,3 +126,10 @@ internal object HideOverApps {
     fun hidden(on: Boolean, chosen: Set<String>, foreground: String?, launcherInFront: Boolean): Boolean =
         on && !launcherInFront && foreground != null && foreground in chosen
 }
+
+/** An activity steps off the pill while its own app is in front (Island settings, Step Aside in Its App), as iOS does. */
+internal object IslandOwnApp {
+    /** [kinds] less those whose app ([packageOf]) is [foreground]; all of them when the setting is off or Home is in front. */
+    fun visible(kinds: List<LiveKind>, packageOf: (LiveKind) -> String?, foreground: String?, on: Boolean, launcherInFront: Boolean): List<LiveKind> =
+        if (!on || launcherInFront || foreground == null) kinds else kinds.filter { packageOf(it) != foreground }
+}

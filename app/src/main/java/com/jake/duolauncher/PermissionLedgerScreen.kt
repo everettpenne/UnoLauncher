@@ -69,7 +69,7 @@ private fun ledgerInputs(context: Context, actions: ExtrasActions): LedgerInputs
         alignmentEnabled = StatusBarReaderService.isEnabled(context),
         alignmentRunning = StatusBarReaderService.isConnected(),
         sensorsAllowed = GrapheneSensors.allowed(context),
-        hideOverApps = actions.store.state.let { it.islandEverywhere && it.islandHideOverOn && it.islandHideOver.isNotEmpty() },
+        hideOverApps = actions.store.state.let { it.islandEverywhere && ((it.islandHideOverOn && it.islandHideOver.isNotEmpty()) || it.islandHideInOwnApp) },
     )
 }
 

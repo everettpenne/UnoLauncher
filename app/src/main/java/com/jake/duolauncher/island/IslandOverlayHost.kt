@@ -205,9 +205,10 @@ internal class IslandOverlayHost(
             var hideOverOn by androidx.compose.runtime.remember { mutableStateOf(false) }
             var hideOver by androidx.compose.runtime.remember { mutableStateOf(emptySet<String>()) }
             val hiddenOverApp = HideOverApps.hidden(hideOverOn, hideOver, IslandRuntime.foregroundPackage, IslandRuntime.launcherInFront)
-            LaunchedEffect(visible, fullScreen, hiddenOverApp) {
-                val show = visible && !fullScreen && !hiddenOverApp
-                hiddenForFullScreen = fullScreen
+            val fullScreenHidden = FullScreenPolicy.hidden(fullScreen, NotificationFeed.ongoingCall != null, IslandTools.ringing)
+            LaunchedEffect(visible, fullScreenHidden, hiddenOverApp) {
+                val show = visible && !fullScreenHidden && !hiddenOverApp
+                hiddenForFullScreen = fullScreenHidden
                 if (shown != show) { shown = show; applyLayout() } else updateHud()
             }
             LaunchedEffect(Unit) {
@@ -234,7 +235,7 @@ internal class IslandOverlayHost(
                     delay(2_000L)
                 }
             }
-            if (visible && !fullScreen) {
+            if (visible && !fullScreenHidden) {
                 DynamicIsland(
                     state = IslandRuntime.state,
                     glass = null,

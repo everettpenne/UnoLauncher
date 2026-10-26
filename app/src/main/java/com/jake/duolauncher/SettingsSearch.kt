@@ -61,6 +61,7 @@ internal object SettingsSearch {
         SettingEntry("Vibrate Only", CustomizationPage.PRIVACY, "focus silent ringer"),
         SettingEntry("With Do Not Disturb", CustomizationPage.PRIVACY, "focus dnd schedule automatic"),
         SettingEntry("Hide Over Chosen Apps", CustomizationPage.ISLAND, "hide island apps banking games"),
+        SettingEntry("People Only", CustomizationPage.ISLAND, "notifications messages people conversations drop down"),
         SettingEntry("Step Aside in Its App", CustomizationPage.ISLAND, "hide music player activity own app"),
         SettingEntry("Hidden Apps", CustomizationPage.PRIVACY, "hide unhide"),
         SettingEntry("Permission Ledger", CustomizationPage.PRIVACY, "permissions privacy access log"),

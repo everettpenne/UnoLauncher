@@ -166,7 +166,10 @@ internal const val MIN_GLYPH_PX = 12f
  * title), or null when it shows none (music shows bars; the privacy marks are dots). One source for drawing it and for measuring it, so
  * the pill is always sized for what it says (see IslandPillWidth).
  */
-internal fun liveDetailText(kind: LiveKind, clockMs: Long, update: LiveUpdate?, liveCompactLevel: Int): String? = when (kind) {
+internal fun liveDetailText(kind: LiveKind, clockMs: Long, update: LiveUpdate?, liveCompactLevel: Int, compact: Boolean = false): String? =
+    liveDetailFull(kind, clockMs, update, liveCompactLevel)?.let { if (compact) CompactText.shorten(it) else it }
+
+private fun liveDetailFull(kind: LiveKind, clockMs: Long, update: LiveUpdate?, liveCompactLevel: Int): String? = when (kind) {
     LiveKind.CALL -> NotificationFeed.ongoingCall?.let { IslandClock.countdown((clockMs - it.startedAt).coerceAtLeast(0L)) }
         ?: if (LiveKind.CALL in IslandDebug.forced) "1:23" else ""
     LiveKind.TIMER -> if (IslandTools.timerActive || LiveKind.TIMER !in IslandDebug.forced)
@@ -181,7 +184,7 @@ internal fun liveDetailText(kind: LiveKind, clockMs: Long, update: LiveUpdate?, 
 @Composable
 internal fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Boolean, tint: Color,
     art: androidx.compose.ui.graphics.ImageBitmap?, multi: Boolean, liveCompactLevel: Int, update: LiveUpdate? = null,
-    glyphSize: androidx.compose.ui.unit.Dp, plain: Boolean = false) {
+    glyphSize: androidx.compose.ui.unit.Dp, plain: Boolean = false, compact: Boolean = false) {
     val glyph = show == SlotShow.GLYPH
     when (kind) {
         LiveKind.CAMERA -> if (glyph) Icon(Icons.Rounded.Videocam, "Camera in use", tint = IosGreen,
@@ -196,21 +199,21 @@ internal fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Bo
         LiveKind.CALL -> if (glyph) Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(glyphSize))
             // How long the call has lasted, in green, like the other things that count time (the timer, the stopwatch). The caller's name
             // is on the open island's call card: a name cut to five letters says little, a clock says how long.
-            else Text(liveDetailText(kind, clockMs, update, liveCompactLevel).orEmpty(), color = IosGreen,
+            else Text(liveDetailText(kind, clockMs, update, liveCompactLevel, compact).orEmpty(), color = IosGreen,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                 modifier = Modifier.padding(end = 4.dp).testTag("island-call"))
         LiveKind.TIMER -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = IslandThemes.active.timer, modifier = Modifier.size(glyphSize))
-            else Text(liveDetailText(kind, clockMs, update, liveCompactLevel).orEmpty(), color = IslandThemes.active.timer,
+            else Text(liveDetailText(kind, clockMs, update, liveCompactLevel, compact).orEmpty(), color = IslandThemes.active.timer,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-timer"))
         LiveKind.STOPWATCH -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = themeInk, modifier = Modifier.size(glyphSize))
-            else Text(liveDetailText(kind, clockMs, update, liveCompactLevel).orEmpty(), color = themeInk,
+            else Text(liveDetailText(kind, clockMs, update, liveCompactLevel, compact).orEmpty(), color = themeInk,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
         LiveKind.UPDATE -> if (update != null) {
             val driving = update.source == ActivitySource.NAVIGATION
             if (glyph) UpdateGlyph(update, glyphSize, plain)
             else {
                 // The words beside the glyph, as the person chose: none (glyph alone), the short status, or the title.
-                val text = liveDetailText(kind, clockMs, update, liveCompactLevel)
+                val text = liveDetailText(kind, clockMs, update, liveCompactLevel, compact)
                 if (text != null) Text(text, color = updateTint(update), fontSize = (if (driving) NavigationText.PILL_SP else SLOT_TEXT_SP).sp,
                     fontWeight = if (driving) FontWeight.Bold else FontWeight.SemiBold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(end = 4.dp).testTag("island-live-update"))

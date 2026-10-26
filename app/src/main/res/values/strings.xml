@@ -354,10 +354,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">The island fits what it shows: a short time makes a small pill, a long status a wider one, and a counting clock never makes it twitch.</string>
-    <string name="whats_new_2">What is about to matter comes forward by itself: a timer in its last minute, a turn close ahead, a ride or delivery that is arriving.</string>
-    <string name="whats_new_3">Step Aside in Its App (Island settings): music leaves the island while you are in the player, as on iPhone.</string>
-    <string name="whats_new_4">Event flashes (charging, an app\'s name) are sized to their words, so long ones no longer run off the pill.</string>
+    <string name="whats_new_1">Smarter drop-downs: People Only lets just messages from people drop the island down, a flooding chat is quieted for a while, and apps you never open stop dropping down.</string>
+    <string name="whats_new_2">A full-screen game or video keeps the island away, except for a call or a ringing timer.</string>
+    <string name="whats_new_3">On a busy status bar the island says it shorter (12m, 84%) rather than cutting an icon.</string>
+    <string name="whats_new_4">The island fits what it shows, and brings forward what is about to matter: a timer\'s last minute, a near turn, an arrival.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

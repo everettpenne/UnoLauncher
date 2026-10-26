@@ -56,6 +56,8 @@ internal data class ExtrasState(
     /** An activity steps off the pill while its own app is in front (music while in the player), as iOS does. Needs the same
      * accessibility service as [islandHideOver], which is then told which app is in front. */
     val islandHideInOwnApp: Boolean = false,
+    /** Only conversations (messages from people) drop the island down. */
+    val peekPeopleOnly: Boolean = false,
     val badges: Boolean = false,
     /** Badges as a plain dot instead of a count. */
     val badgeDots: Boolean = false,
@@ -162,6 +164,7 @@ internal class ExtrasStore(context: Context) {
         islandHideOverOn = prefs.getBoolean("islandHideOverOn", false),
         islandHideOver = IslandLinks.parse(prefs.getString("islandHideOver", null)),
         islandHideInOwnApp = prefs.getBoolean("islandHideInOwnApp", false),
+        peekPeopleOnly = prefs.getBoolean("peekPeopleOnly", false),
         badges = prefs.getBoolean("badges", false),
         badgeDots = prefs.getBoolean("badgeDots", false),
         badgeMuted = prefs.getString("badgeMuted", "") ?: "",
@@ -234,6 +237,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("islandHideOverOn", next.islandHideOverOn)
             .putString("islandHideOver", IslandLinks.serialize(next.islandHideOver))
             .putBoolean("islandHideInOwnApp", next.islandHideInOwnApp)
+            .putBoolean("peekPeopleOnly", next.peekPeopleOnly)
             .putBoolean("badges", next.badges)
             .putBoolean("badgeDots", next.badgeDots)
             .putString("badgeMuted", next.badgeMuted)
@@ -306,6 +310,7 @@ internal class ExtrasStore(context: Context) {
     fun setFocusWithDnd(value: Boolean) = save(state.copy(focusWithDnd = value))
     fun setIslandHideOverOn(value: Boolean) = save(state.copy(islandHideOverOn = value))
     fun setIslandHideInOwnApp(value: Boolean) = save(state.copy(islandHideInOwnApp = value))
+    fun setPeekPeopleOnly(value: Boolean) = save(state.copy(peekPeopleOnly = value))
     fun toggleIslandHideOver(packageName: String) = save(state.copy(islandHideOver = IslandLinks.toggle(state.islandHideOver, packageName)))
     fun setBadges(value: Boolean) = save(state.copy(badges = value))
     fun setBadgeDots(value: Boolean) = save(state.copy(badgeDots = value))

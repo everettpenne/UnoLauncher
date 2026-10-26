@@ -94,6 +94,9 @@ class UnoNotificationListener : NotificationListenerService() {
     private var latest: List<MediaController> = emptyList()
     private var chosenToken: android.media.session.MediaSession.Token? = null
     private val lastPeek = mutableMapOf<String, Long>()
+    private val peekTimes = mutableMapOf<String, ArrayDeque<Long>>()
+    private val quietUntil = mutableMapOf<String, Long>()
+    private val lastConversation = mutableMapOf<String, Long>()
     private val launcherApps by lazy { getSystemService(android.content.pm.LauncherApps::class.java) }
     private val users by lazy { getSystemService(android.os.UserManager::class.java) }
 
@@ -176,6 +179,12 @@ class UnoNotificationListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         handler?.post { untrackCall(sbn); scheduleSync() }
+    }
+
+    // Opened from the shade (Android says the removal was a click): the app's notifications are wanted, so its drop-downs stay (PeekSmarts).
+    override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap?, reason: Int) {
+        if (reason == REASON_CLICK) PeekLearning.opened(this, sbn.packageName)
+        super.onNotificationRemoved(sbn, rankingMap, reason)
     }
 
     /** Reads what the island shows as activities out of the active notifications: Live Updates (the ones Android 16 has promoted),
@@ -313,6 +322,19 @@ class UnoNotificationListener : NotificationListenerService() {
         // Per profile: a work chat and the personal one are two apps as far as the person is concerned.
         val peekKey = NotificationProfiles.badgeKey(sbn.packageName, profileOf(sbn)?.first)
         if (now - (lastPeek[peekKey] ?: 0L) < PEEK_GAP_MS) return
+        // Smarter drop-downs (PeekSmarts): People Only, an app quieted for never being opened, a flood, and one conversation at most every
+        // few seconds. Each check reads only what the notification already says about itself (its category, style and shortcut).
+        val n = sbn.notification
+        val conversation = PeekSmarts.isConversation(n.category,
+            n.extras.getString(Notification.EXTRA_TEMPLATE) == Notification.MessagingStyle::class.java.name, n.shortcutId)
+        if (prefs.getBoolean("peekPeopleOnly", false) && !conversation) return
+        if (PeekSmarts.quieted(PeekSmarts.parseCounts(prefs.getString("peekUnopened", null)), sbn.packageName)) return
+        if (now < (quietUntil[peekKey] ?: 0L)) return
+        val conversationKey = peekKey + "|" + (n.shortcutId ?: n.group ?: "")
+        if (conversation && now - (lastConversation[conversationKey] ?: 0L) < PeekSmarts.CONVERSATION_GAP_MS) return
+        val times = peekTimes.getOrPut(peekKey) { ArrayDeque() }.apply { addLast(now); while (size > PeekSmarts.BURST_COUNT) removeFirst() }
+        if (PeekSmarts.flooding(times, now)) { quietUntil[peekKey] = now + PeekSmarts.BURST_QUIET_MS; return }
+        lastConversation[conversationKey] = now
         lastPeek[peekKey] = now
         val label = appLabelOf(sbn) ?: return
         // The notification's own words are read only when the person chose a level that shows them, and then only to show them (or to
@@ -329,6 +351,7 @@ class UnoNotificationListener : NotificationListenerService() {
         val tint = AppTints.of(sbn.packageName) { icon }
         // The notification's own buttons go on the card only where its words do: a card that is just the app's name stays just that.
         val actions = if (shown != null && prefs.getBoolean("peekActions", true)) peekActions(sbn.notification) else emptyList()
+        PeekLearning.shown(this, sbn.packageName)
         NotificationFeed.onPeek?.invoke(PeekNotification(sbn.packageName, label, shown?.first, shown?.second, icon,
             sbn.notification.contentIntent, seconds, tint, actions))
     }

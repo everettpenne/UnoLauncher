@@ -167,13 +167,25 @@ internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) 
         }, "security-alerts-switch") }
         row { SettingsSwitch("App Shortcuts", s.islandShortcuts, { store.setIslandShortcuts(it); demo(PreviewScene.OPEN) }, "island-shortcuts-switch") }
     }
-    SettingsGroup(header = "Notifications", footer = "How much a new notification shows when the island drops down for it. To show the text, Uno reads it and keeps nothing.") {
+    SettingsGroup(header = "Notifications", footer = "How much a new notification shows when the island drops down for it. To show the text, Uno reads it and keeps nothing. People Only lets just messages from people drop it down. A chat that floods is quieted for a couple of minutes, and an app whose drop-downs you never open stops dropping down; it is listed below to bring back.") {
         row { SettingsSwitch("Show Notifications", s.notificationPeek, { store.setNotificationPeek(it); demo(PreviewScene.NOTIFICATION) }, "peek-switch") }
         if (s.notificationPeek) {
+            row { SettingsSwitch("People Only", s.peekPeopleOnly, store::setPeekPeopleOnly, "peek-people-switch") }
             row { CheckRow("App Name", s.peekLevel == 0, "peek-level-name") { store.setPeekLevel(0); demo(PreviewScene.NOTIFICATION) } }
             row { CheckRow("Name & Title", s.peekLevel == 1, "peek-level-title") { store.setPeekLevel(1); demo(PreviewScene.NOTIFICATION) } }
             row { CheckRow("Name, Title & Text", s.peekLevel == 2, "peek-level-text") { store.setPeekLevel(2); demo(PreviewScene.NOTIFICATION) } }
             row { SettingsSwitch("Action Buttons", s.peekActions, { store.setPeekActions(it); demo(PreviewScene.NOTIFICATION) }, "peek-actions-switch") }
+        }
+    }
+    // Apps quieted for never being opened (PeekSmarts): each can be brought back, which forgets what was learned about it.
+    if (s.notificationPeek) {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        var quieted by remember { mutableStateOf(PeekLearning.quieted(context)) }
+        if (quieted.isNotEmpty()) SettingsGroup(header = "Quieted Automatically", footer = "These apps' drop-downs were never opened, so they stopped. Tap one to bring it back.") {
+            quieted.sorted().forEach { pkg -> row {
+                val label = apps.firstOrNull { it.packageName == pkg }?.label ?: pkg
+                ActionRow("Bring Back $label", "peek-quieted-$pkg") { PeekLearning.opened(context, pkg); quieted = PeekLearning.quieted(context) }
+            } }
         }
     }
     if (s.notificationPeek) SettingsGroup(footer = stringResource(com.jake.duolauncher.R.string.separate_with_commas_a_match_shows)) {

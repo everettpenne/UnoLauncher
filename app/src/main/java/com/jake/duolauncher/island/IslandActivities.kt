@@ -205,6 +205,8 @@ internal object IslandPlayback {
  * user's own action. Nothing else in the app sends a PendingIntent with it, and nothing sends one without a tap. */
 internal fun sendTapAction(context: Context, action: android.app.PendingIntent?): Boolean {
     if (action == null) return false
+    // Opened from the island: that app's notifications are wanted, so its drop-downs are not quieted (PeekSmarts).
+    action.creatorPackage?.let { PeekLearning.opened(context, it) }
     return runCatching {
         val options = android.app.ActivityOptions.makeBasic()
         // Allowed to start the notification's screen from the island: always (Android 16's name for it), or the older "allowed" before that.

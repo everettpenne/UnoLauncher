@@ -59,6 +59,10 @@ internal object FullScreenPolicy {
 
     /** True once the status bar has been gone for [HIDE_AFTER_MS]; false whenever it is showing. */
     fun shouldHide(statusBarVisible: Boolean, goneForMs: Long): Boolean = !statusBarVisible && goneForMs >= HIDE_AFTER_MS
+
+    /** Out of the way of a full-screen app, except for what cannot wait: a call, or a timer ringing. Everything else (music, a Live
+     * Update, notifications) stays away until the app leaves full screen; before, a call or a ringing timer vanished with the rest. */
+    fun hidden(fullScreen: Boolean, callActive: Boolean, timerRinging: Boolean): Boolean = fullScreen && !callActive && !timerRinging
 }
 
 /** Pure gate for the everywhere-overlay: enabled, permission held, screen awake, and keyguard

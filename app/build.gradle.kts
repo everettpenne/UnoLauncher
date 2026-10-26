@@ -38,8 +38,8 @@ android {
         applicationId = "com.jake.duolauncher"
         minSdk = 31
         targetSdk = 36
-        versionCode = 170
-        versionName = "0.108.0-uno01"
+        versionCode = 171
+        versionName = "0.109.0-uno01"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["appLabel"] = "Uno Launcher"
         manifestPlaceholders["shadeLabel"] = "@string/shade_service_label"

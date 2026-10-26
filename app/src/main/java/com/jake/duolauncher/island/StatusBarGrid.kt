@@ -182,6 +182,12 @@ internal object StatusBarGrid {
         return withCapsules(cx - best, cx + best, icons, holeLeft, holeRight, screenWidthDp, wantLeft, wantRight, capsuleMinWidth)
     }
 
+    /** How much of any icon (dp) the edges [pillLeft] and [pillRight] cut: for each icon an edge falls inside, the smaller of the parts
+     * covered and showing. 0 when every icon is wholly under the pill or wholly beside it. */
+    fun cutDp(pillLeft: Float, pillRight: Float, icons: List<Span>): Float = icons.sumOf { s ->
+        listOf(pillLeft, pillRight).sumOf { x -> if (x > s.left && x < s.right) minOf(x - s.left, s.right - x).toDouble() else 0.0 }
+    }.toFloat()
+
     /** [pillLeft]..[pillRight] with a capsule on each wanted side: [SEAM_DP] from the island, out to the first point clear of [icons] at least
      * [capsuleMinWidth] away, never over the clock or the battery; a side with no room gets none. */
     private fun withCapsules(pillLeft: Float, pillRight: Float, icons: List<Span>, holeLeft: Float, holeRight: Float, screenWidthDp: Float,

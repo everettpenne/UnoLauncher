@@ -37,3 +37,12 @@ class IslandUrgencyTest {
         listOf("12 min", "On the way", "Out for delivery", null).forEach { assertFalse("$it", IslandUrgency.arriving(it)) }
     }
 }
+
+class FullScreenQuietTest {
+    @Test fun inFullScreenOnlyACallOrARingingTimerShows() {
+        org.junit.Assert.assertTrue(com.jake.duolauncher.island.FullScreenPolicy.hidden(true, callActive = false, timerRinging = false))
+        org.junit.Assert.assertFalse(com.jake.duolauncher.island.FullScreenPolicy.hidden(true, callActive = true, timerRinging = false))
+        org.junit.Assert.assertFalse(com.jake.duolauncher.island.FullScreenPolicy.hidden(true, callActive = false, timerRinging = true))
+        org.junit.Assert.assertFalse(com.jake.duolauncher.island.FullScreenPolicy.hidden(false, callActive = false, timerRinging = false))
+    }
+}

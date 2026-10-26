@@ -530,21 +530,41 @@ internal fun DynamicIsland(
     val timerDoneText = stringResource(com.jake.duolauncher.R.string.timer_done)
     fun measuredDp(text: String?, style: androidx.compose.ui.text.TextStyle): Float =
         if (text.isNullOrEmpty()) 0f else textMeasurer.measure(IslandPillWidth.template(text), baseText.merge(style), maxLines = 1).size.width / d
+    var compactDetail = false
     val contentHalfDp: Float? = restTarget.hole?.takeIf { !idlePill && openFrame.side == IslandSide.TOP && compactTarget < .5f }?.let { hole ->
         val pillDp = restTarget.height / d
         val slot = androidx.compose.ui.text.TextStyle(fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold)
         val leading = plan.leading
-        val trailDp = when {
-            flashActive -> measuredDp(state.flashTitle, androidx.compose.ui.text.TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold)) + 4f
+        fun trailDp(compact: Boolean) = when {
+            flashActive -> measuredDp(state.flashTitle?.let { if (compact) CompactText.shorten(it) else it },
+                androidx.compose.ui.text.TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold)) + 4f
             IslandTools.ringing -> measuredDp(timerDoneText, UnoType.caption1.tight.copy(fontWeight = FontWeight.SemiBold))
             leading == LiveKind.MEDIA -> 16f
             leading == LiveKind.UPDATE && updates.firstOrNull()?.source == ActivitySource.NAVIGATION -> measuredDp(liveDetailText(leading, clockMs,
-                updates.firstOrNull(), liveCompactLevel), androidx.compose.ui.text.TextStyle(fontSize = NavigationText.PILL_SP.sp, fontWeight = FontWeight.Bold)) + 4f
-            leading != null -> measuredDp(liveDetailText(leading, clockMs, updates.firstOrNull(), liveCompactLevel), slot) + 4f
+                updates.firstOrNull(), liveCompactLevel, compact), androidx.compose.ui.text.TextStyle(fontSize = NavigationText.PILL_SP.sp, fontWeight = FontWeight.Bold)) + 4f
+            leading != null -> measuredDp(liveDetailText(leading, clockMs, updates.firstOrNull(), liveCompactLevel, compact), slot) + 4f
             else -> 0f
         }
-        IslandPillWidth.halfDp(hole.width / 2f / d, pillDp * GLYPH_FRACTION, trailDp, pillDp * (1f - GLYPH_FRACTION) / 2f,
-            restWidthDp / 2f, minOf(holeCentreDp, environment.screenWidth / d - holeCentreDp))
+        fun halfFor(compact: Boolean) = IslandPillWidth.halfDp(hole.width / 2f / d, pillDp * GLYPH_FRACTION, trailDp(compact),
+            pillDp * (1f - GLYPH_FRACTION) / 2f, restWidthDp / 2f, minOf(holeCentreDp, environment.screenWidth / d - holeCentreDp))
+        // On a busy status bar (as the alignment service reads it), shorter words ("12m", "84%") when the full ones would make the pill cut
+        // an icon and the short ones cut less; the same choice is used to draw the words (compactDetail).
+        val full = halfFor(false)
+        val icons = StatusBarLive.usable(environment.screenWidth / d)?.icons
+        compactDetail = false
+        if (icons != null) {
+            // Compared as drawn: each width is first snapped as the island will snap it (StatusBarGrid.symmetricBestEffort), so a shorter
+            // text is chosen only if the pill it ends up as cuts less.
+            val holeL = (restTarget.left + hole.left) / d; val holeR = (restTarget.left + hole.right) / d
+            fun drawnCut(half: Float): Float = StatusBarGrid.symmetricBestEffort(holeCentreDp - half, holeCentreDp + half, holeL, holeR, icons,
+                environment.screenWidth / d, false, false, privacyNow.size, capsuleMinDp).let { StatusBarGrid.cutDp(it.pillLeft, it.pillRight, icons) }
+            val fullCut = drawnCut(full)
+            if (fullCut > .5f) {
+                val short = halfFor(true)
+                if (short < full && drawnCut(short) < fullCut) compactDetail = true
+            }
+        }
+        if (compactDetail) halfFor(true) else full
     }
     val wantLeftDp = when {
         idlePill -> holeCentreDp - restWidthDp / 2f - IslandDebug.pill.dw / 2f + IslandDebug.pill.dx
@@ -1205,7 +1225,7 @@ internal fun DynamicIsland(
                 }
                 val trailing: @Composable () -> Unit = {
                     if (flashActive) {
-                        Text(state.flashTitle ?: "", color = themeInk, fontSize = 12.sp,
+                        Text((state.flashTitle ?: "").let { if (compactDetail) CompactText.shorten(it) else it }, color = themeInk, fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(end = 4.dp))
                     } else if (IslandTools.ringing) {
@@ -1215,7 +1235,7 @@ internal fun DynamicIsland(
                         // The leading activity's detail, on the other side of the camera from its glyph. The trailing activity is
                         // not inside the pill: it is a detached capsule to the right (rendered below).
                         androidx.compose.animation.AnimatedContent(plan.leading, transitionSpec = { pillSwap(animationsOn) }, label = "pill detail") { kind ->
-                            LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
+                            LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp, compact = compactDetail)
                         }
                     } else if (recentLive) {
                         // A notification came in the last half minute: a dot in its app's colour says it can still be looked at.

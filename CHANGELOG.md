@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.109.0-uno01
+
+- **Smarter drop-downs.** **People Only** (Island › Notifications) lets only conversations (Android's message category, a messaging-style notification, or a conversation shortcut) drop the island down. A conversation drops it at most once every 15 seconds, and an app that drops it four times in a minute is quiet for two minutes. An app whose drop-downs are never opened (from the island or the shade) ten times in a row stops dropping down; **Quieted Automatically** lists it, and one tap brings it back. All learned on the phone from notifications Uno already reads.
+- **Full screen.** A full-screen app (over apps this is landscape) keeps the island away, but now a call or a ringing timer still shows; before, they vanished with the rest.
+- **Shorter words on a busy status bar.** With the alignment service's reading, when the pill's words would make it cut an icon, it uses a shorter form ("12 min" to "12m", "1 hr 5 min" to "1h 5m", "Charging 84%" to "84%") if the pill that results, snapped as the island snaps it, cuts less.
+
 ## 0.108.0-uno01
 
 - **The pill fits what it shows.** With something on it, the pill measures its own detail (the call's length, the timer, the stopwatch, a Live Update's status, an event flash's words) and is as wide as the wider of its two sides, symmetric about the camera, in 4 dp steps and never narrower than the resting pill. Digits are measured at their widest, so a counting clock never nudges it. It was a fixed width, and a flash's width was guessed from its character count, so a long app name ran off the pill and a short "1:23" sat in room built for far more. On a Pixel 10a a call is now 112 dp, the stopwatch 137 dp, music the resting 103 dp.

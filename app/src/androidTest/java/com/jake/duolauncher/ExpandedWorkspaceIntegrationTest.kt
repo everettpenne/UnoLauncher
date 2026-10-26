@@ -315,7 +315,7 @@ class ExpandedWorkspaceIntegrationTest {
             assertEquals(innerDock, compose.onNodeWithTag("dock").fetchSemanticsNode().boundsInRoot)
 
             compose.onNodeWithTag("library-page-link").performClick()
-            waitForPage("All apps")
+            waitForPage("App Library")
             val library = compose.onNodeWithTag("library-page").fetchSemanticsNode().boundsInRoot
             val viewport = visibleViewport()
             assertEquals("All apps reaches the pager's trailing edge", viewport.right, library.right, 2f)

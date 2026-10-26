@@ -242,6 +242,7 @@ class MainActivity : ComponentActivity() {
                     onGlass = appearance::setGlass,
                     onWallpaperColor = appearance::setWallpaperColor,
                     onWallpaperDepth = appearance::setWallpaperDepth,
+                    onWidgetStyle = appearance::setWidgetStyle,
                     onHomeStyle = appearance::setHomeStyle,
                     onStatusIconsDark = ::setStatusIconsDark,
                     onTiltHighlight = appearance::setTiltHighlight,

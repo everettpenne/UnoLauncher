@@ -536,7 +536,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
             .put("slot", restore.slot).put("provider", restore.providerComponent).put("userSerial", restore.userSerial)
             .put("title", restore.title).put("profileLabel", restore.profileLabel).put("work", restore.isWork)
             .put("sourceScope", restore.sourceScope)) } }
-        val data = JSONObject().put("schema", 8).put("pinned", JSONArray(s.order)).put("homeSlots", JSONArray(s.homeSlots))
+        val data = JSONObject().put("schema", 9).put("pinned", JSONArray(s.order)).put("homeSlots", JSONArray(s.homeSlots))
             .put("leadingSlots", JSONArray(s.leadingSlots)).put("dock", JSONArray(s.dock))
             .put("widgets", widgets).put("labels", s.labels)
             .put("folders", folders)
@@ -559,6 +559,9 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
             editor.putString("state_v6_backup", legacyRaw)
         if (legacyRaw != null && sourceSchema < 8 && !prefs.contains("state_v7_backup"))
             editor.putString("state_v7_backup", legacyRaw)
+        // Schema 9 is the seven-row grid; the six-row payload is kept once, as each earlier schema's was.
+        if (legacyRaw != null && sourceSchema < 9 && !prefs.contains("state_v8_backup"))
+            editor.putString("state_v8_backup", legacyRaw)
         editor.putString("state", data.toString()).putBoolean("initialized", true).apply()
     }
 
@@ -576,13 +579,16 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         val order = j.optJSONArray(if (j.optInt("schema", 1) >= 2) "pinned" else "order") ?: JSONArray()
         val cells = j.optJSONArray("homeSlots").takeIf { j.optInt("schema", 1) >= 4 } ?: order
         val schema = j.optInt("schema", 1)
-        require(schema <= 8) { "Unsupported saved-state schema $schema" }
+        require(schema <= 9) { "Unsupported saved-state schema $schema" }
         val rawSlots = List(cells.length()) { cells.optString(it).takeIf { id -> id.isNotBlank() && id != "null" } }
         val legacySlots = normalizeHomeSlots(rawSlots)
         val rawLeadingSlots = if (schema >= 8) {
             val leading = j.optJSONArray("leadingSlots") ?: error("Schema 8 requires a leading slot array")
-            require(leading.length() == HOME_CELLS)
-            List(HOME_CELLS) { leading.optString(it).takeIf { id -> id.isNotBlank() && id != "null" } }
+            // Schema 8 saved the wide-screen page as 24 cells (six rows); schema 9 saves 28 (seven).
+            val cellsSaved = if (schema >= 9) HOME_CELLS else HOME_CELLS_BEFORE_SEVEN
+            require(leading.length() == cellsSaved)
+            List(cellsSaved) { leading.optString(it).takeIf { id -> id.isNotBlank() && id != "null" } }
+                .let { if (schema >= 9) it else restrideLeadingFromSixRows(it) }
         } else List(HOME_CELLS) { null }
         val loadedDock = List(4) { j.optJSONArray("dock")?.optString(it)?.takeIf { it.isNotBlank() && it != "null" } }
         val widgetArray = j.optJSONArray("widgets")
@@ -599,7 +605,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
             List(widgetArray.length()) { index ->
                 val w = widgetArray.getJSONObject(index)
                 WidgetPlacement(strictInt(w, "slot"), strictInt(w, "id"), strictInt(w, "page"), strictInt(w, "column"), strictInt(w, "row"),
-                    strictInt(w, "spanX"), strictInt(w, "spanY"))
+                    strictInt(w, "spanX"), strictInt(w, "spanY")).let { if (schema >= 9) it else placementFromSixRows(it) }
             }.also { loaded ->
                 require(loaded.map { it.slot }.distinct().size == loaded.size) { "Widget placement slots must be unique" }
                 loaded.forEach { placement ->
@@ -676,7 +682,11 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
                 require(placements.filter { it.id == NEEDS_BINDING_WIDGET }.map { it.slot }.toSet() == loaded.map { it.slot }.toSet())
             }
         } else emptyList()
-        LauncherState(homeSlots = if (schema in 2..5) migrateSchema5Apps(legacySlots) else legacySlots,
+        LauncherState(homeSlots = when {
+                schema in 2..5 -> migrateSchema5Apps(legacySlots)
+                schema < 9 -> restrideFromSixRows(legacySlots)
+                else -> legacySlots
+            },
             leadingSlots = rawLeadingSlots,
             dock = loadedDock,
             widgetPlacements = placements, folders = folders, widgetRestores = restores,

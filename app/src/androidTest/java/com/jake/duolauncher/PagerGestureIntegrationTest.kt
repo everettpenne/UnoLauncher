@@ -59,7 +59,7 @@ class PagerGestureIntegrationTest {
         org.junit.Assert.assertTrue(home.startsWith("Home page"))
         for ((duration, pause) in listOf(240L to 0L, 360L to 0L, 360L to 80L)) {
             shortSwipe(right = false, duration, pause)
-            assertEquals("All apps", page())
+            assertEquals("App Library", page())
             shortSwipe(right = true, duration, pause)
             assertEquals(home, page())
         }
@@ -70,13 +70,13 @@ class PagerGestureIntegrationTest {
         shortSwipe(right = true, duration = 360, pause = 80, travelDp = 88f)
         org.junit.Assert.assertTrue(page().startsWith("Home page"))
         shortSwipe(right = false, duration = 360, pause = 80, travelDp = 88f)
-        assertEquals("All apps", page())
+        assertEquals("App Library", page())
     }
 
     @Test fun smallPeeksAndReversedDragsReturnToTheirStartingPage() {
         ready()
         shortSwipe(right = true, duration = 360, pause = 100, fraction = .07f)
-        assertEquals("All apps", page())
+        assertEquals("App Library", page())
         pager().performTouchInput {
             val start = Offset(width * .25f, height * .70f)
             down(start)
@@ -85,7 +85,7 @@ class PagerGestureIntegrationTest {
             up()
         }
         compose.waitForIdle()
-        assertEquals("All apps", page())
+        assertEquals("App Library", page())
     }
 
     @Test fun shortFlicksStillTurnPages() {
@@ -93,7 +93,7 @@ class PagerGestureIntegrationTest {
         shortSwipe(right = true, duration = 120, fraction = .14f)
         org.junit.Assert.assertTrue(page().startsWith("Home page"))
         shortSwipe(right = false, duration = 120, fraction = .14f)
-        assertEquals("All apps", page())
+        assertEquals("App Library", page())
     }
 
 }

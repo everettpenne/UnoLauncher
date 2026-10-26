@@ -3,8 +3,11 @@ package com.jake.duolauncher
 import com.jake.duolauncher.folders.*
 
 const val GRID_COLUMNS = 4
-const val GRID_ROWS = 6
+/** Home's grid is four columns by seven rows: two rows of widget band and five of apps. It was six (the saved layout's schema 8 and backups to version 3). */
+const val GRID_ROWS = 7
 const val HOME_CELLS = GRID_COLUMNS * GRID_ROWS
+const val GRID_ROWS_BEFORE_SEVEN = 6
+const val HOME_CELLS_BEFORE_SEVEN = GRID_COLUMNS * GRID_ROWS_BEFORE_SEVEN
 const val EMPTY_WIDGET = -1
 const val CLOCK_WIDGET = -2
 const val DATE_WIDGET = -3
@@ -324,6 +327,34 @@ fun pinHomeApp(slots: List<String?>, id: String, pinned: Boolean, blocked: Set<I
     return slots + List(index - slots.size) { null } + id
 }
 
+/**
+ * Cells saved as pages of 24 (six rows) as pages of 28 (seven rows): each page keeps its first six rows exactly where they were and gains an empty
+ * seventh. Nothing moves on screen; the new row is room to place more. Cell order within a page is row by row, so a cell's place in the page is
+ * unchanged and only the start of each page moves (page p begins at p * 28, not p * 24).
+ */
+fun restrideFromSixRows(slots: List<String?>): List<String?> {
+    if (slots.isEmpty()) return slots
+    val pages = (slots.size + HOME_CELLS_BEFORE_SEVEN - 1) / HOME_CELLS_BEFORE_SEVEN
+    val result = MutableList<String?>(pages * HOME_CELLS) { null }
+    slots.forEachIndexed { index, id -> result[index / HOME_CELLS_BEFORE_SEVEN * HOME_CELLS + index % HOME_CELLS_BEFORE_SEVEN] = id }
+    return result.dropLastWhile { it == null }
+}
+
+/** The wide-screen page (one page of 24 cells) as one page of 28. */
+fun restrideLeadingFromSixRows(slots: List<String?>): List<String?> {
+    require(slots.size == HOME_CELLS_BEFORE_SEVEN) { "A six-row page has $HOME_CELLS_BEFORE_SEVEN cells" }
+    return slots + List(HOME_CELLS - HOME_CELLS_BEFORE_SEVEN) { null }
+}
+
+/**
+ * A widget saved on the six-row grid, on the seven-row one. All but one kind sit where they did. The exception is the old "below the grid" widget (a
+ * full-width, four-row placement at row 6, the first row past the old grid), which is now at row 7, the first row past the new one: left at row 6 it
+ * would have been inside the grid, over the new seventh row, and run off its bottom.
+ */
+fun placementFromSixRows(placement: WidgetPlacement): WidgetPlacement =
+    if (placement.row == GRID_ROWS_BEFORE_SEVEN && placement.column == 0 && placement.spanX == GRID_COLUMNS && placement.spanY == 4)
+        placement.copy(row = GRID_ROWS) else placement
+
 fun migrateSchema5Apps(slots: List<String?>): List<String?> {
     if (slots.isEmpty()) return emptyList()
     val result = MutableList(((slots.lastIndex / 16) + 1) * HOME_CELLS) { null as String? }
@@ -339,7 +370,7 @@ fun migrateSchema5Widgets(widgets: List<Int>): List<WidgetPlacement> = buildList
             0 -> add(WidgetPlacement(slot, id, page, 0, 0, 2, 2))
             1 -> add(WidgetPlacement(slot, id, page, 2, 0, 2, 2))
             2 -> if (page == 0) add(WidgetPlacement(slot, id, -1, 0, 0, 4, 6))
-                else add(WidgetPlacement(slot, id, page, 0, 6, 4, 4))
+                else add(WidgetPlacement(slot, id, page, 0, GRID_ROWS, 4, 4))
         }
     }
 }

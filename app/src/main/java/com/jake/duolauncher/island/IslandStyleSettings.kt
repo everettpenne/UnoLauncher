@@ -61,6 +61,10 @@ internal fun IslandStyleSection(controller: IslandThemeController?) {
         GlassChips(IslandMotion.values().toList(), theme.motion, { it.label }, { change(theme.copy(motion = it)) }, tagPrefix = "island-motion", key = { it.name })
         GlassNote("Shapes are rounded rectangles because the glass lens cannot bend around other outlines.")
 
+        GlassHeading("PLAYFUL")
+        GlassChips(listOf(true, false), theme.playful, { if (it) "Playful" else "Calm" }, { change(theme.copy(playful = it)) },
+            tagPrefix = "island-playful", key = { it.toString() })
+        GlassNote("Playful adds shapes that morph, digits that roll, wavy progress and little bursts. Calm keeps the cards still.")
         GlassHeading("COLOURS")
         SwatchRow("Body", theme.fill, FILLS, "fill") { change(theme.copy(fill = it)) }
         SwatchRow("Text", theme.ink, INKS, "ink") { change(theme.copy(ink = it)) }

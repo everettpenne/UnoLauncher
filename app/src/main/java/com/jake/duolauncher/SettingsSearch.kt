@@ -61,6 +61,7 @@ internal object SettingsSearch {
         SettingEntry("Vibrate Only", CustomizationPage.PRIVACY, "focus silent ringer"),
         SettingEntry("With Do Not Disturb", CustomizationPage.PRIVACY, "focus dnd schedule automatic"),
         SettingEntry("Hide Over Chosen Apps", CustomizationPage.ISLAND, "hide island apps banking games"),
+        SettingEntry("Widget Style", CustomizationPage.APPEARANCE, "widgets card glass ios look smooth swipe"),
         SettingEntry("Keep a Camera & Mic Log", CustomizationPage.PRIVACY, "privacy camera microphone history log recent use"),
         SettingEntry("People Only", CustomizationPage.ISLAND, "notifications messages people conversations drop down"),
         SettingEntry("Step Aside in Its App", CustomizationPage.ISLAND, "hide music player activity own app"),
@@ -77,7 +78,7 @@ internal object SettingsSearch {
         // Search
         SettingEntry("Search Button Opens Google", CustomizationPage.SEARCH, "web google"),
         SettingEntry("App & Web Suggestions", CustomizationPage.SEARCH, "spotlight suggestions stores browser"),
-        SettingEntry("Contacts", CustomizationPage.SEARCH, "people phone all apps"),
+        SettingEntry("Contacts", CustomizationPage.SEARCH, "people phone all apps app library"),
         // News feed
         SettingEntry("News Feed", CustomizationPage.FEED, "rss headlines discover articles opml"),
         // Keyboard

@@ -78,6 +78,7 @@ internal fun PageStrip(
     // The strip's own content is recorded so the lens can magnify the icons under it, not only the wallpaper.
     val content = rememberLayerBackdrop()
     val lensBackdrop = if (glass != null) rememberCombinedBackdrop(glass.backdrop, content) else null
+    val pagesMoving = pager.state.isScrollInProgress
     var scrubbing by remember { mutableStateOf(false) }
     var scrubJob by remember { mutableStateOf<Job?>(null) }
     val lift by animateFloatAsState(if (scrubbing) 1f else 0f,
@@ -145,7 +146,7 @@ internal fun PageStrip(
                 }
             } else Text("${minOf(pager.currentPage + 1, homePages)} / $homePages", color = ink.color, style = UnoType.caption1)
             IconButton(onClick = onLibrary, Modifier.size(PageStripLayout.ICON_DP.dp).testTag("library-page-link")) {
-                Icon(Icons.AutoMirrored.Rounded.FormatListBulleted, "All apps page",
+                Icon(Icons.AutoMirrored.Rounded.FormatListBulleted, "App Library page",
                     tint = ink.color.copy(alpha = if (pager.currentPage == visibleHomePages) 1f else .6f),
                     modifier = Modifier.size(17.dp))
             }
@@ -159,7 +160,11 @@ internal fun PageStrip(
                     IntOffset((center - lensWidthPx / 2f).roundToInt(), 0)
                 }
                 .size(PageStripLayout.LENS_WIDTH_DP.dp, PageStripLayout.LENS_HEIGHT_DP.dp)
-                .glassLens(lensBackdrop, RoundedCornerShape(percent = 50), lift = lift, settings = glass.settings)
+                // While the pages move the lens is a plain pale capsule: a glass lens that glides with the swipe redid its backdrop and its
+                // effects every frame, one of the costs that made a page swipe miss a quarter of its frames. It is the glass lens again once
+                // the pages settle, or whenever a finger is on the strip.
+                .then(if (pagesMoving && !scrubbing) Modifier.clip(RoundedCornerShape(percent = 50)).background(androidx.compose.ui.graphics.Color.White.copy(alpha = .22f))
+                    else Modifier.glassLens(lensBackdrop, RoundedCornerShape(percent = 50), lift = lift, settings = glass.settings))
                 .testTag("page-lens"))
         }
     }

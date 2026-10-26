@@ -112,6 +112,6 @@ class LayoutModelTest {
         assertEquals(custom.take(16), migrateHomePins(custom, installed, listOf("app20")))
     }
     @Test fun `home always has a page independently of the library`() {
-        assertEquals(1, homePageCount(0)); assertEquals(1, homePageCount(24)); assertEquals(2, homePageCount(25))
+        assertEquals(1, homePageCount(0)); assertEquals(1, homePageCount(HOME_CELLS)); assertEquals(2, homePageCount(HOME_CELLS + 1))
     }
 }

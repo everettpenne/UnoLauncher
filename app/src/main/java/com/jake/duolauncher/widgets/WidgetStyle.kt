@@ -16,5 +16,7 @@ internal object WidgetColors {
     val Blue = Color(0xFF3AA6FF)
     val Violet = Color(0xFF7D7AFF)
     val Rose = Color(0xFFFF5E8A)
+    /** iOS's Calendar red. */
+    val Red = Color(0xFFFF3B30)
     val Green = Color(0xFF34C759)
 }

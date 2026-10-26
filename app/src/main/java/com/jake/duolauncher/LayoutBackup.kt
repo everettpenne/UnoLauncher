@@ -10,9 +10,12 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
-const val LAYOUT_BACKUP_VERSION = 3
+/** Version 4 is the seven-row grid (pages of 28 cells); versions 1 to 3 have pages of 24 and are brought to 28 on import. */
+const val LAYOUT_BACKUP_VERSION = 4
 const val MAX_LAYOUT_BACKUP_BYTES = 2 * 1024 * 1024
 private const val MAX_BACKUP_HOME_CELLS = HOME_CELLS * 100
+/** The first backup version with seven rows. */
+private const val SEVEN_ROW_BACKUP_VERSION = 4
 
 data class BackupWidgetDescriptor(
     val slot: Int,
@@ -122,11 +125,15 @@ internal fun decodeLayoutBackup(raw: String, currentApps: List<AppEntry>, curren
     }
     val slotsArray = root.getJSONArray("homeSlots")
     require(slotsArray.length() <= MAX_BACKUP_HOME_CELLS)
+    val sevenRows = version >= SEVEN_ROW_BACKUP_VERSION
     val rawSlots = List(slotsArray.length()) { index -> if (slotsArray.isNull(index)) null else slotsArray.getString(index) }
+        .let { if (sevenRows) it else restrideFromSixRows(it) }
     val rawLeadingSlots = if (version == 1) List(HOME_CELLS) { null } else {
         val array = root.getJSONArray("leadingSlots")
-        require(array.length() == HOME_CELLS) { "Wide-screen page must contain exactly $HOME_CELLS cells" }
-        List(HOME_CELLS) { index -> if (array.isNull(index)) null else array.getString(index) }
+        val cellsSaved = if (sevenRows) HOME_CELLS else HOME_CELLS_BEFORE_SEVEN
+        require(array.length() == cellsSaved) { "Wide-screen page must contain exactly $cellsSaved cells" }
+        List(cellsSaved) { index -> if (array.isNull(index)) null else array.getString(index) }
+            .let { if (sevenRows) it else restrideLeadingFromSixRows(it) }
     }
     val folderArray = root.getJSONArray("folders")
     val importedFolders = List(folderArray.length()) { index ->
@@ -180,7 +187,7 @@ internal fun decodeLayoutBackup(raw: String, currentApps: List<AppEntry>, curren
             require(isBuiltinWidgetId(builtin)); builtin
         } else NEEDS_BINDING_WIDGET
         val placement = WidgetPlacement(slot, id, item.strictInt("page"), item.strictInt("column"), item.strictInt("row"),
-            item.strictInt("spanX"), item.strictInt("spanY"))
+            item.strictInt("spanX"), item.strictInt("spanY")).let { if (sevenRows) it else placementFromSixRows(it) }
         require(validBackupPlacement(placement) && layout.widgetPlacements.none { backupOverlaps(it, placement) })
         require(placement.coveredIndices().none { layout.slotAt(it) != null })
         val restore = if (id == NEEDS_BINDING_WIDGET) {

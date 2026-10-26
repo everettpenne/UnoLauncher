@@ -446,6 +446,7 @@ internal fun DynamicIsland(
     val hasLiveContent = flashActive || IslandTools.ringing || liveKinds.isNotEmpty()
     val compactTarget = if ((anchoredToWindow || ringWhenIdle) && !hasLiveContent && !alwaysWide) 1f else 0f
     val compactnessState = motion.compactness.asState()
+    val rimOn = IslandThemes.active.playful
     // What the open island is showing, held while it closes. collapse() clears the card at once, but the island takes a
     // moment to shrink; reading it live made the face (and the body's height) switch to the ordinary open island, with the app shortcuts
     // and settings, for that moment before it reached the camera. While closing, the face and size it had when it was open are kept.
@@ -479,7 +480,7 @@ internal fun DynamicIsland(
     )
     // The reply field is a little taller than the plain action buttons, so its send button keeps a full 44 dp touch target.
     val actionsRowDp = if (state.peekEditing) REPLY_ROW_DP else PEEK_ACTIONS_ROW_DP
-    val extraBody = if (peekShown != null) (if (peekShown.actions.isNotEmpty()) actionsRowDp else 0f) + (if (peekShown.navigation) NavigationText.TURN_CARD_EXTRA_DP else 0f)
+    val extraBody = if (peekShown != null) (if (peekShown.kind != null) IslandCards.extraDp(peekShown.kind, navCard) else if (peekShown.actions.isNotEmpty()) actionsRowDp else 0f) + (if (peekShown.navigation) NavigationText.TURN_CARD_EXTRA_DP else 0f)
         else (if (anyPrivacy) PRIVACY_ROW_DP else 0f) +
         (if (recentLive) RECENT_ROW_DP + (if (recent!!.actions.isNotEmpty()) actionsRowDp else 0f) else 0f) +
         (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) updateRowDp else 0f) + widgetRowDp() +
@@ -491,7 +492,9 @@ internal fun DynamicIsland(
     // The fully open island at its current content. Which side the camera is on, where it sits in the island and how big the open panel is do
     // not change during the morph, so the faces are laid out from this one frame. [frameState] is the live frame; it is read only when the
     // island lays out, draws and positions itself.
-    val openFrame = remember(environment, d, sizeScale, extraBody) { IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = extraBody) }
+    // The music card takes the island's full width, as the old panel did: its controls are easier to hit when they are large.
+    val fullWidth = peekShown?.kind == LiveKind.MEDIA
+    val openFrame = remember(environment, d, sizeScale, extraBody, fullWidth) { IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = extraBody, fullWidth = fullWidth) }
     // While the island shows an app's icon and name (an app opening, or a notification's app) it springs open wider and a touch left, and
     // goes back to its resting width when that is dismissed. The live activities have tucked into it for the time (see detachedCapsules).
     val showingApp = flashActive && state.flashSymbol == IslandSymbol.APP
@@ -531,13 +534,22 @@ internal fun DynamicIsland(
     fun measuredDp(text: String?, style: androidx.compose.ui.text.TextStyle): Float =
         if (text.isNullOrEmpty()) 0f else textMeasurer.measure(IslandPillWidth.template(text), baseText.merge(style), maxLines = 1).size.width / d
     var compactDetail = false
+    // The words a flash is drawn with: the full ones, or shorter, and cut to the room the screen leaves (FlashFit), so a long device name
+    // loses its own end and not the word that says what happened. Set below with the pill's width, and read where the flash is drawn.
+    var flashWords: String? = state.flashTitle
     val contentHalfDp: Float? = restTarget.hole?.takeIf { !idlePill && openFrame.side == IslandSide.TOP && compactTarget < .5f }?.let { hole ->
         val pillDp = restTarget.height / d
         val slot = androidx.compose.ui.text.TextStyle(fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold)
         val leading = plan.leading
+        val flashStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        // The most a right-hand side can take: from the camera's edge to the screen's margin, less the gap and the end's inset.
+        val maxTrailDp = minOf(holeCentreDp, environment.screenWidth / d - holeCentreDp) - IslandPillWidth.SCREEN_MARGIN_DP -
+            hole.width / 2f / d - IslandPillWidth.CAMERA_GAP_DP - pillDp * (1f - GLYPH_FRACTION) / 2f - 4f
+        fun flashFor(compact: Boolean): String? = state.flashTitle?.let { raw ->
+            FlashFit.fit(if (compact) CompactText.shorten(raw) else raw) { measuredDp(it, flashStyle) <= maxTrailDp }
+        }
         fun trailDp(compact: Boolean) = when {
-            flashActive -> measuredDp(state.flashTitle?.let { if (compact) CompactText.shorten(it) else it },
-                androidx.compose.ui.text.TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold)) + 4f
+            flashActive -> measuredDp(flashFor(compact), flashStyle) + 4f
             IslandTools.ringing -> measuredDp(timerDoneText, UnoType.caption1.tight.copy(fontWeight = FontWeight.SemiBold))
             leading == LiveKind.MEDIA -> 16f
             leading == LiveKind.UPDATE && updates.firstOrNull()?.source == ActivitySource.NAVIGATION -> measuredDp(liveDetailText(leading, clockMs,
@@ -564,6 +576,7 @@ internal fun DynamicIsland(
                 if (short < full && drawnCut(short) < fullCut) compactDetail = true
             }
         }
+        flashWords = flashFor(compactDetail)
         if (compactDetail) halfFor(true) else full
     }
     val wantLeftDp = when {
@@ -602,11 +615,11 @@ internal fun DynamicIsland(
         motionInputs.edgeRight = islandLayout.pillRight * d - (restTarget.left + restTarget.width)
         motionInputs.screen = environment to d
     }
-    val frameState = remember(environment, d, sizeScale, extraBody, coupling, wideFactor) { derivedStateOf {
+    val frameState = remember(environment, d, sizeScale, extraBody, coupling, wideFactor, fullWidth) { derivedStateOf {
         val p = progressState.value
         val w = if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value
         val base = IslandGeometry.frame(environment, d, w, sizeScale,
-            extraBodyDp = extraBody, extraWidthDp = eventWidthState.value, compactness = compactnessState.value, wideFactor = wideFactor, heightProgress = p)
+            extraBodyDp = extraBody, extraWidthDp = eventWidthState.value, compactness = compactnessState.value, wideFactor = wideFactor, heightProgress = p, fullWidth = fullWidth)
         // The grid's edge corrections are sideways, so they unwind with the width, and the hand-set drop is vertical, so it unwinds with the
         // height. Both used to follow the height: on a motion whose width is slower than its height (Droplet, or any pull, which leads with the
         // width), the pill's snapped edges were let go before it had widened, so it shifted sideways and shrank for a moment before it grew,
@@ -869,6 +882,7 @@ internal fun DynamicIsland(
                         absorbTick++; heldCapsules.gone(shape)
                     } else {
                         if (appear.value < .05f && System.currentTimeMillis() - state.swapAtMs < 400L) delay(150L)
+                        if (IslandThemes.active.playful) UnoFeedback.play(Cue.TICK, haptic)
                         appear.animateTo(1f, motionSpecs.capsuleAppear)
                     }
                 }
@@ -894,7 +908,7 @@ internal fun DynamicIsland(
                 val capsuleW = widthPx
                 val capsuleTouch = remember { MutableInteractionSource() }
                 val capsulePressed by capsuleTouch.collectIsPressedAsState()
-                val pressScale by animateFloatAsState(if (capsulePressed) .9f else 1f, motionSpecs.pressCapsule, label = "capsule press")
+                val pressScale by animateFloatAsState(if (capsulePressed) (if (IslandThemes.active.playful) .82f else .9f) else 1f, motionSpecs.pressCapsule, label = "capsule press")
                 val fill = themeFill
                 // The neck's path is made once and rewound each frame, instead of allocating a Path per frame while the capsule pulls away.
                 val neckPath = remember { androidx.compose.ui.graphics.Path() }
@@ -1034,6 +1048,13 @@ internal fun DynamicIsland(
             .drawBehind {
                 val a = glowAlpha.value
                 if (a > .01f) drawBottomGlow(glowWash, glowTongue, a, flameT, flameAnimated)
+                // A hairline of light along the top-left edge, as on a lit glass pill: the body stays black, so the camera hole is still hidden.
+                if (rimOn) {
+                    val w = 1.2.dp.toPx(); val r = cornerPx.value.coerceAtMost(minOf(size.width, size.height) / 2f)
+                    drawRoundRect(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(alpha = .30f), Color.White.copy(alpha = .04f), Color.Transparent),
+                        Offset.Zero, Offset(size.width * .6f, size.height)), Offset(w / 2f, w / 2f), androidx.compose.ui.geometry.Size(size.width - w, size.height - w),
+                        androidx.compose.ui.geometry.CornerRadius(r, r), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
+                }
             }
             .pointerInput(state.expanded, state.peeked, liveKinds, flashActive) {
                 // Pulling the small island down (a drag that starts on it) opens it part-way, and letting go holds that peek; pulling on a peek takes
@@ -1225,7 +1246,7 @@ internal fun DynamicIsland(
                 }
                 val trailing: @Composable () -> Unit = {
                     if (flashActive) {
-                        Text((state.flashTitle ?: "").let { if (compactDetail) CompactText.shorten(it) else it }, color = themeInk, fontSize = 12.sp,
+                        Text(flashWords ?: "", color = themeInk, fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(end = 4.dp))
                     } else if (IslandTools.ringing) {
@@ -1234,8 +1255,14 @@ internal fun DynamicIsland(
                     } else if (plan.leading != null) {
                         // The leading activity's detail, on the other side of the camera from its glyph. The trailing activity is
                         // not inside the pill: it is a detached capsule to the right (rendered below).
-                        androidx.compose.animation.AnimatedContent(plan.leading, transitionSpec = { pillSwap(animationsOn) }, label = "pill detail") { kind ->
-                            LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp, compact = compactDetail)
+                        // Seen on a phone: when the first activity appeared its words were on screen at full strength while the pill was still widening, so
+                        // they showed cut ("1:2" for "1:23") for a frame. They now fade in just after the pill starts to open, as a swap's words do.
+                        val detailIn = remember { androidx.compose.animation.core.Animatable(if (animationsOn) 0f else 1f) }
+                        LaunchedEffect(Unit) { if (detailIn.value < 1f) { kotlinx.coroutines.delay(70L); detailIn.animateTo(1f, androidx.compose.animation.core.tween(150)) } }
+                        Box(Modifier.graphicsLayer { alpha = detailIn.value }) {
+                            androidx.compose.animation.AnimatedContent(plan.leading, transitionSpec = { pillSwap(animationsOn) }, label = "pill detail") { kind ->
+                                LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp, compact = compactDetail)
+                            }
                         }
                     } else if (recentLive) {
                         // A notification came in the last half minute: a dot in its app's colour says it can still be looked at.
@@ -1267,6 +1294,7 @@ internal fun DynamicIsland(
                                 context.packageManager.getLaunchIntentForPackage(peek.packageName)?.let { runCatching { context.startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
                             state.clearRecent(); state.collapse()
                         }.testTag("island-peek-card"), verticalAlignment = Alignment.CenterVertically) {
+                        if (peek.kind != null) ActivityCard(peek, peek.kind, state, Modifier.fillMaxHeight()) else
                         if (peek.navigation) NavigationCardBody(peek) else {
                         peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) }
                         Spacer(Modifier.width(10.dp))
@@ -1280,12 +1308,27 @@ internal fun DynamicIsland(
                         }
                     }
                     // The notification's own buttons. A reply is typed here only on Home: the window over other apps cannot take the keyboard.
-                    if (peek.actions.isNotEmpty()) PeekActionsRow(peek, state, canReply = !anchoredToWindow)
+                    if (peek.kind == null && peek.actions.isNotEmpty()) PeekActionsRow(peek, state, canReply = !anchoredToWindow)
                 }
             }
             // The handle at the bottom of the open island: a finger resting on it keeps the island open.
             if (state.expanded || state.peeked) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp).size(width = 34.dp, height = 4.dp)
                 .clip(CircleShape).background(themeInk.copy(alpha = if (state.holdingOpen) .85f else .22f)).testTag("island-hold-handle"))
+            // Whatever colour the card glows with (a notification's wash, the playing track's flame, the light edge) is faded to pure black over the
+            // camera hole, so on an AMOLED panel the hole and the island read as one black shape. Drawn last, over the faces, and only as a veil of black:
+            // nothing is ever placed under the hole, so it hides no content.
+            if (showOpenFace && openHole != null && !sideways) Box(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)
+                .drawBehind {
+                    val c = Offset((openHole.left + openHole.right) / 2f, (openHole.top + openHole.bottom) / 2f)
+                    val r = maxOf(openHole.right - openHole.left, openHole.bottom - openHole.top) / 2f
+                    val reach = r * 3.4f
+                    drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(
+                        0f to Color.Black, .36f to Color.Black, .55f to Color.Black.copy(alpha = .8f), .78f to Color.Black.copy(alpha = .32f), 1f to Color.Transparent,
+                        center = c, radius = reach), reach, c)
+                    // And the strip above the hole to the island's top edge, which the circle alone leaves with a faint tint at its sides.
+                    drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Black, 1f to Color.Transparent, startY = 0f, endY = c.y + r * 1.6f),
+                        Offset(c.x - reach, 0f), androidx.compose.ui.geometry.Size(reach * 2f, c.y + r * 1.6f))
+                }.testTag("island-cutout-veil"))
             // Expanded face: live panel, starting below the camera hole.
             if (showOpenFace && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop).testTag("island-main-face")) {

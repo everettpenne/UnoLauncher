@@ -138,8 +138,15 @@ fun homeGeometry(width: Float, height: Float, preset: LayoutPreset, labels: Bool
     val icon = minOf(p.iconSize, (gridWidth / 4f - 10f).coerceAtLeast(32f))
     // Keep the same icon rhythm when labels are hidden; allow larger system text to fit.
     val row = maxOf(48f, icon + if (labels) maxOf(20f, labelHeight) else 20f) + p.rowGap
-    val widget = minOf(176f, gridWidth / 2f - 5f).coerceAtLeast(88f)
-    val contentTop = ((height - widget - 18f - 4f * row - homeBottomSpace) / 2f).coerceIn(16f, 72f)
+    // A 2 x 2 widget is exactly square: its height is the width of two columns less the gap between widgets (HomeGeometry.widgetGapX, 10). It was
+    // 5 dp taller than wide (gridWidth / 2 - 5 against a width of gridWidth / 2 - 10), which read as a rectangle, and capped at 176 dp, which made a
+    // wide window's widgets wider than tall; the cap is now only a guard for very wide windows.
+    val widget = (gridWidth / 2f - 10f).coerceIn(88f, 260f)
+    // Below the widget band are the app rows: the grid's rows less the band's two.
+    val appRows = GRID_ROWS - 2
+    // The grid starts a short way under the status bar, as iOS's does (about 30 dp), and what is left over goes below it. It used to be centred in
+    // the leftover room, up to 72 dp down, which left a dead band between the status bar and the first widgets.
+    val contentTop = ((height - widget - 18f - appRows * row - homeBottomSpace) / 4f).coerceIn(16f, 30f)
     // Search reclaims the redundant bottom controls' space for all four dock apps.
     // Extremely short windows still scroll rather than reduce touch targets below 48dp.
     val topLimit = maxOf(8f, statusHeight)

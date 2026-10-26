@@ -111,7 +111,7 @@ private fun SearchGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasSt
             resolver.installedBrowsers().forEach { (pkg, label) -> row { CheckRow(label, s.webPackage == pkg, "web-$pkg") { store.setWebPackage(pkg) } } }
         }
     }
-    SettingsGroup(footer = "All Apps also finds people. Asks for Android's contacts permission; names stay on the phone.") {
+    SettingsGroup(footer = "The App Library also finds people. Asks for Android's contacts permission; names stay on the phone.") {
         row { SettingsSwitch("Contacts", s.contactSearch, { on ->
             if (on) { store.setContactSearch(true); if (!actions.hasContactsPermission()) actions.requestContacts() }
             else store.setContactSearch(false)
@@ -135,7 +135,7 @@ private fun PrivacyGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasS
     SensorLogGroup(store, s)
     val focusOpen = rememberChecklistOpen("focus")
     SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.focus),
-        footer = "Focus hides the apps you pick from Home and All Apps until it is off. Nothing is uninstalled and your layout does not change. With Do Not Disturb, it turns on and off with Android's Do Not Disturb (and its schedules).") {
+        footer = "Focus hides the apps you pick from Home and the App Library until it is off. Nothing is uninstalled and your layout does not change. With Do Not Disturb, it turns on and off with Android's Do Not Disturb (and its schedules).") {
         row { SettingsSwitch("Focus", s.focusOn, { actions.toggleFocus() }, "focus-switch") }
         row { SettingsSwitch("With Do Not Disturb", s.focusWithDnd, store::setFocusWithDnd, "focus-dnd-switch") }
         row { SettingsSwitch("Vibrate Only", s.focusVibrate, store::setFocusVibrate, "focus-vibrate-switch") }

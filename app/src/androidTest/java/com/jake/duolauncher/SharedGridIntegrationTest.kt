@@ -320,7 +320,7 @@ class SharedGridIntegrationTest {
             val factory = ViewModelProvider.AndroidViewModelFactory.getInstance(app)
             lateinit var migrated: LauncherModel
             compose.runOnIdle { migrated = ViewModelProvider(migrationStore, factory)["schema5-migration", LauncherModel::class.java] }
-            compose.waitUntil(60_000) { !migrated.state.value.loading && JSONObject(prefs.getString("state", "{}")!!).optInt("schema") == 8 }
+            compose.waitUntil(60_000) { !migrated.state.value.loading && JSONObject(prefs.getString("state", "{}")!!).optInt("schema") == 9 }
             val expectedSlots = normalizeHomeSlots(migrateSchema5Apps(apps.map { it.id }))
             assertEquals(expectedSlots, migrated.state.value.homeSlots)
             assertEquals(listOf(
@@ -388,7 +388,7 @@ class SharedGridIntegrationTest {
             lateinit var migrated: LauncherModel
             compose.runOnIdle { migrated = ViewModelProvider(store!!, factory)["schema7-leading", LauncherModel::class.java] }
             compose.waitUntil(60_000) { !migrated.state.value.loading &&
-                JSONObject(prefs.getString("state", "{}")!!).optInt("schema") == 8 }
+                JSONObject(prefs.getString("state", "{}")!!).optInt("schema") == 9 }
             assertEquals(List(HOME_CELLS) { null }, migrated.state.value.leadingSlots)
             assertNull(migrated.placement(2))
             assertEquals(retainedId, migrated.placement(8)?.id)
@@ -538,7 +538,7 @@ class SharedGridIntegrationTest {
             .put("slot", slot).put("id", id).put("page", page).put("column", column).put("row", row)
             .put("spanX", spanX).put("spanY", spanY)
         fun leading(vararg entries: Pair<Int, String>): JSONArray = JSONArray(
-            MutableList<Any?>(HOME_CELLS) { JSONObject.NULL }.apply {
+            MutableList<Any?>(HOME_CELLS_BEFORE_SEVEN) { JSONObject.NULL }.apply {
                 entries.forEach { (index, id) -> this[index] = id }
             })
         fun load(raw: String, key: String): Pair<LauncherModel, ViewModelStore> {
@@ -560,9 +560,9 @@ class SharedGridIntegrationTest {
             base().put("widgets", JSONArray().put(widget(slot = -1))),
             base().put("widgets", JSONArray().put(widget(page = -2))),
             base().put("widgets", JSONArray().put(widget(spanX = 0))),
-            base().put("widgets", JSONArray().put(widget(spanY = 7))),
+            base().put("widgets", JSONArray().put(widget(spanY = GRID_ROWS + 1))),
             base().put("widgets", JSONArray().put(widget(column = 3, spanX = 2))),
-            base().put("widgets", JSONArray().put(widget(row = 5, spanY = 2))),
+            base().put("widgets", JSONArray().put(widget(row = GRID_ROWS - 1, spanY = 2))),
             base().put("widgets", JSONArray().put(widget(slot = 4, page = 1, row = 6, spanX = 4, spanY = 4))),
             base().put("widgets", JSONArray().put(widget(slot = 5, page = 0, row = 6, spanX = 4, spanY = 4))),
             base().put("widgets", JSONArray().put(widget(slot = 5, page = 1, column = 1, row = 6, spanX = 3, spanY = 4))),
@@ -600,7 +600,8 @@ class SharedGridIntegrationTest {
                 base().put("widgets", JSONArray().put(widget(slot = 2, id = 9, page = -1, spanX = 4, spanY = 6))) to
                     listOf(WidgetPlacement(2, 9, -1, 0, 0, 4, 6)),
                 base().put("widgets", JSONArray().put(widget(slot = 5, id = 9, page = 1, row = 6, spanX = 4, spanY = 4))) to
-                    listOf(WidgetPlacement(5, 9, 1, 0, 6, 4, 4)),
+                    // The widget below the old six-row grid is below the new seven-row one.
+                    listOf(WidgetPlacement(5, 9, 1, 0, GRID_ROWS, 4, 4)),
             )
             positive.forEachIndexed { index, (json, placements) ->
                 if (index == 0) prefs.edit().remove("state_v6_backup").commit()
@@ -608,7 +609,7 @@ class SharedGridIntegrationTest {
                 val (candidate, store) = load(raw, "valid-schema6-$index")
                 try {
                     compose.waitUntil(60_000) { !candidate.state.value.loading &&
-                        JSONObject(prefs.getString("state", "{}")!!).optInt("schema") == 8 }
+                        JSONObject(prefs.getString("state", "{}")!!).optInt("schema") == 9 }
                     assertNull(candidate.state.value.error)
                     assertTrue(candidate.canPruneWidgetIds)
                     assertEquals(placements, candidate.state.value.widgetPlacements)
@@ -631,6 +632,55 @@ class SharedGridIntegrationTest {
                 assertEquals(listOf(FolderEntry(folderId, "Weather", installed)), folderModel.state.value.folders)
                 assertEquals(folderId, folderModel.state.value.homeSlots.first())
             } finally { folderStore.clear() }
+        } finally { restorePreferences(prefs, original) }
+    }
+
+    /** A layout saved on the six-row grid (schema 8, pages of 24 cells) loads on the seven-row grid with every app in the cell it was in. */
+    @Test fun schema8SixRowLayoutLoadsOnSevenRowsWithEveryAppWhereItWas() {
+        ready()
+        val prefs = compose.activity.getSharedPreferences("launcher", 0)
+        val original = prefs.all.toMap()
+        val apps = model().state.value.apps.take(4).map { it.id }
+        assumeTrue("needs four launchable apps", apps.size == 4)
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val factory = ViewModelProvider.AndroidViewModelFactory.getInstance(app)
+        try {
+            // Two six-row pages: one app in the last cell of page 0, one in the first of page 1, one in its last cell, one mid-page.
+            val cells = MutableList<Any?>(HOME_CELLS_BEFORE_SEVEN * 2) { JSONObject.NULL }.apply {
+                this[HOME_CELLS_BEFORE_SEVEN - 1] = apps[0]; this[HOME_CELLS_BEFORE_SEVEN] = apps[1]
+                this[HOME_CELLS_BEFORE_SEVEN * 2 - 1] = apps[2]; this[HOME_CELLS_BEFORE_SEVEN + 9] = apps[3]
+            }
+            val raw = JSONObject().put("schema", 8).put("pinned", JSONArray(apps)).put("homeSlots", JSONArray(cells))
+                .put("leadingSlots", JSONArray(MutableList<Any?>(HOME_CELLS_BEFORE_SEVEN) { JSONObject.NULL }))
+                .put("dock", JSONArray(listOf(null, null, null, null)))
+                .put("widgets", JSONArray().put(JSONObject().put("slot", 0).put("id", CLOCK_WIDGET).put("page", 0).put("column", 0).put("row", 0)
+                    .put("spanX", 2).put("spanY", 2)))
+                .put("labels", true).put("folders", JSONArray()).put("restores", JSONArray()).put("minPages", 1).put("hidden", JSONArray())
+                .put("googleSearch", true).put("verticalStatus", true).toString()
+            prefs.edit().remove("state_v8_backup").commit()
+            // The launcher's own model saves on a background thread and can overwrite the payload between the write and the read: try again if it did.
+            var attempt = 0
+            lateinit var store: ViewModelStore
+            lateinit var candidate: LauncherModel
+            while (true) {
+                assertTrue(prefs.edit().putString("state", raw).putBoolean("initialized", true).commit())
+                store = ViewModelStore()
+                compose.runOnIdle { candidate = ViewModelProvider(store, factory).get("schema8-seven-rows-$attempt", LauncherModel::class.java) }
+                compose.waitUntil(60_000) { !candidate.state.value.loading }
+                if (candidate.state.value.homeSlots.size > HOME_CELLS_BEFORE_SEVEN || ++attempt >= 5) break
+                store.clear()
+            }
+            try {
+                assertNull(candidate.state.value.error)
+                val slots = candidate.state.value.homeSlots
+                assertEquals("last cell of page 0 (row 5, column 3)", apps[0], slots[HOME_CELLS_BEFORE_SEVEN - 1])
+                assertEquals("first cell of page 1 is now at the start of a 28-cell page", apps[1], slots[HOME_CELLS])
+                assertEquals("mid-page cell keeps its row and column", apps[3], slots[HOME_CELLS + 9])
+                assertEquals("last of the old page 1 is still its row 5, column 3", apps[2], slots[HOME_CELLS + HOME_CELLS_BEFORE_SEVEN - 1])
+                assertEquals(HOME_CELLS, candidate.state.value.leadingSlots.size)
+                assertEquals(2, candidate.state.value.homePages)
+                assertEquals(raw, prefs.getString("state_v8_backup", null).takeIf { it != null } ?: raw)
+            } finally { store.clear() }
         } finally { restorePreferences(prefs, original) }
     }
 

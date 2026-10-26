@@ -102,8 +102,9 @@ internal fun AppLibrary(
     // dock keeps the long list legible; the lens still bends the panel's rim.
     val liquid = LocalPageGlass.current?.takeIf { glass }
     CompositionLocalProvider(LocalKitInk provides ink) {
-    Surface(modifier.then(if (liquid != null) Modifier.liquidGlass(liquid.backdrop, Corner.large,
-            liquid.tint, kind = GlassKind.REGULAR, settings = liquid.settings) else Modifier),
+    // A big panel that moves with the page is frosted glass (the wallpaper blurred once, see FrostedGlass), not live glass redone every frame.
+    Surface(modifier.then(if (liquid != null) Modifier.frostedGlass(Corner.large, liquid.tint.copy(alpha = GlassKind.REGULAR.tintAlpha)) {
+            liquidGlass(liquid.backdrop, Corner.large, liquid.tint, kind = GlassKind.REGULAR, settings = liquid.settings) } else Modifier),
         shape = Corner.large,
         color = if (liquid != null) Color.Transparent else if (glass) Glass.copy(alpha = .48f) else MaterialTheme.colorScheme.surface,
         contentColor = ink,
@@ -112,7 +113,7 @@ internal fun AppLibrary(
             listOf(Color.White.copy(alpha = .09f), Color.Transparent) else listOf(Color.Transparent, Color.Transparent)))
             .padding(horizontal = 16.dp).padding(top = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (editing) "Choose home apps" else "All apps", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+                Text(if (editing) "Choose home apps" else "App Library", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
                 Text(if (editing) "${pinned.size} pinned" else "${visibleApps.size}", color = ink, style = UnoType.caption1)
             }
             if (hasWork) Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

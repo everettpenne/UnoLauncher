@@ -36,7 +36,8 @@ internal fun onInk(ink: GlassInk) = if (ink.primary.luminance() > .5f) Color.Bla
 @Composable
 internal fun CardTitle(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, accent: Color? = null) {
     val ink = LocalGlassInk.current
-    val tint = accent?.let { WidgetType.legibleAccent(it, ink.primary) } ?: ink.soft()
+    val onCard = com.jake.duolauncher.LocalWidgetStyle.current == com.jake.duolauncher.WidgetStyle.CARD
+    val tint = accent?.let { WidgetType.legibleAccent(it, ink.primary, onCard) } ?: ink.soft()
     Row(verticalAlignment = Alignment.CenterVertically) {
         androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(5.dp))
@@ -52,6 +53,10 @@ internal object WidgetType {
         fontWeight = FontWeight.SemiBold, letterSpacing = (-0.03f * size.value).sp, fontFeatureSettings = "tnum")
 
     /** [accent] as a header colour over glass whose ink is [ink]: darkened toward black when the ink is dark (a light wallpaper). */
-    fun legibleAccent(accent: Color, ink: Color): Color =
-        if (ink.luminance() < .5f) androidx.compose.ui.graphics.lerp(accent, Color.Black, .35f) else accent
+    fun legibleAccent(accent: Color, ink: Color, card: Boolean = false): Color = when {
+        // On a white card (as on iOS) a header keeps its system colour; only a very pale one (gold, teal) is deepened so it still reads.
+        card -> if (ink.luminance() < .5f && accent.luminance() > .55f) androidx.compose.ui.graphics.lerp(accent, Color.Black, .3f) else accent
+        ink.luminance() < .5f -> androidx.compose.ui.graphics.lerp(accent, Color.Black, .35f)
+        else -> accent
+    }
 }

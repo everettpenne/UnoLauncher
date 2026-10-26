@@ -23,6 +23,8 @@ internal data class PeekNotification(
     val navigation: Boolean = false,
     /** A quick-actions card for a live activity (a long press on the pill), not a notification: never kept as the recent notification. */
     val quickActions: Boolean = false,
+    /** For a quick-actions card, the activity it is for; the island draws that activity's own card template (IslandCards) instead of a notification. */
+    val kind: LiveKind? = null,
 )
 
 /** Pure rules for what the drop-down card shows, kept apart so they are unit-tested. */

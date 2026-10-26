@@ -35,10 +35,17 @@ import java.time.format.DateTimeFormatter
 internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.ui.unit.Dp = 16.dp, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val glass = LocalPageGlass.current
     val previewing = LocalWidgetPreview.current
-    // Built-in widget text follows the wallpaper behind it: white on dark, dark ink on pale.
-    val ink = rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .14f else .24f)
+    val cardStyle = LocalWidgetStyle.current == WidgetStyle.CARD
+    val slotPaints = LocalSlotPaints.current
+    // Built-in widget text follows the wallpaper behind it: white on dark, dark ink on pale. On a card it follows light or dark only.
+    val ink = if (cardStyle) cardInk() else rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .14f else .24f)
     CompositionLocalProvider(LocalGlassInk provides ink.glassInk) {
-        if (glass != null) {
+        if (cardStyle) {
+            // A card: the widget's slot paints it (a preview, outside a slot, paints its own), with no glass to redo while the page moves.
+            Column(modifier.fillMaxSize().then(if (slotPaints) Modifier else Modifier.widgetCard(Corner.large)).clip(Corner.large)
+                .then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)).padding(padding),
+                verticalArrangement = Arrangement.SpaceBetween, content = content)
+        } else if (glass != null) {
             Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.large, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings).clip(Corner.large).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick))
                 .padding(padding), verticalArrangement = Arrangement.SpaceBetween, content = content)
         } else {
@@ -80,16 +87,21 @@ internal fun ClockCard(onClick: () -> Unit) {
 @Composable
 internal fun DateCard(onClick: () -> Unit) {
     val date = currentTime()
-    // As iOS's Calendar widget reads: the weekday in red capitals, the day of the month large, the month under it.
+    // As iOS's Calendar widget reads: the weekday in red capitals, the day of the month large, the month under it. The day's size follows the widget's
+    // height (52 sp in a full-size widget): on a small screen's 114 dp widget it was clipped, with the month cut off the bottom.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val dayNumberSp = ((maxHeight.value - 64f) / 1.06f).coerceIn(30f, 52f)
     GlassCard(onClick = onClick) {
         val ink = LocalGlassInk.current
         Column {
             Text(date.format(DateTimeFormatter.ofPattern("EEEE")).uppercase(), maxLines = 1,
-                color = com.jake.duolauncher.widgets.WidgetType.legibleAccent(com.jake.duolauncher.widgets.widgetAccent(com.jake.duolauncher.widgets.WidgetColors.Rose), ink.primary),
+                color = com.jake.duolauncher.widgets.WidgetType.legibleAccent(com.jake.duolauncher.widgets.widgetAccent(com.jake.duolauncher.widgets.WidgetColors.Red), ink.primary,
+                    LocalWidgetStyle.current == WidgetStyle.CARD),
                 style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold, letterSpacing = .4.sp))
-            Text(date.dayOfMonth.toString(), color = ink.primary, style = com.jake.duolauncher.widgets.WidgetType.number(52.sp), maxLines = 1)
+            Text(date.dayOfMonth.toString(), color = ink.primary, style = com.jake.duolauncher.widgets.WidgetType.number(dayNumberSp.sp), maxLines = 1)
         }
         Text(date.format(DateTimeFormatter.ofPattern("MMMM")), color = ink.soft(.92f), style = UnoType.footnote.copy(fontWeight = FontWeight.Medium))
+    }
     }
 }
 

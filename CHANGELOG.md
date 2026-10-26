@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.111.0-uno01
+
+- **The island's middle level.** A long-press on the pill opens a card made for what it is showing, in place of the old title-and-buttons card: **music** (full width, artwork, wavy seek bar, large controls), **calls** (avatar, running time, Open and End), **timer** (a shrinking ring, +1 min, cancel), **stopwatch** (rolling digits, pause, reset), a **Live Update** (segmented progress with milestone dots; a download gets a wavy ring that bursts when it completes) and **navigation** (a large turn arrow, distance, street, ETA). The island body stays black, so the camera hole stays hidden; an activity's colour is only a glow behind the card, and a black veil fades every glow out over the camera.
+- **A Playful island theme**, on by default (Island › Style › Playful, or Calm): digits that roll, play and pause buttons that change shape, wavy progress, a light edge along the island's top-left, a liquid-fill battery while charging, and livelier capsules (a looser pop-out, a deeper squish, a haptic tick).
+- **Home, more like iOS.** A seven-row grid (the space below the apps is used; saved layouts are migrated), square widgets with the island on the side, a frosted menu when you hold an app on Home or in the App Library (now named **App Library**), iOS-style folders, an iOS-like Edit Home, a widget placement bar, and **Card** or **Glass** widget styles (per widget, with a default).
+- **Cheaper glass.** The App Library and Discover use a frosted backdrop in place of a live one while they move (library jank 12% to 2.5%, Discover 19% to 3%).
+- **A five-step welcome flow** and a large "Settings" title. The island's open and spotlight states are a little wider to cover the status icons.
+- **Not yet seen on a phone with real data:** the call, Live Update, download and navigation cards, and the 261 instrumented tests were not re-run for this release.
+
 ## 0.110.0-uno01
 
 - **The welcome sheet turns the island on.** A "Wake up the island" group beside the Home-app and widget steps shows whether Notification access and Island alignment are on, with a Turn on button that opens Android's own page for each; it rechecks when you come back. The alignment service was a settings hunt, and the island is noticeably better with it.

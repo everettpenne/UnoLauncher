@@ -143,8 +143,8 @@ class HomeReturnIntegrationTest {
             assertNotSame(oldOwner, LiveDiscover.owner.get())
             waitForReturnedPage(expected)
 
-            click("All apps page")
-            await { node("All apps", state = true)?.isVisibleToUser == true }
+            click("App Library page")
+            await { node("App Library", state = true)?.isVisibleToUser == true }
             shell("input keyevent KEYCODE_HOME")
             waitForReturnedPage(expected)
 

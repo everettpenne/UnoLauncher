@@ -143,7 +143,7 @@
     <string name="turn_on">Turn on</string>
     <string name="uno_launcher">Uno Launcher</string>
     <string name="uno_widgets">Uno widgets</string>
-    <string name="tap_to_place_hold_to_drag">Tap to place · Hold to drag</string>
+    <string name="widget_picker_hint">Tap a widget to add it, or hold one to drag it onto Home.</string>
     <string name="no_widgets_found">No widgets found</string>
 
     <!-- appearance/AppearanceSettings.kt -->
@@ -284,14 +284,13 @@
     <string name="badges_off_for_app">Turn badges off for this app</string>
     <string name="badges_on_for_app">Turn badges back on for this app</string>
     <string name="hidden_apps">Hidden apps</string>
-    <string name="hidden_apps_note">Hidden apps are out of All apps, suggestions and Home. Typing an app\'s exact name in search still finds it.</string>
+    <string name="hidden_apps_note">Hidden apps are out of the App Library, suggestions and Home. Typing an app\'s exact name in search still finds it.</string>
     <string name="hidden_apps_none">No hidden apps. Long-press an app and choose Hide app.</string>
     <string name="show_again">Show again</string>
     <string name="spotlight_settings">Settings</string>
     <string name="spotlight_settings_detail">Opens Android\'s settings page</string>
     <string name="widget_no_ios_size">This widget fits none of the iOS sizes, so it keeps its own size.</string>
     <string name="home_search">Search</string>
-    <string name="home_edit">Edit</string>
     <string name="home_customize">Customize</string>
     <string name="easter_sleeper">The sleeper has awakened.</string>
     <string name="easter_sleeper_note">You found it. This launcher is still, as far as it knows, running on water discipline.</string>
@@ -343,10 +342,49 @@
     <string name="icon_pack_note">A pack replaces the icons it has; apps it does not cover keep their own icon and the style above. Uno reads only the pack\'s list of icons and its pictures, and sends nothing.</string>
 
     <!-- First-run tour (SetupExperience.kt) -->
-    <string name="tour_edit_title">Rearrange Home</string>
-    <string name="tour_edit_detail">Long-press empty space and choose Edit Home: icons wiggle, drag any of them to a free cell, and tap Done.</string>
     <string name="sensor_log_empty">Nothing has been used since you turned this on.</string>
+    <string name="edit_home_screen">Edit Home Screen</string>
+    <string name="add_to_home_screen">Add to Home Screen</string>
+    <string name="remove_from_home_screen">Remove from Home</string>
+    <string name="app_info">App Info</string>
+    <string name="more_options">More…</string>
+    <string name="remove_app">Remove App</string>
+    <string name="delete_app">Delete App</string>
+    <string name="remove_app_title">Remove “%1$s”?</string>
+    <string name="widget_style">Style</string>
+    <string name="widget_style_default">Default (%1$s)</string>
+    <string name="widget_style_card">Card</string>
+    <string name="widget_style_glass">Glass</string>
     <string name="home_preview_label">Home screen preview</string>
+    <string name="setup_continue">Continue</string>
+    <string name="setup_back">Back</string>
+    <string name="setup_feature_home_title">A Home that feels familiar</string>
+    <string name="setup_feature_home_detail">Icons, widgets and folders arranged the way iOS does it, with a library for everything else.</string>
+    <string name="setup_feature_island_title">A Dynamic Island for your Pixel</string>
+    <string name="setup_feature_island_detail">Calls, timers, music and messages gather at the camera.</string>
+    <string name="setup_feature_private_title">Private by design</string>
+    <string name="setup_feature_private_detail">No accounts, no tracking and no servers. Everything stays on this phone.</string>
+    <string name="setup_home_title">Make Uno your Home app</string>
+    <string name="setup_home_detail">Press Home and you come back here. You can switch to another launcher at any time.</string>
+    <string name="setup_home_done_title">Uno is your Home app</string>
+    <string name="setup_home_done_detail">The Home button returns here.</string>
+    <string name="setup_look_title">Make it yours</string>
+    <string name="setup_look_detail">Both can be changed later in Settings.</string>
+    <string name="setup_look_appearance">Appearance</string>
+    <string name="setup_look_widgets">Widgets</string>
+    <string name="setup_light">Light</string>
+    <string name="setup_dark">Dark</string>
+    <string name="setup_automatic">Automatic</string>
+    <string name="setup_widget_card">Card</string>
+    <string name="setup_widget_glass">Glass</string>
+    <string name="setup_ready_title">You are ready</string>
+    <string name="setup_ready_detail">A few things worth knowing.</string>
+    <string name="setup_tip_hold_title">Hold an app</string>
+    <string name="setup_tip_hold_detail">Its shortcuts and options open in a menu under the icon.</string>
+    <string name="setup_tip_swipe_title">Swipe up on Home</string>
+    <string name="setup_tip_swipe_detail">Settings, wallpapers and widgets are one swipe away.</string>
+    <string name="setup_tip_island_title">Tap the island</string>
+    <string name="setup_tip_island_detail">Search, the feed and quick controls open from the camera.</string>
     <string name="setup_island_title">Wake up the island</string>
     <string name="setup_island_detail">Two optional switches let the island show messages and sit snugly against your status bar. Nothing leaves your phone.</string>
     <string name="setup_notifications_title">Notification access</string>
@@ -356,19 +394,15 @@
     <string name="setup_turn_on">Turn on</string>
     <string name="setup_is_on">On</string>
     <string name="setup_alignment_hint">In Accessibility, choose Uno Launcher island alignment.</string>
-    <string name="tour_island_title">Tap the island</string>
-    <string name="tour_island_detail">The pill at the camera shows the time, music, timers and charging. Tap it to open search, the feed and quick controls.</string>
-    <string name="tour_style_title">Make it yours</string>
-    <string name="tour_style_detail">Launcher settings has six wallpapers, glass controls, icon packs, and a style for the island.</string>
     <string name="lock_needs_service">To lock with a double tap, turn on Uno\'s accessibility service (Launcher settings, Notifications &amp; privacy).</string>
     <string name="island_review">Review</string>
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">The welcome sheet can now turn on the island\'s notification access and alignment in one place.</string>
-    <string name="whats_new_2">The island settings preview plays through music, a Live Update and a message by itself.</string>
-    <string name="whats_new_3">An optional Camera &amp; Mic log lists when they were in use, on your phone only. It is off until you turn it on.</string>
-    <string name="whats_new_4">With notification access off, Island settings now say so and link to the switch.</string>
+    <string name="whats_new_1">Long-press the island for a card made for what is live: music, a call, a timer, a stopwatch, a Live Update or navigation.</string>
+    <string name="whats_new_2">Home is more like iOS: a seven-row grid, a menu when you hold an app, iOS-style folders, and Card or Glass widgets.</string>
+    <string name="whats_new_3">The island has a Playful theme, on by default, with rolling digits, wavy progress and a liquid battery. Island settings can turn it to Calm.</string>
+    <string name="whats_new_4">The App Library has a frosted look that scrolls more smoothly, and the welcome sheet is a five-step setup.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>
@@ -441,4 +475,6 @@
     <string name="library_a_to_z">A–Z</string>
     <string name="library_categories">Categories</string>
     <string name="library_other">Other</string>
+    <string name="island_card_timer">Timer</string>
+    <string name="island_card_stopwatch">Stopwatch</string>
 </resources>

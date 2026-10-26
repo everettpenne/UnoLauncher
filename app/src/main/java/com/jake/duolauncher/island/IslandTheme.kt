@@ -119,6 +119,8 @@ internal data class IslandTheme(
     val swapNavigation: Boolean = false,
     /** The colour of a navigation card's distance; null follows the app's accent. */
     val navigationColor: Color? = null,
+    /** The playful touches (shapes that morph, digits that roll, wavy progress, bursts). On by default; off leaves the calmer cards. */
+    val playful: Boolean = true,
 ) {
     /**
      * The one place an app's accent is decided. [requested] is the colour the app's notification asked for (null when it asked for none
@@ -257,13 +259,14 @@ internal object IslandThemeFile {
         val navigation = root.optJSONObject("navigation") ?: JSONObject()
         val swap = if (!navigation.has("swapSides")) false else (navigation.opt("swapSides") as? Boolean) ?: return Result.Rejected("navigation.swapSides must be true or false.")
         val navColour = if (navigation.has("color")) parseColour(navigation.opt("color")) ?: return Result.Rejected("navigation.color must be written like \"#RRGGBB\".") else null
+        val playful = if (!root.has("playful")) true else (root.opt("playful") as? Boolean) ?: return Result.Rejected("playful must be true or false.")
         val base = IslandTheme.Classic
         val theme = IslandTheme(name = name, author = author,
             fill = parsed["fill"] ?: base.fill, ink = parsed["ink"] ?: base.ink, playback = parsed["playback"] ?: base.playback,
             charging = parsed["charging"] ?: base.charging, timer = parsed["timer"] ?: base.timer, focus = parsed["focus"] ?: base.focus,
             panel = panel, controls = controls, motion = motion,
             highlight = parsed["highlight"] ?: base.highlight, appColors = appColors, appOverrides = overrides, iconShape = iconShape,
-            progressActive = active, progressFinished = finished, showPercentage = percent, swapNavigation = swap, navigationColor = navColour)
+            progressActive = active, progressFinished = finished, showPercentage = percent, swapNavigation = swap, navigationColor = navColour, playful = playful)
         IslandThemeMath.problem(theme)?.let { return Result.Rejected(it) }
         return Result.Ok(theme)
     }
@@ -284,6 +287,7 @@ internal object IslandThemeFile {
         if (theme.progressActive != null || theme.progressFinished != null || theme.showPercentage) put("progress", JSONObject().apply {
             theme.progressActive?.let { put("active", hex(it)) }; theme.progressFinished?.let { put("finished", hex(it)) }
             if (theme.showPercentage) put("showPercentage", true) })
+        if (!theme.playful) put("playful", false)
         if (theme.swapNavigation || theme.navigationColor != null) put("navigation", JSONObject().apply {
             if (theme.swapNavigation) put("swapSides", true); theme.navigationColor?.let { put("color", hex(it)) } })
     }.toString(2)

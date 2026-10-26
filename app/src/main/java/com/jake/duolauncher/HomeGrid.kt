@@ -286,6 +286,13 @@ internal fun HomePagePane(
         .onGloballyPositioned { paneBounds = it.boundsInRoot() }
         .width((geometry.gridWidth + geometry.gridStart).dp)
         .height((contentHeight - bottomSpace).coerceAtLeast(0.dp))) {
+        // Empty wallpaper anywhere on the page answers a long press (and a double tap, when that locks the screen), not only an empty cell or the
+        // side margin: below the last row there was a dead band that did nothing. It sits behind the grid, so the cells keep their own presses.
+        Box(Modifier.fillMaxSize().pointerInput(backgroundTarget, drag.active, onDoubleTapEmpty != null) {
+            detectTapGestures(
+                onLongPress = { if (!drag.active) onEmptyWidget(backgroundTarget) },
+                onDoubleTap = onDoubleTapEmpty?.let { lock -> { _: androidx.compose.ui.geometry.Offset -> lock() } })
+        }.testTag("home-options-background-$page"))
         Box(Modifier.width(geometry.gridStart.dp).fillMaxHeight().testTag("home-options-margin-$page")
             .pointerInput(backgroundTarget, drag.active) {
                 detectTapGestures(onLongPress = {
@@ -388,9 +395,9 @@ internal fun SharedHomeGrid(
             val previewId = previewAt(globalIndex)
             val highlighted = drag.active && target == cell
             val gap = hiddenIndex == globalIndex
-            // Where an icon could go: free cells show a faint square while Home is being edited or something is being dragged,
-            // and the one under the finger fills in.
-            val showFree = (editing || drag.active) && savedId == null && globalIndex !in coveredCells
+            // Where an icon could go: free cells show a faint square while something is being dragged, and the one under the finger fills in.
+            // Not while Home is only being edited: iOS's jiggle mode shows the icons on the bare wallpaper, with no grid.
+            val showFree = drag.active && savedId == null && globalIndex !in coveredCells
             val row = localIndex / GRID_COLUMNS
             val cellHeight = rowTop(row + 1) - rowTop(row)
             Box(Modifier.offset(x = cellWidth * (localIndex % GRID_COLUMNS), y = rowTop(row).dp)

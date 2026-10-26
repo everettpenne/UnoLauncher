@@ -61,6 +61,16 @@ import kotlinx.coroutines.delay
 internal fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifier: Modifier, onAdd: () -> Unit,
     /** Draws a built-in widget: its id and the slot that owns its saved data (a stacked widget keeps the slot it had). */
     fallback: @Composable (faceId: Int, faceSlot: Int) -> Unit) {
+    // The widget's own style, else the default (Appearance › Widgets); a card needs no glass behind it, a glass widget keeps today's.
+    val style = WidgetStyleRules.resolve(WidgetStyles.own(slot), LocalPageGlass.current?.widgetStyle ?: WidgetStyle.CARD, LocalPageGlass.current != null)
+    CompositionLocalProvider(LocalWidgetStyle provides style, LocalSlotPaints provides true) {
+        WidgetSlotBody(id, slot, controller, modifier, onAdd, fallback, style)
+    }
+}
+
+@Composable
+private fun WidgetSlotBody(id: Int, slot: Int, controller: WidgetController, modifier: Modifier, onAdd: () -> Unit,
+    fallback: @Composable (faceId: Int, faceSlot: Int) -> Unit, style: WidgetStyle) {
     var restoreMessage by remember(slot) { mutableStateOf<String?>(null) }
     val glass = LocalPageGlass.current
     // A stack shows one widget at a time: the base widget, then each widget merged into it.
@@ -80,8 +90,9 @@ internal fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifi
     SideEffect { if (members.isEmpty()) StackBodyRegistry.bounds.remove(bodyKey) }
     // Glass sits behind the provider's RemoteViews; it shows through transparent widgets
     // and is covered by widgets that paint their own opaque background.
-    BoxWithConstraints(modifier.then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.large,
-        glass.tint, kind = GlassKind.CLEAR, settings = glass.settings) else Modifier)
+    BoxWithConstraints(modifier.then(if (style == WidgetStyle.CARD) Modifier.widgetCard(Corner.large)
+        else if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.large,
+            glass.tint, kind = GlassKind.CLEAR, settings = glass.settings) else Modifier)
         .clip(Corner.large)
         .onGloballyPositioned {
             windowTopLeft = it.boundsInWindow().topLeft

@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.jake.duolauncher.appearance.GlassFinish
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -94,6 +95,15 @@ class IosWidgetTypeTest {
         val onLight = com.jake.duolauncher.widgets.WidgetType.legibleAccent(gold, Color(0xFF1C1C1E))
         assertTrue(onLight.red < gold.red && onLight.green < gold.green)
         assertEquals(gold, com.jake.duolauncher.widgets.WidgetType.legibleAccent(gold, Color.White))
+    }
+
+    @Test fun onACardAHeaderKeepsItsSystemColourUnlessItIsVeryPale() {
+        val red = Color(0xFFFF3B30); val orange = Color(0xFFFF9F0A); val gold = Color(0xFFFFD60A)
+        val dark = Color(0xFF0B0B0D)
+        assertEquals(red, com.jake.duolauncher.widgets.WidgetType.legibleAccent(red, dark, card = true))
+        assertEquals(orange, com.jake.duolauncher.widgets.WidgetType.legibleAccent(orange, dark, card = true))
+        assertNotEquals(gold, com.jake.duolauncher.widgets.WidgetType.legibleAccent(gold, dark, card = true))
+        assertEquals(gold, com.jake.duolauncher.widgets.WidgetType.legibleAccent(gold, Color.White, card = true))
     }
 
     @Test fun bigFiguresAreSemiboldTabularAndTight() {

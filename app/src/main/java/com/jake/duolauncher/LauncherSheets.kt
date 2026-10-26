@@ -89,6 +89,10 @@ internal fun WidgetActions(
     onReplace: () -> Unit,
     onRemove: () -> Unit,
     onClose: () -> Unit,
+    /** The widget's own style (null: it follows [defaultStyle]) and how to change it. */
+    ownStyle: WidgetStyle? = null,
+    defaultStyle: WidgetStyle = WidgetStyle.CARD,
+    onStyle: ((WidgetStyle?) -> Unit)? = null,
     stackMembers: List<Pair<Int, String>> = emptyList(),
     onStackWith: (() -> Unit)? = null,
     onRemoveFromStack: (Int) -> Unit = {},
@@ -118,6 +122,18 @@ internal fun WidgetActions(
         stackMembers.forEach { (memberId, label) ->
             ActionRow(Icons.Rounded.RemoveCircleOutline, "Remove $label from this stack", { onRemoveFromStack(memberId) },
                 Modifier.testTag("widget-unstack-$memberId"), tint = MaterialTheme.colorScheme.error)
+        }
+        onStyle?.let { change ->
+            Text(stringResource(com.jake.duolauncher.R.string.widget_style), style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState()).testTag("widget-style-${placement.slot}")) {
+                GlassChip(ownStyle == null, onClick = { change(null) },
+                    label = { Text(stringResource(com.jake.duolauncher.R.string.widget_style_default, if (defaultStyle == WidgetStyle.CARD) "Card" else "Glass")) },
+                    modifier = Modifier.testTag("widget-style-default-${placement.slot}"))
+                GlassChip(ownStyle == WidgetStyle.CARD, onClick = { change(WidgetStyle.CARD) }, label = { Text(stringResource(com.jake.duolauncher.R.string.widget_style_card)) },
+                    modifier = Modifier.testTag("widget-style-card-${placement.slot}"))
+                GlassChip(ownStyle == WidgetStyle.GLASS, onClick = { change(WidgetStyle.GLASS) }, label = { Text(stringResource(com.jake.duolauncher.R.string.widget_style_glass)) },
+                    modifier = Modifier.testTag("widget-style-glass-${placement.slot}"))
+            }
         }
         if (canConfigure) ActionRow(Icons.Rounded.Settings, "Widget settings", onConfigure,
             Modifier.testTag("widget-settings-${placement.slot}"))

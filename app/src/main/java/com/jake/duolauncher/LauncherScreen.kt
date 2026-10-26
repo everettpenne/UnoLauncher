@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -46,6 +47,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.semantics.onLongClick
@@ -138,6 +140,7 @@ internal fun LauncherScreen(
     onGlass: (GlassChoice) -> Unit = {},
     onWallpaperColor: (Boolean) -> Unit = {},
     onWallpaperDepth: (Boolean) -> Unit = {},
+    onWidgetStyle: (WidgetStyle) -> Unit = {},
     onHomeStyle: (HomeStyle) -> Unit = {},
     onStatusIconsDark: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
@@ -177,7 +180,11 @@ internal fun LauncherScreen(
     // Edit Home: icons wiggle and can be dragged at once, removed with their badge, and an + adds apps or a widget.
     var homeEditing by rememberSaveable { mutableStateOf(false) }
     var customizationPage by rememberSaveable { mutableStateOf(CustomizationPage.OVERVIEW) }
-    LaunchedEffect(selectedId) { if (selectedId == null) appMoveMenu = false }
+    // The iOS-style menu under a held app (see AppContextMenu): where the held thing is, and whether "More" has opened the full sheet instead.
+    var menuAnchor by remember { mutableStateOf<Rect?>(null) }
+    var menuMore by remember { mutableStateOf(false) }
+    var menuFromHold by remember { mutableStateOf(false) }
+    LaunchedEffect(selectedId) { if (selectedId == null) { appMoveMenu = false; menuAnchor = null; menuMore = false } }
     // The settings page is deliberately kept when the sheet closes: swiping up again reopens the page you were on.
     var openFolderId by rememberSaveable { mutableStateOf<String?>(null) }
     // The app a split screen is being set up for; the picker then chooses the one beside it.
@@ -382,7 +389,8 @@ internal fun LauncherScreen(
     val islandCoversBar = iosLayout && (islandOut || spotlightOpen)
     var barHeldForIsland by remember { mutableStateOf(false) }
     LaunchedEffect(islandCoversBar) { if (islandCoversBar) barHeldForIsland = true else { delay(380); barHeldForIsland = false } }
-    val statusHidden = railShown || (iosLayout && (homeEditing || islandCoversBar || barHeldForIsland))
+    // In jiggle mode the status bar gives its row to the Edit bar's two buttons on every layout, as an iPhone's does.
+    val statusHidden = railShown || homeEditing || (iosLayout && (islandCoversBar || barHeldForIsland))
     LaunchedEffect(statusHidden) { onStatusMode(statusHidden) }
     // The overlay's island (drawn over Home when the accessibility service is on) follows Home's bar and rail too.
     SideEffect { IslandRuntime.homeStatusHidden = statusHidden; IslandRuntime.homeRailShown = railShown }
@@ -525,6 +533,8 @@ internal fun LauncherScreen(
         val source = drag.source ?: return
         val stackOnto = if (drag.moved && !cancelled && source.target is DropTarget.Widget) drag.stackIntentSlot else null
         val moved = drag.moved
+        // A drag that follows a hold takes the menu the hold opened away with it, whether or not the effect that watches for a move got to run.
+        if (menuFromHold && (moved || cancelled)) { menuFromHold = false; selectedId = null }
         val rawDestination = if (moved && !cancelled) drag.destination(drag.pointer, eligibleDragPages)?.target else null
         val destination = if (rawDestination is DropTarget.Home && source.target is DropTarget.Widget) {
             model.placement(source.target.index)?.let {
@@ -580,8 +590,35 @@ internal fun LauncherScreen(
                 if (source.target is DropTarget.Dock) { dockSlot = source.target.index; sheet = "dock" }
                 else if (source.target is DropTarget.Widget) { widgetSlot = source.target.index; sheet = "widgetActions" }
                 else if (source.appId?.let(::isFolderId) == true) openFolderId = source.appId
-                else if (source.folderId == null) selectedId = source.appId
+                else if (source.folderId != null) drag.folderMenuRequest = source.appId
+                else if (source.folderId == null) {
+                    selectedId = source.appId
+                    if (menuAnchor == null && (source.target is DropTarget.Home || source.target is DropTarget.Library)) menuAnchor = source.bounds
+                }
             }
+        }
+    }
+
+    // As iOS does, the menu opens as soon as the press is long enough, with the finger still down, and goes away if the finger then drags the app.
+    // Only a plain app on Home or in the App Library gets it; the dock, folders and widgets keep what they had.
+    val heldSource = drag.source
+    LaunchedEffect(drag.active, drag.moved, heldSource) {
+        val held = heldSource
+        if (drag.moved) {
+            if (menuFromHold) { menuFromHold = false; selectedId = null }
+            return@LaunchedEffect
+        }
+        val appId = held?.appId
+        if (!drag.active || held == null || appId == null || homeEditing || sheet.isNotEmpty() || selectedId != null) return@LaunchedEffect
+        if (isFolderId(appId) || held.folderId != null || !(held.target is DropTarget.Home || held.target is DropTarget.Library)) return@LaunchedEffect
+        delay(120L)   // a press that goes straight into a drag never flashes the menu
+        if (drag.active && !drag.moved && selectedId == null) { menuFromHold = true; selectedId = appId; menuAnchor = held.bounds }
+    }
+
+    LaunchedEffect(drag.moved, drag.active) {
+        if (drag.active && drag.moved && drag.source?.target is DropTarget.Library && pager.currentPage >= homePages) {
+            withFrameNanos { }
+            pager.scrollToPage(lastHomePage.coerceIn(0, homePages - 1))
         }
     }
 
@@ -600,10 +637,8 @@ internal fun LauncherScreen(
         page = pager.currentPage, eligiblePages = eligibleDragPages, instant = homeEditing, onStart = {
             focus.clearFocus(); keyboard?.hide(); UnoFeedback.play(Cue.LONG_PRESS, haptic)
             if (drag.source?.folderId != null) openFolderId = null
-            if (drag.source?.target is DropTarget.Library) scope.launch {
-                withFrameNanos { }
-                pager.scrollToPage(lastHomePage.coerceIn(0, homePages - 1))
-            }
+            // An app held in the App Library stays there, with its menu open, until the finger moves; only then does the pager go to Home to
+            // take the drag (below). It used to jump to Home the moment the press was long enough, which left no library to show a menu over.
         },
         onFinish = { cancelled -> finishDrag(cancelled) })) {
         val homeBackdrop = rememberHomeBackdrop()
@@ -614,8 +649,10 @@ internal fun LauncherScreen(
         val glassTint = (if (glassEnabled) rememberGlassTint(Glass) else Glass).let { base ->
             if (wallpaperAccent != null) androidx.compose.ui.graphics.lerp(base, wallpaperAccent.glass, .6f) else base
         }
-        val pageGlass = remember(glassEnabled, homeBackdrop, glassTint, glassSettings) {
-            if (glassEnabled) PageGlass(homeBackdrop.wallpaper, glassTint, glassSettings) else null
+        // The wallpaper blurred once, for the big panels that move with a page (see FrostedGlass); rebuilt when the wallpaper or the theme changes.
+        val frostedWallpaper = rememberFrostedWallpaper(homeBackdrop.wallpaper.graphicsLayer, Triple(appearance.dark, LauncherBackgroundCache.revision.intValue, glassEnabled))
+        val pageGlass = remember(glassEnabled, homeBackdrop, glassTint, glassSettings, appearance.widgetStyle) {
+            if (glassEnabled) PageGlass(homeBackdrop.wallpaper, glassTint, glassSettings, appearance.widgetStyle) else null
         }
         // Controls stacked over the pager (search, back to Home) refract the whole Home view.
         val controlGlass = remember(glassEnabled, homeBackdrop, glassTint, glassSettings) {
@@ -645,7 +682,7 @@ internal fun LauncherScreen(
         // the safe area and lifted up into that row, it took no touches: Compose delivers a touch only within a parent's bounds.
         val editBarShown = homeEditing && sheet.isEmpty() && !drag.active && !controlPanelOpen && !spotlightOpen && !showFirstRun
         val editBar: @Composable (Modifier) -> Unit = { barModifier ->
-                HomeEditBar(controlGlass, ios = iosLayout,
+                HomeEditBar(controlGlass, ios = true,
                     onCustomize = { homeEditing = false; customizationPage = CustomizationPage.OVERVIEW; sheet = "settings:wallpaper" },
                     onAddApps = { homeEditing = false; sheet = "pins" },
                     onAddWidget = {
@@ -667,7 +704,7 @@ internal fun LauncherScreen(
         }
         // The iOS layout keeps the status bar's room even while the bar is hidden (in jiggle mode), so Home does not jump up as editing starts.
         @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-        val homeInsets = (if (iosLayout) WindowInsets.systemBarsIgnoringVisibility else WindowInsets.systemBars).union(WindowInsets.displayCutout)
+        val homeInsets = (if (iosLayout || homeEditing) WindowInsets.systemBarsIgnoringVisibility else WindowInsets.systemBars).union(WindowInsets.displayCutout)
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(homeInsets)) {
             val wide = maxWidth.value >= 650f
             val preset = if (wide) state.expanded else state.compact
@@ -812,14 +849,14 @@ internal fun LauncherScreen(
                                 (bounds.bottom - with(density) { bottomSpace.toPx() }).toInt()), bounds.width - inset)
                     }
                 }
-                .semantics { stateDescription = if (pager.currentPage == -1) if (feedVisible) "Feed" else "Discover" else if (pager.currentPage == visibleHomePages) "All apps" else "Home page ${pager.currentPage + 1} of $visibleHomePages" }
+                .semantics { stateDescription = if (pager.currentPage == -1) if (feedVisible) "Feed" else "Discover" else if (pager.currentPage == visibleHomePages) "App Library" else "Home page ${pager.currentPage + 1} of $visibleHomePages" }
             if (geometry.expanded) {
                 Box(pagerModifier) {
                     // PagerState remains the source of truth for native Discover progress,
                     // snapping, accessibility state, and programmatic page requests.
                     HorizontalPager(nativePager, Modifier.fillMaxHeight().width(pagerWidth), userScrollEnabled = false,
                         key = { if (it < firstHome) "discover" else if (it - firstHome == visibleHomePages) "library" else "home-${it - firstHome}" }) { }
-                    CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions) { ExpandedWorkspace(
+                    CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalFrostedWallpaper provides frostedWallpaper, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions) { ExpandedWorkspace(
                         nativePager = nativePager, motion = workspaceMotion!!, firstHome = firstHome,
                         viewportWidth = pagerWidth, trailingOverscan = pagerEndInset,
                         visibleHomePages = visibleHomePages, panelWidth = panelWidth,
@@ -858,7 +895,7 @@ internal fun LauncherScreen(
                     // column. Feed and All apps fill the whole width, so once the dock/rail have slid
                     // off with an edge (see EdgeDockShift) they use the space those controls vacated.
                     Box(Modifier.fillMaxSize()) {
-                    CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions) {
+                    CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalFrostedWallpaper provides frostedWallpaper, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions) {
                     if (page == -1) {
                         DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = bottomSpace),
                             feed, feedVisible, onFeedRefresh, onFeedOpenEntry,
@@ -1033,7 +1070,6 @@ internal fun LauncherScreen(
                     }
                 }
             }
-            if (!iosLayout && editBarShown) editBar(Modifier.align(Alignment.TopCenter))
             // The island is not composed while Spotlight is open (once its short fade is done), so a tap on the camera cutout can never expand it
             // underneath the search: the Spotlight scrim/panel owns that touch (it does nothing there).
             // The overlay (the accessibility service's window) draws the Home island when it is running, so it never moves with this window.
@@ -1124,6 +1160,7 @@ internal fun LauncherScreen(
                             extras = extras,
                             onWallpaperColor = onWallpaperColor,
                             onWallpaperDepth = onWallpaperDepth,
+                            onWidgetStyle = onWidgetStyle,
                             onHomeStyle = onHomeStyle,
                             onTiltHighlight = onTiltHighlight,
                             backgrounds = launcherActivity.backgrounds,
@@ -1175,8 +1212,10 @@ internal fun LauncherScreen(
                                     }?.takeIf { it >= 0 }
                                     widgetExactTarget = false; sheet = "widgets"
                                 },
-                                onRemove = { widgets.remove(widgetSlot); sheet = "" },
+                                onRemove = { widgets.remove(widgetSlot); WidgetStyles.set(launcherActivity, widgetSlot, null); sheet = "" },
                                 onClose = { sheet = "" },
+                                ownStyle = WidgetStyles.own(widgetSlot), defaultStyle = appearance.widgetStyle,
+                                onStyle = { WidgetStyles.set(launcherActivity, widgetSlot, it) },
                                 onEditFolder = if (placement.id == FOLDER_WIDGET) {{ sheet = "largeFolder" }} else null,
                                 stackMembers = WidgetStacks.members(widgetSlot).map { it to stackMemberLabel(it, widgets) },
                                 onStackWith = if (state.widgetPlacements.any { it.slot != widgetSlot && stackable(it, widgets) }
@@ -1233,6 +1272,8 @@ internal fun LauncherScreen(
                         },
                         onExplore = onFinishFirstRun,
                         onSkip = onFinishFirstRun,
+                        appearanceMode = appearance.mode, onAppearanceMode = onAppearanceMode,
+                        widgetStyle = appearance.widgetStyle, onWidgetStyle = onWidgetStyle,
                     )
                 }
             }
@@ -1377,38 +1418,40 @@ internal fun LauncherScreen(
                     val visualIndex = candidateIndex ?: widgetRawTarget?.index ?: session.targetIndex
                     val specialAnchor = session.candidate?.let { drag.regions[DropTarget.Widget(session.slot)]?.bounds }
                     val anchor = specialAnchor ?: visualIndex?.let { drag.regions[DropTarget.Home(it)]?.bounds }
-                    Box(Modifier.fillMaxSize().testTag("widget-placement-mode")
+                    // Where this layer's own corner is in the root. Cell bounds are in root coordinates, but this layer is not at the drag root's corner
+                    // (it sits inside the window's insets), so its offsets were taken from the wrong origin: on a phone with a status bar the preview was drawn
+                    // about 50 dp below the widget it stood for.
+                    var layerOrigin by remember { mutableStateOf(Offset.Zero) }
+                    Box(Modifier.fillMaxSize().onGloballyPositioned { layerOrigin = it.positionInRoot() }.testTag("widget-placement-mode")
                         .then(if (!session.dragging && session.candidate == null) Modifier.pointerInput(session.slot, session.span) {
                             detectTapGestures { local ->
-                                val point = local + drag.rootOrigin
+                                val point = local + layerOrigin
                                 val cell = drag.regions.values.firstOrNull {
                                     it.target is DropTarget.Home && it.page in eligibleDragPages && it.bounds.contains(point)
                                 }?.target as? DropTarget.Home
                                 cell?.let { widgetSession = session.copy(pointer = point, targetIndex = it.index) }
                             }
                         } else Modifier)) {
-                        Row(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp)
-                            .background(Glass.copy(alpha = .97f), Corner.pill)
-                            .testTag("widget-placement-toolbar"), verticalAlignment = Alignment.CenterVertically) {
-                            GlassButton(onClick = widgetPickerBack) { Text(stringResource(com.jake.duolauncher.R.string.back_to_widgets)) }
-                            if (session.candidate != null) Text(stringResource(com.jake.duolauncher.R.string.replace_here), color = Ink,
-                                modifier = Modifier.testTag("widget-replacement-locked"))
-                            val targetPage = homeCellPage(session.targetIndex ?: 0)
-                            if (!session.dragging && session.candidate == null) IconButton(
-                                enabled = targetPage > if (expandedWorkspace) -1 else 0, onClick = {
+                        val targetPage = homeCellPage(session.targetIndex ?: 0)
+                        val canMovePage = !session.dragging && session.candidate == null
+                        WidgetPlacementBar(
+                            sizeLabel = "${session.span.width} × ${session.span.height}",
+                            paging = canMovePage, replacing = session.candidate != null,
+                            canGoPrevious = targetPage > if (expandedWorkspace) -1 else 0, canGoNext = targetPage < homePages,
+                            showPlace = !session.dragging, canPlace = widgetDraft != null,
+                            onPrevious = {
                                 val local = homeCellLocal(session.targetIndex ?: 0)
                                 val page = targetPage - 1
                                 widgetSession = session.copy(targetIndex = homeCellIndex(page, local))
                                 scope.launch { pager.animateScrollToPage(page.coerceAtLeast(0)) }
-                            }) { Icon(Icons.Rounded.ChevronLeft, "Previous home page") }
-                            Text("${session.span.width} × ${session.span.height}", color = Ink)
-                            if (!session.dragging && session.candidate == null) IconButton(enabled = targetPage < homePages, onClick = {
+                            },
+                            onNext = {
                                 val local = homeCellLocal(session.targetIndex ?: 0)
                                 val page = (targetPage + 1).coerceAtMost(homePages)
                                 widgetSession = session.copy(targetIndex = homeCellIndex(page, local))
                                 scope.launch { pager.animateScrollToPage(page.coerceAtLeast(0)) }
-                            }) { Icon(Icons.Rounded.ChevronRight, "Next home page") }
-                            if (!session.dragging) GlassButton(enabled = widgetDraft != null, onClick = {
+                            },
+                            onPlace = {
                                 widgetDraft?.let { draft ->
                                     val contentSize = specialAnchor?.let { bounds -> with(placementDensity) {
                                         WidgetContentSize(bounds.width.toDp().value, bounds.height.toDp().value)
@@ -1417,10 +1460,11 @@ internal fun LauncherScreen(
                                         ?: session.builtinId?.let { widgets.setBuiltin(draft.copy(id = it)) }
                                     widgetSession = null; sheet = ""; widgetPackage = null
                                 }
-                            }, modifier = Modifier.testTag("widget-placement-apply")) { Text(stringResource(com.jake.duolauncher.R.string.place)) }
-                            GlassButton(onClick = { leaveTemporaryWidgetPage(); widgetSession = null; sheet = ""; widgetPackage = null },
-                                modifier = Modifier.testTag("widget-placement-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) }
-                        }
+                            },
+                            onCancel = { leaveTemporaryWidgetPage(); widgetSession = null; sheet = ""; widgetPackage = null },
+                            modifier = Modifier.align(Alignment.TopCenter),
+                        )
+                        WidgetPlacementBack(widgetPickerBack, Modifier.align(Alignment.BottomCenter))
                         if (anchor != null) {
                             val density = LocalDensity.current
                             val cellWidthPx = with(density) { (geometry.gridWidth / GRID_COLUMNS).dp.toPx() }
@@ -1436,36 +1480,29 @@ internal fun LauncherScreen(
                                 else anchor.left + with(density) { (geometry.widgetGapX / 2f).dp.toPx() }
                             // Cell bounds are in root coordinates and this layer is drawn inside the launcher root, so its origin is taken off (as the
                             // drag ghost does); without that the preview sits off from where the widget lands whenever the root is not at the origin.
-                            Surface(Modifier.offset { IntOffset((previewX - drag.rootOrigin.x).roundToInt(), (anchor.top - drag.rootOrigin.y).roundToInt()) }
+                            val ready = widgetDraft != null
+                            val ring = if (ready) launcherAccent().first else Color(0xFFFF453A)
+                            // What will land here, drawn as it will look, in the accent's ring (red with no room), lifted a little off the page, as
+                            // a widget picked up on iOS is. It was a grey box with the widget's name and a thick white border.
+                            Surface(Modifier.offset { IntOffset((previewX - layerOrigin.x).roundToInt(), (anchor.top - layerOrigin.y).roundToInt()) }
                                 .size(previewWidth, previewHeight).testTag("widget-placement-preview")
-                                .semantics { stateDescription = if (widgetDraft != null) "Ready to place" else "No room here" },
-                                color = if (widgetDraft != null) Glass.copy(alpha = .82f) else Color(0xFFE7B6B6).copy(alpha = .9f),
-                                shape = Corner.large, border = androidx.compose.foundation.BorderStroke(3.dp,
-                                    if (widgetDraft != null) Color.White else Color(0xFFFF6B6B))) {
+                                .semantics { stateDescription = if (ready) "Ready to place" else "No room here" }
+                                .shadow(14.dp, Corner.large, clip = false, ambientColor = Color.Black.copy(alpha = .18f), spotColor = Color.Black.copy(alpha = .30f)),
+                                color = if (ready) Color.White.copy(alpha = .94f) else Color(0xFFFFE9E7),
+                                shape = Corner.large, border = androidx.compose.foundation.BorderStroke(2.dp, ring)) {
                                 Box(Modifier.fillMaxSize()) {
                                     if (sessionEntry != null) WidgetProviderPreview(sessionEntry, session.span,
-                                        Modifier.fillMaxSize().padding(5.dp).clip(Corner.medium))
-                                    else Column(Modifier.align(Alignment.Center).padding(12.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(session.provider?.loadLabel(launcherActivity.packageManager)?.toString()
-                                            ?: when (session.builtinId) {
-                                                CLOCK_WIDGET -> "Clock"
-                                                DATE_WIDGET -> "Date"
-                                                FOLDER_WIDGET -> "Large folder"
-                                                else -> UnoWidgets.byId(session.builtinId ?: 0)?.label ?: "Widget panel"
-                                            }, color = Ink,
-                                            textAlign = TextAlign.Center)
-                                        Text("${session.span.width} × ${session.span.height}", color = Ink)
-                                    }
-                                    if (widgetDraft == null) Box(Modifier.matchParentSize()
-                                        .background(Color(0xFFB83B3B).copy(alpha = .34f)), contentAlignment = Alignment.Center) {
+                                        Modifier.fillMaxSize().padding(3.dp).clip(Corner.medium))
+                                    else PlacementBuiltinFace(session.builtinId,
+                                        session.provider?.loadLabel(launcherActivity.packageManager)?.toString(), session.span)
+                                    if (!ready) Box(Modifier.matchParentSize().background(Color(0xFFB83B3B).copy(alpha = .30f)), contentAlignment = Alignment.Center) {
                                         Text(stringResource(com.jake.duolauncher.R.string.no_room_here), color = Color.White, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
                         } else if (session.dragging) {
-                            Surface(Modifier.offset { IntOffset((session.pointer.x - drag.rootOrigin.x - 90.dp.toPx()).roundToInt(),
-                                (session.pointer.y - drag.rootOrigin.y - 60.dp.toPx()).roundToInt()) }.size(180.dp, 120.dp)
+                            Surface(Modifier.offset { IntOffset((session.pointer.x - layerOrigin.x - 90.dp.toPx()).roundToInt(),
+                                (session.pointer.y - layerOrigin.y - 60.dp.toPx()).roundToInt()) }.size(180.dp, 120.dp)
                                 .testTag("widget-placement-preview").semantics { stateDescription = "No room here" },
                                 color = Color(0xFFE7B6B6).copy(alpha = .9f), shape = Corner.large) {
                                 Box(contentAlignment = Alignment.Center) {
@@ -1529,7 +1566,9 @@ internal fun LauncherScreen(
                 if (pager.currentPage < homePages) Box(Modifier.align(Alignment.CenterEnd).width(6.dp).height(112.dp)
                     .background(Color.White.copy(alpha = if (edge > 0) .9f else .3f), Corner.pill).testTag("drag-edge-right"))
             }
-            appsById[drag.source?.appId]?.let { app ->
+            // While the held app's menu is open (before the finger moves) the menu's own lifted icon stands for it: a second copy under the finger,
+            // 66 dp beside a row's 40 dp icon, read as a stray duplicate in the App Library.
+            appsById[drag.source?.appId]?.takeIf { menuAnchor == null || drag.moved }?.let { app ->
                 val size = 66.dp
                 val px = with(LocalDensity.current) { size.toPx() }
                 Image(app.image, "Moving ${app.label}", Modifier
@@ -1638,7 +1677,27 @@ internal fun LauncherScreen(
                 }
             }
         }
-        appsById[selectedId]?.let { app ->
+        appsById[selectedId]?.takeIf { menuAnchor != null && !menuMore }?.let { app ->
+            val pinnedNow = state.layout.indexOfShortcut(app.id) != null
+            val menuShortcuts by produceState(emptyList<AppShortcut>(), app.id) { value = AppShortcuts.load(launcherActivity, app) }
+            AppContextMenu(app, menuAnchor!!, geometry.iconSize, controlGlass, AppMenuActions(
+                placed = pinnedNow, shortcuts = menuShortcuts,
+                onShortcut = { AppShortcuts.start(launcherActivity, it); selectedId = null },
+                onEditHome = { homeEditing = true; selectedId = null },
+                onAddToHome = { model.setPinned(app.id, true); selectedId = null },
+                onInfo = { onAppInfo(app); selectedId = null },
+                onHide = if (state.folders.none { app.id in it.appIds }) {{ model.hideApp(app.id); selectedId = null }} else null,
+                onMore = { menuMore = true },
+                onRemoveFromHome = { model.setPinned(app.id, false); selectedId = null },
+                onDelete = if (!isSystemApp(launcherActivity, app)) {{
+                    runCatching {
+                        launcherActivity.startActivity(android.content.Intent(android.content.Intent.ACTION_DELETE, android.net.Uri.parse("package:${app.packageName}"))
+                            .putExtra(android.content.Intent.EXTRA_USER, app.user))
+                    }
+                    selectedId = null
+                }} else null), onDismiss = { selectedId = null })
+        }
+        appsById[selectedId]?.takeIf { menuAnchor == null || menuMore }?.let { app ->
             val pinned = state.layout.indexOfShortcut(app.id) != null
             val packageName = app.packageName
             val hasWidgets = packageName.isNotEmpty() && runCatching {
@@ -1778,8 +1837,8 @@ internal fun LauncherScreen(
                     modifier = Modifier.testTag("widget-reconfigure-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) } })
         }
         }
-        // Jiggle mode's bar on the iOS layout: here, in the launcher's root and outside the safe area, so it can take the status bar's row.
-        if (iosLayout && editBarShown) editBar(Modifier)
+        // Jiggle mode's bar, on every layout: here, in the launcher's root and outside the safe area, so it can take the status bar's row.
+        if (editBarShown) editBar(Modifier)
     }
 }
 

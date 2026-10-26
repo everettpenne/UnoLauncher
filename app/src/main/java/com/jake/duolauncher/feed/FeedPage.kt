@@ -65,7 +65,8 @@ internal fun FeedPage(
 ) {
     if (glassBackdrop != null) {
         Box(modifier.fillMaxSize().testTag("feed-page")
-            .liquidGlass(glassBackdrop, Corner.xlarge, glassTint, kind = GlassKind.REGULAR, settings = settings)) {
+            .frostedGlass(Corner.xlarge, glassTint.copy(alpha = GlassKind.REGULAR.tintAlpha)) {
+                liquidGlass(glassBackdrop, Corner.xlarge, glassTint, kind = GlassKind.REGULAR, settings = settings) }) {
             // Glass over the wallpaper is dark in both themes, so text on it uses the light ink the
             // other glass panels use; Material's default content color is dark in the light theme.
             CompositionLocalProvider(LocalContentColor provides Ink) {

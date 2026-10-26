@@ -122,9 +122,11 @@ internal object IslandGeometry {
     const val PUNCH_REST_RING_DP = .5f
     /** The most island the height setting puts above and below the camera, in dp. */
     const val MAX_REST_RING_DP = 6f
-    /** The open panel takes this share of the screen's width (as the iOS island does), between the old fixed width and [MAX_EXPANDED_DP]. */
-    private const val EXPANDED_SHARE = .92f
-    private const val MAX_EXPANDED_DP = 372f
+    /** The open panel takes this share of the screen's width (as the iOS island does), between the old fixed width and [MAX_EXPANDED_DP]. It is wide enough
+     * to cover the status bar's icons at both ends (the clock starts about 35 dp in and the battery ends about 35 dp from the other edge); at 92 % they showed
+     * just past the panel's rounded top corners. */
+    private const val EXPANDED_SHARE = .965f
+    private const val MAX_EXPANDED_DP = 400f
     /** The corner radius an open panel is capped at, in dp: round enough to echo the phone's own corners and the hole, without a pill's full round. */
     const val CORNER_CAP_DP = 34f
 
@@ -233,7 +235,9 @@ internal object IslandGeometry {
      */
     fun frame(env: IslandEnvironment, density: Float, progress: Float, scale: Float = 0f,
         extraBodyDp: Float = 0f, extraWidthDp: Float = 0f, compactness: Float = 0f,
-        wideFactor: Float = 1f, heightProgress: Float = progress): IslandFrame {
+        wideFactor: Float = 1f, heightProgress: Float = progress,
+        /** The open panel reaches the screen's edge margins even where a dock or rail strip is, for a card whose controls want the room (the music player). */
+        fullWidth: Boolean = false): IslandFrame {
         val d = density
         val pw = progress.coerceIn(0f, MAX_OVERSHOOT)
         val ph = heightProgress.coerceIn(0f, MAX_OVERSHOOT)
@@ -290,7 +294,9 @@ internal object IslandGeometry {
         val expandedHeight = (holeBottom - top) + (mix(96f, 128f, size) + extraBodyDp) * d
         // The expanded panel must clear the dock/rail strip: cap its width so it can never
         // reach the glass column on the right, whatever the dock-width preset.
-        val dockClearance = env.dockWidthPx + 16f * d
+        // Clear of the dock or rail when there is one; with none, only the island's own edge margin, so the open panel can reach the 8 dp that covers
+        // the status bar's icons (its rounded top corners cut in far enough that, at 16 dp, the clock and battery showed just outside them).
+        val dockClearance = if (env.dockWidthPx > 0f && !fullWidth) env.dockWidthPx + 16f * d else margin
         // Extra wide (wideFactor > 1) makes the pill as wide as the 75% size setting, but never wider than the phone allows: it must still clear the
         // dock/rail strip (so the expanded panel can too, below) and keep the screen's own edge margins.
         collapsedWidth = collapsedWidth.coerceAtMost(env.screenWidth - 2f * dockClearance)

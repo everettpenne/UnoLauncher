@@ -66,7 +66,8 @@ class SetupSheetInteractionIntegrationTest {
         val prefsName = "setup_sheet_explore_test"
         try {
             showSetup(prefsName)
-            compose.onNodeWithTag("setup-explore").performScrollTo().performClick()
+            // The buttons are pinned under the steps now, so there is nothing to scroll to.
+            compose.onNodeWithTag("setup-explore").performClick()
             assertFinished(prefsName)
         } finally { context.deleteSharedPreferences(prefsName) }
     }

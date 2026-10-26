@@ -63,7 +63,7 @@ class LauncherIntegrationTest {
                 shell("wm size $size")
                 compose.waitUntil(15000) { compose.activity.windowManager.currentWindowMetrics.bounds.width() == size.substringBefore('x').toInt() }
                 compose.waitForIdle()
-                assertPage("All apps")
+                assertPage("App Library")
                 compose.onNodeWithTag("library-search").assertTextContains("Clock")
                 org.junit.Assert.assertEquals(prior.order, model().state.value.order)
                 org.junit.Assert.assertEquals(prior.dock, model().state.value.dock)
@@ -78,13 +78,13 @@ class LauncherIntegrationTest {
         val before = compose.onNodeWithTag("dock").fetchSemanticsNode().boundsInRoot
         compose.onNodeWithTag("app-pager").performTouchInput { swipeLeft() }
         compose.waitForIdle()
-        val expected = if (pages == 1) "All apps" else "Home page 2 of $pages"
+        val expected = if (pages == 1) "App Library" else "Home page 2 of $pages"
         assertPage(expected)
         org.junit.Assert.assertEquals(before, compose.onNodeWithTag("dock").fetchSemanticsNode().boundsInRoot)
         compose.activityRule.scenario.recreate()
         ready()
         assertPage(expected)
-        if (expected == "All apps") {
+        if (expected == "App Library") {
             compose.onNodeWithTag("search").assertDoesNotExist()
             compose.onNodeWithTag("settings").assertDoesNotExist()
         } else compose.onNodeWithTag("search").assertIsDisplayed()
@@ -153,7 +153,7 @@ class LauncherIntegrationTest {
         ready()
         compose.onNodeWithTag("library-page-link").performClick()
         compose.waitForIdle()
-        assertPage("All apps")
+        assertPage("App Library")
         compose.onNodeWithTag("library-search").performTextInput("zzzz-no-such-app-123")
         compose.onNodeWithText("No apps found").assertIsDisplayed()
         compose.onNodeWithContentDescription("Clear search").performClick()
@@ -252,14 +252,16 @@ class LauncherIntegrationTest {
     @Test fun pinEditorStaysOpenAcrossPageBoundaryAndUnpinningKeepsApp() {
         ready()
         val apps = model().state.value.apps
-        org.junit.Assert.assertTrue("Google emulator needs at least 17 launchable activities", apps.size >= 17)
+        // A page holds the app rows' cells (every row but the widget band's two); one app more than that starts a second page.
+        val perPage = (GRID_ROWS - 2) * GRID_COLUMNS
+        org.junit.Assert.assertTrue("needs at least ${perPage + 1} launchable activities", apps.size >= perPage + 1)
         val before = model().state.value.layout
         try {
             compose.runOnIdle {
                 model().state.value.order.toList().forEach { model().setPinned(it, false) }
-                apps.take(16).forEach { model().setPinned(it.id, true) }
+                apps.take(perPage).forEach { model().setPinned(it.id, true) }
             }
-            val target = apps[16]
+            val target = apps[perPage]
             compose.openHomeCustomization()
             compose.onNodeWithTag("customization-home").performClick()
             compose.onNodeWithText("Pinned Apps").performClick()
@@ -289,7 +291,7 @@ class LauncherIntegrationTest {
             ready()
             compose.onNodeWithTag("add-home-apps").assertDoesNotExist()
             compose.onNodeWithTag("library-page-link").performClick()
-            assertPage("All apps")
+            assertPage("App Library")
         } finally { compose.runOnIdle { prior.forEach { model().setPinned(it, true) } } }
     }
 

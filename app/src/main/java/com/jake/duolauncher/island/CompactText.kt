@@ -21,3 +21,28 @@ internal object CompactText {
         return UNITS.fold(text) { t, (re, to) -> re.replace(t, to) }
     }
 }
+
+/**
+ * Fits a flash of the form "<name> connected" to the room the pill has. A long device name used to run off the end and the cut fell on the
+ * verb ("OpenRun Pro 2 by Shokz con…"), which loses what happened; the name is shortened instead ("OpenRun Pro 2 by Sh… connected"). Text
+ * without such a verb is cut at its end. [fits] says whether a candidate is narrow enough; pure, so it is unit-tested.
+ */
+internal object FlashFit {
+    private val VERB = Regex("""^(.+?)\s+(disconnected|connected)$""", RegexOption.IGNORE_CASE)
+    private const val MIN_NAME = 3
+
+    fun fit(text: String, fits: (String) -> Boolean): String {
+        if (fits(text)) return text
+        val m = VERB.find(text)
+        val name = m?.groupValues?.get(1) ?: text
+        val verb = m?.groupValues?.get(2)
+        var keep = name.length - 1
+        while (keep >= MIN_NAME) {
+            val cut = name.take(keep).trimEnd() + "…"
+            val candidate = if (verb != null) "$cut $verb" else cut
+            if (fits(candidate)) return candidate
+            keep--
+        }
+        return if (verb != null) name.take(MIN_NAME).trimEnd() + "… $verb" else name.take(MIN_NAME) + "…"
+    }
+}

@@ -31,7 +31,7 @@ All paths below are relative to `app/src/main/java/com/jake/duolauncher/`. Featu
 
 `LauncherModel` exposes a `StateFlow<LauncherState>`. App discovery happens off the main thread; installed-app identities include their Android profile. A temporarily unavailable package or paused profile must not silently erase its placements.
 
-Each ordinary Home page has a four-column, six-row grid. Apps occupy cells; widgets occupy explicit rectangles with durable slot identities. The dock has four positions and rejects incoming apps when full. Moving a shortcut between Home and the dock moves that placement; All apps remains the installed-app catalog.
+Each ordinary Home page has a four-column, seven-row grid (two rows of widget band and five of apps; it was six rows before 0.111.0, and saved layouts and backups from then are converted on load, schema 9 and backup version 4). Apps occupy cells; widgets occupy explicit rectangles with durable slot identities. The dock has four positions and rejects incoming apps when full. Moving a shortcut between Home and the dock moves that placement; All apps remains the installed-app catalog.
 
 Wide-window navigation uses overlapping pairs: leading workspace + Home 1, Home 1 + Home 2, and so on. The leading workspace has separate `leadingSlots` and durable widget page `-1`; it disappears from the single-page view without deleting its contents. **Pager page `-1` separately means Discover.** Use the address helpers in `HomeEditing.kt` rather than treating negative cell indices as missing values.
 

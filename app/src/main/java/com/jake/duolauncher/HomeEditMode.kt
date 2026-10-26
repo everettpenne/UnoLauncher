@@ -110,7 +110,8 @@ internal fun HomeEditBar(glass: PageGlass?, onAddApps: () -> Unit, onAddWidget: 
             else Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Box {
-            if (ios) EditCapsule(stringResource(com.jake.duolauncher.R.string.home_edit), glass, Modifier.testTag("home-edit-add")) { menu = true }
+            // iOS's left button is a plain "+" in a glass circle, not a word.
+            if (ios) PlusButton(glass, Modifier.testTag("home-edit-add")) { menu = true }
             else FilledTonalIconButton(onClick = { menu = true }, Modifier.size(48.dp).testTag("home-edit-add")) {
                 Icon(Icons.Rounded.Add, "Add to Home")
             }
@@ -142,6 +143,21 @@ private fun EditCapsule(text: String, glass: PageGlass?, modifier: Modifier = Mo
             .clip(Corner.pill).clickable(onClick = onClick).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
             Text(text, color = ink.color, style = UnoType.subheadline,
                 fontWeight = if (strong) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Medium)
+        }
+    }
+}
+
+/** The Edit bar's "+": a clear-glass circle 34 dp across (48 dp to the touch), as on iOS. */
+@Composable
+private fun PlusButton(glass: PageGlass?, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val ink = rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .12f else .0f)
+    Box(modifier.size(48.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(36.dp).then(ink.track)
+            .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, androidx.compose.foundation.shape.CircleShape, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings)
+                else Modifier.background(Glass.copy(alpha = .4f), androidx.compose.foundation.shape.CircleShape))
+            .clip(androidx.compose.foundation.shape.CircleShape).clickable(onClick = onClick)
+            .semantics { contentDescription = "Add to Home" }, contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.Add, null, tint = ink.color, modifier = Modifier.size(22.dp))
         }
     }
 }

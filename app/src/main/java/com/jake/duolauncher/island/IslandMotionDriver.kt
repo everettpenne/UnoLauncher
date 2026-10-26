@@ -28,11 +28,12 @@ internal class IslandMotionSpecs(private val theme: IslandTheme, private val ani
     val press: AnimationSpec<Float> get() = or(theme.spring(.4f, 500f))
     val pulseUp: AnimationSpec<Float> get() = or(theme.spring(.45f, 700f))
     val pulseDown: AnimationSpec<Float> get() = or(theme.spring(.4f, 260f))
-    val capsuleAppear: AnimationSpec<Float> get() = or(theme.spring(.5f, 240f))
+    // Playful: the capsules pop out on a looser spring, glide to a new place with a little overshoot and squish deeper under a finger.
+    val capsuleAppear: AnimationSpec<Float> get() = or(theme.spring(if (theme.playful) .36f else .5f, if (theme.playful) 260f else 240f))
     val capsuleLeave: AnimationSpec<Float> get() = or(tween(240, easing = FastOutSlowInEasing))
-    val capsuleGlide: AnimationSpec<Float> get() = or(theme.spring(.75f, 380f))
+    val capsuleGlide: AnimationSpec<Float> get() = or(theme.spring(if (theme.playful) .58f else .75f, 380f))
     val dot: AnimationSpec<Float> get() = or(theme.spring(.7f, 520f))
-    val pressCapsule: AnimationSpec<Float> get() = or(androidx.compose.animation.core.spring(.6f, 500f))
+    val pressCapsule: AnimationSpec<Float> get() = or(androidx.compose.animation.core.spring(if (theme.playful) .42f else .6f, 520f))
 }
 
 /** What the island is heading for, all at once: its morph (from the state), and what composition works out (the event's width, the ring, the

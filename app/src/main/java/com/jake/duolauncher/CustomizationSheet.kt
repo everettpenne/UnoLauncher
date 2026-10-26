@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -70,6 +71,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onGlass: (GlassChoice) -> Unit = {},
     onWallpaperColor: (Boolean) -> Unit = {},
     onWallpaperDepth: (Boolean) -> Unit = {},
+    onWidgetStyle: (WidgetStyle) -> Unit = {},
     onHomeStyle: (HomeStyle) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onIsland: (Boolean) -> Unit = {},
@@ -103,12 +105,15 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                 Text(SettingsSearch.pageName(page.parent()).let { if (page.parent() == CustomizationPage.OVERVIEW) "Settings" else it },
                     color = SettingsAccent, maxLines = 1)
             }
-            Text(title, Modifier.align(Alignment.Center).padding(horizontal = 96.dp), style = UnoType.headline, maxLines = 1,
+            // The first page takes iOS's large title below the bar; the pages inside it keep the small one in the middle.
+            if (page != CustomizationPage.OVERVIEW) Text(title, Modifier.align(Alignment.Center).padding(horizontal = 96.dp), style = UnoType.headline, maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             Text(stringResource(com.jake.duolauncher.R.string.wallpaper_done), Modifier.align(Alignment.CenterEnd).clip(Corner.pill).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClose)
                 .padding(8.dp).semantics { contentDescription = "Close settings" }, color = SettingsAccent,
                 style = UnoType.body.copy(fontWeight = FontWeight.SemiBold))
         }
+        if (page == CustomizationPage.OVERVIEW) Text(title, Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 10.dp).semantics { heading() },
+            style = UnoType.largeTitle.copy(fontWeight = FontWeight.Bold), maxLines = 1)
         // The island page keeps a live copy of the island above its settings, so a change can be watched as it is made.
         val islandPreview = remember { com.jake.duolauncher.island.IslandPreviewController() }
         if ((page == CustomizationPage.ISLAND || page == CustomizationPage.ISLAND_STYLE) && appearance.island && extras != null) {
@@ -124,7 +129,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                 CustomizationPage.APPEARANCE -> {
                     WallpaperGroups(backgrounds, state, appearance.dark, onWallpaperPreview)
                     AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear, onAppearanceCancelLocation)
-                    GlassGroups(appearance, onGlass, onTiltHighlight, onWallpaperColor, onWallpaperDepth)
+                    GlassGroups(appearance, onGlass, onTiltHighlight, onWallpaperColor, onWallpaperDepth, onWidgetStyle)
                     if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.ICONS)
                 }
                 CustomizationPage.HOME -> HomeLayoutSettings(state, wide, { wide = it }, model, homePage,
@@ -138,7 +143,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     SettingsGroup(footer = "Swipe sideways on Home to change pages, and up anywhere to open these settings.") {}
                 }
                 CustomizationPage.SEARCH -> {
-                    SettingsGroup(footer = "The search pill opens Google's own search page in your browser. All Apps always searches your apps on the phone.") {
+                    SettingsGroup(footer = "The search pill opens Google's own search page in your browser. The App Library always searches your apps on the phone.") {
                         row { SettingsSwitch("Search Button Opens Google", state.googleSearch, model::setGoogleSearch, "google-search-switch") }
                     }
                     if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.SEARCH)
@@ -214,7 +219,7 @@ private fun OverviewPage(state: LauncherState, model: LauncherModel, isDefaultHo
 /** Glass, accent and depth: Appearance's groups below the wallpaper and light and dark. */
 @Composable
 private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> Unit, onTiltHighlight: (Boolean) -> Unit,
-    onWallpaperColor: (Boolean) -> Unit, onWallpaperDepth: (Boolean) -> Unit) {
+    onWallpaperColor: (Boolean) -> Unit, onWallpaperDepth: (Boolean) -> Unit, onWidgetStyle: (WidgetStyle) -> Unit) {
     val samples = GlassRim.samples.intValue
     val context = androidx.compose.ui.platform.LocalContext.current
     // Read when the page opens and when the switch changes; reopening the page after allowing Sensors clears the note.
@@ -231,6 +236,10 @@ private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> U
         row { SegmentRow(GlassChoice.entries, appearance.glassKind, { when (it) { GlassChoice.CLEAR -> "Clear"; GlassChoice.FROSTED -> "Frosted"; GlassChoice.OFF -> "Off" } },
             { "glass-${it.name.lowercase()}" }, onGlass) }
         if (appearance.liquidGlass) row { SettingsSwitch("Tilt Highlight", appearance.tiltHighlight, onTiltHighlight, "tilt-highlight-switch") }
+    }
+    SettingsGroup(header = "Widgets", footer = "Card is a soft, plain widget like iOS's, and keeps swiping between pages smooth. Glass bends the wallpaper behind each widget, but pages swipe less smoothly with it. Each widget can choose its own from its options.") {
+        row { SegmentRow(WidgetStyle.entries, appearance.widgetStyle, { when (it) { WidgetStyle.CARD -> "Card"; WidgetStyle.GLASS -> "Glass" } },
+            { "widget-style-${it.name.lowercase()}" }, onWidgetStyle) }
     }
     SettingsGroup(header = "Accent", footer = "The colour of switches, sliders, check marks and highlights. From Wallpaper picks one colour from your background and keeps text readable.") {
         row { CheckRow("Uno Orange", !appearance.wallpaperColor, "accent-orange") { onWallpaperColor(false) } }

@@ -18,6 +18,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -327,6 +328,13 @@ internal fun BatteryGlyph(level: Int?, charging: Boolean, modifier: Modifier = M
         level != null && level <= 20 -> Color(0xFFFF453A)
         else -> ink
     }
+    // Playful: the level eases to its value, and while charging the fill's leading edge ripples like liquid with a soft sheen sliding through it.
+    val liquid = IslandThemes.active.playful && charging
+    val shown by animateFloatAsState(((level ?: 0) / 100f).coerceIn(0f, 1f), tween(700), label = "battery level")
+    val phase = if (liquid) {
+        val t = rememberInfiniteTransition(label = "liquid")
+        t.animateFloat(0f, (2 * Math.PI).toFloat(), infiniteRepeatable(tween(1800, easing = androidx.compose.animation.core.LinearEasing)), label = "liquid phase").value
+    } else 0f
     androidx.compose.foundation.Canvas(modifier.size(width = 25.dp, height = 12.dp).testTag("island-battery-glyph")) {
         val nub = 2.dp.toPx()
         val stroke = 1.dp.toPx()
@@ -337,9 +345,30 @@ internal fun BatteryGlyph(level: Int?, charging: Boolean, modifier: Modifier = M
         drawRoundRect(ink.copy(alpha = .45f), topLeft = Offset(body.width + 1.dp.toPx() - stroke / 2f, size.height * .32f),
             size = Size(nub, size.height * .36f), cornerRadius = CornerRadius(nub))
         val inset = 2.dp.toPx()
-        val fraction = ((level ?: 0) / 100f).coerceIn(0f, 1f)
-        val w = (body.width - 2 * inset) * fraction
-        if (w > 0f) drawRoundRect(fill, topLeft = Offset(inset, inset), size = Size(w, body.height - 2 * inset), cornerRadius = CornerRadius(2.dp.toPx()))
+        val w = (body.width - 2 * inset) * shown
+        if (w <= 0f) return@Canvas
+        if (!liquid) {
+            drawRoundRect(fill, topLeft = Offset(inset, inset), size = Size(w, body.height - 2 * inset), cornerRadius = CornerRadius(2.dp.toPx()))
+            return@Canvas
+        }
+        val top = inset; val bottom = body.height - inset; val h = bottom - top
+        // A full cell has no liquid surface to ripple: it is solid to the edge.
+        val amp = if (shown >= .98f) 0f else (1.1.dp.toPx()).coerceAtMost(w / 3f)
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(inset, top)
+            var y = top
+            // The right edge, rippling down the cell.
+            lineTo(inset + w - amp + amp * kotlin.math.sin(phase), top)
+            while (y < bottom) { y = minOf(bottom, y + 1f); lineTo(inset + w - amp + amp * kotlin.math.sin(phase + (y - top) / h * 2f * Math.PI.toFloat()), y) }
+            lineTo(inset, bottom); close()
+        }
+        clipPath(androidx.compose.ui.graphics.Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(inset, inset, body.width - inset, body.height - inset, CornerRadius(2.dp.toPx()))) }) {
+            drawPath(path, fill)
+            // The sheen: a lighter band that travels along the cell.
+            val x = inset + (w * ((phase / (2f * Math.PI.toFloat())))) 
+            drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = .35f), Color.Transparent), x - 4.dp.toPx(), x + 4.dp.toPx()),
+                Offset(inset, top), Size(w, h))
+        }
     }
 }
 

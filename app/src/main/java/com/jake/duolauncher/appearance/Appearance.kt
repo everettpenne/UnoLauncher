@@ -27,6 +27,8 @@ data class AppearanceState(val mode: AppearanceMode = AppearanceMode.LIGHT, val 
     val latitude: Double? = null, val longitude: Double? = null, val locationTime: Long = 0,
     val deviceLocation: Boolean = false, val dark: Boolean = false, val fallback: String? = null,
     val locationStatus: String? = null, val liquidGlass: Boolean = true, val island: Boolean = true,
+    /** How Home widgets are drawn unless a widget chose its own (see [WidgetStyle]). A card by default: glass widgets cost smooth page swipes. */
+    val widgetStyle: WidgetStyle = WidgetStyle.CARD,
     /** The launcher's accent: Uno orange, or (on) one colour taken from the wallpaper. */
     val wallpaperColor: Boolean = false, val tiltHighlight: Boolean = false,
     /** The wallpaper drifts a little against the pages as they scroll, for depth. Off, or with Android's animations off, it stays put. */
@@ -56,6 +58,7 @@ class AppearanceStore(private val context: Context) {
     private fun currentSystemDark() = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
         android.content.res.Configuration.UI_MODE_NIGHT_YES
     var state by mutableStateOf(load(currentSystemDark())); private set
+    init { WidgetStyles.load(context) }
     init { DuoAppearanceRuntime.dark = state.dark }
     private fun load(systemDark: Boolean): AppearanceState {
         val mode = runCatching { AppearanceMode.valueOf(prefs.getString("mode", "LIGHT")!!) }.getOrDefault(AppearanceMode.LIGHT)
@@ -69,6 +72,7 @@ class AppearanceStore(private val context: Context) {
             runCatching { prefs.getLong("locationTime", 0) }.getOrDefault(0),
             runCatching { prefs.getBoolean("deviceLocation", false) }.getOrDefault(false),
             liquidGlass = runCatching { prefs.getBoolean("liquidGlass", true) }.getOrDefault(true),
+            widgetStyle = runCatching { WidgetStyle.valueOf(prefs.getString("widgetStyle", null) ?: "CARD") }.getOrDefault(WidgetStyle.CARD),
             wallpaperColor = materialYou || runCatching { prefs.getBoolean("wallpaperColor", false) }.getOrDefault(false),
             wallpaperDepth = runCatching { prefs.getBoolean("wallpaperDepth", true) }.getOrDefault(true),
             homeStyle = runCatching { HomeStyle.valueOf(prefs.getString("homeStyle", null) ?: "SIDE") }.getOrDefault(HomeStyle.SIDE),
@@ -79,6 +83,7 @@ class AppearanceStore(private val context: Context) {
     }
     fun setMode(mode: AppearanceMode, systemDark: Boolean) { save(state.copy(mode = mode), systemDark) }
     fun setLiquidGlass(value: Boolean) { save(state.copy(liquidGlass = value), currentSystemDark()) }
+    fun setWidgetStyle(value: WidgetStyle) { save(state.copy(widgetStyle = value), currentSystemDark()) }
     fun setWallpaperDepth(value: Boolean) { save(state.copy(wallpaperDepth = value), currentSystemDark()) }
     fun setHomeStyle(value: HomeStyle) { save(state.copy(homeStyle = value), currentSystemDark()) }
     fun setClearGlass(value: Boolean) { save(state.copy(clearGlass = value), currentSystemDark()) }
@@ -102,13 +107,14 @@ class AppearanceStore(private val context: Context) {
     fun reloadFromPreferences(systemDark: Boolean = currentSystemDark()) {
         val transientStatus = state.locationStatus
         state = load(systemDark).copy(locationStatus = transientStatus)
+        WidgetStyles.load(context)
         DuoAppearanceRuntime.dark = state.dark
     }
     private fun save(value: AppearanceState, systemDark: Boolean) {
         prefs.edit().putString("mode", value.mode.name).putString("place", value.place)
             .putString("lat", value.latitude?.toString()).putString("lon", value.longitude?.toString())
             .putLong("locationTime", value.locationTime).putBoolean("deviceLocation", value.deviceLocation)
-            .putBoolean("liquidGlass", value.liquidGlass)
+            .putBoolean("liquidGlass", value.liquidGlass).putString("widgetStyle", value.widgetStyle.name)
             .putBoolean("island", value.island)
             .putBoolean("wallpaperColor", value.wallpaperColor).putBoolean("tiltHighlight", value.tiltHighlight)
             .putBoolean("wallpaperDepth", value.wallpaperDepth)

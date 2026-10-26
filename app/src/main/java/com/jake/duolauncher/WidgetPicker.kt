@@ -28,7 +28,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -227,7 +230,10 @@ internal fun VisualWidgetPicker(
     } }
     // With liquid glass the gallery floats as a frosted card over Home; heavy blur keeps the
     // previews readable. Without it, the original near-opaque full-screen panel.
-    Surface(Modifier.fillMaxSize().alpha(if (hiddenForDrag) 0f else 1f)
+    // Held to a readable width and centred, so on a tablet or an unfolded screen the tiles keep the size they have on a phone instead of
+    // stretching to half a metre each.
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    Surface(Modifier.fillMaxHeight().widthIn(max = 640.dp).fillMaxWidth().alpha(if (hiddenForDrag) 0f else 1f)
         .then(if (hiddenForDrag) Modifier.clearAndSetSemantics { }.focusProperties { canFocus = false } else Modifier)
         .then(if (glass != null) Modifier.statusBarsPadding().navigationBarsPadding().padding(8.dp)
             .liquidGlass(glass.backdrop, Corner.xlarge, glass.tint, kind = GlassKind.REGULAR, settings = glass.settings) else Modifier)
@@ -235,13 +241,20 @@ internal fun VisualWidgetPicker(
         color = if (glass != null) Color.Transparent else Glass.copy(alpha = .96f)) {
         Column(Modifier.fillMaxSize().then(if (glass != null) Modifier.padding(top = 8.dp)
             else Modifier.statusBarsPadding().navigationBarsPadding()).padding(horizontal = 16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-                Text(stringResource(com.jake.duolauncher.R.string.widgets), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
+            // As iOS's gallery: a large title at the start, a round close button at the end, then a search field and one line saying how to add.
+            Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(com.jake.duolauncher.R.string.widgets), Modifier.weight(1f).padding(start = 4.dp),
+                    style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Box(Modifier.size(36.dp).clip(CircleShape).background(Ink.copy(alpha = .10f)).clickable(onClick = onBack)
+                    .semantics { contentDescription = "Close widgets" }.testTag("widget-picker-close"), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Close, null, tint = Ink.copy(alpha = .7f), modifier = Modifier.size(20.dp))
+                }
             }
-            GlassField(query, { query = it }, Modifier.fillMaxWidth().padding(vertical = 12.dp)
+            GlassField(query, { query = it }, Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp)
                 .testTag("widget-catalog-search"), singleLine = true, placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_widgets)) },
                 leadingIcon = { Icon(Icons.Rounded.Search, null) })
+            Text(stringResource(com.jake.duolauncher.R.string.widget_picker_hint), Modifier.padding(start = 4.dp, bottom = 8.dp),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (profiles.any { it.isWork }) Row(Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 profiles.forEach { profile ->
@@ -265,55 +278,61 @@ internal fun VisualWidgetPicker(
                     }
                 }
                 if (words.isEmpty() && selectedProfile.isPersonal) {
-                    item("duo-widgets") { Text(stringResource(com.jake.duolauncher.R.string.uno_launcher), style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 12.dp, start = 4.dp)) }
+                    item("duo-widgets") { PickerSection(stringResource(com.jake.duolauncher.R.string.uno_launcher)) }
                     // Clock and Date are drawn as they will look on Home; the rest are plain cards.
                     item("builtin-previews") {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            PreviewTile("Clock", "2 × 2 · Tap to place", 1f, "widget-builtin-$CLOCK_WIDGET", previewGlass, { onBuiltin(CLOCK_WIDGET) },
+                            PreviewTile("Clock", "2 × 2", 1f, "widget-builtin-$CLOCK_WIDGET", previewGlass, { onBuiltin(CLOCK_WIDGET) },
                                 Modifier.weight(1f)) { ClockCard {} }
-                            PreviewTile("Date", "2 × 2 · Tap to place", 1f, "widget-builtin-$DATE_WIDGET", previewGlass, { onBuiltin(DATE_WIDGET) },
+                            PreviewTile("Date", "2 × 2", 1f, "widget-builtin-$DATE_WIDGET", previewGlass, { onBuiltin(DATE_WIDGET) },
                                 Modifier.weight(1f)) { DateCard {} }
                         }
                     }
-                    items(listOf(Triple(INFO_WIDGET, "Widget panel", "2 × 2"),
-                        Triple(FOLDER_WIDGET, "Large folder", "2 × 2"),
-                        Triple(FOLDER_WIDE_PICK, "Large folder, wide", "2 × 1"), Triple(FOLDER_TALL_PICK, "Large folder, tall", "1 × 2")),
-                        key = { "builtin-${it.first}" }) { (id, label, size) ->
-                        Surface(Modifier.fillMaxWidth().testTag("widget-builtin-$id")
-                            .clickable { focusManager.clearFocus(); keyboard?.hide(); onBuiltin(id) },
-                            color = Glass.copy(alpha = .55f), border = BorderStroke(1.dp, Color.White.copy(alpha = .55f)),
-                            shape = Corner.large) {
-                            Column(Modifier.padding(16.dp)) {
-                                Text(label, style = MaterialTheme.typography.titleMedium)
-                                Text("$size · Tap to place", style = MaterialTheme.typography.labelMedium)
+                    // The widgets with no face to draw, as one grouped list, as iOS's Settings rows are.
+                    item("builtin-rows") {
+                        Surface(Modifier.fillMaxWidth(), color = Color.White.copy(alpha = .55f), shape = Corner.large) {
+                            Column {
+                                listOf(Triple(INFO_WIDGET, "Widget panel", "2 × 2"), Triple(FOLDER_WIDGET, "Large folder", "2 × 2"),
+                                    Triple(FOLDER_WIDE_PICK, "Large folder, wide", "2 × 1"), Triple(FOLDER_TALL_PICK, "Large folder, tall", "1 × 2"))
+                                    .forEachIndexed { index, (id, label, size) ->
+                                        if (index > 0) HorizontalDivider(Modifier.padding(start = 16.dp), color = Ink.copy(alpha = .10f))
+                                        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("widget-builtin-$id")
+                                            .clickable { focusManager.clearFocus(); keyboard?.hide(); onBuiltin(id) }
+                                            .semantics { contentDescription = "Place $label" }.padding(horizontal = 16.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            Column(Modifier.weight(1f)) {
+                                                Text(label, style = MaterialTheme.typography.titleSmall)
+                                                Text(size, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                            PlusBadge()
+                                        }
+                                    }
                             }
                         }
                     }
                 }
                 val unoMatches = UnoWidgets.all.filter { words.isEmpty() || "${it.label} ${it.blurb}".lowercase().contains(words) }
                 if (selectedProfile.isPersonal && unoMatches.isNotEmpty()) {
-                    item("uno-library") { Text(stringResource(com.jake.duolauncher.R.string.uno_widgets), style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 12.dp, start = 4.dp)) }
+                    item("uno-library") { PickerSection(stringResource(com.jake.duolauncher.R.string.uno_widgets)) }
                     // Each Uno widget is its own live face, drawn at the size it will have on Home, so what you tap is what you get.
                     items(unoMatches.chunked(2), key = { row -> "uno-row-${row.first().id}" }) { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             row.forEach { def ->
                                 PreviewTile(def.label, def.blurb, def.spanX.toFloat() / def.spanY, "widget-builtin-${def.id}", previewGlass,
                                     { focusManager.clearFocus(); keyboard?.hide(); onBuiltin(def.id) }, Modifier.weight(1f),
-                                    sizeLine = "${def.spanX} × ${def.spanY} · Tap to place") { def.face(PreviewSamples.slotFor(def.id)) {} }
+                                    sizeLine = "${def.spanX} × ${def.spanY}") { def.face(PreviewSamples.slotFor(def.id)) {} }
                             }
                             if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
                 }
                 filtered.groupBy { it.appLabel }.forEach { (app, group) ->
-                    item("header-$app") { Text(app, style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 12.dp, start = 4.dp)) }
+                    item("header-$app") { PickerSection(app) }
                     items(group, key = { it.provider.provider.flattenToString() }) { entry ->
                         val span = footprint(entry.provider)
                         var origin by remember { mutableStateOf(Offset.Zero) }
-                        Surface(modifier = Modifier.fillMaxWidth()
+                        // No card round it: its name, size and what it does, then its real face with the add badge, as every other tile in the gallery.
+                        Column(modifier = Modifier.fillMaxWidth()
                             .testTag("widget-provider-${entry.provider.provider.flattenToString()}${if (entry.isWork) "-profile-${entry.userSerial}" else ""}")
                             .onGloballyPositioned { origin = it.boundsInRoot().topLeft }
                             .pointerInput(entry.provider) {
@@ -326,33 +345,27 @@ internal fun VisualWidgetPicker(
                                     onDragEnd = { latestDrop() }, onDragCancel = { latestCancelDrag() })
                             }.clickable(enabled = span != null, onClick = {
                                 focusManager.clearFocus(); keyboard?.hide(); onTap(entry.provider)
-                            }),
-                            color = Glass.copy(alpha = .55f),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = .55f)),
-                            shape = Corner.large) {
-                            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                                Column(Modifier.padding(bottom = 12.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(entry.providerLabel, style = MaterialTheme.typography.titleMedium)
-                                        if (entry.isWork) AssistChip(onClick = {}, label = { Text(entry.profileLabel) },
-                                            modifier = Modifier.padding(start = 8.dp))
-                                    }
-                                    if (entry.description.isNotBlank()) Text(entry.description, style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 2)
-                                    Text(span?.let { "${it.width} × ${it.height}" } ?: "Doesn’t fit this layout",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = if (span == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
-                                    Text(stringResource(com.jake.duolauncher.R.string.tap_to_place_hold_to_drag), style = MaterialTheme.typography.bodySmall)
-                                }
-                                val ratio = span?.let { it.width.toFloat() / it.height } ?: 1.5f
-                                BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                    val boundedWidth = minOf(maxWidth, 220.dp * ratio)
-                                    val boundedHeight = boundedWidth / ratio
-                                    val previewTag = "widget-preview-${entry.provider.provider.flattenToString()}${if (entry.isWork) "-profile-${entry.userSerial}" else ""}"
-                                    Box(Modifier.width(boundedWidth).height(boundedHeight).clip(Corner.medium)
-                                        .testTag(previewTag)) {
+                            })) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(entry.providerLabel, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 2.dp))
+                                if (entry.isWork) AssistChip(onClick = {}, label = { Text(entry.profileLabel) }, modifier = Modifier.padding(start = 8.dp))
+                            }
+                            Text(span?.let { "${it.width} × ${it.height}" } ?: "Doesn’t fit this layout", Modifier.padding(start = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (span == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (entry.description.isNotBlank()) Text(entry.description, Modifier.padding(start = 2.dp, top = 2.dp),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2,
+                                overflow = TextOverflow.Ellipsis)
+                            val ratio = span?.let { it.width.toFloat() / it.height } ?: 1.5f
+                            BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
+                                val boundedWidth = minOf(maxWidth, 220.dp * ratio)
+                                val boundedHeight = boundedWidth / ratio
+                                val previewTag = "widget-preview-${entry.provider.provider.flattenToString()}${if (entry.isWork) "-profile-${entry.userSerial}" else ""}"
+                                Box(Modifier.width(boundedWidth).height(boundedHeight)) {
+                                    Box(Modifier.fillMaxSize().clip(Corner.large).testTag(previewTag)) {
                                         WidgetProviderPreview(entry, span ?: WidgetSpan(2, 2), Modifier.fillMaxSize())
                                     }
+                                    if (span != null) Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) { PlusBadge() }
                                 }
                             }
                         }
@@ -361,6 +374,7 @@ internal fun VisualWidgetPicker(
                 if (entries != null && filtered.isEmpty()) item { Text(stringResource(com.jake.duolauncher.R.string.no_widgets_found), Modifier.padding(16.dp)) }
             }
         }
+    }
     }
 }
 
@@ -371,17 +385,34 @@ private fun PreviewTile(label: String, detail: String, ratio: Float, tag: String
     sizeLine: String? = null, preview: @Composable () -> Unit) {
     Column(modifier) {
         Box(Modifier.fillMaxWidth().aspectRatio(ratio)) {
-            CompositionLocalProvider(LocalWidgetPreview provides true, LocalPageGlass provides glass) {
+            CompositionLocalProvider(LocalWidgetPreview provides true, LocalPageGlass provides glass,
+                LocalWidgetStyle provides (glass?.widgetStyle ?: WidgetStyle.CARD)) {
                 Box(Modifier.fillMaxSize()) { preview() }
             }
             // The tap catcher sits above the face, so the face itself never sees the touch.
             Box(Modifier.matchParentSize().clip(Corner.large).clickable(onClick = onPick)
                 .semantics { contentDescription = "Place $label" }.testTag(tag))
+            Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) { PlusBadge() }
         }
         Text(label, Modifier.padding(top = 8.dp, start = 2.dp), style = MaterialTheme.typography.titleSmall)
         Text(sizeLine ?: detail, Modifier.padding(start = 2.dp), style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (sizeLine != null) Text(detail, Modifier.padding(start = 2.dp, top = 2.dp), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** A section's title in the gallery: large and semibold, as iOS's section headings are. */
+@Composable
+private fun PickerSection(text: String) {
+    Text(text, Modifier.padding(top = 16.dp, start = 4.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+}
+
+/** The small round plus on a widget in the gallery: the one affordance that says a tap adds it. */
+@Composable
+private fun PlusBadge() {
+    val (accent, onAccent) = launcherAccent()
+    Box(Modifier.size(26.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
+        Icon(Icons.Rounded.Add, null, tint = onAccent, modifier = Modifier.size(17.dp))
     }
 }

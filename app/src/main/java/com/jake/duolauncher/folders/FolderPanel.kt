@@ -17,7 +17,13 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.core.*
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.sp
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -32,7 +38,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -71,9 +76,11 @@ internal fun FolderPanel(
             selection = if (editTitle) androidx.compose.ui.text.TextRange(0, folder.title.length)
                 else androidx.compose.ui.text.TextRange(folder.title.length))) }
     val title = fieldValue.text
-    // Spring open from the icon's scale, as iOS does; a plain fade would feel like a different feature.
-    val open = remember { Animatable(.86f) }
+    // Grow out of the folder's icon, as iOS does, and shrink back into it: from a third of the size, the transform anchored at the icon's centre.
+    val open = remember { Animatable(CLOSED_SCALE) }
     LaunchedEffect(Unit) { open.animateTo(1f, UnoMotion.open()) }
+    val iconCentre = remember(folder.id) { drag.regions.values.firstOrNull { it.appId == folder.id }?.bounds?.center }
+    var column by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
     val scope = rememberCoroutineScope()
     var closing by remember { mutableStateOf(false) }
     // Closing from any route (the scrim, Back, the keyboard's Done) keeps what was typed; an emptied title keeps the old name.
@@ -84,7 +91,7 @@ internal fun FolderPanel(
         if (!closing) {
             closing = true
             scope.launch {
-                open.animateTo(.86f, UnoMotion.open())
+                open.animateTo(CLOSED_SCALE, UnoMotion.open())
                 onDismiss()
             }
         }
@@ -96,7 +103,13 @@ internal fun FolderPanel(
     }
     val glass = glassBackdrop != null
     val pageGlass = remember(glassBackdrop, glassTint, settings) { glassBackdrop?.let { PageGlass(it, glassTint, settings) } }
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .28f * ((open.value - .86f) / .14f).coerceIn(0f, 1f)))
+    val reveal = ((open.value - CLOSED_SCALE) / (1f - CLOSED_SCALE)).coerceIn(0f, 1f)
+    Box(Modifier.fillMaxSize()
+        // The screen behind goes soft and dim, as it does on iOS, rather than a flat grey.
+        .then(if (glassBackdrop != null) Modifier.drawBackdrop(backdrop = glassBackdrop, shape = { androidx.compose.ui.graphics.RectangleShape },
+            effects = { blur(22.dp.toPx() * reveal) }, highlight = { null }, shadow = { null },
+            onDrawSurface = { drawRect(Color.Black.copy(alpha = .30f * reveal)) })
+            else Modifier.background(Color.Black.copy(alpha = .42f * reveal)))
         .clickable(
             interactionSource = remember { MutableInteractionSource() },
             indication = null,
@@ -106,34 +119,73 @@ internal fun FolderPanel(
         .imePadding().testTag("folder-panel"),
         contentAlignment = Alignment.Center) {
         val rows = FolderPages.rows(folder.appIds.size)
-        val panelModifier = Modifier.fillMaxWidth(.88f).widthIn(max = 420.dp)
-            .graphicsLayerScale(open.value)
+        // The title above the panel and the panel itself grow and shrink together, about the folder's icon.
+        val groupModifier = Modifier.fillMaxWidth(.88f).widthIn(max = 420.dp).offset(y = (-24).dp)
+            .onGloballyPositioned { column = it.boundsInRoot() }
+            .graphicsLayer {
+                scaleX = open.value; scaleY = open.value; alpha = (reveal * 1.6f).coerceIn(0f, 1f)
+                val c = iconCentre
+                transformOrigin = if (c != null && column.width > 0f)
+                    androidx.compose.ui.graphics.TransformOrigin(((c.x - column.left) / column.width).coerceIn(-.5f, 1.5f), ((c.y - column.top) / column.height).coerceIn(-.5f, 1.5f))
+                    else androidx.compose.ui.graphics.TransformOrigin.Center
+            }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = {},
             )
             .testTag("folder-panel-content")
+        // Everything on the panel is white, on a dark frosted glass: iOS's folder is that whatever the wallpaper.
+        val panelTint = Color(0xFF1F2024)
         val content: @Composable () -> Unit = {
-            FolderPanelBody(fieldValue, { fieldValue = it }, folder, apps, drag, page, homeDestinations, dockVacancies,
-                onLaunch, onMoveOut, commitAndClose, editTitle, rows, glass, pageGlass)
+            FolderPanelBody(folder, apps, drag, page, homeDestinations, dockVacancies, onLaunch, onMoveOut, rows, pageGlass)
         }
-        if (glassBackdrop != null) {
-            Box(panelModifier.liquidGlass(glassBackdrop, Corner.xlarge, glassTint, kind = GlassKind.REGULAR, settings = settings)) { content() }
-        } else {
-            Surface(panelModifier, color = glassTint, shape = Corner.xlarge,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .6f))) { content() }
+        Column(groupModifier, horizontalAlignment = Alignment.CenterHorizontally) {
+            FolderTitle(fieldValue, { fieldValue = it }, folder, editTitle, commitAndClose)
+            Spacer(Modifier.height(14.dp))
+            CompositionLocalProvider(LocalKitInk provides Color.White) {
+                if (glassBackdrop != null) {
+                    Box(Modifier.fillMaxWidth().liquidGlass(glassBackdrop, FolderShape, panelTint, kind = GlassKind.REGULAR, settings = settings)) { content() }
+                } else {
+                    Surface(Modifier.fillMaxWidth(), color = panelTint.copy(alpha = .86f), shape = FolderShape,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .22f))) { content() }
+                }
+            }
         }
     }
 }
 
-private fun Modifier.graphicsLayerScale(scale: Float): Modifier = this.scale(scale)
+private val FolderShape = RoundedCornerShape(36.dp)
+private const val CLOSED_SCALE = .34f
+
+/** The folder's name above its panel: bare white text, centred, with a soft shadow, editable in place (no outline, label or button), as iOS shows it. */
+@Composable
+private fun FolderTitle(
+    fieldValue: androidx.compose.ui.text.input.TextFieldValue,
+    onFieldValue: (androidx.compose.ui.text.input.TextFieldValue) -> Unit,
+    folder: FolderEntry, editTitle: Boolean, onDone: () -> Unit,
+) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(editTitle, folder.id) { if (editTitle) runCatching { focus.requestFocus() } }
+    val style = TextStyle(color = Color.White, fontSize = 28.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, textAlign = TextAlign.Center,
+        shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = .35f), androidx.compose.ui.geometry.Offset(0f, 2f), 10f))
+    BasicTextField(fieldValue, onFieldValue,
+        Modifier.fillMaxWidth().focusRequester(focus).testTag("folder-name"),
+        singleLine = true, textStyle = style, cursorBrush = SolidColor(Color.White),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { keyboard?.hide(); onDone() }),
+        decorationBox = { inner ->
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                if (fieldValue.text.isEmpty()) Text(stringResource(com.jake.duolauncher.R.string.folder_name), style = style.copy(color = Color.White.copy(alpha = .5f)))
+                inner()
+            }
+        })
+}
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun FolderPanelBody(
-    fieldValue: androidx.compose.ui.text.input.TextFieldValue,
-    onFieldValue: (androidx.compose.ui.text.input.TextFieldValue) -> Unit,
     folder: FolderEntry,
     apps: Map<String, AppEntry>,
     drag: HomeDragState,
@@ -142,34 +194,13 @@ private fun FolderPanelBody(
     dockVacancies: List<Int>,
     onLaunch: (AppEntry, android.graphics.Rect?) -> Unit,
     onMoveOut: (String, DropTarget) -> Unit,
-    onDone: () -> Unit,
-    editTitle: Boolean,
     rows: Int,
-    glass: Boolean,
     pageGlass: PageGlass?,
 ) {
-    val keyboard = LocalSoftwareKeyboardController.current
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(editTitle, folder.id) { if (editTitle) runCatching { focus.requestFocus() } }
-    Column(Modifier.padding(horizontal = 16.dp).padding(top = 16.dp, bottom = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        // The title is the text itself, centred and bare: no outline, label or button, like iOS. Tapping it edits it in place.
-        BasicTextField(fieldValue, onFieldValue,
-            Modifier.fillMaxWidth().focusRequester(focus).testTag("folder-name"),
-            singleLine = true,
-            textStyle = MaterialTheme.typography.titleLarge.copy(color = GlassInkOnPanel, textAlign = TextAlign.Center),
-            cursorBrush = SolidColor(GlassInkOnPanel),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { keyboard?.hide(); onDone() }),
-            decorationBox = { inner ->
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    if (fieldValue.text.isEmpty()) Text(stringResource(com.jake.duolauncher.R.string.folder_name),
-                        style = MaterialTheme.typography.titleLarge, color = GlassInkOnPanel.copy(alpha = .45f))
-                    inner()
-                }
-            })
+    Column(Modifier.padding(horizontal = 14.dp).padding(top = 18.dp, bottom = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         val pages = FolderPages.pageCount(folder.appIds.size)
         val pager = rememberPagerState { pages }
-        HorizontalPager(pager, Modifier.fillMaxWidth().padding(top = 16.dp).testTag("folder-pages"), beyondViewportPageCount = 1) { index ->
+        HorizontalPager(pager, Modifier.fillMaxWidth().testTag("folder-pages"), beyondViewportPageCount = 1) { index ->
             val ids = FolderPages.page(folder.appIds, index)
             Column(Modifier.fillMaxWidth().heightIn(min = (rows * 92).dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ids.chunked(FolderPages.COLUMNS).forEach { row ->
@@ -185,9 +216,9 @@ private fun FolderPanelBody(
                 }
             }
         }
-        if (pages > 1) Row(Modifier.padding(top = 6.dp).testTag("folder-dots"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (pages > 1) Row(Modifier.padding(top = 8.dp).testTag("folder-dots"), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             repeat(pages) { i ->
-                Box(Modifier.size(7.dp).clip(CircleShape).background(GlassInkOnPanel.copy(alpha = if (i == pager.currentPage) .85f else .28f)))
+                Box(Modifier.size(7.dp).clip(CircleShape).background(Color.White.copy(alpha = if (i == pager.currentPage) .95f else .38f)))
             }
         }
     }
@@ -201,6 +232,8 @@ private fun FolderChild(
     glass: PageGlass?,
 ) {
     var menu by remember { mutableStateOf(false) }
+    // Holding an app here (without dragging it out) opens its move menu, in place of the ⋮ that used to sit on every icon.
+    LaunchedEffect(drag.folderMenuRequest) { if (drag.folderMenuRequest == app.id) { menu = true; drag.folderMenuRequest = null } }
     // iOS shows a folder's apps as bare icons with labels on the panel, no cards. The move menu is a small dot at the icon's corner
     // rather than a card-wide kebab, so the icon stays the main target.
     // The app opens out of its icon, as it does from Home (the icon's place is passed to the launch).
@@ -210,17 +243,18 @@ private fun FolderChild(
             folderId = folderId, scope = folderId).clickable(enabled = app.available) { onLaunch(app, iconBounds) }
             .padding(horizontal = 2.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box {
-                Image(app.image, null, Modifier.size(58.dp).onGloballyPositioned { iconBounds.set(it.boundsInWindow().toAndroidBounds()) }
+                Image(app.image, null, Modifier.size(62.dp).onGloballyPositioned { iconBounds.set(it.boundsInWindow().toAndroidBounds()) }
                     .glassIcon().clip(Corner.icon).alpha(if (app.available) 1f else .45f))
                 AppBadge(badgeCount(app), Modifier.align(Alignment.TopEnd))
             }
             Text(app.label, Modifier.padding(top = 5.dp), maxLines = 1, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.labelMedium.copy(color = GlassInkOnPanel))
+                style = MaterialTheme.typography.labelMedium.copy(color = Color.White, shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = .4f), androidx.compose.ui.geometry.Offset(0f, 1f), 4f)))
             if (app.isWork || !app.available) Text(if (app.available) app.profileLabel else "${app.profileLabel} unavailable",
-                maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall.copy(color = GlassInkOnPanel.copy(alpha = .7f)))
+                maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall.copy(color = Color.White.copy(alpha = .7f)))
         }
-        IconButton(onClick = { menu = true }, Modifier.align(Alignment.TopStart).size(32.dp)
-            .testTag("folder-options-${app.id}")) { Icon(Icons.Rounded.MoreVert, "Move ${app.label}", Modifier.size(16.dp), tint = GlassInkOnPanel.copy(alpha = .55f)) }
+        // The move menu has no visible handle (iOS shows none): hold the app, or, for a screen reader or a test, activate this.
+        Box(Modifier.align(Alignment.TopStart).size(1.dp).clickable { menu = true }
+            .semantics { contentDescription = "Move ${app.label}" }.testTag("folder-options-${app.id}"))
         GlassDropdownMenu(menu, onDismissRequest = { menu = false }, glass = glass) {
             homeDestinations.distinctBy(::homeCellPage).forEach { destination ->
                 val destinationPage = homeCellPage(destination)

@@ -80,7 +80,9 @@ internal data class GlassSettings(
  * the pages backdrop, so sampling that from inside it would draw the layer into itself.
  * Null when liquid glass is off, and outside the pager.
  */
-internal class PageGlass(val backdrop: Backdrop, val tint: Color, val settings: GlassSettings)
+internal class PageGlass(val backdrop: Backdrop, val tint: Color, val settings: GlassSettings,
+    /** The default look of a widget on these pages (Appearance › Widgets); a widget may choose its own. */
+    val widgetStyle: WidgetStyle = WidgetStyle.CARD)
 
 internal val LocalPageGlass = compositionLocalOf<PageGlass?> { null }
 

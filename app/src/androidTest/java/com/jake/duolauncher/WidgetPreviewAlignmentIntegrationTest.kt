@@ -41,7 +41,7 @@ class WidgetPreviewAlignmentIntegrationTest {
         val slot = model().state.value.layout.widgetPlacements.maxOf { it.slot }
         val placed = compose.onNodeWithTag("widget-slot-$slot").fetchSemanticsNode().boundsInRoot
         shot("placed-$tag.png")
-        return "$tag: preview top=${preview.top} left=${preview.left} h=${preview.height}; placed top=${placed.top} left=${placed.left} h=${placed.height}"
+        return "$tag: preview top=${preview.top} left=${preview.left} h=${preview.height} w=${preview.width}; placed top=${placed.top} left=${placed.left} h=${placed.height} w=${placed.width}"
     }
 
     @Test fun thePreviewSitsWhereTheWidgetEndsUp() {
@@ -53,11 +53,13 @@ class WidgetPreviewAlignmentIntegrationTest {
                 model().state.value.layout.widgetPlacements.map { it.slot }.forEach { model().removePlacement(DropTarget.Widget(it)) }
             }
             compose.waitForIdle()
-            val report = listOf(0 to "row0", 12 to "row3").map { (cell, tag) -> placeAt(cell, UnoWidgets.MONTH, tag).also { compose.runOnIdle { model().removePlacement(DropTarget.Widget(model().state.value.layout.widgetPlacements.maxOf { it.slot })) } } }
+            val report = // Cells in the widget band, mid-grid, and the lowest row a 2 x 2 widget can start on (the seventh row made row 5 possible).
+                listOf(0 to "row0", 8 to "row2", 16 to "row4", (GRID_ROWS - 2) * GRID_COLUMNS to "row${GRID_ROWS - 2}").map { (cell, tag) -> placeAt(cell, UnoWidgets.MONTH, tag).also { compose.runOnIdle { model().removePlacement(DropTarget.Widget(model().state.value.layout.widgetPlacements.maxOf { it.slot })) } } }
             File(compose.activity.filesDir, "alignment.txt").writeText(report.joinToString("\n"))
             report.forEach { line ->
-                val n = Regex("preview top=([0-9.]+) left=([0-9.]+) h=([0-9.]+); placed top=([0-9.]+) left=([0-9.]+) h=([0-9.]+)").find(line)!!.groupValues.drop(1).map { it.toFloat() }
-                assertEquals("$line (top)", n[3], n[0], 3f); assertEquals("$line (left)", n[4], n[1], 3f); assertEquals("$line (height)", n[5], n[2], 3f)
+                val n = Regex("preview top=([0-9.]+) left=([0-9.]+) h=([0-9.]+) w=([0-9.]+); placed top=([0-9.]+) left=([0-9.]+) h=([0-9.]+) w=([0-9.]+)").find(line)!!.groupValues.drop(1).map { it.toFloat() }
+                assertEquals("$line (top)", n[4], n[0], 3f); assertEquals("$line (left)", n[5], n[1], 3f)
+                assertEquals("$line (height)", n[6], n[2], 3f); assertEquals("$line (width)", n[7], n[3], 3f)
             }
         } finally { compose.runOnIdle { model().restoreLayout(before) } }
     }

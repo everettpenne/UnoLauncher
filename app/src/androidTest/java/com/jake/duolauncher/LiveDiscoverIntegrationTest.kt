@@ -191,7 +191,7 @@ class LiveDiscoverIntegrationTest {
                 touch(MotionEvent.ACTION_MOVE, width * .42f, height * .68f)
                 SystemClock.sleep(80)
                 touch(MotionEvent.ACTION_UP, width * .42f, height * .68f)
-                await { node("All apps", state = true) != null }
+                await { node("App Library", state = true) != null }
                 SystemClock.sleep(350)
                 assertEquals(0f, progress(), 0f)
                 touch(MotionEvent.ACTION_DOWN, width * .16f, height * .65f)

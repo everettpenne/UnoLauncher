@@ -118,7 +118,7 @@ the feed page and the native Google Discover window all use `PageIndicatorLayout
 
 ## Home geometry
 
-- Grid: 4 columns × 6 rows; dock: 4 slots.
+- Grid: 4 columns × 7 rows; dock: 4 slots.
 - Presets (Launcher settings → Home layout, per single-page and wide layout):
   icon size 40–68 dp, row gap 0–28 dp, dock width 56–84 dp, dock height on screen
   25–75% (or aligned to rows).

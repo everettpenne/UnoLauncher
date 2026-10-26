@@ -31,10 +31,10 @@ class HomeEditingTest {
         assertEquals(before.slots.filterNotNull().toSet(), next.slots.filterNotNull().toSet())
     }
     @Test fun `move to new page retains empty cells and exact destination`() {
-        val next = dropApp(layout, "a", DropTarget.Home(26))
+        val next = dropApp(layout, "a", DropTarget.Home(HOME_CELLS + 2))
         assertNull(next.slots[0])
         assertEquals("b", next.slots[1])
-        assertEquals("a", next.slots[26])
+        assertEquals("a", next.slots[HOME_CELLS + 2])
         assertEquals(2, homePageCount(next.slots.size))
         assertEquals(layout.slots.filterNotNull().toSet(), next.slots.filterNotNull().toSet())
         assertNull(next.dock[3])
@@ -156,7 +156,7 @@ class HomeEditingTest {
     }
     @Test fun `invalid drop leaves layout unchanged`() {
         assertEquals(layout, dropApp(layout, "a", DropTarget.Home(-HOME_CELLS - 1)))
-        assertEquals(layout, dropApp(layout, "a", DropTarget.Home(48)))
+        assertEquals(layout, dropApp(layout, "a", DropTarget.Home(HOME_CELLS * 2)))
         assertEquals(layout, dropApp(layout, "a", DropTarget.Dock(4)))
         assertEquals(layout, dropApp(layout, " ", DropTarget.Dock(0)))
         assertEquals(layout, dropApp(layout, "a", DropTarget.Library("a")))

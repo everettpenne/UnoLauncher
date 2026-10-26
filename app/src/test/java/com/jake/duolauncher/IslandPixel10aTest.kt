@@ -53,8 +53,9 @@ class IslandPixel10aTest {
 
     @Test fun theOpenPanelUsesMostOfTheWidthWhenThereIsNoDock() {
         val open = IslandGeometry.frame(env(), d, 1f, .5f)
-        assertEquals(372f, open.width / d, .5f)
-        assertTrue("margin each side is ${(screenW - open.width) / 2f / d} dp", (screenW - open.width) / 2f / d >= 16f)
+        // Wide enough to cover the status bar's icons at both ends (they sit about 35 dp in), leaving the island's own 8 dp edge margin.
+        assertEquals(395f, open.width / d, .5f)
+        assertTrue("margin each side is ${(screenW - open.width) / 2f / d} dp", (screenW - open.width) / 2f / d in 7.5f..9f)
         assertEquals("centred on the hole", hole.centerX, open.left + open.width / 2f, .5f)
     }
 
@@ -64,10 +65,10 @@ class IslandPixel10aTest {
     }
 
     @Test fun widthFollowsTheScreenAndNeverShrinksBelowTheOldPanel() {
-        assertEquals(372f, IslandGeometry.expandedWidthDp(411f), 0f)
-        assertEquals(336f, IslandGeometry.expandedWidthDp(360f), 0f)
+        assertEquals(.965f * 411f, IslandGeometry.expandedWidthDp(411f), .01f)
+        assertEquals(.965f * 360f, IslandGeometry.expandedWidthDp(360f), .01f)
         assertEquals(336f, IslandGeometry.expandedWidthDp(300f), 0f)
-        assertEquals(372f, IslandGeometry.expandedWidthDp(900f), 0f)
+        assertEquals(400f, IslandGeometry.expandedWidthDp(900f), 0f)
     }
 
     @Test fun theCornerIsRoundEnoughForAPanelAndFullyRoundForThePill() {

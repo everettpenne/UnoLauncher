@@ -39,13 +39,13 @@ class HomeEditModeInstrumentedTest {
         compose.waitUntil(10_000) { present("home-edit-done") }
     }
 
-    @Test fun editHomeShowsBadgesAndFreeCellsAndDoneLeavesIt() {
+    @Test fun editHomeShowsBadgesWithoutAGridAndDoneLeavesIt() {
         ready()
         val before = model().state.value.layout
         try {
             val free = freeCell(before)
             enterEditMode(free)
-            assertTrue("free cells are shown", present("home-free-$free"))
+            assertFalse("free cells show only while something is dragged, as on iOS", present("home-free-$free"))
             val app = model().state.value.apps.first { it.id == before.slots.firstOrNull { s -> s != null } }
             compose.onNodeWithContentDescription("Remove ${app.label} from Home").assertExists()
             compose.onNodeWithTag("home-edit-done").performClick()

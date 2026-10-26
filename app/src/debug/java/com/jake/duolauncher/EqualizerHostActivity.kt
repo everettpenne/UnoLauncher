@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 
 /** Hosts the island's waveform in an ordinary activity. Compose's test rule cancels infinite animations (so tests can go idle), which
@@ -27,7 +28,25 @@ class EqualizerHostActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val animate = intent.getBooleanExtra("animate", true)
         val card = intent.getBooleanExtra("card", false)
+        val kind = intent.getStringExtra("kind")?.let { runCatching { LiveKind.valueOf(it) }.getOrNull() }
+        if (kind == LiveKind.TIMER) IslandTools.startTimer(this, 150_000L)
+        if (kind == LiveKind.STOPWATCH) IslandTools.toggleStopwatch(this)
+        // UnoType and the file-level typography reference each other; the app always loads the file first, so a host must too.
+        InterFamily.hashCode()
+        val playful = intent.getBooleanExtra("playful", true)
         setContent {
+            if (kind != null) {
+                IslandThemes.apply(IslandThemes.active.copy(playful = playful))
+                Column(Modifier.fillMaxSize().background(Color(0xFF3A4A58)).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.height(40.dp))
+                    val tint = if (kind == LiveKind.TIMER || kind == LiveKind.STOPWATCH) IslandThemes.active.timer else IslandThemes.active.highlight
+                    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(34.dp)).background(Color.Black).padding(18.dp)) {
+                        ActivityCard(PeekNotification(packageName, "x", "Mina Okafor", "Call", null, null, 6, tint.toArgb(), quickActions = true, kind = kind),
+                            kind, IslandState())
+                    }
+                }
+                return@setContent
+            }
             if (!card) Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
                 EqualizerBars(Color(0xFFE2582B), Modifier.size(width = 40.dp, height = 14.dp), animate = animate)
             } else Column(Modifier.fillMaxSize().background(Color(0xFF3A4A58)).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {

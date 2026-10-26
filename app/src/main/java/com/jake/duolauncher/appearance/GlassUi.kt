@@ -82,6 +82,9 @@ internal val GlassInkOnPanel: Color @Composable get() = LocalKitInk.current ?: M
     return (a?.accent ?: IosOrange) to (a?.ink ?: Color.Black)
 }
 
+/** The launcher's accent colour (the wallpaper's when "From Wallpaper" is on, else iOS orange), and the ink that reads on it, for controls drawn outside this file. */
+@Composable internal fun launcherAccent(): Pair<Color, Color> = accentPair()
+
 /** A glass dialog: a card over a dimmed Home, with [title], scrolling [content] and [actions] (usually one or two
  *  [GlassButton]s) along the bottom. Tapping outside dismisses it. */
 @Composable

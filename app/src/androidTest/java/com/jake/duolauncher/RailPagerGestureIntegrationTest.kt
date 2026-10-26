@@ -73,7 +73,7 @@ class RailPagerGestureIntegrationTest {
 
         // The same gesture beginning on the bottom rail reaches only the adjacent page.
         swipeOn("search", deltaFraction = -3f)
-        assertEquals("All apps", page())
+        assertEquals("App Library", page())
     }
 
     @Test fun dockLongPressDragStillOwnsItsHeldPointer() {

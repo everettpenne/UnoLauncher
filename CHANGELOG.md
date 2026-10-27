@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.113.0-uno01
+
+- **A new app icon.** The island over a grid of four app tiles, on a teal gradient with a soft light from the upper left and a shadow under the glyph, drawn to the iOS 26 look. It is now an adaptive icon (the old one was a flat square that Android could not mask), with a themed one-colour version for Android's themed icons. The suite's other apps (Thumper 1.0.2, Spice 0.9.1, Baliset 0.5.1, Sietch 0.5.1, Seekur 0.9.0) got new icons in the same style.
+
 ## 0.112.0-uno01
 
 - **Widgets move icons out of the way.** A widget put down on apps or folders no longer refuses: the icons under it move to the next free cells after it, in order, onto the next page if the page is full, as on iOS. A widget over another widget, or with no room anywhere, is still refused. (The old rule, an app blocks a widget, made a held widget impossible to re-place on a busy page.)

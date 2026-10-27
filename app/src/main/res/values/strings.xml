@@ -399,10 +399,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">A widget put down on apps now moves them aside, as on iOS, instead of refusing.</string>
-    <string name="whats_new_2">Widgets line up with the top and bottom of the icons they sit among, and 2 x 2 widgets are exactly square.</string>
-    <string name="whats_new_3">Icon Size scales the icons inside the same grid, Auto icons follow light and dark, and the library and feed reach the bottom on the iPhone layout.</string>
-    <string name="whats_new_4">Hide app names and scale icons without changing the grid.</string>
+    <string name="whats_new_1">Uno has a new app icon: the island over a grid of apps, on a teal gradient, in the iOS 26 style, with a themed version for Android\'s themed icons.</string>
+    <string name="whats_new_2">A widget put down on apps moves them aside, as on iOS.</string>
+    <string name="whats_new_3">Widgets line up with the top and bottom of the icons they sit among.</string>
+    <string name="whats_new_4">Icon Size scales icons inside the same grid, and Auto icons follow light and dark.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

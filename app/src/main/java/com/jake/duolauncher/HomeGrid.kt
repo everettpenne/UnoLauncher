@@ -619,13 +619,19 @@ internal fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: 
         // The dock's glass look: a see-through tint with a bright, fading rim (white at the top-left, soft at the bottom-right) when
         // glass is on; the flat tile otherwise. It is drawn with plain fills, not the backdrop lens: a folder tile sits straight over the
         // wallpaper, where the lens has almost nothing to bend, and the lens on every tile crashed the view tree when it was torn down.
+        // iOS 26's folder: a tile of frosted glass (the wallpaper under it, blurred, with a soft tint and a fine rim), no shadow, the nine icons small
+        // and evenly spaced in it. The blurred wallpaper is the one the library and feed cards use, so it costs nothing per frame; without it the dock's
+        // see-through look is used.
+        val dark = DuoAppearanceRuntime.dark
         Box(Modifier.size(size.dp)
-            .then(if (folderGlass != null) Modifier.clip(Corner.icon)
+            .frostedGlass(Corner.icon, if (dark) Color.Black.copy(alpha = .22f) else Color.White.copy(alpha = .26f), elevated = false) {
+                this.then(if (folderGlass != null) Modifier.clip(Corner.icon)
                     .background(folderGlass.tint.copy(alpha = if (GlassFinish.clear) .16f else .34f))
                     .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.White.copy(alpha = .26f), Color.White.copy(alpha = .05f))))
                     .border(1.2.dp, androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(alpha = .85f), Color.White.copy(alpha = .14f),
                         Color.White.copy(alpha = .5f))), Corner.icon)
                 else Modifier.clip(Corner.icon).background(Glass.copy(alpha = .72f)).border(1.dp, Color.White.copy(alpha = .55f), Corner.icon))
+            }
             .graphicsLayer { scaleX = 1f - .05f * progress; scaleY = 1f - .05f * progress }
             .dropRegion(drag, DropTarget.Folder(folder.id), page = page, folderId = folder.id)
             .pressGlow(progress, Corner.icon)
@@ -633,9 +639,9 @@ internal fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: 
             // Up to nine apps in a 3x3 grid, like iOS; two to four apps get the roomier 2x2 so a small folder stays readable.
             val shown = folder.appIds.take(FolderPreview.capacity(folder.appIds.size))
             val columns = FolderPreview.columns(shown.size)
-            Column(Modifier.fillMaxSize().padding((size * .08f).dp), verticalArrangement = Arrangement.SpaceEvenly) {
+            Column(Modifier.fillMaxSize().padding((size * FolderPreview.MARGIN).dp), verticalArrangement = Arrangement.spacedBy((size * FolderPreview.GAP).dp)) {
                 shown.chunked(columns).forEach { rowIds ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy((size * FolderPreview.GAP).dp)) {
                         rowIds.forEach { id ->
                             val app = apps[id]
                             if (app != null) Image(app.image, null, Modifier.size((size * FolderPreview.iconFraction(columns)).dp).clip(Corner.icon))

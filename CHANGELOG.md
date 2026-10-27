@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.117.0-uno01
+
+- **Folders look more like iOS 26's.** The folder tile is frosted glass: the wallpaper under it, blurred, with a soft tint, a fine rim and no shadow (the same blurred picture the App Library and the feed use, so it costs nothing per frame); the nine icons inside are iOS's size (23.7 percent of the tile each) with an 11 percent margin and 3.5 percent between them, filled from the top left. The dock-style see-through look is still used where the blurred picture is not ready.
+- **Not seen on a phone:** an emulator showed the tile in the Dark icon style only; the open folder is as in 0.108.
+
 ## 0.116.0-uno01
 
 - **Dark icons keep their colour.** On the Dark (and Auto, in dark) icon style an icon whose glyph is white or black, on a coloured background (Camera, Files, Settings, Maps' pin, most apps), now puts its glyph in the colour its own background had, lifted to a vivid version, on the near-black tile: a blue camera, a blue folder, a blue gear, instead of a white or grey glyph. Glyphs that are already coloured are left as they are, and dark but coloured ones are no longer greyed (a red YouTube button was washed to grey).

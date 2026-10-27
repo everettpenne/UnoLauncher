@@ -106,7 +106,7 @@ internal object FrostedBlur {
  * ready yet, or glass is off, it is [fallback] (the live glass it replaces).
  */
 @Composable
-internal fun Modifier.frostedGlass(shape: Shape, tint: Color, fallback: @Composable Modifier.() -> Modifier): Modifier {
+internal fun Modifier.frostedGlass(shape: Shape, tint: Color, elevated: Boolean = true, fallback: @Composable Modifier.() -> Modifier): Modifier {
     val frosted = LocalFrostedWallpaper.current
     val image = frosted?.image ?: return fallback()
     val root = LocalWindowInfo.current.containerSize
@@ -114,8 +114,8 @@ internal fun Modifier.frostedGlass(shape: Shape, tint: Color, fallback: @Composa
     val dark = DuoAppearanceRuntime.dark
     val saturation = remember { ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(1.45f) }) }
     return this
-        .shadow(16.dp, shape, clip = false, ambientColor = Color.Black.copy(alpha = if (dark) .26f else .10f),
-            spotColor = Color.Black.copy(alpha = if (dark) .34f else .16f))
+        .then(if (!elevated) Modifier else Modifier.shadow(16.dp, shape, clip = false, ambientColor = Color.Black.copy(alpha = if (dark) .26f else .10f),
+            spotColor = Color.Black.copy(alpha = if (dark) .34f else .16f)))
         .onGloballyPositioned { origin = it.positionInRoot() }
         .drawBehind {
             val outline = shape.createOutline(size, layoutDirection, this)

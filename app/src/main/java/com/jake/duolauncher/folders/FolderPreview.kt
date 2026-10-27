@@ -10,7 +10,12 @@ internal object FolderPreview {
     @Suppress("UNUSED_PARAMETER") fun columns(shown: Int): Int = 3
 
     /** An icon's edge as a fraction of the tile: the grid leaves a margin and a gap around the icons. */
-    @Suppress("UNUSED_PARAMETER") fun iconFraction(columns: Int): Float = .25f
+    @Suppress("UNUSED_PARAMETER") fun iconFraction(columns: Int): Float = ICON
+
+    /** iOS's folder tile: a margin of 11 % of the tile all round and 3.5 % between icons, which leaves each of the nine at 23.7 %. */
+    const val MARGIN = .11f
+    const val GAP = .035f
+    const val ICON = (1f - 2f * MARGIN - 2f * GAP) / 3f
 
     /** The badge for a whole folder: every unread count inside it, never negative. */
     fun unread(counts: List<Int>): Int = counts.sumOf { it.coerceAtLeast(0) }

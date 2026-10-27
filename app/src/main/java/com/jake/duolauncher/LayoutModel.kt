@@ -158,8 +158,12 @@ fun homeGeometry(width: Float, height: Float, preset: LayoutPreset, labels: Bool
     // row plus an icon), whichever is more. Row Spacing adds to it above its default of 8 dp.
     val labelRoom = if (labels) maxOf(20f, labelHeight) else 20f
     val row = maxOf(box + labelRoom, 2f * cellWidth - gapX - box) + (p.rowGap - 8f).coerceAtLeast(0f)
-    val gapY = row - box
-    val widget = row + box
+    // A 2 x 2 widget is square (the width of two columns less the gap), and it starts at the top of its first icons. On a wide grid it also ends at the bottom
+    // of its last icons (row + box is then the width); on a narrow one the names under the icons make the row taller than that, and the widget stops short of
+    // the last icons' bottom rather than become a tall rectangle (it ran 24 dp taller than wide on a 411 dp phone with names on, which also shrank the large
+    // folder's face to fewer apps).
+    val widget = 2f * cellWidth - gapX
+    val gapY = 2f * row - widget
     // Below the widget band are the app rows: the grid's rows less the band's two.
     val appRows = GRID_ROWS - 2
     // The grid starts a short way under the status bar, as iOS's does (about 30 dp), and what is left over goes below it. It used to be centred in

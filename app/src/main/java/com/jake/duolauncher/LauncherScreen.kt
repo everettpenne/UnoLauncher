@@ -124,6 +124,9 @@ internal fun LauncherScreen(
     onAppearanceDeviceLocation: () -> Unit = {},
     onAppearanceCancelLocation: () -> Unit = {},
     onAppearanceClear: () -> Unit = {},
+    accessLost: Boolean = false,
+    onAccessLostDone: () -> Unit = {},
+    onFixAccess: () -> Unit = {},
     showFirstRun: Boolean = false,
     showWhatsNew: Boolean = false,
     onWhatsNewDone: () -> Unit = {},
@@ -1710,6 +1713,11 @@ internal fun LauncherScreen(
                 }
             }
         }
+        // Notification access was on and is now off (an update can drop it): say so, with the way back, instead of the island going quiet.
+        if (accessLost && !showFirstRun) GlassDialog(onDismissRequest = onAccessLostDone, title = stringResource(R.string.access_lost_title), actions = {
+            GlassButton(stringResource(R.string.access_lost_later), onAccessLostDone, Modifier.testTag("access-lost-later"))
+            GlassButton(stringResource(R.string.access_lost_fix), onFixAccess, prominent = true, modifier = Modifier.testTag("access-lost-fix"))
+        }) { Text(stringResource(R.string.access_lost_message)) }
         holdMenu?.let { hold ->
             val red = Color(0xFFFF453A)
             val close = { holdMenu = null }

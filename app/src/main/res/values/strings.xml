@@ -399,10 +399,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Folders open out of their tile: the panel starts the tile\'s size and grows from it, and the tile steps aside, as on iOS.</string>
-    <string name="whats_new_2">An open folder is square at every size, three rows of three.</string>
-    <string name="whats_new_3">Loading, empty and error states look the same everywhere.</string>
-    <string name="whats_new_4">Squarer, more iOS corners on icons, folders and widgets.</string>
+    <string name="whats_new_1">If an update switches off notification access, Uno now says so and links straight to the setting, instead of the island going quiet.</string>
+    <string name="whats_new_2">On the side-dock layout 2 x 2 widgets are square again on the app rows (a change in 0.112 made them taller than wide).</string>
+    <string name="whats_new_3">Folders open out of their tile and are square, and loading, empty and error states look the same everywhere.</string>
+    <string name="whats_new_4">Squarer corners, iOS 26 folders, dark icons that keep their colour.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>
@@ -486,4 +486,8 @@
     <string name="widget_count_many">%d widgets</string>
     <string name="library_none_title">No apps found</string>
     <string name="library_none_message">Try a different name, or clear the search.</string>
+    <string name="access_lost_title">Notification access is off</string>
+    <string name="access_lost_message">An update can switch it off. Without it the island cannot show a track\'s title and artwork, a call or a Live Update. Turn it back on in Android\'s settings; nothing is read until you do.</string>
+    <string name="access_lost_fix">Open Settings</string>
+    <string name="access_lost_later">Not now</string>
 </resources>

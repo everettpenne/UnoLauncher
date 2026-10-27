@@ -67,6 +67,8 @@ class MainActivity : ComponentActivity() {
     internal val island get() = IslandRuntime.state
     internal val extrasStore by lazy { ExtrasStore(applicationContext) }
     private val notificationAccess = mutableStateOf(false)
+    /** True when notification access was on and is now off: an update (or a restricted-settings reset) takes it away silently, and the island then loses titles and artwork without a word. */
+    private val accessLost = mutableStateOf(false)
     private val contactsPermission = activityResultRegistry.register("duo.extras.contacts", this,
         ActivityResultContracts.RequestPermission()) { granted -> if (!granted) extrasStore.setContactSearch(false) }
     private val bluetoothPermission = activityResultRegistry.register("duo.extras.bluetooth", this,
@@ -220,6 +222,9 @@ class MainActivity : ComponentActivity() {
                     onAppearanceDeviceLocation = ::useAppearanceLocation,
                     onAppearanceCancelLocation = ::cancelAppearanceLocation,
                     onAppearanceClear = { cancelAppearanceLocation(); appearance.clearLocation(systemDark()) },
+                    accessLost = accessLost.value,
+                    onAccessLostDone = { accessLost.value = false; NotificationAccessWatch.acknowledge(getSharedPreferences("access_watch", MODE_PRIVATE)) },
+                    onFixAccess = { accessLost.value = false; startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
                     showFirstRun = showFirstRun.value,
                     showWhatsNew = showWhatsNew.value,
                     onWhatsNewDone = { showWhatsNew.value = false; WhatsNew.markSeen(this, UpdateSecurity.appVersion) },
@@ -315,6 +320,7 @@ class MainActivity : ComponentActivity() {
             it.postOnAnimation { if (DiscoverSession.host.get() === discover) DiscoverSession.dismiss() }
         }
         notificationAccess.value = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
+        accessLost.value = NotificationAccessWatch.lost(getSharedPreferences("access_watch", MODE_PRIVATE), notificationAccess.value)
         model.refresh(); appearance.refresh(systemDark()); updateDefaultHome(); feeds.refreshIfStale(); updates.checkIfStale(); syncIslandOverlay()
         window.decorView.post {
             if (!isFinishing && !isDestroyed && !LiveDiscover.viewport.isEmpty)

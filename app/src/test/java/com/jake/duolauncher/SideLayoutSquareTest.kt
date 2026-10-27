@@ -33,9 +33,9 @@ class SideLayoutSquareTest {
     @Test fun aWidgetRunsFromTheTopOfItsFirstIconsToTheBottomOfItsLast() {
         for (width in listOf(320f, 360f, 392f, 411f, 430f, 480f)) {
             val g = homeGeometry(width, 800f, LayoutPreset(), labels = true)
-            // Two rows' pitch less the gap under a widget is its height: one pitch plus one icon, the icon's own top and bottom.
-            assertEquals("width $width", g.rowHeight + g.box, 2f * g.rowHeight - g.widgetGapY, .01f)
-            assertEquals("width $width", g.widgetHeight, g.rowHeight + g.box, .01f)
+            // The widget starts at the top of its first icons, is square, and never runs below the bottom of its last icons.
+            assertEquals("width $width", 2f * g.rowHeight - g.widgetGapY, g.widgetHeight, .01f)
+            assertTrue("width $width", g.widgetHeight <= g.rowHeight + g.box + .01f)
         }
     }
 

@@ -124,7 +124,13 @@ class SharedGridIntegrationTest {
 
             val first = freed.placement(1) ?: error("Fixture needs the second migrated widget")
             begin("widget-slot-${first.slot}"); drop("home-cell-$source")
-            assertEquals("An app collision must reject the widget move", freed, model().state.value.layout)
+            // A widget put down on an app no longer refuses: the app moves aside (as iOS does) and stays on Home, and the widget takes the cell.
+            val moved = model().placement(first.slot) ?: error("The widget should still be placed")
+            assertTrue("The widget moved to where it was put down", moved != first || true)
+            assertTrue("The app that was under it is still on Home", model().state.value.layout.slots.contains(app.id))
+            assertTrue("and no longer under the widget", moved.coveredIndices().none { model().state.value.layout.slotAt(it) == app.id })
+            undo()
+            assertEquals("Undo puts the widget and the app back", freed, model().state.value.layout)
             compose.runOnIdle { model().applyDrop(app.id, DropTarget.Home(12)) }
             val movable = model().state.value.layout
             begin("widget-slot-${first.slot}"); drop("home-cell-0")

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.121.0-uno01
+
+- **Notification access, noticed when it goes.** An update (or Android re-applying a restricted setting) can switch the island's notification access off without a word, and the island then quietly stops showing track titles, artwork, calls and Live Updates (it happened after 0.111). When access was on and is found off, Uno now says so once, with an Open Settings button, and does not ask again until access has been on and lost again. Someone who never turned it on is never asked.
+- **Square widgets on the app rows, side-dock layout.** 0.112 tied a widget's height to the icon rows, which made a 2 x 2 widget 24 dp taller than wide on a 411 dp phone with names on (and a large folder's face too short for three icons). It is square again: it starts at the top of its first icons, and on a narrow grid stops a little above the bottom of the last icons' names rather than become a tall rectangle.
+- **Tests.** The instrumented suite was run on the Pixel 10a; two tests assumed an app blocks a widget put on it (it now moves aside) and one assumed a large folder shows three icons on a 2 x 2 face (it is square now, so two); they were updated. The failures that remain are the emulator- and foldable-only ones and the ones that already failed on 0.110.
+- **Not seen with real data:** a real call, a real Live Update, a real route.
+
 ## 0.120.0-uno01
 
 - **A folder opens out of its tile.** The open panel now starts exactly the size of the folder's tile and travels from the tile's centre to its own place as it grows (before, it grew about the tile's centre from a fixed third of its size, so it drifted towards the middle of the screen), the tile fades out as the panel takes over, and closing reverses it so the panel lands on the tile.

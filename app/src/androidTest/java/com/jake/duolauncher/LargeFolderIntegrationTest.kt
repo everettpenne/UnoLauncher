@@ -28,9 +28,11 @@ class LargeFolderIntegrationTest {
             compose.waitForIdle()
             val arranged = model().state.value.layout
             val slot = (arranged.widgetPlacements.maxOfOrNull { it.slot } ?: -1) + 1
-            val apps = model().state.value.apps.take(3)
-            assertEquals("Needs three apps", 3, apps.size)
-            val index = (0 until HOME_CELLS).firstOrNull { widgetCandidate(arranged, slot, it, 2, 2) != null }
+            // A 2 x 2 widget is square now (it used to be taller than wide on the app rows), and a square face of that size shows two icons across and one down.
+            val apps = model().state.value.apps.take(2)
+            assertEquals("Needs two apps", 2, apps.size)
+            // A spot with nothing on it: a widget put down on apps now moves them aside, so "free" is no longer the same as "a candidate exists".
+            val index = (0 until HOME_CELLS).firstOrNull { cell -> widgetCandidate(arranged, slot, cell, 2, 2)?.coveredIndices()?.all { arranged.slotAt(it) == null } == true }
             assertNotNull("Needs a free 2 x 2 spot on the first page", index)
             val placement = widgetCandidate(arranged, slot, index!!, 2, 2)!!.copy(id = FOLDER_WIDGET)
             compose.runOnIdle {

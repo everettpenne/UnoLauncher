@@ -729,14 +729,31 @@ private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGIN
         // and on the Dark style it sits on a near-black tile, lifted if it was drawn dark for a light one.
         val foreground = drawable.foreground?.let { fg -> Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888).also { fg.draw(Canvas(it)) } }
         val stats = foreground?.let { IconArt.stats(it) }
+        // The Dark style keeps the app's colour: a neutral glyph (white, or black) sits on the dark tile in the colour its own background had, lifted to
+        // a vivid version, so the icons still pop; an already coloured glyph is left as it is.
+        val fgHue = if (style == IconStyle.DARK && foreground != null) IconArt.hue(IntArray(144 * 144).also { foreground.getPixels(it, 0, 144, 0, 0, 144, 144) }) else null
+        val darkTint = if (style == IconStyle.DARK && foreground != null && fgHue != null) {
+            val bg = drawable.background?.let { b -> Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888).also { b.setBounds(0, 0, 144, 144); b.draw(Canvas(it)) } }
+            val bgHue = bg?.let { IconArt.hue(IntArray(144 * 144).also { px -> it.getPixels(px, 0, 144, 0, 0, 144, 144) }) }
+            if (fgHue.saturation < IconArt.NEUTRAL && bgHue?.colour != null && bgHue.saturation >= IconArt.NEUTRAL) IconArt.lifted(bgHue.colour) else null
+        } else null
         if (style == IconStyle.DARK) drawDarkTile(canvas) else drawable.background?.draw(canvas)
         canvas.save()
         val grow = IconArt.fillScale(stats?.extent ?: 1f)
         canvas.scale(grow, grow, 72f, 72f)
         val monochrome = if (android.os.Build.VERSION.SDK_INT >= 33) drawable.monochrome else null
-        if (style == IconStyle.DARK && (stats?.luminance ?: 1f) < IconArt.DARK_ART && monochrome != null)
+        // Dark art is lifted only when it is neutral: dark but coloured art (a red button) keeps its colour.
+        val darkArt = (stats?.luminance ?: 1f) < IconArt.DARK_ART && (fgHue?.saturation ?: 0f) < IconArt.NEUTRAL
+        if (darkTint != null && foreground != null) {
+            // Light glyphs are multiplied by the colour (white becomes it, shading stays shading); dark glyphs are filled with it.
+            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG)
+            paint.colorFilter = if (darkArt) android.graphics.PorterDuffColorFilter(darkTint, android.graphics.PorterDuff.Mode.SRC_IN)
+                else android.graphics.LightingColorFilter(darkTint, 0)
+            canvas.drawBitmap(foreground, 0f, 0f, paint)
+        }
+        else if (style == IconStyle.DARK && darkArt && monochrome != null)
             monochrome.mutate().apply { setBounds(0, 0, 144, 144); setTint(0xFFE5E5EA.toInt()) }.draw(canvas)
-        else if (foreground != null) canvas.drawBitmap(foreground, 0f, 0f, if (style == IconStyle.DARK && (stats?.luminance ?: 1f) < IconArt.DARK_ART)
+        else if (foreground != null) canvas.drawBitmap(foreground, 0f, 0f, if (style == IconStyle.DARK && darkArt)
             android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { colorFilter = android.graphics.LightingColorFilter(0x888888, 0x777777) }
             else android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
         canvas.restore()
@@ -864,6 +881,35 @@ internal object IconArt {
     const val LEGACY_INSET = .8f
 
     class Stats(val extent: Float, val luminance: Float)
+
+    /** Below this mean saturation (of opaque pixels) artwork reads as neutral (white, grey or black), and the Dark style gives it the app's colour. */
+    const val NEUTRAL = .25f
+
+    /** What an icon layer's colour is: its mean saturation (0 for grey), and the vivid colour of its more saturated pixels (null when it has none). Over raw ARGB so it is unit-tested. */
+    class Hue(val saturation: Float, val colour: Int?)
+
+    fun hue(pixels: IntArray): Hue {
+        var sat = 0.0; var n = 0; var wr = 0.0; var wg = 0.0; var wb = 0.0; var weight = 0.0
+        for (c in pixels) {
+            if ((c ushr 24) < 200) continue
+            val r = (c shr 16) and 255; val g = (c shr 8) and 255; val b = c and 255
+            val hi = maxOf(r, g, b) / 255.0; val lo = minOf(r, g, b) / 255.0
+            val sv = if (hi == 0.0) 0.0 else (hi - lo) / hi
+            sat += sv; n++
+            val w = sv * sv * hi
+            wr += r * w; wg += g * w; wb += b * w; weight += w
+        }
+        if (n == 0) return Hue(0f, null)
+        val colour = if (weight < 1e-6) null else (0xFF shl 24) or ((wr / weight).toInt() shl 16) or ((wg / weight).toInt() shl 8) or (wb / weight).toInt()
+        return Hue((sat / n).toFloat(), colour)
+    }
+
+    /** [colour] pushed to a vivid, bright version of itself for a glyph on a dark tile: same hue, saturation at least .6, brightness full. */
+    fun lifted(colour: Int): Int {
+        val hsv = FloatArray(3); android.graphics.Color.colorToHSV(colour, hsv)
+        hsv[1] = hsv[1].coerceAtLeast(.6f); hsv[2] = 1f
+        return android.graphics.Color.HSVToColor(hsv)
+    }
 
     /** The share of the tile the artwork's opaque pixels span (its larger side), and their mean luminance. */
     fun stats(bitmap: Bitmap): Stats {

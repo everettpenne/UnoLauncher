@@ -3,6 +3,8 @@ package com.jake.duolauncher
 import com.jake.duolauncher.appearance.UnoMotion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -87,5 +89,20 @@ class SettingsReorganizationTest {
         CustomizationPage.entries.forEach { org.junit.Assert.assertTrue(SettingsSearch.pageName(it).isNotBlank()) }
         org.junit.Assert.assertEquals(CustomizationPage.ISLAND, CustomizationPage.ISLAND_STYLE.parent())
         org.junit.Assert.assertEquals(CustomizationPage.OVERVIEW, CustomizationPage.KEYBOARD.parent())
+    }
+}
+
+class IconHueTest {
+    private fun px(vararg c: Int) = IntArray(c.size) { c[it] }
+    @org.junit.Test fun whiteAndBlackAreNeutralAndABlueTileIsNot() {
+        assertTrue(IconArt.hue(px(0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt())).saturation < IconArt.NEUTRAL)
+        assertNull(IconArt.hue(px(0xFF000000.toInt())).colour)
+        val blue = IconArt.hue(px(0xFF2A6CE0.toInt(), 0xFF2A6CE0.toInt()))
+        assertTrue(blue.saturation >= IconArt.NEUTRAL)
+        assertNotNull(blue.colour)
+    }
+    @org.junit.Test fun transparentPixelsDoNotCount() {
+        val h = IconArt.hue(px(0x00FF0000, 0xFFFFFFFF.toInt()))
+        assertTrue(h.saturation < IconArt.NEUTRAL)
     }
 }

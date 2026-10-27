@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.116.0-uno01
+
+- **Dark icons keep their colour.** On the Dark (and Auto, in dark) icon style an icon whose glyph is white or black, on a coloured background (Camera, Files, Settings, Maps' pin, most apps), now puts its glyph in the colour its own background had, lifted to a vivid version, on the near-black tile: a blue camera, a blue folder, a blue gear, instead of a white or grey glyph. Glyphs that are already coloured are left as they are, and dark but coloured ones are no longer greyed (a red YouTube button was washed to grey).
+- **Not seen on a phone:** the look was checked on an emulator's launcher with its stock apps only.
+
 ## 0.115.0-uno01
 
 - **Widgets have iOS 26's shape.** A 26 dp continuous (squircle) corner, the radius iOS gives a widget and a grouped card, drawn with the same construction as app icons, on the card widgets, their placeholders and the gallery previews. Glass-style widgets keep a circular arc of the same radius, because the glass lens throws on any other outline.

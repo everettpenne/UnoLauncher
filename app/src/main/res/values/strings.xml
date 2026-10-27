@@ -399,8 +399,8 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Widgets have iOS 26\'s shape: a 26 dp continuous corner.</string>
-    <string name="whats_new_2">Widgets scale with the icons: Icon Size grows or shrinks them with the apps beside them.</string>
+    <string name="whats_new_1">Dark icons keep their colour: a white or black glyph takes the colour its app\'s icon had, on the dark tile.</string>
+    <string name="whats_new_2">Widgets have iOS 26\'s shape and scale with the icons.</string>
     <string name="whats_new_3">The open island\'s corners are 44 dp, as iOS\'s expanded island is.</string>
     <string name="whats_new_4">Icon Size goes up to 125 percent, and an app that changes its icon keeps its place on Home.</string>
     <!-- Island theme sharing as text -->

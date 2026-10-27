@@ -72,7 +72,7 @@ class IslandPixel10aTest {
     }
 
     @Test fun theCornerIsRoundEnoughForAPanelAndFullyRoundForThePill() {
-        assertEquals(34f, IslandGeometry.CORNER_CAP_DP, 0f)
+        assertEquals(44f, IslandGeometry.CORNER_CAP_DP, 0f)
         val pill = IslandGeometry.frame(env(), d, 0f, 0f)
         assertTrue("a pill is a capsule: half its height (${pill.height / 2f / d} dp) is under the cap", pill.height / 2f / d < IslandGeometry.CORNER_CAP_DP)
         val open = IslandGeometry.frame(env(), d, 1f, .5f)

@@ -49,3 +49,18 @@ class SideLayoutSquareTest {
         assertEquals((small.box - small.iconSize) / 2f, small.iconInset, .01f)
     }
 }
+
+class IconSizeRangeTest {
+    @org.junit.Test fun theIconSizeCanGoToAQuarterAboveTheDefaultAndNoFurther() {
+        assertEquals(66f * 1.25f, ICON_SIZE_MAX, .01f)
+        val big = homeGeometry(411f, 900f, LayoutPreset(iconSize = ICON_SIZE_MAX), labels = true)
+        val normal = homeGeometry(411f, 900f, LayoutPreset(), labels = true)
+        assertTrue(big.iconSize > normal.iconSize)
+        assertTrue(big.iconSize <= normal.box * 1.25f + .01f)
+        assertEquals(normal.rowHeight, big.rowHeight, 0f)
+        assertTrue("a larger icon grows out of its box evenly", big.iconInset < 0f)
+        val ios = iosHomeGeometry(393f, 852f, true, iconScale = 1.25f)
+        assertEquals(ios.box * 1.25f, ios.iconSize, .01f)
+        assertEquals(ios.box * 1.25f, iosHomeGeometry(393f, 852f, true, iconScale = 9f).iconSize, .01f)
+    }
+}

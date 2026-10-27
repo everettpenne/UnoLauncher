@@ -100,7 +100,7 @@ class LayoutModelTest {
     }
     @Test fun `out of range preferences are constrained before layout`() {
         val p = LayoutPreset(999f, -40f, 2f, 12f).sanitized()
-        assertEquals(68f, p.iconSize); assertEquals(0f, p.rowGap)
+        assertEquals(ICON_SIZE_MAX, p.iconSize); assertEquals(0f, p.rowGap)
         assertEquals(56f, p.dockWidth); assertEquals(.75f, p.dockPosition)
     }
     @Test fun `new installs and refresh do not pin apps and empty home stays empty`() {

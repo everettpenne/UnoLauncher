@@ -127,8 +127,8 @@ internal object IslandGeometry {
      * just past the panel's rounded top corners. */
     private const val EXPANDED_SHARE = .965f
     private const val MAX_EXPANDED_DP = 400f
-    /** The corner radius an open panel is capped at, in dp: round enough to echo the phone's own corners and the hole, without a pill's full round. */
-    const val CORNER_CAP_DP = 34f
+    /** The corner radius an open panel is capped at, in dp: iOS's expanded island is 44 pt, concentric with the display's 55 pt corners inside an 11 pt margin (it was 34 dp, which read tighter than the phone's own corners once the panel was widened). */
+    const val CORNER_CAP_DP = 44f
 
     /** How wide the open panel may be on a screen [screenDp] wide: 92 % of it, never narrower than it was and never wider than [MAX_EXPANDED_DP]. */
     fun expandedWidthDp(screenDp: Float): Float = (EXPANDED_SHARE * screenDp).coerceIn(EXPANDED_WIDTH_DP, MAX_EXPANDED_DP)

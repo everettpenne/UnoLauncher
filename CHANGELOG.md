@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.114.0-uno01
+
+- **The open island's corners are 44 dp** (they were 34), as iOS's expanded island is (concentric with the display's corners inside its margin); after the panel was widened the old radius read tighter than the phone's own corners. It applies to every open card and to Search, which share the island's shape.
+- **Icon Size goes up to 125%** of the default (it stopped at 103%), as well as down to 60%, on both layouts. A larger icon grows out of its box evenly, so the grid, the widgets and the names do not move.
+- **An app that changes its launcher icon keeps its place.** Seekur's Settings > App Icon switches which activity-alias is enabled, so its launcher entry changed id and Uno dropped it from Home (and from its folder), and it had to be placed again. When a placed app disappears and its package has exactly one new launcher entry that nothing else uses, that entry now takes its place on Home, in the dock, in its folder.
+- **Not tried on a phone:** the icon size at 125% and the alias hand-over were checked by unit tests and on an emulator (the icon-switch hand-over not at all, because the emulator has no icon-switching app).
+
 ## 0.113.0-uno01
 
 - **A new app icon.** The island over a grid of four app tiles, on a teal gradient with a soft light from the upper left and a shadow under the glyph, drawn to the iOS 26 look. It is now an adaptive icon (the old one was a flat square that Android could not mask), with a themed one-colour version for Android's themed icons. The suite's other apps (Thumper 1.0.2, Spice 0.9.1, Baliset 0.5.1, Sietch 0.5.1, Seekur 0.9.0) got new icons in the same style.

@@ -419,7 +419,7 @@ internal fun SharedHomeGrid(
                 .graphicsLayer { val scale = 1f + .10f * folderGrow; scaleX = scale; scaleY = scale }
                 .background(Color.White.copy(alpha = .20f * folderGrow), Corner.medium),
                 contentAlignment = Alignment.TopCenter) {
-                if (showFree) Box(Modifier.padding(top = (2f + iconInset).dp).size(iconSize.dp).background(Color.White.copy(alpha = if (highlighted) .28f else .09f), Corner.icon)
+                if (showFree) Box(Modifier.offset(y = (2f + iconInset).dp).size(iconSize.dp).background(Color.White.copy(alpha = if (highlighted) .28f else .09f), Corner.icon)
                     .testTag("home-free-$globalIndex"))
             }
         }
@@ -448,7 +448,7 @@ internal fun SharedHomeGrid(
                     if (visible) {
                         // Editing: the icon wiggles (but not the one being dragged), a tap does not open it, and its badge removes it.
                         val still = !editing || (drag.active && draggedId == id)
-                        Box(Modifier.padding(top = iconInset.dp).homeWiggle(!still, id.hashCode())) {
+                        Box(Modifier.offset(y = iconInset.dp).homeWiggle(!still, id.hashCode())) {
                             AppTile(app, iconSize, labels,
                                 onClick = { if (!editing) onLaunch(app, it) }, onLongClick = { onActions(app) })
                         }
@@ -467,7 +467,7 @@ internal fun SharedHomeGrid(
             val x = cellWidth * (localIndex % GRID_COLUMNS)
             val y = rowTop(row).dp
             FolderTile(folder, appsById, iconSize, labels, drag, page,
-                Modifier.offset(x = x, y = y).width(cellWidth).height(rowHeight.dp).padding(top = iconInset.dp)
+                Modifier.offset(x = x, y = y + iconInset.dp).width(cellWidth).height(rowHeight.dp)
                     .testTag("home-folder-${folder.id}"), onClick = { onFolder(folder.id) })
         }
         pageWidgets.forEach { placement ->

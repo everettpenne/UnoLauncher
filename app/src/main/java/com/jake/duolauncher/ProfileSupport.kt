@@ -84,3 +84,29 @@ internal object NotificationProfiles {
         else -> "Work"
     }
 }
+
+/**
+ * An app that changes its launcher icon switches which activity-alias is enabled, so its launcher entry (and therefore its id here) changes while
+ * the app is the same. Without this the old id is "removed" and the app drops off Home and out of its folder, and has to be placed again.
+ * For each saved id that is no longer available, when its package has exactly one launcher entry that nothing saved refers to, that entry is the
+ * successor. [candidates] are the live entries as (id, package, user serial). Pure, so it is unit-tested.
+ */
+fun launcherAliasSuccessors(
+    savedIds: Collection<String>,
+    availableIds: Set<String>,
+    candidates: List<Triple<String, String, Long>>,
+    personalSerial: Long,
+): Map<String, String> {
+    val saved = savedIds.toSet()
+    val moves = LinkedHashMap<String, String>()
+    val claimed = mutableSetOf<String>()
+    for (id in saved) {
+        if (id in availableIds || isReservedFolderId(id)) continue
+        val identity = parseProfileAppId(id) ?: continue
+        val serial = identity.userSerial ?: personalSerial
+        val packageName = identity.component.substringBefore('/').takeIf(String::isNotBlank) ?: continue
+        val options = candidates.filter { (candidate, pkg, user) -> pkg == packageName && user == serial && candidate !in saved && candidate !in claimed }
+        if (options.size == 1) { moves[id] = options[0].first; claimed += options[0].first }
+    }
+    return moves
+}

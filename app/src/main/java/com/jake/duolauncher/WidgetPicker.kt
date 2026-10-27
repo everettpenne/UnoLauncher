@@ -383,7 +383,7 @@ internal fun VisualWidgetPicker(
                                 val boundedHeight = boundedWidth / ratio
                                 val previewTag = "widget-preview-${entry.provider.provider.flattenToString()}${if (entry.isWork) "-profile-${entry.userSerial}" else ""}"
                                 Box(Modifier.width(boundedWidth).height(boundedHeight)) {
-                                    Box(Modifier.fillMaxSize().clip(Corner.large).testTag(previewTag)) {
+                                    Box(Modifier.fillMaxSize().clip(Corner.widget).testTag(previewTag)) {
                                         WidgetProviderPreview(entry, span ?: WidgetSpan(2, 2), Modifier.fillMaxSize())
                                     }
                                     if (span != null) Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) { PlusBadge() }
@@ -419,7 +419,7 @@ private fun PreviewTile(label: String, detail: String, ratio: Float, tag: String
                 Box(Modifier.fillMaxSize()) { preview() }
             }
             // The tap catcher sits above the face, so the face itself never sees the touch.
-            Box(Modifier.matchParentSize().clip(Corner.large).clickable(onClick = onPick)
+            Box(Modifier.matchParentSize().clip(Corner.widget).clickable(onClick = onPick)
                 .semantics { contentDescription = "Place $label" }.testTag(tag))
             Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) { PlusBadge() }
         }
@@ -498,7 +498,7 @@ private fun WidgetAppDetail(group: List<WidgetCatalogEntry>, footprint: (AppWidg
                     val w = minOf(maxWidth, 300.dp * ratio, maxHeight * ratio)
                     // Held and dragged, the preview goes onto Home as in the flat list: the gallery hides, and the drop is made where the finger lifts.
                     var origin by remember { mutableStateOf(Offset.Zero) }
-                    Box(Modifier.width(w).height(w / ratio).clip(Corner.large).testTag("widget-detail-preview-$page")
+                    Box(Modifier.width(w).height(w / ratio).clip(Corner.widget).testTag("widget-detail-preview-$page")
                         .onGloballyPositioned { origin = it.boundsInRoot().topLeft }
                         .pointerInput(entry.provider) {
                             detectDragGesturesAfterLongPress(

@@ -90,10 +90,10 @@ private fun WidgetSlotBody(id: Int, slot: Int, controller: WidgetController, mod
     SideEffect { if (members.isEmpty()) StackBodyRegistry.bounds.remove(bodyKey) }
     // Glass sits behind the provider's RemoteViews; it shows through transparent widgets
     // and is covered by widgets that paint their own opaque background.
-    BoxWithConstraints(modifier.then(if (style == WidgetStyle.CARD) Modifier.widgetCard(Corner.large)
-        else if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.large,
+    BoxWithConstraints(modifier.then(if (style == WidgetStyle.CARD) Modifier.widgetCard(Corner.widget)
+        else if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.widgetRound,
             glass.tint, kind = GlassKind.CLEAR, settings = glass.settings) else Modifier)
-        .clip(Corner.large)
+        .clip(if (style == WidgetStyle.CARD) Corner.widget else Corner.widgetRound)
         .onGloballyPositioned {
             windowTopLeft = it.boundsInWindow().topLeft
             if (members.isNotEmpty()) StackBodyRegistry.bounds[bodyKey] = it.boundsInRoot()
@@ -119,7 +119,7 @@ private fun WidgetSlotBody(id: Int, slot: Int, controller: WidgetController, mod
         if (id == NEEDS_BINDING_WIDGET) {
             val restore = controller.restoreDescriptor(slot)
             Surface(Modifier.fillMaxSize().testTag("widget-restore-$slot"), color = Glass.copy(alpha = .88f),
-                shape = Corner.large, border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = .7f))) {
+                shape = Corner.widget, border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = .7f))) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(restore?.title ?: "Saved widget", color = Ink, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)

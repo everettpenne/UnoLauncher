@@ -42,15 +42,15 @@ internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.
     CompositionLocalProvider(LocalGlassInk provides ink.glassInk) {
         if (cardStyle) {
             // A card: the widget's slot paints it (a preview, outside a slot, paints its own), with no glass to redo while the page moves.
-            Column(modifier.fillMaxSize().then(if (slotPaints) Modifier else Modifier.widgetCard(Corner.large)).clip(Corner.large)
+            Column(modifier.fillMaxSize().then(if (slotPaints) Modifier else Modifier.widgetCard(Corner.widget)).clip(Corner.widget)
                 .then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)).padding(padding),
                 verticalArrangement = Arrangement.SpaceBetween, content = content)
         } else if (glass != null) {
-            Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.large, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings).clip(Corner.large).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick))
+            Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.widgetRound, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings).clip(Corner.widgetRound).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick))
                 .padding(padding), verticalArrangement = Arrangement.SpaceBetween, content = content)
         } else {
-            Surface(modifier.fillMaxSize().then(ink.track).clip(Corner.large).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)),
-                color = Glass.copy(alpha = .24f), shape = Corner.large, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .18f))) {
+            Surface(modifier.fillMaxSize().then(ink.track).clip(Corner.widgetRound).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)),
+                color = Glass.copy(alpha = .24f), shape = Corner.widgetRound, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .18f))) {
                 Column(Modifier.padding(padding), verticalArrangement = Arrangement.SpaceBetween, content = content)
             }
         }

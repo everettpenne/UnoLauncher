@@ -136,6 +136,11 @@ internal object Corner {
     val medium: Shape = RoundedCornerShape(16.dp)
     /** Widgets, folders, and drop targets. */
     val large: Shape = RoundedCornerShape(24.dp)
+    /** Widgets, as iOS 26 draws them: a 26 dp continuous (squircle) corner, the grouped card's radius, which a widget shares on iOS. The lens that
+     *  Glass-style widgets use accepts only circular arcs, so those use [widgetRound], the same radius. */
+    val widget: Shape = SquircleShape(radius = WIDGET_DP.dp)
+    val widgetRound: Shape = RoundedCornerShape(WIDGET_DP.dp)
+    const val WIDGET_DP = 26f
     /** Containers: the dock, the status rail and panels. */
     val xlarge: Shape = RoundedCornerShape(32.dp)
     /** Sheets (settings, the widget picker): [SHEET_DP], so the grouped cards 16 dp inside them come out at iOS 26's and the Glass kit's

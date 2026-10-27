@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.115.0-uno01
+
+- **Widgets have iOS 26's shape.** A 26 dp continuous (squircle) corner, the radius iOS gives a widget and a grouped card, drawn with the same construction as app icons, on the card widgets, their placeholders and the gallery previews. Glass-style widgets keep a circular arc of the same radius, because the glass lens throws on any other outline.
+- **Widgets scale with the icons.** Icon Size now grows or shrinks a widget about its own centre by the same amount it grows or shrinks the icons beside it, so its top and bottom still meet the icons' and a square widget stays square (at 125 percent a small widget is about 15 dp larger each way, at 60 percent about 24 dp smaller).
+- **Not seen on a phone:** the corner on an emulator only (card widgets); the scaling by unit tests of the icon geometry and not on screen.
+
 ## 0.114.1-uno01
 
 - **The open island's corners are 44 dp** (they were 34), as iOS's expanded island is (concentric with the display's corners inside its margin); after the panel was widened the old radius read tighter than the phone's own corners. It applies to every open card and to Search, which share the island's shape.

@@ -472,15 +472,18 @@ internal fun SharedHomeGrid(
         }
         pageWidgets.forEach { placement ->
             key("widget-${placement.slot}") {
-                val x = cellWidth * placement.column + (geometry.widgetGapX / 2f).dp
-                val width = (cellWidth * placement.spanX - geometry.widgetGapX.dp).coerceAtLeast(1.dp)
-                val y = rowTop(placement.row)
-                val height = (rowTop(placement.row + placement.spanY) - y - gapY).coerceAtLeast(48f)
+                // A widget scales with the icons beside it (Icon Size): it grows or shrinks about its own centre by the same amount an icon grows out of
+                // its box, so its top and bottom still meet the icons' and a square widget stays square.
+                val grow = -iconInset
+                val x = cellWidth * placement.column + (geometry.widgetGapX / 2f - grow).dp
+                val width = (cellWidth * placement.spanX - (geometry.widgetGapX - 2f * grow).dp).coerceAtLeast(1.dp)
+                val y = rowTop(placement.row) - grow
+                val height = (rowTop(placement.row + placement.spanY) - rowTop(placement.row) - gapY + 2f * grow).coerceAtLeast(48f)
                 if (placement == pending) Surface(Modifier.offset(x = x, y = y.dp).width(width).height(height.dp)
                     .testTag("widget-pending-${placement.slot}").semantics(mergeDescendants = true) {
                         contentDescription = "Pending ${widgets.pendingProvider?.shortClassName ?: "widget"}"
                     }, color = Glass.copy(alpha = .72f),
-                    shape = Corner.large, border = androidx.compose.foundation.BorderStroke(2.dp, Color.White)) {
+                    shape = Corner.widget, border = androidx.compose.foundation.BorderStroke(2.dp, Color.White)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)

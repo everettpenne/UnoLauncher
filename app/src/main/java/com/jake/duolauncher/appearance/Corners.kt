@@ -45,14 +45,20 @@ internal class AndroidPathSink(private val path: android.graphics.Path) : PathSi
     override fun close() = path.close()
 }
 
-/** A rounded rectangle with "continuous" corners: the curve eases into the straight edge over
- * a longer run than a circular arc does, which is what gives iOS shapes their softer look.
- * The construction follows the published Figma corner-smoothing geometry (a circular arc
- * flanked by two cubic easing curves), at the 60% smoothing Apple's shapes match.
+/** A rounded rectangle whose corners are a superellipse (|x|^n + |y|^n = 1, n = 5), the curve iOS's app icons follow: much squarer than a circular arc,
+ * with the curvature rising and falling smoothly instead of switching on at the end of a straight edge. With the radius an icon uses (22.37 percent of its
+ * side) the corner takes in half of each side, so an icon is the whole superellipse; a widget's 26 dp radius takes in about 58 dp of each edge. It used to be
+ * the Figma corner-smoothing construction at 60 percent, which reads rounder than iOS's.
  */
 internal object Squircle {
-    const val SMOOTHING = 0.6f
+    /** The superellipse's exponent. 2 is a circle, 4 the classic squircle; iOS's icons are close to 5. */
+    const val EXPONENT = 5f
+    /** How much of a side the corner takes, in radii: 2.235 radii is half of an icon's side at 22.37 percent. */
+    const val REACH = 2.235f
+    private const val STEPS = 28
+    @Suppress("unused") const val SMOOTHING = 0.6f
 
+    @Suppress("UNUSED_PARAMETER")
     fun build(width: Float, height: Float, radius: Float, sink: PathSink, smoothing: Float = SMOOTHING) {
         val half = min(width, height) / 2f
         val r = radius.coerceIn(0f, half)
@@ -61,50 +67,26 @@ internal object Squircle {
             sink.close()
             return
         }
-        // The easing run is (1 + smoothing) * r along each edge. When two corners would overlap
-        // there isn't room for it, so the smoothing gives way first and the radius is kept.
-        val xi = min(smoothing, half / r - 1f).coerceAtLeast(0f)
-        val p = min((1f + xi) * r, half)
-        val arc = 90f * (1f - xi)
-        val arcLength = sin(rad(arc / 2f)) * r * sqrt(2f)
-        val p3p4 = r * tan(rad((90f - arc) / 4f))
-        val beta = 45f * xi
-        val c = p3p4 * cos(rad(beta))
-        val d = c * tan(rad(beta))
-        val b = (p - arcLength - c - d) / 3f
-        val a = 2f * b
-        // A circular arc of `arc` degrees as one cubic: handle length 4/3 * tan(arc / 4) * r.
-        val handle = 4f / 3f * tan(rad(arc) / 4f) * r
-        val t0x = cos(rad(beta)); val t0y = sin(rad(beta))
-        val t1x = cos(rad(beta + arc)); val t1y = sin(rad(beta + arc))
-
-        // One corner in a local frame: the corner vertex at the origin, entering along the top
-        // edge from (-p, 0) and leaving down the right edge at (0, p). Rotated into the others.
-        val e1x = -p + a + b + c; val e1y = d
-        val e2x = e1x + arcLength; val e2y = e1y + arcLength
-        fun corner(map: (Float, Float) -> Pair<Float, Float>) {
-            fun cubic(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) {
-                val (ax, ay) = map(x1, y1); val (bx, by) = map(x2, y2); val (cx, cy) = map(x3, y3)
-                sink.cubicTo(ax, ay, bx, by, cx, cy)
-            }
-            cubic(-p + a, 0f, -p + a + b, 0f, e1x, e1y)
-            cubic(e1x + handle * t0x, e1y + handle * t0y, e2x - handle * t1x, e2y - handle * t1y, e2x, e2y)
-            cubic(e2x + d, e2y + c, e2x + d, e2y + b + c, 0f, p)
+        val c = min(r * REACH, half)
+        val power = 2.0 / EXPONENT
+        // u and v are the superellipse quadrant's two coordinates as the angle t goes from 0 to 90 degrees: u = sin(t)^p rises from 0 to 1 while v = cos(t)^p falls
+        // from 1 to 0, with p = 2 / n (p = 1 would be a circle).
+        val us = FloatArray(STEPS + 1); val vs = FloatArray(STEPS + 1)
+        for (i in 0..STEPS) {
+            val t = (Math.PI / 2.0) * i / STEPS
+            us[i] = Math.pow(Math.sin(t), power).toFloat(); vs[i] = Math.pow(Math.cos(t), power).toFloat()
         }
-
-        sink.moveTo(p, 0f)
-        sink.lineTo(width - p, 0f)
-        corner { x, y -> (width + x) to y }                 // top right
-        sink.lineTo(width, height - p)
-        corner { x, y -> (width - y) to (height + x) }      // bottom right
-        sink.lineTo(p, height)
-        corner { x, y -> (-x) to (height - y) }             // bottom left
-        sink.lineTo(0f, p)
-        corner { x, y -> y to (-x) }                        // top left
+        sink.moveTo(c, 0f)
+        sink.lineTo(width - c, 0f)
+        for (i in 1..STEPS) sink.lineTo(width - c + c * us[i], c - c * vs[i])                  // top right
+        sink.lineTo(width, height - c)
+        for (i in 1..STEPS) sink.lineTo(width - c + c * vs[i], height - c + c * us[i])         // bottom right
+        sink.lineTo(c, height)
+        for (i in 1..STEPS) sink.lineTo(c - c * us[i], height - c + c * vs[i])                 // bottom left
+        sink.lineTo(0f, c)
+        for (i in 1..STEPS) sink.lineTo(c - c * vs[i], c - c * us[i])                          // top left
         sink.close()
     }
-
-    private fun rad(degrees: Float) = degrees * (Math.PI.toFloat() / 180f)
 }
 
 @Immutable

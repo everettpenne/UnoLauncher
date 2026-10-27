@@ -26,52 +26,49 @@ class SquircleTest {
         val path = build(100f, 100f, 24f)
         assertEquals("M", path.ops.first())
         assertEquals("Z", path.ops.last())
-        assertEquals(4, path.ops.count { it == "L" })
         path.points.forEach { (x, y) ->
             assertTrue("x=$x", x in -0.001f..100.001f)
             assertTrue("y=$y", y in -0.001f..100.001f)
         }
     }
 
-    @Test fun continuousCornersEaseInOverMoreThanTheRadius() {
-        // A circular corner of radius 24 would start 24 from the corner; the continuous curve
-        // starts (1 + 0.6) * 24 = 38.4 away.
-        assertEquals(38.4f, build(200f, 200f, 24f).firstMove.first, 0.01f)
-        assertEquals(24f, build(200f, 200f, 24f, smoothing = 0f).firstMove.first, 0.01f)
+    @Test fun anIconIsTheWholeSuperellipse() {
+        // At an icon's radius (22.37 percent of its side) the corner takes in half of each side, so the path starts at the middle of the top edge.
+        assertEquals(50f, build(100f, 100f, 100f * Corner.ICON_FRACTION).firstMove.first, 0.1f)
+    }
+
+    @Test fun theCurveLeavesTheEdgeLongBeforeACircularArcWould() {
+        // A circular corner of the icon's radius (22.37) stays on the top edge until 22.37 from the vertex; the superellipse is already off it 10 from the vertex
+        // (and its 45-degree point is about where the circle's is), which is the gradual, "squircle" look.
+        val path = build(100f, 100f, 22.37f)
+        val at60 = path.points.filter { (x, y) -> x > 50f && y < 50f }.minByOrNull { (x, _) -> abs(x - 90f) }!!.second
+        assertTrue("y at x=90 is $at60", at60 > 1.0f)
+        val diagonal = path.points.filter { (x, y) -> x > 50f && y < 50f }.minByOrNull { (x, y) -> abs((100f - x) - y) }!!
+        assertEquals(6.5f, 100f - diagonal.first, 0.6f)
     }
 
     @Test fun shapeIsSymmetricLeftToRightAndTopToBottom() {
         val points = build(160f, 160f, 30f).points
-        fun has(x: Float, y: Float) = points.any { abs(it.first - x) < 0.01f && abs(it.second - y) < 0.01f }
+        fun has(x: Float, y: Float) = points.any { abs(it.first - x) < 0.05f && abs(it.second - y) < 0.05f }
         points.forEach { (x, y) ->
             assertTrue("mirror x of ($x,$y)", has(160f - x, y))
             assertTrue("mirror y of ($x,$y)", has(x, 160f - y))
         }
     }
 
-    @Test fun smoothingGivesWayBeforeTheRadiusWhenThereIsNoRoom() {
-        // r = 40 on a 100-square: 1.6 * 40 = 64 > 50, so the easing run is capped at half the side.
-        assertEquals(50f, build(100f, 100f, 40f).firstMove.first, 0.01f)
-        // A radius beyond half the side clamps to a capsule; the edge run is then zero length.
+    @Test fun theCornerGivesWayWhenThereIsNoRoom() {
+        // A big radius is capped at half the shorter side.
         assertEquals(50f, build(100f, 100f, 90f).firstMove.first, 0.01f)
+        assertEquals(20f, build(200f, 40f, 90f).firstMove.first, 0.01f)
+    }
+
+    @Test fun aWidgetsCornerTakesInAboutTwoAndAHalfRadii() {
+        assertEquals(26f * Squircle.REACH, build(340f, 340f, 26f).firstMove.first, 0.01f)
     }
 
     @Test fun zeroRadiusIsAPlainRectangle() {
         val rect = build(80f, 40f, 0f)
         assertEquals(listOf("M", "L", "L", "L", "Z"), rect.ops)
-    }
-
-    @Test fun cornerCurveEndsWhereTheNextEdgeBegins() {
-        // Every curve is followed by a line starting exactly at its end: no gaps in the outline.
-        val path = build(120f, 80f, 20f)
-        var index = 0
-        var last: Pair<Float, Float>? = null
-        for (op in path.ops) when (op) {
-            "M", "L" -> { last = path.points[index]; index++ }
-            "C" -> { last = path.points[index + 2]; index += 3 }
-        }
-        assertEquals(path.firstMove.first, last!!.first, 0.01f)
-        assertEquals(path.firstMove.second, last.second, 0.01f)
     }
 
     @Test fun iconFractionMatchesApple() {

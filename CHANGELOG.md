@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.118.0-uno01
+
+- **A squarer, more iOS corner.** Icons, folders and widgets now use a superellipse (exponent 5, which iOS's icon mask follows) in place of the Figma corner-smoothing construction at 60 percent, which read as a rounded rectangle with soft shoulders. The curve now leaves each edge about half way along an icon's side (an icon is the whole superellipse; a widget's 26 dp radius takes in about 58 dp of each edge) and passes about where the old corner's diagonal point was, so the corner is no tighter, only more gradual. The same shape cuts every app icon, the folder tile, the icon lighting and the gallery previews.
+- **Not seen on a phone:** an emulator only.
+
 ## 0.117.0-uno01
 
 - **Folders look more like iOS 26's.** The folder tile is frosted glass: the wallpaper under it, blurred, with a soft tint, a fine rim and no shadow (the same blurred picture the App Library and the feed use, so it costs nothing per frame); the nine icons inside are iOS's size (23.7 percent of the tile each) with an 11 percent margin and 3.5 percent between them, filled from the top left. The dock-style see-through look is still used where the blurred picture is not ready.

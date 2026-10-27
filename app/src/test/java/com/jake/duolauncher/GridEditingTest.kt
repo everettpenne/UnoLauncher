@@ -8,7 +8,8 @@ class GridEditingTest {
         val occupied = WidgetPlacement(0, 100, 0, 0, 0, 2, 2)
         val layout = HomeLayout(List(9) { if (it == 8) "app" else null }, emptyList(), listOf(occupied))
         assertNull(widgetCandidate(layout, 1, 0, 2, 2))
-        assertNull(widgetCandidate(layout, 1, 8, 2, 2))
+        // An app under the candidate no longer blocks it: the app is moved aside when the widget is placed.
+        assertNotNull(widgetCandidate(layout, 1, 8, 2, 2))
         assertNull(widgetCandidate(layout, 1, 3, 2, 2))
         assertEquals(WidgetPlacement(1, EMPTY_WIDGET, 1, 0, 0, 4, 2),
             widgetCandidate(layout, 1, HOME_CELLS, 4, 2))
@@ -75,7 +76,11 @@ class GridEditingTest {
         val before = HomeLayout(List(9) { if (it == 8) "app" else null }, emptyList(), DEFAULT_WIDGET_PLACEMENTS)
         assertSame(before, moveWidget(before, 2, 0))
         assertSame(before, resizeWidget(before, 0, 4, 2))
-        assertSame(before, moveWidget(before, 0, 8))
+        // A widget dropped on an app moves the app aside (iOS does), and it lands on the next free cell after the widget.
+        val onApp = moveWidget(before, 0, 8)
+        assertEquals(8, onApp.placement(0)!!.row * GRID_COLUMNS + onApp.placement(0)!!.column)
+        assertNull(onApp.slotAt(8))
+        assertEquals("app", onApp.slotAt(10))
     }
 
     @Test fun `imported widget restore metadata follows geometry until rebound or removed`() {

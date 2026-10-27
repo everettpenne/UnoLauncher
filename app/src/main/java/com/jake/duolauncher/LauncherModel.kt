@@ -141,8 +141,8 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         invalidatedPackages.clear()
         removedPackages.clear()
         val resources = getApplication<Application>().resources
-        val iconStyle = IconStyle.fromPreference(getApplication<Application>().getSharedPreferences("extras", 0).getString("iconStyle", null))
         val themedDark = DuoAppearanceRuntime.dark
+        val iconStyle = IconStyle.fromPreference(getApplication<Application>().getSharedPreferences("extras", 0).getString("iconStyle", null)).resolve(themedDark)
         val iconLighting = getApplication<Application>().getSharedPreferences("extras", 0).getBoolean("iconLighting", true)
         val iconPackName = getApplication<Application>().getSharedPreferences("extras", 0).getString("iconPack", "").orEmpty()
         val iconPackVersion = if (iconPackName.isEmpty()) 0L else IconPacks.version(getApplication(), iconPackName)

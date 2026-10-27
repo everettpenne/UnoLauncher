@@ -8,8 +8,8 @@ class LayoutModelTest {
         val p = LayoutPreset(rowGap = 16.263264f, dockWidth = 73.46808f, dockPosition = .503011f)
         for (labels in listOf(true, false)) {
             val g = homeGeometry(475.43f, 696.38f, p, labels, statusHeight = 160f, labelHeight = 21.12f)
-            val firstImageTop = g.contentTop + g.widgetHeight + 18f
-            val thirdImageBottom = firstImageTop + 2f * g.rowHeight + g.iconSize
+            val firstImageTop = g.contentTop + g.widgetHeight + g.widgetGapY
+            val thirdImageBottom = firstImageTop + 2f * g.rowHeight + g.box
             assertEquals(firstImageTop, g.dockTop, .01f)
             assertEquals(thirdImageBottom, g.dockTop + g.dockHeight, .01f)
             assertEquals(g.dockHeight, 4f * g.dockRowHeight + 16f, .01f)
@@ -42,7 +42,9 @@ class LayoutModelTest {
         val hidden = homeGeometry(475f, 700f, LayoutPreset(), false)
         val largeText = homeGeometry(475f, 700f, LayoutPreset(), true, labelHeight = 34f)
         assertEquals(regular.rowHeight, hidden.rowHeight)
-        assertTrue(largeText.rowHeight >= regular.rowHeight + 14f)
+        // The row already has more room than a name needs (it is as tall as makes a 2 x 2 widget square), so larger text keeps it; it is never less than icon plus name.
+        assertTrue(largeText.rowHeight >= largeText.box + 34f)
+        assertTrue(largeText.rowHeight >= regular.rowHeight)
         assertTrue(regular.iconSize / (regular.gridWidth / 4f) in .70f.. .77f)
     }
     @Test fun `new icon default preserves tuned presets and current schema values`() {

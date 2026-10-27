@@ -412,7 +412,7 @@ internal fun LauncherScreen(
     LaunchedEffect(Unit) { snapshotFlow { pager.settledPage }.drop(1).collect { UnoFeedback.play(Cue.PAGE, haptic) } }
     // Themed icons are baked into bitmaps, so a style change (or, while themed, a light/dark flip) rebuilds them.
     val iconStyleNow = extras?.store?.state?.iconStyle ?: IconStyle.ORIGINAL
-    val themedDarkNow = iconStyleNow.recolours && appearance.dark
+    val themedDarkNow = (iconStyleNow.recolours || iconStyleNow == IconStyle.AUTOMATIC) && appearance.dark
     var iconsSeeded by remember { mutableStateOf(false) }
     val accentKey = if (iconStyleNow.usesWallpaper(appearance.wallpaperColor)) LauncherBackgroundCache.revision.intValue else -1
     val iconPackNow = extras?.store?.state?.iconPack.orEmpty()
@@ -744,7 +744,7 @@ internal fun LauncherScreen(
             // The iOS layout applies to a phone-sized screen; the inner screen of a foldable keeps the side layout.
             val iosHome = iosLayout && !wide
             val geometry = if (iosHome) iosHomeGeometry(maxWidth.value, maxHeight.value, state.labels,
-                    labelHeight = with(density) { 14.sp.toDp().value } + 6f)
+                    labelHeight = with(density) { 14.sp.toDp().value } + 6f, iconScale = preset.iconSize / 66f)
                 else homeGeometry(maxWidth.value, maxHeight.value, preset, state.labels,
                 statusHeight = if (railShown) statusHeight + 22f else 0f,
                 labelHeight = with(density) { 14.sp.toDp().value } + 6f, inLibrary = inLibrary,
@@ -797,6 +797,9 @@ internal fun LauncherScreen(
             val homeStride = panelWidth - leftColumnOrigin
             val bottomSpace = if (iosHome) (geometry.bottomBarReserve + if (isDefaultHome) 0f else PageIndicatorLayout.SETUP_BUTTON_DP).dp
                 else PageIndicatorLayout.reserveDp(isDefaultHome).dp
+            // The App Library and the feed reach down to the page strip in both layouts: on the iPhone layout the dock and the Search pill slide away on those
+            // pages, so the room they hold on Home is not kept free under the cards (they stopped well short of the bottom there).
+            val surfaceBottomSpace = PageIndicatorLayout.reserveDp(isDefaultHome).dp
             val workspaceMotion = if (geometry.expanded) remember(firstHome, visibleHomePages, pagerWidth, homeStride, density) {
                 WorkspacePageMotion(firstHome, visibleHomePages, with(density) { pagerWidth.toPx() }, with(density) { homeStride.toPx() })
             } else null
@@ -927,7 +930,7 @@ internal fun LauncherScreen(
                     Box(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalFrostedWallpaper provides frostedWallpaper, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions) {
                     if (page == -1) {
-                        DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = bottomSpace),
+                        DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = surfaceBottomSpace),
                             feed, feedVisible, onFeedRefresh, onFeedOpenEntry,
                             onFeedToggleSave = onFeedToggleSave,
                             onAddFeed = { customizationPage = CustomizationPage.FEED; sheet = "settings" },
@@ -936,7 +939,7 @@ internal fun LauncherScreen(
                             settings = glassSettings)
                     } else if (page == visibleHomePages) {
                         AppLibrary(state, libraryQuery, { libraryQuery = it }, onLaunch, model::setPinned,
-                            onActions = { selectedId = it.id }, modifier = Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = bottomSpace).testTag("library-page"),
+                            onActions = { selectedId = it.id }, modifier = Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = surfaceBottomSpace).testTag("library-page"),
                             drag = drag, page = visibleHomePages, onLaunchFrom = onLaunchFrom, onTurnOnWork = { model.turnOnWork(it) },
                             contacts = contactResults, onContact = { ContactsSearch.open(launcherActivity, it) }, handoff = handoffResolver)
                     } else {
@@ -1724,7 +1727,7 @@ internal fun LauncherScreen(
         appsById[selectedId]?.takeIf { menuAnchor != null && !menuMore }?.let { app ->
             val pinnedNow = state.layout.indexOfShortcut(app.id) != null
             val menuShortcuts by produceState(emptyList<AppShortcut>(), app.id) { value = AppShortcuts.load(launcherActivity, app) }
-            AppContextMenu(app, menuAnchor!!, geometry.iconSize, controlGlass, AppMenuActions(
+            AppContextMenu(app, menuAnchor!!, geometry.iconSize, controlGlass, iconInsetDp = geometry.iconInset, actions = AppMenuActions(
                 placed = pinnedNow, shortcuts = menuShortcuts,
                 onShortcut = { AppShortcuts.start(launcherActivity, it); selectedId = null },
                 onEditHome = { homeEditing = true; selectedId = null },

@@ -433,10 +433,11 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     SettingsGroup {
         row { NavRow("Pinned Apps", "home-pinned-apps", onClick = onEditPins) }
         row { SettingsSwitch("Show App Names", state.labels, model::setLabels, "label-switch") }
+        // Draws the icons smaller or larger inside the same grid: the rows, the widgets and the dock do not move.
+        row { CustomizationSlider("Icon Size", "${(p.iconSize / 66f * 100f).toInt()}%", p.iconSize, 40f..68f, tag = "icon-size-slider") { model.setPreset(wide, p.copy(iconSize = it)) } }
     }
     // The iOS grid sets its own icon size, spacing and dock; these are for the side layout.
     if (homeStyle != HomeStyle.IOS || wide) SettingsGroup(header = "Side Dock") {
-        row { CustomizationSlider("Icon Size", "${p.iconSize.toInt()} dp", p.iconSize, 40f..68f) { model.setPreset(wide, p.copy(iconSize = it)) } }
         row { CustomizationSlider("Row Spacing", "${p.rowGap.toInt()} dp", p.rowGap, 0f..28f) { model.setPreset(wide, p.copy(rowGap = it)) } }
         row { CustomizationSlider("Dock Width", "${p.dockWidth.toInt()} dp", p.dockWidth, 56f..84f) { model.setPreset(wide, p.copy(dockWidth = it)) } }
         row { SettingsSwitch("Align Dock with Rows", p.dockAlignToGrid, { model.setPreset(wide, p.copy(dockAlignToGrid = it)) }) }

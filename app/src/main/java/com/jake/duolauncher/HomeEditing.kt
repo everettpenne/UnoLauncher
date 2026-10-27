@@ -150,7 +150,31 @@ private fun overlaps(a: WidgetPlacement, b: WidgetPlacement) = a.page == b.page 
     a.column < b.column + b.spanX && b.column < a.column + a.spanX &&
     a.row < b.row + b.spanY && b.row < a.row + a.spanY
 
-/** Builds a non-persistable placement draft when the requested rectangle is available. */
+/**
+ * What iOS does when a widget is put down on icons: the icons move out of the way. Each app or folder under [placement] goes to the next free
+ * cell after it in reading order (skipping cells widgets cover), keeping their order, onto the next page if this one is full. Null when there is
+ * no room left (the last page is full). The layout is returned unchanged when nothing is under the widget.
+ */
+internal fun makeRoomForWidget(layout: HomeLayout, placement: WidgetPlacement): HomeLayout? {
+    val covered = placement.coveredIndices().sorted()
+    val displaced = covered.mapNotNull { index -> layout.slotAt(index)?.let { id -> index to id } }
+    if (displaced.isEmpty()) return layout
+    val blocked = (layout.widgetPlacements.filter { it.slot != placement.slot } + placement).flatMapTo(mutableSetOf()) { it.coveredIndices() }
+    // The leading page has only its own cells (the indices below 0); any other page flows on to the next ones, up to the last page there can be.
+    val limit = if (placement.page == -1) 0 else MAX_HOME_PAGES * HOME_CELLS
+    var next = displaced.fold(layout) { acc, (index, _) -> acc.withSlot(index, null) }
+    var cursor = covered.first()
+    for ((_, id) in displaced) {
+        var j = cursor
+        while (j < limit && (j in blocked || next.slotAt(j) != null)) j++
+        if (j >= limit) return null
+        next = next.withSlot(j, id)
+        cursor = j
+    }
+    return next
+}
+
+/** Builds a non-persistable placement draft when the requested rectangle is available (icons under it are moved aside, see [makeRoomForWidget]). */
 fun widgetCandidate(layout: HomeLayout, slot: Int, targetIndex: Int, spanX: Int, spanY: Int): WidgetPlacement? {
     val page = homeCellPage(targetIndex)
     if (slot < 0 || page !in -1..layout.pageCount) return null
@@ -160,7 +184,7 @@ fun widgetCandidate(layout: HomeLayout, slot: Int, targetIndex: Int, spanX: Int,
     if (spanX !in 1..GRID_COLUMNS || spanY !in 1..GRID_ROWS ||
         candidate.column + spanX > GRID_COLUMNS || candidate.row + spanY > GRID_ROWS) return null
     if (layout.widgetPlacements.any { it.slot != slot && overlaps(it, candidate) }) return null
-    if (candidate.coveredIndices().any { layout.slotAt(it) != null }) return null
+    if (makeRoomForWidget(layout, candidate) == null) return null
     return candidate
 }
 
@@ -273,8 +297,8 @@ fun placeWidget(layout: HomeLayout, placement: WidgetPlacement): HomeLayout {
     if (placement.id == NEEDS_BINDING_WIDGET && layout.widgetRestore(placement.slot) == null) return layout
     val without = layout.widgetPlacements.filterNot { it.slot == placement.slot }
     if (without.any { overlaps(it, placement) }) return layout
-    if (placement.coveredIndices().any { layout.slotAt(it) != null }) return layout
-    return layout.copy(widgetPlacements = (without + placement).sortedBy { it.slot },
+    val roomy = makeRoomForWidget(layout.copy(widgetPlacements = without), placement) ?: return layout
+    return roomy.copy(widgetPlacements = (without + placement).sortedBy { it.slot },
         widgetRestores = if (placement.id == NEEDS_BINDING_WIDGET) layout.widgetRestores
             else layout.widgetRestores.filterNot { it.slot == placement.slot })
 }

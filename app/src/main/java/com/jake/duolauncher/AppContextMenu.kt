@@ -64,7 +64,7 @@ internal class AppMenuActions(
  */
 @Composable
 internal fun AppContextMenu(
-    app: AppEntry, anchor: Rect, homeIconDp: Float, glass: PageGlass?, actions: AppMenuActions, onDismiss: () -> Unit,
+    app: AppEntry, anchor: Rect, homeIconDp: Float, glass: PageGlass?, actions: AppMenuActions, onDismiss: () -> Unit, iconInsetDp: Float = 0f,
 ) {
     val density = LocalDensity.current
     var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
@@ -90,7 +90,7 @@ internal fun AppContextMenu(
         val isRow = anchor.width > anchor.height * 2.2f
         val iconPx = with(density) { (if (isRow) 40f else homeIconDp).dp.toPx() }
         val iconLeft = if (isRow) anchor.left else anchor.center.x - iconPx / 2f
-        val iconTop = if (isRow) anchor.center.y - iconPx / 2f else anchor.top + with(density) { 2.dp.toPx() }
+        val iconTop = if (isRow) anchor.center.y - iconPx / 2f else anchor.top + with(density) { (2f + iconInsetDp).dp.toPx() }
         val lift = 1f + .09f * appear.value
         Image(app.image, null, Modifier.offset { IntOffset((iconLeft - origin.x).roundToInt(), (iconTop - origin.y).roundToInt()) }
             .size(with(density) { iconPx.toDp() }).graphicsLayer { scaleX = lift; scaleY = lift }

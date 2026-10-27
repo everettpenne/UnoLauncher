@@ -43,7 +43,14 @@ data class HomeGeometry(
     val dockBarSide: Float = 0f,
     val pillHeight: Float = 0f,
     val pillGap: Float = 0f,
+    /** The icon box the grid and the widgets are aligned to: a widget's top and bottom are the top and bottom of the icons in its first and last rows.
+     *  [iconSize] is the icon as drawn, which the Icon Size setting scales within that box without moving anything else; 0 means the same as [iconSize]. */
+    val iconBox: Float = 0f,
 ) {
+    /** The icon box (see [iconBox]). */
+    val box: Float get() = if (iconBox > 0f) iconBox else iconSize
+    /** How far the drawn icon is inset from the top of its cell, so a scaled icon stays centred on the box. */
+    val iconInset: Float get() = ((box - iconSize) / 2f).coerceAtLeast(0f)
     /** iOS layout: the height at the bottom of the safe area the dock and the Search pill take, which pages leave free. */
     val bottomBarReserve: Float get() = dockBarBottom + dockBarHeight + pillGap + pillHeight + pillGap
 }
@@ -59,7 +66,7 @@ data class HomeGeometry(
  * It reuses [HomeGeometry]'s fields so the rest of Home needs no second layout: the widget band's pitch, (widgetHeight + widgetGapY) / 2, is made
  * equal to the row pitch, which turns the side layout's two-pitch grid into a uniform one everywhere it is measured.
  */
-fun iosHomeGeometry(width: Float, height: Float, labels: Boolean, labelHeight: Float = 20f): HomeGeometry {
+fun iosHomeGeometry(width: Float, height: Float, labels: Boolean, labelHeight: Float = 20f, iconScale: Float = 1f): HomeGeometry {
     val s = (width / 393f).coerceIn(.85f, 1.15f)
     val margin = 27.5f * s
     val gapX = 22f * s
@@ -82,7 +89,9 @@ fun iosHomeGeometry(width: Float, height: Float, labels: Boolean, labelHeight: F
     val smallWidth = 2f * pitchX - gapX
     val gapY = maxOf(14f * s, 2f * pitchY - smallWidth)
     val widgetHeight = 2f * pitchY - gapY
-    return HomeGeometry(expanded = false, homeWidth = width, gridWidth = gridWidth, iconSize = icon, rowHeight = pitchY,
+    val box = icon
+    icon = box * iconScale.coerceIn(.6f, 1.03f)
+    return HomeGeometry(expanded = false, homeWidth = width, gridWidth = gridWidth, iconSize = icon, iconBox = box, rowHeight = pitchY,
         widgetHeight = widgetHeight, contentTop = contentTop, dockTop = 0f, dockHeight = dockHeight, dockRowHeight = dockHeight,
         gridStart = gridStart, widgetGapX = gapX, widgetGapY = gapY, ios = true, dockBarHeight = dockHeight, dockBarBottom = dockBottom,
         dockBarSide = 10f * s, pillHeight = pillHeight, pillGap = pillGap)
@@ -135,33 +144,40 @@ fun homeGeometry(width: Float, height: Float, preset: LayoutPreset, labels: Bool
     val expanded = width >= 650f
     val homeWidth = if (expanded) minOf(460f, width * 0.56f) else width
     val gridWidth = (homeWidth - p.dockWidth - 44f).coerceAtLeast(192f)
-    val icon = minOf(p.iconSize, (gridWidth / 4f - 10f).coerceAtLeast(32f))
-    // Keep the same icon rhythm when labels are hidden; allow larger system text to fit.
-    val row = maxOf(48f, icon + if (labels) maxOf(20f, labelHeight) else 20f) + p.rowGap
-    // A 2 x 2 widget is exactly square: its height is the width of two columns less the gap between widgets (HomeGeometry.widgetGapX, 10). It was
-    // 5 dp taller than wide (gridWidth / 2 - 5 against a width of gridWidth / 2 - 10), which read as a rectangle, and capped at 176 dp, which made a
-    // wide window's widgets wider than tall; the cap is now only a guard for very wide windows.
-    val widget = (gridWidth / 2f - 10f).coerceIn(88f, 260f)
+    val cellWidth = gridWidth / 4f
+    // A widget is its columns less the gap between widgets, and its height runs from the top of the icons in its first row to the bottom of the
+    // icons in its last (not to the bottom of the names under them), as on iOS. The icon box is what the grid is built on; the Icon Size setting
+    // draws the icon smaller or larger inside it without moving the grid or the widgets.
+    val gapX = 8f
+    val box = minOf(66f, (cellWidth - 14f).coerceAtLeast(32f))
+    val icon = box * (p.iconSize / 66f).coerceIn(.6f, 1.03f)
+    // The row is as tall as the icon and its name need, or as tall as makes a 2 x 2 widget exactly square (two columns less the gap, against a
+    // row plus an icon), whichever is more. Row Spacing adds to it above its default of 8 dp.
+    val labelRoom = if (labels) maxOf(20f, labelHeight) else 20f
+    val row = maxOf(box + labelRoom, 2f * cellWidth - gapX - box) + (p.rowGap - 8f).coerceAtLeast(0f)
+    val gapY = row - box
+    val widget = row + box
     // Below the widget band are the app rows: the grid's rows less the band's two.
     val appRows = GRID_ROWS - 2
     // The grid starts a short way under the status bar, as iOS's does (about 30 dp), and what is left over goes below it. It used to be centred in
     // the leftover room, up to 72 dp down, which left a dead band between the status bar and the first widgets.
-    val contentTop = ((height - widget - 18f - appRows * row - homeBottomSpace) / 4f).coerceIn(16f, 30f)
+    val contentTop = ((height - 2f * row - appRows * row - homeBottomSpace) / 4f).coerceIn(16f, 30f)
     // Search reclaims the redundant bottom controls' space for all four dock apps.
     // Extremely short windows still scroll rather than reduce touch targets below 48dp.
     val topLimit = maxOf(8f, statusHeight)
     val bottomReserve = if (inLibrary) 12f else 124f
     // Outer dock edges span the first through third icon images, excluding the last label.
-    val desiredHeight = if (p.dockAlignToGrid) 2f * row + icon else 256f
+    val desiredHeight = if (p.dockAlignToGrid) 2f * row + box else 256f
     val dockHeight = minOf(desiredHeight, (height - topLimit - bottomReserve).coerceAtLeast(76f))
     val dockRowHeight = ((dockHeight - 16f) / 4f).coerceAtLeast(48f)
     // Use the home position as the anchor, so removing library buttons does not
     // move a low-positioned dock on ordinary page swipes. Move up only to fit.
     val homeDockHeight = minOf(desiredHeight, (height - topLimit - 124f).coerceAtLeast(76f))
-    val homeDockTop = (if (p.dockAlignToGrid) contentTop + widget + 18f else height * p.dockPosition - homeDockHeight / 2f)
+    val homeDockTop = (if (p.dockAlignToGrid) contentTop + 2f * row else height * p.dockPosition - homeDockHeight / 2f)
         .coerceIn(topLimit, maxOf(topLimit, height - homeDockHeight - 124f))
     val dockTop = homeDockTop.coerceIn(topLimit, maxOf(topLimit, height - dockHeight - bottomReserve))
-    return HomeGeometry(expanded, homeWidth, gridWidth, icon, row, widget, contentTop, dockTop, dockHeight, dockRowHeight)
+    return HomeGeometry(expanded, homeWidth, gridWidth, icon, row, widget, contentTop, dockTop, dockHeight, dockRowHeight,
+        widgetGapX = gapX, widgetGapY = gapY, iconBox = box)
 }
 
 /** Keep stored order stable across installs, removals and configuration changes. */

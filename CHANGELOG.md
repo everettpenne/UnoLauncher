@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.112.0-uno01
+
+- **Widgets move icons out of the way.** A widget put down on apps or folders no longer refuses: the icons under it move to the next free cells after it, in order, onto the next page if the page is full, as on iOS. A widget over another widget, or with no room anywhere, is still refused. (The old rule, an app blocks a widget, made a held widget impossible to re-place on a busy page.)
+- **Widgets align to the icons.** On the side-dock layout a widget's top and bottom are the top of the icons in its first row and the bottom of the icons in its last, not the bottom of the names under them; the row spacing is chosen so a 2 x 2 widget is exactly square on screens from 320 to 480 dp.
+- **Icon Size** (Home Screen) scales the drawn icon inside a fixed icon box: the grid, the widgets and the dock do not move. It now applies to the iPhone layout as well. Show App Names was already there.
+- **Dark icons: Auto.** Auto is Original while Uno is light and Dark (each app's colours on a near-black tile) while it is dark.
+- **The App Library and the feed reach the bottom on the iPhone layout**, as they do on the side-dock layout; the room the dock and Search pill hold on Home was being kept free under them.
+- **Not tried on a phone:** all of this was checked on an emulator only (the phone was away), so the widget move, the aligned widgets and the icon scale have not been seen on a Pixel 10a. The call, Live Update, download and navigation cards are still unseen with real data.
+
 ## 0.111.1-uno01
 
 - **The island's pause works on every player.** A media session can accept a pause and ignore it (Flow does), and the island treated that as done. It now checks 0.7 s later whether the audio is still playing and, if it is, pauses by audio focus or the media key, as it does with no session. Tested on a Pixel 10a with Flow.

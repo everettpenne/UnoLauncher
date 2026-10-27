@@ -29,4 +29,23 @@ class SideLayoutSquareTest {
             if (g.rowHeight == topPitch) assertEquals("rows $width", widgetWidth, 2f * g.rowHeight - g.widgetGapY, .01f)
         }
     }
+
+    @Test fun aWidgetRunsFromTheTopOfItsFirstIconsToTheBottomOfItsLast() {
+        for (width in listOf(320f, 360f, 392f, 411f, 430f, 480f)) {
+            val g = homeGeometry(width, 800f, LayoutPreset(), labels = true)
+            // Two rows' pitch less the gap under a widget is its height: one pitch plus one icon, the icon's own top and bottom.
+            assertEquals("width $width", g.rowHeight + g.box, 2f * g.rowHeight - g.widgetGapY, .01f)
+            assertEquals("width $width", g.widgetHeight, g.rowHeight + g.box, .01f)
+        }
+    }
+
+    @Test fun theIconSizeSettingScalesTheIconAndNotTheGrid() {
+        val full = homeGeometry(411f, 900f, LayoutPreset(iconSize = 66f), labels = true)
+        val small = homeGeometry(411f, 900f, LayoutPreset(iconSize = 50f), labels = true)
+        assertTrue(small.iconSize < full.iconSize)
+        assertEquals(full.rowHeight, small.rowHeight, 0f)
+        assertEquals(full.widgetHeight, small.widgetHeight, 0f)
+        assertEquals(full.box, small.box, 0f)
+        assertEquals((small.box - small.iconSize) / 2f, small.iconInset, .01f)
+    }
 }

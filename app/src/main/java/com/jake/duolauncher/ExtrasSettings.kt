@@ -83,9 +83,9 @@ private fun GesturesGroups(store: ExtrasStore, s: ExtrasState, apps: List<AppEnt
 
 @Composable
 private fun IconGroups(store: ExtrasStore, s: ExtrasState) {
-    SettingsGroup(header = "App Icons", footer = "Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Icon Lighting gives original icons a soft lit edge, like iOS.") {
-        row { SegmentRow(IconStyle.entries, s.iconStyle, { when (it) { IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark" } },
-            { when (it) { IconStyle.ORIGINAL -> "icons-original"; IconStyle.THEMED -> "icons-themed"; IconStyle.TINTED -> "icons-tinted"; IconStyle.DARK -> "icons-dark" } },
+    SettingsGroup(header = "App Icons", footer = "Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Dark puts each app's colours on a near-black tile, and Auto does that while Uno is dark. Icon Lighting gives original icons a soft lit edge, like iOS.") {
+        row { SegmentRow(IconStyle.entries, s.iconStyle, { when (it) { IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark"; IconStyle.AUTOMATIC -> "Auto" } },
+            { when (it) { IconStyle.ORIGINAL -> "icons-original"; IconStyle.THEMED -> "icons-themed"; IconStyle.TINTED -> "icons-tinted"; IconStyle.DARK -> "icons-dark"; IconStyle.AUTOMATIC -> "icons-auto" } },
             store::setIconStyle) }
         row { SettingsSwitch("Icon Lighting", s.iconLighting, store::setIconLighting, "icons-lit") }
     }

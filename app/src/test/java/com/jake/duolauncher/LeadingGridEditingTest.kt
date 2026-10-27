@@ -46,7 +46,8 @@ class LeadingGridEditingTest {
         val layout = HomeLayout(emptyList(), emptyList(), listOf(widget), leadingSlots = leading)
         assertEquals(setOf(first, first + 1, first + 4, first + 5), widget.coveredIndices())
         assertNull(widgetCandidate(layout, 5, first, 2, 2))
-        assertNull(widgetCandidate(layout, 5, first + 2, 1, 1))
+        // An app under the candidate is moved aside rather than blocking it.
+        assertNotNull(widgetCandidate(layout, 5, first + 2, 1, 1))
         assertEquals(WidgetPlacement(5, EMPTY_WIDGET, -1, 2, 1, 1, 1), widgetCandidate(layout, 5, first + 6, 1, 1))
         assertEquals(widget.copy(column = 2), moveWidget(layout.copy(leadingSlots = List(HOME_CELLS) { null }), 4, first + 2).placement(4))
     }

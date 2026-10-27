@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.120.0-uno01
+
+- **A folder opens out of its tile.** The open panel now starts exactly the size of the folder's tile and travels from the tile's centre to its own place as it grows (before, it grew about the tile's centre from a fixed third of its size, so it drifted towards the middle of the screen), the tile fades out as the panel takes over, and closing reverses it so the panel lands on the tile.
+- **An open folder is square**, as in iOS 26: its height is its width (three rows of three) with the apps centred, so a folder of two apps is no longer a thin strip.
+- **Seen on:** the Pixel 10a, in a screen recording of a seven-app folder opening; folders of other sizes and the closing were not looked at.
+
 ## 0.119.0-uno01
 
 - **One look for loading, empty and failed.** The App Library with no match, the feed with nothing saved or no match, and the feed when it cannot be read now show the same thing: a symbol on a faint disc, a title, a helpful line and (for a failure) a Retry button, arriving with a small fade and rise instead of popping in. While apps or feeds load, soft grey placeholder rows (a light sweeping across them, still when the system's animations are off) replace the bare "Loading" text and spinner.

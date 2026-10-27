@@ -612,6 +612,8 @@ internal fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: 
     drag: HomeDragState, page: Int, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val progress by rememberPressProgress(interaction)
+    // While its panel is open the tile steps aside (a quick fade, so it is gone before the panel passes its size): the panel is the tile, grown.
+    val tileGone by animateFloatAsState(if (drag.openFolder == folder.id) 1f else 0f, androidx.compose.animation.core.tween(120), label = "folder tile")
     Column(modifier.clickable(interactionSource = interaction, indication = null, onClick = onClick)
         .semantics(mergeDescendants = true) { contentDescription = "Folder ${folder.title}, ${folder.appIds.size} apps" },
         horizontalAlignment = Alignment.CenterHorizontally) {
@@ -632,7 +634,7 @@ internal fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: 
                         Color.White.copy(alpha = .5f))), Corner.icon)
                 else Modifier.clip(Corner.icon).background(Glass.copy(alpha = .72f)).border(1.dp, Color.White.copy(alpha = .55f), Corner.icon))
             }
-            .graphicsLayer { scaleX = 1f - .05f * progress; scaleY = 1f - .05f * progress }
+            .graphicsLayer { scaleX = 1f - .05f * progress; scaleY = 1f - .05f * progress; alpha = 1f - tileGone }
             .dropRegion(drag, DropTarget.Folder(folder.id), page = page, folderId = folder.id)
             .pressGlow(progress, Corner.icon)
             .testTag("folder-drop-${folder.id}")) {

@@ -34,6 +34,8 @@ internal class HomeDragState {
     val rootOrigin get() = rootBounds.topLeft
     /** An app in an open folder was held and let go without dragging: its folder cell opens its move menu (see FolderPanel). */
     var folderMenuRequest by mutableStateOf<String?>(null)
+    /** The folder whose panel is open (or opening or closing): its tile on Home gives way to the panel that grows out of it, so the two read as one thing. */
+    var openFolder by mutableStateOf<String?>(null)
     var originPage = 0
     var moved by mutableStateOf(false)
     var activeSourceScope by mutableStateOf<String?>(null)

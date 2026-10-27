@@ -77,9 +77,15 @@ internal fun FolderPanel(
                 else androidx.compose.ui.text.TextRange(folder.title.length))) }
     val title = fieldValue.text
     // Grow out of the folder's icon, as iOS does, and shrink back into it: from a third of the size, the transform anchored at the icon's centre.
+    // It starts exactly as big as the folder's tile (the panel's width scaled to the tile's), so what grows is the tile itself, and the scale it
+    // shrinks back to on close is the same, so the panel lands on the tile and the tile takes over.
+    val tile = remember(folder.id) { drag.regions.values.firstOrNull { it.appId == folder.id }?.bounds }
+    var panelWidth by remember { mutableStateOf(0f) }
+    val closedScale = if (tile != null && panelWidth > 0f) (tile.width / panelWidth).coerceIn(.12f, .6f) else CLOSED_SCALE
     val open = remember { Animatable(CLOSED_SCALE) }
-    LaunchedEffect(Unit) { open.animateTo(1f, UnoMotion.open()) }
-    val iconCentre = remember(folder.id) { drag.regions.values.firstOrNull { it.appId == folder.id }?.bounds?.center }
+    LaunchedEffect(panelWidth > 0f) { if (panelWidth > 0f) { open.snapTo(closedScale); open.animateTo(1f, UnoMotion.open()) } }
+    DisposableEffect(folder.id) { drag.openFolder = folder.id; onDispose { if (drag.openFolder == folder.id) drag.openFolder = null } }
+    val iconCentre = tile?.center
     var column by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
     val scope = rememberCoroutineScope()
     var closing by remember { mutableStateOf(false) }
@@ -91,7 +97,7 @@ internal fun FolderPanel(
         if (!closing) {
             closing = true
             scope.launch {
-                open.animateTo(CLOSED_SCALE, UnoMotion.open())
+                open.animateTo(closedScale, UnoMotion.open())
                 onDismiss()
             }
         }
@@ -103,7 +109,7 @@ internal fun FolderPanel(
     }
     val glass = glassBackdrop != null
     val pageGlass = remember(glassBackdrop, glassTint, settings) { glassBackdrop?.let { PageGlass(it, glassTint, settings) } }
-    val reveal = ((open.value - CLOSED_SCALE) / (1f - CLOSED_SCALE)).coerceIn(0f, 1f)
+    val reveal = ((open.value - closedScale) / (1f - closedScale)).coerceIn(0f, 1f)
     Box(Modifier.fillMaxSize()
         // The screen behind goes soft and dim, as it does on iOS, rather than a flat grey.
         .then(if (glassBackdrop != null) Modifier.drawBackdrop(backdrop = glassBackdrop, shape = { androidx.compose.ui.graphics.RectangleShape },
@@ -121,13 +127,16 @@ internal fun FolderPanel(
         val rows = FolderPages.rows(folder.appIds.size)
         // The title above the panel and the panel itself grow and shrink together, about the folder's icon.
         val groupModifier = Modifier.fillMaxWidth(.88f).widthIn(max = 420.dp).offset(y = (-24).dp)
-            .onGloballyPositioned { column = it.boundsInRoot() }
+            .onGloballyPositioned { column = it.boundsInRoot(); if (panelWidth == 0f) panelWidth = it.size.width.toFloat() }
             .graphicsLayer {
-                scaleX = open.value; scaleY = open.value; alpha = (reveal * 1.6f).coerceIn(0f, 1f)
+                // The panel grows about its own centre while its centre travels from the tile's centre to its own place, so at the start it sits exactly on
+                // the tile (it was anchored at the tile's centre instead, which kept that one point fixed but let the rest drift towards the screen's middle).
+                scaleX = open.value; scaleY = open.value; alpha = if (panelWidth == 0f) 0f else (reveal * 1.6f).coerceIn(0f, 1f)
                 val c = iconCentre
-                transformOrigin = if (c != null && column.width > 0f)
-                    androidx.compose.ui.graphics.TransformOrigin(((c.x - column.left) / column.width).coerceIn(-.5f, 1.5f), ((c.y - column.top) / column.height).coerceIn(-.5f, 1.5f))
-                    else androidx.compose.ui.graphics.TransformOrigin.Center
+                if (c != null && column.width > 0f) {
+                    translationX = (c.x - column.center.x) * (1f - reveal)
+                    translationY = (c.y - column.center.y) * (1f - reveal)
+                }
             }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -145,9 +154,9 @@ internal fun FolderPanel(
             Spacer(Modifier.height(14.dp))
             CompositionLocalProvider(LocalKitInk provides Color.White) {
                 if (glassBackdrop != null) {
-                    Box(Modifier.fillMaxWidth().liquidGlass(glassBackdrop, FolderShape, panelTint, kind = GlassKind.REGULAR, settings = settings)) { content() }
+                    Box(Modifier.fillMaxWidth().aspectRatio(1f).liquidGlass(glassBackdrop, FolderShape, panelTint, kind = GlassKind.REGULAR, settings = settings)) { content() }
                 } else {
-                    Surface(Modifier.fillMaxWidth(), color = panelTint.copy(alpha = .86f), shape = FolderShape,
+                    Surface(Modifier.fillMaxWidth().aspectRatio(1f), color = panelTint.copy(alpha = .86f), shape = FolderShape,
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .22f))) { content() }
                 }
             }
@@ -197,12 +206,14 @@ private fun FolderPanelBody(
     rows: Int,
     pageGlass: PageGlass?,
 ) {
-    Column(Modifier.padding(horizontal = 14.dp).padding(top = 18.dp, bottom = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    // A folder is a square at every size, as on iOS: the panel's height is its width (three rows of three), the apps centred in it, so a folder of two
+    // apps is not a thin strip.
+    Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).padding(vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         val pages = FolderPages.pageCount(folder.appIds.size)
         val pager = rememberPagerState { pages }
         HorizontalPager(pager, Modifier.fillMaxWidth().testTag("folder-pages"), beyondViewportPageCount = 1) { index ->
             val ids = FolderPages.page(folder.appIds, index)
-            Column(Modifier.fillMaxWidth().heightIn(min = (rows * 92).dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ids.chunked(FolderPages.COLUMNS).forEach { row ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         row.forEach { appId ->

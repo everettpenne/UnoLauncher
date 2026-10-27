@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.119.0-uno01
+
+- **One look for loading, empty and failed.** The App Library with no match, the feed with nothing saved or no match, and the feed when it cannot be read now show the same thing: a symbol on a faint disc, a title, a helpful line and (for a failure) a Retry button, arriving with a small fade and rise instead of popping in. While apps or feeds load, soft grey placeholder rows (a light sweeping across them, still when the system's animations are off) replace the bare "Loading" text and spinner.
+- **Island cards.** A long press on the pill opens an activity's card even when the notification offered no buttons (a call with no hang-up action did nothing), and the navigation card is full width like the music card (it cut "300 m" to "30…").
+- **Debug builds** can inject a call, navigation, download or Live Update into the island with an adb broadcast (`--es inject call|nav|download|update`), to see those cards without a real one.
+- **Seen on:** the Pixel 10a (the cards, the library's empty state, the feed); the loading rows and the feed's failure state were not seen.
+
 ## 0.118.0-uno01
 
 - **A squarer, more iOS corner.** Icons, folders and widgets now use a superellipse (exponent 5, which iOS's icon mask follows) in place of the Figma corner-smoothing construction at 60 percent, which read as a rounded rectangle with soft shoulders. The curve now leaves each edge about half way along an icon's side (an icon is the whole superellipse; a widget's 26 dp radius takes in about 58 dp of each edge) and passes about where the old corner's diagonal point was, so the corner is no tighter, only more gradual. The same shape cuts every app icon, the folder tile, the icon lighting and the gallery previews.

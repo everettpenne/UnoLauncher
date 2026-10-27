@@ -19,6 +19,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.RssFeed
@@ -165,22 +168,18 @@ private fun FeedPageBody(
                     GlassButton("Manage feeds", onAddFeed, Modifier.heightIn(min = 48.dp).testTag("feed-manage"))
                 }
                 feed.refreshing && feed.shownEntries.isEmpty() -> {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally) {
-                        LinearProgressIndicator(Modifier.fillMaxWidth(.6f))
-                        Spacer(Modifier.height(16.dp))
-                        Text(stringResource(com.jake.duolauncher.R.string.checking_feeds), style = MaterialTheme.typography.bodyMedium)
+                    Column(Modifier.weight(1f).testTag("feed-checking")) {
+                        Text(stringResource(com.jake.duolauncher.R.string.checking_feeds), style = UnoType.footnote,
+                            color = LocalContentColor.current.copy(alpha = .66f), modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
+                        SkeletonRows(6, rowHeight = 64.dp)
                     }
                 }
                 feed.shownEntries.isEmpty() && feed.sourceErrors.isNotEmpty() -> {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(stringResource(com.jake.duolauncher.R.string.feeds_couldn_t_be_read), style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(8.dp))
-                        Text(feed.sourceErrors.values.joinToString("\n"),
-                            style = UnoType.footnote.copy(color = LocalContentColor.current.copy(alpha = .74f)))
-                        Spacer(Modifier.height(16.dp))
-                        GlassButton(stringResource(com.jake.duolauncher.R.string.retry), onRefresh, Modifier.testTag("feed-retry"))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                        StateMessage(androidx.compose.material.icons.Icons.Rounded.CloudOff, stringResource(com.jake.duolauncher.R.string.feeds_couldn_t_be_read),
+                            feed.sourceErrors.values.joinToString("\n"), tag = "feed-error") {
+                            GlassButton(stringResource(com.jake.duolauncher.R.string.retry), onRefresh, Modifier.testTag("feed-retry"))
+                        }
                     }
                 }
                 else -> {
@@ -207,12 +206,10 @@ private fun FeedPageBody(
                     FeedFilters(feed.sources.filter { it.enabled }, activeSource, { selectedSource = it }, query, { query = it },
                         savedOnly = savedOnly, savedCount = feed.savedShownCount, onSavedOnly = { savedOnly = it })
                     if (filtered.isEmpty()) {
-                        Column(Modifier.weight(1f).fillMaxWidth().padding(top = 24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(if (savedOnly && query.isBlank()) com.jake.duolauncher.R.string.feed_nothing_saved
-                                else com.jake.duolauncher.R.string.no_matching_entries),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = LocalContentColor.current.copy(alpha = .74f))
+                        Column(Modifier.weight(1f).fillMaxWidth().padding(top = 16.dp), verticalArrangement = Arrangement.Center) {
+                            StateMessage(if (savedOnly && query.isBlank()) androidx.compose.material.icons.Icons.Rounded.BookmarkBorder else androidx.compose.material.icons.Icons.Rounded.SearchOff,
+                                stringResource(if (savedOnly && query.isBlank()) com.jake.duolauncher.R.string.feed_nothing_saved else com.jake.duolauncher.R.string.no_matching_entries),
+                                null, tag = "feed-empty")
                         }
                     } else {
                         Box(Modifier.weight(1f)) {

@@ -157,7 +157,11 @@ internal fun AppLibrary(
                             modifier = Modifier.padding(top = 12.dp).testTag("turn-on-work")) { Text(stringResource(com.jake.duolauncher.R.string.turn_on_work_apps)) }
                     }
                 }
-                if (groups.isEmpty() && contacts.isEmpty() && smart == null) item { Text(if (state.loading) "Loading apps…" else "No apps found", Modifier.padding(vertical = 16.dp)) }
+                if (groups.isEmpty() && contacts.isEmpty() && smart == null) item {
+                    if (state.loading) SkeletonRows(6, Modifier.testTag("library-loading"))
+                    else StateMessage(androidx.compose.material.icons.Icons.Rounded.SearchOff, stringResource(com.jake.duolauncher.R.string.library_none_title),
+                        stringResource(com.jake.duolauncher.R.string.library_none_message), tag = "library-none")
+                }
                 groups.forEach { (letter, entries) ->
                     stickyHeader(key = "heading-$letter") {
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -399,10 +399,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">App icons, folders and widgets are squarer, with iOS\'s squircle corner instead of a rounded rectangle\'s.</string>
-    <string name="whats_new_2">Folders look like iOS 26\'s: a frosted glass tile with nine small icons evenly spaced.</string>
-    <string name="whats_new_3">Dark icons keep their colour, and widgets have iOS 26\'s shape and scale with the icons.</string>
-    <string name="whats_new_4">Icon Size goes up to 125 percent, and an app that changes its icon keeps its place on Home.</string>
+    <string name="whats_new_1">Loading, empty and error states are consistent: a symbol, a title and a line, and soft placeholder rows while apps and feeds load.</string>
+    <string name="whats_new_2">Squarer, more iOS corners on icons, folders and widgets.</string>
+    <string name="whats_new_3">Folders look like iOS 26\'s, and dark icons keep their colour.</string>
+    <string name="whats_new_4">The island cards open for a call with no buttons, and the navigation card is full width.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>
@@ -484,4 +484,6 @@
     <string name="widget_apps">Apps</string>
     <string name="widget_count_one">1 widget</string>
     <string name="widget_count_many">%d widgets</string>
+    <string name="library_none_title">No apps found</string>
+    <string name="library_none_message">Try a different name, or clear the search.</string>
 </resources>

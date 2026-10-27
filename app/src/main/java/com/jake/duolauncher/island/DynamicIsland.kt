@@ -494,7 +494,7 @@ internal fun DynamicIsland(
     // not change during the morph, so the faces are laid out from this one frame. [frameState] is the live frame; it is read only when the
     // island lays out, draws and positions itself.
     // The music card takes the island's full width, as the old panel did: its controls are easier to hit when they are large.
-    val fullWidth = peekShown?.kind == LiveKind.MEDIA
+    val fullWidth = peekShown?.kind == LiveKind.MEDIA || (peekShown?.kind == LiveKind.UPDATE && navCard)
     val openFrame = remember(environment, d, sizeScale, extraBody, fullWidth) { IslandGeometry.frame(environment, d, 1f, sizeScale, extraBodyDp = extraBody, fullWidth = fullWidth) }
     // While the island shows an app's icon and name (an app opening, or a notification's app) it springs open wider and a touch left, and
     // goes back to its resting width when that is dismissed. The live activities have tucked into it for the time (see detachedCapsules).
@@ -1196,7 +1196,8 @@ internal fun DynamicIsland(
                 onLongClick = if (!quickActionsOn && openLeading == null) null else { {
                     val card = if (!quickActionsOn) null else if (chargingIdle) IslandQuickActions.chargingCard(context) else IslandQuickActions.card(context, plan.leading, System.currentTimeMillis())
                     UnoFeedback.play(Cue.OPEN, haptic)
-                    if (card != null && (card.actions.isNotEmpty() || card.chargingCard)) state.showPeekCard(card) else openLeading?.invoke()
+                    // An activity's card has its own controls, so it opens even when the notification offered no button (a call with no hang-up action).
+                    if (card != null && (card.actions.isNotEmpty() || card.chargingCard || card.kind != null)) state.showPeekCard(card) else openLeading?.invoke()
                 } },
                 onClick = {
                     // A ringing timer is silenced by a tap before anything else.

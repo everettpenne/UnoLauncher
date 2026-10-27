@@ -56,6 +56,10 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -184,6 +188,8 @@ internal fun LauncherScreen(
     var menuAnchor by remember { mutableStateOf<Rect?>(null) }
     var menuMore by remember { mutableStateOf(false) }
     var menuFromHold by remember { mutableStateOf(false) }
+    // The same menu under a held widget or folder (HoldMenu): which one, and where it is.
+    var holdMenu by remember { mutableStateOf<HoldTarget?>(null) }
     LaunchedEffect(selectedId) { if (selectedId == null) { appMoveMenu = false; menuAnchor = null; menuMore = false } }
     // The settings page is deliberately kept when the sheet closes: swiping up again reopens the page you were on.
     var openFolderId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -418,7 +424,7 @@ internal fun LauncherScreen(
     BackHandler(enabled = sheet.isEmpty()) { if (resizeSlot != null) resizeSlot = null else if (drag.active) {
         val destination = if (drag.source?.target is DropTarget.Library) homePages else drag.originPage.coerceAtMost(homePages - 1)
         drag.clear(); scope.launch { pager.scrollToPage(destination) }
-    } else if (selectedId != null) selectedId = null else { focus.clearFocus(); scope.launch { pager.animateScrollToPage(0) } } }
+    } else if (holdMenu != null) holdMenu = null else if (selectedId != null) selectedId = null else { focus.clearFocus(); scope.launch { pager.animateScrollToPage(0) } } }
     // In jiggle mode an app's badge takes it off Home, and a widget's removes the widget, as on iOS.
     val editActions = remember(model, widgets) { HomeEditActions({ app -> model.setPinned(app.id, false) }, { slot -> widgets.remove(slot) }) }
     BackHandler(enabled = homeEditing && sheet.isEmpty() && !drag.active && selectedId == null && resizeSlot == null) { homeEditing = false }
@@ -535,6 +541,8 @@ internal fun LauncherScreen(
         val moved = drag.moved
         // A drag that follows a hold takes the menu the hold opened away with it, whether or not the effect that watches for a move got to run.
         if (menuFromHold && (moved || cancelled)) { menuFromHold = false; selectedId = null }
+        val holdShown = holdMenu != null
+        if (holdShown && (moved || cancelled)) holdMenu = null
         val rawDestination = if (moved && !cancelled) drag.destination(drag.pointer, eligibleDragPages)?.target else null
         val destination = if (rawDestination is DropTarget.Home && source.target is DropTarget.Widget) {
             model.placement(source.target.index)?.let {
@@ -586,14 +594,14 @@ internal fun LauncherScreen(
             withFrameNanos { }
             pager.scrollToPage(if (returnToLibrary) model.state.value.homePages else page.coerceIn(0, model.state.value.homePages - 1))
             if (moved && !cancelled && madeFolderId != null) { newFolderId = madeFolderId; openFolderId = madeFolderId }
-            if (!moved && !cancelled) {
-                if (source.target is DropTarget.Dock) { dockSlot = source.target.index; sheet = "dock" }
+            if (!moved && !cancelled && !holdShown) {
+                if (source.target is DropTarget.Dock && (source.appId == null || selectedId == null)) { dockSlot = source.target.index; sheet = "dock" }
                 else if (source.target is DropTarget.Widget) { widgetSlot = source.target.index; sheet = "widgetActions" }
                 else if (source.appId?.let(::isFolderId) == true) openFolderId = source.appId
                 else if (source.folderId != null) drag.folderMenuRequest = source.appId
                 else if (source.folderId == null) {
                     selectedId = source.appId
-                    if (menuAnchor == null && (source.target is DropTarget.Home || source.target is DropTarget.Library)) menuAnchor = source.bounds
+                    if (menuAnchor == null && (source.target is DropTarget.Home || source.target is DropTarget.Library || source.target is DropTarget.Dock)) menuAnchor = source.bounds
                 }
             }
         }
@@ -606,11 +614,20 @@ internal fun LauncherScreen(
         val held = heldSource
         if (drag.moved) {
             if (menuFromHold) { menuFromHold = false; selectedId = null }
+            holdMenu = null
+            return@LaunchedEffect
+        }
+        // A held widget or folder on Home gets its own small menu.
+        val heldWidget = (held?.target as? DropTarget.Widget)?.takeIf { held.movable }
+        val heldFolder = held?.appId?.takeIf { isFolderId(it) && held.folderId == null && held.target is DropTarget.Home }
+        if (drag.active && held != null && (heldWidget != null || heldFolder != null) && !homeEditing && sheet.isEmpty() && selectedId == null && holdMenu == null) {
+            delay(120L)
+            if (drag.active && !drag.moved && holdMenu == null) holdMenu = HoldTarget(heldWidget?.index, heldFolder, held.bounds)
             return@LaunchedEffect
         }
         val appId = held?.appId
         if (!drag.active || held == null || appId == null || homeEditing || sheet.isNotEmpty() || selectedId != null) return@LaunchedEffect
-        if (isFolderId(appId) || held.folderId != null || !(held.target is DropTarget.Home || held.target is DropTarget.Library)) return@LaunchedEffect
+        if (isFolderId(appId) || held.folderId != null || !(held.target is DropTarget.Home || held.target is DropTarget.Library || held.target is DropTarget.Dock)) return@LaunchedEffect
         delay(120L)   // a press that goes straight into a drag never flashes the menu
         if (drag.active && !drag.moved && selectedId == null) { menuFromHold = true; selectedId = appId; menuAnchor = held.bounds }
     }
@@ -672,6 +689,19 @@ internal fun LauncherScreen(
                     scaleX = drift.scale; scaleY = drift.scale; translationX = drift.translationX
                 }
             }) { DuneWallpaper() }
+        }
+        // On the App Library and the feed the wallpaper behind the glass cards is blurred, as on iOS: the blurred picture fades in as those pages come
+        // into view (and out as Home returns), so the cards are translucent glass over a soft background. One picture drawn with an alpha: it costs
+        // nothing while the pages move, and nothing at all on Home.
+        frostedWallpaper.vivid?.let { blurred ->
+            // Drawn with its alpha in the draw itself (no layer for the alpha) and not at all while Home is shown.
+            Box(Modifier.matchParentSize().drawBehind {
+                val amount = blurredPagesAmount(nativePager.currentPage + nativePager.currentPageOffsetFraction, nativePager.pageCount, firstHome)
+                if (amount > .003f && size.width > 0f) drawImage(blurred, srcOffset = androidx.compose.ui.unit.IntOffset.Zero,
+                    srcSize = androidx.compose.ui.unit.IntSize(blurred.width, blurred.height),
+                    dstSize = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt()),
+                    alpha = amount, filterQuality = FilterQuality.Medium)
+            })
         }
         // Home is deliberately IME-agnostic: it pads for the system bars and the display cutout
         // only, never for the soft keyboard. Spotlight's panel and the bottom glass consume the
@@ -1677,6 +1707,20 @@ internal fun LauncherScreen(
                 }
             }
         }
+        holdMenu?.let { hold ->
+            val red = Color(0xFFFF453A)
+            val close = { holdMenu = null }
+            val items = if (hold.widgetSlot != null) listOf(
+                HoldMenuItem(Icons.Rounded.Tune, stringResource(R.string.hold_edit_widget), "hold-edit-widget") { widgetSlot = hold.widgetSlot; sheet = "widgetActions"; close() },
+                HoldMenuItem(Icons.Rounded.Smartphone, stringResource(R.string.edit_home_screen), "hold-edit-home") { homeEditing = true; close() },
+                HoldMenuItem(Icons.Rounded.RemoveCircleOutline, stringResource(R.string.hold_remove_widget), "hold-remove-widget", red) { editActions.removeWidget(hold.widgetSlot); close() },
+            ) else listOf(
+                HoldMenuItem(Icons.Rounded.FolderOpen, stringResource(R.string.hold_open_folder), "hold-open-folder") { openFolderId = hold.folderId; close() },
+                HoldMenuItem(Icons.Rounded.Edit, stringResource(R.string.hold_rename_folder), "hold-rename-folder") { openFolderId = hold.folderId; close() },
+                HoldMenuItem(Icons.Rounded.Smartphone, stringResource(R.string.edit_home_screen), "hold-edit-home") { homeEditing = true; close() },
+            )
+            HoldMenu(hold.anchor, controlGlass, items, if (hold.widgetSlot != null) 24.dp else 16.dp, onDismiss = close)
+        }
         appsById[selectedId]?.takeIf { menuAnchor != null && !menuMore }?.let { app ->
             val pinnedNow = state.layout.indexOfShortcut(app.id) != null
             val menuShortcuts by produceState(emptyList<AppShortcut>(), app.id) { value = AppShortcuts.load(launcherActivity, app) }
@@ -1844,3 +1888,15 @@ internal fun LauncherScreen(
 
 /** What is under the finger during a drag. */
 private data class DragTargets(val raw: DropTarget?, val target: DropTarget?, val folderApp: String?, val stackSlot: Int? = null)
+
+/** What a held widget or folder is, for [HoldMenu]: the widget's slot or the folder's id, and where it is on screen. */
+internal class HoldTarget(val widgetSlot: Int?, val folderId: String?, val anchor: Rect)
+
+/** How blurred the wallpaper is at pager [position] (the page being shown, fractionally): 1 on the App Library (the last page) and on the feed
+ *  (the page before the Home pages), 0 on Home, and eased between as a swipe moves. Pure, so it is unit-tested. */
+internal fun blurredPagesAmount(position: Float, pageCount: Int, leadingPages: Int): Float {
+    if (pageCount <= 1) return 0f
+    val library = (position - (pageCount - 2)).coerceIn(0f, 1f)
+    val feed = if (leadingPages > 0) (leadingPages - position).coerceIn(0f, 1f) else 0f
+    return maxOf(library, feed)
+}

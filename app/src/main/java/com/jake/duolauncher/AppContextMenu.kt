@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -69,16 +70,21 @@ internal fun AppContextMenu(
     var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     var confirming by remember { mutableStateOf(false) }
     val appear = remember { Animatable(0f, .001f) }
-    LaunchedEffect(Unit) { appear.animateTo(1f, spring(.74f, 560f, .001f)) }
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    // The menu opening is felt, as the press that opened it is on iOS.
+    LaunchedEffect(Unit) { UnoFeedback.play(Cue.LONG_PRESS, haptic); appear.animateTo(1f, spring(.74f, 560f, .001f)) }
     Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }.testTag("app-context-menu")) {
         // Everything else steps back; a tap anywhere on it closes the menu.
         // As on iOS 26 it is blurred as well as dimmed: a frosted veil over the wallpaper and the pages, not a grey sheet.
-        Box(Modifier.fillMaxSize()
+        // The blur reaches only as far as the backdrop it samples does; this plain dim under it reaches every edge of the window (the strips behind
+        // the status and navigation bars included), so no part of the screen stays bright.
+        if (glass != null) Box(Modifier.wholeWindow(origin).background(Color.Black.copy(alpha = .22f * appear.value)))
+        Box(Modifier.wholeWindow(origin)
             .then(if (glass != null) Modifier.drawBackdrop(
                 backdrop = glass.backdrop, shape = { androidx.compose.ui.graphics.RectangleShape },
-                effects = { blur(18.dp.toPx() * appear.value) }, highlight = { null }, shadow = { null },
-                onDrawSurface = { drawRect(Color.Black.copy(alpha = .26f * appear.value)) })
-                else Modifier.background(Color.Black.copy(alpha = .34f * appear.value)))
+                effects = { blur(9.dp.toPx() * appear.value) }, highlight = { null }, shadow = { null },
+                onDrawSurface = { })
+                else Modifier.background(Color.Black.copy(alpha = .30f * appear.value)))
             .pointerInput(Unit) { detectTapGestures { onDismiss() } }.testTag("app-context-scrim"))
         // The icon sits at the middle top of a Home cell (its size on Home) and at the start of a library row (40 dp).
         val isRow = anchor.width > anchor.height * 2.2f
@@ -166,13 +172,82 @@ private fun ConfirmItems(app: AppEntry, actions: AppMenuActions, dismiss: () -> 
 
 @Composable
 private fun MenuRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, tag: String, onClick: () -> Unit, tint: Color? = null) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     GlassMenuItem(text = {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(label, Modifier.weight(1f), color = tint ?: LocalContentColor.current, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Icon(icon, null, tint = tint ?: LocalContentColor.current.copy(alpha = .85f), modifier = Modifier.padding(start = 10.dp).size(22.dp))
         }
-    }, onClick = onClick, modifier = Modifier.testTag(tag))
+    }, onClick = { UnoFeedback.play(Cue.TICK, haptic); onClick() }, modifier = Modifier.testTag(tag))
 }
 
 @Composable
 private fun MenuDivider() = HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = LocalContentColor.current.copy(alpha = .12f), thickness = .5.dp)
+
+/** One row of [HoldMenu]. */
+internal class HoldMenuItem(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val tag: String, val tint: Color? = null, val onClick: () -> Unit)
+
+/**
+ * The menu iOS shows when a widget or a folder is held: the rest of Home dims, the held thing stays clear in a window cut out of the dim, and a
+ * small frosted panel opens under it (above it near the bottom of the screen). [anchor] is the held thing's bounds in root pixels. The same panel
+ * as the app menu, without the lifted icon, since a widget or a folder is drawn by Home itself and stays where it is.
+ */
+@Composable
+internal fun HoldMenu(anchor: Rect, glass: PageGlass?, items: List<HoldMenuItem>, spotlightRadius: androidx.compose.ui.unit.Dp = 24.dp, onDismiss: () -> Unit) {
+    val density = LocalDensity.current
+    var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    val appear = remember { Animatable(0f, .001f) }
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    // The menu opening is felt, as the press that opened it is on iOS.
+    LaunchedEffect(Unit) { UnoFeedback.play(Cue.LONG_PRESS, haptic); appear.animateTo(1f, spring(.74f, 560f, .001f)) }
+    Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }.testTag("hold-menu")) {
+        // The dim has a window over the held thing, so it stays sharp and bright, as the held thing does on iOS.
+        Box(Modifier.wholeWindow(origin).graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawRect(Color.Black.copy(alpha = .30f * appear.value))
+                val r = spotlightRadius.toPx()
+                drawRoundRect(Color.Black, androidx.compose.ui.geometry.Offset(anchor.left, anchor.top), anchor.size,
+                    androidx.compose.ui.geometry.CornerRadius(r, r), blendMode = androidx.compose.ui.graphics.BlendMode.Clear)
+            }
+            .pointerInput(Unit) { detectTapGestures { onDismiss() } }.testTag("hold-menu-scrim"))
+        val panelWidthPx = with(density) { 232.dp.toPx() }
+        val screen = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
+        val gap = with(density) { 10.dp.toPx() }
+        val edge = with(density) { 10.dp.toPx() }
+        var panelHeight by remember { mutableFloatStateOf(0f) }
+        val below = anchor.bottom + gap
+        val flip = panelHeight > 0f && below + panelHeight > screen.height - edge && anchor.top - gap - panelHeight >= edge
+        val x = (anchor.center.x - panelWidthPx / 2f).coerceIn(edge, (screen.width - panelWidthPx - edge).coerceAtLeast(edge))
+        val y = if (flip) anchor.top - gap - panelHeight else below.coerceAtMost((screen.height - panelHeight - edge).coerceAtLeast(edge))
+        val pivotX = ((anchor.center.x - x) / panelWidthPx).coerceIn(0f, 1f)
+        val tint = MaterialTheme.colorScheme.surface.copy(alpha = .5f)
+        val panel = Modifier.width(with(density) { panelWidthPx.toDp() })
+            .offset { IntOffset((x - origin.x).roundToInt(), (y - origin.y).roundToInt()) }
+            .onGloballyPositioned { panelHeight = it.size.height.toFloat() }
+            .graphicsLayer {
+                val grow = .8f + .2f * appear.value
+                scaleX = grow; scaleY = grow; alpha = appear.value.coerceIn(0f, 1f)
+                transformOrigin = TransformOrigin(pivotX, if (flip) 1f else 0f)
+            }
+            .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.large, tint, GlassKind.REGULAR, glass.settings)
+                else Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = .97f), Corner.large))
+            .padding(vertical = 6.dp)
+        Column(panel.testTag("hold-menu-panel")) {
+            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+                items.forEachIndexed { i, item ->
+                    if (i > 0) MenuDivider()
+                    MenuRow(item.icon, item.label, item.tag, item.onClick, item.tint)
+                }
+            }
+        }
+    }
+}
+
+/** The whole window, status and navigation bars included, whatever room the screen padding gave the menu: the dim and blur reach every edge, as on iOS. */
+@Composable
+private fun Modifier.wholeWindow(origin: androidx.compose.ui.geometry.Offset): Modifier {
+    val density = LocalDensity.current
+    val window = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
+    return this.requiredSize(with(density) { window.width.toDp() }, with(density) { window.height.toDp() })
+        .offset { IntOffset((-origin.x).roundToInt(), (-origin.y).roundToInt()) }
+}

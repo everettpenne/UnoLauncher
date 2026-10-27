@@ -78,6 +78,8 @@ class CustomizationNavigationIntegrationTest {
 
         val start = compose.onNodeWithTag("home-cell-$index").fetchSemanticsNode().boundsInRoot.center
         compose.onNodeWithTag("launcher-root").performTouchInput { down(start); advanceEventTime(700); up() }
+        // A held app opens the iOS-style menu; its More row opens the full options sheet this test is about.
+        compose.onNodeWithTag("app-more-$appId").performClick()
         compose.onNodeWithText("Move on Home").performClick()
         compose.onNodeWithText("Move to first position").assertIsDisplayed()
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()

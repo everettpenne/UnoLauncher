@@ -58,4 +58,8 @@ internal object IslandQuickActions {
             else -> null
         }
     }
+
+    /** The battery card, for a long press on the pill while it is charging and nothing else is live. */
+    fun chargingCard(context: Context): PeekNotification = PeekNotification(context.packageName, "Battery", "Battery", null, null, null,
+        CARD_SECONDS, IslandThemes.active.charging.toArgb(), emptyList(), quickActions = true, chargingCard = true)
 }

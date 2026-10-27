@@ -26,6 +26,7 @@
     <!-- Photos widget, album source: lists photo albums and reads the images of the one the user chooses, only while the
          widget is on screen. Asked for only when the user picks an album; the widget works without it (chosen photos). -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <!-- Island timer: lets it fire to the second with Home closed. Off by default on Android 14+, and the
          user can leave it off; the timer then ends a little late (still in Doze) instead of failing. -->

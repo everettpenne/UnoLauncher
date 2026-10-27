@@ -399,10 +399,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Long-press the island for a card made for what is live: music, a call, a timer, a stopwatch, a Live Update or navigation.</string>
-    <string name="whats_new_2">Home is more like iOS: a seven-row grid, a menu when you hold an app, iOS-style folders, and Card or Glass widgets.</string>
-    <string name="whats_new_3">The island has a Playful theme, on by default, with rolling digits, wavy progress and a liquid battery. Island settings can turn it to Calm.</string>
-    <string name="whats_new_4">The App Library has a frosted look that scrolls more smoothly, and the welcome sheet is a five-step setup.</string>
+    <string name="whats_new_1">Hold a widget or a folder on Home for a small menu, as on iOS, and hold an app in the dock for the same menu as on Home.</string>
+    <string name="whats_new_2">The widget gallery lists apps, and an app opens as a pager of its widgets with an Add widget button.</string>
+    <string name="whats_new_3">The App Library and the feed sit over a softly blurred wallpaper, and the app icons have a flatter, more modern finish.</string>
+    <string name="whats_new_4">The island\'s pause button now really pauses players that ignore it, and a long press on the pill while charging opens a battery card.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>
@@ -477,4 +477,11 @@
     <string name="library_other">Other</string>
     <string name="island_card_timer">Timer</string>
     <string name="island_card_stopwatch">Stopwatch</string>
+    <string name="hold_edit_widget">Edit Widget</string>
+    <string name="hold_remove_widget">Remove Widget</string>
+    <string name="hold_rename_folder">Rename</string>
+    <string name="hold_open_folder">Open Folder</string>
+    <string name="widget_apps">Apps</string>
+    <string name="widget_count_one">1 widget</string>
+    <string name="widget_count_many">%d widgets</string>
 </resources>

@@ -29,6 +29,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.foundation.shape.CircleShape
@@ -217,6 +219,8 @@ internal fun VisualWidgetPicker(
     previewGlass: PageGlass? = glass,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
+    // The app whose widgets are open (the drill-down); with a search typed, the flat list stays.
+    var detailApp by rememberSaveable { mutableStateOf<String?>(null) }
     val latestDragStart by rememberUpdatedState(onDragStart)
     val latestDrag by rememberUpdatedState(onDrag)
     val latestDrop by rememberUpdatedState(onDrop)
@@ -239,7 +243,11 @@ internal fun VisualWidgetPicker(
             .liquidGlass(glass.backdrop, Corner.xlarge, glass.tint, kind = GlassKind.REGULAR, settings = glass.settings) else Modifier)
         .testTag("visual-widget-picker"),
         color = if (glass != null) Color.Transparent else Glass.copy(alpha = .96f)) {
-        Column(Modifier.fillMaxSize().then(if (glass != null) Modifier.padding(top = 8.dp)
+        Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()
+            // The gallery behind an open app is hidden and left out of what a screen reader and the keyboard reach.
+            .then(if (detailApp != null) Modifier.alpha(0f).clearAndSetSemantics { }.focusProperties { canFocus = false } else Modifier)
+            .then(if (glass != null) Modifier.padding(top = 8.dp)
             else Modifier.statusBarsPadding().navigationBarsPadding()).padding(horizontal = 16.dp)) {
             // As iOS's gallery: a large title at the start, a round close button at the end, then a search field and one line saying how to add.
             Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -326,7 +334,20 @@ internal fun VisualWidgetPicker(
                         }
                     }
                 }
-                filtered.groupBy { it.appLabel }.forEach { (app, group) ->
+                if (words.isEmpty() && selectedProfile.isPersonal && filtered.isNotEmpty()) {
+                    item("apps-title") { PickerSection(stringResource(com.jake.duolauncher.R.string.widget_apps)) }
+                    item("apps-list") {
+                        Surface(Modifier.fillMaxWidth(), color = Color.White.copy(alpha = .55f), shape = Corner.large) {
+                            Column {
+                                filtered.groupBy { it.appLabel }.entries.forEachIndexed { index, (app, group) ->
+                                    if (index > 0) HorizontalDivider(Modifier.padding(start = 64.dp), color = Ink.copy(alpha = .10f))
+                                    WidgetAppRow(app, group, onClick = { focusManager.clearFocus(); keyboard?.hide(); detailApp = app })
+                                }
+                            }
+                        }
+                    }
+                }
+                (if (words.isEmpty() && selectedProfile.isPersonal) emptyMap() else filtered.groupBy { it.appLabel }).forEach { (app, group) ->
                     item("header-$app") { PickerSection(app) }
                     items(group, key = { it.provider.provider.flattenToString() }) { entry ->
                         val span = footprint(entry.provider)
@@ -374,6 +395,14 @@ internal fun VisualWidgetPicker(
                 if (entries != null && filtered.isEmpty()) item { Text(stringResource(com.jake.duolauncher.R.string.no_widgets_found), Modifier.padding(16.dp)) }
             }
         }
+        // An app opened from the gallery: its widgets one page at a time, as iOS shows them, with the way to add the one on screen.
+        val openGroup = detailApp?.let { app -> filtered.filter { it.appLabel == app } }?.takeIf { it.isNotEmpty() }
+        if (openGroup != null) WidgetAppDetail(openGroup, footprint, onBack = { detailApp = null },
+            onAdd = { entry -> focusManager.clearFocus(); keyboard?.hide(); onTap(entry.provider) },
+            onDragStart = { provider, point -> focusManager.clearFocus(); keyboard?.hide(); latestDragStart(provider, point) },
+            onDrag = { point -> latestDrag(point) }, onDrop = { latestDrop() }, onCancelDrag = { latestCancelDrag() },
+            modifier = Modifier.fillMaxSize().background(if (glass != null) Color.Transparent else Glass.copy(alpha = .98f)).testTag("widget-app-detail"))
+        }
     }
     }
 }
@@ -414,5 +443,80 @@ private fun PlusBadge() {
     val (accent, onAccent) = launcherAccent()
     Box(Modifier.size(26.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
         Icon(Icons.Rounded.Add, null, tint = onAccent, modifier = Modifier.size(17.dp))
+    }
+}
+
+/** One app in the gallery's list: its icon, its name, and how many widgets it has. A tap opens them. */
+@Composable
+private fun WidgetAppRow(app: String, group: List<WidgetCatalogEntry>, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val icon = remember(group.first().provider) { runCatching { group.first().provider.loadIcon(context, 0)?.catalogBitmap()?.asImageBitmap() }.getOrNull() }
+    Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp)
+        .semantics { contentDescription = "$app, ${group.size} widgets" }.testTag("widget-app-$app"), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(40.dp).clip(Corner.icon).background(Ink.copy(alpha = .08f))) {
+            if (icon != null) Image(icon, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(app, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(stringResource(if (group.size == 1) com.jake.duolauncher.R.string.widget_count_one else com.jake.duolauncher.R.string.widget_count_many, group.size),
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(Icons.Rounded.ChevronRight, null, tint = Ink.copy(alpha = .4f))
+    }
+}
+
+/** An app's widgets, one per page of a pager that swipes sideways, each with its name, size and what it does, then a dot for each page and the
+ *  Add Widget button, as iOS's gallery shows one app. */
+@Composable
+private fun WidgetAppDetail(group: List<WidgetCatalogEntry>, footprint: (AppWidgetProviderInfo) -> WidgetSpan?, onBack: () -> Unit,
+    onAdd: (WidgetCatalogEntry) -> Unit, onDragStart: (AppWidgetProviderInfo, Offset) -> Unit, onDrag: (Offset) -> Unit, onDrop: () -> Unit,
+    onCancelDrag: () -> Unit, modifier: Modifier = Modifier) {
+    val pager = androidx.compose.foundation.pager.rememberPagerState { group.size }
+    val current = group[pager.currentPage.coerceIn(0, group.size - 1)]
+    val currentSpan = footprint(current.provider)
+    Column(modifier.padding(horizontal = 16.dp).statusBarsPadding().navigationBarsPadding().padding(top = 10.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(36.dp).clip(CircleShape).background(Ink.copy(alpha = .10f)).clickable(onClick = onBack)
+                .semantics { contentDescription = "Back to the widget gallery" }.testTag("widget-detail-back"), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.ChevronLeft, null, tint = Ink.copy(alpha = .7f), modifier = Modifier.size(24.dp))
+            }
+            Text(group.first().appLabel, Modifier.weight(1f).padding(start = 12.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp), pageSpacing = 16.dp) { page ->
+            val entry = group[page]
+            val span = footprint(entry.provider)
+            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(entry.providerLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Text(span?.let { "${it.width} × ${it.height}" } ?: "Doesn’t fit this layout", style = MaterialTheme.typography.labelMedium,
+                    color = if (span == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                if (entry.description.isNotBlank()) Text(entry.description, Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                val ratio = span?.let { it.width.toFloat() / it.height } ?: 1.5f
+                BoxWithConstraints(Modifier.fillMaxWidth().weight(1f).padding(top = 14.dp), contentAlignment = Alignment.TopCenter) {
+                    val w = minOf(maxWidth, 300.dp * ratio, maxHeight * ratio)
+                    // Held and dragged, the preview goes onto Home as in the flat list: the gallery hides, and the drop is made where the finger lifts.
+                    var origin by remember { mutableStateOf(Offset.Zero) }
+                    Box(Modifier.width(w).height(w / ratio).clip(Corner.large).testTag("widget-detail-preview-$page")
+                        .onGloballyPositioned { origin = it.boundsInRoot().topLeft }
+                        .pointerInput(entry.provider) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { point -> onDragStart(entry.provider, origin + point) },
+                                onDrag = { change, _ -> change.consume(); onDrag(origin + change.position) },
+                                onDragEnd = { onDrop() }, onDragCancel = { onCancelDrag() })
+                        }) {
+                        WidgetProviderPreview(entry, span ?: WidgetSpan(2, 2), Modifier.fillMaxSize())
+                    }
+                }
+            }
+        }
+        if (group.size > 1) Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.Center) {
+            repeat(group.size) { i ->
+                Box(Modifier.padding(horizontal = 3.dp).size(7.dp).clip(CircleShape).background(Ink.copy(alpha = if (i == pager.currentPage) .75f else .22f)))
+            }
+        }
+        GlassButton(prominent = true, onClick = { onAdd(current) }, enabled = currentSpan != null,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).testTag("widget-detail-add")) { Text(stringResource(com.jake.duolauncher.R.string.add_widget)) }
     }
 }

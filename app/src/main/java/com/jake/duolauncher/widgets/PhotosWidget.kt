@@ -169,7 +169,7 @@ private fun PhotosMenu(slot: Int, intervalMin: Long, shuffle: Boolean, albumId: 
     val albums by produceState(emptyList<PhotoAlbum>(), showAlbums, albumRefresh) {
         value = if (showAlbums) withContext(Dispatchers.IO) { PhotoAlbums.list(context) } else emptyList()
     }
-    val requestPhotos = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { albumRefresh++ }
+    val requestPhotos = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { albumRefresh++ }
     val pickPhotos = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (!uris.isNullOrEmpty()) {
             uris.forEach { runCatching { context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
@@ -190,9 +190,9 @@ private fun PhotosMenu(slot: Int, intervalMin: Long, shuffle: Boolean, albumId: 
             subtitle = "${manual.size} photo${if (manual.size == 1) "" else "s"} · tap to add more",
             trailing = if (albumId != null) ({ GlassButton("Use these", { WidgetData.set(slot, "album", "") }, tag = "photos-source-manual") }) else null)
         if (!PhotoAlbums.hasAccess(context)) {
-            GlassRow("Use an album", onClick = { requestPhotos.launch(PhotoAlbums.permission()) }, modifier = Modifier.testTag("photos-allow"),
+            GlassRow("Use an album", onClick = { requestPhotos.launch(PhotoAlbums.permissions()) }, modifier = Modifier.testTag("photos-allow"),
                 subtitle = "Needs Photos & media access: read only, to list your albums and show them.",
-                trailing = { GlassButton("Allow", { requestPhotos.launch(PhotoAlbums.permission()) }) })
+                trailing = { GlassButton("Allow", { requestPhotos.launch(PhotoAlbums.permissions()) }) })
         } else {
             GlassRow(if (albumId != null) WidgetData.get(slot, "albumName").ifBlank { "Album" } else "Choose an album",
                 onClick = { showAlbums = !showAlbums }, modifier = Modifier.testTag("photos-album-toggle"),
@@ -270,13 +270,19 @@ internal object PhotoAlbums {
     fun permission(): String = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_IMAGES
     else Manifest.permission.READ_EXTERNAL_STORAGE
 
+    /** What to ask for. From Android 14 the person may allow only some photos, so that choice is asked for alongside full access (the lint
+     *  SelectedPhotoAccess): the album list then simply holds the photos they chose. */
+    fun permissions(): Array<String> = if (Build.VERSION.SDK_INT >= 34)
+        arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) else arrayOf(permission())
+
+    /** Full access, or on Android 14 and later the partial "selected photos" access. */
     fun hasAccess(context: Context): Boolean =
-        context.checkSelfPermission(permission()) == PackageManager.PERMISSION_GRANTED
+        context.checkSelfPermission(permission()) == PackageManager.PERMISSION_GRANTED ||
+            (Build.VERSION.SDK_INT >= 34 && context.checkSelfPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED)
 
     /** Albums with at least one image, newest first by their newest picture. */
     fun list(context: Context): List<PhotoAlbum> {
-        if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) return emptyList()
-        if (Build.VERSION.SDK_INT < 33 && context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) return emptyList()
+        if (!hasAccess(context)) return emptyList()
         return runCatching {
             val resolver = context.contentResolver
             val projection = arrayOf(MediaStore.Images.Media.BUCKET_ID, MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
@@ -303,8 +309,7 @@ internal object PhotoAlbums {
 
     /** Every image in [bucketId], newest first, as content URIs. */
     fun images(context: Context, bucketId: String): List<String> {
-        if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) return emptyList()
-        if (Build.VERSION.SDK_INT < 33 && context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) return emptyList()
+        if (!hasAccess(context)) return emptyList()
         return runCatching {
             val resolver = context.contentResolver
             val result = mutableListOf<String>()

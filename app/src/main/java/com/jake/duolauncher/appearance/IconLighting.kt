@@ -44,7 +44,7 @@ internal fun drawIconLighting(canvas: Canvas, size: Float) {
         m.setScale(s, s, size / 2f, size / 2f); shape.transform(m, it)
     }
     paint.style = Paint.Style.STROKE
-    paint.strokeWidth = size * .016f
+    paint.strokeWidth = size * .010f
     paint.shader = LinearGradient(0f, 0f, 0f, size,
         intArrayOf(white(IconLighting.TOP_EDGE), white(IconLighting.TOP_EDGE * .35f), white(0f), white(IconLighting.BOTTOM_EDGE * .6f), white(IconLighting.BOTTOM_EDGE)),
         floatArrayOf(0f, .16f, .5f, .86f, 1f), Shader.TileMode.CLAMP)
@@ -52,13 +52,23 @@ internal fun drawIconLighting(canvas: Canvas, size: Float) {
     canvas.drawPath(rim, paint)
     canvas.restore()
     paint.shader = null
+    // 4. A hairline of shade right at the silhouette's edge, so the icon is defined on any wallpaper.
+    paint.strokeWidth = size * .006f
+    paint.color = black(IconLighting.HAIRLINE)
+    canvas.save(); canvas.clipPath(shape)
+    canvas.drawPath(shape, paint)
+    canvas.restore()
 }
 
 /** How strong each part of the lighting is, as white or black opacity. */
 internal object IconLighting {
-    const val TOP_GLOW = .20f
-    const val SPILL = .16f
-    const val BOTTOM_SHADE = .14f
-    const val TOP_EDGE = .62f
-    const val BOTTOM_EDGE = .26f
+    // iOS 26's icons are nearly flat: the colour is the icon, with only a faint sheen and a fine edge of light. The older, domed look (a strong
+    // glow from the top, a darker bottom, a bright rim) reads as iOS 7 to 15, which is what made these look dated.
+    const val TOP_GLOW = .06f
+    const val SPILL = .07f
+    const val BOTTOM_SHADE = .04f
+    const val TOP_EDGE = .40f
+    const val BOTTOM_EDGE = .10f
+    /** The fine dark line just inside the edge that keeps a pale icon from melting into a pale wallpaper. */
+    const val HAIRLINE = .07f
 }

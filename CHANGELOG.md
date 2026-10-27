@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.111.1-uno01
+
+- **The island's pause works on every player.** A media session can accept a pause and ignore it (Flow does), and the island treated that as done. It now checks 0.7 s later whether the audio is still playing and, if it is, pauses by audio focus or the media key, as it does with no session. Tested on a Pixel 10a with Flow.
+- **The glow over the camera is smooth.** The black veil that hides the camera hole had a straight-edged strip that left a visible vertical line where the glow stopped; it is now an oval of black that fades out in every direction.
+- **No bright edge on the small pill.** The light edge along the island's top-left now draws only once the island is more than half open; on the pill (and each time an app opens under it) it was a distraction.
+- **Hold menus.** Holding a widget or a folder on Home opens a small frosted menu (Edit Widget, Edit Home Screen, Remove Widget; Open Folder, Rename, Edit Home Screen), with the held thing clear in a window cut out of the dim. A dock app gets the app menu Home apps have. All hold menus dim the whole window, status and navigation strips included, with a lighter blur, and play the long-press cue and a tick per row.
+- **The App Library and the feed** sit over a blurred wallpaper (the picture fades in as those pages come into view), with translucent glass cards. App icons have iOS 26's flatter finish: a faint sheen, a thin edge of light and a hairline of shade, in place of the older domed look.
+- **Widget gallery.** With nothing typed it lists the Uno widgets and then **Apps** (icon and widget count); an app opens as a pager of its widgets with a size, a description, page dots and Add widget, and a held preview can be dragged onto Home. A search keeps the flat list.
+- **Island.** In the Playful theme, a pill's glyph and detail blur as they swap; a long press on the pill while it is charging (and nothing else is live) opens a battery card with a liquid cell; a finished timer's ring sends out a burst; capsules pop out on a looser spring with a haptic tick.
+- **Photos widget** also asks for Android 14's "selected photos" access (lint SelectedPhotoAccess), so a partial grant shows the photos the person chose.
+- **Testing.** The 267 instrumented tests were run on a Pixel 10a. The failures were the same as on 0.110.0 (written for an emulator or a foldable, or already failing there) except one test that expected the old full sheet when an app is held, which now goes through the menu's More row and passes. Frame timing swiping to the App Library and Discover on the phone: about 4% and 6.5% janky frames with a release build of the dev app, the same with the new blurred wallpaper switched off, so it did not add cost. **Not seen on a phone with real data:** the call, Live Update, download and navigation cards.
+
 ## 0.111.0-uno01
 
 - **The island's middle level.** A long-press on the pill opens a card made for what it is showing, in place of the old title-and-buttons card: **music** (full width, artwork, wavy seek bar, large controls), **calls** (avatar, running time, Open and End), **timer** (a shrinking ring, +1 min, cancel), **stopwatch** (rolling digits, pause, reset), a **Live Update** (segmented progress with milestone dots; a download gets a wavy ring that bursts when it completes) and **navigation** (a large turn arrow, distance, street, ETA). The island body stays black, so the camera hole stays hidden; an activity's colour is only a glow behind the card, and a black veil fades every glow out over the camera.

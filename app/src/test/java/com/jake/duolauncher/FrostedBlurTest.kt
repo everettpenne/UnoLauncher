@@ -30,3 +30,16 @@ class FrostedBlurTest {
         assertEquals(30 * 20, out.size)
     }
 }
+
+class BlurredPagesAmountTest {
+    @org.junit.Test fun blurFollowsTheLibraryAndTheFeedAndNotHome() {
+        // Pages: feed 0, Home 1..2, library 3.
+        org.junit.Assert.assertEquals(0f, blurredPagesAmount(1f, 4, 1), 0f)
+        org.junit.Assert.assertEquals(0f, blurredPagesAmount(2f, 4, 1), 0f)
+        org.junit.Assert.assertEquals(.5f, blurredPagesAmount(2.5f, 4, 1), .001f)
+        org.junit.Assert.assertEquals(1f, blurredPagesAmount(3f, 4, 1), 0f)
+        org.junit.Assert.assertEquals(1f, blurredPagesAmount(0f, 4, 1), 0f)
+        org.junit.Assert.assertEquals(.4f, blurredPagesAmount(.6f, 4, 1), .001f)
+        org.junit.Assert.assertEquals(0f, blurredPagesAmount(0f, 3, 0), 0f)
+    }
+}

@@ -264,7 +264,20 @@ private fun issueMediaCommand(context: Context, keyCode: Int) {
                     else controls.play()
             }
         }.isSuccess
-        if (ok) return
+        if (ok) {
+            // A session can accept a pause and ignore it (its callback not wired to the pause action, or a session that is not the one
+            // making the sound), and the call still reports success. So a pause is checked shortly after, and when the audio is still
+            // playing it is made with the audio-focus request or the media key, as it is without a session.
+            if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE && controller.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING) {
+                val audio = context.getSystemService(AudioManager::class.java)
+                if (audio != null) Thread {
+                    runCatching { Thread.sleep(700L) }
+                    val stillPlaying = controller.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING || audio.isMusicActive
+                    if (stillPlaying) { if (audio.isMusicActive) pauseByAudioFocus(context, audio) else sendMediaKey(context, keyCode) }
+                }.start()
+            }
+            return
+        }
     }
     val audio = context.getSystemService(AudioManager::class.java)
     // Without the session (no notification access) the media key is the only handle, and newer Android versions can ignore

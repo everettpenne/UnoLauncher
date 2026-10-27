@@ -300,6 +300,45 @@ Rules:
 
 The Material `DatePickerDialog` in the Countdown widget is the one remaining stock dialog (no glass date picker exists yet); it opens from a `GlassDialog` and is a known gap, not a pattern to copy.
 
+## Island activity cards and the Playful theme (`IslandCards.kt`, 0.111.0)
+
+The island has three levels: the pill, a **card** for one live activity (a long press on the pill), and the full panel. A card is chosen by
+`PeekNotification.kind` (or `chargingCard`) and drawn by `ActivityCard`: music (full width, large controls), call, timer (a ring), stopwatch,
+Live Update (segmented progress; a download gets a wavy ring), navigation (a large arrow, distance, street, ETA) and the battery. A card adds
+`IslandCards.extraDp(kind)` to the open body's height.
+
+- **The body stays black.** The camera hole must disappear, so an activity's colour is only a glow behind the card. `island-cutout-veil` draws an
+  ellipse of black over the hole, solid over it and fading out smoothly with no straight edge, after every colour layer (a straight strip once left
+  a visible vertical line where the glow stopped).
+- **Playful** (`IslandTheme.playful`, default on; Island › Style › Playful or Calm; `"playful"` in a theme file) adds rolling digits (`RollingText`),
+  buttons that change shape (`MorphButton`), wavy rings, a light edge along the top-left (only once the island is more than half open), a liquid
+  battery while charging (`BatteryGlyph`), looser capsule springs, and a blur on a pill's glyph and detail as they swap (`swapBlur`). Calm leaves all of it still.
+- **Capsules, not a two-up pill.** A second activity pops out as a detached capsule positioned by the status-bar grid. A single pill carrying both
+  was tried and rejected: the grid places capsules in gaps between the system icons, so a joined pill would span them.
+- **Pause** is checked: a media session can accept pause and ignore it, so 0.7 s later, if the audio is still playing, the island pauses by audio
+  focus or the media key (`issueMediaCommand`).
+
+## Menus held on Home (`AppContextMenu.kt`)
+
+Holding an app (on Home, in the dock, or in the App Library) opens `AppContextMenu`; holding a widget or a folder opens `HoldMenu`. Both dim the whole
+window (status and navigation strips included, `wholeWindow`) and blur it a little; a widget or folder stays clear in a window cut out of the dim.
+They play the long-press cue when they open and a tick for each row.
+
+## The App Library, the feed and the wallpaper
+
+On those pages the wallpaper behind the cards is blurred (`blurredPagesAmount` fades the blurred picture in as the pages come into view); the cards
+are translucent glass over it (`frostedGlass`), which costs almost nothing while the pages move.
+
+## App icons (`IconLighting.kt`)
+
+iOS 26's icons are nearly flat: a faint sheen, a thin edge of light, a hairline of shade at the edge. The older domed look (a strong top glow, a darker
+bottom, a bright rim) reads as iOS 7 to 15. Strengths are constants in `IconLighting`.
+
+## Widget gallery (`WidgetPicker.kt`)
+
+With nothing typed, the gallery lists the Uno widgets and then **Apps**, each with its icon and widget count; a tap opens the app's widgets as the
+pages of a pager with an Add widget button, and a held preview can still be dragged onto Home. A search keeps the flat list.
+
 ## Island themes
 
 The island's look is data (`island/IslandTheme.kt`): colours, a panel shape, a control shape and a motion feel, applied by one object, `IslandThemes.active`. Island code reads its colours, shapes and springs from the active theme and never hard-codes them, with three exceptions that are deliberate: the privacy marks (camera, microphone, recording, VPN, USB), the call controls, and anything that is not the island's own surface. Rules for themes, and the file format, are in [Island themes](island-themes.md). When adding something to the island, ask which theme slot it uses; if none fits, add a slot (and a field to the file format, keeping old files valid) instead of a literal.

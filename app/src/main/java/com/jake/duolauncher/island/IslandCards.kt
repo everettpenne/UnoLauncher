@@ -72,6 +72,8 @@ import kotlinx.coroutines.delay
  */
 internal object IslandCards {
     /** Height the card adds to the island body, beyond the ordinary one-row notification card, for each kind. */
+    const val CHARGING_EXTRA_DP = 30f
+
     fun extraDp(kind: LiveKind?, navigation: Boolean = false): Float = when (kind) {
         LiveKind.MEDIA -> 62f
         LiveKind.CALL -> 44f
@@ -175,8 +177,10 @@ internal fun SegmentedBar(filled: Int, segments: Int, fraction: Float, accent: C
 
 /** A circular timer ring with its digits in the middle. */
 @Composable
-internal fun TimerRing(remaining: Float, accent: Color, size: Dp, content: @Composable BoxScope.() -> Unit) {
+internal fun TimerRing(remaining: Float, accent: Color, size: Dp, burst: Boolean = false, content: @Composable BoxScope.() -> Unit) {
     val rest = themeInk.copy(alpha = .14f)
+    // When the time runs out the ring sends out one burst, as a finished download's does.
+    val wave by animateFloatAsState(if (burst) 1f else 0f, tween(700), label = "timer burst")
     Box(Modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val w = 5.dp.toPx()
@@ -184,6 +188,8 @@ internal fun TimerRing(remaining: Float, accent: Color, size: Dp, content: @Comp
             val arc = Size(this.size.width - w, this.size.height - w)
             drawArc(rest, 0f, 360f, false, Offset(inset, inset), arc, style = Stroke(w, cap = StrokeCap.Round))
             drawArc(accent, -90f, 360f * remaining, false, Offset(inset, inset), arc, style = Stroke(w, cap = StrokeCap.Round))
+            if (wave in .01f..0.99f) drawCircle(accent.copy(alpha = (1f - wave) * .6f), this.size.minDimension / 2f + wave * this.size.minDimension * .22f,
+                center, style = Stroke(w * (1f - wave)))
         }
         content()
     }
@@ -280,7 +286,7 @@ private fun TimerCard(nowMs: Long, playful: Boolean) {
     val accent = IslandThemes.active.timer
     val remaining = (IslandTools.timerEndAt - nowMs).coerceAtLeast(0L)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        TimerRing(IslandCards.ringRemaining(remaining, IslandTools.timerTotal), accent, 72.dp) {
+        TimerRing(IslandCards.ringRemaining(remaining, IslandTools.timerTotal), accent, 72.dp, burst = playful && remaining <= 0L) {
             RollingText(MediaTimes.clock(remaining + 999L), UnoType.footnote.tight.copy(fontWeight = FontWeight.SemiBold), themeInk, playful)
         }
         Spacer(Modifier.width(14.dp))
@@ -405,5 +411,19 @@ private fun NavigationCard(update: LiveUpdate, accent: Color, playful: Boolean) 
             update.text?.let { Text(it, color = themeInk.copy(alpha = .9f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         }
         update.shortText?.let { Text(it, color = accent, style = UnoType.subheadline.tight, fontWeight = FontWeight.SemiBold, maxLines = 1) }
+    }
+}
+
+/** The battery card: a large liquid cell, the level, and what it is doing. */
+@Composable
+internal fun ChargingCard(level: Int?, charging: Boolean, modifier: Modifier = Modifier) {
+    val accent = IslandThemes.active.charging
+    Row(modifier.fillMaxWidth().testTag("island-charging-card"), verticalAlignment = Alignment.CenterVertically) {
+        BatteryGlyph(level, charging, Modifier.graphicsLayer { scaleX = 2.6f; scaleY = 2.6f; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, .5f) })
+        Spacer(Modifier.width(70.dp))
+        Column(Modifier.weight(1f)) {
+            Text(level?.let { "$it%" } ?: "", color = if (charging) accent else themeInk, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            Text(if (charging) (if ((level ?: 0) >= 100) "Fully charged" else "Charging") else "On battery", color = themeInk.copy(alpha = .75f), style = UnoType.footnote.tight)
+        }
     }
 }

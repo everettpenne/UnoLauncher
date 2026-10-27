@@ -25,6 +25,8 @@ internal data class PeekNotification(
     val quickActions: Boolean = false,
     /** For a quick-actions card, the activity it is for; the island draws that activity's own card template (IslandCards) instead of a notification. */
     val kind: LiveKind? = null,
+    /** A quick-actions card for the battery (a long press on an idle pill while charging): a large liquid battery and the level. */
+    val chargingCard: Boolean = false,
 )
 
 /** Pure rules for what the drop-down card shows, kept apart so they are unit-tested. */

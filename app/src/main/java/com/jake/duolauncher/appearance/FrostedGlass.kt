@@ -32,6 +32,9 @@ import kotlin.math.roundToInt
 internal class FrostedWallpaper {
     var image by mutableStateOf<ImageBitmap?>(null)
         internal set
+    /** The same picture with its colour lifted, for the page-wide background: the lift is done once here, not by a colour filter on every frame. */
+    var vivid by mutableStateOf<ImageBitmap?>(null)
+        internal set
 }
 
 internal val LocalFrostedWallpaper = compositionLocalOf<FrostedWallpaper?> { null }
@@ -44,7 +47,16 @@ internal fun rememberFrostedWallpaper(layer: GraphicsLayer, revision: Any): Fros
         delay(450L)   // the wallpaper layer is recorded as Home first draws; wait for a complete frame of it
         val full = runCatching { layer.toImageBitmap() }.getOrNull() ?: return@LaunchedEffect
         if (full.width < 8 || full.height < 8) return@LaunchedEffect
-        frosted.image = withContext(Dispatchers.Default) { FrostedBlur.blurred(full.asAndroidBitmap()) }.asImageBitmap()
+        val blurred = withContext(Dispatchers.Default) { FrostedBlur.blurred(full.asAndroidBitmap()) }
+        val vivid = withContext(Dispatchers.Default) {
+            Bitmap.createBitmap(blurred.width, blurred.height, Bitmap.Config.ARGB_8888).also { out ->
+                android.graphics.Canvas(out).drawBitmap(blurred, 0f, 0f, android.graphics.Paint().apply {
+                    colorFilter = android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(1.3f) })
+                })
+            }
+        }
+        frosted.image = blurred.asImageBitmap()
+        frosted.vivid = vivid.asImageBitmap()
     }
     return frosted
 }

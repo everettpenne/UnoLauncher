@@ -82,6 +82,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -480,7 +481,7 @@ internal fun DynamicIsland(
     )
     // The reply field is a little taller than the plain action buttons, so its send button keeps a full 44 dp touch target.
     val actionsRowDp = if (state.peekEditing) REPLY_ROW_DP else PEEK_ACTIONS_ROW_DP
-    val extraBody = if (peekShown != null) (if (peekShown.kind != null) IslandCards.extraDp(peekShown.kind, navCard) else if (peekShown.actions.isNotEmpty()) actionsRowDp else 0f) + (if (peekShown.navigation) NavigationText.TURN_CARD_EXTRA_DP else 0f)
+    val extraBody = if (peekShown != null) (if (peekShown.chargingCard) IslandCards.CHARGING_EXTRA_DP else if (peekShown.kind != null) IslandCards.extraDp(peekShown.kind, navCard) else if (peekShown.actions.isNotEmpty()) actionsRowDp else 0f) + (if (peekShown.navigation) NavigationText.TURN_CARD_EXTRA_DP else 0f)
         else (if (anyPrivacy) PRIVACY_ROW_DP else 0f) +
         (if (recentLive) RECENT_ROW_DP + (if (recent!!.actions.isNotEmpty()) actionsRowDp else 0f) else 0f) +
         (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) updateRowDp else 0f) + widgetRowDp() +
@@ -1000,7 +1001,8 @@ internal fun DynamicIsland(
             LiveKind.UPDATE -> updates.firstOrNull()?.openIntent?.let { intent -> { sendTapAction(context, intent); Unit } }
             else -> null
         }
-        val quickActionsOn = plan.leading != null && !(state.expanded || state.peeked || flashActive || IslandTools.ringing)
+        val chargingIdle = plan.leading == null && deviceStatus.charging
+        val quickActionsOn = (plan.leading != null || chargingIdle) && !(state.expanded || state.peeked || flashActive || IslandTools.ringing)
         val islandTouch = remember { MutableInteractionSource() }
         val islandPressed by islandTouch.collectIsPressedAsState()
         val squash = IslandThemes.active.motion.pulse - 1f
@@ -1049,7 +1051,8 @@ internal fun DynamicIsland(
                 val a = glowAlpha.value
                 if (a > .01f) drawBottomGlow(glowWash, glowTongue, a, flameT, flameAnimated)
                 // A hairline of light along the top-left edge, as on a lit glass pill: the body stays black, so the camera hole is still hidden.
-                if (rimOn) {
+                // Only on the opened island: on the small pill (and every time an app opens under it) a bright edge is a distraction.
+                if (rimOn && progressState.value > .55f) {
                     val w = 1.2.dp.toPx(); val r = cornerPx.value.coerceAtMost(minOf(size.width, size.height) / 2f)
                     drawRoundRect(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(alpha = .30f), Color.White.copy(alpha = .04f), Color.Transparent),
                         Offset.Zero, Offset(size.width * .6f, size.height)), Offset(w / 2f, w / 2f), androidx.compose.ui.geometry.Size(size.width - w, size.height - w),
@@ -1189,11 +1192,11 @@ internal fun DynamicIsland(
                 onClickLabel = if (state.expanded) "Close" else "Open",
                 // A long press on the pill opens a small card for its leading activity with that activity's own buttons, as iOS does
                 // (IslandQuickActions); with nothing to offer it goes to the activity's app, as it used to. A tap still opens the island.
-                onLongClickLabel = if (quickActionsOn || openLeading != null) "Actions for ${plan.leading?.let { IslandLive.label(it) } ?: ""}".trim() else null,
+                onLongClickLabel = if (quickActionsOn || openLeading != null) "Actions for ${plan.leading?.let { IslandLive.label(it) } ?: "battery"}".trim() else null,
                 onLongClick = if (!quickActionsOn && openLeading == null) null else { {
-                    val card = if (quickActionsOn) IslandQuickActions.card(context, plan.leading, System.currentTimeMillis()) else null
+                    val card = if (!quickActionsOn) null else if (chargingIdle) IslandQuickActions.chargingCard(context) else IslandQuickActions.card(context, plan.leading, System.currentTimeMillis())
                     UnoFeedback.play(Cue.OPEN, haptic)
-                    if (card != null && card.actions.isNotEmpty()) state.showPeekCard(card) else openLeading?.invoke()
+                    if (card != null && (card.actions.isNotEmpty() || card.chargingCard)) state.showPeekCard(card) else openLeading?.invoke()
                 } },
                 onClick = {
                     // A ringing timer is silenced by a tap before anything else.
@@ -1239,7 +1242,7 @@ internal fun DynamicIsland(
                     } else if (IslandTools.ringing) {
                         Icon(Icons.Rounded.Alarm, null, tint = IslandThemes.active.timer, modifier = Modifier.size(18.dp))
                     } else androidx.compose.animation.AnimatedContent(plan.leading, transitionSpec = { pillSwap(animationsOn) }, label = "pill glyph") { kind ->
-                        if (kind != null) LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp)
+                        if (kind != null) Box(Modifier.swapBlur(this, IslandThemes.active.playful)) { LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp) }
                     }
                     // Idle: nothing here. The time is in the status bar and on the expanded panel
                     // (IslandEventArbiter.timeOwner); the collapsed island never shows it.
@@ -1261,7 +1264,9 @@ internal fun DynamicIsland(
                         LaunchedEffect(Unit) { if (detailIn.value < 1f) { kotlinx.coroutines.delay(70L); detailIn.animateTo(1f, androidx.compose.animation.core.tween(150)) } }
                         Box(Modifier.graphicsLayer { alpha = detailIn.value }) {
                             androidx.compose.animation.AnimatedContent(plan.leading, transitionSpec = { pillSwap(animationsOn) }, label = "pill detail") { kind ->
-                                LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp, compact = compactDetail)
+                                Box(Modifier.swapBlur(this, IslandThemes.active.playful)) {
+                                    LiveSlot(kind, SlotShow.DETAIL, clockMs, isPlaying, artTint, artImage, multi = liveKinds.size >= 2, liveCompactLevel = liveCompactLevel, update = updates.firstOrNull(), glyphSize = glyphDiameterDp, compact = compactDetail)
+                                }
                             }
                         }
                     } else if (recentLive) {
@@ -1294,6 +1299,7 @@ internal fun DynamicIsland(
                                 context.packageManager.getLaunchIntentForPackage(peek.packageName)?.let { runCatching { context.startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
                             state.clearRecent(); state.collapse()
                         }.testTag("island-peek-card"), verticalAlignment = Alignment.CenterVertically) {
+                        if (peek.chargingCard) ChargingCard(deviceStatus.battery, deviceStatus.charging, Modifier.fillMaxHeight()) else
                         if (peek.kind != null) ActivityCard(peek, peek.kind, state, Modifier.fillMaxHeight()) else
                         if (peek.navigation) NavigationCardBody(peek) else {
                         peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) }
@@ -1321,13 +1327,17 @@ internal fun DynamicIsland(
                 .drawBehind {
                     val c = Offset((openHole.left + openHole.right) / 2f, (openHole.top + openHole.bottom) / 2f)
                     val r = maxOf(openHole.right - openHole.left, openHole.bottom - openHole.top) / 2f
-                    val reach = r * 3.4f
-                    drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(
-                        0f to Color.Black, .36f to Color.Black, .55f to Color.Black.copy(alpha = .8f), .78f to Color.Black.copy(alpha = .32f), 1f to Color.Transparent,
-                        center = c, radius = reach), reach, c)
-                    // And the strip above the hole to the island's top edge, which the circle alone leaves with a faint tint at its sides.
-                    drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Black, 1f to Color.Transparent, startY = 0f, endY = c.y + r * 1.6f),
-                        Offset(c.x - reach, 0f), androidx.compose.ui.geometry.Size(reach * 2f, c.y + r * 1.6f))
+                    // An ellipse of black round the hole that decays smoothly (no straight edge anywhere): solid over the hole and a little past it,
+                    // then fading out, tall enough to reach the island's top edge. A straight-edged strip here left a visible vertical line where
+                    // the glow stopped and the black began.
+                    val rx = r * 4.2f
+                    val ry = c.y + r * 2.6f
+                    withTransform({ scale(1f, ry / rx, pivot = c) }) {
+                        drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(
+                            0f to Color.Black, .30f to Color.Black, .42f to Color.Black.copy(alpha = .92f), .55f to Color.Black.copy(alpha = .68f),
+                            .70f to Color.Black.copy(alpha = .38f), .85f to Color.Black.copy(alpha = .14f), 1f to Color.Transparent,
+                            center = c, radius = rx), rx, c)
+                    }
                 }.testTag("island-cutout-veil"))
             // Expanded face: live panel, starting below the camera hole.
             if (showOpenFace && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)

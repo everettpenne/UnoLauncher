@@ -134,6 +134,19 @@ internal fun pillSwap(animate: Boolean): androidx.compose.animation.ContentTrans
         initialContentExit = androidx.compose.animation.fadeOut(tween(110)) + androidx.compose.animation.scaleOut(tween(110), targetScale = .7f),
         sizeTransform = null)
 
+/** Blurs content while it is entering or leaving an [androidx.compose.animation.AnimatedContent], so a swap melts from one thing to the next instead of cutting
+ *  (HyperIsland's blur-in). Playful theme only, and only where the system can blur a layer (Android 12 and later). */
+@Composable
+internal fun Modifier.swapBlur(scope: androidx.compose.animation.AnimatedVisibilityScope, enabled: Boolean): Modifier {
+    if (!enabled || android.os.Build.VERSION.SDK_INT < 31) return this
+    val radius by scope.transition.animateFloat({ tween(200) }, label = "swap blur") { state ->
+        if (state == androidx.compose.animation.EnterExitState.Visible) 0f else 9f
+    }
+    return this.graphicsLayer {
+        if (radius > .1f) renderEffect = androidx.compose.ui.graphics.BlurEffect(radius * density, radius * density, androidx.compose.ui.graphics.TileMode.Decal)
+    }
+}
+
 /** The things the island shows, plus the ones just gone that are still playing their exit; [gone] says an exit has finished. */
 internal class Lingered<T>(val held: List<Held<T>>, val gone: (T) -> Unit)
 

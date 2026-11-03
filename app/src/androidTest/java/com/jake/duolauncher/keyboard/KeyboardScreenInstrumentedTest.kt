@@ -5,6 +5,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.DpRect
@@ -33,6 +35,8 @@ class KeyboardScreenInstrumentedTest {
         override fun page(target: KeyPage) { log += "page:$target" }
         override fun haptic(kind: HapticKind) = Unit
         override fun pick(suggestion: Suggestion) { log += "pick" }
+        var forgets = true
+        override fun forget(suggestion: Suggestion): Boolean { log += "forget:${suggestion.text}"; return forgets }
         override fun moveCursor(delta: Int) { log += "cursor:$delta" }
         override fun emoji(text: String) { log += "emoji:$text" }
         override fun paste() { log += "paste" }
@@ -77,6 +81,24 @@ class KeyboardScreenInstrumentedTest {
         val ui = KeyboardUiState().apply { page = KeyPage.EMOJI }
         show(ui)
         compose.onNodeWithTag("emoji-panel").assertIsDisplayed()
+    }
+
+    @Test fun aSuggestionIsPickedWithATapAndForgottenWithALongPress() {
+        val actions = Recorder()
+        val ui = KeyboardUiState().apply { showStrip = true; suggestions = listOf(Suggestion("pancakes", SuggestionKind.NEXT)) }
+        show(ui, actions)
+        compose.onNodeWithTag("suggestion-0").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("pick"), actions.log)
+        actions.log.clear()
+        compose.onNodeWithTag("suggestion-0").performTouchInput { longClick(durationMillis = 900) }
+        compose.waitForIdle()
+        assertEquals("forgotten, not picked", listOf("forget:pancakes"), actions.log)
+        // Nothing of the person's to forget: a slow press still picks the word when the finger lifts.
+        actions.log.clear(); actions.forgets = false
+        compose.onNodeWithTag("suggestion-0").performTouchInput { longClick(durationMillis = 900) }
+        compose.waitForIdle()
+        assertEquals(listOf("forget:pancakes", "pick"), actions.log)
     }
 
     @Test fun passwordFieldsHaveNoSuggestionLane() {

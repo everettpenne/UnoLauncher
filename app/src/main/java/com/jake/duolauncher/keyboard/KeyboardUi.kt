@@ -684,7 +684,15 @@ private fun SuggestionSlots(ui: KeyboardUiState, palette: KeyPalette, actions: K
             Box(Modifier.weight(1f).fillMaxHeight().padding(vertical = 3.dp, horizontal = 2.dp)
                 .then(if (highlight) Modifier.clip(RoundedCornerShape(50)).background(palette.pill) else Modifier)
                 .then(if (s != null) Modifier.pointerInput(s) {
-                    awaitEachGesture { awaitFirstDown(requireUnconsumed = false); val up = waitForUpOrCancellation(); if (up != null) { actions.haptic(HapticKind.MODIFIER); actions.pick(s) } }
+                    // A tap picks it; a long press forgets it, when it is something the keyboard learned from you (Gboard's drag-to-remove).
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        val up = withTimeoutOrNull(550L) { waitForUpOrCancellation() }
+                        val held = up == null && currentEvent.changes.any { it.pressed }
+                        if (held && actions.forget(s)) { waitForUpOrCancellation(); return@awaitEachGesture }
+                        // Held but nothing to forget: it is still picked when the finger lifts.
+                        if ((if (held) waitForUpOrCancellation() else up) != null) { actions.haptic(HapticKind.MODIFIER); actions.pick(s) }
+                    }
                 } else Modifier).testTag("suggestion-$index"), contentAlignment = Alignment.Center) {
                 if (s != null) when (s.kind) {
                     SuggestionKind.EMOJI -> Text(s.text, fontSize = 22.sp)

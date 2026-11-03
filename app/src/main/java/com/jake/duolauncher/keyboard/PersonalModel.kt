@@ -20,9 +20,13 @@ internal class PersonalModel {
     private val words = HashMap<String, Entry>()
     private val pairs = HashMap<String, HashMap<String, Int>>()
     private val triples = HashMap<String, HashMap<String, Int>>()
+    /** Slips the person fixed themselves by picking a word in the strip: what they typed to what they meant, and how often. */
+    private val fixes = HashMap<String, HashMap<String, Int>>()
+    /** Corrections the person undid: what they typed to the corrections they refused, never made again. */
+    private val refused = HashMap<String, HashSet<String>>()
     @Volatile var changed = false; private set
 
-    @Synchronized fun isEmpty() = words.isEmpty() && pairs.isEmpty()
+    @Synchronized fun isEmpty() = words.isEmpty() && pairs.isEmpty() && fixes.isEmpty() && refused.isEmpty()
 
     /** Records that [word] was typed (and kept) on [day] (days since 1970). [inDictionary] words are counted for prediction but need no
      * activating. Returns true when this made a new word active.
@@ -52,6 +56,40 @@ internal class PersonalModel {
         changed = true
         if (pairs.size > MAX_PAIR_HEADS || triples.size > MAX_PAIR_HEADS) trimPairs()
     }
+
+    /** Records that the person, having typed [typed], picked [meant] in the strip instead: once it has happened twice, [fixFor] makes
+     * that correction by itself. A completion ("hel" to "hello") is not a slip, so a pick that only finishes the word is not recorded.
+     */
+    @Synchronized fun learnFix(typed: String, meant: String) {
+        val t = typed.lowercase(); val m = meant.lowercase()
+        if (t.length < 2 || t == m || m.startsWith(t) || clean(t) == null || m.isBlank() || m.length > 40) return
+        fixes.getOrPut(t) { HashMap() }.merge(m, 1) { a, b -> (a + b).coerceAtMost(MAX_COUNT) }
+        refused[t]?.remove(m)
+        changed = true
+        if (fixes.size > MAX_FIXES) fixes.entries.sortedBy { it.value.values.sum() }.take(fixes.size - MAX_FIXES * 9 / 10).forEach { fixes.remove(it.key) }
+    }
+
+    /** The word the person has twice picked over [typed], or null. */
+    @Synchronized fun fixFor(typed: String): String? =
+        fixes[typed.lowercase()]?.entries?.filter { it.value >= 2 }?.maxByOrNull { it.value }?.key
+
+    /** Records that the person undid the correction of [typed] to [fix]: it is never made again, in any field, until they pick it themselves. */
+    @Synchronized fun refuse(typed: String, fix: String) {
+        val t = typed.lowercase(); val f = fix.lowercase()
+        if (t == f || t.isBlank()) return
+        refused.getOrPut(t) { HashSet() } += f
+        fixes[t]?.remove(f)
+        changed = true
+        if (refused.size > MAX_FIXES) refused.keys.take(refused.size - MAX_FIXES * 9 / 10).forEach { refused.remove(it) }
+    }
+
+    @Synchronized fun refuses(typed: String, fix: String): Boolean = refused[typed.lowercase()]?.contains(fix.lowercase()) == true
+
+    /** How many times the person has typed [word] (dictionary words too), for ranking corrections by their own habits. */
+    @Synchronized fun uses(word: String): Int = words[word.lowercase()]?.count ?: 0
+
+    /** How many times the person has put [word] after [previous]. */
+    @Synchronized fun follows(previous: String, word: String): Int = pairs[previous.lowercase()]?.get(word.lowercase()) ?: 0
 
     /** Whether [word] is one of the person's own words, active and so never to be "corrected". */
     @Synchronized fun knows(word: String, inDictionary: Boolean = false): Boolean = words[word.lowercase()]?.let { active(it, inDictionary) } == true
@@ -93,33 +131,46 @@ internal class PersonalModel {
         val k = word.lowercase()
         words.remove(k); pairs.remove(k); pairs.values.forEach { it.remove(k) }
         triples.keys.filter { it.split(' ').contains(k) }.forEach { triples.remove(it) }; triples.values.forEach { it.remove(k) }
+        fixes.remove(k); fixes.values.forEach { it.remove(k) }; refused.remove(k); refused.values.forEach { it.remove(k) }
         changed = true
     }
 
-    @Synchronized fun clear() { words.clear(); pairs.clear(); triples.clear(); changed = true }
+    /** Stops predicting [word] after [previous] (the word itself stays known): the strip's long-press on a prediction. */
+    @Synchronized fun forgetSequence(previous: String, word: String) {
+        val p = previous.lowercase(); val w = word.lowercase()
+        pairs[p]?.remove(w); triples.filterKeys { it.endsWith(" $p") }.values.forEach { it.remove(w) }
+        changed = true
+    }
+
+    @Synchronized fun clear() { words.clear(); pairs.clear(); triples.clear(); fixes.clear(); refused.clear(); changed = true }
 
     // ---- keeping it -----------------------------------------------------------------------------------------------------------
 
-    /** The model as lines of text: `w<TAB>form<TAB>count<TAB>day<TAB>explicit`, `b<TAB>previous<TAB>word<TAB>count` and
-     * `t<TAB>previous2 previous<TAB>word<TAB>count`. Clears [changed].
+    /** The model as lines of text: `w<TAB>form<TAB>count<TAB>day<TAB>explicit`, `b<TAB>previous<TAB>word<TAB>count`,
+     * `t<TAB>previous2 previous<TAB>word<TAB>count`, `f<TAB>typed<TAB>meant<TAB>count` and `r<TAB>typed<TAB>refused`. An older
+     * keyboard skips the `f` and `r` lines it does not know. Clears [changed].
      */
     @Synchronized fun encode(): String = buildString {
         append(HEADER).append('\n')
         for (e in words.values) append("w\t").append(e.form).append('\t').append(e.count).append('\t').append(e.day).append('\t').append(if (e.explicit) 1 else 0).append('\n')
         for ((p, m) in pairs) for ((w, c) in m) append("b\t").append(p).append('\t').append(w).append('\t').append(c).append('\n')
         for ((p, m) in triples) for ((w, c) in m) append("t\t").append(p).append('\t').append(w).append('\t').append(c).append('\n')
+        for ((t, m) in fixes) for ((w, c) in m) append("f\t").append(t).append('\t').append(w).append('\t').append(c).append('\n')
+        for ((t, s) in refused) for (w in s) append("r\t").append(t).append('\t').append(w).append('\n')
         changed = false
     }
 
     /** Replaces the model with what [text] holds. Lines it does not understand are skipped. */
     @Synchronized fun decode(text: String) {
-        words.clear(); pairs.clear(); triples.clear()
+        words.clear(); pairs.clear(); triples.clear(); fixes.clear(); refused.clear()
         for (line in text.lineSequence()) {
             val f = line.split('\t')
             when (f.firstOrNull()) {
                 "w" -> if (f.size >= 5) clean(f[1])?.let { w -> words[w.lowercase()] = Entry(w, f[2].toIntOrNull() ?: 1, f[3].toIntOrNull() ?: 0, f[4] == "1") }
                 "b" -> if (f.size >= 4) pairs.getOrPut(f[1]) { HashMap() }[f[2]] = f[3].toIntOrNull() ?: 1
                 "t" -> if (f.size >= 4) triples.getOrPut(f[1]) { HashMap() }[f[2]] = f[3].toIntOrNull() ?: 1
+                "f" -> if (f.size >= 4) fixes.getOrPut(f[1]) { HashMap() }[f[2]] = f[3].toIntOrNull() ?: 1
+                "r" -> if (f.size >= 3) refused.getOrPut(f[1]) { HashSet() } += f[2]
             }
         }
         trim(); changed = false
@@ -146,6 +197,7 @@ internal class PersonalModel {
         const val HEADER = "# uno keyboard personal model 1"
         private const val MAX_WORDS = 5000
         private const val MAX_PAIR_HEADS = 4000
+        private const val MAX_FIXES = 1000
         private const val MAX_COUNT = 10_000
         private const val BASE_SCORE = 150
 

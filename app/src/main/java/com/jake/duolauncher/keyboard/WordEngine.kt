@@ -1,6 +1,7 @@
 package com.jake.duolauncher.keyboard
 
 import kotlin.math.abs
+import kotlin.math.ln
 import kotlin.math.min
 
 /** Spelling correction and next-word suggestions from a bundled word list, blended with what the person's own [personal] model has
@@ -116,23 +117,39 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
      * a cheap trigram signal from the two bigram lists together (no extra dictionary data is needed).
      */
     fun correction(typed: String, previous: String? = null, previous2: String? = null, touches: List<Pt?>? = null,
-        geometry: KeyGeometry? = null): String? {
+        geometry: KeyGeometry? = null): String? = corrections(typed, previous, previous2, touches, geometry).firstOrNull()
+
+    /** The readings of [typed] worth offering, best first: the first is what the space bar applies (see [correction]), and the rest are
+     * runners-up for the strip. Empty to leave the word alone. A correction the person has undone before is never among them.
+     */
+    fun corrections(typed: String, previous: String? = null, previous2: String? = null, touches: List<Pt?>? = null,
+        geometry: KeyGeometry? = null, limit: Int = 2): List<String> {
+        val own = personal
+        val found = ranked(typed, previous, previous2, touches, geometry, limit + 1)
+        return (if (own == null) found else found.filter { !own.refuses(typed, it) }).take(limit)
+    }
+
+    private fun ranked(typed: String, previous: String?, previous2: String?, touches: List<Pt?>?, geometry: KeyGeometry?, limit: Int): List<String> {
         val t = typed.lowercase()
-        if (t in INFORMAL) return null
+        if (t in INFORMAL) return emptyList()
+        // A letter held for emphasis ("sooo", "yesss", "nooooo") is meant: three of one letter in a row never happens by accident.
+        if (ELONGATED.containsMatchIn(t)) return emptyList()
         // One of the person's own words (a name, a place, their slang) is never corrected.
-        if (t !in score && personal?.knows(t) == true) return null
-        // A word already written with its apostrophe is correct: "don't" must never be "fixed" into something else.
-        if ('\'' in t && t in CONTRACTION_WORDS) return null
+        if (t !in score && personal?.knows(t) == true) return emptyList()
+        // "i'm", "i'll", "i've" and "i'd" are right but for the capital; every other word written with its apostrophe is correct as typed.
+        if ('\'' in t && t in CONTRACTION_WORDS) return listOfNotNull(I_CONTRACTIONS[t])
+        // A slip the person has fixed by hand twice is fixed for them from then on.
+        personal?.fixFor(t)?.let { return listOf(it) }
         // Missing apostrophes are the commonest slip and are fixed outright - but only when the bare letters are not a real
         // word the person could have meant. "were", "lets", "its", "ill", "well", "wed", "shed" and "id" are words, so they
         // complete to the contraction in the lane instead of being replaced by it; a handful of rare real words ("cant" as
         // jargon, "wont" meaning accustomed) still correct because the contraction is what was meant.
-        CONTRACTIONS[t]?.let { if (t !in score || t in CONTRACTION_OVERRIDES) return it }
-        MISSPELLINGS[t]?.let { return it }
+        CONTRACTIONS[t]?.let { if (t !in score || t in CONTRACTION_OVERRIDES) return listOf(it) }
+        MISSPELLINGS[t]?.let { return listOf(it) }
         val follow = previous?.lowercase()?.let { followers[it] }.orEmpty()
         val follow2 = previous2?.lowercase()?.let { followers[it] }.orEmpty()
-        if (t in score) return contextFix(t, follow)
-        if (t.length < 2) return null
+        if (t in score) return listOfNotNull(contextFix(t, follow, previous))
+        if (t.length < 2) return emptyList()
         val maxCost = when { t.length <= 3 -> 1.0; t.length <= 5 -> 1.7; else -> 2.4 }
         // Where each letter was touched, when known: a tap near a key's edge makes the key beside it a cheap reading of it.
         val spatial: ((Int, Char) -> Double?)? = if (touches != null && geometry != null && geometry.usable && touches.size == t.length)
@@ -142,11 +159,12 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
             // A first letter that was touched near another key may have been meant for it.
             if (spatial != null) touches?.firstOrNull()?.let { p -> geometry!!.near(p, .9f).take(4).forEach(::add) }
         }
+        val personal = personal
         val own = personal?.activeWords { it in score }.orEmpty()
         val buckets = firstLetters.mapNotNull { byFirst[it]?.asSequence()?.map { w -> w to (score[w] ?: 0) } } +
             listOf(own.asSequence().filter { it.first.firstOrNull() in firstLetters })
-        var best: String? = null
-        var bestValue = Double.NEGATIVE_INFINITY
+        // The best few readings, kept sorted best first, so the strip can offer a runner-up without a second scan.
+        val top = ArrayList<Pair<String, Double>>(limit + 1)
         for (bucket in buckets) for ((cand, candScore) in bucket) {
             if (abs(cand.length - t.length) > 2) continue
             val cost = editCost(t, cand, maxCost, spatial)
@@ -160,12 +178,29 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
             val weighted = cost * (1 + cost / t.length)
             val value = candScore / 10.0 - COST_WEIGHT * weighted +
                 (if (rank >= 0) BIGRAM_BONUS - rank * .4 else 0.0) +
-                (if (rank2 >= 0) TRIGRAM_BONUS - rank2 * .3 else 0.0)
-            if (value > bestValue) { bestValue = value; best = cand }
+                (if (rank2 >= 0) TRIGRAM_BONUS - rank2 * .3 else 0.0) +
+                (if (personal != null) personalBonus(personal, cand, previous) else 0.0)
+            if (top.size == limit && value <= top.last().second) continue
+            top.removeAll { it.first == cand }
+            val at = top.indexOfFirst { value > it.second }.let { if (it < 0) top.size else it }
+            top.add(at, cand to value)
+            if (top.size > limit) top.removeAt(top.lastIndex)
         }
         // Two words run together ("ofthe"), or a space bar missed for a key just above it ("thisnis"): split, when that reads better.
-        splitFix(t)?.let { (split, value) -> if (value > bestValue) return split }
-        return best
+        splitFix(t)?.let { (split, value) -> if (top.isEmpty() || value > top[0].second) return listOf(split) + top.map { it.first }.take(limit - 1) }
+        return top.map { it.first }
+    }
+
+    /** What the person's own habits add to a candidate, on [correction]'s scale: the words they type most and the ones they put after
+     * [previous] are likelier to be what they meant than the dictionary alone says. Capped, so habit settles near-ties but never
+     * outweighs a much closer spelling.
+     */
+    private fun personalBonus(model: PersonalModel, cand: String, previous: String?): Double {
+        val uses = model.uses(cand)
+        val after = previous?.let { model.follows(it, cand) } ?: 0
+        // A learned word's own score already counts its uses; this is for dictionary words.
+        return (if (uses > 0 && cand in score) minOf(USES_BONUS_CAP, .35 * ln(1.0 + uses)) else 0.0) +
+            (if (after >= 2) minOf(BIGRAM_BONUS, .8 * ln(1.0 + after)) else 0.0)
     }
 
     /** The best way to read [t] as two common words, with its value on [correction]'s scale, or null when there is none. */
@@ -188,8 +223,10 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
     /** A real word that is a single slip from a word that both fits the sentence and is far commoner: "ro the" for "to the". Never fires
      * without a previous word, and only on slips of a neighbouring key, a swap or a doubled letter, so rare real words stay as typed.
      */
-    private fun contextFix(t: String, follow: List<String>): String? {
+    private fun contextFix(t: String, follow: List<String>, previous: String?): String? {
         if (follow.isEmpty() || t in follow || t.length > 6) return null
+        // A real word the person has put after this one before ("ro" after a name they use it with) is theirs, not a slip.
+        if (previous != null && (personal?.follows(previous, t) ?: 0) > 0) return null
         val own = score[t] ?: 0
         return follow.firstOrNull { cand ->
             cand != t && (score[cand] ?: 0) >= own + REAL_WORD_GAP && abs(cand.length - t.length) <= 1 && editCost(t, cand, .9) <= .9
@@ -232,6 +269,13 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
 
     companion object {
         private const val COST_WEIGHT = 4.0
+        /** The most that how often the person types a word can add to it as a correction: about a quarter of a key slip's cost. */
+        private const val USES_BONUS_CAP = 1.6
+        /** Three or more of one vowel in a row, or of any letter at the end: stretched for emphasis on purpose ("goood", "yesss").
+         * Three of a consonant mid-word ("helllo") is still a slip. */
+        private val ELONGATED = Regex("([aeiouy])\\1\\1|([a-z])\\2\\2$")
+        /** The contractions of "I", typed with the apostrophe but without the capital. */
+        private val I_CONTRACTIONS = mapOf("i'm" to "I'm", "i'll" to "I'll", "i've" to "I've", "i'd" to "I'd")
         /** What a word that follows the previous one is worth, in the same units as the score divided by ten (the first of five is worth most). */
         private const val BIGRAM_BONUS = 2.4
         /** The smaller extra a word earns for following the word before the previous one too (a two-word context, no new data). */
@@ -320,6 +364,33 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
             "wtf", "lmao", "rofl", "smh", "ikr", "afaik", "eta", "diy", "faq", "pov", "rn", "ofc", "nvm", "jk", "bff", "yw")
 
         private val CONTRACTION_WORDS: Set<String> = CONTRACTIONS.values.mapTo(HashSet()) { it.lowercase() }
+
+        /** Words that are always written with a capital (the word list is all lower case): days, months, languages and peoples, countries,
+         * continents, big cities and holidays. Left out are the ones that are also everyday words ("may", "march", "turkey", "polish",
+         * "china" the plates, "august" the adjective, "jordan"/"georgia" the names are fine either way), so nothing ordinary is capitalised.
+         */
+        val PROPER: Set<String> = """
+            monday tuesday wednesday thursday friday saturday sunday
+            january february april june july september october november december
+            english british american canadian australian irish scottish welsh french german spanish italian portuguese dutch
+            swedish norwegian danish finnish russian ukrainian greek chinese japanese korean indian mexican brazilian african
+            european asian arabic hebrew hindi latin vietnamese thai filipino egyptian israeli iranian pakistani nigerian
+            england britain scotland wales ireland america canada australia france germany spain italy portugal russia ukraine
+            japan korea india mexico brazil egypt israel iran iraq pakistan nigeria sweden norway denmark finland netherlands
+            switzerland austria belgium poland greece argentina peru colombia vietnam thailand philippines indonesia
+            europe asia africa antarctica
+            london paris berlin tokyo york chicago boston seattle toronto vancouver sydney melbourne dublin madrid rome
+            christmas easter thanksgiving halloween hanukkah ramadan
+            christian christianity muslim islam jewish buddhist hindu catholic protestant
+            google facebook youtube amazon netflix android iphone
+            """.trim().split(Regex("\\s+")).toHashSet()
+
+        /** [word] with its capital when it is one of the [PROPER] words, otherwise as it is. */
+        fun proper(word: String): String {
+            val lower = word.lowercase()
+            if (lower !in PROPER || word != lower) return word
+            return if (lower == "iphone") "iPhone" else lower.replaceFirstChar { it.uppercase() }
+        }
 
         private val STARTERS = listOf("I", "The", "It", "You", "We", "What", "Thanks", "Hey")
 

@@ -63,45 +63,54 @@ internal object Suggest {
      * a field with sentence capitalisation), even when it was typed in lower case.
      */
     fun autocorrect(engine: WordEngine, ctx: WordContext, ignored: Set<String>, capitalise: Boolean = false, touches: List<Pt?>? = null,
-        geometry: KeyGeometry? = null): String? {
+        geometry: KeyGeometry? = null): String? = corrections(engine, ctx, ignored, capitalise, touches, geometry).firstOrNull()
+
+    /** [autocorrect]'s answer first (what the space bar applies), then up to [limit] - 1 runners-up for the strip, cased as typed. */
+    fun corrections(engine: WordEngine, ctx: WordContext, ignored: Set<String>, capitalise: Boolean = false, touches: List<Pt?>? = null,
+        geometry: KeyGeometry? = null, limit: Int = 2): List<String> {
         val typed = ctx.current
-        if (!ctx.plainWord || typed.isEmpty()) return null
-        if (typed.lowercase() in ignored) return null
+        if (!ctx.plainWord || typed.isEmpty()) return emptyList()
+        if (typed.lowercase() in ignored) return emptyList()
+        fun cap(w: String) = if (capitalise && w.isNotEmpty()) w.replaceFirstChar { it.uppercase() } else w
         // A learned word written with its own capitals ("Everett", "iPhone") gets them back when typed in lower case.
         // Never for a dictionary word: "Will" typed as a name must not capitalise every "will".
         if (typed.none { it.isUpperCase() } && !engine.inDictionary(typed)) engine.personal?.formOf(typed)?.let { form ->
-            val cased = if (capitalise) form.replaceFirstChar { it.uppercase() } else form
-            return cased.takeIf { it != typed }
+            return listOf(cap(form)).filter { it != typed }
         }
         // Names and brands like "iPhone" or "McDonald" and acronyms typed deliberately are left alone; plain Title or ALL CAPS get fixed.
         val interior = typed.drop(1)
-        if (interior.any { it.isUpperCase() } && !typed.all { it.isUpperCase() || !it.isLetter() }) return null
+        if (interior.any { it.isUpperCase() } && !typed.all { it.isUpperCase() || !it.isLetter() }) return emptyList()
         // A capitalised word in the middle of a sentence that is not in the word list is most likely a name or a place, not a slip.
         val midSentenceName = typed.first().isUpperCase() && typed.length > 1 && typed.drop(1).none { it.isUpperCase() } &&
             !ctx.atSentenceStart && ctx.previous != null && !engine.contains(typed.lowercase())
-        if (midSentenceName) return null
-        val fix = engine.correction(typed, ctx.previous, ctx.previous2, touches, geometry) ?: return null
-        var cased = WordEngine.matchCase(typed, fix)
-        if (capitalise && cased.isNotEmpty()) cased = cased.replaceFirstChar { it.uppercase() }
-        return cased.takeIf { it != typed }
+        if (midSentenceName) return emptyList()
+        val fixes = engine.corrections(typed, ctx.previous, ctx.previous2, touches, geometry, limit)
+        // A word that is right but for its capital ("monday", "english") gets it; a slip of one ("mondya") is fixed and capitalised.
+        val found = fixes.ifEmpty { listOf(typed.lowercase()).filter { typed == it && WordEngine.proper(it) != it } }
+        return found.map { cap(WordEngine.matchCase(typed, WordEngine.proper(it))) }.filter { it != typed }.distinct()
     }
 
     /** Up to three suggestions: the word as typed, the best correction or completion, and an alternative. Between words,
      * likely next words. Capitalised if [capitalise] (a sentence start or shift).
      */
     fun suggestions(engine: WordEngine, ctx: WordContext, ignored: Set<String>, capitalise: Boolean,
-        fix: String? = if (ctx.current.isEmpty()) null else autocorrect(engine, ctx, ignored)): List<Suggestion> {
+        fix: String? = if (ctx.current.isEmpty()) null else autocorrect(engine, ctx, ignored), alternatives: List<String> = emptyList()): List<Suggestion> {
         if (!ctx.plainWord) return emptyList()
         val cap = { w: String -> if (capitalise) w.replaceFirstChar { it.uppercase() } else w }
-        if (ctx.current.isEmpty()) return engine.nextWords(ctx.previous, 3, ctx.previous2).map { Suggestion(cap(it), SuggestionKind.NEXT) }
+        if (ctx.current.isEmpty()) return engine.nextWords(ctx.previous, 3, ctx.previous2).map { Suggestion(cap(WordEngine.proper(it)), SuggestionKind.NEXT) }
         val typed = ctx.current
         val out = ArrayList<Suggestion>(3)
         out += Suggestion(typed, SuggestionKind.TYPED)
         if (fix != null) out += Suggestion(fix, SuggestionKind.CORRECTION)
         for (c in engine.completionsAfter(typed.lowercase(), ctx.previous, previous2 = ctx.previous2, limit = 4)) {
             if (out.size >= 3) break
-            val shown = WordEngine.matchCase(typed, c)
+            val shown = WordEngine.matchCase(typed, WordEngine.proper(c))
             if (out.none { it.text.equals(shown, ignoreCase = true) }) out += Suggestion(shown, SuggestionKind.COMPLETION)
+        }
+        // A slip with nothing it could be the start of: the second-best reading fills the last slot, so a wrong guess is one tap from right.
+        for (alt in alternatives) {
+            if (out.size >= 3) break
+            if (out.none { it.text.equals(alt, ignoreCase = true) }) out += Suggestion(alt, SuggestionKind.COMPLETION)
         }
         // With a correction, the typed word moves to the left and the correction sits in the middle, where the eye expects it.
         return out

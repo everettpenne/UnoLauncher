@@ -243,7 +243,7 @@
     <string name="kb_feel_soft">Soft</string>
     <string name="kb_feel_crisp">Crisp</string>
     <string name="kb_feel_firm">Firm</string>
-    <string name="kb_learn_note">Learned words stay on this phone, in storage no backup or settings export includes. Nothing is learned in password, email, web address or number fields, or in fields that ask keyboards not to learn, such as incognito tabs.</string>
+    <string name="kb_learn_note">Learned words, and the slips you fixed or corrections you undid, stay on this phone, in storage no backup or settings export includes. Long-press a suggestion to stop it being offered. Nothing is learned in password, email, web address or number fields, or in fields that ask keyboards not to learn, such as incognito tabs.</string>
     <string name="kb_your_words">Your Words</string>
     <string name="kb_no_words">None yet. Words you type that the dictionary lacks show up here after you use them twice.</string>
     <string name="kb_add_word">Add a word</string>

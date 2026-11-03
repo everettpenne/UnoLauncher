@@ -422,6 +422,29 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         PersonalStore.saveSoon()
     }
 
+    /** Remembers, beyond this field, that the person undid [fix] (typed to corrected), so it is not made again. */
+    private fun refuseFix(fix: Pair<String, String>) {
+        if (!learning) return
+        PersonalStore.model.refuse(fix.first, fix.second); PersonalStore.saveSoon()
+    }
+
+    /** The strip's long-press: stops offering [suggestion]. A learned word is forgotten outright; a dictionary word only stops being
+     * predicted after the word before it. Returns whether there was anything of the person's to forget.
+     */
+    private fun forgetSuggestion(suggestion: Suggestion): Boolean {
+        if (!learnOn) return false
+        val model = PersonalStore.model
+        val word = suggestion.text.trim()
+        val ctx = Suggest.parse(textBefore())
+        val previous = if (suggestion.kind == SuggestionKind.NEXT) ctx.previous ?: ctx.current.ifEmpty { null } else ctx.previous
+        val learned = english?.inDictionary(word.lowercase()) != true && model.knows(word)
+        val predicted = previous != null && model.follows(previous, word) > 0
+        if (!learned && !predicted) return false
+        if (learned) model.forget(word) else model.forgetSequence(previous!!, word)
+        PersonalStore.saveSoon()
+        return true
+    }
+
     // ---- suggestions ----------------------------------------------------------------------------------------------------------
 
     private fun refreshSuggestions() {
@@ -439,10 +462,12 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         suggestWorker.execute {
             val ctx = Suggest.parse(before)
             // The correction is worked out here, once, and kept for the space bar to use without scanning the dictionary itself.
-            val fix = if (ctx.current.isEmpty() || !canFix) null
-                else Suggest.autocorrect(e, ctx, skip, capitalise = sentenceCaps && ctx.atSentenceStart, touches = wordTouches, geometry = geometry)
+            val readings = if (ctx.current.isEmpty() || !canFix) emptyList()
+                else Suggest.corrections(e, ctx, skip, capitalise = sentenceCaps && ctx.atSentenceStart, touches = wordTouches, geometry = geometry)
+            val fix = readings.firstOrNull()
             fixCache = ctx.current to fix
-            var result = Suggest.suggestions(e, ctx, skip, capitalise = shift || (ctx.atSentenceStart && ctx.current.isEmpty()), fix = fix)
+            var result = Suggest.suggestions(e, ctx, skip, capitalise = shift || (ctx.atSentenceStart && ctx.current.isEmpty()), fix = fix,
+                alternatives = readings.drop(1))
             if (ctx.current.isEmpty()) {
                 // Just after a correction, the word it replaced is offered first, to put back with one tap (as iOS does).
                 if (fixToUndo != null && before.endsWith(fixToUndo.second + " ")) result = listOf(Suggestion(fixToUndo.first, SuggestionKind.REVERT)) + result.take(2)
@@ -629,7 +654,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                     val n = fix.second.length + if (spaced) 1 else 0
                     if (commit(ic, fix.first, removed = n)) {
                         ignored += fix.first.lowercase(); fixCache = null
-                        learnCurrent(explicit = true)
+                        learnCurrent(explicit = true); refuseFix(fix)
                     }
                     lastFix = null
                     refreshShift(); refreshSuggestions(); return
@@ -683,6 +708,9 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                 SuggestionKind.TYPED -> { ignored += ctx.current.lowercase(); fixCache = null; learnCurrent(explicit = true); commit(ic, " ") }
                 SuggestionKind.CORRECTION, SuggestionKind.COMPLETION -> {
                     if (!commit(ic, suggestion.text, removed = ctx.current.length)) return
+                    // A misspelling the person fixed by picking the word they meant: twice, and it is fixed for them from then on.
+                    if (learning && ctx.current.isNotEmpty() && english?.contains(ctx.current.lowercase()) != true)
+                        PersonalStore.model.learnFix(ctx.current, suggestion.text)
                     learnCurrent(); commit(ic, " ")
                 }
                 SuggestionKind.EMOJI -> {
@@ -694,7 +722,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                     val fix = lastFix
                     val before = textBefore()
                     if (fix != null && before.endsWith(fix.second + " ")) {
-                        if (commit(ic, fix.first, removed = fix.second.length + 1)) { ignored += fix.first.lowercase(); learnCurrent(explicit = true); commit(ic, " ") }
+                        if (commit(ic, fix.first, removed = fix.second.length + 1)) { ignored += fix.first.lowercase(); learnCurrent(explicit = true); refuseFix(fix); commit(ic, " ") }
                     }
                 }
                 SuggestionKind.GESTURE -> {
@@ -718,6 +746,12 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
             lastFix = null; lastSwipe = null; phantomSpace = false; touches.clear()
             autoSpace = spaced && suggestion.kind != SuggestionKind.REVERT
             refreshShift(); refreshSuggestions()
+        }
+        override fun forget(suggestion: Suggestion): Boolean {
+            if (suggestion.kind !in FORGETTABLE || !forgetSuggestion(suggestion)) return false
+            KeyHaptics.fire(HapticKind.DELETE_WORD)
+            refreshSuggestions()
+            return true
         }
         override fun moveCursor(delta: Int) {
             val ic = currentInputConnection ?: return
@@ -889,6 +923,8 @@ internal interface KeyboardActions {
     fun type(text: String, at: Pt? = null)
     fun replaceLast(text: String); fun backspace(held: Int); fun space(); fun enter(); fun globe(); fun shift(); fun page(target: KeyPage); fun haptic(kind: HapticKind)
     fun pick(suggestion: Suggestion); fun moveCursor(delta: Int)
+    /** Long-press on a suggestion: stop offering it (only what was learned from the person). Returns whether it did. */
+    fun forget(suggestion: Suggestion): Boolean = false
     fun emoji(text: String); fun paste(); fun setOneHanded(mode: Int)
     fun keyboardPicker() {}
     fun chooseLayout(id: String) {}
@@ -979,3 +1015,6 @@ internal class KeyboardUiState {
 
 /** The rounding of the keyboard panel's top corners, which the window's blur follows. */
 internal const val PANEL_CORNER_DP = 26f
+
+/** The suggestions a long-press can make the keyboard forget: words and predictions, not the word as typed, emoji or clips. */
+private val FORGETTABLE = setOf(SuggestionKind.COMPLETION, SuggestionKind.NEXT, SuggestionKind.CORRECTION)

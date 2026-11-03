@@ -9,7 +9,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
-/** Where the keyboard keeps what it has learned, the clips you pinned and your recent emoji. This is the one keyboard file allowed to
+/** Where the keyboard keeps what it has learned (words, and the typing [habits]), the clips you pinned and your recent emoji. This is the one keyboard file allowed to
  * write anything (`KeyboardPrivacyTest` holds every other to that), and it writes only to the app's no-backup storage: never to shared
  * storage, never into a backup or a settings export, and nothing here is ever sent anywhere. "Forget everything" in Settings deletes it.
  *
@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit
  */
 internal object PersonalStore {
     val model = PersonalModel()
+    val habits = TypingHabits()
     val clips = ClipHistory { System.currentTimeMillis() }
     val emoji = EmojiRecents()
     @Volatile var loaded = false; private set
@@ -38,6 +39,7 @@ internal object PersonalStore {
                 val d = File(app.noBackupFilesDir, "keyboard").apply { mkdirs() }
                 dir = d
                 read(File(d, MODEL))?.let(model::decode)
+                read(File(d, HABITS))?.let(habits::decode)
                 read(File(d, CLIPS))?.let { text -> clips.restorePinned(decodeClips(text)) }
                 read(File(d, EMOJI))?.let { text -> emoji.restore(text.split(' ').filter { it.isNotBlank() }) }
                 loaded = true
@@ -59,7 +61,7 @@ internal object PersonalStore {
 
     /** Deletes everything learned, the pinned clips and the recent emoji, from memory and from the phone. */
     fun forgetEverything() {
-        model.clear(); emoji.clear(); clips.restorePinned(emptyList()); clips.clearRecent()
+        model.clear(); habits.clear(); emoji.clear(); clips.restorePinned(emptyList()); clips.clearRecent()
         io.execute { dir?.listFiles()?.forEach { it.delete() } }
     }
 
@@ -67,6 +69,7 @@ internal object PersonalStore {
         val d = dir ?: return
         if (!loaded) return
         if (model.changed) write(File(d, MODEL), model.encode())
+        if (habits.changed) write(File(d, HABITS), habits.encode())
         write(File(d, CLIPS), encodeClips(clips.pinned()))
         write(File(d, EMOJI), emoji.list().joinToString(" "))
     }
@@ -89,6 +92,7 @@ internal object PersonalStore {
     }.toList()
 
     private const val MODEL = "personal.txt"
+    private const val HABITS = "habits.txt"
     private const val CLIPS = "pinned-clips.txt"
     private const val EMOJI = "recent-emoji.txt"
 }

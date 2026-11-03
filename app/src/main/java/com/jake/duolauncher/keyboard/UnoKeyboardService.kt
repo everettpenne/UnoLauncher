@@ -151,7 +151,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
             runCatching {
                 val words = assets.open("keyboard/en_words.txt").bufferedReader().useLines { WordEngine.parseWords(it) }
                 val next = assets.open("keyboard/en_next.txt").bufferedReader().useLines { WordEngine.parseFollowers(it) }
-                english = WordEngine(words, next).also { it.personal = none.personal; it.neighbours = none.neighbours }
+                english = WordEngine(words, next).also { it.personal = none.personal; it.neighbours = none.neighbours; it.caution = none.caution }
                 composeView?.post { refreshSuggestions() }
             }
         }.start()
@@ -263,6 +263,9 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         if (glass != glassOn) { glassOn = glass; setUpGlassWindow() }
         layouts = KeyLayouts.parse(prefs.getString("kbLayouts", null))
         if (ui.layout !in layouts) setLayout(layouts.first())
+        // The layout this app was last typed in (Spanish in one chat, English in another), when there is more than one to choose from.
+        if (learnOn && layouts.size > 1) PersonalStore.habits.layoutFor(info.packageName ?: "")?.let(KeyLayouts::byId)
+            ?.takeIf { it in layouts && it != ui.layout }?.let(::setLayout)
         ui.layoutCount = layouts.size
         ui.numberRow = prefs.getBoolean("kbNumberRow", false)
         ui.oneHanded = prefs.getInt("kbOneHanded", 0).coerceIn(0, 2)
@@ -282,6 +285,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         // Learned words are offered wherever suggestions are (they are the person's own); they are only *added to* where learning is allowed.
         val personal = if (learnOn) PersonalStore.model else null
         english?.personal = personal; none.personal = personal
+        updateCaution()
         ui.showStrip = suggestionsOn && allowSuggestions
         ui.swipe = swipeOn && allowSuggestions && !ui.password
         ignored.clear(); lastFix = null; fixCache = null; touches.clear(); phantomSpace = false; autoSpace = false; lastSwipe = null
@@ -399,6 +403,9 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
 
     private fun geometry(): KeyGeometry = KeyGeometry(HashMap(ui.keyCentres), ui.keyWidth, ui.keyHeight)
 
+    /** The keys as this person hits them: each centre moved to where their taps for it land (see [TypingHabits]), for autocorrect. */
+    private fun tapGeometry(): KeyGeometry = if (learnOn) PersonalStore.habits.adjust(geometry()) else geometry()
+
     /** The touches for the word being typed, one per letter, oldest first; unknown ones (the word was there before) are null. */
     private fun touchesFor(word: String): List<Pt?> {
         val have = touches.takeLast(word.length)
@@ -453,11 +460,12 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         val before = textBefore(); val shift = ui.shift != ShiftState.OFF; val skip = ignored.toSet()
         val sentenceCaps = inputType and 0x4000 != 0 && autoCapsOn
         val canFix = autocorrectOn && allowAutocorrect && ui.layout.english
-        val geometry = geometry()
+        val geometry = tapGeometry()
         val wordTouches = touchesFor(Suggest.parse(before).current)
         val fixToUndo = lastFix
         val clip = if (clipHistoryOn) PersonalStore.clips.fresh()?.takeIf { it.at != clipOfferedAt } else null
         val emoji = if (emojiSuggestOn) emojiIndex else null
+        val habits = if (learnOn) PersonalStore.habits else null
         val seq = suggestSeq.incrementAndGet()
         suggestWorker.execute {
             val ctx = Suggest.parse(before)
@@ -473,7 +481,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                 if (fixToUndo != null && before.endsWith(fixToUndo.second + " ")) result = listOf(Suggestion(fixToUndo.first, SuggestionKind.REVERT)) + result.take(2)
                 else if (clip != null) result = listOf(Suggestion(clip.text, SuggestionKind.CLIP)) + result.take(2)
             }
-            if (emoji != null) result = Suggest.withEmoji(result, ctx, emoji)
+            if (emoji != null) result = Suggest.withEmoji(result, ctx, emoji, habits)
             main.post { if (seq == suggestSeq.get()) ui.suggestions = result }
         }
     }
@@ -489,9 +497,10 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         val cached = fixCache
         val sentenceCaps = inputType and 0x4000 != 0 && autoCapsOn
         val fix = (if (cached != null && cached.first == ctx.current) cached.second
-            else Suggest.autocorrect(e, ctx, ignored, capitalise = sentenceCaps && ctx.atSentenceStart, touches = touchesFor(ctx.current), geometry = geometry())) ?: return false
+            else Suggest.autocorrect(e, ctx, ignored, capitalise = sentenceCaps && ctx.atSentenceStart, touches = touchesFor(ctx.current), geometry = tapGeometry())) ?: return false
         if (!commit(ic, fix, removed = ctx.current.length)) return false
         lastFix = ctx.current to fix
+        noteCorrection(undone = false)
         // Felt as well as seen: a soft double pulse just after the key's own tick.
         main.postDelayed({ KeyHaptics.fire(HapticKind.AUTOCORRECT) }, 45)
         return true
@@ -501,9 +510,49 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
 
     /** Ends the word being typed: corrects it if it needs it and learns it. Returns whether it was corrected. */
     private fun finishWord(): Boolean {
+        val word = Suggest.parse(textBefore()).current
+        val wordTouches = touchesFor(word)
         val corrected = applyAutocorrect()
         learnCurrent()
+        if (!corrected) learnTaps(word, wordTouches)
         return corrected
+    }
+
+    /** A word kept as typed, and known, was typed right: where each of its taps landed teaches where this person hits that key. */
+    private fun learnTaps(word: String, wordTouches: List<Pt?>) {
+        if (!learning || !ui.layout.english || word.length < 2 || wordTouches.any { it == null }) return
+        val known = english?.inDictionary(word.lowercase()) == true || PersonalStore.model.knows(word)
+        if (!known) return
+        PersonalStore.habits.learnTaps(word, wordTouches, geometry())
+        PersonalStore.saveSoon()
+    }
+
+    /** Counts an autocorrection made or undone, and lets the share undone set how careful autocorrect is. */
+    private fun noteCorrection(undone: Boolean) {
+        if (!learning) return
+        PersonalStore.habits.correction(undone)
+        updateCaution()
+        PersonalStore.saveSoon()
+    }
+
+    private fun updateCaution() {
+        val c = if (learnOn) PersonalStore.habits.caution() else 0.0
+        english?.caution = c; none.caution = c
+    }
+
+    /** Remembers the layout in use for the app being typed in (not from fields that ask keyboards not to learn). */
+    private fun rememberLayout() {
+        if (!learnOn || imeOptions and LearningPolicy.IME_FLAG_NO_PERSONALIZED_LEARNING != 0) return
+        val app = currentInputEditorInfo?.packageName ?: return
+        PersonalStore.habits.rememberLayout(app, ui.layout.id)
+        PersonalStore.saveSoon()
+    }
+
+    /** Learns which emoji the person puts after [ctx]'s word. */
+    private fun learnEmoji(ctx: WordContext, emoji: String) {
+        if (!learning) return
+        val word = ctx.current.ifEmpty { ctx.previous ?: return }
+        PersonalStore.habits.learnEmoji(word, emoji)
     }
 
     // ---- swipe typing -----------------------------------------------------------------------------------------------------------
@@ -654,7 +703,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                     val n = fix.second.length + if (spaced) 1 else 0
                     if (commit(ic, fix.first, removed = n)) {
                         ignored += fix.first.lowercase(); fixCache = null
-                        learnCurrent(explicit = true); refuseFix(fix)
+                        learnCurrent(explicit = true); refuseFix(fix); noteCorrection(undone = true)
                     }
                     lastFix = null
                     refreshShift(); refreshSuggestions(); return
@@ -714,6 +763,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                     learnCurrent(); commit(ic, " ")
                 }
                 SuggestionKind.EMOJI -> {
+                    learnEmoji(ctx, suggestion.text)
                     val lead = if (ctx.current.isNotEmpty()) { learnCurrent(); " " } else ""
                     commit(ic, lead + suggestion.text + " ")
                     PersonalStore.emoji.add(suggestion.text); ui.recents = PersonalStore.emoji.list()
@@ -722,7 +772,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                     val fix = lastFix
                     val before = textBefore()
                     if (fix != null && before.endsWith(fix.second + " ")) {
-                        if (commit(ic, fix.first, removed = fix.second.length + 1)) { ignored += fix.first.lowercase(); learnCurrent(explicit = true); refuseFix(fix); commit(ic, " ") }
+                        if (commit(ic, fix.first, removed = fix.second.length + 1)) { ignored += fix.first.lowercase(); learnCurrent(explicit = true); refuseFix(fix); noteCorrection(undone = true); commit(ic, " ") }
                     }
                 }
                 SuggestionKind.GESTURE -> {
@@ -764,13 +814,13 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
             if (layouts.size > 1) {
                 // Several layouts: the globe goes round them (and a long-press opens Android's keyboard list).
                 setLayout(layouts[(layouts.indexOf(ui.layout) + 1) % layouts.size])
-                refreshSuggestions(); return
+                rememberLayout(); refreshSuggestions(); return
             }
             val switched = switchToNextInputMethod(false)
             if (!switched) getSystemService(InputMethodManager::class.java)?.showInputMethodPicker()
         }
         override fun keyboardPicker() { getSystemService(InputMethodManager::class.java)?.showInputMethodPicker() }
-        override fun chooseLayout(id: String) { KeyLayouts.byId(id)?.let { setLayout(it); ui.panel = KeyPanel.NONE; refreshSuggestions() } }
+        override fun chooseLayout(id: String) { KeyLayouts.byId(id)?.let { setLayout(it); rememberLayout(); ui.panel = KeyPanel.NONE; refreshSuggestions() } }
         override fun shift() {
             val now = System.currentTimeMillis()
             ui.shift = KeyboardModel.tapShift(ui.shift, doubleTap = now - lastShiftTapAt < 350L)
@@ -781,6 +831,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         override fun emoji(text: String) {
             val ic = currentInputConnection ?: return
             lastFix = null; lastSwipe = null; autoSpace = false
+            learnEmoji(Suggest.parse(textBefore()), text)
             commit(ic, (if (phantomSpace) " " else "") + text); phantomSpace = false; touches.clear()
             PersonalStore.emoji.add(text); ui.recents = PersonalStore.emoji.list()
             if (learnOn) PersonalStore.saveSoon()

@@ -90,7 +90,7 @@ internal object SettingsSearch {
         SettingEntry("“.” Shortcut", CustomizationPage.KEYBOARD, "keyboard double space period full stop"),
         SettingEntry("Emoji Suggestions", CustomizationPage.KEYBOARD, "keyboard emoji predictions"),
         SettingEntry("Clipboard History", CustomizationPage.KEYBOARD, "keyboard clips pin copy paste"),
-        SettingEntry("Learn New Words", CustomizationPage.KEYBOARD, "keyboard learned personal dictionary predictions learning your words forget"),
+        SettingEntry("Learn From Your Typing", CustomizationPage.KEYBOARD, "keyboard learned personal dictionary predictions learning your words forget habits taps touch layout per app emoji autocorrect"),
         SettingEntry("Number Row", CustomizationPage.KEYBOARD, "keyboard digits"),
         SettingEntry("Keyboard Look: Liquid Glass or Classic", CustomizationPage.KEYBOARD, "keyboard style key old 0.97 flat theme"),
         SettingEntry("Height", CustomizationPage.KEYBOARD, "keyboard size taller shorter"),

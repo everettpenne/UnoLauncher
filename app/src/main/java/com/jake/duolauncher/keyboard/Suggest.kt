@@ -117,9 +117,10 @@ internal object Suggest {
     }
 
     /** Puts an emoji for the word in the last slot (the word being typed, or the one just finished), as Gboard and iOS do. */
-    fun withEmoji(list: List<Suggestion>, ctx: WordContext, index: EmojiIndex?): List<Suggestion> {
+    fun withEmoji(list: List<Suggestion>, ctx: WordContext, index: EmojiIndex?, habits: TypingHabits? = null): List<Suggestion> {
         val word = ctx.current.ifEmpty { ctx.previous ?: return list }
-        val emoji = index?.forWord(word)?.firstOrNull() ?: return list
+        // The emoji this person puts after the word comes first; then the one whose name it is.
+        val emoji = habits?.emojiFor(word)?.firstOrNull() ?: index?.forWord(word)?.firstOrNull() ?: return list
         return list.take(2) + Suggestion(emoji, SuggestionKind.EMOJI)
     }
 }

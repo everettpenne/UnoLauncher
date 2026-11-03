@@ -21,6 +21,10 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
     @Volatile var personal: PersonalModel? = null
     /** Which keys neighbour which on the layout in use (QWERTY's by default), for the edit cost when there is no touch to go by. */
     @Volatile var neighbours: Map<Char, Set<Char>> = NEIGHBOURS
+    /** How much more careful to be than built, 0 to [TypingHabits.MAX_CAUTION], from how often this person undoes corrections: it
+     * narrows how far a correction may be from what was typed, and at the top of the range stops replacing real words on context alone.
+     */
+    @Volatile var caution: Double = 0.0
 
     fun inDictionary(word: String) = word in score
     fun contains(word: String) = word in score || word in CONTRACTION_WORDS || word in CONTRACTIONS || personal?.knows(word) == true
@@ -150,7 +154,7 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
         val follow2 = previous2?.lowercase()?.let { followers[it] }.orEmpty()
         if (t in score) return listOfNotNull(contextFix(t, follow, previous))
         if (t.length < 2) return emptyList()
-        val maxCost = when { t.length <= 3 -> 1.0; t.length <= 5 -> 1.7; else -> 2.4 }
+        val maxCost = when { t.length <= 3 -> 1.0; t.length <= 5 -> 1.7; else -> 2.4 } * (1 - caution)
         // Where each letter was touched, when known: a tap near a key's edge makes the key beside it a cheap reading of it.
         val spatial: ((Int, Char) -> Double?)? = if (touches != null && geometry != null && geometry.usable && touches.size == t.length)
             { i, c -> TouchModel.substitutionCost(geometry, touches[i], c, FAR_SUBSTITUTION) } else null
@@ -224,7 +228,7 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
      * without a previous word, and only on slips of a neighbouring key, a swap or a doubled letter, so rare real words stay as typed.
      */
     private fun contextFix(t: String, follow: List<String>, previous: String?): String? {
-        if (follow.isEmpty() || t in follow || t.length > 6) return null
+        if (follow.isEmpty() || t in follow || t.length > 6 || caution >= CONTEXT_FIX_CAUTION) return null
         // A real word the person has put after this one before ("ro" after a name they use it with) is theirs, not a slip.
         if (previous != null && (personal?.follows(previous, t) ?: 0) > 0) return null
         val own = score[t] ?: 0
@@ -269,6 +273,8 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
 
     companion object {
         private const val COST_WEIGHT = 4.0
+        /** From this much caution on, a real word is never replaced just because another fits the sentence better. */
+        private const val CONTEXT_FIX_CAUTION = .2
         /** The most that how often the person types a word can add to it as a correction: about a quarter of a key slip's cost. */
         private const val USES_BONUS_CAP = 1.6
         /** Three or more of one vowel in a row, or of any letter at the end: stretched for emphasis on purpose ("goood", "yesss").

@@ -448,7 +448,7 @@ private fun PersonalWords(store: ExtrasStore, learning: Boolean) {
     var forgotten by remember { mutableStateOf(false) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     SettingsGroup(header = "Learned Words", footer = (if (forgotten) stringResource(R.string.kb_forgotten) + " " else "") + stringResource(R.string.kb_learn_note)) {
-        row { SettingsSwitch("Learn New Words", learning, store::setKbLearn, "kb-learn-switch") }
+        row { SettingsSwitch("Learn From Your Typing", learning, store::setKbLearn, "kb-learn-switch") }
         row {
             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { open = !open }.testTag("kb-your-words"), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.kb_your_words), Modifier.weight(1f))
@@ -476,9 +476,31 @@ private fun PersonalWords(store: ExtrasStore, learning: Boolean) {
                 }
             }
         }
-        row { ActionRow("Forget All Learned Words", "kb-forget-everything", destructive = true) {
+        row {
+            val habits = com.jake.duolauncher.keyboard.PersonalStore.habits
+            val summary = remember(version, loaded) { typingHabitsSummary(context.resources, habits) }
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("kb-habits"), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(vertical = Space.S.dp)) {
+                    Text(stringResource(R.string.kb_habits))
+                    Text(summary, style = UnoType.footnote, color = muted)
+                }
+                if (!habits.isEmpty()) Text(stringResource(R.string.kb_habits_reset), Modifier.clip(Corner.small).clickable { habits.clear(); com.jake.duolauncher.keyboard.PersonalStore.saveSoon(); version++ }
+                    .padding(Space.S.dp).testTag("kb-habits-reset"), color = SettingsAccent)
+            }
+        }
+        row { ActionRow("Forget Everything Learned", "kb-forget-everything", destructive = true) {
             com.jake.duolauncher.keyboard.PersonalStore.forgetEverything(); forgotten = true; version++ } }
     }
+}
+
+/** One line on what the keyboard has learned about how the person types (see `TypingHabits`). */
+private fun typingHabitsSummary(res: android.content.res.Resources, h: com.jake.duolauncher.keyboard.TypingHabits): String {
+    if (h.isEmpty()) return res.getString(R.string.kb_habits_none)
+    val parts = mutableListOf<String>()
+    h.fittedKeys().takeIf { it > 0 }?.let { parts += res.getString(R.string.kb_habits_keys, it) }
+    if (h.caution() > 0.0) parts += res.getString(R.string.kb_habits_careful)
+    h.appsWithLayouts().takeIf { it > 0 }?.let { parts += res.getString(R.string.kb_habits_apps, it) }
+    return parts.joinToString(" · ").replaceFirstChar { it.uppercase() }.ifEmpty { res.getString(R.string.kb_habits_learning) }
 }
 
 /** The optional record of camera, microphone and screen-recording use: off by default, on this phone only, with no app names. */

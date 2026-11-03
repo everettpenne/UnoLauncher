@@ -406,10 +406,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">If an update switches off notification access, Uno now says so and links straight to the setting, instead of the island going quiet.</string>
-    <string name="whats_new_2">On the side-dock layout 2 x 2 widgets are square again on the app rows (a change in 0.112 made them taller than wide).</string>
-    <string name="whats_new_3">Folders open out of their tile and are square, and loading, empty and error states look the same everywhere.</string>
-    <string name="whats_new_4">Squarer corners, iOS 26 folders, dark icons that keep their colour.</string>
+    <string name="whats_new_1">The keyboard learns how you type: keys fit where your taps really land, autocorrect gets more careful if you often undo it, and each app keeps its layout.</string>
+    <string name="whats_new_2">A slip you fix twice by picking the right word is fixed for you after that, and a correction you undo is never made again.</string>
+    <string name="whats_new_3">Days, months, languages and places get their capital, a second guess sits in the strip, and a long press on a suggestion stops it being offered.</string>
+    <string name="whats_new_4">If an update switches off notification access, Uno now says so and links straight to the setting.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

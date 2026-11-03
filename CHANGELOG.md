@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.122.0-uno01
+
+- **The keyboard learns how you type.** Where your taps really land on each key: once it has seen a key tapped a dozen times in words you kept, autocorrect reads your taps against that spot instead of the drawn centre (by at most about a third of a key), so a tap between two keys goes the way your hand usually means. How much autocorrect you want: if you undo more than about one correction in eight, it narrows how far a correction may stray from what you typed and stops replacing real words on context alone, and relaxes again when you keep its corrections. The layout you last used in each app, when you have more than one. The emoji you put after a word. Settings shows a one-line summary under Typing Habits, with Reset.
+- **Autocorrect that learns from you.** A misspelling you fix twice by picking the word you meant is fixed for you from then on; a correction you undo is never made again (before, only for the rest of that field). Words you use often, and the words you put after the one before, settle near-ties. Days, months, languages, nationalities, countries, big cities and holidays get their capital ("monday", "english"). "i'm", "i'll", "i've" and "i'd" get their capital too. A held letter ("sooo", "yesss") is left alone. With nothing to complete, the second-best reading sits in the strip's last slot.
+- **Long-press a suggestion to stop it being offered.** A learned word is forgotten; a dictionary word stops being predicted after the word before it. With nothing of yours to forget, it is still picked when you let go.
+- **Privacy.** All of it stays on the phone, in no-backup storage, and none of it holds what you typed: an average spot per key, one undo rate, a layout name per app package and word-to-emoji counts. Nothing is learned in password, email, web address or number fields, or in fields that ask keyboards not to learn. PRIVACY.md, which still said the keyboard had no autocorrect, is corrected.
+- **Tested:** unit tests for every rule above (1,126 in all, passing), lint, and the keyboard screen's instrumented tests on an emulator. **Not seen:** typing with it on a phone, or the Typing Habits row on screen.
+
 ## 0.121.0-uno01
 
 - **Notification access, noticed when it goes.** An update (or Android re-applying a restricted setting) can switch the island's notification access off without a word, and the island then quietly stops showing track titles, artwork, calls and Live Updates (it happened after 0.111). When access was on and is found off, Uno now says so once, with an Open Settings button, and does not ask again until access has been on and lost again. Someone who never turned it on is never asked.

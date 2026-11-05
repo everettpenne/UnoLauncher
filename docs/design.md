@@ -48,8 +48,9 @@ the inset between them.
 Every token except `icon` is a `ContinuousShape`: iOS's continuous corner (Figma's corner
 smoothing at 60%, which takes in 1.6 radii of each edge and gives way to true semicircles on
 a capsule). It is a `CornerBasedShape`, so the glass lens, Material's `Shapes` and the rim light
-all accept it; the lens refuses only shapes that are not `CornerBasedShape`, such as the icon
-superellipse.
+all accept it. The icon superellipse (`SquircleShape`) is a `CornerBasedShape` too, so the lens takes it as well.
+Every app icon and icon tile uses `Corner.icon`: Home, the dock, the island's apps and peeks, setup's hero and feature
+tiles, Settings' row tiles and the press lens over an icon. The island's Squircle icon option is the same superellipse.
 
 Where a radius is not a token it is derived, never picked:
 
@@ -255,7 +256,7 @@ position-to-centre mapping live in `PageStripLayout`, which is unit-tested.
 The strip must be exempt from the pager's own drag handler (`onePageGestures(ignorePress = ...)`),
 which listens in the Initial pass and would consume the drag first. The scrub itself listens in the
 Initial pass too and consumes only after horizontal touch slop, so a plain tap still reaches its
-button. The lens shape must be a `CornerBasedShape` (any `Corner` token but `icon`): the glass lens throws on the icon superellipse.
+button. The lens shape must be a `CornerBasedShape`; every `Corner` token is one, the icon superellipse included, so the press lens has the icon's outline.
 Dock icons carry a press-only variant (alpha and lift follow the press spring).
 
 ## Scroll edge blur (`EdgeBlur.kt`)

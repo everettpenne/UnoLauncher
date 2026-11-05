@@ -64,6 +64,7 @@ internal object Squircle {
     private const val STEPS = 28
 
     fun build(width: Float, height: Float, radius: Float, sink: PathSink) {
+        if (!(width > 0f && height > 0f)) return
         val half = min(width, height) / 2f
         val r = radius.coerceIn(0f, half)
         if (r < 0.01f) {
@@ -199,14 +200,25 @@ internal fun continuousPath(left: Float, top: Float, width: Float, height: Float
     if (left != 0f || top != 0f) it.translate(androidx.compose.ui.geometry.Offset(left, top))
 }
 
+/** The app-icon superellipse as a shape. It is a [CornerBasedShape], like [ContinuousShape], so the glass lens takes it (the press lens over a
+ *  Home icon now has the icon's own outline); the lens reads its radius for the refraction, and clips to the superellipse. The corners are
+ *  always equal: [copy] keeps the top-start corner. */
 @Immutable
-internal class SquircleShape(private val radius: Dp = 0.dp, private val fraction: Float = 0f) : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-        val r = if (fraction > 0f) fraction * min(size.width, size.height) else with(density) { radius.toPx() }
-        return Outline.Generic(Path().also { Squircle.build(size.width, size.height, r, ComposePathSink(it)) })
+internal class SquircleShape private constructor(private val corner: CornerSize) : CornerBasedShape(corner, corner, corner, corner) {
+    constructor(radius: Dp = 0.dp, fraction: Float = 0f) : this(if (fraction > 0f) FractionCorner(fraction) else CornerSize(radius))
+
+    /** A radius that is a fraction of the shorter side, kept exact (Compose's percent corner rounds to whole percents: 22, not 22.37). */
+    private data class FractionCorner(val fraction: Float) : CornerSize {
+        override fun toPx(shapeSize: Size, density: Density) = fraction * min(shapeSize.width, shapeSize.height)
     }
-    override fun equals(other: Any?) = other is SquircleShape && other.radius == radius && other.fraction == fraction
-    override fun hashCode() = 31 * radius.hashCode() + fraction.hashCode()
+
+    override fun createOutline(size: Size, topStart: Float, topEnd: Float, bottomEnd: Float, bottomStart: Float, layoutDirection: LayoutDirection): Outline =
+        Outline.Generic(Path().also { Squircle.build(size.width, size.height, topStart, ComposePathSink(it)) })
+
+    override fun copy(topStart: CornerSize, topEnd: CornerSize, bottomEnd: CornerSize, bottomStart: CornerSize) = SquircleShape(topStart)
+
+    override fun equals(other: Any?) = other is SquircleShape && other.corner == corner
+    override fun hashCode() = corner.hashCode()
 }
 
 /** The launcher's one corner scale, in the iOS manner: a few steps and concentric nesting (an
@@ -242,8 +254,8 @@ internal object Corner {
     const val SHEET_DP = 42f
     /** Capsules and circles. The continuous construction gives way to true semicircles when the radius is half the height, as iOS's capsules have. */
     val pill: CornerBasedShape = ContinuousShape(CornerSize(50))
-    /** The app-icon silhouette, with continuous (squircle) corners. */
-    val icon: Shape = SquircleShape(fraction = ICON_FRACTION)
+    /** The app-icon silhouette, the superellipse: every app icon and every icon tile (Settings' rows, setup's features, the island's apps). */
+    val icon: CornerBasedShape = SquircleShape(fraction = ICON_FRACTION)
 
     /** A shape concentric with a container of radius [outer] that is inset by [inset]. */
     fun inside(outer: Dp, inset: Dp): CornerBasedShape = ContinuousShape(insideRadius(outer, inset))

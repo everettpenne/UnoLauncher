@@ -591,11 +591,11 @@ internal fun DockAppColumn(
                         .pressGlow(slotProgress[renderIndex], Corner.icon))
                     Box(Modifier.size(iconSize.dp)) { AppBadge(badgeCount(app), Modifier.align(Alignment.TopEnd)) }
                     // The press lens: clear glass that lifts and magnifies the icon under your finger.
-                    // A plain rounded shape, not Corner.icon: the glass library rejects squircle outlines.
+                    // The icon's own superellipse, a little larger than the icon.
                     val press = slotProgress[renderIndex]
                     if (glass != null && lensBackdrop != null && press > .02f) Box(
                         Modifier.size((iconSize + 14f).dp).graphicsLayer { alpha = press.coerceIn(0f, 1f) }
-                            .glassLens(lensBackdrop, RoundedCornerShape(percent = 24), magnification = 1.14f,
+                            .glassLens(lensBackdrop, Corner.icon, magnification = 1.14f,
                                 lift = press, settings = glass.settings)
                             .testTag("dock-lens-$id"))
                 }

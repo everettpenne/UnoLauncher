@@ -145,10 +145,10 @@ internal fun <T> SegmentRow(options: List<T>, selected: T, label: (T) -> String,
     }
 }
 
-/** iOS Settings' coloured square behind a white glyph. Its corners are concentric with nothing, so it takes the small icon radius. */
+/** iOS Settings' coloured square behind a white glyph. iOS draws it as a small app icon, so it has the icon's superellipse. */
 @Composable
 internal fun IconTile(icon: ImageVector, colour: Color) {
-    Box(Modifier.size(30.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(7.dp)).background(colour), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(30.dp).clip(Corner.icon).background(colour), contentAlignment = Alignment.Center) {
         Icon(icon, null, Modifier.size(19.dp), tint = Color.White)
     }
 }

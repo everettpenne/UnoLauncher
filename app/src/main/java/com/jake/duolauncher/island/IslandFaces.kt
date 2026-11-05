@@ -191,7 +191,7 @@ internal fun RecentNotificationRow(peek: PeekNotification, state: IslandState, c
                 context.packageManager.getLaunchIntentForPackage(peek.packageName)?.let { runCatching { context.startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
             state.clearRecent(); state.collapse()
         }.testTag("island-recent-open"), verticalAlignment = Alignment.CenterVertically) {
-            peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(34.dp).clip(RoundedCornerShape(9.dp))); Spacer(Modifier.width(10.dp)) }
+            peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(34.dp).clip(Corner.icon)); Spacer(Modifier.width(10.dp)) }
             Column(Modifier.weight(1f)) {
                 Text(peek.appLabel, color = themeInk.copy(alpha = .65f), style = UnoType.caption2.tight, maxLines = 1)
                 peek.title?.let { Text(it, color = themeInk, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }

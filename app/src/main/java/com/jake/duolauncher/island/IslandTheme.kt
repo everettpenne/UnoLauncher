@@ -35,16 +35,18 @@ internal enum class PanelShape(val label: String, val scale: Float) {
 /** The shape of the island's buttons and chips. */
 internal enum class ControlShape(val label: String) { PILL("Pill"), ROUNDED("Rounded"), SQUARE("Square") }
 
-/** The outline of an app's glyph on the island (the Live Update and navigation icons). Rounded shapes only, like the panel. */
+/** The outline of an app's glyph on the island (the Live Update and navigation icons). Squircle is the app icon's own superellipse; the others
+ *  have the continuous corner every other surface has. */
 internal enum class IconShape(val label: String) {
     CIRCLE("Circle"), SQUIRCLE("Squircle"), ROUNDED("Rounded"), SQUARE("Square"), ARCH("Arch");
 
     fun shape(): Shape = when (this) {
         CIRCLE -> com.jake.duolauncher.appearance.Corner.pill
-        SQUIRCLE -> RoundedCornerShape(percent = 34)
-        ROUNDED -> RoundedCornerShape(percent = 22)
-        SQUARE -> RoundedCornerShape(percent = 8)
-        ARCH -> RoundedCornerShape(topStartPercent = 50, topEndPercent = 50, bottomEndPercent = 14, bottomStartPercent = 14)
+        SQUIRCLE -> com.jake.duolauncher.appearance.Corner.icon
+        ROUNDED -> com.jake.duolauncher.appearance.ContinuousShape(androidx.compose.foundation.shape.CornerSize(22))
+        SQUARE -> com.jake.duolauncher.appearance.ContinuousShape(androidx.compose.foundation.shape.CornerSize(8))
+        ARCH -> com.jake.duolauncher.appearance.ContinuousShape(androidx.compose.foundation.shape.CornerSize(50), androidx.compose.foundation.shape.CornerSize(50),
+            androidx.compose.foundation.shape.CornerSize(14), androidx.compose.foundation.shape.CornerSize(14))
     }
 }
 

@@ -1303,7 +1303,7 @@ internal fun DynamicIsland(
                         if (peek.chargingCard) ChargingCard(deviceStatus.battery, deviceStatus.charging, Modifier.fillMaxHeight()) else
                         if (peek.kind != null) ActivityCard(peek, peek.kind, state, Modifier.fillMaxHeight()) else
                         if (peek.navigation) NavigationCardBody(peek) else {
-                        peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) }
+                        peek.icon?.let { icon -> Image(remember(icon) { icon.asImageBitmap() }, null, Modifier.size(40.dp).clip(Corner.icon)) }
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(peek.appLabel, color = themeInk.copy(alpha = .65f), style = UnoType.caption2.tight, maxLines = 1)
@@ -1433,7 +1433,7 @@ internal fun DynamicIsland(
                 if (quickApps.isNotEmpty()) Row(Modifier.fillMaxWidth().height(QUICK_ROW_DP.dp - 6.dp).padding(bottom = 6.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                     quickApps.forEach { app ->
-                        Image(app.icon, app.label, Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).clickable {
+                        Image(app.icon, app.label, Modifier.size(38.dp).clip(Corner.icon).clickable {
                             launchIslandApp(context, app.component); state.collapse()
                         }.testTag("island-quick-app"))
                     }

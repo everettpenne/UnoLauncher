@@ -181,10 +181,10 @@ private fun SetupContinue(onClick: () -> Unit) {
     }
 }
 
-/** A large rounded-square glyph above a screen's title, in the accent. */
+/** A large icon-shaped glyph above a screen's title, in the accent. */
 @Composable
 private fun SetupHero(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color) {
-    Box(Modifier.size(84.dp).clip(RoundedCornerShape(24.dp))
+    Box(Modifier.size(84.dp).clip(Corner.icon)
         .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(tint.copy(alpha = .95f), tint.copy(alpha = .72f)))),
         contentAlignment = Alignment.Center) {
         Icon(icon, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(46.dp))
@@ -261,7 +261,7 @@ private fun ReadyStep() {
 @Composable
 private fun SetupFeature(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color, title: String, detail: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.Top) {
-        Box(Modifier.size(42.dp).clip(RoundedCornerShape(11.dp)).background(tint), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(42.dp).clip(Corner.icon).background(tint), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.width(16.dp))

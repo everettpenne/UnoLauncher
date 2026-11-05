@@ -35,15 +35,21 @@ the inset between them.
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `Corner.small` | 12 dp | rows, highlights, small tiles |
-| `Corner.medium` | 18 dp | cards and items inside a panel |
-| `Corner.large` | 24 dp | widgets, folders, drop targets |
-| `Corner.xlarge` | 32 dp | dock, status rail, sheets, panels, island expanded |
+| `Corner.small` | 8 dp | rows, highlights, small tiles |
+| `Corner.medium` | 16 dp | cards and items inside a panel |
+| `Corner.large` | 24 dp | menus, drop targets |
+| `Corner.widget` | 26 dp | widgets (Card and Glass styles alike) |
+| `Corner.xlarge` | 32 dp | dock, status rail, panels |
+| `Corner.sheet` | 42 dp | sheets (settings, the widget picker) |
 | `Corner.pill` | 50% | capsules and circles |
-| `Corner.icon` | squircle, 22.37% of side | app-icon silhouette (Apple's continuous-corner ratio) |
+| `Corner.icon` | superellipse, 22.37% of side | app-icon silhouette (Apple's ratio) |
+| `Corner.inside(outer, inset)` | outer − inset | anything nested in a rounded container |
 
-Container surfaces keep circular-arc corners: the glass lens accepts only
-`RoundedCornerShape` and throws on continuous-curve outlines at draw time.
+Every token except `icon` is a `ContinuousShape`: iOS's continuous corner (Figma's corner
+smoothing at 60%, which takes in 1.6 radii of each edge and gives way to true semicircles on
+a capsule). It is a `CornerBasedShape`, so the glass lens, Material's `Shapes` and the rim light
+all accept it; the lens refuses only shapes that are not `CornerBasedShape`, such as the icon
+superellipse.
 
 ## Color
 
@@ -236,7 +242,7 @@ position-to-centre mapping live in `PageStripLayout`, which is unit-tested.
 The strip must be exempt from the pager's own drag handler (`onePageGestures(ignorePress = ...)`),
 which listens in the Initial pass and would consume the drag first. The scrub itself listens in the
 Initial pass too and consumes only after horizontal touch slop, so a plain tap still reaches its
-button. The lens shape must be a rounded rectangle: the glass lens throws on squircle outlines.
+button. The lens shape must be a `CornerBasedShape` (any `Corner` token but `icon`): the glass lens throws on the icon superellipse.
 Dock icons carry a press-only variant (alpha and lift follow the press spring).
 
 ## Scroll edge blur (`EdgeBlur.kt`)

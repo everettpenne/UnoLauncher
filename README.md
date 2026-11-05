@@ -115,7 +115,7 @@ Pulling down for Android's own notification and Quick Settings panels needs an a
 - App dragging, drop-to-make-folder, edge-drag page creation, Home folders, and separate personal and work catalogs where device policy permits.
 - A dynamic island with Live Updates, music, calls, timers, privacy marks, system alerts, bubbles, a hosted widget and per-app control.
 - A control panel, Focus, Spotlight-style search with app hand-off, badges, and contact search (all optional).
-- An iOS-inspired look in the Inter typeface: liquid-glass dock, widgets, sheets and controls that blur and refract what is behind them (adjustable, with an off switch), continuous-corner icons, a spring-scale press with no ripple.
+- An iOS-inspired look in the Inter typeface: liquid-glass dock, widgets, sheets and controls that blur and refract what is behind them (adjustable, with an off switch), continuous corners on icons, panels, sheets and widgets, a spring-scale press with no ripple.
 - A private RSS/Atom news feed that fills the Discover slot without a Google account or app. It starts empty and contacts nothing until you add a feed.
 - Uno Keyboard, a local on-screen keyboard.
 - Photo wallpapers, light, dark and sunrise-to-sunset appearance, layout and settings backup, and a self-updater.
@@ -133,7 +133,6 @@ No launcher account, server, advertising, analytics or automatic crash upload is
 
 ## Known limits
 
-- Panels and widgets use circular-arc corners and only app icons get continuous corners: the glass library accepts rounded rectangles only.
 - Discover can differ across Google, Android and vendor updates; recovery controls always return you Home. The news feed works without the Google app, reads RSS 2.0 and Atom with plain summaries, and needs a browser to open stories.
 - Work apps and widgets remain subject to administrator policy. Private Space is not supported yet, folders do not nest (as on iOS) and are not in the dock yet; the reasons are in [Non-goals](docs/design.md#non-goals-for-now).
 - Imported Android widgets must be bound again; backups exclude widget stacks, photo backgrounds and system widget capabilities. A large folder or widget restored on another phone keeps its apps only where the same apps exist. Known problems and unverified features are listed in [future fixes needed](docs/future-fixes.md).

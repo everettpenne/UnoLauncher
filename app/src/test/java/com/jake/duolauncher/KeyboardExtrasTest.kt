@@ -60,6 +60,26 @@ class KeyboardExtrasTest {
         cats.forEach { c -> assertTrue(c.name, c.items.size >= 20 && c.items.all { it.isNotBlank() } && c.items.distinct().size == c.items.size) }
     }
 
+    @Test fun theLibraryIsCompleteAndEveryEmojiCanBeSearched() {
+        fun asset(name: String) = File("src/main/assets/keyboard/$name").let { if (it.exists()) it else File("app/src/main/assets/keyboard/$name") }
+        val cats = EmojiData.parse(asset("emoji.txt").readLines().asSequence())
+        val all = cats.flatMap { it.items }
+        // All of Unicode Emoji 16.0 without skin tones: about 1,900, every country's flag among them.
+        assertTrue("${all.size} emoji", all.size >= 1900)
+        assertTrue(cats.first { it.name == "Flags" }.items.size >= 258)
+        assertEquals(all.size, all.distinct().size)
+        val index = EmojiIndex.parse(asset("emoji_words.txt").readLines().asSequence())
+        val indexed = index.all.map { it.emoji }.toSet()
+        assertTrue(all.filterNot { it in indexed }.toString(), all.all { it in indexed })
+        assertTrue(index.toneable("👍") && !index.toneable("😀"))
+        assertTrue("🇯🇵" in index.search("japan"))
+    }
+
+    @Test fun emojiThePhoneCannotDrawAreLeftOut() {
+        val cats = EmojiData.parse(sequenceOf("# Smileys|😀", "😀 🫩 😂"), drawable = { it != "🫩" })
+        assertEquals(listOf("😀", "😂"), cats[0].items)
+    }
+
     @Test fun recentEmojiAreMostRecentFirstWithoutRepeatsAndCapped() {
         val r = EmojiRecents(cap = 3)
         assertTrue(r.isEmpty)

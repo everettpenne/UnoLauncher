@@ -5,24 +5,34 @@ internal data class EmojiCategory(val name: String, val tab: String, val items: 
 
 /** The emoji panel's data. Pure Kotlin, parsed from the bundled `keyboard/emoji.txt`; nothing is fetched, nothing is learned. */
 internal object EmojiData {
-    /** Lines are either a header `# Name|tab` or emoji separated by spaces. Other `#` lines and blank lines are comments. */
-    fun parse(lines: Sequence<String>): List<EmojiCategory> {
+    /** Lines are either a header `# Name|tab` or emoji separated by spaces. Other `#` lines and blank lines are comments. Only emoji that
+     *  [drawable] accepts are kept: the file is all of Unicode's, and a phone whose font predates an emoji would show it as an empty box. */
+    fun parse(lines: Sequence<String>, drawable: (String) -> Boolean = { true }): List<EmojiCategory> {
         val out = ArrayList<EmojiCategory>()
         var name: String? = null; var tab = ""; var items = ArrayList<String>()
         fun flush() { name?.let { if (items.isNotEmpty()) out += EmojiCategory(it, tab, items) }; items = ArrayList() }
         for (raw in lines) {
             val line = raw.trim()
             if (line.isEmpty()) continue
-            if (line.startsWith("#")) {
+            if (isComment(line)) {
                 val header = line.removePrefix("#").trim()
                 val bar = header.indexOf('|')
                 if (bar > 0) { flush(); name = header.substring(0, bar).trim(); tab = header.substring(bar + 1).trim() }
                 continue
             }
-            if (name != null) items += line.split(' ').filter { it.isNotBlank() }
+            if (name != null) items += line.split(' ').filter { it.isNotBlank() && drawable(it) }
         }
         flush()
         return out
+    }
+
+    /** A `#` line is a comment or a header, except the keycap emoji `#️⃣`, which also starts with a `#`. */
+    fun isComment(line: String) = line.startsWith("#") && !line.startsWith("#\uFE0F") && !line.startsWith("#\u20E3")
+
+    /** Whether the phone's emoji font can draw [emoji] as one glyph (a sequence it does not know falls apart into pieces or a box). */
+    fun drawable(): (String) -> Boolean {
+        val paint = android.graphics.Paint()
+        return { e -> runCatching { paint.hasGlyph(e) }.getOrDefault(true) }
     }
 }
 
@@ -49,11 +59,11 @@ internal class EmojiIndex(val all: List<EmojiInfo>) {
     /** Word to emoji, for suggestions. A word shared by many emoji ("face", "hand") says too little to suggest any of them, so it is left out. */
     private val byWord: Map<String, List<String>> = run {
         val m = HashMap<String, MutableList<String>>()
-        for (e in all) {
-            val nameWords = e.name.lowercase().split(' ', '-').filter { it.length >= 3 }
-            // The name's own words come first, so "heart" suggests the red heart before the many hearts that mention it.
-            for (w in nameWords + e.keywords) if (w.length >= 3) m.getOrPut(w) { ArrayList() }.let { if (e.emoji !in it) it += e.emoji }
-        }
+        fun add(w: String, e: EmojiInfo) { if (w.length >= 3) m.getOrPut(w) { ArrayList() }.let { if (e.emoji !in it) it += e.emoji } }
+        // Emoji whose name has the word come before those that only list it as a keyword, so "pizza" is the pizza and not the mushroom
+        // that mentions pizza, and "heart" is the red heart before the many hearts that mention it.
+        for (e in all) for (w in e.name.lowercase().split(' ', '-', ':')) add(w, e)
+        for (e in all) for (w in e.keywords) add(w, e)
         m.filterValues { it.size <= MAX_PER_WORD }
     }
 
@@ -86,7 +96,7 @@ internal class EmojiIndex(val all: List<EmojiInfo>) {
         }
 
         /** Lines of `emoji<TAB>name<TAB>keywords<TAB>t`; `#` lines are comments. */
-        fun parse(lines: Sequence<String>): EmojiIndex = EmojiIndex(lines.filter { it.isNotBlank() && !it.startsWith("#") }.mapNotNull { line ->
+        fun parse(lines: Sequence<String>): EmojiIndex = EmojiIndex(lines.filter { it.isNotBlank() && !EmojiData.isComment(it) }.mapNotNull { line ->
             val f = line.split('\t')
             if (f.size < 3) null else EmojiInfo(f[0], f[1], f[2].split(' ').filter { it.isNotBlank() }, f.getOrNull(3) == "t")
         }.toList())

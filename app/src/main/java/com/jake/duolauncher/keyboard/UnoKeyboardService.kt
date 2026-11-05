@@ -143,7 +143,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         Thread {
             // Loading the word lists is background work: it must never take the processor from the keyboard's first draw.
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
-            runCatching { ui.emoji = assets.open("keyboard/emoji.txt").bufferedReader().useLines { EmojiData.parse(it) } }
+            runCatching { ui.emoji = assets.open("keyboard/emoji.txt").bufferedReader().useLines { EmojiData.parse(it, EmojiData.drawable()) } }
             runCatching {
                 val index = assets.open("keyboard/emoji_words.txt").bufferedReader().useLines { EmojiIndex.parse(it) }
                 emojiIndex = index; main.post { ui.emojiIndex = index }

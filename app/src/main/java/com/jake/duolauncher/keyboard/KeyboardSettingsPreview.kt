@@ -36,7 +36,7 @@ internal fun KeyboardSettingsPreview(look: KeyboardLook, modifier: Modifier = Mo
         ui.classic = look.classic
     }
     LaunchedEffect(Unit) {
-        runCatching { ui.emoji = context.assets.open("keyboard/emoji.txt").bufferedReader().useLines { EmojiData.parse(it) } }
+        runCatching { ui.emoji = context.assets.open("keyboard/emoji.txt").bufferedReader().useLines { EmojiData.parse(it, EmojiData.drawable()) } }
         ui.clips = PersonalStore.clips.list()
     }
     val actions = remember {

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.126.0-uno01
+
+- **The split is rubber.** A second activity is pulled out of the pill's own end: the end stretches into a tip on a join that narrows to a waist, snaps, and the tip pops into its place, a touch big before it settles, while the pill recoils and jiggles back. Going back plays it in reverse. It replaces 0.125's drop sliding out on a neck.
+- **The open island has Apple's margins.** It is as far from each side of the screen as from the top (on a Pixel 10a 4 to 8 dp, with the height setting), centred on the screen, so its concentric corner runs parallel to the phone's on every side. Foldables and tablets keep the old width.
+- **Menus are one family.** The app menu, the hold menu and the dropdowns open on the same spring and at the same 250 dp width, and destructive actions use iOS's red in light and dark.
+- **The last system dialogs are glass.** Shade gestures, Discover isn't available and Island everywhere are glass dialogs with the kit's buttons; the wording is unchanged.
+- **Home options.** The empty-space sheet is titled Home options, and What's New shows the version without its build suffix.
+- **Tested:** 1,160 unit tests, passing. On an emulator: the shade-gesture prompt across a recreation, and the empty-space, grid and settings tests that cover these changes (three of those fail the same way on 0.125). **Not seen:** the new split or the island's margins on screen (checked as drawn frames from the same maths); any of it on a phone.
+
 ## 0.125.0-uno01
 
 - **Apple's island shape.** The resting pill's ends are squircle halves instead of semicircles: longer, flatter-tipped, easing out of the straight sides. They ease back to round as the pill grows into the open panel. The open island's corner is concentric with the display, Apple's rule (the screen's corner less the island's margin from the top; 44 dp where a phone reports no corner), and search and the island's cards follow it.

@@ -423,10 +423,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">The island has Apple\'s shape: a squircle pill, and an open panel whose corners follow your screen\'s.</string>
-    <string name="whats_new_2">A second activity pulls out of the island as a drop on a stretchy neck, and melts back in the same way.</string>
-    <string name="whats_new_3">Island › Pill at Rest off keeps the island to the camera until it has something to show.</string>
-    <string name="whats_new_4">Search finds apps by what they do as well as their name: type notes and the app that keeps notes comes up.</string>
+    <string name="whats_new_1">A second activity is pulled out of the island like rubber: the end stretches, snaps, and the bubble pops into place.</string>
+    <string name="whats_new_2">The open island sits as far from the sides of the screen as from the top, its corners following your screen\'s.</string>
+    <string name="whats_new_3">Every menu opens the same way and at the same width, with iOS\'s red for actions that remove things.</string>
+    <string name="whats_new_4">The shade-gesture, Discover and Island everywhere prompts are glass, like the rest of Uno.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

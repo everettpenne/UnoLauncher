@@ -109,7 +109,14 @@ internal object SpotlightRank {
         return spaced.lowercase().split(' ', '-', '.', '_', '/').filter { it.isNotEmpty() }
     }
 
-    fun tier(label: String, query: String): Tier {
+    /** Whether an app's description ([alias]) matches [query]: three letters at least, or one or two would find nearly every app. The App
+     *  Library uses the same rule, so both searches find the same apps. */
+    fun matchesAlias(alias: String?, query: String): Boolean {
+        val q = query.trim()
+        return alias != null && q.length >= 3 && alias.contains(q, ignoreCase = true)
+    }
+
+    fun tier(label: String, query: String, alias: String? = null): Tier {
         val q = query.trim().lowercase().replace(" ", "")
         if (q.isEmpty()) return Tier.NONE
         val l = label.lowercase()
@@ -121,6 +128,9 @@ internal object SpotlightRank {
             // "ytm" finds YouTube Music, "gm" Google Maps: the query is a run of leading letters of the words.
             q.length >= 2 && parts.size >= 2 && initialsMatch(parts, q) -> Tier.INITIALS
             l.contains(q) || squashed.contains(q) -> Tier.CONTAINS
+            // The app's own description, so "notes" finds Mentat: a plain-language alias beneath the Dune name. Three letters
+            // at least, or "a" would pull in every app whose description contains it.
+            matchesAlias(alias, query) -> Tier.CONTAINS
             // Only for longer queries, or two letters would match half the drawer.
             q.length >= 3 && isSubsequence(q, squashed) -> Tier.FUZZY
             // A single slip still finds the app: "gogle" for Google, "calndar" for Calendar. Short queries stay strict.
@@ -216,9 +226,9 @@ internal object SpotlightRank {
      * recently you open the app, then alphabetical. A blank query matches nothing (see [suggested] for what Spotlight offers
      * before you type).
      */
-    fun <T> apps(apps: List<T>, query: String, label: (T) -> String, frecency: (T) -> Double = { 0.0 }): List<T> {
+    fun <T> apps(apps: List<T>, query: String, label: (T) -> String, frecency: (T) -> Double = { 0.0 }, alias: (T) -> String? = { null }): List<T> {
         if (query.isBlank()) return emptyList()
-        return apps.map { it to tier(label(it), query) }.filter { it.second != Tier.NONE }
+        return apps.map { it to tier(label(it), query, alias(it)) }.filter { it.second != Tier.NONE }
             .sortedWith(compareBy<Pair<T, Tier>>(
                 { effectiveTier(it.second, frecency(it.first) > SUGGESTION_FRECENCY) },
                 { -frecency(it.first) },
@@ -320,7 +330,7 @@ internal fun Spotlight(
     val scores = remember { history.scores() }
     // Hidden apps are never suggested or ranked; typing one's exact name finds it.
     val searchable = remember(apps, hiddenApps, query) { HiddenApps.shown(apps, hiddenApps, query, { it.id }, { it.label }) }
-    val appResults = remember(searchable, query) { SpotlightRank.apps(searchable, query, { it.label }, { scores[it.id] ?: 0.0 }) }
+    val appResults = remember(searchable, query) { SpotlightRank.apps(searchable, query, { it.label }, { scores[it.id] ?: 0.0 }, { it.description }) }
     val suggested = remember(apps, hiddenApps) { SpotlightRank.suggested(apps.filter { it.id !in hiddenApps }) { scores[it.id] ?: 0.0 } }
     val iconBounds = remember { HashMap<String, android.graphics.Rect>() }
     val launch = { app: AppEntry -> history.record(app.id); onLaunchFrom?.invoke(app, iconBounds[app.id]) ?: onLaunch(app) }
@@ -634,7 +644,7 @@ internal fun Spotlight(
                     // The first result is what Enter opens, so it is marked as the top hit. A work app says so, so the personal and work
                     // copies of one app are told apart by more than the small briefcase.
                     val topHit = if (index == 0) stringResource(com.jake.duolauncher.R.string.spotlight_top_hit) else null
-                    SpotlightRow(app.label, listOfNotNull(topHit, app.profileLabel.takeIf { app.isWork }).joinToString(" · ").ifEmpty { null },
+                    SpotlightRow(app.label, listOfNotNull(topHit, app.profileLabel.takeIf { app.isWork }, app.description).joinToString(" · ").ifEmpty { null },
                         "spotlight-app-${app.id}", index == 0, ink, { launch(app) },
                         match = SpotlightRank.highlightRange(app.label, query)) {
                         Image(app.image, null, Modifier.size(40.dp)
@@ -746,7 +756,7 @@ private fun SpotlightRow(title: String, subtitle: String?, tag: String, highligh
             val titleStyle = if (titleLines > 1) UnoType.subheadline else UnoType.callout
             if (match == null) Text(title, maxLines = titleLines, overflow = TextOverflow.Ellipsis, style = titleStyle)
             else Text(highlightMatch(title, match), maxLines = titleLines, overflow = TextOverflow.Ellipsis, style = titleStyle)
-            if (subtitle != null) Text(subtitle, style = UnoType.caption2, color = ink.copy(alpha = .6f), maxLines = 1)
+            if (subtitle != null) Text(subtitle, style = UnoType.caption2, color = ink.copy(alpha = .6f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

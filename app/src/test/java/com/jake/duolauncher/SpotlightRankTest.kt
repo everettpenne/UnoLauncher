@@ -22,6 +22,18 @@ class SpotlightRankTest {
         assertEquals(SpotlightRank.MAX_APPS, rank(labels, "alpha").size)
     }
 
+    @Test fun aDescriptionFindsTheDuneName() {
+        // The suite's names are Dune nouns; the app's own description is the plain-language alias ("notes" -> Mentat).
+        val apps = listOf("Mentat" to "Notes and checklists, on this phone", "Windtrap" to "Weather, hour by hour")
+        fun find(q: String) = SpotlightRank.apps(apps, q, { it.first }, { 0.0 }, { it.second }).map { it.first }
+        assertEquals(listOf("Mentat"), find("notes"))
+        assertEquals(listOf("Windtrap"), find("weather"))
+        assertTrue(find("an").isEmpty())   // three letters at least, or every description would match
+        assertTrue(SpotlightRank.matchesAlias("Weather, hour by hour", " WEATH "))
+        assertFalse(SpotlightRank.matchesAlias("Weather, hour by hour", "we"))
+        assertFalse(SpotlightRank.matchesAlias(null, "weather"))
+    }
+
     @Test fun feedEntriesMustMentionEveryWord() {
         val entries = listOf(
             FeedEntry("s", "S", "Kernel update released", "https://x/1", "Security fixes"),

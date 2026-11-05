@@ -41,6 +41,8 @@ data class AppEntry(
     val profileLabel: String = "Personal",
     val isWork: Boolean = false,
     val available: Boolean = true,
+    /** The app's own `android:description`, when it has one: a plain-language line under the Dune name, and search words. */
+    val description: String? = null,
 ) {
     /** The icon as a Compose image, wrapped once. Wrapping it at every use made a new image object each recomposition, which defeats
      * skipping and makes Compose rebuild each icon's painter. Not part of the entry's equality. */
@@ -202,8 +204,11 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
                                 val packIcon = iconPack?.drawableFor(component)?.let { packed ->
                                     runCatching { application.packageManager.getUserBadgedIcon(packed, profile) }.getOrDefault(packed) }
                                 val icon = packIcon ?: runCatching { info.getBadgedIcon(0) }.getOrElse { application.packageManager.defaultActivityIcon }
+                                val description = runCatching {
+                                    info.applicationInfo.loadDescription(application.packageManager)?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+                                }.getOrNull()
                                 AppEntry(id, label, launcherIcon(icon, if (packIcon != null) IconStyle.ORIGINAL else iconStyle, themedDark, themedAccent, lit = iconLighting && packIcon == null), component, profile, serial, descriptor.label,
-                                    descriptor.isWork, available = true).also { iconCache[id] = it }
+                                    descriptor.isWork, available = true, description = description).also { iconCache[id] = it }
                             }
                         }
                     }
@@ -286,14 +291,16 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
             val baseIcon = application.packageManager.defaultActivityIcon
             val icon = runCatching { application.packageManager.getUserBadgedIcon(baseIcon, user) }.getOrDefault(baseIcon)
             AppEntry(id, item.getString("label"), launcherIcon(icon), component, user, serial,
-                item.optString("profile", if (isWork) "Work" else "Personal"), isWork, available = false)
+                item.optString("profile", if (isWork) "Work" else "Personal"), isWork, available = false,
+                description = item.optString("description").takeIf { it.isNotEmpty() })
         }
     }.getOrDefault(emptyList())
 
     private fun saveCachedApps(apps: List<AppEntry>) {
         val array = JSONArray().also { result -> apps.forEach { app -> result.put(JSONObject()
             .put("id", app.id).put("label", app.label).put("serial", app.userSerial)
-            .put("profile", app.profileLabel).put("work", app.isWork)) } }
+            .put("profile", app.profileLabel).put("work", app.isWork)
+            .put("description", app.description ?: "")) } }
         appCatalogPrefs.edit().putString("apps", array.toString()).apply()
     }
 

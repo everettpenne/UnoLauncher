@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.onLongClick
@@ -76,7 +77,10 @@ internal fun AppLibrary(
     }
     val visibleApps = remember(state.apps, state.hiddenApps, query, showWork, hasWork, editing) {
         // Hidden apps are out of the list; typing one's exact name (not while choosing Home apps) brings it back.
-        HiddenApps.shown(state.apps, state.hiddenApps, if (editing) "" else query, { it.id }, { it.label }).filter { (!hasWork || it.isWork == showWork) && it.label.contains(query.trim(), true) }
+        HiddenApps.shown(state.apps, state.hiddenApps, if (editing) "" else query, { it.id }, { it.label }).filter { app ->
+            (!hasWork || app.isWork == showWork) &&
+                (app.label.contains(query.trim(), true) || SpotlightRank.matchesAlias(app.description, query))
+        }
     }
     // A to Z, or by the category each app declares (Games, Social, Maps & Navigation...), as iOS's App Library groups them. Categories are
     // read from the installed apps themselves (ApplicationInfo.category) and named by Android, on the phone; a search is always A to Z.
@@ -187,7 +191,13 @@ internal fun AppLibrary(
                             .padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Image(app.image, null, Modifier.size(40.dp)
                                 .onGloballyPositioned { launchBounds.set(it.boundsInWindow().toAndroidBounds()) }.glassIcon(lift = false).clip(Corner.icon))
-                            Text(app.label, Modifier.weight(1f).padding(start = 12.dp), maxLines = 2, style = UnoType.subheadline)
+                            // The Dune name, then the app's own one-line description: "Mentat" alone tells a new person nothing.
+                            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                                Text(app.label, maxLines = 2, overflow = TextOverflow.Ellipsis, style = UnoType.subheadline)
+                                app.description?.let {
+                                    Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis, color = ink.copy(alpha = .55f), style = UnoType.caption1)
+                                }
+                            }
                             if (editing) IconButton(onClick = { onPin(app.id, !isPinned) }, Modifier.testTag("pin-${app.id}")) {
                                 Icon(if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
                                     if (isPinned) "Remove ${app.label} from home" else "Pin ${app.label} to home",

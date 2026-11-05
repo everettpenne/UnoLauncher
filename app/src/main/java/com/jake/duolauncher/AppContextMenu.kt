@@ -73,8 +73,8 @@ internal fun AppContextMenu(
     var confirming by remember { mutableStateOf(false) }
     val appear = remember { Animatable(0f, .001f) }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
-    // The menu opening is felt, as the press that opened it is on iOS.
-    LaunchedEffect(Unit) { UnoFeedback.play(Cue.LONG_PRESS, haptic); appear.animateTo(1f, spring(.74f, 560f, .001f)) }
+    // The menu opening is felt, as the press that opened it is on iOS. The spring is UnoMotion's open, shared with folders and search.
+    LaunchedEffect(Unit) { UnoFeedback.play(Cue.LONG_PRESS, haptic); appear.animateTo(1f, spring(UnoMotion.OPEN_DAMPING, UnoMotion.OPEN_STIFFNESS, .001f)) }
     Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }.testTag("app-context-menu")) {
         // Everything else steps back; a tap anywhere on it closes the menu.
         // As on iOS 26 it is blurred as well as dimmed: a frosted veil over the wallpaper and the pages, not a grey sheet.
@@ -99,7 +99,8 @@ internal fun AppContextMenu(
             .shadow(14.dp, Corner.icon, clip = false, ambientColor = Color.Black.copy(alpha = .3f), spotColor = Color.Black.copy(alpha = .4f))
             .clip(Corner.icon).testTag("app-context-icon"))
         // The panel: its width is fixed so it can be placed before it is measured; its height is found when it is laid out.
-        val panelWidthPx = with(density) { 258.dp.toPx() }
+        // 250 dp is iOS's context-menu width; the hold menu shares it (one menu width everywhere).
+        val panelWidthPx = with(density) { 250.dp.toPx() }
         val screen = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
         val gap = with(density) { 10.dp.toPx() }
         val edge = with(density) { 10.dp.toPx() }
@@ -133,7 +134,7 @@ internal fun AppContextMenu(
 
 @Composable
 private fun MainItems(app: AppEntry, actions: AppMenuActions, dismiss: () -> Unit, onRemove: () -> Unit) {
-    val red = Color(0xFFFF453A)
+    val red = MaterialTheme.colorScheme.error   // the theme's iOS red (DuoTheme), light and dark
     if (actions.shortcuts.isNotEmpty()) {
         actions.shortcuts.forEach { shortcut ->
             GlassMenuItem(text = {
@@ -162,7 +163,7 @@ private fun MainItems(app: AppEntry, actions: AppMenuActions, dismiss: () -> Uni
 
 @Composable
 private fun ConfirmItems(app: AppEntry, actions: AppMenuActions, dismiss: () -> Unit, back: () -> Unit) {
-    val red = Color(0xFFFF453A)
+    val red = MaterialTheme.colorScheme.error
     Text(stringResource(com.jake.duolauncher.R.string.remove_app_title, app.label), Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         style = MaterialTheme.typography.labelLarge, color = LocalContentColor.current.copy(alpha = .65f), maxLines = 2, overflow = TextOverflow.Ellipsis)
     MenuDivider()
@@ -201,7 +202,7 @@ internal fun HoldMenu(anchor: Rect, glass: PageGlass?, items: List<HoldMenuItem>
     val appear = remember { Animatable(0f, .001f) }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     // The menu opening is felt, as the press that opened it is on iOS.
-    LaunchedEffect(Unit) { UnoFeedback.play(Cue.LONG_PRESS, haptic); appear.animateTo(1f, spring(.74f, 560f, .001f)) }
+    LaunchedEffect(Unit) { UnoFeedback.play(Cue.LONG_PRESS, haptic); appear.animateTo(1f, spring(UnoMotion.OPEN_DAMPING, UnoMotion.OPEN_STIFFNESS, .001f)) }
     Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }.testTag("hold-menu")) {
         // The dim has a window over the held thing, so it stays sharp and bright, as the held thing does on iOS.
         Box(Modifier.wholeWindow(origin).graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
@@ -214,7 +215,7 @@ internal fun HoldMenu(anchor: Rect, glass: PageGlass?, items: List<HoldMenuItem>
                 }
             }
             .pointerInput(Unit) { detectTapGestures { onDismiss() } }.testTag("hold-menu-scrim"))
-        val panelWidthPx = with(density) { 232.dp.toPx() }
+        val panelWidthPx = with(density) { 250.dp.toPx() }   // one menu width, shared with the app menu above
         val screen = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
         val gap = with(density) { 10.dp.toPx() }
         val edge = with(density) { 10.dp.toPx() }

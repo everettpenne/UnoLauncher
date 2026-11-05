@@ -124,7 +124,11 @@ class MainActivity : ComponentActivity() {
         else finishAppearanceLocation("Location permission wasn’t granted. Using the system theme until you set a place.")
     })
     private var openingDiscover = false
-    private var shadeSetupDialog: android.app.AlertDialog? = null
+    /** The three activity-level dialogs are glass cards in the Compose tree (LauncherScreen); these are their visibility. */
+    internal val shadeSetupVisible = mutableStateOf(false)
+    internal val discoverFallbackVisible = mutableStateOf(false)
+    internal val discoverFallbackHasGoogle = mutableStateOf(false)
+    internal val islandEverywherePromptVisible = mutableStateOf(false)
     private var returningFromShadeSettings = false
     private var shadeSetupOwnsExternalUi = false
     private var recreatingShadeSetup = false
@@ -298,7 +302,6 @@ class MainActivity : ComponentActivity() {
     }
     override fun onDestroy() {
         recreatingShadeSetup = isChangingConfigurations
-        shadeSetupDialog?.dismiss()
         if (!isChangingConfigurations) releaseShadeSetupOwnership()
         cancelAppearanceLocation()
         if (!isChangingConfigurations) IslandThemeController.current?.let { it.dispose(); IslandThemeController.current = null }
@@ -344,39 +347,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun showShadeSetup() {
-        if (shadeSetupDialog?.isShowing == true) return
+    internal fun showShadeSetup() {
+        if (shadeSetupVisible.value) return
         ownShadeSetupExternally()
-        shadeSetupDialog = android.app.AlertDialog.Builder(this)
-            .setTitle("Shade gestures (optional)")
-            .setMessage("Swiping down on Home can open Notifications or Quick Settings. Android lets a launcher do that only through an accessibility service, so it stays off until you turn it on.\n\n" +
-                "It can: open those two panels when you swipe, and draw the dynamic island above other apps and the status bar (an accessibility service is the only window Android lets sit there).\n" +
-                "It can’t: read your screen, see other apps, or tap or type for you.\n\n" +
-                "Without it, the island can still show above other apps through “Display over other apps”, under the status bar. Turn the service off any time in Settings → Accessibility. Uno Launcher works the same without it.")
-            .setNegativeButton("No thanks") { _, _ ->
-                runCatching { shadePrefs.edit().putBoolean("declined", true).apply() }
-            }
-            .setPositiveButton("Open settings") { _, _ ->
-                try {
-                    returningFromShadeSettings = true
-                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                } catch (_: android.content.ActivityNotFoundException) {
-                    returningFromShadeSettings = false
-                    releaseShadeSetupOwnership()
-                    Toast.makeText(this, "Accessibility settings are unavailable.", Toast.LENGTH_LONG).show()
-                }
-            }
-            // Tapping outside or going Back is also a "no": remembered, so the prompt does not return on every swipe. "Set up shade
-            // gestures" in Help and setup still offers it.
-            .also { dialog -> dialog.setOnCancelListener {
-                shadePromptDismissedThisRun = true
-                runCatching { shadePrefs.edit().putBoolean("declined", true).apply() }
-            } }
-            .also { dialog -> dialog.setOnDismissListener {
-                shadeSetupDialog = null
-                if (!returningFromShadeSettings && !recreatingShadeSetup) releaseShadeSetupOwnership()
-            } }
-            .show()
+        shadeSetupVisible.value = true
+    }
+
+    /** "No thanks", a tap outside, or Back: all are a no, remembered so the prompt does not return on every swipe.
+     *  "Set up shade gestures" in Help and setup still offers it. */
+    internal fun shadeSetupDeclined() {
+        shadePromptDismissedThisRun = true
+        runCatching { shadePrefs.edit().putBoolean("declined", true).apply() }
+        shadeSetupVisible.value = false
+        releaseShadeSetupOwnership()
+    }
+
+    internal fun shadeSetupOpenSettings() {
+        try {
+            returningFromShadeSettings = true
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            shadeSetupVisible.value = false
+        } catch (_: android.content.ActivityNotFoundException) {
+            returningFromShadeSettings = false
+            shadeSetupVisible.value = false
+            releaseShadeSetupOwnership()
+            Toast.makeText(this, "Accessibility settings are unavailable.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun finishFirstRun() {
@@ -407,7 +403,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onSaveInstanceState(outState: Bundle) {
         widgets.save(outState)
-        outState.putBoolean(SHADE_DIALOG_VISIBLE, shadeSetupDialog?.isShowing == true && !returningFromShadeSettings)
+        outState.putBoolean(SHADE_DIALOG_VISIBLE, shadeSetupVisible.value && !returningFromShadeSettings)
         outState.putBoolean(SHADE_SETTINGS_PENDING, returningFromShadeSettings)
         super.onSaveInstanceState(outState)
     }
@@ -526,18 +522,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showDiscoverFallback() {
-        val google = packageManager.getLaunchIntentForPackage(DiscoverClient.GOOGLE_PACKAGE)
-        android.app.AlertDialog.Builder(this)
-            .setTitle("Discover isn’t available here")
-            .setMessage("Uno Launcher can’t place the Discover feed beside Home on this device. You can open the Google app, add your own news feeds for this slot, or stay on Home.")
-            .setNegativeButton("Stay on Home", null)
-            .setNeutralButton("Add a feed") { _, _ -> feedSetupRequests.intValue++ }
-            .apply {
-                if (google != null) setPositiveButton("Open Google") { _, _ ->
-                    runCatching { startActivity(google) }
-                }
-            }
-            .show()
+        discoverFallbackHasGoogle.value = packageManager.getLaunchIntentForPackage(DiscoverClient.GOOGLE_PACKAGE) != null
+        discoverFallbackVisible.value = true
+    }
+
+    internal fun discoverFallbackStay() { discoverFallbackVisible.value = false }
+
+    internal fun discoverFallbackAddFeed() {
+        discoverFallbackVisible.value = false
+        feedSetupRequests.intValue++
+    }
+
+    internal fun discoverFallbackOpenGoogle() {
+        discoverFallbackVisible.value = false
+        runCatching { packageManager.getLaunchIntentForPackage(DiscoverClient.GOOGLE_PACKAGE)?.let(::startActivity) }
     }
 
     private var overlaySettingsReturned = false
@@ -561,23 +559,31 @@ class MainActivity : ComponentActivity() {
             return
         }
         extrasStore.setIslandEverywhere(true)
-        android.app.AlertDialog.Builder(this)
-            .setTitle("Island everywhere")
-            .setMessage("This shows the island above other apps using Android's \"display over other apps\" permission. The island window is exactly the island's size, never draws on the lock screen or when the screen is off, and touches outside it pass through to the app beneath. Android draws this kind of window beneath the status bar, so over other apps the island can be seen but not tapped. For a tappable island, choose \"Tappable island\" and turn on Uno Launcher shade gestures in Accessibility; it draws only the island and reads nothing from other apps. Nothing is read, stored, or sent that the island doesn't already show on Home.")
-            .setNeutralButton("Tappable island") { _, _ ->
-                // The accessibility overlay sits above the status bar, so the island can be tapped there.
-                runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-            }
-            .setNegativeButton("Not now") { _, _ -> extrasStore.setIslandEverywhere(false) }
-            .setPositiveButton("Open settings") { _, _ ->
-                overlaySettingsReturned = true
-                runCatching {
-                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")))
-                }
-            }
-            .show()
+        islandEverywherePromptVisible.value = true
     }
+
+    internal fun islandEverywhereOpenSettings() {
+        islandEverywherePromptVisible.value = false
+        overlaySettingsReturned = true
+        runCatching {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")))
+        }
+    }
+
+    /** The accessibility overlay sits above the status bar, so the island can be tapped there. */
+    internal fun islandEverywhereTappable() {
+        islandEverywherePromptVisible.value = false
+        runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+    }
+
+    internal fun islandEverywhereNotNow() {
+        islandEverywherePromptVisible.value = false
+        extrasStore.setIslandEverywhere(false)
+    }
+
+    /** A tap outside or Back only closes the explainer; the switch stays as the user left it. */
+    internal fun islandEverywhereDismiss() { islandEverywherePromptVisible.value = false }
 
     /** After the overlay settings trip: start the overlay if granted, or explain restricted settings. */
     private fun syncIslandOverlay() {

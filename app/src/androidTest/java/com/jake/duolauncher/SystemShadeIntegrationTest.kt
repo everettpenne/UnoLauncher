@@ -47,6 +47,8 @@ class SystemShadeIntegrationTest {
         val end = SystemClock.uptimeMillis() + timeout
         while (!condition()) {
             if (SystemClock.uptimeMillis() >= end) error("Timed out; active=${automation.rootInActiveWindow?.packageName}")
+            // The setup prompt is a Compose dialog: under the test's clock it only appears or goes on a frame, so let one pass each time.
+            compose.mainClock.advanceTimeByFrame()
             SystemClock.sleep(50)
         }
     }

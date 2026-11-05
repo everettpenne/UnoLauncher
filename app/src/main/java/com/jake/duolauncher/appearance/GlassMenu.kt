@@ -78,7 +78,7 @@ internal fun GlassDropdownMenu(
         }
     }
     val open = remember { Animatable(0f, .001f) }
-    LaunchedEffect(Unit) { open.animateTo(1f, spring(.72f, 520f, .001f)) }
+    LaunchedEffect(Unit) { open.animateTo(1f, spring(UnoMotion.OPEN_DAMPING, UnoMotion.OPEN_STIFFNESS, .001f)) }
     val shape = Corner.large
     val tint = MaterialTheme.colorScheme.surface.copy(alpha = .45f)
     // The panel samples the page's backdrop from inside its own window, which starts at the pop-up's corner: draw it shifted back.

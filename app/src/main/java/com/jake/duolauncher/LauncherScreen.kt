@@ -1293,7 +1293,8 @@ internal fun LauncherScreen(
                 }
             }
             if (showWhatsNew && !showFirstRun) CompositionLocalProvider(LocalPageGlass provides controlGlass) {
-                WhatsNewDialog(UpdateSecurity.appVersion, onWhatsNewDone)
+                // The build suffix is for the release page, not for people: "0.122.0", never "0.122.0-uno01".
+                WhatsNewDialog(UpdateSecurity.appVersion.substringBefore('-'), onWhatsNewDone)
             }
             if (showFirstRun) {
                 GlassModalSheet(controlGlass,
@@ -1898,6 +1899,54 @@ internal fun LauncherScreen(
                     modifier = Modifier.testTag("widget-reconfigure-resume")) { Text(stringResource(com.jake.duolauncher.R.string.resume)) } },
                 dismissButton = { GlassButton(onClick = widgets::cancelPendingReconfigure,
                     modifier = Modifier.testTag("widget-reconfigure-cancel")) { Text(stringResource(com.jake.duolauncher.R.string.cancel)) } })
+        }
+        // The activity's own dialogs, in glass like every other: the shade-gesture explainer, the Discover fallback and the
+        // island-everywhere explainer. Two actions share the bottom row; three stack full-width, as iOS stacks them.
+        // Nothing above this point provides the glass, so they take the controls' (as What's New does); without it GlassDialog is Material.
+        CompositionLocalProvider(LocalPageGlass provides controlGlass) {
+        if (launcherActivity.shadeSetupVisible.value) GlassDialog(
+            onDismissRequest = launcherActivity::shadeSetupDeclined,
+            title = stringResource(com.jake.duolauncher.R.string.shade_gestures_optional),
+            modifier = Modifier.testTag("shade-setup"),
+            actions = {
+                GlassButton(stringResource(com.jake.duolauncher.R.string.no_thanks), launcherActivity::shadeSetupDeclined,
+                    modifier = Modifier.testTag("shade-setup-no"))
+                GlassButton(stringResource(com.jake.duolauncher.R.string.open_settings), launcherActivity::shadeSetupOpenSettings,
+                    prominent = true, modifier = Modifier.testTag("shade-setup-open"))
+            }) {
+            Text(stringResource(com.jake.duolauncher.R.string.shade_gestures_message), style = MaterialTheme.typography.bodyMedium)
+        }
+        if (launcherActivity.discoverFallbackVisible.value) GlassDialog(
+            onDismissRequest = launcherActivity::discoverFallbackStay,
+            title = stringResource(com.jake.duolauncher.R.string.discover_unavailable_title),
+            modifier = Modifier.testTag("discover-fallback"),
+            actions = {}) {
+            Text(stringResource(com.jake.duolauncher.R.string.discover_unavailable_message), style = MaterialTheme.typography.bodyMedium)
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (launcherActivity.discoverFallbackHasGoogle.value)
+                    GlassButton(stringResource(com.jake.duolauncher.R.string.open_google), launcherActivity::discoverFallbackOpenGoogle,
+                        prominent = true, modifier = Modifier.fillMaxWidth())
+                GlassButton(stringResource(com.jake.duolauncher.R.string.add_a_feed), launcherActivity::discoverFallbackAddFeed,
+                    modifier = Modifier.fillMaxWidth())
+                GlassButton(stringResource(com.jake.duolauncher.R.string.stay_on_home), launcherActivity::discoverFallbackStay,
+                    modifier = Modifier.fillMaxWidth())
+            }
+        }
+        if (launcherActivity.islandEverywherePromptVisible.value) GlassDialog(
+            onDismissRequest = launcherActivity::islandEverywhereDismiss,
+            title = stringResource(com.jake.duolauncher.R.string.island_everywhere_title),
+            modifier = Modifier.testTag("island-everywhere"),
+            actions = {}) {
+            Text(stringResource(com.jake.duolauncher.R.string.island_everywhere_message), style = MaterialTheme.typography.bodyMedium)
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassButton(stringResource(com.jake.duolauncher.R.string.open_settings), launcherActivity::islandEverywhereOpenSettings,
+                    prominent = true, modifier = Modifier.fillMaxWidth())
+                GlassButton(stringResource(com.jake.duolauncher.R.string.tappable_island), launcherActivity::islandEverywhereTappable,
+                    modifier = Modifier.fillMaxWidth())
+                GlassButton(stringResource(com.jake.duolauncher.R.string.not_now), launcherActivity::islandEverywhereNotNow,
+                    modifier = Modifier.fillMaxWidth())
+            }
+        }
         }
         }
         // Jiggle mode's bar, on every layout: here, in the launcher's root and outside the safe area, so it can take the status bar's row.

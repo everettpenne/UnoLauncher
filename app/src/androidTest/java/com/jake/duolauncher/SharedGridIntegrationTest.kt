@@ -56,7 +56,7 @@ class SharedGridIntegrationTest {
             compose.runOnIdle { model().removePlacement(DropTarget.Widget(0)) }
             val catalogBaseline = model().state.value.layout
             compose.onNodeWithTag("home-cell-0").performTouchInput { longClick() }
-            compose.onNodeWithText("This space").assertIsDisplayed()
+            compose.onNodeWithText("Home options").assertIsDisplayed()
             compose.onNodeWithTag("empty-space-widgets").performClick()
             // The picker slides in; on a slow emulator it is not there the instant the menu row is tapped.
             compose.waitUntil(30_000) { runCatching { compose.onNodeWithTag("visual-widget-picker").assertIsDisplayed() }.isSuccess }

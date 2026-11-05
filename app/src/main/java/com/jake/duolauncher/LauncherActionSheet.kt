@@ -130,7 +130,7 @@ internal fun EmptySpaceActionSheet(onWidgets: () -> Unit, onWallpaper: () -> Uni
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
         .padding(horizontal = 24.dp).padding(bottom = 16.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(com.jake.duolauncher.R.string.this_space), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(com.jake.duolauncher.R.string.home_options), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close empty space options") }
         }
         Text(stringResource(com.jake.duolauncher.R.string.rearrange_home_add_a_widget_change), style = MaterialTheme.typography.bodyMedium,

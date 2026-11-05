@@ -255,6 +255,11 @@
     <string name="kb_no_words">None yet. Words you type that the dictionary lacks show up here after you use them twice.</string>
     <string name="kb_add_word">Add a word</string>
     <string name="kb_add">Add</string>
+    <string name="kb_text_replacement">Text Replacement</string>
+    <string name="kb_text_replacement_note">Type a shortcut and press space to get its phrase; Delete straight after puts the shortcut back. Shortcuts are one word, letters only, and stay on this phone.</string>
+    <string name="kb_shortcut">Shortcut</string>
+    <string name="kb_phrase">Phrase</string>
+    <string name="kb_no_shortcuts">No shortcuts yet.</string>
     <string name="kb_forgotten">Forgotten. The keyboard starts fresh.</string>
 
     <!-- panel/ControlPanel.kt -->

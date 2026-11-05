@@ -392,6 +392,7 @@ private fun KeyboardSettingsBody(store: ExtrasStore, s: ExtrasState, keyboardCon
         row { SettingsSwitch("Clipboard History", s.kbClipHistory, store::setKbClipHistory, "kb-clip-history-switch") }
     }
     PersonalWords(store, s.kbLearn)
+    TextReplacement()
 
     SettingsGroup(header = "Look", footer = "Classic is the flat look of Uno 0.97; everything new still works with it.") {
         row { CheckRow(stringResource(R.string.kb_style_glass), s.kbStyle == 0, "kb-style-glass") { store.setKbStyle(0) } }
@@ -431,6 +432,51 @@ private fun KeyboardSettingsBody(store: ExtrasStore, s: ExtrasState, keyboardCon
         } }
     }
     SettingsGroup(footer = stringResource(R.string.a_glass_styled_keyboard_with_key)) {}
+}
+
+/** Text Replacement (see `TextShortcuts`): the shortcuts, each with its phrase and a way to remove it, and a row to add one. They are kept in
+ *  the keyboard's own settings, which the keyboard reads each time a field opens. */
+@Composable
+private fun TextReplacement() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { context.getSharedPreferences("extras", android.content.Context.MODE_PRIVATE) }
+    var shortcuts by remember { mutableStateOf(com.jake.duolauncher.keyboard.TextShortcuts.parse(prefs.getString(com.jake.duolauncher.keyboard.TextShortcuts.PREF, null))) }
+    fun save(next: LinkedHashMap<String, String>) {
+        shortcuts = next
+        prefs.edit().putString(com.jake.duolauncher.keyboard.TextShortcuts.PREF, com.jake.duolauncher.keyboard.TextShortcuts.serialize(next)).apply()
+    }
+    var shortcut by rememberSaveable { mutableStateOf("") }
+    var phrase by rememberSaveable { mutableStateOf("") }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    SettingsGroup(header = stringResource(R.string.kb_text_replacement), footer = stringResource(R.string.kb_text_replacement_note)) {
+        if (shortcuts.isEmpty()) row { Text(stringResource(R.string.kb_no_shortcuts), Modifier.padding(vertical = Space.M.dp), style = UnoType.footnote, color = muted) }
+        shortcuts.forEach { (key, value) -> row {
+            Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(vertical = Space.XS.dp)) {
+                    Text(value, maxLines = 2)
+                    Text(key, style = UnoType.footnote, color = muted)
+                }
+                IconButton(onClick = { save(LinkedHashMap(shortcuts).also { it.remove(key) }) }, modifier = Modifier.testTag("kb-shortcut-remove-$key")) {
+                    Icon(Icons.Rounded.RemoveCircle, null, tint = Color(0xFFFF3B30))
+                }
+            }
+        } }
+        row {
+            Column(Modifier.fillMaxWidth().padding(vertical = Space.S.dp), verticalArrangement = Arrangement.spacedBy(Space.S.dp)) {
+                GlassField(phrase, { phrase = it }, Modifier.fillMaxWidth().testTag("kb-shortcut-phrase"), minLines = 1, maxLines = 2,
+                    placeholder = { Text(stringResource(R.string.kb_phrase)) })
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.S.dp)) {
+                    GlassField(shortcut, { shortcut = it }, Modifier.weight(1f).testTag("kb-shortcut-key"), minLines = 1, maxLines = 1,
+                        placeholder = { Text(stringResource(R.string.kb_shortcut)) })
+                    val key = com.jake.duolauncher.keyboard.TextShortcuts.clean(shortcut)
+                    val ready = key.isNotEmpty() && phrase.isNotBlank()
+                    Text(stringResource(R.string.kb_add), Modifier.clip(Corner.small).clickable(enabled = ready) {
+                        save(LinkedHashMap(shortcuts).also { it[key] = phrase.trim() }); shortcut = ""; phrase = ""
+                    }.padding(Space.S.dp).testTag("kb-shortcut-add"), color = if (ready) SettingsAccent else muted)
+                }
+            }
+        }
+    }
 }
 
 /** Learned words in one group: learning on or off, the words it has learned (each can be forgotten, one can be added), and forgetting all. */

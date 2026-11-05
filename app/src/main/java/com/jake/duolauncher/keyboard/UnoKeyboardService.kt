@@ -246,6 +246,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         ui.password = KeyboardModel.isPassword(info.inputType)
         ui.page = KeyboardModel.startPage(info.inputType)
         ui.field = KeyboardModel.fieldKind(info.inputType)
+        shortcuts = TextShortcuts.parse(getSharedPreferences("extras", Context.MODE_PRIVATE).getString(TextShortcuts.PREF, null))
         ui.accent = readAccent()
         ui.edgeHighlight = getSharedPreferences("appearance", Context.MODE_PRIVATE).getBoolean("edgeHighlight", true)
         ui.panel = KeyPanel.NONE; ui.tools = false; ui.emojiSearch = null; ui.selecting = false
@@ -465,6 +466,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         val geometry = tapGeometry()
         val wordTouches = touchesFor(Suggest.parse(before).current)
         val fixToUndo = lastFix
+        val replacements = if (allowAutocorrect) shortcuts else emptyMap()
         val clip = if (clipHistoryOn) PersonalStore.clips.fresh()?.takeIf { it.at != clipOfferedAt } else null
         val emoji = if (emojiSuggestOn) emojiIndex else null
         val habits = if (learnOn) PersonalStore.habits else null
@@ -484,12 +486,33 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                 else if (clip != null) result = listOf(Suggestion(clip.text, SuggestionKind.CLIP)) + result.take(2)
             }
             if (emoji != null) result = Suggest.withEmoji(result, ctx, emoji, habits)
+            // A Text Replacement shortcut being typed: its phrase is what the space bar will put in, so it takes the correction's place.
+            val phrase = if (ctx.plainWord) TextShortcuts.expand(ctx.current, replacements) else null
+            if (phrase != null) result = listOf(Suggestion(ctx.current, SuggestionKind.TYPED), Suggestion(phrase, SuggestionKind.CORRECTION)) +
+                result.filter { it.kind != SuggestionKind.CORRECTION && it.kind != SuggestionKind.TYPED && it.text != phrase }.take(1)
             main.post { if (seq == suggestSeq.get()) ui.suggestions = result }
         }
     }
 
-    /** Replaces the word before the cursor with its correction, if it has one. Returns whether it did. */
+    /** Text Replacement: the word before the cursor becomes its phrase, if it is a shortcut. Delete straight after puts the shortcut back,
+     *  through [lastFix], as it does an autocorrection. Works with autocorrect off, but not where autocorrect never runs (addresses, names). */
+    /** Text Replacement's shortcuts, read each time a field opens (see [TextShortcuts]). */
+    @Volatile private var shortcuts: Map<String, String> = TextShortcuts.DEFAULTS
+
+    private fun applyShortcut(): Boolean {
+        if (!allowAutocorrect) return false
+        val ic = currentInputConnection ?: return false
+        val ctx = Suggest.parse(textBefore())
+        if (!ctx.plainWord) return false
+        val phrase = TextShortcuts.expand(ctx.current, shortcuts) ?: return false
+        if (!commit(ic, phrase, removed = ctx.current.length)) return false
+        lastFix = ctx.current to phrase
+        return true
+    }
+
+    /** Replaces the word before the cursor with its correction (or its Text Replacement phrase), if it has one. Returns whether it did. */
     private fun applyAutocorrect(): Boolean {
+        if (applyShortcut()) return true
         val e = engine() ?: return false
         if (!autocorrectOn || !allowAutocorrect || !ui.layout.english) return false
         val ic = currentInputConnection ?: return false
@@ -760,7 +783,8 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                 SuggestionKind.CORRECTION, SuggestionKind.COMPLETION -> {
                     if (!commit(ic, suggestion.text, removed = ctx.current.length)) return
                     // A misspelling the person fixed by picking the word they meant: twice, and it is fixed for them from then on.
-                    if (learning && ctx.current.isNotEmpty() && english?.contains(ctx.current.lowercase()) != true)
+                    if (learning && ctx.current.isNotEmpty() && english?.contains(ctx.current.lowercase()) != true &&
+                        TextShortcuts.expand(ctx.current, shortcuts) == null)
                         PersonalStore.model.learnFix(ctx.current, suggestion.text)
                     learnCurrent(); commit(ic, " ")
                 }

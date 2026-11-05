@@ -21,7 +21,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.automirrored.rounded.Backspace
@@ -39,7 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -67,7 +68,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.viewinterop.AndroidView
 import com.jake.duolauncher.R
+import com.jake.duolauncher.appearance.ContinuousShape
+import com.jake.duolauncher.appearance.Corner
 import com.jake.duolauncher.appearance.DuoTypography
+import com.jake.duolauncher.appearance.continuousPath
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.hypot
@@ -80,7 +84,7 @@ private enum class KeyRole { LETTER, SPECIAL, ACTION }
  * opaque so the keys stay legible over anything. [classic] is the flat look of Uno 0.97 and before (white and grey keys on an opaque
  * pale panel, a thin line under each key), for those who prefer it; everything the keyboard does is the same in both.
  */
-private class KeyPalette(val dark: Boolean, accent: Int?, blurred: Boolean, val classic: Boolean = false) {
+private class KeyPalette(val dark: Boolean, accent: Int?, blurred: Boolean, val classic: Boolean = false, val rim: Boolean = true) {
     val ink = if (dark) Color.White else if (classic) Color.Black else Color(0xFF0B0B0D)
     val panelTop = when {
         classic -> if (dark) Color(0xFF2A2A2C) else Color(0xFFD1D3D9)
@@ -109,13 +113,15 @@ private class KeyPalette(val dark: Boolean, accent: Int?, blurred: Boolean, val 
     val rimTop = if (dark) Color(0x52FFFFFF) else Color(0xF2FFFFFF)
     val rimBottom = if (dark) Color(0x33000000) else Color(0x1F000000)
     val shadow = if (classic) (if (dark) Color(0xB3000000) else Color(0xFF898A8D)) else if (dark) Color(0x66000000) else Color(0x29000000)
-    val action = accent?.let { Color(it) } ?: if (classic) Color(0xFF007AFF) else Color(0xFF0A84FF)
+    /** The launcher's one accent: the wallpaper's colour when that is on, Uno orange otherwise (it was iOS's blue, the only blue in Uno). */
+    val action = accent?.let { Color(it) } ?: com.jake.duolauncher.panel.IosOrange
     val sub = ink.copy(alpha = .55f)
     val pill = if (classic) ink.copy(alpha = .08f) else if (dark) Color(0x2EFFFFFF) else Color(0xA6FFFFFF)
     val divider = ink.copy(alpha = if (classic) .18f else .14f)
     /** The solid colour of the magnified key and the accent strip. */
     val balloon = if (classic) letter else if (dark) Color(0xFF6E6E73) else Color.White
-    val keyRadius = if (classic) 6.dp else 9.dp
+    /** iOS 26's keys are rounder than the flat keys before them; both have the launcher's continuous corner. */
+    val keyRadius = if (classic) 6.dp else 10.dp
     val rowGap = if (classic) 10.dp else 11.dp
 }
 
@@ -138,7 +144,7 @@ private val MaxKeyboardWidth = 640.dp
 internal fun KeyboardScreen(ui: KeyboardUiState, actions: KeyboardActions, inSettings: Boolean = false) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val config = LocalConfiguration.current
-    val palette = remember(ui.accent, context, config.uiMode, ui.blurred, ui.classic) { KeyPalette(ui.dark(context), ui.accent, ui.blurred && !ui.classic, ui.classic) }
+    val palette = remember(ui.accent, context, config.uiMode, ui.blurred, ui.classic, ui.edgeHighlight) { KeyPalette(ui.dark(context), ui.accent, ui.blurred && !ui.classic, ui.classic, ui.edgeHighlight) }
     // Turned sideways the keys are shorter, so the keyboard does not cover the whole screen; the height setting scales both.
     val base = if (config.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) 36.dp else 46.dp
     val keyHeight = base * ui.heightScale
@@ -152,14 +158,19 @@ internal fun KeyboardScreen(ui: KeyboardUiState, actions: KeyboardActions, inSet
     androidx.compose.material3.MaterialTheme(typography = DuoTypography) {
         CompositionLocalProvider(LocalKeyboardActions provides actions, LocalKeyHeight provides keyHeight, LocalRowGap provides palette.rowGap) {
             BoxWithConstraints(Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = corner, topEnd = corner, bottomStart = if (inSettings) corner else 0.dp, bottomEnd = if (inSettings) corner else 0.dp))
-                .drawBehind {
-                    drawRect(Brush.verticalGradient(listOf(palette.panelTop, palette.panelBottom)))
+                .clip(remember(corner, inSettings) { val bottom = if (inSettings) corner else 0.dp
+                    ContinuousShape(CornerSize(corner), CornerSize(corner), CornerSize(bottom), CornerSize(bottom)) })
+                .drawWithCache {
                     // The glass edge: a bright hairline along the top, fading down the rounded corners; the classic one is a plain line.
                     val r = corner.toPx()
-                    if (palette.classic) drawRect(palette.panelRim, size = Size(size.width, 1f))
-                    else drawRoundRect(Brush.verticalGradient(0f to palette.panelRim, .12f to Color.Transparent), size = Size(size.width, size.height + r),
-                        cornerRadius = CornerRadius(r), style = Stroke(1.dp.toPx()))
+                    val edge = continuousPath(0f, 0f, size.width, size.height + r, r)
+                    val panel = Brush.verticalGradient(listOf(palette.panelTop, palette.panelBottom))
+                    val rim = Brush.verticalGradient(0f to palette.panelRim, .12f to Color.Transparent)
+                    onDrawBehind {
+                        drawRect(panel)
+                        if (palette.classic) drawRect(palette.panelRim, size = Size(size.width, 1f))
+                        else if (palette.rim) drawPath(edge, rim, style = Stroke(1.dp.toPx()))
+                    }
                 }
                 .onGloballyPositioned { rootTopLeft.value = it.positionInWindow(); ui.width = it.size.width.toFloat() }) {
                 val oneHanded = ui.oneHanded
@@ -248,7 +259,7 @@ private fun KeyView(key: Key, ui: KeyboardUiState, actions: KeyboardActions, pal
             val on = ui.shift != ShiftState.OFF
             GlassKey(palette, modifier, if (on) KeyRole.LETTER else KeyRole.SPECIAL, tag = "key-shift", hapticDown = HapticKind.MODIFIER, onTap = { actions.shift() }) {
                 ShiftGlyph(filled = on, color = palette.ink)
-                if (ui.shift == ShiftState.LOCKED) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp).size(width = 14.dp, height = 2.dp).background(palette.ink, RoundedCornerShape(1.dp)))
+                if (ui.shift == ShiftState.LOCKED) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp).size(width = 14.dp, height = 2.dp).background(palette.ink, Corner.pill))
             }
         }
         Key.Backspace -> RepeatingKey(palette, modifier, onHaptic = actions::haptic, onStep = { held -> actions.backspace(held) })
@@ -446,14 +457,16 @@ private fun BoxScope.PreviewLayer(ui: KeyboardUiState, palette: KeyPalette, orig
         // The balloon: a head wider than the key, a neck, and the key itself, in one solid glass colour (a preview over see-through keys
         // must not let the key under it show), with a soft shadow and the bright rim on top.
         val solid = palette.balloon
-        fun shape(color: Color, dy: Float) {
-            drawRoundRect(color, Offset(headLeft, headTop + dy), Size(headW, headH), CornerRadius(r))
-            drawRect(color, Offset(key.left, headTop + headH - r + dy), Size(key.width, key.height * .5f + r))
-            drawRoundRect(color, Offset(key.left, key.top + dy), Size(key.width, key.height), CornerRadius(r * .75f))
+        val head = continuousPath(headLeft, headTop, headW, headH, r)
+        val body = continuousPath(key.left, key.top, key.width, key.height, palette.keyRadius.toPx())
+        fun shape(color: Color, dy: Float) = translate(top = dy) {
+            drawPath(head, color)
+            drawRect(color, Offset(key.left, headTop + headH - r), Size(key.width, key.height * .5f + r))
+            drawPath(body, color)
         }
         shape(palette.shadow, if (palette.classic) 1.dp.toPx() else 2.dp.toPx()); shape(solid, 0f)
-        if (!palette.classic) drawRoundRect(Brush.verticalGradient(listOf(palette.rimTop, Color.Transparent), startY = headTop, endY = headTop + headH * .5f),
-            Offset(headLeft, headTop), Size(headW, headH), CornerRadius(r), style = Stroke(1.dp.toPx()))
+        if (!palette.classic && palette.rim) drawPath(head, Brush.verticalGradient(listOf(palette.rimTop, Color.Transparent), startY = headTop, endY = headTop + headH * .5f),
+            style = Stroke(1.dp.toPx()))
     }.testTag("key-preview")) {
         Box(Modifier.offset { IntOffset(headLeft.toInt(), headTop.toInt()) }.size(width = with(density) { headW.toDp() }, height = with(density) { headH.toDp() }),
             contentAlignment = Alignment.Center) { Text(p.label, color = palette.ink, fontSize = 34.sp) }
@@ -476,12 +489,16 @@ private fun BoxScope.AccentLayer(ui: KeyboardUiState, palette: KeyPalette, origi
     val solid = palette.balloon
     Box(Modifier.matchParentSize()) {
         Row(Modifier.offset { IntOffset((layout.left - o.x).toInt(), top.toInt()) }.height(52.dp)
-            .drawBehind {
-                drawRoundRect(palette.shadow, Offset(0f, 2.dp.toPx()), size, CornerRadius(12.dp.toPx()))
-                drawRoundRect(solid, cornerRadius = CornerRadius(12.dp.toPx()))
+            .drawWithCache {
+                val outline = continuousPath(0f, 0f, size.width, size.height, 12.dp.toPx())
+                onDrawBehind {
+                    translate(top = 2.dp.toPx()) { drawPath(outline, palette.shadow) }
+                    drawPath(outline, solid)
+                }
             }.testTag("accent-strip")) {
             a.options.forEachIndexed { i, text ->
-                Box(Modifier.size(width = 40.dp, height = 52.dp).then(if (i == a.index) Modifier.background(palette.action, RoundedCornerShape(10.dp)) else Modifier),
+                // The chosen one is concentric with the strip it sits in: the strip's 12 dp less the 2 dp around it.
+                Box(Modifier.size(width = 40.dp, height = 52.dp).then(if (i == a.index) Modifier.padding(2.dp).background(palette.action, Corner.inside(12.dp, 2.dp)) else Modifier),
                     contentAlignment = Alignment.Center) { Text(text, color = if (i == a.index) Color.White else palette.ink, fontSize = 24.sp) }
             }
         }
@@ -558,16 +575,27 @@ private fun GlassKey(palette: KeyPalette, modifier: Modifier, role: KeyRole, tag
             if (up != null) onTap()
         }
     } else Modifier
-    Box(modifier.height(height).drawBehind {
-        if (!hidden) drawKey(palette, role, pressed || down, palette.keyRadius.toPx())
-    }.then(tapModifier).then(pointer).testTag(tag), contentAlignment = Alignment.Center, content = content)
+    Box(modifier.height(height).keyFace(palette, role) { if (hidden) null else pressed || down }.then(tapModifier).then(pointer).testTag(tag), contentAlignment = Alignment.Center, content = content)
+}
+
+/** A key's outlines at one size, with the launcher's continuous corner: built once for the size (see [keyFace]) and drawn every frame. */
+private class KeyOutlines(size: Size, radius: Float, val lift: Float, inset: Float) {
+    val h = size.height - lift
+    val shadow = continuousPath(0f, lift, size.width, h, radius)
+    val body = continuousPath(0f, 0f, size.width, h, radius)
+    val rim = continuousPath(inset, inset, size.width - 2 * inset, h - 2 * inset, (radius - inset).coerceAtLeast(0f))
+}
+
+/** Draws a key's face behind its content. [state] says, at draw time, whether it is pressed, or null while it is hidden (under its preview). */
+private fun Modifier.keyFace(palette: KeyPalette, role: KeyRole, radius: Dp = palette.keyRadius, state: () -> Boolean?): Modifier = drawWithCache {
+    val outlines = KeyOutlines(size, radius.toPx(), 1.dp.toPx(), .5.dp.toPx())
+    onDrawBehind { state()?.let { drawKey(palette, role, it, outlines) } }
 }
 
 /** A glass key: a soft shadow beneath, a translucent body brightening toward its top, and a specular rim, brightest along the top edge
- * where light catches it. A pressed key glows.
+ * where light catches it (unless Edge Highlight is off). A pressed key glows.
  */
-private fun DrawScope.drawKey(palette: KeyPalette, role: KeyRole, pressed: Boolean, radius: Float) {
-    val corner = CornerRadius(radius)
+private fun DrawScope.drawKey(palette: KeyPalette, role: KeyRole, pressed: Boolean, k: KeyOutlines) {
     if (palette.classic) {
         // Uno 0.97's key: flat, with a thin darker line under it, as on iOS before glass. Special keys turn light while pressed.
         val body = when (role) {
@@ -575,9 +603,8 @@ private fun DrawScope.drawKey(palette: KeyPalette, role: KeyRole, pressed: Boole
             KeyRole.LETTER -> palette.letter
             KeyRole.SPECIAL -> if (pressed) palette.specialPressed else palette.special
         }
-        val line = 1.dp.toPx()
-        drawRoundRect(palette.shadow, Offset(0f, line), Size(size.width, size.height - line), corner)
-        drawRoundRect(body, Offset.Zero, Size(size.width, size.height - line), corner)
+        drawPath(k.shadow, palette.shadow)
+        drawPath(k.body, body)
         return
     }
     val body = when (role) {
@@ -585,14 +612,11 @@ private fun DrawScope.drawKey(palette: KeyPalette, role: KeyRole, pressed: Boole
         KeyRole.LETTER -> palette.letter
         KeyRole.SPECIAL -> palette.special
     }
-    val lift = 1.dp.toPx()
-    drawRoundRect(palette.shadow, Offset(0f, lift), Size(size.width, size.height - lift), corner)
-    val h = size.height - lift
-    drawRoundRect(Brush.verticalGradient(listOf(lerpWhite(body, .10f), body), endY = h), Offset.Zero, Size(size.width, h), corner)
-    if (pressed) drawRoundRect(if (role == KeyRole.ACTION) Color(0x33000000) else palette.pressedGlow, Offset.Zero, Size(size.width, h), corner)
-    val inset = .5.dp.toPx()
-    drawRoundRect(Brush.verticalGradient(0f to palette.rimTop, .45f to Color.Transparent, 1f to palette.rimBottom, startY = 0f, endY = h),
-        Offset(inset, inset), Size(size.width - 2 * inset, h - 2 * inset), CornerRadius(radius - inset), style = Stroke(1.dp.toPx()))
+    drawPath(k.shadow, palette.shadow)
+    drawPath(k.body, Brush.verticalGradient(listOf(lerpWhite(body, .10f), body), endY = k.h))
+    if (pressed) drawPath(k.body, if (role == KeyRole.ACTION) Color(0x33000000) else palette.pressedGlow)
+    if (palette.rim) drawPath(k.rim, Brush.verticalGradient(0f to palette.rimTop, .45f to Color.Transparent, 1f to palette.rimBottom, startY = 0f, endY = k.h),
+        style = Stroke(1.dp.toPx()))
 }
 
 private fun lerpWhite(c: Color, t: Float) = Color(c.red + (1f - c.red) * t, c.green + (1f - c.green) * t, c.blue + (1f - c.blue) * t, c.alpha)
@@ -642,7 +666,7 @@ private fun SpaceKey(ui: KeyboardUiState, actions: KeyboardActions, palette: Key
 @Composable
 private fun LaneButton(icon: ImageVector, description: String, palette: KeyPalette, tag: String, actions: KeyboardActions, active: Boolean = false,
     onClick: () -> Unit) {
-    Box(Modifier.size(LaneHeight).padding(3.dp).clip(RoundedCornerShape(50))
+    Box(Modifier.size(LaneHeight).padding(3.dp).clip(Corner.pill)
         .background(if (active) palette.action.copy(alpha = .9f) else palette.pill)
         .pointerInput(onClick) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false); val up = waitForUpOrCancellation(); if (up != null) { actions.haptic(HapticKind.MODIFIER); onClick() } } }
         .testTag(tag), contentAlignment = Alignment.Center) {
@@ -682,7 +706,7 @@ private fun SuggestionSlots(ui: KeyboardUiState, palette: KeyPalette, actions: K
             val s = slots.getOrNull(index)
             val highlight = s != null && (s.kind == SuggestionKind.CORRECTION || (s.kind == SuggestionKind.GESTURE && index == 0 && ui.swiping))
             Box(Modifier.weight(1f).fillMaxHeight().padding(vertical = 3.dp, horizontal = 2.dp)
-                .then(if (highlight) Modifier.clip(RoundedCornerShape(50)).background(palette.pill) else Modifier)
+                .then(if (highlight) Modifier.clip(Corner.pill).background(palette.pill) else Modifier)
                 .then(if (s != null) Modifier.pointerInput(s) {
                     // A tap picks it; a long press forgets it, when it is something the keyboard learned from you (Gboard's drag-to-remove).
                     awaitEachGesture {
@@ -748,7 +772,7 @@ private fun RowScope.ToolsLane(ui: KeyboardUiState, palette: KeyPalette, actions
 @Composable
 private fun RowScope.EmojiSearchLane(query: String, ui: KeyboardUiState, palette: KeyPalette, actions: KeyboardActions) {
     LaneButton(Icons.Rounded.Close, "Close emoji search", palette, "emoji-search-close", actions) { actions.emojiSearch(false) }
-    Row(Modifier.width(120.dp).fillMaxHeight().padding(vertical = 4.dp).clip(RoundedCornerShape(50)).background(palette.pill).padding(horizontal = 10.dp),
+    Row(Modifier.width(120.dp).fillMaxHeight().padding(vertical = 4.dp).clip(Corner.pill).background(palette.pill).padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Rounded.Search, null, tint = palette.sub, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(4.dp))
@@ -793,7 +817,7 @@ private fun ClipboardPanel(ui: KeyboardUiState, actions: KeyboardActions, palett
             Text(stringResource(R.string.kb_clipboard_empty), color = palette.sub, fontSize = 14.sp, textAlign = TextAlign.Center)
         } else LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 4.dp)) {
             items(ui.clips, key = { it.text }) { clip ->
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).drawBehind { drawKey(palette, KeyRole.LETTER, false, 12.dp.toPx()) }
+                Row(Modifier.fillMaxWidth().clip(ContinuousShape(12.dp)).keyFace(palette, KeyRole.LETTER, 12.dp) { false }
                     .clickable { actions.haptic(HapticKind.MODIFIER); actions.pasteClip(clip.text) }.padding(start = 12.dp).testTag("clip"),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(ClipHistory.preview(clip.text, 120), color = palette.ink, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
@@ -885,7 +909,7 @@ private fun EmojiPanel(ui: KeyboardUiState, actions: KeyboardActions, palette: K
     Column(Modifier.fillMaxWidth().testTag("emoji-panel"), verticalArrangement = Arrangement.spacedBy(RowGap)) {
         Box(Modifier.fillMaxWidth().height(gridHeight)) {
             Column {
-                Row(Modifier.fillMaxWidth().height(searchH).padding(horizontal = 4.dp).clip(RoundedCornerShape(50)).background(palette.pill)
+                Row(Modifier.fillMaxWidth().height(searchH).padding(horizontal = 4.dp).clip(Corner.pill).background(palette.pill)
                     .clickable { actions.haptic(HapticKind.MODIFIER); actions.emojiSearch(true) }.padding(horizontal = 12.dp).testTag("emoji-search"),
                     verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Search, null, tint = palette.sub, modifier = Modifier.size(18.dp))
@@ -902,8 +926,8 @@ private fun EmojiPanel(ui: KeyboardUiState, actions: KeyboardActions, palette: K
                 }
             }
             val base = toning
-            if (base != null) Row(Modifier.align(Alignment.Center).clip(RoundedCornerShape(16.dp))
-                .drawBehind { drawRoundRect(if (palette.dark) Color(0xFF3A3A3D) else Color.White, cornerRadius = CornerRadius(16.dp.toPx())) }
+            if (base != null) Row(Modifier.align(Alignment.Center).clip(Corner.medium)
+                .background(if (palette.dark) Color(0xFF3A3A3D) else Color.White, Corner.medium)
                 .padding(6.dp).testTag("emoji-tones")) {
                 (listOf(base) + EmojiIndex.TONES.map { EmojiIndex.withTone(base, it) }).forEach { v ->
                     Box(Modifier.size(46.dp).clickable { actions.haptic(HapticKind.SELECT); actions.emoji(v); toning = null }, contentAlignment = Alignment.Center) {
@@ -921,7 +945,7 @@ private fun EmojiPanel(ui: KeyboardUiState, actions: KeyboardActions, palette: K
                 tabs.forEach { (index, glyph) ->
                     Box(Modifier.weight(1f).fillMaxHeight().pointerInput(index) { detectTapGestures { actions.haptic(HapticKind.MODIFIER); selected = index; toning = null } }
                         .testTag("emoji-tab-$index"), contentAlignment = Alignment.Center) {
-                        if (index == tab) Box(Modifier.size(32.dp).clip(RoundedCornerShape(50)).background(palette.pill))
+                        if (index == tab) Box(Modifier.size(32.dp).clip(Corner.pill).background(palette.pill))
                         Text(glyph, fontSize = 19.sp, modifier = Modifier.then(if (index == tab) Modifier else Modifier.graphicsLayer { alpha = .55f }))
                     }
                 }

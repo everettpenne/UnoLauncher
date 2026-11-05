@@ -10,12 +10,12 @@ import java.io.File
  * Compose's `RoundedCornerShape` and the canvas round rects draw circular arcs, not iOS's continuous corner, and a radius typed in place is
  * how the scale drifted to 27 values before. This guards the rule: one of those in the sources fails the build.
  *
- * `CircleShape` is allowed (a true circle has no corner to smooth). The keyboard keeps its own tuned key shapes. A line that is drawn art
+ * `CircleShape` is allowed (a true circle has no corner to smooth). The keyboard is held to it too. A line that is drawn art
  * rather than a surface (a glyph) may say so with a `corner-ok:` comment and a reason.
  */
 class CornerScaleTest {
     private val circular = Regex("""\b(RoundedCornerShape|CornerRadius|RoundRect|drawRoundRect|addRoundRect)\(""")
-    private val exempt = listOf("appearance/Corners.kt", "keyboard/")
+    private val exempt = listOf("appearance/Corners.kt")
 
     private fun sources(): List<File> {
         val root = listOf(File("src/main/java"), File("app/src/main/java")).first { it.isDirectory }

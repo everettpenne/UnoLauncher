@@ -246,6 +246,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         ui.password = KeyboardModel.isPassword(info.inputType)
         ui.page = KeyboardModel.startPage(info.inputType)
         ui.accent = readAccent()
+        ui.edgeHighlight = getSharedPreferences("appearance", Context.MODE_PRIVATE).getBoolean("edgeHighlight", true)
         ui.panel = KeyPanel.NONE; ui.tools = false; ui.emojiSearch = null; ui.selecting = false
         val prefs = getSharedPreferences("extras", Context.MODE_PRIVATE)
         autocorrectOn = prefs.getBoolean("kbAutocorrect", true)
@@ -1030,6 +1031,8 @@ internal class KeyboardUiState {
     var emojiSearch by mutableStateOf<String?>(null)
     /** The wallpaper accent as ARGB, when "Color from wallpaper" is on. */
     var accent by mutableStateOf<Int?>(null)
+    /** The launcher's Edge Highlight setting (Appearance › Glass): off, the panel and the keys lose their rim light, as the launcher's glass does. */
+    var edgeHighlight by mutableStateOf(true)
     var layout by mutableStateOf(KeyLayouts.QWERTY)
     var layoutCount by mutableIntStateOf(1)
     var emojiKey by mutableStateOf(true)

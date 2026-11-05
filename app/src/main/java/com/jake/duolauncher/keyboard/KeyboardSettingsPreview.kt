@@ -2,7 +2,6 @@ package com.jake.duolauncher.keyboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -34,6 +33,7 @@ internal fun KeyboardSettingsPreview(look: KeyboardLook, modifier: Modifier = Mo
         ui.layoutCount = layouts.size; ui.heightScale = look.height; ui.numberRow = look.numberRow; ui.emojiKey = look.emojiKey
         ui.keyPreviews = look.keyPreviews; ui.blurred = look.glass; ui.oneHanded = look.oneHanded; ui.spaceCursor = look.spaceCursor
         ui.classic = look.classic
+        ui.edgeHighlight = context.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE).getBoolean("edgeHighlight", true)
     }
     LaunchedEffect(Unit) {
         runCatching { ui.emoji = context.assets.open("keyboard/emoji.txt").bufferedReader().useLines { EmojiData.parse(it, EmojiData.drawable()) } }
@@ -70,7 +70,7 @@ internal fun KeyboardSettingsPreview(look: KeyboardLook, modifier: Modifier = Mo
     }
     Column(modifier.testTag("kb-preview"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.kb_try_it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f))
+        Box(Modifier.fillMaxWidth().clip(com.jake.duolauncher.appearance.Corner.medium).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f))
             .padding(horizontal = 14.dp, vertical = 12.dp)) {
             Text(text.ifEmpty { stringResource(R.string.kb_try_placeholder) } + if (text.isNotEmpty()) "|" else "",
                 color = if (text.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,

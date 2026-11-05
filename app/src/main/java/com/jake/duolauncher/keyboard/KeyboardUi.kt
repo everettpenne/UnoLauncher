@@ -133,8 +133,8 @@ private val KeyGap = 6.dp
 private val LocalRowGap = staticCompositionLocalOf { 11.dp }
 private val RowGap: Dp @Composable get() = LocalRowGap.current
 /** Room under the bottom row. Android's own keyboard-switcher button sits in the navigation bar just below the Return key on phones that
- * show it, and a thumb aiming at the bottom edge of Return landed on it; the extra room keeps the two apart. */
-private val BottomGap = 20.dp
+ * show it, and a thumb aiming at the bottom row landed on it; the extra room keeps the two apart. 20 dp was still too close in use. */
+private val BottomGap = 32.dp
 private val LaneHeight = 40.dp
 /** The widest the keys are allowed to spread: on an unfolded or tablet screen they stay thumb-sized instead of stretching. */
 private val MaxKeyboardWidth = 640.dp

@@ -411,10 +411,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Every corner now has iOS\'s continuous curve, nested shapes follow the corners around them, and every app icon has the same squircle.</string>
-    <string name="whats_new_2">Appearance › Glass › Edge Highlight turns the rim light off on every glass surface, to see how it looks without.</string>
-    <string name="whats_new_3">The keyboard matches the launcher: its corners, its accent and its edge light. It has every emoji now, and Text Replacement (try omw).</string>
-    <string name="whats_new_4">Email and web-address fields get @, / and .com beside the space bar, and there is more room above Android\'s keyboard switcher.</string>
+    <string name="whats_new_1">Search finds apps by what they do as well as their name: type notes and the app that keeps notes comes up, whatever it is called.</string>
+    <string name="whats_new_2">The App Library shows each app\'s own one-line description under its name.</string>
+    <string name="whats_new_3">Every corner has iOS\'s continuous curve, and Edge Highlight turns the glass rim light off.</string>
+    <string name="whats_new_4">The keyboard matches the launcher, has every emoji, and Text Replacement (try omw).</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.124.0-uno01
+
+- **Find an app by what it does.** Spotlight and the App Library now match an app's own description (the one-line `android:description` it ships with) as well as its name, so "notes" finds a notes app called Mentat. Three letters at least, so one or two letters don't match every app, and both searches use the same rule. The App Library shows the description under each name, and Spotlight next to a result, cut short with "…" when it is long. Descriptions are kept with the cached app list, so they are there before the apps finish loading.
+- **0.123.0-uno01 is now on `main`.** It was released from a branch; this release brings it and this work together on `main`.
+- **Tested:** 1,144 unit tests, passing, including the description rule. **Not seen:** descriptions on a phone, in Spotlight or the App Library.
+
 ## 0.123.0-uno01
 
 - **iOS's continuous corners, everywhere.** Panels, sheets, menus, widgets, the dock, the island and every glass surface had circular corners, because the glass library was thought to take only those; it takes any corner-based shape, so they now all have the continuous curve (Figma's 60% corner smoothing, the published match for iOS), and app icons keep their superellipse. Nested shapes follow what holds them: docks are concentric with their icons, a sheet's bottom corners with the display's own corners, cards with their panel, Spotlight's answer card with Spotlight, Discover's surface with its page. Every app icon and icon tile (the island's apps, setup, Settings' rows, the press lens on Home) has the same squircle; the island's "Squircle" option is a real squircle. Folders, Discover and Material's components are on the one scale, and a test fails the build on any corner drawn outside it.

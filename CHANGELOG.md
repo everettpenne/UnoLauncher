@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.125.0-uno01
+
+- **Apple's island shape.** The resting pill's ends are squircle halves instead of semicircles: longer, flatter-tipped, easing out of the straight sides. They ease back to round as the pill grows into the open panel. The open island's corner is concentric with the display, Apple's rule (the screen's corner less the island's margin from the top; 44 dp where a phone reports no corner), and search and the island's cards follow it.
+- **A stretchy split.** A second activity pulls out of the pill as a drop on a neck that thins and pinches off, stretched along the pull, with the pill's end bulging after it; going back, the neck reaches out and swallows it.
+- **Pill at Rest.** Island settings › Pill at Rest, on by default. Off, the island is only a ring round the camera until it has something to show, on Home and over apps, and grows out of it. The settings preview shows it.
+- **0.124.0-uno01 was tagged but not published;** this release includes it (searching apps by their description).
+- **Tested:** 1,155 unit tests, passing. Seen on an emulator: the squircle pill, Pill at Rest in settings and its preview, a capsule merging back on its neck. **Not seen:** any of it on a phone; the ring round a real camera; the neck pinching off on the way out (too quick for the emulator's screenshots); the concentric corner (the emulator reports no display corner).
+
 ## 0.124.0-uno01
 
 - **Find an app by what it does.** Spotlight and the App Library now match an app's own description (the one-line `android:description` it ships with) as well as its name, so "notes" finds a notes app called Mentat. Three letters at least, so one or two letters don't match every app, and both searches use the same rule. The App Library shows the description under each name, and Spotlight next to a result, cut short with "…" when it is long. Descriptions are kept with the cached app list, so they are there before the apps finish loading.

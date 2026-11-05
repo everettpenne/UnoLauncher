@@ -83,15 +83,15 @@ internal object IslandMorph {
     fun rectOf(frame: IslandFrame) = PxRect(frame.left, frame.top, frame.left + frame.width, frame.top + frame.height)
 }
 
-/** The island's outline at whatever size its body is: [IslandMorph.cornerPx] of that size. One instance serves every frame of a morph, since the
+/** The island's outline (a continuous corner, as every surface has) at whatever size its body is: [IslandMorph.cornerPx] of that size. One instance serves every frame of a morph, since the
  * radius follows from the size alone. */
 internal class IslandBodyShape(private val density: Float, private val panelScale: Float) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline =
-        Outline.Rounded(RoundRect(0f, 0f, size.width, size.height, CornerRadius(IslandMorph.cornerPx(size.width, size.height, this.density, panelScale))))
+        Outline.Generic(com.jake.duolauncher.appearance.continuousPath(0f, 0f, size.width, size.height, IslandMorph.cornerPx(size.width, size.height, this.density, panelScale)))
 }
 
 /** A rounded rectangle at [rect] (in the layer's own px) with corner [radius]: the shape search clips itself to as it grows out of the island. */
 internal class MorphRectShape(private val rect: PxRect, private val radius: Float) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline =
-        Outline.Rounded(RoundRect(rect.left, rect.top, rect.right, rect.bottom, CornerRadius(radius.coerceAtLeast(0f))))
+        Outline.Generic(com.jake.duolauncher.appearance.continuousPath(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, radius.coerceAtLeast(0f)))
 }

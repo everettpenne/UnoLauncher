@@ -163,8 +163,8 @@ internal fun PageStrip(
                 // While the pages move the lens is a plain pale capsule: a glass lens that glides with the swipe redid its backdrop and its
                 // effects every frame, one of the costs that made a page swipe miss a quarter of its frames. It is the glass lens again once
                 // the pages settle, or whenever a finger is on the strip.
-                .then(if (pagesMoving && !scrubbing) Modifier.clip(RoundedCornerShape(percent = 50)).background(androidx.compose.ui.graphics.Color.White.copy(alpha = .22f))
-                    else Modifier.glassLens(lensBackdrop, RoundedCornerShape(percent = 50), lift = lift, settings = glass.settings))
+                .then(if (pagesMoving && !scrubbing) Modifier.clip(Corner.pill).background(androidx.compose.ui.graphics.Color.White.copy(alpha = .22f))
+                    else Modifier.glassLens(lensBackdrop, Corner.pill, lift = lift, settings = glass.settings))
                 .testTag("page-lens"))
         }
     }

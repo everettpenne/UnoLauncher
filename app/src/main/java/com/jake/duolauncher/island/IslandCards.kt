@@ -117,7 +117,7 @@ internal fun MorphButton(icon: ImageVector, label: String, tint: Color, glyph: C
     val pressed by source.collectIsPressedAsState()
     val squish by animateFloatAsState(if (pressed) .88f else 1f, IslandThemes.active.spring(.5f, 700f), label = "morph press")
     val corner by animateFloatAsState(if (playful && morphed) .3f else .5f, IslandThemes.active.spring(.45f, 380f), label = "morph corner")
-    Box(Modifier.size(size).graphicsLayer { scaleX = squish; scaleY = squish }.clip(RoundedCornerShape(percent = (corner * 100f).toInt()))
+    Box(Modifier.size(size).graphicsLayer { scaleX = squish; scaleY = squish }.clip(com.jake.duolauncher.appearance.ContinuousShape(androidx.compose.foundation.shape.CornerSize((corner * 100f).toInt())))
         .background(tint).clickable(interactionSource = source, indication = null) { UnoFeedback.play(Cue.TICK, haptic); onClick() }
         .semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
         Icon(icon, null, tint = glyph, modifier = Modifier.size(size * .54f))
@@ -225,7 +225,7 @@ private fun MediaCard(accent: Color, playful: Boolean) {
     LaunchedEffect(playing) { while (playing) { tick = System.currentTimeMillis(); delay(500L) } }
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(52.dp).clip(RoundedCornerShape(if (playful && playing) 18.dp else 12.dp)).background(themeInk.copy(alpha = .1f)),
+            Box(Modifier.size(52.dp).clip(com.jake.duolauncher.appearance.ContinuousShape(if (playful && playing) 18.dp else 12.dp)).background(themeInk.copy(alpha = .1f)),
                 contentAlignment = Alignment.Center) {
                 if (art != null) Image(art, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
                 else EqualizerBars(if (playing) accent else accent.copy(alpha = .55f), animate = playing)
@@ -260,7 +260,7 @@ private fun CallCard(peek: PeekNotification, nowMs: Long, state: IslandState, pl
     } else .5f
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(48.dp).clip(RoundedCornerShape(percent = (phase * 100f).toInt())).background(IosGreen.copy(alpha = .22f)), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(48.dp).clip(com.jake.duolauncher.appearance.ContinuousShape(androidx.compose.foundation.shape.CornerSize((phase * 100f).toInt()))).background(IosGreen.copy(alpha = .22f)), contentAlignment = Alignment.Center) {
                 Text(caller.trim().firstOrNull()?.uppercase() ?: "", color = IosGreen, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.width(12.dp))
@@ -402,7 +402,7 @@ private fun NavigationCard(update: LiveUpdate, accent: Color, playful: Boolean) 
         t.animateFloat(.98f, 1.04f, androidx.compose.animation.core.infiniteRepeatable(tween(1400), androidx.compose.animation.core.RepeatMode.Reverse), label = "arrow scale").value
     } else 1f
     Row(Modifier.fillMaxWidth().testTag("island-nav-card"), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(68.dp).graphicsLayer { scaleX = breathe; scaleY = breathe }.clip(RoundedCornerShape(20.dp)).background(accent.copy(alpha = .18f)), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(68.dp).graphicsLayer { scaleX = breathe; scaleY = breathe }.clip(com.jake.duolauncher.appearance.ContinuousShape(20.dp)).background(accent.copy(alpha = .18f)), contentAlignment = Alignment.Center) {
             arrow?.let { Image(remember(it) { it.asImageBitmap() }, null, Modifier.size(52.dp)) }
         }
         Spacer(Modifier.width(14.dp))

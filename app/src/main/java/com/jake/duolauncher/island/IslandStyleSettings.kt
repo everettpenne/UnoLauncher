@@ -115,7 +115,7 @@ internal fun IslandStyleSection(controller: IslandThemeController?) {
 /** A small island drawn in [theme]: the body, text, the four accents and a button, so a choice can be seen before it is used. */
 @Composable
 private fun IslandThemePreview(theme: IslandTheme) {
-    val bodyShape = androidx.compose.foundation.shape.RoundedCornerShape((22f * theme.panel.scale).dp)
+    val bodyShape = com.jake.duolauncher.appearance.ContinuousShape((22f * theme.panel.scale).dp)
     Box(Modifier.fillMaxWidth().clip(Corner.medium).background(Color(0xFF5B7285)).padding(vertical = 14.dp).testTag("island-theme-preview"),
         contentAlignment = Alignment.Center) {
         Row(Modifier.clip(bodyShape).background(theme.fill).padding(horizontal = 16.dp, vertical = 10.dp),

@@ -196,8 +196,8 @@ private fun SeekBar(now: MediaView, playing: Boolean, tick: Long, tint: Color, s
                 progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
                 setProgress { target -> seek(target); true }
             }.testTag("media-seek"), contentAlignment = Alignment.CenterStart) {
-            Box(Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(50)).background(tint.copy(alpha = .26f)))
-            Box(Modifier.fillMaxWidth(fraction).height(3.dp).clip(RoundedCornerShape(50)).background(tint))
+            Box(Modifier.fillMaxWidth().height(3.dp).clip(Corner.pill).background(tint.copy(alpha = .26f)))
+            Box(Modifier.fillMaxWidth(fraction).height(3.dp).clip(Corner.pill).background(tint))
             // The knob rides the end of the filled part.
             Box(Modifier.fillMaxWidth(fraction.coerceAtLeast(.001f)).wrapContentWidth(Alignment.End)) {
                 Box(Modifier.size(9.dp).clip(CircleShape).background(tint))

@@ -276,7 +276,7 @@ private fun HomeOverlay(state: LauncherState, modifier: Modifier) {
             }
         }
         Spacer(Modifier.weight(1f))
-        if (dock.isNotEmpty()) Row(Modifier.fillMaxWidth().clip(Corner.xlarge).background(Color.White.copy(alpha = .18f)).padding(14.dp),
+        if (dock.isNotEmpty()) Row(Modifier.fillMaxWidth().clip(ContinuousShape((54f * Corner.ICON_FRACTION + 14f).dp)).background(Color.White.copy(alpha = .18f)).padding(14.dp),
             horizontalArrangement = Arrangement.SpaceBetween) {
             dock.forEach { Image(it.image, null, Modifier.size(54.dp).clip(Corner.icon)) }
         }

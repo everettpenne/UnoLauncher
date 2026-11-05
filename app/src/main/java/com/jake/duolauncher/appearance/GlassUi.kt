@@ -148,7 +148,7 @@ private fun Modifier.glassControlSurface(glass: PageGlass, press: GlassPressStat
     val tone = rememberGlassTone()
     return drawBackdrop(
         backdrop = glass.backdrop,
-        shape = { RoundedCornerShape(percent = 50) },
+        shape = { Corner.pill },
         effects = {
             glassColor(tone)
             blur(2f.dp.toPx())
@@ -260,7 +260,7 @@ internal fun GlassButton(onClick: () -> Unit, modifier: Modifier = Modifier, ena
     content: @Composable RowScope.() -> Unit) {
     val (accent, accentInk) = accentPair()
     val ink = GlassInkOnPanel
-    val shape = RoundedCornerShape(percent = 50)
+    val shape = Corner.pill
     val glass = LocalPageGlass.current
     val press = rememberGlassPress()
     val content_ = (if (prominent) accentInk else ink).copy(alpha = if (enabled) 1f else .45f)
@@ -286,7 +286,7 @@ internal fun GlassButton(onClick: () -> Unit, modifier: Modifier = Modifier, ena
 internal fun GlassChip(selected: Boolean, onClick: () -> Unit, label: @Composable () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val (accent, accentInk) = accentPair()
     val ink = GlassInkOnPanel
-    val shape = RoundedCornerShape(percent = 50)
+    val shape = Corner.pill
     val glass = LocalPageGlass.current
     val press = rememberGlassPress()
     val look = if (selected && glass != null) Modifier.glassControlSurface(glass, press, tint = accent.copy(alpha = .95f), surface = null, shadowed = false)

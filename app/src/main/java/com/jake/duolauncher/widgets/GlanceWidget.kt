@@ -57,7 +57,7 @@ internal fun GlanceFace(slot: Int, onOptions: () -> Unit) {
             style = WidgetType.number(34.sp), maxLines = 1, modifier = Modifier.testTag("glance-time"))
         Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = ink.soft(), style = UnoType.caption1, maxLines = 1)
         if (alarm != null || sampleAlarm != null) Row(verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(widgetAccent(WidgetColors.Warm).copy(alpha = .22f))
+            modifier = Modifier.clip(Corner.pill).background(widgetAccent(WidgetColors.Warm).copy(alpha = .22f))
                 .padding(horizontal = 7.dp, vertical = 3.dp).testTag("glance-alarm")) {
             Icon(Icons.Rounded.Alarm, null, tint = ink.soft(), modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(5.dp))
@@ -65,7 +65,7 @@ internal fun GlanceFace(slot: Int, onOptions: () -> Unit) {
                 color = ink.primary, style = UnoType.caption2, maxLines = 1)
         }
         if (schedule != null) Row(verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(ink.soft(.14f))
+            modifier = Modifier.clip(Corner.pill).background(ink.soft(.14f))
                 .padding(horizontal = 8.dp, vertical = 3.dp).testTag("glance-sun")) {
             Icon(Icons.Rounded.WbSunny, null, tint = ink.soft(), modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(5.dp))

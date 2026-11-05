@@ -93,7 +93,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     SideEffect { backgrounds.dark = appearance.dark }
     WallpaperEditor(backgrounds, state, appearance.dark)
     Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)
-        .then(if (glassBackdrop != null) Modifier.liquidGlass(glassBackdrop, Corner.sheet,
+        .then(if (glassBackdrop != null) Modifier.liquidGlass(glassBackdrop, Corner.floatingSheet(8.dp),
             glassTint, kind = GlassKind.REGULAR, settings = settings) else Modifier)
         .padding(horizontal = SHEET_INSET).padding(bottom = 12.dp)) {
         // iOS's navigation bar: the way back on the left, the page's name in the middle, and Done on the right.
@@ -328,7 +328,7 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     fun unit(value: Float) = (value * scale).dp
     val homePreviewLabel = androidx.compose.ui.res.stringResource(com.jake.duolauncher.R.string.home_preview_label)
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Box(Modifier.height(previewHeight).width(previewHeight * aspect).clip(RoundedCornerShape(unit(24f)))
+        Box(Modifier.height(previewHeight).width(previewHeight * aspect).clip(ContinuousShape(unit(24f)))
             .testTag("customization-home-preview")
             .semantics { contentDescription = homePreviewLabel }.then(modifier)) {
             if (builtin != null) BuiltinPreview(builtin, dark) else DuneWallpaper()
@@ -336,13 +336,13 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop) }
             Column(Modifier.fillMaxSize().padding(start = unit(16f), top = unit(18f), end = unit(54f)),
                 verticalArrangement = Arrangement.spacedBy(unit(10f))) {
-                Box(Modifier.fillMaxWidth().height(unit(42f)).background(MaterialTheme.colorScheme.surface.copy(alpha = .38f), RoundedCornerShape(unit(12f))))
+                Box(Modifier.fillMaxWidth().height(unit(42f)).background(MaterialTheme.colorScheme.surface.copy(alpha = .38f), ContinuousShape(unit(12f))))
                 homeIcons.chunked(4).forEach { row -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     row.forEach { app -> Image(app.image, null, Modifier.size(unit(24f)).clip(Corner.icon)) }
                 } }
             }
             Column(Modifier.align(Alignment.CenterEnd).padding(end = unit(10f)).width(unit(36f))
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = .42f), RoundedCornerShape(unit(18f)))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = .42f), ContinuousShape(unit(18f)))
                 .padding(vertical = unit(8f)), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(unit(8f))) {
                 dockIcons.forEach { app -> Image(app.image, null, Modifier.size(unit(22f)).clip(Corner.icon)) }
@@ -390,12 +390,12 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
                     val accent = SettingsAccent
                     Surface(onClick = { onSelect(builtin) },
                         modifier = Modifier.weight(1f).heightIn(min = 148.dp).testTag("builtin-${builtin.name.lowercase()}"),
-                        shape = Corner.small,
+                        shape = Corner.medium,
                         color = if (active) accent.copy(alpha = .16f)
                             else MaterialTheme.colorScheme.onSurface.copy(alpha = .08f),
                         border = if (active) BorderStroke(2.dp, accent) else null) {
                         Column(Modifier.padding(6.dp)) {
-                            Box(Modifier.fillMaxWidth().height(112.dp).clip(Corner.inside(12.dp, 6.dp))) { BuiltinPreview(builtin, dark) }
+                            Box(Modifier.fillMaxWidth().height(112.dp).clip(Corner.inside(Corner.MEDIUM_DP.dp, 6.dp))) { BuiltinPreview(builtin, dark) }
                             // Two lines, so "Dune glass" and "Dune range" stay distinct at large text sizes.
                             Text(builtin.label, Modifier.fillMaxWidth().padding(top = 4.dp), maxLines = 2,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,

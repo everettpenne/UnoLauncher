@@ -40,7 +40,7 @@ internal enum class IconShape(val label: String) {
     CIRCLE("Circle"), SQUIRCLE("Squircle"), ROUNDED("Rounded"), SQUARE("Square"), ARCH("Arch");
 
     fun shape(): Shape = when (this) {
-        CIRCLE -> RoundedCornerShape(percent = 50)
+        CIRCLE -> com.jake.duolauncher.appearance.Corner.pill
         SQUIRCLE -> RoundedCornerShape(percent = 34)
         ROUNDED -> RoundedCornerShape(percent = 22)
         SQUARE -> RoundedCornerShape(percent = 8)
@@ -147,9 +147,9 @@ internal data class IslandTheme(
 
     /** The shape of a button or chip. Circle controls become rounded squares when [controls] is not [ControlShape.PILL]. */
     fun controlShape(): Shape = when (controls) {
-        ControlShape.PILL -> RoundedCornerShape(percent = 50)
-        ControlShape.ROUNDED -> RoundedCornerShape(14.dp)
-        ControlShape.SQUARE -> RoundedCornerShape(6.dp)
+        ControlShape.PILL -> com.jake.duolauncher.appearance.Corner.pill
+        ControlShape.ROUNDED -> com.jake.duolauncher.appearance.ContinuousShape(14.dp)
+        ControlShape.SQUARE -> com.jake.duolauncher.appearance.ContinuousShape(6.dp)
     }
 
     /** A spring tuned by [motion]. Closing springs pass [tunedDamping] = false so the island still settles without overshoot. */

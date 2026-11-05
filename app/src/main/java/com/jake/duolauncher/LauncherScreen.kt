@@ -983,11 +983,15 @@ internal fun LauncherScreen(
             val dockRailShiftPx = remember(visibleHomePages, screenWidthPx) {
                 derivedStateOf { EdgeDockShift.shiftPx(pager.position, visibleHomePages, screenWidthPx) }
             }
+            // The side dock and the status rail share one shape, concentric with the dock's icons: their corner plus the inset around them.
+            val sideDockShape = remember(preset.dockWidth, geometry.iconSize) {
+                val icon = dockIconSize(geometry.iconSize)
+                ContinuousShape((icon * Corner.ICON_FRACTION + (preset.dockWidth - icon) / 2f).dp) }
             if (railShown) {
                 val railInk = rememberAdaptiveInk(glassTint, if (glassEnabled) .12f else .0f)
                 if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.contentTop.dp)
                     .width(preset.dockWidth.dp).then(railInk.track)
-                    .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint, kind = GlassKind.CLEAR, settings = glassSettings)
+                    .liquidGlass(homeBackdrop.combined, sideDockShape, glassTint, kind = GlassKind.CLEAR, settings = glassSettings)
                     .padding(vertical = 8.dp)) {
                     StatusRail(deviceStatus, Modifier.fillMaxWidth().onSizeChanged {
                         statusHeight = (with(density) { it.height.toDp().value } -
@@ -1006,7 +1010,7 @@ internal fun LauncherScreen(
             if (!iosHome) {
                 if (glassEnabled) Box(Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = dockRailShiftPx.value }.padding(end = 16.dp).offset(y = geometry.dockTop.dp)
                     .width(preset.dockWidth.dp).height(geometry.dockHeight.dp)
-                    .liquidGlass(homeBackdrop.combined, Corner.xlarge, glassTint, kind = GlassKind.CLEAR, settings = glassSettings)
+                    .liquidGlass(homeBackdrop.combined, sideDockShape, glassTint, kind = GlassKind.CLEAR, settings = glassSettings)
                     .graphicsLayer {
                         compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                     }.testTag("dock")) {
@@ -1021,7 +1025,7 @@ internal fun LauncherScreen(
                         // slide never re-renders the pages behind it.
                         compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
                     }.testTag("dock"),
-                    shape = Corner.xlarge, color = Glass.copy(alpha = .32f),
+                    shape = sideDockShape, color = Glass.copy(alpha = .32f),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .3f))) {
                     Column(Modifier.padding(vertical = 8.dp).verticalScroll(dockScroll)) {
                         DockAppColumn(state.dock, previewLayout.dock, appsById, geometry.dockRowHeight,
@@ -1069,8 +1073,9 @@ internal fun LauncherScreen(
                     kotlin.math.abs(EdgeDockShift.shiftPx(pager.position, visibleHomePages, screenWidthPx)) / screenWidthPx.coerceAtLeast(1f)
                 } }
                 val barSlidePx = with(density) { (geometry.bottomBarReserve + 24f).dp.toPx() }
-                // iOS's dock corner is about a third of its height, a little rounder than the widgets'.
-                val dockShape = RoundedCornerShape((geometry.dockBarHeight * .34f).dp)
+                // Concentric with the icons it holds: their corner (22.37 percent of the icon) plus the inset around them.
+                val dockShape = remember(geometry.dockBarHeight, geometry.iconSize) {
+                    ContinuousShape((geometry.iconSize * Corner.ICON_FRACTION + (geometry.dockBarHeight - geometry.iconSize) / 2f).dp) }
                 Box(Modifier.align(Alignment.BottomCenter).graphicsLayer { translationY = barSlide.value * barSlidePx }
                     .padding(start = geometry.dockBarSide.dp, end = geometry.dockBarSide.dp, bottom = geometry.dockBarBottom.dp)
                     .fillMaxWidth().height(geometry.dockBarHeight.dp)
@@ -1530,7 +1535,7 @@ internal fun LauncherScreen(
                                 shape = Corner.large, border = androidx.compose.foundation.BorderStroke(2.dp, ring)) {
                                 Box(Modifier.fillMaxSize()) {
                                     if (sessionEntry != null) WidgetProviderPreview(sessionEntry, session.span,
-                                        Modifier.fillMaxSize().padding(3.dp).clip(Corner.medium))
+                                        Modifier.fillMaxSize().padding(3.dp).clip(Corner.inside(Corner.LARGE_DP.dp, 3.dp)))
                                     else PlacementBuiltinFace(session.builtinId,
                                         session.provider?.loadLabel(launcherActivity.packageManager)?.toString(), session.span)
                                     if (!ready) Box(Modifier.matchParentSize().background(Color(0xFFB83B3B).copy(alpha = .30f)), contentAlignment = Alignment.Center) {
@@ -1545,7 +1550,7 @@ internal fun LauncherScreen(
                                 color = Color(0xFFE7B6B6).copy(alpha = .9f), shape = Corner.large) {
                                 Box(contentAlignment = Alignment.Center) {
                                     if (sessionEntry != null) WidgetProviderPreview(sessionEntry, session.span,
-                                        Modifier.fillMaxSize().padding(5.dp).clip(Corner.medium))
+                                        Modifier.fillMaxSize().padding(5.dp).clip(Corner.inside(Corner.LARGE_DP.dp, 5.dp)))
                                     Box(Modifier.matchParentSize().background(Color(0xFFB83B3B).copy(alpha = .34f)),
                                         contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.no_room_here), color = Color.White) }
                                 }

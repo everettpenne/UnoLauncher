@@ -166,7 +166,7 @@ internal fun <T> rememberLingering(current: List<T>, keepGhosts: Boolean): Linge
 internal const val SLOT_TEXT_SP = 12
 internal val PRIVACY_MIC = Color(0xFFFF9F0A)
 /** A detached capsule's body: a stadium with fully rounded ends, like the pill but small. */
-internal val capsuleShape = RoundedCornerShape(percent = 50)
+internal val capsuleShape = com.jake.duolauncher.appearance.Corner.pill
 /** An app icon or thumbnail on the pill is this share of the pill's height, centred in its rounded end, as iOS's compact activities
  * are. It was the height less 14 px: on a Pixel 10a that filled the pill to within 2 dp of its edge, so a call or timer glyph looked
  * oversized next to its small trailing text and crowded the pill's end. */
@@ -318,7 +318,7 @@ internal fun UpdateCard(update: LiveUpdate, clockMs: Long, onOpen: () -> Unit) {
         }
         LiveUpdateLogic.fraction(update.progress, update.progressMax, update.indeterminate)?.let { f ->
             Spacer(Modifier.height(6.dp))
-            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(themeInk.copy(alpha = .18f)).testTag("island-update-progress")) {
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(Corner.pill).background(themeInk.copy(alpha = .18f)).testTag("island-update-progress")) {
                 Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(IslandThemes.active.progress(tint, f >= 1f)))
             }
         }

@@ -71,7 +71,7 @@ internal fun ScreenTimeFace(slot: Int, onOptions: () -> Unit) {
             Text(stringResource(com.jake.duolauncher.R.string.screen_time_today), color = ink.soft(), style = UnoType.caption2)
             Spacer(Modifier.height(4.dp))
             LinearProgressIndicator(progress = { ScreenTime.goalProgress(total, goalMin) },
-                modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)),
+                modifier = Modifier.fillMaxWidth().height(5.dp).clip(Corner.pill),
                 color = if (over) widgetAccent(WidgetColors.Warm) else accent,
                 trackColor = ink.soft(.20f), gapSize = 0.dp, drawStopIndicator = {})
             Text("of your ${ScreenTime.formatDuration(goalMin)} goal", color = ink.soft(), style = UnoType.caption2, maxLines = 1)

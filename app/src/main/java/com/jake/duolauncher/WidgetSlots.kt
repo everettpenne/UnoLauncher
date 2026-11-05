@@ -15,6 +15,8 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.material.icons.Icons
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
@@ -319,13 +321,17 @@ internal fun MovableWidget(id: Int, slot: Int, controller: WidgetController, dra
             drawContent()
             if (intent > 0f) {
                 drawRect(Color.White.copy(alpha = .16f * intent))
-                drawRoundRect(Color.White.copy(alpha = .9f * intent), cornerRadius = androidx.compose.ui.geometry.CornerRadius(20.dp.toPx()),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(3.dp.toPx()))
+                // The ring follows the widget's own corner, drawn inside its edge.
+                val w = 3.dp.toPx()
+                translate(w / 2f, w / 2f) {
+                    drawOutline(Corner.inside(Corner.WIDGET_DP.dp, 1.5.dp).createOutline(androidx.compose.ui.geometry.Size(size.width - w, size.height - w), layoutDirection, this),
+                        Color.White.copy(alpha = .9f * intent), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
+                }
             }
         }
         .alpha(if (drag.source?.target == cell) .3f else 1f)
         .border(if (drag.active && target == cell) 2.dp else 0.dp,
-            if (drag.active && target == cell) Color.White else Color.Transparent, Corner.large)
+            if (drag.active && target == cell) Color.White else Color.Transparent, Corner.widget)
         .semantics { onLongClick("Move or replace widget") { onAdd(); true } }, onAdd) { faceId, faceSlot ->
         when (faceId) {
             CLOCK_WIDGET -> ClockCard(onAdd)

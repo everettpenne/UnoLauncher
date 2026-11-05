@@ -156,10 +156,10 @@ internal fun Modifier.islandBody(
     settings: GlassSettings,
 ): Modifier {
     val fill = themeFill
-    if (backdrop == null) return drawBehind { drawRoundRect(fill, cornerRadius = CornerRadius(cornerPx())) }
+    if (backdrop == null) return drawBehind { drawPath(continuousPath(0f, 0f, size.width, size.height, cornerPx()), fill) }
     return drawBackdrop(
         backdrop = backdrop,
-        shape = { RoundedCornerShape(cornerPx()) },
+        shape = { ContinuousShape(androidx.compose.foundation.shape.CornerSize(cornerPx())) },
         effects = {
             vibrancy()
             backdropBlur(2.dp.toPx())
@@ -174,9 +174,7 @@ internal fun Modifier.islandBody(
         onDrawSurface = {
             drawRect(fill.copy(alpha = .55f))
             val rim = rimWidth.toPx()
-            drawRoundRect(fill, topLeft = Offset(rim, rim),
-                size = Size(size.width - 2 * rim, size.height - 2 * rim),
-                cornerRadius = CornerRadius((cornerPx() - rim).coerceAtLeast(0f)))
+            drawPath(continuousPath(rim, rim, size.width - 2 * rim, size.height - 2 * rim, (cornerPx() - rim).coerceAtLeast(0f)), fill)
         },
     )
 }

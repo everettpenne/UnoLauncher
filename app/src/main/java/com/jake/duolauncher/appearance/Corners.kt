@@ -6,7 +6,11 @@ import com.jake.duolauncher.*
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.toRect
 import androidx.compose.ui.graphics.Outline
@@ -100,6 +104,8 @@ internal object ContinuousCorners {
     /** Builds the outline clockwise from the top edge. Radii are in the order top left, top right, bottom right, bottom left (absolute, not start/end). */
     fun build(width: Float, height: Float, topLeft: Float, topRight: Float, bottomRight: Float, bottomLeft: Float, sink: PathSink,
               smoothing: Float = SMOOTHING) {
+        // A shape with no area (the island's inner fill while it is at its smallest) draws nothing, as Compose's own round rects do.
+        if (!(width > 0f && height > 0f)) return
         val budget = min(width, height) / 2f
         val tl = OneCorner(topLeft, smoothing, budget); val tr = OneCorner(topRight, smoothing, budget)
         val br = OneCorner(bottomRight, smoothing, budget); val bl = OneCorner(bottomLeft, smoothing, budget)
@@ -186,6 +192,13 @@ internal class ContinuousShape(topStart: CornerSize, topEnd: CornerSize, bottomE
     override fun toString() = "ContinuousShape(topStart = $topStart, topEnd = $topEnd, bottomEnd = $bottomEnd, bottomStart = $bottomStart)"
 }
 
+/** A [ContinuousCorners] rectangle of [width] by [height] at ([left], [top]) with one [radius]: for outlines drawn by hand (the island's body
+ *  as it morphs, rims drawn as strokes), so they match the [ContinuousShape]s around them. */
+internal fun continuousPath(left: Float, top: Float, width: Float, height: Float, radius: Float): Path = Path().also {
+    ContinuousCorners.build(width, height, radius, radius, radius, radius, ComposePathSink(it))
+    if (left != 0f || top != 0f) it.translate(androidx.compose.ui.geometry.Offset(left, top))
+}
+
 @Immutable
 internal class SquircleShape(private val radius: Dp = 0.dp, private val fraction: Float = 0f) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
@@ -208,17 +221,21 @@ internal object Corner {
     const val ICON_FRACTION = 0.2237f
 
     // Small, medium and large are the suite's (the Glass kit's 8, 16 and 24 dp, as Thumper, Spice and Seekur use), which are iOS's own steps.
+    const val SMALL_DP = 8f
+    const val MEDIUM_DP = 16f
+    const val LARGE_DP = 24f
+    const val XLARGE_DP = 32f
     /** Rows, highlights, and small tiles. */
-    val small: CornerBasedShape = ContinuousShape(8.dp)
+    val small: CornerBasedShape = ContinuousShape(SMALL_DP.dp)
     /** Cards and items sitting inside a panel. */
-    val medium: CornerBasedShape = ContinuousShape(16.dp)
+    val medium: CornerBasedShape = ContinuousShape(MEDIUM_DP.dp)
     /** Menus and drop targets. */
-    val large: CornerBasedShape = ContinuousShape(24.dp)
+    val large: CornerBasedShape = ContinuousShape(LARGE_DP.dp)
     /** Widgets, as iOS 26 draws them: 26 dp, the grouped card's radius, which a widget shares on iOS. Card and Glass widgets both use it. */
     val widget: CornerBasedShape = ContinuousShape(WIDGET_DP.dp)
     const val WIDGET_DP = 26f
-    /** Containers: the dock, the status rail and panels. */
-    val xlarge: CornerBasedShape = ContinuousShape(32.dp)
+    /** Floating containers: panels, dialogs, folders, the side dock and the status rail. */
+    val xlarge: CornerBasedShape = ContinuousShape(XLARGE_DP.dp)
     /** Sheets (settings, the widget picker): [SHEET_DP], so the grouped cards 16 dp inside them come out at iOS 26's and the Glass kit's
      * 26 dp. */
     val sheet: CornerBasedShape = ContinuousShape(SHEET_DP.dp)
@@ -229,7 +246,32 @@ internal object Corner {
     val icon: Shape = SquircleShape(fraction = ICON_FRACTION)
 
     /** A shape concentric with a container of radius [outer] that is inset by [inset]. */
-    fun inside(outer: Dp, inset: Dp): CornerBasedShape = ContinuousShape((outer - inset).coerceAtLeast(4.dp))
+    fun inside(outer: Dp, inset: Dp): CornerBasedShape = ContinuousShape(insideRadius(outer, inset))
+    fun insideRadius(outer: Dp, inset: Dp): Dp = (outer - inset).coerceAtLeast(4.dp)
+
+    /** A sheet that floats [inset] in from the sides and bottom of the screen: its top corners are [SHEET_DP], and its bottom corners are
+     *  concentric with the display's own corners (the display's radius less [inset]), as iOS 26's sheets are. Where the display reports no
+     *  rounded corners (an emulator, a square screen) all four are [SHEET_DP]. */
+    @Composable
+    fun floatingSheet(inset: Dp): CornerBasedShape {
+        val bottom = displayCornerRadius()?.let { insideRadius(it, inset) } ?: SHEET_DP.dp
+        return remember(bottom) {
+            ContinuousShape(CornerSize(SHEET_DP.dp), CornerSize(SHEET_DP.dp), CornerSize(bottom), CornerSize(bottom))
+        }
+    }
+}
+
+/** The radius of the display's bottom corners, as the system reports it (Android 12+), or null where it reports none. */
+@Composable
+internal fun displayCornerRadius(): Dp? {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    return remember(context, density) {
+        val display = runCatching { context.display }.getOrNull() ?: return@remember null
+        val px = listOf(android.view.RoundedCorner.POSITION_BOTTOM_LEFT, android.view.RoundedCorner.POSITION_BOTTOM_RIGHT)
+            .mapNotNull { display.getRoundedCorner(it)?.radius }.maxOrNull() ?: return@remember null
+        if (px <= 0) null else with(density) { px.toDp() }
+    }
 }
 
 /** iOS-style switch: a track in the launcher's one accent (the wallpaper's, or orange) when on, a quiet grey one when off, and a white thumb in both. */
@@ -242,11 +284,11 @@ internal val IosSwitchColors: androidx.compose.material3.SwitchColors
         uncheckedTrackColor = androidx.compose.ui.graphics.Color(0xFF787880).copy(alpha = .4f),
         uncheckedBorderColor = androidx.compose.ui.graphics.Color.Transparent)
 
-/** Material's steps, with the same continuous corner as Uno's own surfaces. */
+/** Material's steps, taken from Uno's own scale (it had 12 and 18 dp of its own), with the same continuous corner. */
 internal val DuoMaterialShapes = androidx.compose.material3.Shapes(
-    extraSmall = ContinuousShape(8.dp), small = ContinuousShape(12.dp),
-    medium = ContinuousShape(18.dp), large = ContinuousShape(24.dp),
-    extraLarge = ContinuousShape(32.dp))
+    extraSmall = Corner.small, small = Corner.small,
+    medium = Corner.medium, large = Corner.large,
+    extraLarge = Corner.xlarge)
 
 /**
  * The spacing scale: every gap and padding in Uno's own screens is one of these (dp). Sheets, settings, panels, search and folders were moved

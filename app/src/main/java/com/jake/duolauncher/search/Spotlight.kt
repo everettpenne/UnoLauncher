@@ -369,7 +369,7 @@ internal fun Spotlight(
     val quiet = remember { MutableInteractionSource() }
     val density = LocalDensity.current
     val capCorner = IslandGeometry.CORNER_CAP_DP.dp
-    val capShape = RoundedCornerShape(capCorner)
+    val capShape = ContinuousShape(capCorner)
     val panelScale = IslandThemes.active.panel.scale
     // Swipe-up-to-close, mirroring the island's swipe-up-close: the finger's upward travel is low-passed and mapped to a reduced
     // emerge progress (IslandDrag.closeFraction), so the panel shrinks back into the pill as the finger moves instead of sliding off
@@ -463,12 +463,10 @@ internal fun Spotlight(
                 // The hairline rim, on the outline as it grows (the island has none on its pill, so it comes in with the panel).
                 val r = outline()
                 val rim = Color.White.copy(alpha = .10f * (if (pill != null) effectiveProgress().coerceIn(0f, 1f) else 1f))
-                if (r != null) drawRoundRect(rim, topLeft = androidx.compose.ui.geometry.Offset(r.left, r.top),
-                    size = androidx.compose.ui.geometry.Size(r.width, r.height),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(IslandMorph.cornerPx(r.width, r.height, density.density, panelScale)),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
-                else if (pill == null) drawRoundRect(rim, cornerRadius = androidx.compose.ui.geometry.CornerRadius(capCorner.toPx()),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+                if (r != null) drawPath(continuousPath(r.left, r.top, r.width, r.height, IslandMorph.cornerPx(r.width, r.height, density.density, panelScale)),
+                    rim, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+                else if (pill == null) drawPath(continuousPath(0f, 0f, size.width, size.height, capCorner.toPx()),
+                    rim, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
             }
             .clickable(interactionSource = quiet, indication = null) {}
             .pointerInput(Unit) {
@@ -567,7 +565,7 @@ internal fun Spotlight(
             val webOffered = suggestions.any { it.kind == HandoffKind.WEB }
             LazyColumn(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (smart != null) item("smart") {
-                    Column(Modifier.fillMaxWidth().clip(Corner.medium).background(ink.copy(alpha = .10f))
+                    Column(Modifier.fillMaxWidth().clip(Corner.inside(capCorner, 16.dp)).background(ink.copy(alpha = .10f))
                         .clickable {
                             val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
                             clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Spotlight answer", smart.text))

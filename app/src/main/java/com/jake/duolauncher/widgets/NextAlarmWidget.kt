@@ -62,7 +62,7 @@ internal fun NextAlarmFace(slot: Int, onOptions: () -> Unit) {
                 android.text.format.DateFormat.is24HourFormat(context))
             Text(parts.day, color = ink.soft(), style = UnoType.caption1, maxLines = 1)
             Text(parts.time, color = ink.primary, style = WidgetType.number(34.sp), maxLines = 1, modifier = Modifier.testTag("next-alarm-time"))
-            Box(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(widgetAccent(WidgetColors.Warm).copy(alpha = .26f))
+            Box(Modifier.clip(Corner.pill).background(widgetAccent(WidgetColors.Warm).copy(alpha = .26f))
                 .padding(horizontal = 9.dp, vertical = 3.dp)) {
                 Text(parts.remaining, color = ink.primary, style = UnoType.caption2, maxLines = 1)
             }

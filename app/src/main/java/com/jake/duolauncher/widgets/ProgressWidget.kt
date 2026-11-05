@@ -36,8 +36,8 @@ internal fun ProgressFace(slot: Int, onOptions: () -> Unit) {
                         Text(label, color = ink.primary, style = UnoType.caption2.copy(fontWeight = FontWeight.Medium), modifier = Modifier.weight(1f))
                         Text("${(fraction * 100).toInt()}%", color = ink.soft(), style = UnoType.caption2)
                     }
-                    Box(Modifier.padding(top = 3.dp).fillMaxWidth().height(7.dp).clip(RoundedCornerShape(50)).background(ink.soft(.2f))) {
-                        Box(Modifier.fillMaxWidth(fraction.coerceIn(.02f, 1f)).fillMaxHeight().clip(RoundedCornerShape(50))
+                    Box(Modifier.padding(top = 3.dp).fillMaxWidth().height(7.dp).clip(Corner.pill).background(ink.soft(.2f))) {
+                        Box(Modifier.fillMaxWidth(fraction.coerceIn(.02f, 1f)).fillMaxHeight().clip(Corner.pill)
                             .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(colour.copy(alpha = .55f), colour))))
                     }
                 }

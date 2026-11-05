@@ -82,7 +82,7 @@ private fun Modifier.liquidThumb(glass: PageGlass, trackBackdrop: com.kyant.back
     })
     return drawBackdrop(
         backdrop = seen,
-        shape = { RoundedCornerShape(percent = 50) },
+        shape = { Corner.pill },
         effects = {
             val p = press()
             blur(8f.dp.toPx() * (1f - p))
@@ -204,7 +204,7 @@ internal fun LiquidSliderControl(
         .semantics(mergeDescendants = true) { contentDescription = "Slider ${(progress * 100).roundToInt()} percent" },
         contentAlignment = Alignment.CenterStart) {
         // Track: quiet grey under an accent active run. Recorded, so the held thumb can bend it.
-        Box(Modifier.fillMaxWidth().height(trackHeight).layerBackdrop(trackBackdrop).clip(RoundedCornerShape(percent = 50))) {
+        Box(Modifier.fillMaxWidth().height(trackHeight).layerBackdrop(trackBackdrop).clip(Corner.pill)) {
             Box(Modifier.fillMaxSize().background(IosGrey.copy(alpha = .28f)))
             Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(accent))
         }
@@ -288,7 +288,7 @@ internal fun LiquidSwitchControl(
             onClick { report(!checked); true }
         },
         contentAlignment = Alignment.CenterStart) {
-        Box(Modifier.fillMaxSize().layerBackdrop(trackBackdrop).clip(RoundedCornerShape(percent = 50))
+        Box(Modifier.fillMaxSize().layerBackdrop(trackBackdrop).clip(Corner.pill)
             .drawBehind { drawRect(lerp(trackOff, accent, position.value)) })
         Box(Modifier.graphicsLayer {
                 val pad = inset.toPx()

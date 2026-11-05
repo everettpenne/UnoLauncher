@@ -39,8 +39,8 @@ the inset between them.
 | `Corner.medium` | 16 dp | cards and items inside a panel |
 | `Corner.large` | 24 dp | menus, drop targets |
 | `Corner.widget` | 26 dp | widgets (Card and Glass styles alike) |
-| `Corner.xlarge` | 32 dp | dock, status rail, panels |
-| `Corner.sheet` | 42 dp | sheets (settings, the widget picker) |
+| `Corner.xlarge` | 32 dp | floating containers: panels, dialogs, folders, Discover's page |
+| `Corner.sheet` / `Corner.floatingSheet(inset)` | 42 dp top; display radius − inset at the bottom | sheets, which float 8 dp in from the screen's sides and bottom |
 | `Corner.pill` | 50% | capsules and circles |
 | `Corner.icon` | superellipse, 22.37% of side | app-icon silhouette (Apple's ratio) |
 | `Corner.inside(outer, inset)` | outer − inset | anything nested in a rounded container |
@@ -50,6 +50,19 @@ smoothing at 60%, which takes in 1.6 radii of each edge and gives way to true se
 a capsule). It is a `CornerBasedShape`, so the glass lens, Material's `Shapes` and the rim light
 all accept it; the lens refuses only shapes that are not `CornerBasedShape`, such as the icon
 superellipse.
+
+Where a radius is not a token it is derived, never picked:
+
+- **Docks:** concentric with the icons they hold (the icon's 22.37% corner plus the inset around it). The bottom dock and the side
+  dock follow this rule, and the status rail shares the side dock's shape.
+- **Sheets:** their bottom corners are concentric with the display's own (Android 12's `Display.getRoundedCorner`), as iOS 26's are.
+  Where the display reports none (the emulator), all four are 42 dp.
+- **Nested:** anything inside a rounded container uses `Corner.inside(parent, inset)`: the settings cards, the island's cards, Spotlight's
+  answer card (44 − 16) and Discover's surface around its page (32 + 16).
+- **Hand-drawn outlines:** the island's body as it morphs, its rims, and search growing out of it use `continuousPath`, so they match.
+- **Capsules:** every capsule is `Corner.pill`. `CircleShape` is kept only for true circles (dots, round buttons).
+
+Appearance › Glass › Edge Highlight turns the rim light off on every glass surface (`GlassRim.enabled`).
 
 ## Color
 

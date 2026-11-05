@@ -137,7 +137,7 @@ internal fun EqualizerBars(color: Color, modifier: Modifier = Modifier, barCount
             verticalAlignment = Alignment.CenterVertically) {
             repeat(barCount) { index ->
                 Box(Modifier.width(2.5.dp).fillMaxHeight().graphicsLayer { scaleY = rest[index % rest.size] }
-                    .background(color, RoundedCornerShape(percent = 50)))
+                    .background(color, Corner.pill))
             }
         }
         return
@@ -154,7 +154,7 @@ internal fun EqualizerBars(color: Color, modifier: Modifier = Modifier, barCount
         scales.forEach { scale ->
             Box(Modifier.width(2.5.dp).fillMaxHeight()
                 .graphicsLayer { scaleY = scale.value }
-                .background(color, RoundedCornerShape(percent = 50)))
+                .background(color, Corner.pill))
         }
     }
 }
@@ -169,7 +169,7 @@ internal fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: 
             .then(if (onOpenPlayer != null) Modifier.clickable(onClick = onOpenPlayer).testTag("island-open-player") else Modifier),
             verticalAlignment = Alignment.CenterVertically) {
             // The cover when the player gives one; otherwise the bars, which are still while paused and move while playing.
-            Box(Modifier.size(MEDIA_ART_DP.dp).clip(RoundedCornerShape(12.dp)).background(themeInk.copy(alpha = .1f)),
+            Box(Modifier.size(MEDIA_ART_DP.dp).clip(com.jake.duolauncher.appearance.ContinuousShape(12.dp)).background(themeInk.copy(alpha = .1f)),
                 contentAlignment = Alignment.Center) {
                 if (art != null) Image(art, null, Modifier.fillMaxSize().testTag("island-art"),
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop)
@@ -250,7 +250,7 @@ internal fun mediaSeek(fraction: Float) {
 /** The live call card: caller and elapsed time; tapping opens the phone app's call screen. */
 @Composable
 internal fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().height(42.dp).clip(RoundedCornerShape(12.dp))
+    Row(Modifier.fillMaxWidth().height(42.dp).clip(com.jake.duolauncher.appearance.ContinuousShape(12.dp))
         .clickable(onClick = onClick).testTag("island-call-row"), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Rounded.Call, null, tint = IosGreen, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
@@ -262,7 +262,7 @@ internal fun CallRow(call: OngoingCall, nowMs: Long, onClick: () -> Unit) {
         }
         call.hangUp?.let { end ->
             // The call app's own hang-up action, sent as it would be from its notification.
-            Box(Modifier.padding(end = 6.dp).height(26.dp).clip(RoundedCornerShape(50)).background(Color(0xFFFF453A))
+            Box(Modifier.padding(end = 6.dp).height(26.dp).clip(Corner.pill).background(Color(0xFFFF453A))
                 .clickable { runCatching { end.send() } }.padding(horizontal = 12.dp).testTag("island-call-end"),
                 contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.end), color = themeInk, style = UnoType.caption1.tight, fontWeight = FontWeight.SemiBold) }
         }

@@ -73,6 +73,13 @@ class ContinuousCornersTest {
         assertEquals(20f, build(200f, 40f, 90f).firstMove.first, 0.01f)
     }
 
+    @Test fun aShapeWithNoAreaDrawsNothing() {
+        // The island's inner fill is its size less a rim, which goes negative while it is at its smallest; that used to throw.
+        assertTrue(build(-6.5f, 20f, 10f).ops.isEmpty())
+        assertTrue(build(40f, 0f, 10f).ops.isEmpty())
+        assertTrue(build(Float.NaN, 10f, 4f).ops.isEmpty())
+    }
+
     @Test fun cornersCanDiffer() {
         // A sheet rounds only its top corners: the bottom ones are square.
         val sheet = Recorder().also { ContinuousCorners.build(400f, 600f, 42f, 42f, 0f, 0f, it) }

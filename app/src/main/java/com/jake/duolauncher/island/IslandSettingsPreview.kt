@@ -154,7 +154,7 @@ internal fun IslandSettingsPreview(controller: IslandPreviewController, settings
 
     val stageHeight = with(density) { ((maxOf(height.value, target.height) + cutout.top + 18f * d) * k).toDp() }.coerceAtLeast(64.dp)
     Column(modifier.fillMaxWidth().testTag("island-preview"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.fillMaxWidth().height(stageHeight).clip(RoundedCornerShape(22.dp))
+        Box(Modifier.fillMaxWidth().height(stageHeight).clip(com.jake.duolauncher.appearance.ContinuousShape(22.dp))
             .background(Brush.verticalGradient(listOf(Color(0xFF3E5468), Color(0xFF7C8E9C), Color(0xFFB9A58A))))
             .onSizeChanged { stageWidthPx = it.width.toFloat() }
             .semantics { contentDescription = "Island preview" }) {
@@ -172,7 +172,7 @@ internal fun IslandSettingsPreview(controller: IslandPreviewController, settings
             val corner = if (frameH > (cutout.height + 30f * d)) (30f * theme.panel.scale).coerceAtMost(frameH / d / 2f).dp * k else px(frameH / 2f)
             Box(Modifier.offset(px(frameLeft), px(top)).size(px(frameW), px(frameH))
                 .graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }
-                .clip(RoundedCornerShape(corner)).background(theme.fill)) {
+                .clip(com.jake.duolauncher.appearance.ContinuousShape(corner)).background(theme.fill)) {
                 // The camera, as a faint lens in the black, as it reads on the phone (it was a grey disc, which no real island shows).
                 Box(Modifier.offset(px(cutout.left - frameLeft), px(cutout.top - top)).size(px(cutout.width), px(cutout.height))
                     .clip(CircleShape).background(Color(0xFF07080A)).border(.5.dp, Color.White.copy(alpha = .04f), CircleShape))
@@ -268,7 +268,7 @@ private fun SceneFace(scene: PreviewScene, s: PreviewSettings, theme: IslandThem
     when (scene) {
         PreviewScene.IDLE -> Unit
         PreviewScene.MUSIC -> Row(Modifier.fillMaxSize().padding(horizontal = endInset), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(glyph).clip(RoundedCornerShape(6.dp)).background(Brush.linearGradient(listOf(theme.playback, theme.focus))))
+            Box(Modifier.size(glyph).clip(com.jake.duolauncher.appearance.ContinuousShape(6.dp)).background(Brush.linearGradient(listOf(theme.playback, theme.focus))))
             Spacer(Modifier.weight(1f))
             Equalizer(theme.playback, glyph)
         }
@@ -343,7 +343,7 @@ private fun Equalizer(color: Color, size: Dp) {
         t.animateFloat(.3f, 1f, infiniteRepeatable(tween(420, delayMillis = delay), RepeatMode.Reverse), label = "bar$delay")
     }
     Row(Modifier.size(size), horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-        phases.forEach { h -> Box(Modifier.width(size / 6).fillMaxHeight(h.value).clip(RoundedCornerShape(2.dp)).background(color)) }
+        phases.forEach { h -> Box(Modifier.width(size / 6).fillMaxHeight(h.value).clip(com.jake.duolauncher.appearance.ContinuousShape(2.dp)).background(color)) }
     }
 }
 

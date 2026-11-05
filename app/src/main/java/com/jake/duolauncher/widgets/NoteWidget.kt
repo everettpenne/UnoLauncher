@@ -27,7 +27,7 @@ internal fun NoteFace(slot: Int, onOptions: () -> Unit) {
         CardTitle(Icons.Rounded.EditNote, "Note", widgetAccent(WidgetColors.Gold))
         if (note.isBlank()) Text(androidx.compose.ui.res.stringResource(com.jake.duolauncher.R.string.tap_to_write_a_note), color = ink.soft(), style = UnoType.footnote, modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 4.dp))
         else Row(Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp)) {
-            Box(Modifier.width(3.dp).fillMaxHeight().clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(widgetAccent(WidgetColors.Gold)))
+            Box(Modifier.width(3.dp).fillMaxHeight().clip(Corner.pill).background(widgetAccent(WidgetColors.Gold)))
             Column(Modifier.padding(start = 9.dp)) {
                 // The first line reads as the title; the rest is the body.
                 Text(note.lineSequence().first(), color = ink.primary, style = UnoType.subheadline.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),

@@ -348,7 +348,8 @@ internal fun GlassModalSheet(
             properties = properties, content = content)
         return
     }
-    val shape = Corner.sheet
+    // Floats 8 dp in from the sides and bottom (the Column's padding below), so its bottom corners follow the display's.
+    val shape = Corner.floatingSheet(8.dp)
     val sheetBackdrop = rememberLayerBackdrop()
     val accent = LocalWallpaperAccent.current
     val sheetSurface = MaterialTheme.colorScheme.surface.let { base ->

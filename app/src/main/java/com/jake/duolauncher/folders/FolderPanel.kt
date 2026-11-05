@@ -164,7 +164,7 @@ internal fun FolderPanel(
     }
 }
 
-private val FolderShape = RoundedCornerShape(36.dp)
+private val FolderShape = Corner.xlarge
 private const val CLOSED_SCALE = .34f
 
 /** The folder's name above its panel: bare white text, centred, with a soft shadow, editable in place (no outline, label or button), as iOS shows it. */

@@ -1045,7 +1045,7 @@ internal fun DynamicIsland(
             .islandSized { frameState.value }
             .islandBody(glass?.backdrop, { cornerPx.value }, settings = glass?.settings ?: GlassSettings.Default)
             .islandRing(ring, { cornerPx.value }, 2.5f * d)
-            .graphicsLayer { shape = RoundedCornerShape(cornerPx.value); clip = true }
+            .graphicsLayer { shape = ContinuousShape(androidx.compose.foundation.shape.CornerSize(cornerPx.value)); clip = true }
             // The playing track's colour rising from the island's bottom edge, swaying like a low flame while audio really plays.
             .drawBehind {
                 val a = glowAlpha.value
@@ -1054,9 +1054,9 @@ internal fun DynamicIsland(
                 // Only on the opened island: on the small pill (and every time an app opens under it) a bright edge is a distraction.
                 if (rimOn && GlassRim.enabled && progressState.value > .55f) {
                     val w = 1.2.dp.toPx(); val r = cornerPx.value.coerceAtMost(minOf(size.width, size.height) / 2f)
-                    drawRoundRect(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(alpha = .30f), Color.White.copy(alpha = .04f), Color.Transparent),
-                        Offset.Zero, Offset(size.width * .6f, size.height)), Offset(w / 2f, w / 2f), androidx.compose.ui.geometry.Size(size.width - w, size.height - w),
-                        androidx.compose.ui.geometry.CornerRadius(r, r), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
+                    drawPath(continuousPath(w / 2f, w / 2f, size.width - w, size.height - w, (r - w / 2f).coerceAtLeast(0f)),
+                        androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(alpha = .30f), Color.White.copy(alpha = .04f), Color.Transparent),
+                        Offset.Zero, Offset(size.width * .6f, size.height)), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
                 }
             }
             .pointerInput(state.expanded, state.peeked, liveKinds, flashActive) {

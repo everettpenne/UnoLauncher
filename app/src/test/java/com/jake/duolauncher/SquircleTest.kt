@@ -19,8 +19,8 @@ class SquircleTest {
         val firstMove get() = points.first()
     }
 
-    private fun build(w: Float, h: Float, r: Float, smoothing: Float = Squircle.SMOOTHING) =
-        Recorder().also { Squircle.build(w, h, r, it, smoothing) }
+    private fun build(w: Float, h: Float, r: Float) =
+        Recorder().also { Squircle.build(w, h, r, it) }
 
     @Test fun pathIsClosedAndStaysInsideItsBounds() {
         val path = build(100f, 100f, 24f)
@@ -62,7 +62,7 @@ class SquircleTest {
         assertEquals(20f, build(200f, 40f, 90f).firstMove.first, 0.01f)
     }
 
-    @Test fun aWidgetsCornerTakesInAboutTwoAndAHalfRadii() {
+    @Test fun theSuperellipseCornerTakesInAboutTwoAndAHalfRadii() {
         assertEquals(26f * Squircle.REACH, build(340f, 340f, 26f).firstMove.first, 0.01f)
     }
 

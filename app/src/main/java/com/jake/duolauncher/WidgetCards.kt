@@ -46,11 +46,11 @@ internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.
                 .then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)).padding(padding),
                 verticalArrangement = Arrangement.SpaceBetween, content = content)
         } else if (glass != null) {
-            Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.widgetRound, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings).clip(Corner.widgetRound).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick))
+            Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.widget, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings).clip(Corner.widget).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick))
                 .padding(padding), verticalArrangement = Arrangement.SpaceBetween, content = content)
         } else {
-            Surface(modifier.fillMaxSize().then(ink.track).clip(Corner.widgetRound).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)),
-                color = Glass.copy(alpha = .24f), shape = Corner.widgetRound, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .18f))) {
+            Surface(modifier.fillMaxSize().then(ink.track).clip(Corner.widget).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)),
+                color = Glass.copy(alpha = .24f), shape = Corner.widget, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .18f))) {
                 Column(Modifier.padding(padding), verticalArrangement = Arrangement.SpaceBetween, content = content)
             }
         }

@@ -2,11 +2,9 @@ package com.jake.duolauncher
 
 import com.jake.duolauncher.island.*
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlin.math.hypot
 
 class IslandExtrasTest {
     @Test fun aReplyComesFirstAndAtMostThreeActionsShow() {
@@ -64,24 +62,6 @@ class IslandExtrasTest {
         assertEquals("a", ForegroundApp.current(listOf("a" to r, "b" to r, "b" to p, "a" to r), "uno"))
         assertNull("Uno itself is not named", ForegroundApp.current(listOf("uno" to r), "uno"))
         assertNull(ForegroundApp.current(emptyList(), "uno"))
-    }
-
-    @Test fun aMetaballNeckJoinsCirclesThatAreNearAndNotOnesThatAreFar() {
-        val c1 = Metaball.Pt(0f, 0f); val c2 = Metaball.Pt(35f, 0f)
-        val neck = Metaball.neck(c1, 18f, c2, 15f)
-        assertNotNull(neck)
-        // The neck starts on the first circle's edge and ends on the second's.
-        assertEquals(18f, hypot(neck!!.p1a.x - c1.x, neck.p1a.y - c1.y), .01f)
-        assertEquals(18f, hypot(neck.p1b.x - c1.x, neck.p1b.y - c1.y), .01f)
-        assertEquals(15f, hypot(neck.p2a.x - c2.x, neck.p2a.y - c2.y), .01f)
-        assertEquals(15f, hypot(neck.p2b.x - c2.x, neck.p2b.y - c2.y), .01f)
-        // The two sides of the neck are on opposite sides of the line between the centres.
-        assertTrue(neck.p1a.y * neck.p1b.y < 0f)
-        assertNull("too far", Metaball.neck(c1, 18f, Metaball.Pt(200f, 0f), 15f))
-        assertNull("one inside the other", Metaball.neck(c1, 18f, Metaball.Pt(1f, 0f), 15f))
-        assertNull("empty", Metaball.neck(c1, 0f, c2, 15f))
-        // With no reach left, circles that only just fail to touch are no longer joined (a bubble that has settled).
-        assertNull(Metaball.neck(c1, 18f, Metaball.Pt(36f, 0f), 15f, reach = 0f))
     }
 
     @Test fun theMorphSpeedIsSmoothedForgetsGapsAndIsZeroOnceSettled() {

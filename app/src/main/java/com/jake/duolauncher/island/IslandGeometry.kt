@@ -129,6 +129,9 @@ internal object IslandGeometry {
      * just past the panel's rounded top corners. */
     private const val EXPANDED_SHARE = .965f
     private const val MAX_EXPANDED_DP = 400f
+    /** The widest the open panel gets under the equal-gap rule ([openSideGap]): every phone's width, a 4 dp gap included (a Pixel 10a is 411 dp
+     *  wide), but not a foldable's or a tablet's, where it would be a slab across the whole top. */
+    private const val MAX_EQUAL_GAP_DP = 440f
     /** The corner radius an open panel is capped at, in dp, where the phone does not report its display's corners: iOS's expanded island is 44 pt,
      * concentric with the display's 55 pt corners inside an 11 pt margin (it was 34 dp, which read tighter than the phone's own corners once the
      * panel was widened). */
@@ -148,6 +151,10 @@ internal object IslandGeometry {
     /** The open island's corner on this phone, [concentricCapDp] of its display (set by the island when it is drawn). The body, search and the
      * open island's cards all read it, so they agree. Snapshot state, so a change redraws them. */
     var cornerCapDp by androidx.compose.runtime.mutableFloatStateOf(CORNER_CAP_DP)
+
+    /** The open island's gap from each side of the screen: its gap from the top, [top] px (Apple's rule), when the camera is at the top; null
+     *  without one (the panel then takes [expandedWidthDp]). */
+    fun openSideGap(cutout: PxRect?, top: Float): Float? = if (cutout == null) null else top.coerceAtLeast(0f)
 
     /** How wide the open panel may be on a screen [screenDp] wide: 92 % of it, never narrower than it was and never wider than [MAX_EXPANDED_DP]. */
     fun expandedWidthDp(screenDp: Float): Float = (EXPANDED_SHARE * screenDp).coerceIn(EXPANDED_WIDTH_DP, MAX_EXPANDED_DP)
@@ -315,18 +322,27 @@ internal object IslandGeometry {
         // reach the glass column on the right, whatever the dock-width preset.
         // Clear of the dock or rail when there is one; with none, only the island's own edge margin, so the open panel can reach the 8 dp that covers
         // the status bar's icons (its rounded top corners cut in far enough that, at 16 dp, the clock and battery showed just outside them).
-        val dockClearance = if (env.dockWidthPx > 0f && !fullWidth) env.dockWidthPx + 16f * d else margin
+        // Apple's open island is as far from each side of the screen as it is from the top ([openSideGap]), so with its corner concentric with the
+        // display's (see [concentricCapDp]) every edge of it runs parallel to the phone's own. Without a camera at the top it keeps the old share.
+        val sideGap = openSideGap(cutout, top)
+        // The edge margin never pushes the open panel narrower than the equal gap asks for (a camera close to the top gives a gap under 8 dp).
+        val edge = if (sideGap != null) min(margin, sideGap) else margin
+        val dockClearance = if (env.dockWidthPx > 0f && !fullWidth) env.dockWidthPx + 16f * d else edge
         // Extra wide (wideFactor > 1) makes the pill as wide as the 75% size setting, but never wider than the phone allows: it must still clear the
         // dock/rail strip (so the expanded panel can too, below) and keep the screen's own edge margins.
         collapsedWidth = collapsedWidth.coerceAtMost(env.screenWidth - 2f * dockClearance)
-        val expandedWidth = min(expandedWidthDp(env.screenWidth / d) * d,
+        val expandedWidth = min(
+            sideGap?.let { min(env.screenWidth - 2f * it, MAX_EQUAL_GAP_DP * d) } ?: (expandedWidthDp(env.screenWidth / d) * d),
             max(collapsedWidth, env.screenWidth - 2f * dockClearance))
         val width = (collapsedWidth + (expandedWidth - collapsedWidth) * pw)
-            .coerceAtMost(max(collapsedWidth, env.screenWidth - 2f * margin))
+            .coerceAtMost(max(collapsedWidth, env.screenWidth - 2f * edge))
         val height = collapsedHeight + (expandedHeight - collapsedHeight) * ph
+        // The pill is centred on the camera; the open panel on the screen, so its two side gaps are equal even where the camera is a little off
+        // centre (the camera stays inside it: see the wrap below).
+        val center = if (sideGap != null) mix(centerX, env.screenWidth / 2f, p) else centerX
         // Keep the island off the screen edges, but never at the cost of the hole: it must always
         // wrap the camera, so a hole near (or touching) an edge pulls the island over it.
-        var left = (centerX - width / 2f).coerceIn(margin, max(margin, env.screenWidth - width - margin))
+        var left = (center - width / 2f).coerceIn(edge, max(edge, env.screenWidth - width - edge))
         if (cutout != null) {
             val wrap = WRAP_DP * d
             // The range is empty if the island is narrower than the hole plus its clearance; then keep it over the hole.

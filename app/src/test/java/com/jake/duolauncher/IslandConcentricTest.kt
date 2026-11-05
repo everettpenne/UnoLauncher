@@ -2,6 +2,7 @@ package com.jake.duolauncher
 
 import com.jake.duolauncher.island.IslandGeometry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** The open island's corner follows Apple's rule: concentric with the display, its corner less the island's margin from the top. */
@@ -20,6 +21,31 @@ class IslandConcentricTest {
         assertEquals(IslandGeometry.CORNER_CAP_DP, IslandGeometry.concentricCapDp(null, 10f), 0f)
         assertEquals(IslandGeometry.CORNER_CAP_DP, IslandGeometry.concentricCapDp(0f, 10f), 0f)
         assertEquals(IslandGeometry.CORNER_CAP_DP, IslandGeometry.concentricCapDp(Float.NaN, 10f), 0f)
+    }
+
+    /** A Pixel 10a: 1080 x 2424 at 420 dpi (2.625 px a dp), its centred punch-hole camera as IslandPixel10aTest has it. */
+    private val pixel10a = com.jake.duolauncher.island.IslandEnvironment(
+        cutout = com.jake.duolauncher.island.PxRect(515f, 23f, 565f, 73f), screenWidth = 1080f, statusBarHeight = 63f, screenHeight = 2424f)
+
+    @Test fun theOpenIslandIsAsFarFromTheSidesAsFromTheTop() {
+        val d = 2.625f
+        for (setting in listOf(0f, .5f, 1f)) {
+            val open = IslandGeometry.frame(pixel10a, d, 1f, setting)
+            assertEquals("left gap at height setting $setting", open.top, open.left, .01f)
+            assertEquals("right gap at height setting $setting", open.top, 1080f - (open.left + open.width), .01f)
+        }
+        // An off-centre camera still gives equal gaps, and the camera stays inside the panel.
+        val off = pixel10a.copy(cutout = com.jake.duolauncher.island.PxRect(560f, 23f, 610f, 73f))
+        val open = IslandGeometry.frame(off, d, 1f, 0f)
+        assertEquals(open.left, 1080f - (open.left + open.width), .01f)
+        val hole = open.hole!!
+        assertTrue(hole.left > 0f && hole.right < open.width)
+    }
+
+    @Test fun thePillStillWrapsTheCamera() {
+        val pill = IslandGeometry.frame(pixel10a, 2.625f, 0f, 0f)
+        assertEquals(540f, pill.left + pill.width / 2f, .5f)
+        assertTrue(pill.width < 600f)
     }
 
     @Test fun anOddReportIsKeptSensible() {

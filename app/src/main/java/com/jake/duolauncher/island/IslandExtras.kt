@@ -2,13 +2,6 @@ package com.jake.duolauncher.island
 
 import android.app.PendingIntent
 import android.app.RemoteInput
-import kotlin.math.abs
-import kotlin.math.acos
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.hypot
-import kotlin.math.min
-import kotlin.math.sin
 
 /** One button on a notification card: what the app calls it, and what to send when it is tapped. A reply carries the input the app asked for. */
 /** A button on a card: a notification's own ([intent], with [reply] for a typed answer), or one of Uno's ([run]) on a quick-actions card. */
@@ -87,68 +80,113 @@ internal object ForegroundApp {
     }
 }
 
-/** The bridge of a gooey blob: where two circles that are close enough join. Drawn between the island and a bubble leaving it, it stretches
- * and pinches off as they part, which is the look of liquid separating rather than a circle sliding out from behind a pill.
- */
-internal object Metaball {
-    class Neck(val p1a: Pt, val h1: Pt, val h2: Pt, val p2a: Pt, val p2b: Pt, val h3: Pt, val h4: Pt, val p1b: Pt)
-    data class Pt(val x: Float, val y: Float)
-
-    private fun at(c: Pt, a: Float, r: Float) = Pt(c.x + cos(a) * r, c.y + sin(a) * r)
-
-    /** The neck between circle 1 ([c1], [r1]) and circle 2 ([c2], [r2]), or null when they are too far apart (beyond [reach] times circle 2's
-     * radius past touching), one is inside the other, or either is empty. [v] is how far the neck spreads, [handle] how round it is.
-     */
-    fun neck(c1: Pt, r1: Float, c2: Pt, r2: Float, reach: Float = 1.5f, v: Float = .5f, handle: Float = 2.4f): Neck? {
-        if (r1 <= 0f || r2 <= 0f) return null
-        val d = hypot(c2.x - c1.x, c2.y - c1.y)
-        if (d > r1 + r2 + r2 * reach.coerceAtLeast(0f) || d <= abs(r1 - r2)) return null
-        val u1: Float; val u2: Float
-        if (d < r1 + r2) {
-            u1 = acos(((r1 * r1 + d * d - r2 * r2) / (2f * r1 * d)).coerceIn(-1f, 1f))
-            u2 = acos(((r2 * r2 + d * d - r1 * r1) / (2f * r2 * d)).coerceIn(-1f, 1f))
-        } else { u1 = 0f; u2 = 0f }
-        val between = atan2(c2.y - c1.y, c2.x - c1.x)
-        val spread = acos(((r1 - r2) / d).coerceIn(-1f, 1f))
-        val pi = Math.PI.toFloat(); val half = pi / 2f
-        val a1 = between + u1 + (spread - u1) * v
-        val a2 = between - u1 - (spread - u1) * v
-        val a3 = between + pi - u2 - (pi - u2 - spread) * v
-        val a4 = between - pi + u2 + (pi - u2 - spread) * v
-        val p1a = at(c1, a1, r1); val p1b = at(c1, a2, r1)
-        val p2a = at(c2, a3, r2); val p2b = at(c2, a4, r2)
-        val total = r1 + r2
-        val base = min(v * handle, hypot(p1a.x - p2a.x, p1a.y - p2a.y) / total)
-        val d2 = base * min(1f, d * 2f / total)
-        val k1 = r1 * d2; val k2 = r2 * d2
-        return Neck(p1a, at(p1a, a1 - half, k1), at(p2a, a3 + half, k2), p2a, p2b, at(p2b, a4 - half, k2), at(p1b, a2 + half, k1), p1b)
-    }
-}
-
 /**
- * Apple's split: a second activity pulls out of the pill's end as a drop, tethered by a neck that stretches thinner as it goes and pinches off at
- * [PINCH] of the way; going back, the same neck reaches out and swallows it. [t] is how far the capsule has travelled (0 inside the pill's end, 1
- * at its place; a spring may carry it a little past). Pure, so it is unit-tested.
+ * Apple's split, as rubber: a second activity is pulled out of the pill's own end. The end stretches out into a tip on a fat join that narrows to a
+ * waist as the pull goes on ([waist]) and snaps at [PINCH] of the way; the tip then pops off on its own into its place, a little big before it
+ * settles ([size]), and the pill recoils ([bodyPull]). Going back the same plays in reverse. [t] is how far the capsule has gone (0 inside the
+ * pill's end, 1 at its place; a spring may carry it a little past). Pure, so it is unit-tested.
  */
 internal object LiquidSplit {
-    /** Where along its travel the neck pinches off. */
+    /** Where along its travel the join snaps. */
     const val PINCH = .72f
 
-    /** How taut the tether is: 0 at rest or once pinched off, 1 at its most stretched, just before it snaps. */
-    fun tension(t: Float): Float {
-        if (!(t > 0f) || t >= PINCH) return 0f
-        val u = t / PINCH
-        return (u * u * (3f - 2f * u)).coerceIn(0f, 1f)
+    private fun smooth(u: Float): Float { val c = u.coerceIn(0f, 1f); return c * c * (3f - 2f * c) }
+
+    /** How taut the pull is: 0 at rest or once snapped, 1 at its most stretched, just before it snaps. */
+    fun tension(t: Float): Float = if (!(t > 0f) || t >= PINCH) 0f else smooth(t / PINCH)
+
+    /**
+     * Where the join leaves the pill's end, as an angle (radians) from the line of the pull: wide at first, so the end itself is drawn out on a fat
+     * join with no crease, then closing in quickly over the last of the pull, a waist that narrows to a thread. Null once it has snapped.
+     */
+    fun waist(t: Float): Float? {
+        if (t >= PINCH) return null
+        val u = t.coerceAtLeast(0f) / PINCH
+        val deg = if (u < .7f) 78f - 20f * smooth(u / .7f) else 58f - 50f * smooth((u - .7f) / .3f)
+        return Math.toRadians(deg.toDouble()).toFloat()
     }
 
-    /** The neck's spread for [Metaball.neck]: a wide join as the drop starts out, a thread at the moment it pinches. Null once it has. */
-    fun spread(t: Float): Float? = if (t >= PINCH) null else .58f - .46f * (t.coerceAtLeast(0f) / PINCH)
+    /**
+     * The join's outline between the pill's end (a circle at [c1x], [c1y], radius [r1]) and the tip (a circle at [c2x], [c2y], radius [r2]), the
+     * tip toward [dir] (1 right, -1 left), leaving the end at [angle] (see [waist]). Each flank is one cubic tangent to both circles, so the end, the
+     * waist and the tip are one smooth shape. It works however much the two circles overlap, as they do while the end first stretches. The front of
+     * the tip and the inside of the end are closed with straight lines: the pill and the tip are drawn over them.
+     */
+    fun join(c1x: Float, c1y: Float, r1: Float, c2x: Float, c2y: Float, r2: Float, angle: Float, dir: Float,
+        sink: com.jake.duolauncher.appearance.PathSink) {
+        val a = angle; val b = a * .9f + .15f       // the tip takes the join a little further round than the end does
+        val sa = kotlin.math.sin(a); val ca = kotlin.math.cos(a); val sb = kotlin.math.sin(b); val cb = kotlin.math.cos(b)
+        val px = c1x + dir * r1 * ca; val py = r1 * sa                        // y as distance from the axis; the other flank is its mirror
+        val qx = c2x - dir * r2 * cb; val qy = r2 * sb
+        val h = kotlin.math.hypot(qx - px, (c2y - qy) - (c1y - py)).coerceAtLeast(.001f) * .45f
+        fun flank(side: Float, from: Boolean) {
+            // Upper flank (side -1) and lower (side 1): leaving the end along its tangent, toward the axis; meeting the tip along its own, away.
+            val p1x = px + dir * sa * h; val p1y = c1y + side * (py - ca * h)
+            val p2x = qx - dir * sb * h; val p2y = c2y + side * (qy - cb * h)
+            if (from) sink.cubicTo(p1x, p1y, p2x, p2y, qx, c2y + side * qy)
+            else sink.cubicTo(p2x, p2y, p1x, p1y, px, c1y + side * py)
+        }
+        sink.moveTo(px, c1y - py)
+        flank(-1f, true)
+        sink.lineTo(qx, c2y + qy)
+        flank(1f, false)
+        sink.close()
+    }
 
-    /** How far the pill's end bulges toward the drop, as a share of its radius: the pill is pulled out with it, then lets go. */
-    fun bulge(t: Float): Float = .28f * kotlin.math.sin(Math.PI.toFloat() * tension(t)).coerceAtLeast(0f) + .12f * tension(t)
+    /** Where the tip has got to between the pill's end (0) and its place (1): drawn steadily out of the end to [HELD] of the way by the snap, then
+     *  popping the rest. Past 1 (a spring's overshoot) it follows [t]. */
+    fun travel(t: Float): Float = when {
+        !(t > 0f) -> 0f
+        t < PINCH -> HELD * Math.pow((t / PINCH).toDouble(), 1.2).toFloat()
+        t <= 1f -> HELD + (1f - HELD) * (t - PINCH) / (1f - PINCH)
+        else -> t
+    }
+    /** d[travel]/d[t], to turn the animation's speed into the tip's own. */
+    fun travelRate(t: Float): Float = when {
+        !(t > 0f) -> 0f
+        t < PINCH -> HELD * 1.2f * Math.pow((t / PINCH).toDouble(), .2).toFloat() / PINCH
+        t <= 1f -> (1f - HELD) / (1f - PINCH)
+        else -> 1f
+    }
+    private const val HELD = .62f
 
-    /** The drop's own stretch along the pull ([first], wider) and across it ([second], thinner) while tethered. */
-    fun stretch(t: Float): Pair<Float, Float> { val k = tension(t); return (1f + .24f * k) to (1f - .12f * k) }
+    /** The tip's size as a share of the capsule's: most of it from the start (it is the pill's own end being drawn out), whole at its place, and a
+     *  touch big on the spring's overshoot, so it pops. */
+    fun size(t: Float): Float = when {
+        !(t > 0f) -> .7f
+        t < PINCH -> .7f + .18f * t / PINCH
+        else -> (.88f + .12f * (t - PINCH) / (1f - PINCH)).coerceAtMost(1.15f)
+    }
+
+    /**
+     * The tip's stretch along its path ([first]) and across it ([second]). While held it stays round, so the join meets it smoothly; once it pops
+     * it is drawn out by its own [speed] (its [travel] per second, either way), keeping about its area, so it is longest while fastest and comes
+     * round as it slows into its place, the spring's settle a wobble.
+     */
+    fun stretch(t: Float, speed: Float = 0f): Pair<Float, Float> {
+        if (t < PINCH) return 1f to 1f
+        val along = 1f + (kotlin.math.abs(speed) * .045f).coerceAtMost(.22f)
+        return along to Math.pow(along.toDouble(), -.7).toFloat()
+    }
+
+    /** How the pill is pulled by the capsules leaving it: its [left] and [right] ends move out by these shares of its width, and it is [thin]
+     *  (its height's scale) while pulled, as rubber thins where it is stretched. */
+    data class BodyPull(val left: Float, val right: Float, val thin: Float) {
+        val stretch get() = 1f + left + right
+    }
+
+    /** [BodyPull] for pulls of [onLeft] and [onRight] (each capsule's spring-followed tension, summed per side). The spring overshoots below zero
+     *  after the snap, so an end recoils a little past its rest (and the pill swells a touch) before it settles. */
+    fun bodyPull(onLeft: Float, onRight: Float): BodyPull {
+        fun end(g: Float) = (BODY_REACH * g).coerceIn(-BODY_REACH * .4f, BODY_REACH * 1.3f)
+        return BodyPull(end(onLeft), end(onRight), 1f - BODY_THIN * (onLeft + onRight).coerceIn(-.5f, 1.2f))
+    }
+    /** At full tension a pulled end reaches out by this share of the pill's width (about 5 dp on a Pixel 10a's idle pill), and it thins by [BODY_THIN]. */
+    private const val BODY_REACH = .05f
+    private const val BODY_THIN = .08f
+
+    /** How much of the capsule's symbol shows: none while it is the pill's end being pulled, all once it has popped into its place. */
+    fun glyphAlpha(t: Float): Float = ((t - .75f) / .2f).coerceIn(0f, 1f)
 }
 
 /** The app that was in front, read from the system's usage events. Only when the person has granted usage access; Uno does not ask for it here. */

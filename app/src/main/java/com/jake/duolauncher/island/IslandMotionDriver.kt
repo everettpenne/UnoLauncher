@@ -30,8 +30,12 @@ internal class IslandMotionSpecs(private val theme: IslandTheme, private val ani
     val pulseDown: AnimationSpec<Float> get() = or(theme.spring(.4f, 260f))
     // Playful: the capsules pop out on a looser spring, glide to a new place with a little overshoot and squish deeper under a finger.
     // Soft enough that the neck can be seen stretching and pinching off (Apple's split takes about half a second), with a wobble after.
-    val capsuleAppear: AnimationSpec<Float> get() = or(theme.spring(if (theme.playful) .4f else .55f, if (theme.playful) 150f else 170f))
-    val capsuleLeave: AnimationSpec<Float> get() = or(tween(420, easing = FastOutSlowInEasing))
+    /** The pill's end being stretched out up to the snap: an ease-in, so the pull gathers speed and the pop's spring takes it from there. */
+    val capsulePull: AnimationSpec<Float> get() = or(tween(if (theme.playful) 320 else 280, easing = androidx.compose.animation.core.CubicBezierEasing(.45f, 0f, .8f, .6f)))
+    /** The tip popping off into its place once the join snaps: lively, with an overshoot that also pops it a little big (LiquidSplit.size). */
+    val capsuleAppear: AnimationSpec<Float> get() = or(theme.spring(if (theme.playful) .42f else .55f, if (theme.playful) 240f else 260f))
+    // Going back the drop is drawn in: slow while the neck takes hold of it, then swallowed (an ease that gathers speed toward the pill).
+    val capsuleLeave: AnimationSpec<Float> get() = or(tween(440, easing = androidx.compose.animation.core.CubicBezierEasing(.5f, 0f, .8f, .4f)))
     val capsuleGlide: AnimationSpec<Float> get() = or(theme.spring(if (theme.playful) .58f else .75f, 380f))
     val dot: AnimationSpec<Float> get() = or(theme.spring(.7f, 520f))
     val pressCapsule: AnimationSpec<Float> get() = or(androidx.compose.animation.core.spring(if (theme.playful) .42f else .6f, 520f))

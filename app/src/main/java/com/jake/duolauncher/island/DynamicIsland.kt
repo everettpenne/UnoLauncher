@@ -727,6 +727,14 @@ internal fun DynamicIsland(
     }
     // A capsule melting into the pill (an activity ended, or was brought to the front) gives it the same small pulse, a touch softer.
     var absorbTick by remember { mutableIntStateOf(0) }
+    // How hard each capsule being pulled out of (or drawn back into) the pill is pulling on it, and on which side (true: the left): the body reads
+    // these and is drawn out toward the pull like goop (see LiquidSplit.bodyPull). Each capsule keeps its own spring-followed value here.
+    val goopPulls = remember { mutableStateMapOf<LiveKind, Pair<Animatable<Float, androidx.compose.animation.core.AnimationVector1D>, Boolean>>() }
+    fun bodyPull(): LiquidSplit.BodyPull {
+        var l = 0f; var r = 0f
+        goopPulls.values.forEach { (g, left) -> if (left) l += g.value else r += g.value }
+        return LiquidSplit.bodyPull(l, r)
+    }
     LaunchedEffect(absorbTick) {
         if (absorbTick > 0 && animationsOn) motion.kick(this, 1f + (IslandThemes.active.motion.pulse - 1f) * .7f, motionSpecs)
     }
@@ -877,8 +885,8 @@ internal fun DynamicIsland(
         heldCapsules.held.forEach { capsule ->
             val shape = capsule.item; val kind = shape.kind
             key(kind) {
-                // A capsule leaves the pill like a drop pulling away: it starts inside the pill's end, travels out on a springy overshoot,
-                // and for a moment stays joined to the pill by a neck that stretches thin and pinches off (see Metaball).
+                // A capsule is pulled out of the pill like rubber: the pill's own end stretches out into a tip on a join that narrows to a waist,
+                // snaps, and the tip pops into its place on a springy overshoot while the pill recoils (see LiquidSplit).
                 val appear = remember { Animatable(if (animationsOn) 0f else 1f) }
                 // When the activity ends or is brought to the front, this plays backwards: the capsule slides back into the pill on the same neck
                 // and melts into it, and the pill pulses. A capsule that splits off right after one merged in waits a beat, so the two read
@@ -892,6 +900,9 @@ internal fun DynamicIsland(
                         absorbTick++; heldCapsules.gone(shape)
                     } else {
                         if (appear.value < .05f && System.currentTimeMillis() - state.swapAtMs < 400L) delay(150L)
+                        // Stretched, then popped: the end is drawn out steadily, gathering speed, to the snap; then the tip goes on its own, the
+                        // spring taking over at the speed the pull reached, so the snap carries straight into the pop's overshoot and settle.
+                        if (appear.value < LiquidSplit.PINCH) appear.animateTo(LiquidSplit.PINCH, motionSpecs.capsulePull)
                         if (IslandThemes.active.playful) UnoFeedback.play(Cue.TICK, haptic)
                         appear.animateTo(1f, motionSpecs.capsuleAppear)
                     }
@@ -922,6 +933,7 @@ internal fun DynamicIsland(
                 val fill = themeFill
                 // The neck's path is made once and rewound each frame, instead of allocating a Path per frame while the capsule pulls away.
                 val neckPath = remember { androidx.compose.ui.graphics.Path() }
+                val neckSink = remember(neckPath) { com.jake.duolauncher.appearance.ComposePathSink(neckPath) }
                 // The round end of the pill a capsule comes out of: the pill's own end, settled; while the body is open, a pill-sized end at the
                 // top corner, so the neck is drawn to the camera's line and not to a circle as tall as the open panel.
                 fun endRadius(frame: IslandFrame) = minOf(frame.height, capsuleH) / 2f
@@ -929,8 +941,17 @@ internal fun DynamicIsland(
                     // Settled, the capsule is where the grid put it; it comes out of (and goes back into) the island's end on its side.
                     val r = endRadius(frame)
                     val startX = if (shape.left) frame.left + r - capsuleW / 2f else frame.left + frame.width - r - capsuleW / 2f
-                    return startX + (slotX - startX) * appear.value
+                    return startX + (slotX - startX) * LiquidSplit.travel(appear.value)
                 }
+                // How hard this capsule pulls on the pill: the neck's tension, followed by a soft spring, so the pill lags the pull a touch and,
+                // when the neck snaps, overshoots and jiggles back to rest; going back in, the pill reaches out for it and wobbles as it swallows.
+                val goop = remember { Animatable(0f) }
+                if (animationsOn) LaunchedEffect(Unit) {
+                    snapshotFlow { LiquidSplit.tension(appear.value) }.collectLatest { goop.animateTo(it, spring(.32f, 520f)) }
+                }
+                DisposableEffect(kind, shape.left) { goopPulls[kind] = goop to shape.left; onDispose { goopPulls.remove(kind) } }
+                val dropPath = remember { androidx.compose.ui.graphics.Path() }
+                val dropSink = remember(dropPath) { com.jake.duolauncher.appearance.ComposePathSink(dropPath) }
                 Box(Modifier
                     .offset {
                         val frame = frameState.value
@@ -940,37 +961,41 @@ internal fun DynamicIsland(
                         androidx.compose.ui.unit.IntOffset(
                             (capsuleX(frame) - (windowRect?.left ?: origin.x)).roundToInt(), (y - (windowRect?.top ?: origin.y)).roundToInt())
                     }
+                    .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
                     .drawBehind {
+                        // The pill's end stretched out like rubber, in the capsule's own px: a round tip (LiquidSplit.size) drawn out of the pill's
+                        // end on a join that narrows to a waist (LiquidSplit.waist, join), until it snaps and the tip pops into its place. Once
+                        // popped it is drawn out by its own speed, keeping its area, and comes round as it slows; the spring's settle is a wobble.
                         val t = appear.value
-                        val spread = LiquidSplit.spread(t)
-                        if (spread != null) {
+                        val speed = LiquidSplit.travelRate(t) * appear.velocity
+                        val sc = LiquidSplit.size(t)
+                        val (along, across) = LiquidSplit.stretch(t, speed)
+                        val out = if (shape.left) -1f else 1f
+                        val dropH = capsuleH * sc * across
+                        val dropL = maxOf(capsuleW * sc * along, dropH)
+                        val lead = capsuleW / 2f + out * capsuleW * sc / 2f
+                        val dropLeft = if (shape.left) lead else lead - dropL
+                        dropPath.rewind()
+                        IslandMorph.outline(dropL, dropH, dropH / 2f, d, dropSink)
+                        dropPath.translate(Offset(dropLeft, (capsuleH - dropH) / 2f))
+                        drawPath(dropPath, fill)
+                        val angle = LiquidSplit.waist(t)
+                        if (angle != null) {
                             val frame = frameState.value
-                            val r1 = endRadius(frame)
-                            // The pill's end is pulled out toward the drop (its centre moves out by the bulge), and the neck runs from there.
-                            val out = if (shape.left) -1f else 1f
-                            val bulge = LiquidSplit.bulge(t) * r1 * out
-                            val c1 = Metaball.Pt((if (shape.left) frame.left + r1 else frame.left + frame.width - r1) + bulge - capsuleX(frame), capsuleH / 2f - adjust.dy * d)
-                            val c2 = Metaball.Pt(capsuleH / 2f, capsuleH / 2f)
-                            val grow = (.55f + .45f * t).coerceAtLeast(.4f)
-                            // The pill's bulged end, drawn as a circle so the pull shows on the pill itself, not only in the neck.
-                            if (kotlin.math.abs(bulge) > .5f) drawCircle(fill, r1, Offset(c1.x, c1.y))
-                            Metaball.neck(c1, r1, c2, capsuleH / 2f * grow, reach = 6f, v = spread)?.let { n ->
-                                neckPath.rewind()
-                                neckPath.moveTo(n.p1a.x, n.p1a.y); neckPath.cubicTo(n.h1.x, n.h1.y, n.h2.x, n.h2.y, n.p2a.x, n.p2a.y)
-                                neckPath.lineTo(n.p2b.x, n.p2b.y); neckPath.cubicTo(n.h3.x, n.h3.y, n.h4.x, n.h4.y, n.p1b.x, n.p1b.y); neckPath.close()
-                                drawPath(neckPath, fill)
-                            }
+                            // The pill's end where the pull has drawn it (the body stretches toward the pull and thins: see bodyPull), so the join
+                            // leaves from where the end really is.
+                            val goo = bodyPull()
+                            val r1 = endRadius(frame) * goo.thin
+                            val endShift = (if (shape.left) -goo.left else goo.right) * frame.width
+                            val c1x = (if (shape.left) frame.left + r1 else frame.left + frame.width - r1) + endShift - capsuleX(frame)
+                            val r2 = dropH / 2f
+                            val c2x = if (shape.left) dropLeft + dropL - r2 else dropLeft + r2
+                            neckPath.rewind()
+                            LiquidSplit.join(c1x, capsuleH / 2f - adjust.dy * d, r1, c2x, capsuleH / 2f, r2, angle, out, neckSink)
+                            drawPath(neckPath, fill)
                         }
                     }
-                    .graphicsLayer {
-                        // While tethered the drop is stretched along the pull, anchored on the pill's side, and springs round when the neck snaps.
-                        val sc = (.55f + .45f * appear.value).coerceAtLeast(.4f) * pressScale
-                        val (along, across) = LiquidSplit.stretch(appear.value)
-                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(if (shape.left) 1f else 0f, .5f)
-                        scaleX = sc * along; scaleY = sc * across; alpha = (appear.value / .2f).coerceIn(0f, 1f) }
                     .size(widthDp.dp, capsuleHeightDp)
-                    .clip(capsuleShape)
-                    .background(themeFill)
                     .clickable(interactionSource = capsuleTouch, indication = null, onClickLabel = "Bring ${IslandLive.label(kind)} to the front", role = Role.Button) {
                         if (!capsule.leaving) { UnoFeedback.play(Cue.TICK, haptic); state.bringToFront(kind) }
                     }
@@ -979,7 +1004,13 @@ internal fun DynamicIsland(
                     contentAlignment = Alignment.Center) {
                     // Every capsule is a circle with the activity's symbol only, never an app's logo or album art: a wide capsule would sit over
                     // the status bar's wifi, signal and battery icons. Its time or status shows on the pill, or on the open island.
-                    LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = shownUpdate, glyphSize = glyphDiameterDp, plain = true)
+                    // The symbol is not stretched with the drop: it fades and grows in as the drop comes round in its place.
+                    Box(Modifier.fillMaxSize().graphicsLayer {
+                        val t = appear.value
+                        alpha = LiquidSplit.glyphAlpha(t); val s = LiquidSplit.size(t); scaleX = s; scaleY = s
+                    }.clip(capsuleShape), contentAlignment = Alignment.Center) {
+                        LiveSlot(kind, SlotShow.GLYPH, clockMs, isPlaying, artTint, artImage, multi = true, liveCompactLevel = liveCompactLevel, update = shownUpdate, glyphSize = glyphDiameterDp, plain = true)
+                    }
                 }
             }
         }
@@ -1046,11 +1077,16 @@ internal fun DynamicIsland(
                 val fingerDriven = state.pullFraction != null
                 val stretch = if (animationsOn && !fingerDriven) MorphVelocity.stretch(morphSpeed.update(progressState.value, System.nanoTime(), settledAt), squashGain)
                     else { morphSpeed.update(progressState.value, System.nanoTime(), progressState.value); 0f }
-                scaleX = pulse.value * motion.pressX.value * (1f - stretch * .8f); scaleY = pulse.value * motion.pressY.value * (1f + stretch)
+                // A capsule being pulled out drags the pill's end with it like goop: the pill stretches toward the pull and thins, and its other
+                // end stays put (the shift below), then it jiggles back when the neck snaps.
+                val goo = bodyPull()
+                scaleX = pulse.value * motion.pressX.value * (1f - stretch * .8f) * goo.stretch
+                scaleY = pulse.value * motion.pressY.value * (1f + stretch) * goo.thin
                 // All of it about the camera: the body swells round the camera and squashes onto it, and a fast morph stretches the panel down
                 // from it. About the body's centre (the default), the open panel's top lifted off the camera and dropped back on every press.
                 val (fx, fy) = IslandMorph.pivot(frameState.value)
                 transformOrigin = androidx.compose.ui.graphics.TransformOrigin(fx, fy)
+                translationX = ((goo.left + goo.right) * fx - goo.left) * size.width
                 // The open island lifts off what is behind it: a soft shadow that grows as it opens (none on the pill, which sits in the status
                 // bar). While music is playing the shadow takes the track's colour, so the open island glows faintly with it.
                 val open = progressState.value.coerceIn(0f, 1f)

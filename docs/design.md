@@ -57,7 +57,9 @@ Where a radius is not a token it is derived, never picked:
 - **Docks:** concentric with the icons they hold (the icon's 22.37% corner plus the inset around it). The bottom dock and the side
   dock follow this rule, and the status rail shares the side dock's shape.
 - **The open island:** concentric with the display, as Apple's is (55 pt corners − 11 pt margin = 44 pt): the display's top corner less the
-  island's margin from the top (`IslandGeometry.concentricCapDp`, 24–64 dp, 44 where none is reported). The pill stays a capsule.
+  island's margin from the top (`IslandGeometry.concentricCapDp`, 24–64 dp, 44 where none is reported). It is as far from each side of the
+  screen as from the top and centred on the screen (`IslandGeometry.openSideGap`; on a Pixel 10a 8 dp at the lowest height setting, 4 dp at the highest), so every
+  edge runs parallel to the phone's. Up to 440 dp wide; a foldable or tablet keeps the old share. The pill stays a capsule.
 - **Sheets:** their bottom corners are concentric with the display's own (Android 12's `Display.getRoundedCorner`), as iOS 26's are.
   Where the display reports none (the emulator), all four are 42 dp.
 - **Nested:** anything inside a rounded container uses `Corner.inside(parent, inset)`: the settings cards, the island's cards, Spotlight's
@@ -65,8 +67,12 @@ Where a radius is not a token it is derived, never picked:
 - **Hand-drawn outlines:** the island's body as it morphs, its rims, and search growing out of it use `IslandMorph.outline`, so they match:
   Apple's squircle pill (`SquircleCapsule`: superellipse ends 1.25 half-heights long, exponent 2.6) while it is pill-height, easing back to a
   stadium by twice the open corner, where `continuousPath`'s corner takes over. Detached capsules and the ring round the camera stay circles.
-- **The split:** a second activity pulls out of the pill's end as a drop on a neck that thins and pinches off at 72 % of its travel
-  (`LiquidSplit`, drawn with `Metaball.neck`), the pill's end bulging after it; leaving, the same neck swallows it.
+- **The split:** a second activity is pulled out of the pill's end as a drop on a neck that thins and pinches off at 72 % of its travel
+  (`LiquidSplit`, drawn with `Metaball.neck`). The pull is an ease-in (`capsulePull`, held back by the neck and gathering speed); at the pinch
+  the spring takes over at that speed, so the snap carries into the overshoot. The drop fills as it goes and is drawn out by its own speed
+  (keeping its area), so it is longest while fastest and comes round as it slows into its place; the symbol only fades in once it has. The
+  pill itself is goop: it is drawn out toward the pull and thins (`LiquidSplit.bodyPull`, the neck's tension through a soft spring), so
+  it lags the pull a touch and, when the neck snaps, springs back past rest and jiggles; its end's tip bulges after the drop. Leaving, the neck takes hold slowly and then swallows it.
 - **Capsules:** every capsule is `Corner.pill`. `CircleShape` is kept only for true circles (dots, round buttons).
 
 `CornerScaleTest` enforces this: `RoundedCornerShape`, `CornerRadius` and the canvas round rects outside `Corners.kt` fail the

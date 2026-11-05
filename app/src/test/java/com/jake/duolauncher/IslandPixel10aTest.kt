@@ -53,9 +53,10 @@ class IslandPixel10aTest {
 
     @Test fun theOpenPanelUsesMostOfTheWidthWhenThereIsNoDock() {
         val open = IslandGeometry.frame(env(), d, 1f, .5f)
-        // Wide enough to cover the status bar's icons at both ends (they sit about 35 dp in), leaving the island's own 8 dp edge margin.
-        assertEquals(395f, open.width / d, .5f)
-        assertTrue("margin each side is ${(screenW - open.width) / 2f / d} dp", (screenW - open.width) / 2f / d in 7.5f..9f)
+        // Apple's rule: as far from each side as from the top (about 6 dp here), which also covers the status bar's icons at both ends.
+        assertEquals("left gap", open.top, open.left, .01f)
+        assertEquals("right gap", open.top, screenW - (open.left + open.width), .01f)
+        assertTrue("margin each side is ${open.left / d} dp", open.left / d in 5f..8f)
         assertEquals("centred on the hole", hole.centerX, open.left + open.width / 2f, .5f)
     }
 

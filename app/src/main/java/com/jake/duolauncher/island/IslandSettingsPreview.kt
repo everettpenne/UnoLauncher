@@ -88,6 +88,8 @@ internal data class PreviewSettings(
     val shortcuts: Boolean,
     val privacyIndicators: Boolean,
     val liveUpdates: Boolean,
+    /** Pill at Rest is off: idle, the island is only the ring round the camera. */
+    val cameraOnly: Boolean = false,
 )
 
 /**
@@ -202,6 +204,11 @@ private fun targetFor(scene: PreviewScene, s: PreviewSettings, env: IslandEnviro
             else IslandGeometry.frame(env, d, 1f, s.scale, extraBodyDp = if (s.peekLevel == 2) 26f else 0f)
         PreviewScene.OPEN -> IslandGeometry.frame(env, d, 1f, s.scale, extraBodyDp = if (s.shortcuts) 48f else 0f)
     }
+    if (scene == PreviewScene.IDLE && s.cameraOnly) {
+        // Pill at Rest off: the ring round the camera, as DynamicIsland draws it with nothing to show (compactness 1).
+        val ring = IslandGeometry.frame(env, d, 0f, s.scale, compactness = 1f)
+        return PreviewFrame(ring.left, ring.width, ring.height)
+    }
     if (scene == PreviewScene.IDLE) {
         // At rest the island is the iPhone-width pill centred on the camera, as DynamicIsland draws it (IslandGeometry.REST_WIDTH_MM).
         val m = android.content.res.Resources.getSystem().displayMetrics
@@ -221,7 +228,7 @@ private fun sceneNames(): Map<PreviewScene, String> = mapOf(
 
 @Composable
 private fun caption(scene: PreviewScene, s: PreviewSettings): String = when (scene) {
-    PreviewScene.IDLE -> stringResource(R.string.island_preview_caption_idle)
+    PreviewScene.IDLE -> stringResource(if (s.cameraOnly) R.string.island_preview_caption_idle_camera else R.string.island_preview_caption_idle)
     PreviewScene.MUSIC -> stringResource(when (s.wideMode) {
         IslandWideMode.OFF -> R.string.island_preview_caption_music_off; IslandWideMode.WIDE -> R.string.island_preview_caption_music_wide
         IslandWideMode.EXTRA_WIDE -> R.string.island_preview_caption_music_extra })

@@ -676,14 +676,23 @@ internal fun DynamicIsland(
     val squashGain = ((theme.motion.pulse - 1f).coerceIn(0f, .3f) / .1f).coerceAtLeast(.25f)
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
     val panelScale = theme.panel.scale
-    val cornerPx = remember(panelScale, d) { derivedStateOf {
+    // Apple's open island is concentric with the display: its corner is the display's top corner less the island's margin from the top of
+    // the screen. Worked out once for this phone and shared through IslandGeometry.cornerCapDp, which the body, search and the cards read.
+    val displayTopCornerDp = remember(context, d) {
+        com.jake.duolauncher.appearance.displayCornerRadiusPx(context,
+            listOf(android.view.RoundedCorner.POSITION_TOP_LEFT, android.view.RoundedCorner.POSITION_TOP_RIGHT))?.let { it / d } }
+    val capDp = remember(environment, d, sizeScale, displayTopCornerDp) {
+        val open = IslandGeometry.frame(environment, d, 1f, sizeScale)
+        if (open.side != IslandSide.TOP) IslandGeometry.cornerCapDp else IslandGeometry.concentricCapDp(displayTopCornerDp, open.top / d) }
+    SideEffect { if (IslandGeometry.cornerCapDp != capDp) IslandGeometry.cornerCapDp = capDp }
+    val cornerPx = remember(panelScale, d, capDp) { derivedStateOf {
         val f = frameState.value
         // Never negative: a frame measured before the screen's size is known (width 0) can come out narrower than nothing, and a negative
         // corner radius throws in the shape code, which crashed the island's own window. (IslandMorph.cornerPx keeps it at zero or more.)
         IslandMorph.cornerPx(f.width, f.height, d, panelScale)
     } }
     // The same outline as one shape for every size the body passes through, for its shadow.
-    val bodyShape = remember(panelScale, d) { IslandBodyShape(d, panelScale) }
+    val bodyShape = remember(panelScale, d, capDp) { IslandBodyShape(d, panelScale) }
     val sideways = openFrame.side != IslandSide.TOP
     // The colour fade for music: while the music is one of the things the pill shows (or the panel is open), and nothing else has the island.
     val glowAlpha = animateFloatAsState(

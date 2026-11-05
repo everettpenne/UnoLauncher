@@ -191,6 +191,7 @@ internal class IslandOverlayHost(
             // While the island may show over apps, its events run, even while it is hidden for a full-screen app.
             HoldIslandEvents("overlay", visible)
             var islandWideMode by androidx.compose.runtime.remember { mutableStateOf(readIslandWideMode(context)) }
+            var cameraOnly by androidx.compose.runtime.remember { mutableStateOf(readIslandCameraOnly(context)) }
             var resumeWindowMs by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(IslandPlayback.resumeWindowMs(context.getSharedPreferences("extras", Context.MODE_PRIVATE).getInt("mediaResumeMinutes", 2))) }
             var islandScale by androidx.compose.runtime.remember {
                 androidx.compose.runtime.mutableFloatStateOf(context.getSharedPreferences("appearance", Context.MODE_PRIVATE).lenientFloat("islandHeight", 0f).coerceIn(0f, 1f))
@@ -220,6 +221,7 @@ internal class IslandOverlayHost(
                     allowed = OverlayPolicy.shouldShow(enabled, homeIsland, launcherInFront = true, (!needsOverlayPermission || Settings.canDrawOverlays(context)),
                         keyguard.isKeyguardLocked, power.isInteractive)
                     islandWideMode = readIslandWideMode(context)
+                    cameraOnly = readIslandCameraOnly(context)
                     context.getSharedPreferences("extras", Context.MODE_PRIVATE).let {
                         hideOverOn = it.getBoolean("islandHideOverOn", false)
                         hideOver = IslandLinks.parse(it.getString("islandHideOver", null))
@@ -246,7 +248,8 @@ internal class IslandOverlayHost(
                     // layout. Bugfix (0.104.1): over other apps, and on the iOS layout, this window used to shrink the idle island to a ring
                     // round the camera (about 7 mm on a Pixel 10a), and the 13.5 mm width applies only to the pill, so it never showed. Once
                     // 0.104 made this window draw the Home island whenever the accessibility service is on, the ring showed on Home as well.
-                    alwaysWide = true,
+                    // ...unless the person chose to have it rest at the camera alone, when it is the ring and grows out of it as needed.
+                    alwaysWide = !cameraOnly,
                     // On Home this window draws the Home island, so it follows Home's status bar and rail; over apps both are the system's.
                     statusBarShown = !(IslandRuntime.launcherInFront && IslandRuntime.homeStatusHidden),
                     statusRailShown = IslandRuntime.launcherInFront && IslandRuntime.homeRailShown,
@@ -405,6 +408,9 @@ private fun readIslandWideMode(context: Context): IslandWideMode {
         prefs.getInt("islandWideMode", 0).takeIf { prefs.contains("islandWideMode") },
         prefs.getBoolean("islandWide", false))
 }
+
+private fun readIslandCameraOnly(context: Context): Boolean =
+    context.getSharedPreferences("extras", Context.MODE_PRIVATE).getBoolean(com.jake.duolauncher.ISLAND_CAMERA_ONLY, false)
 
 /** Asks Android not to animate this window's moves (it slides a window that changes position, unless told not to). Android 14 and later; earlier
  * the window keeps its fixed corner, which is what stops the island's own window from flying in. */

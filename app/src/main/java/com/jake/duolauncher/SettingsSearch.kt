@@ -36,6 +36,7 @@ internal object SettingsSearch {
         // Island
         SettingEntry("Island", CustomizationPage.ISLAND, "dynamic island pill camera notch"),
         SettingEntry("Over Other Apps", CustomizationPage.ISLAND, "island everywhere overlay accessibility"),
+        SettingEntry("Pill at Rest", CustomizationPage.ISLAND, "island wide camera only ring idle hide pill cutout"),
         SettingEntry("Height", CustomizationPage.ISLAND, "island size tall thin camera pill"),
         SettingEntry("Island Style", CustomizationPage.ISLAND_STYLE, "theme colours colors spring motion panel shape"),
         SettingEntry("Live Updates", CustomizationPage.ISLAND, "island ride delivery timer status android 16"),

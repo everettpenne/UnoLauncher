@@ -56,6 +56,8 @@ Where a radius is not a token it is derived, never picked:
 
 - **Docks:** concentric with the icons they hold (the icon's 22.37% corner plus the inset around it). The bottom dock and the side
   dock follow this rule, and the status rail shares the side dock's shape.
+- **The open island:** concentric with the display, as Apple's is (55 pt corners − 11 pt margin = 44 pt): the display's top corner less the
+  island's margin from the top (`IslandGeometry.concentricCapDp`, 24–64 dp, 44 where none is reported). The pill stays a capsule.
 - **Sheets:** their bottom corners are concentric with the display's own (Android 12's `Display.getRoundedCorner`), as iOS 26's are.
   Where the display reports none (the emulator), all four are 42 dp.
 - **Nested:** anything inside a rounded container uses `Corner.inside(parent, inset)`: the settings cards, the island's cards, Spotlight's
@@ -197,8 +199,9 @@ Launcher settings › Home › Home layout chooses the phone screen's layout; th
 
 **The island and the status bar on the iOS layout.** The Home island is drawn in the launcher's window, which Android always puts under the
 status bar, so the status bar steps aside (it is hidden, its room kept) while anything has grown out of the island: open, peeking, pulled, an
-event flash, or search. Idle, the island is a ring round the camera (`ringWhenIdle`), which Android's icons always keep clear of; it widens
-only with something to show. The status bar's icons are dark or light from the wallpaper's top strip (`StatusIcons`).
+event flash, or search. Idle, the island is the 16 mm pill (`IslandGeometry.REST_WIDTH_MM`), or, with **Pill at Rest** off (Island settings,
+`islandCameraOnly`), only a ring round the camera, which Android's icons always keep clear of; then it grows out of the camera only with something
+to show (`ringWhenIdle` on Home, `alwaysWide = false` over apps). The status bar's icons are dark or light from the wallpaper's top strip (`StatusIcons`).
 
 **Clear glass** (Appearance, on by default) makes Home's light glass surfaces (tint alpha 0.2 or less: dock, rail, widgets, page dots, search
 pill) take a quarter of their tint and a brighter, wider edge with a sheen along the top (`GlassFinish`). Sheets and panels keep their tint.

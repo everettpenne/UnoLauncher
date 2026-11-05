@@ -2,6 +2,8 @@ package com.jake.duolauncher.island
 
 import com.jake.duolauncher.*
 import android.view.View
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.view.WindowInsets
 import kotlin.math.abs
 import kotlin.math.max
@@ -127,8 +129,25 @@ internal object IslandGeometry {
      * just past the panel's rounded top corners. */
     private const val EXPANDED_SHARE = .965f
     private const val MAX_EXPANDED_DP = 400f
-    /** The corner radius an open panel is capped at, in dp: iOS's expanded island is 44 pt, concentric with the display's 55 pt corners inside an 11 pt margin (it was 34 dp, which read tighter than the phone's own corners once the panel was widened). */
+    /** The corner radius an open panel is capped at, in dp, where the phone does not report its display's corners: iOS's expanded island is 44 pt,
+     * concentric with the display's 55 pt corners inside an 11 pt margin (it was 34 dp, which read tighter than the phone's own corners once the
+     * panel was widened). */
     const val CORNER_CAP_DP = 44f
+    private const val MIN_CAP_DP = 24f
+    private const val MAX_CAP_DP = 64f
+
+    /**
+     * Apple's rule for the open island: concentric with the display. Its corner is the display's corner [displayCornerDp] less the island's
+     * margin from the top of the screen [topMarginDp] (55 − 11 = 44 pt on an iPhone), so the panel's corners run parallel to the phone's own.
+     * [CORNER_CAP_DP] when the display reports no corners; kept between 24 and 64 dp so an odd report never makes a slab or a blob.
+     */
+    fun concentricCapDp(displayCornerDp: Float?, topMarginDp: Float): Float =
+        if (displayCornerDp == null || !(displayCornerDp > 0f)) CORNER_CAP_DP
+        else (displayCornerDp - topMarginDp.coerceAtLeast(0f)).coerceIn(MIN_CAP_DP, MAX_CAP_DP)
+
+    /** The open island's corner on this phone, [concentricCapDp] of its display (set by the island when it is drawn). The body, search and the
+     * open island's cards all read it, so they agree. Snapshot state, so a change redraws them. */
+    var cornerCapDp by androidx.compose.runtime.mutableFloatStateOf(CORNER_CAP_DP)
 
     /** How wide the open panel may be on a screen [screenDp] wide: 92 % of it, never narrower than it was and never wider than [MAX_EXPANDED_DP]. */
     fun expandedWidthDp(screenDp: Float): Float = (EXPANDED_SHARE * screenDp).coerceIn(EXPANDED_WIDTH_DP, MAX_EXPANDED_DP)

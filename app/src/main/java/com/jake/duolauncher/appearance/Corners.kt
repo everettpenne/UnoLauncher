@@ -292,12 +292,18 @@ internal object Corner {
 internal fun displayCornerRadius(): Dp? {
     val context = LocalContext.current
     val density = LocalDensity.current
-    return remember(context, density) {
-        val display = runCatching { context.display }.getOrNull() ?: return@remember null
-        val px = listOf(android.view.RoundedCorner.POSITION_BOTTOM_LEFT, android.view.RoundedCorner.POSITION_BOTTOM_RIGHT)
-            .mapNotNull { display.getRoundedCorner(it)?.radius }.maxOrNull() ?: return@remember null
-        if (px <= 0) null else with(density) { px.toDp() }
-    }
+    return remember(context, density) { displayCornerRadiusPx(context)?.let { with(density) { it.toDp() } } }
+}
+
+/** [displayCornerRadius] in px for any context, a service's window included (whose context has no display of its own, so the phone's
+ *  built-in display is asked instead). [positions] are RoundedCorner positions; the largest reported is returned. */
+internal fun displayCornerRadiusPx(context: android.content.Context, positions: List<Int> =
+    listOf(android.view.RoundedCorner.POSITION_BOTTOM_LEFT, android.view.RoundedCorner.POSITION_BOTTOM_RIGHT)): Int? {
+    val display = runCatching { context.display }.getOrNull()
+        ?: context.getSystemService(android.hardware.display.DisplayManager::class.java)?.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+        ?: return null
+    val px = positions.mapNotNull { runCatching { display.getRoundedCorner(it)?.radius }.getOrNull() }.maxOrNull() ?: return null
+    return px.takeIf { it > 0 }
 }
 
 /** iOS-style switch: a track in the launcher's one accent (the wallpaper's, or orange) when on, a quiet grey one when off, and a white thumb in both. */

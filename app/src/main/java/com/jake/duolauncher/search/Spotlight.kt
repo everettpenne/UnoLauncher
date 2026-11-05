@@ -372,13 +372,13 @@ internal fun Spotlight(
         contacts = withContext(Dispatchers.IO) { ContactsSearch.search(context, query) }
     }
     // The island's own look: a true-black body (the pill's colour, so the panel reads as the pill grown larger), white ink and
-    // a hairline rim. The corners equal the expanded island's (IslandGeometry.CORNER_CAP_DP, the shared source of truth) at full
+    // a hairline rim. The corners equal the expanded island's (IslandGeometry.cornerCapDp, the shared source of truth) at full
     // size, and morph with the emerge so the panel never reads as a rounded rectangle while it is still pill-sized: a capsule at
-    // progress 0, the 34dp cap at progress 1. Without an island there is no pill to grow from, so it stays at the cap.
+    // progress 0, the cap at progress 1. Without an island there is no pill to grow from, so it stays at the cap.
     val ink = Color.White
     val quiet = remember { MutableInteractionSource() }
     val density = LocalDensity.current
-    val capCorner = IslandGeometry.CORNER_CAP_DP.dp
+    val capCorner = IslandGeometry.cornerCapDp.dp
     val capShape = ContinuousShape(capCorner)
     val panelScale = IslandThemes.active.panel.scale
     // Swipe-up-to-close, mirroring the island's swipe-up-close: the finger's upward travel is low-passed and mapped to a reduced

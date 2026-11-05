@@ -120,7 +120,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
         if ((page == CustomizationPage.ISLAND || page == CustomizationPage.ISLAND_STYLE) && appearance.island && extras != null) {
             val es = extras.store.state
             com.jake.duolauncher.island.IslandSettingsPreview(islandPreview, com.jake.duolauncher.island.PreviewSettings(appearance.islandScale, es.islandWideMode,
-                es.liveCompactLevel, es.peekLevel, es.peekActions, es.islandShortcuts, es.privacyIndicators, es.liveUpdates), Modifier.padding(bottom = 8.dp))
+                es.liveCompactLevel, es.peekLevel, es.peekActions, es.islandShortcuts, es.privacyIndicators, es.liveUpdates, es.islandCameraOnly), Modifier.padding(bottom = 8.dp))
         }
         CompositionLocalProvider(com.jake.duolauncher.island.LocalIslandPreview provides islandPreview) {
         Column(Modifier.weight(1f).verticalScroll(bodyScroll).padding(bottom = 24.dp),
@@ -258,9 +258,11 @@ private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> U
 private fun IslandPage(appearance: AppearanceState, extras: ExtrasActions?, apps: List<AppEntry>, islandEverywhere: Boolean,
     onIsland: (Boolean) -> Unit, onIslandEverywhere: (Boolean) -> Unit, onIslandHeight: (Float) -> Unit, onPage: (CustomizationPage) -> Unit) {
     val greyOverlay = islandEverywhere && !SystemShadeAccessibilityService.isConnected()
+    val islandPreview = com.jake.duolauncher.island.LocalIslandPreview.current
     SettingsGroup(footer = buildString {
         append("A capsule at the camera that shows the time, music, timers and what apps are doing, and opens with a tap.")
         append(" Over Other Apps keeps it there in every app.")
+        append(" With Pill at Rest off, it is only the camera until it has something to show, and grows out of it.")
         if (greyOverlay) append(" Without Uno's accessibility service Android draws it slightly see-through over apps, so it looks grey; turn the service on for a solid island that also covers the status bar.")
         else append(" With Uno's accessibility service on, the Home island stays still at the camera while Android animates the launcher.")
     }) {
@@ -269,6 +271,9 @@ private fun IslandPage(appearance: AppearanceState, extras: ExtrasActions?, apps
         // The island's height at rest: from the camera's own height to the most the screen allows. The preview above shows it as it moves.
         if (appearance.island) row { CustomizationSlider("Height", if (appearance.islandHeight < .01f) "Camera" else "${(appearance.islandHeight * 100).toInt()}%",
             appearance.islandHeight, 0f..1f, tag = "island-height-slider", onChange = onIslandHeight) }
+        // Off, the island is only the camera until it has something to show (music, a timer, a call, a notification) and grows out of it.
+        if (appearance.island && extras != null) row { SettingsSwitch("Pill at Rest", !extras.store.state.islandCameraOnly,
+            { extras.store.setIslandCameraOnly(!it); islandPreview?.show(com.jake.duolauncher.island.PreviewScene.IDLE) }, "island-pill-switch") }
         if (appearance.island) row { NavRow("Line Up with Status Bar", "customization-status-grid") { onPage(CustomizationPage.STATUS_GRID) } }
         if (appearance.island) row { NavRow("Style", "customization-island-style", value = IslandThemes.active.name) { onPage(CustomizationPage.ISLAND_STYLE) } }
     }

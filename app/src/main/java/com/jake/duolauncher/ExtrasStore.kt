@@ -79,6 +79,9 @@ internal data class ExtrasState(
     val islandShortcuts: Boolean = true,
     /** Whether the island's pill stays wide when idle over other apps (Wide / Extra wide), and how wide that pill is. */
     val islandWideMode: IslandWideMode = IslandWideMode.OFF,
+    /** With nothing to show, the island is only a ring round the camera (on Home and over apps) and grows out of it for music, timers, calls
+     *  and notifications; off, it rests as the 16 mm pill. Off by default. */
+    val islandCameraOnly: Boolean = false,
     /** Minutes that paused media worth returning to stays on the open island (and glows round the camera): 1, 2, 10 or 30. */
     val mediaResumeMinutes: Int = 2,
     val progressTasks: Boolean = true,
@@ -183,6 +186,7 @@ internal class ExtrasStore(context: Context) {
         islandWideMode = IslandWideMode.read(
             prefs.getInt("islandWideMode", 0).takeIf { prefs.contains("islandWideMode") },
             prefs.getBoolean("islandWide", false)),
+        islandCameraOnly = prefs.getBoolean(ISLAND_CAMERA_ONLY, false),
         mediaResumeMinutes = prefs.getInt("mediaResumeMinutes", 2),
         progressTasks = prefs.getBoolean("progressTasks", true),
         navigationTasks = prefs.getBoolean("navigationTasks", true),
@@ -256,6 +260,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("islandShortcuts", next.islandShortcuts)
             .putInt("islandWideMode", next.islandWideMode.ordinal)
             .remove("islandWide")
+            .putBoolean(ISLAND_CAMERA_ONLY, next.islandCameraOnly)
             .putInt("mediaResumeMinutes", next.mediaResumeMinutes)
             .putBoolean("progressTasks", next.progressTasks)
             .putBoolean("navigationTasks", next.navigationTasks)
@@ -324,6 +329,7 @@ internal class ExtrasStore(context: Context) {
     fun setMediaDetails(value: Boolean) = save(state.copy(mediaDetails = value))
     fun setCallDetails(value: Boolean) = save(state.copy(callDetails = value))
     fun setIslandWideMode(value: IslandWideMode) = save(state.copy(islandWideMode = value))
+    fun setIslandCameraOnly(value: Boolean) = save(state.copy(islandCameraOnly = value))
     fun setMediaResumeMinutes(value: Int) = save(state.copy(mediaResumeMinutes = value))
     fun setProgressTasks(value: Boolean) = save(state.copy(progressTasks = value))
     fun setNavigationTasks(value: Boolean) = save(state.copy(navigationTasks = value))
@@ -386,6 +392,9 @@ internal class ExtrasStore(context: Context) {
  * - Turn-by-turn cards follow the Navigation switch; the audio-device alerts follow the one System alerts switch.
  * - The keyboard never blurs the app behind it, and always has the emoji key, magnified keys and the space-bar cursor.
  */
+/** The "extras" key of [ExtrasState.islandCameraOnly]; the overlay reads it directly. */
+internal const val ISLAND_CAMERA_ONLY = "islandCameraOnly"
+
 internal fun fixRetiredSettings(prefs: android.content.SharedPreferences) {
     prefs.edit()
         .putInt("islandWideMode", IslandWideMode.OFF.ordinal).remove("islandWide")

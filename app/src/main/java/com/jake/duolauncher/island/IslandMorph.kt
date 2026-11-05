@@ -18,11 +18,11 @@ import kotlin.math.sqrt
  * belongs to the top strip (the privacy dots, the capsules) stays on the camera's line while the body opens and closes beneath it.
  */
 internal object IslandMorph {
-    /** The corner radius of a body [width] x [height] px: as round as its shorter side allows, up to [IslandGeometry.CORNER_CAP_DP], scaled by the
+    /** The corner radius of a body [width] x [height] px: as round as its shorter side allows, up to [IslandGeometry.cornerCapDp], scaled by the
      * theme's [panelScale]. The island and search share it, so search is the island's shape at every size it passes through. */
     fun cornerPx(width: Float, height: Float, density: Float, panelScale: Float = 1f): Float {
         val half = (minOf(width, height) / 2f).coerceAtLeast(0f)
-        val cap = IslandGeometry.CORNER_CAP_DP * density
+        val cap = IslandGeometry.cornerCapDp * density
         return if (panelScale < 1f) minOf(half, cap) * panelScale else minOf(half, cap * panelScale)
     }
 

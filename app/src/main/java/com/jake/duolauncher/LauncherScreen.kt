@@ -1127,6 +1127,7 @@ internal fun LauncherScreen(
                     feedHeadline = feed.shownEntries.firstOrNull()?.title,
                     sizeScale = appearance.islandScale,
                     wideFactor = extras?.store?.state?.islandWideMode?.wideFactor ?: 1f,
+                    ringWhenIdle = extras?.store?.state?.islandCameraOnly == true,
                     belowStatusBar = true,
                     statusRailShown = railShown,
                     statusBarShown = !statusHidden,

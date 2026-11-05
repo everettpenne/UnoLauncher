@@ -63,6 +63,10 @@ Where a radius is not a token it is derived, never picked:
 - **Hand-drawn outlines:** the island's body as it morphs, its rims, and search growing out of it use `continuousPath`, so they match.
 - **Capsules:** every capsule is `Corner.pill`. `CircleShape` is kept only for true circles (dots, round buttons).
 
+`CornerScaleTest` enforces this: `RoundedCornerShape`, `CornerRadius` and the canvas round rects outside `Corners.kt` fail the
+build. `CircleShape` is allowed for true circles; the keyboard keeps its own key shapes; drawn art (the island's battery glyph)
+is exempted line by line with a `corner-ok:` comment that says why.
+
 Appearance › Glass › Edge Highlight turns the rim light off on every glass surface (`GlassRim.enabled`).
 
 ## Color

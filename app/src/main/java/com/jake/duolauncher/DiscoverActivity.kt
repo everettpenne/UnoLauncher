@@ -272,7 +272,7 @@ class DiscoverFeedActivity : DiscoverPageActivity() {
                     Surface(if (DiscoverBounds.available) Modifier.fillMaxSize()
                         else Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(12.dp),
                         // Available, the native feed's page (Corner.xlarge) sits 16 dp inside this, so this is concentric with it; otherwise it is a floating panel.
-                        shape = if (DiscoverBounds.available) ContinuousShape((Corner.XLARGE_DP + 16f).dp) else Corner.xlarge,
+                        shape = ContinuousShape((if (DiscoverBounds.available) DiscoverCorners.FEED_DP else DiscoverCorners.FLOATING_DP).dp),
                         color = Glass, border = BorderStroke(1.dp, Color.White.copy(alpha = .4f))) {
                         // Recovery is only shown while connecting or after a real error. A native
                         // swipe must never reveal the old loading controls behind a loaded feed.

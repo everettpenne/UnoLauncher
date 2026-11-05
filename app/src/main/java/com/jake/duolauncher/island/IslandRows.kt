@@ -339,16 +339,16 @@ internal fun BatteryGlyph(level: Int?, charging: Boolean, modifier: Modifier = M
         val nub = 2.dp.toPx()
         val stroke = 1.dp.toPx()
         val body = Size(size.width - nub - 1.dp.toPx(), size.height)
-        val r = CornerRadius(3.5.dp.toPx())
-        drawRoundRect(ink.copy(alpha = .45f), topLeft = Offset(stroke / 2f, stroke / 2f), size = Size(body.width - stroke, body.height - stroke),
+        val r = CornerRadius(3.5.dp.toPx())  // corner-ok: the battery glyph is drawn art, not a surface
+        drawRoundRect(ink.copy(alpha = .45f), topLeft = Offset(stroke / 2f, stroke / 2f), size = Size(body.width - stroke, body.height - stroke),  // corner-ok: the battery glyph is drawn art, not a surface
             cornerRadius = r, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
-        drawRoundRect(ink.copy(alpha = .45f), topLeft = Offset(body.width + 1.dp.toPx() - stroke / 2f, size.height * .32f),
-            size = Size(nub, size.height * .36f), cornerRadius = CornerRadius(nub))
+        drawRoundRect(ink.copy(alpha = .45f), topLeft = Offset(body.width + 1.dp.toPx() - stroke / 2f, size.height * .32f),  // corner-ok: the battery glyph is drawn art, not a surface
+            size = Size(nub, size.height * .36f), cornerRadius = CornerRadius(nub))  // corner-ok: the battery glyph is drawn art, not a surface
         val inset = 2.dp.toPx()
         val w = (body.width - 2 * inset) * shown
         if (w <= 0f) return@Canvas
         if (!liquid) {
-            drawRoundRect(fill, topLeft = Offset(inset, inset), size = Size(w, body.height - 2 * inset), cornerRadius = CornerRadius(2.dp.toPx()))
+            drawRoundRect(fill, topLeft = Offset(inset, inset), size = Size(w, body.height - 2 * inset), cornerRadius = CornerRadius(2.dp.toPx()))  // corner-ok: the battery glyph is drawn art, not a surface
             return@Canvas
         }
         val top = inset; val bottom = body.height - inset; val h = bottom - top
@@ -362,7 +362,7 @@ internal fun BatteryGlyph(level: Int?, charging: Boolean, modifier: Modifier = M
             while (y < bottom) { y = minOf(bottom, y + 1f); lineTo(inset + w - amp + amp * kotlin.math.sin(phase + (y - top) / h * 2f * Math.PI.toFloat()), y) }
             lineTo(inset, bottom); close()
         }
-        clipPath(androidx.compose.ui.graphics.Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(inset, inset, body.width - inset, body.height - inset, CornerRadius(2.dp.toPx()))) }) {
+        clipPath(androidx.compose.ui.graphics.Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(inset, inset, body.width - inset, body.height - inset, CornerRadius(2.dp.toPx()))) }) {  // corner-ok: the battery glyph is drawn art, not a surface
             drawPath(path, fill)
             // The sheen: a lighter band that travels along the cell.
             val x = inset + (w * ((phase / (2f * Math.PI.toFloat())))) 

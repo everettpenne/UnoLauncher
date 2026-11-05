@@ -101,8 +101,7 @@ internal class DiscoverFrame(private val activity: Activity, private val vertica
                                     "layer=${layer?.size} matrix=${values.contentToString()}")
                         }
                     }
-                    outline.reset()
-                    outline.addRoundRect(left, 0f, right, height.toFloat(), 16*d, 16*d, Path.Direction.CW)
+                    continuousPath(outline, left, 0f, right, height.toFloat(), DiscoverCorners.FEED_DP * d)
                     val save = canvas.save()
                     canvas.clipOutPath(outline)
                     val layer = LiveDiscover.homeLayer
@@ -119,10 +118,9 @@ internal class DiscoverFrame(private val activity: Activity, private val vertica
                 }
                 val insets = rootWindowInsets?.getInsets(WindowInsets.Type.systemBars())
                 val path = outline.apply {
-                    reset()
-                    if (DiscoverBounds.available) addRoundRect(0f, 0f, width.toFloat(), height.toFloat(), 16*d, 16*d, Path.Direction.CW)
-                    else addRoundRect(2*d, (insets?.top ?: 0) + 12*d, width - 2*d,
-                        height - (insets?.bottom ?: 0) - 12*d, 26*d, 26*d, Path.Direction.CW)
+                    if (DiscoverBounds.available) continuousPath(this, 0f, 0f, width.toFloat(), height.toFloat(), DiscoverCorners.FEED_DP * d)
+                    else continuousPath(this, 2*d, (insets?.top ?: 0) + 12*d, width - 2*d,
+                        height - (insets?.bottom ?: 0) - 12*d, DiscoverCorners.FLOATING_DP * d)
                 }
                 path.offset(-(1f - DiscoverMotion.progress.floatValue) * width, 0f)
                 val saved = canvas.save()

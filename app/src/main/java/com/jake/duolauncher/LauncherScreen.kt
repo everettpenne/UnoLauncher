@@ -1737,7 +1737,7 @@ internal fun LauncherScreen(
                 HoldMenuItem(Icons.Rounded.Edit, stringResource(R.string.hold_rename_folder), "hold-rename-folder") { openFolderId = hold.folderId; close() },
                 HoldMenuItem(Icons.Rounded.Smartphone, stringResource(R.string.edit_home_screen), "hold-edit-home") { homeEditing = true; close() },
             )
-            HoldMenu(hold.anchor, controlGlass, items, if (hold.widgetSlot != null) 24.dp else 16.dp, onDismiss = close)
+            HoldMenu(hold.anchor, controlGlass, items, if (hold.widgetSlot != null) Corner.widget else Corner.icon, onDismiss = close)
         }
         appsById[selectedId]?.takeIf { menuAnchor != null && !menuMore }?.let { app ->
             val pinnedNow = state.layout.indexOfShortcut(app.id) != null

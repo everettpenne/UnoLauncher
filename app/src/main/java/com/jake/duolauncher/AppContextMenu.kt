@@ -1,5 +1,7 @@
 package com.jake.duolauncher
 
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
@@ -193,7 +195,7 @@ internal class HoldMenuItem(val icon: androidx.compose.ui.graphics.vector.ImageV
  * as the app menu, without the lifted icon, since a widget or a folder is drawn by Home itself and stays where it is.
  */
 @Composable
-internal fun HoldMenu(anchor: Rect, glass: PageGlass?, items: List<HoldMenuItem>, spotlightRadius: androidx.compose.ui.unit.Dp = 24.dp, onDismiss: () -> Unit) {
+internal fun HoldMenu(anchor: Rect, glass: PageGlass?, items: List<HoldMenuItem>, spotlightShape: androidx.compose.ui.graphics.Shape = Corner.large, onDismiss: () -> Unit) {
     val density = LocalDensity.current
     var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     val appear = remember { Animatable(0f, .001f) }
@@ -205,9 +207,11 @@ internal fun HoldMenu(anchor: Rect, glass: PageGlass?, items: List<HoldMenuItem>
         Box(Modifier.wholeWindow(origin).graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
             .drawWithContent {
                 drawRect(Color.Black.copy(alpha = .30f * appear.value))
-                val r = spotlightRadius.toPx()
-                drawRoundRect(Color.Black, androidx.compose.ui.geometry.Offset(anchor.left, anchor.top), anchor.size,
-                    androidx.compose.ui.geometry.CornerRadius(r, r), blendMode = androidx.compose.ui.graphics.BlendMode.Clear)
+                // The window has the held thing's own outline.
+                translate(anchor.left, anchor.top) {
+                    drawOutline(spotlightShape.createOutline(anchor.size, layoutDirection, this), Color.Black,
+                        blendMode = androidx.compose.ui.graphics.BlendMode.Clear)
+                }
             }
             .pointerInput(Unit) { detectTapGestures { onDismiss() } }.testTag("hold-menu-scrim"))
         val panelWidthPx = with(density) { 232.dp.toPx() }

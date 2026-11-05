@@ -60,6 +60,17 @@ class KeyboardExtrasTest {
         cats.forEach { c -> assertTrue(c.name, c.items.size >= 20 && c.items.all { it.isNotBlank() } && c.items.distinct().size == c.items.size) }
     }
 
+    @Test fun addressFieldsHaveTheirPunctuationBesideTheSpaceBar() {
+        assertEquals(FieldKind.EMAIL, KeyboardModel.fieldKind(0x21)); assertEquals(FieldKind.EMAIL, KeyboardModel.fieldKind(0xd1))
+        assertEquals(FieldKind.URL, KeyboardModel.fieldKind(0x11)); assertEquals(FieldKind.TEXT, KeyboardModel.fieldKind(0x1))
+        assertEquals(FieldKind.TEXT, KeyboardModel.fieldKind(0x12))                    // a number field's variation bits mean something else
+        fun labels(row: List<Key>) = row.map { when (it) { is Key.Char -> it.label; Key.Space -> "space"; Key.Enter -> "enter"; Key.Emoji -> "emoji"; Key.Globe -> "globe"; is Key.Page -> it.label; else -> "?" } }
+        assertEquals(listOf("123", "emoji", "@", "space", ".", "enter"), labels(KeyboardModel.bottomRow(KeyPage.LETTERS, globe = false, field = FieldKind.EMAIL)))
+        assertEquals(listOf("123", "globe", "/", "space", ".", ".com", "enter"), labels(KeyboardModel.bottomRow(KeyPage.LETTERS, globe = true, field = FieldKind.URL)))
+        // The number page has its own punctuation, so only the letters page changes.
+        assertEquals(listOf("ABC", "emoji", "space", "enter"), labels(KeyboardModel.bottomRow(KeyPage.NUMBERS, globe = false, field = FieldKind.EMAIL)))
+    }
+
     @Test fun theLibraryIsCompleteAndEveryEmojiCanBeSearched() {
         fun asset(name: String) = File("src/main/assets/keyboard/$name").let { if (it.exists()) it else File("app/src/main/assets/keyboard/$name") }
         val cats = EmojiData.parse(asset("emoji.txt").readLines().asSequence())

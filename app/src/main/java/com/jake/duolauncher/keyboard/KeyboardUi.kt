@@ -149,8 +149,8 @@ internal fun KeyboardScreen(ui: KeyboardUiState, actions: KeyboardActions, inSet
     val base = if (config.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) 36.dp else 46.dp
     val keyHeight = base * ui.heightScale
     // Rows are rebuilt only when the page, shift, layout or a key setting changes, not on every suggestion update.
-    val rows = remember(ui.page, ui.shift, ui.numberRow, ui.globe, ui.layout, ui.emojiKey) {
-        KeyboardModel.rows(ui.page, ui.shift, ui.numberRow, ui.globe, ui.layout, ui.emojiKey)
+    val rows = remember(ui.page, ui.shift, ui.numberRow, ui.globe, ui.layout, ui.emojiKey, ui.field) {
+        KeyboardModel.rows(ui.page, ui.shift, ui.numberRow, ui.globe, ui.layout, ui.emojiKey, ui.field)
     }
     val rootTopLeft = remember { mutableStateOf(Offset.Zero) }
     // The classic panel is square-topped, as it was; the glass one has rounded corners the window's blur follows.
@@ -233,21 +233,22 @@ private fun KeyRows(ui: KeyboardUiState, actions: KeyboardActions, palette: KeyP
                 val letters = row.count { it is Key.Char }
                 val inset = if (ui.page == KeyPage.LETTERS && index in 0..1) (widest - letters) / 2f else 0f
                 if (inset > 0f) Spacer(Modifier.weight(inset))
-                row.forEach { key -> KeyView(key, ui, actions, palette, Modifier.weight(weightFor(key, ui, rawIndex, rows.size, widest, letters))) }
+                row.forEach { key -> KeyView(key, ui, actions, palette, Modifier.weight(weightFor(key, ui, rawIndex, rows.size, widest, letters, row))) }
                 if (inset > 0f) Spacer(Modifier.weight(inset))
             }
         }
     }
 }
 
-private fun weightFor(key: Key, ui: KeyboardUiState, row: Int, rowCount: Int, widest: Int, letters: Int): Float = when (key) { // row counts from the top
-    is Key.Char -> 1f
+private fun weightFor(key: Key, ui: KeyboardUiState, row: Int, rowCount: Int, widest: Int, letters: Int, keys: List<Key>): Float = when (key) { // row counts from the top
+    is Key.Char -> key.weight
     // Shift and Delete share what the third row's letters leave of the widest row, but never shrink below a key and a quarter.
     Key.Shift, Key.Backspace -> if (ui.page == KeyPage.LETTERS) ((widest - letters) / 2f).coerceAtLeast(1.25f) else 1.5f
     is Key.Page -> if (row == rowCount - 1) 1.4f else 1.5f
     Key.Globe -> 1.1f
     Key.Emoji -> 1.1f
-    Key.Space -> 7.6f - (if (ui.globe) 1.1f else 0f) - (if (ui.emojiKey) 1.1f else 0f)
+    // The space bar takes what the bottom row's other keys leave: the emoji and globe keys, and an address field's punctuation.
+    Key.Space -> 7.6f - keys.sumOf { k -> when (k) { Key.Globe, Key.Emoji -> 1.1; is Key.Char -> k.weight.toDouble(); else -> 0.0 } }.toFloat()
     Key.Enter -> 2.2f
 }
 

@@ -22,6 +22,9 @@ internal sealed interface Key {
     data object Emoji : Key
 }
 
+/** What a field is for, as far as the bottom row cares: ordinary text, an email address or a web address. */
+internal enum class FieldKind { TEXT, EMAIL, URL }
+
 /** What the Enter key should do and say, from the field's IME action. */
 internal enum class EnterKind(val label: String, val sendsAction: Boolean) {
     RETURN("return", false), GO("Go", true), SEARCH("Search", true), SEND("Send", true), NEXT("Next", true), DONE("Done", true)
@@ -48,6 +51,13 @@ internal object KeyboardModel {
             IME_ACTION_DONE -> EnterKind.DONE
             else -> EnterKind.RETURN
         }
+    }
+
+    /** Email and web-address fields, from the input type's variation (uri; email address and web email address). */
+    fun fieldKind(inputType: Int): FieldKind = if (inputType and TYPE_MASK_CLASS != TYPE_CLASS_TEXT) FieldKind.TEXT else when (inputType and TYPE_MASK_VARIATION) {
+        0x20, 0xd0 -> FieldKind.EMAIL
+        0x10 -> FieldKind.URL
+        else -> FieldKind.TEXT
     }
 
     /** Numbers and phone fields open straight on the number page. */
@@ -85,7 +95,7 @@ internal object KeyboardModel {
 
     /** The rows for [page] on [layout]: an optional number row, three rows of keys and the bottom row. Letters are upper case while shift is on. */
     fun rows(page: KeyPage, shift: ShiftState, numberRow: Boolean = false, globe: Boolean = true, layout: KeyLayout = KeyLayouts.QWERTY,
-        emojiKey: Boolean = true): List<List<Key>> =
+        emojiKey: Boolean = true, field: FieldKind = FieldKind.TEXT): List<List<Key>> =
         if (page == KeyPage.EMOJI) emptyList() else (if (numberRow && page == KeyPage.LETTERS) listOf(chars("1234567890")) else emptyList()) + when (page) {
         KeyPage.LETTERS -> {
             val up = shift != ShiftState.OFF
@@ -97,14 +107,24 @@ internal object KeyboardModel {
         KeyPage.SYMBOLS -> listOf(chars(symbolRows[0]), chars(symbolRows[1]),
             listOf<Key>(Key.Page(KeyPage.NUMBERS, "123")) + chars(symbolRows[2]) + Key.Backspace)
         KeyPage.EMOJI -> emptyList()
-    } + listOf(bottomRow(page, globe, emojiKey))
+    } + listOf(bottomRow(page, globe, emojiKey, field))
 
     /** The bottom row: the page key, the emoji key (unless turned off), the switcher only when there is somewhere to switch to (another
      * layout or another keyboard: a globe that goes nowhere is just a dead key), the space bar and Return.
      */
-    fun bottomRow(page: KeyPage, globe: Boolean, emojiKey: Boolean = true): List<Key> = listOfNotNull(
-        if (page == KeyPage.LETTERS) Key.Page(KeyPage.NUMBERS, "123") else Key.Page(KeyPage.LETTERS, "ABC"),
-        if (emojiKey) Key.Emoji else null, if (globe) Key.Globe else null, Key.Space, Key.Enter)
+    fun bottomRow(page: KeyPage, globe: Boolean, emojiKey: Boolean = true, field: FieldKind = FieldKind.TEXT): List<Key> {
+        val letters = page == KeyPage.LETTERS
+        // As on iOS, an address field has its punctuation beside the space bar on the letters page: "@" and "." for an email
+        // address; "/", "." and ".com" for a web address, which has no use for the emoji key.
+        val (left, right) = when (if (letters) field else FieldKind.TEXT) {
+            FieldKind.EMAIL -> listOf(Key.Char("@")) to listOf(Key.Char("."))
+            FieldKind.URL -> listOf(Key.Char("/")) to listOf(Key.Char("."), Key.Char(".com", weight = 1.6f))
+            FieldKind.TEXT -> emptyList<Key>() to emptyList()
+        }
+        return listOfNotNull(if (letters) Key.Page(KeyPage.NUMBERS, "123") else Key.Page(KeyPage.LETTERS, "ABC"),
+            if (emojiKey && !(letters && field == FieldKind.URL)) Key.Emoji else null, if (globe) Key.Globe else null) +
+            left + Key.Space + right + Key.Enter
+    }
 
     /** Shift after tapping the shift key: off to once to locked and back. A quick second tap locks caps. */
     fun tapShift(state: ShiftState, doubleTap: Boolean): ShiftState = when {

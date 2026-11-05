@@ -245,6 +245,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         ui.enter = KeyboardModel.enterKind(info.imeOptions)
         ui.password = KeyboardModel.isPassword(info.inputType)
         ui.page = KeyboardModel.startPage(info.inputType)
+        ui.field = KeyboardModel.fieldKind(info.inputType)
         ui.accent = readAccent()
         ui.edgeHighlight = getSharedPreferences("appearance", Context.MODE_PRIVATE).getBoolean("edgeHighlight", true)
         ui.panel = KeyPanel.NONE; ui.tools = false; ui.emojiSearch = null; ui.selecting = false
@@ -1036,6 +1037,8 @@ internal class KeyboardUiState {
     var layout by mutableStateOf(KeyLayouts.QWERTY)
     var layoutCount by mutableIntStateOf(1)
     var emojiKey by mutableStateOf(true)
+    /** Ordinary text, an email address or a web address: the bottom row adds the address's punctuation. */
+    var field by mutableStateOf(FieldKind.TEXT)
     var keyPreviews by mutableStateOf(true)
     var heightScale by mutableFloatStateOf(1f)
     /** Uno 0.97's flat look instead of liquid glass (Settings > Keyboard > Key style); only the drawing changes. */

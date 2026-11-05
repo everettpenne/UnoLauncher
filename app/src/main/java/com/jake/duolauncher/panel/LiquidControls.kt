@@ -90,7 +90,7 @@ private fun Modifier.liquidThumb(glass: PageGlass, trackBackdrop: com.kyant.back
         },
         highlight = {
             val p = press()
-            Highlight.Ambient.copy(width = Highlight.Ambient.width / 1.5f, blurRadius = Highlight.Ambient.blurRadius / 1.5f, alpha = p)
+            if (!GlassRim.enabled) null else Highlight.Ambient.copy(width = Highlight.Ambient.width / 1.5f, blurRadius = Highlight.Ambient.blurRadius / 1.5f, alpha = p)
         },
         shadow = { Shadow(radius = 4f.dp, color = Color.Black.copy(alpha = .08f)) },
         innerShadow = { val p = press(); InnerShadow(radius = 4f.dp * p, alpha = p) },

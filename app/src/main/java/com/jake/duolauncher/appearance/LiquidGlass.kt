@@ -113,8 +113,16 @@ internal object GlassRim {
      */
     val samples = androidx.compose.runtime.mutableIntStateOf(0)
 
-    val Light: Highlight
+    /** The Edge Highlight setting. Off, [Light] and [GlassFinish.Edge] are null, so glass surfaces draw no rim light at all. Snapshot state,
+     *  so turning it redraws the glass without recomposing it. */
+    private val enabledState = androidx.compose.runtime.mutableStateOf(true)
+    var enabled: Boolean
+        get() = enabledState.value
+        set(value) { enabledState.value = value }
+
+    val Light: Highlight?
         get() {
+            if (!enabled) return null
             val b = boost
             // More tilt strength sharpens the falloff rather than brightening the whole rim: a rim that is bright on
             // every edge hides which way the light is, so the lit edge gets brighter while the others fade out.
@@ -151,8 +159,9 @@ internal object GlassFinish {
 
     /** The edge of clear glass: a fine line of light, bright where it faces the light and fading quickly away from it, as Liquid Glass's
      * is. It was 1.1 dp at full strength with a slow fall-off, which read as a drawn outline round the dock and the search pill. */
-    val Edge: Highlight
+    val Edge: Highlight?
         get() {
+            if (!GlassRim.enabled) return null
             val b = GlassRim.boost
             return Highlight.Default.copy(width = (.75f + .4f * b).dp,
                 style = com.kyant.backdrop.highlight.HighlightStyle.Default(intensity = .8f, angle = GlassRim.angle, falloff = 2.5f + 8f * b))

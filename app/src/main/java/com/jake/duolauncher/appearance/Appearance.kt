@@ -31,6 +31,8 @@ data class AppearanceState(val mode: AppearanceMode = AppearanceMode.LIGHT, val 
     val widgetStyle: WidgetStyle = WidgetStyle.CARD,
     /** The launcher's accent: Uno orange, or (on) one colour taken from the wallpaper. */
     val wallpaperColor: Boolean = false, val tiltHighlight: Boolean = false,
+    /** Glass surfaces catch the light along their edge ([GlassRim]). Off, every glass surface is drawn without its rim light. */
+    val edgeHighlight: Boolean = true,
     /** The wallpaper drifts a little against the pages as they scroll, for depth. Off, or with Android's animations off, it stays put. */
     val wallpaperDepth: Boolean = true,
     /** Home's layout on a phone-sized screen (see [HomeStyle]). */
@@ -79,6 +81,7 @@ class AppearanceStore(private val context: Context) {
             clearGlass = runCatching { prefs.getBoolean("clearGlass", true) }.getOrDefault(true),
             islandHeight = prefs.lenientFloat("islandHeight", 0f).coerceIn(0f, 1f),
             tiltHighlight = runCatching { prefs.getBoolean("tiltHighlight", false) }.getOrDefault(false),
+            edgeHighlight = runCatching { prefs.getBoolean("edgeHighlight", true) }.getOrDefault(true),
             island = runCatching { prefs.getBoolean("island", true) }.getOrDefault(true)), systemDark)
     }
     fun setMode(mode: AppearanceMode, systemDark: Boolean) { save(state.copy(mode = mode), systemDark) }
@@ -90,6 +93,7 @@ class AppearanceStore(private val context: Context) {
     fun setGlass(value: GlassChoice) { save(state.copy(liquidGlass = value != GlassChoice.OFF, clearGlass = value != GlassChoice.FROSTED), currentSystemDark()) }
     fun setWallpaperColor(value: Boolean) { save(state.copy(wallpaperColor = value), currentSystemDark()) }
     fun setTiltHighlight(value: Boolean) { save(state.copy(tiltHighlight = value), currentSystemDark()) }
+    fun setEdgeHighlight(value: Boolean) { save(state.copy(edgeHighlight = value), currentSystemDark()) }
     fun setIsland(value: Boolean) { save(state.copy(island = value), currentSystemDark()) }
     fun setIslandHeight(value: Float) { save(state.copy(islandHeight = value.coerceIn(0f, 1f)), currentSystemDark()) }
     fun setManual(place: String, latitude: Double, longitude: Double, systemDark: Boolean) {
@@ -117,6 +121,7 @@ class AppearanceStore(private val context: Context) {
             .putBoolean("liquidGlass", value.liquidGlass).putString("widgetStyle", value.widgetStyle.name)
             .putBoolean("island", value.island)
             .putBoolean("wallpaperColor", value.wallpaperColor).putBoolean("tiltHighlight", value.tiltHighlight)
+            .putBoolean("edgeHighlight", value.edgeHighlight)
             .putBoolean("wallpaperDepth", value.wallpaperDepth)
             .putString("homeStyle", value.homeStyle.name).putBoolean("clearGlass", value.clearGlass).putFloat("islandHeight", value.islandHeight)
             .remove("unoStatusBar")

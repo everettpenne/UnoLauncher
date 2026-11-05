@@ -74,6 +74,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onWidgetStyle: (WidgetStyle) -> Unit = {},
     onHomeStyle: (HomeStyle) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
+    onEdgeHighlight: (Boolean) -> Unit = {},
     onIsland: (Boolean) -> Unit = {},
     onIslandHeight: (Float) -> Unit = {},
     islandEverywhere: Boolean = false,
@@ -129,7 +130,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                 CustomizationPage.APPEARANCE -> {
                     WallpaperGroups(backgrounds, state, appearance.dark, onWallpaperPreview)
                     AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear, onAppearanceCancelLocation)
-                    GlassGroups(appearance, onGlass, onTiltHighlight, onWallpaperColor, onWallpaperDepth, onWidgetStyle)
+                    GlassGroups(appearance, onGlass, onEdgeHighlight, onTiltHighlight, onWallpaperColor, onWallpaperDepth, onWidgetStyle)
                     if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.ICONS)
                 }
                 CustomizationPage.HOME -> HomeLayoutSettings(state, wide, { wide = it }, model, homePage,
@@ -218,7 +219,7 @@ private fun OverviewPage(state: LauncherState, model: LauncherModel, isDefaultHo
 
 /** Glass, accent and depth: Appearance's groups below the wallpaper and light and dark. */
 @Composable
-private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> Unit, onTiltHighlight: (Boolean) -> Unit,
+private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> Unit, onEdgeHighlight: (Boolean) -> Unit, onTiltHighlight: (Boolean) -> Unit,
     onWallpaperColor: (Boolean) -> Unit, onWallpaperDepth: (Boolean) -> Unit, onWidgetStyle: (WidgetStyle) -> Unit) {
     val samples = GlassRim.samples.intValue
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -226,8 +227,9 @@ private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> U
     val sensorsAllowed = remember(appearance.tiltHighlight) { GrapheneSensors.allowed(context) }
     SettingsGroup(header = "Glass", footer = buildString {
         append("Clear is iOS's Liquid Glass: see-through, with a bright edge. Frosted keeps a soft tint behind text. Sheets stay frosted either way.")
-        if (appearance.liquidGlass) append(" Tilt Highlight moves the edge light as you tilt the phone.")
-        if (appearance.liquidGlass && appearance.tiltHighlight) when {
+        if (appearance.liquidGlass) append(" Edge Highlight is the light along the edge of every glass surface.")
+        if (appearance.liquidGlass && appearance.edgeHighlight) append(" Tilt Highlight moves it as you tilt the phone.")
+        if (appearance.liquidGlass && appearance.edgeHighlight && appearance.tiltHighlight) when {
             // GrapheneOS answers a denied app with readings that never change, not an error, so the grant itself is the reliable sign.
             sensorsAllowed == false -> append(" Sensors is off for Uno Launcher, so the highlight stays still. Allow it in App info › Permissions.")
             samples == 0 -> append(" No motion readings yet.")
@@ -235,7 +237,8 @@ private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> U
     }) {
         row { SegmentRow(GlassChoice.entries, appearance.glassKind, { when (it) { GlassChoice.CLEAR -> "Clear"; GlassChoice.FROSTED -> "Frosted"; GlassChoice.OFF -> "Off" } },
             { "glass-${it.name.lowercase()}" }, onGlass) }
-        if (appearance.liquidGlass) row { SettingsSwitch("Tilt Highlight", appearance.tiltHighlight, onTiltHighlight, "tilt-highlight-switch") }
+        if (appearance.liquidGlass) row { SettingsSwitch("Edge Highlight", appearance.edgeHighlight, onEdgeHighlight, "edge-highlight-switch") }
+        if (appearance.liquidGlass && appearance.edgeHighlight) row { SettingsSwitch("Tilt Highlight", appearance.tiltHighlight, onTiltHighlight, "tilt-highlight-switch") }
     }
     SettingsGroup(header = "Widgets", footer = "Card is a soft, plain widget like iOS's, and keeps swiping between pages smooth. Glass bends the wallpaper behind each widget, but pages swipe less smoothly with it. Each widget can choose its own from its options.") {
         row { SegmentRow(WidgetStyle.entries, appearance.widgetStyle, { when (it) { WidgetStyle.CARD -> "Card"; WidgetStyle.GLASS -> "Glass" } },

@@ -15,6 +15,7 @@ internal object SettingsSearch {
         SettingEntry("Android Wallpaper Too", CustomizationPage.APPEARANCE, "wallpaper system lock screen home also set"),
         SettingEntry("Light & Dark", CustomizationPage.APPEARANCE, "dark mode night theme sunset sunrise appearance automatic"),
         SettingEntry("Glass: Clear, Frosted or Off", CustomizationPage.APPEARANCE, "liquid glass blur frosted transparent ios edge tint dock material"),
+        SettingEntry("Edge Highlight", CustomizationPage.APPEARANCE, "glass rim edge light outline shine border"),
         SettingEntry("Tilt Highlight", CustomizationPage.APPEARANCE, "glass shine light gyroscope motion sensor"),
         SettingEntry("Accent: Uno Orange or From Wallpaper", CustomizationPage.APPEARANCE, "theme colour color material you dynamic orange"),
         SettingEntry("Wallpaper Depth", CustomizationPage.APPEARANCE, "parallax 3d"),

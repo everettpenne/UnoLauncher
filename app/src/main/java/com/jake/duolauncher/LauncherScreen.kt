@@ -151,6 +151,7 @@ internal fun LauncherScreen(
     onHomeStyle: (HomeStyle) -> Unit = {},
     onStatusIconsDark: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
+    onEdgeHighlight: (Boolean) -> Unit = {},
     island: IslandState = IslandState(),
     onIsland: (Boolean) -> Unit = {},
     onIslandHeight: (Float) -> Unit = {},
@@ -353,7 +354,7 @@ internal fun LauncherScreen(
     // The iOS layout (on a phone-sized screen) has no status rail: the system status bar shows instead, as on an iPhone.
     val iosLayout = appearance.homeStyle == HomeStyle.IOS && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 650
     val railShown = state.verticalStatus && !iosLayout
-    SideEffect { GlassFinish.clear = appearance.clearGlass; IconFinish.on = extras?.store?.state?.iconLighting ?: true }
+    SideEffect { GlassFinish.clear = appearance.clearGlass; GlassRim.enabled = appearance.edgeHighlight; IconFinish.on = extras?.store?.state?.iconLighting ?: true }
     // The status bar's icons follow the wallpaper under them: dark on a light top strip, light on a dark one (they were always light, and
     // faded out over a pale sky beside the black island). The same contrast rule and dead band as the glass ink, so it never flickers.
     val wallpaperLuma = LocalWallpaperLuma.current
@@ -1199,6 +1200,7 @@ internal fun LauncherScreen(
                             onWidgetStyle = onWidgetStyle,
                             onHomeStyle = onHomeStyle,
                             onTiltHighlight = onTiltHighlight,
+                            onEdgeHighlight = onEdgeHighlight,
                             backgrounds = launcherActivity.backgrounds,
                             onWallpaperPreview = { sheet = ""; onWallpaperPreview() }, homePage = pager.currentPage.coerceIn(0, homePages - 1),
                             feed = feed, onFeedRefresh = onFeedRefresh,

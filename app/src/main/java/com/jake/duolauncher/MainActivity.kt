@@ -197,7 +197,7 @@ class MainActivity : ComponentActivity() {
         intent.removeExtra("duo_destination")
         setContent {
             SideEffect { UnoFeedback.configure(this@MainActivity, extrasStore.state.haptics, extrasStore.state.sounds) }
-            TiltHighlight(enabled = appearance.state.tiltHighlight && appearance.state.liquidGlass,
+            TiltHighlight(enabled = appearance.state.tiltHighlight && appearance.state.edgeHighlight && appearance.state.liquidGlass,
                 strength = appearance.state.tiltStrength)
             val rawState = model.state.collectAsStateWithLifecycle().value
             val extrasState = extrasStore.state
@@ -251,6 +251,7 @@ class MainActivity : ComponentActivity() {
                     onHomeStyle = appearance::setHomeStyle,
                     onStatusIconsDark = ::setStatusIconsDark,
                     onTiltHighlight = appearance::setTiltHighlight,
+                    onEdgeHighlight = appearance::setEdgeHighlight,
                     island = island,
                     onIsland = appearance::setIsland,
                     onIslandHeight = appearance::setIslandHeight,

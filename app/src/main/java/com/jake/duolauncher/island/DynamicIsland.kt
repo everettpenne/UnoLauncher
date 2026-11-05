@@ -1052,7 +1052,7 @@ internal fun DynamicIsland(
                 if (a > .01f) drawBottomGlow(glowWash, glowTongue, a, flameT, flameAnimated)
                 // A hairline of light along the top-left edge, as on a lit glass pill: the body stays black, so the camera hole is still hidden.
                 // Only on the opened island: on the small pill (and every time an app opens under it) a bright edge is a distraction.
-                if (rimOn && progressState.value > .55f) {
+                if (rimOn && GlassRim.enabled && progressState.value > .55f) {
                     val w = 1.2.dp.toPx(); val r = cornerPx.value.coerceAtMost(minOf(size.width, size.height) / 2f)
                     drawRoundRect(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(alpha = .30f), Color.White.copy(alpha = .04f), Color.Transparent),
                         Offset.Zero, Offset(size.width * .6f, size.height)), Offset(w / 2f, w / 2f), androidx.compose.ui.geometry.Size(size.width - w, size.height - w),

@@ -942,13 +942,19 @@ internal fun DynamicIsland(
                     }
                     .drawBehind {
                         val t = appear.value
-                        if (t < .99f) {
+                        val spread = LiquidSplit.spread(t)
+                        if (spread != null) {
                             val frame = frameState.value
                             val r1 = endRadius(frame)
-                            val c1 = Metaball.Pt((if (shape.left) frame.left + r1 else frame.left + frame.width - r1) - capsuleX(frame), capsuleH / 2f - adjust.dy * d)
+                            // The pill's end is pulled out toward the drop (its centre moves out by the bulge), and the neck runs from there.
+                            val out = if (shape.left) -1f else 1f
+                            val bulge = LiquidSplit.bulge(t) * r1 * out
+                            val c1 = Metaball.Pt((if (shape.left) frame.left + r1 else frame.left + frame.width - r1) + bulge - capsuleX(frame), capsuleH / 2f - adjust.dy * d)
                             val c2 = Metaball.Pt(capsuleH / 2f, capsuleH / 2f)
                             val grow = (.55f + .45f * t).coerceAtLeast(.4f)
-                            Metaball.neck(c1, r1, c2, capsuleH / 2f * grow, reach = ((1f - t) * 2f).coerceIn(0f, 1.5f))?.let { n ->
+                            // The pill's bulged end, drawn as a circle so the pull shows on the pill itself, not only in the neck.
+                            if (kotlin.math.abs(bulge) > .5f) drawCircle(fill, r1, Offset(c1.x, c1.y))
+                            Metaball.neck(c1, r1, c2, capsuleH / 2f * grow, reach = 6f, v = spread)?.let { n ->
                                 neckPath.rewind()
                                 neckPath.moveTo(n.p1a.x, n.p1a.y); neckPath.cubicTo(n.h1.x, n.h1.y, n.h2.x, n.h2.y, n.p2a.x, n.p2a.y)
                                 neckPath.lineTo(n.p2b.x, n.p2b.y); neckPath.cubicTo(n.h3.x, n.h3.y, n.h4.x, n.h4.y, n.p1b.x, n.p1b.y); neckPath.close()
@@ -956,7 +962,12 @@ internal fun DynamicIsland(
                             }
                         }
                     }
-                    .graphicsLayer { val sc = (.55f + .45f * appear.value).coerceAtLeast(.4f) * pressScale; scaleX = sc; scaleY = sc; alpha = (appear.value / .35f).coerceIn(0f, 1f) }
+                    .graphicsLayer {
+                        // While tethered the drop is stretched along the pull, anchored on the pill's side, and springs round when the neck snaps.
+                        val sc = (.55f + .45f * appear.value).coerceAtLeast(.4f) * pressScale
+                        val (along, across) = LiquidSplit.stretch(appear.value)
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(if (shape.left) 1f else 0f, .5f)
+                        scaleX = sc * along; scaleY = sc * across; alpha = (appear.value / .2f).coerceIn(0f, 1f) }
                     .size(widthDp.dp, capsuleHeightDp)
                     .clip(capsuleShape)
                     .background(themeFill)
@@ -1054,7 +1065,7 @@ internal fun DynamicIsland(
             .islandSized { frameState.value }
             .islandBody(glass?.backdrop, { cornerPx.value }, settings = glass?.settings ?: GlassSettings.Default)
             .islandRing(ring, { cornerPx.value }, 2.5f * d)
-            .graphicsLayer { shape = ContinuousShape(androidx.compose.foundation.shape.CornerSize(cornerPx.value)); clip = true }
+            .graphicsLayer { shape = IslandOutlineShape(cornerPx.value, d); clip = true }
             // The playing track's colour rising from the island's bottom edge, swaying like a low flame while audio really plays.
             .drawBehind {
                 val a = glowAlpha.value
@@ -1063,7 +1074,7 @@ internal fun DynamicIsland(
                 // Only on the opened island: on the small pill (and every time an app opens under it) a bright edge is a distraction.
                 if (rimOn && GlassRim.enabled && progressState.value > .55f) {
                     val w = 1.2.dp.toPx(); val r = cornerPx.value.coerceAtMost(minOf(size.width, size.height) / 2f)
-                    drawPath(continuousPath(w / 2f, w / 2f, size.width - w, size.height - w, (r - w / 2f).coerceAtLeast(0f)),
+                    drawPath(IslandMorph.outlinePath(w / 2f, w / 2f, size.width - w, size.height - w, (r - w / 2f).coerceAtLeast(0f), d),
                         androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(alpha = .30f), Color.White.copy(alpha = .04f), Color.Transparent),
                         Offset.Zero, Offset(size.width * .6f, size.height)), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
                 }

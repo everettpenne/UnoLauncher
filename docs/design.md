@@ -62,7 +62,11 @@ Where a radius is not a token it is derived, never picked:
   Where the display reports none (the emulator), all four are 42 dp.
 - **Nested:** anything inside a rounded container uses `Corner.inside(parent, inset)`: the settings cards, the island's cards, Spotlight's
   answer card (44 − 16) and Discover's surface around its page (32 + 16).
-- **Hand-drawn outlines:** the island's body as it morphs, its rims, and search growing out of it use `continuousPath`, so they match.
+- **Hand-drawn outlines:** the island's body as it morphs, its rims, and search growing out of it use `IslandMorph.outline`, so they match:
+  Apple's squircle pill (`SquircleCapsule`: superellipse ends 1.25 half-heights long, exponent 2.6) while it is pill-height, easing back to a
+  stadium by twice the open corner, where `continuousPath`'s corner takes over. Detached capsules and the ring round the camera stay circles.
+- **The split:** a second activity pulls out of the pill's end as a drop on a neck that thins and pinches off at 72 % of its travel
+  (`LiquidSplit`, drawn with `Metaball.neck`), the pill's end bulging after it; leaving, the same neck swallows it.
 - **Capsules:** every capsule is `Corner.pill`. `CircleShape` is kept only for true circles (dots, round buttons).
 
 `CornerScaleTest` enforces this: `RoundedCornerShape`, `CornerRadius` and the canvas round rects outside `Corners.kt` fail the

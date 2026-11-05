@@ -20,7 +20,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -162,6 +164,48 @@ internal object ContinuousCorners {
     }
 
     private fun rad(degrees: Float) = degrees * (Math.PI.toFloat() / 180f)
+}
+
+/**
+ * Apple's island pill: a capsule whose ends are superellipse halves rather than semicircles, so the straight sides ease into a longer, flatter-tipped
+ * end (the curvature starts from zero where the side ends, as a squircle's does). Each end runs [END_LENGTH] times the half-height along the side
+ * and has exponent [EXPONENT]. [squircle] (0..1) blends it from the plain stadium (0: semicircle ends) to that shape (1), so a pill growing into
+ * a rounded panel never jumps. Pure, so it is unit-tested.
+ */
+internal object SquircleCapsule {
+    const val END_LENGTH = 1.25f
+    const val EXPONENT = 2.6f
+    private const val STEPS = 24                                            // segments per quarter: well under a pixel at any island size
+
+    fun build(width: Float, height: Float, squircle: Float, sink: PathSink) {
+        if (!(width > 0f && height > 0f)) return
+        val q = squircle.coerceIn(0f, 1f)
+        val b = min(width, height) / 2f
+        val horizontal = width >= height
+        // Along the long side, each end is END_LENGTH half-heights long (never more than half the shape); the exponent goes 2 -> EXPONENT.
+        val a = min(b * (1f + (END_LENGTH - 1f) * q), max(width, height) / 2f)
+        val e = 2f / (2f + (EXPONENT - 2f) * q)
+        fun pt(cAlong: Float, cAcross: Float, angle: Float, sign: Float): Pair<Float, Float> {
+            val c = cos(angle); val s = sin(angle)
+            val along = cAlong + sign * a * Math.pow(abs(c).toDouble(), e.toDouble()).toFloat()
+            val across = cAcross - (if (s < 0f) -1f else 1f) * b * Math.pow(abs(s).toDouble(), e.toDouble()).toFloat()
+            return if (horizontal) along to across else across to along
+        }
+        val long = max(width, height)
+        val half = (Math.PI / 2).toFloat()
+        // Clockwise from the top (left) end of the first straight side.
+        val start = pt(a, b, half, -1f); sink.moveTo(start.first, start.second)
+        for (end in 0..1) {
+            val centre = if (end == 0) long - a else a
+            val sign = if (end == 0) 1f else -1f
+            for (i in 0..STEPS * 2) {
+                val angle = if (end == 0) half - Math.PI.toFloat() * i / (STEPS * 2) else -half - Math.PI.toFloat() * i / (STEPS * 2)
+                val p = pt(centre, b, angle, sign)
+                sink.lineTo(p.first, p.second)
+            }
+        }
+        sink.close()
+    }
 }
 
 /** A rounded rectangle with [ContinuousCorners]. It is a [CornerBasedShape], like Compose's own [RoundedCornerShape], so the glass lens (which reads the

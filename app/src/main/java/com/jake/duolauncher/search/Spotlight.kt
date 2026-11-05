@@ -473,7 +473,7 @@ internal fun Spotlight(
                 // The hairline rim, on the outline as it grows (the island has none on its pill, so it comes in with the panel).
                 val r = outline()
                 val rim = Color.White.copy(alpha = .10f * (if (pill != null) effectiveProgress().coerceIn(0f, 1f) else 1f))
-                if (r != null) drawPath(continuousPath(r.left, r.top, r.width, r.height, IslandMorph.cornerPx(r.width, r.height, density.density, panelScale)),
+                if (r != null) drawPath(IslandMorph.outlinePath(r.left, r.top, r.width, r.height, IslandMorph.cornerPx(r.width, r.height, density.density, panelScale), density.density),
                     rim, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
                 else if (pill == null) drawPath(continuousPath(0f, 0f, size.width, size.height, capCorner.toPx()),
                     rim, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))

@@ -125,6 +125,32 @@ internal object Metaball {
     }
 }
 
+/**
+ * Apple's split: a second activity pulls out of the pill's end as a drop, tethered by a neck that stretches thinner as it goes and pinches off at
+ * [PINCH] of the way; going back, the same neck reaches out and swallows it. [t] is how far the capsule has travelled (0 inside the pill's end, 1
+ * at its place; a spring may carry it a little past). Pure, so it is unit-tested.
+ */
+internal object LiquidSplit {
+    /** Where along its travel the neck pinches off. */
+    const val PINCH = .72f
+
+    /** How taut the tether is: 0 at rest or once pinched off, 1 at its most stretched, just before it snaps. */
+    fun tension(t: Float): Float {
+        if (!(t > 0f) || t >= PINCH) return 0f
+        val u = t / PINCH
+        return (u * u * (3f - 2f * u)).coerceIn(0f, 1f)
+    }
+
+    /** The neck's spread for [Metaball.neck]: a wide join as the drop starts out, a thread at the moment it pinches. Null once it has. */
+    fun spread(t: Float): Float? = if (t >= PINCH) null else .58f - .46f * (t.coerceAtLeast(0f) / PINCH)
+
+    /** How far the pill's end bulges toward the drop, as a share of its radius: the pill is pulled out with it, then lets go. */
+    fun bulge(t: Float): Float = .28f * kotlin.math.sin(Math.PI.toFloat() * tension(t)).coerceAtLeast(0f) + .12f * tension(t)
+
+    /** The drop's own stretch along the pull ([first], wider) and across it ([second], thinner) while tethered. */
+    fun stretch(t: Float): Pair<Float, Float> { val k = tension(t); return (1f + .24f * k) to (1f - .12f * k) }
+}
+
 /** The app that was in front, read from the system's usage events. Only when the person has granted usage access; Uno does not ask for it here. */
 internal object ForegroundNow {
     fun label(context: android.content.Context): String? {

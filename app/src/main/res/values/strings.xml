@@ -411,10 +411,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">The keyboard learns how you type: keys fit where your taps really land, autocorrect gets more careful if you often undo it, and each app keeps its layout.</string>
-    <string name="whats_new_2">A slip you fix twice by picking the right word is fixed for you after that, and a correction you undo is never made again.</string>
-    <string name="whats_new_3">Days, months, languages and places get their capital, a second guess sits in the strip, and a long press on a suggestion stops it being offered.</string>
-    <string name="whats_new_4">If an update switches off notification access, Uno now says so and links straight to the setting.</string>
+    <string name="whats_new_1">Every corner now has iOS\'s continuous curve, nested shapes follow the corners around them, and every app icon has the same squircle.</string>
+    <string name="whats_new_2">Appearance › Glass › Edge Highlight turns the rim light off on every glass surface, to see how it looks without.</string>
+    <string name="whats_new_3">The keyboard matches the launcher: its corners, its accent and its edge light. It has every emoji now, and Text Replacement (try omw).</string>
+    <string name="whats_new_4">Email and web-address fields get @, / and .com beside the space bar, and there is more room above Android\'s keyboard switcher.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

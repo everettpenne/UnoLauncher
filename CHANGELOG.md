@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.123.0-uno01
+
+- **iOS's continuous corners, everywhere.** Panels, sheets, menus, widgets, the dock, the island and every glass surface had circular corners, because the glass library was thought to take only those; it takes any corner-based shape, so they now all have the continuous curve (Figma's 60% corner smoothing, the published match for iOS), and app icons keep their superellipse. Nested shapes follow what holds them: docks are concentric with their icons, a sheet's bottom corners with the display's own corners, cards with their panel, Spotlight's answer card with Spotlight, Discover's surface with its page. Every app icon and icon tile (the island's apps, setup, Settings' rows, the press lens on Home) has the same squircle; the island's "Squircle" option is a real squircle. Folders, Discover and Material's components are on the one scale, and a test fails the build on any corner drawn outside it.
+- **Edge Highlight.** Appearance › Glass › Edge Highlight turns off the rim light on every glass surface (and the keyboard's), for anyone who wants to see the glass without it.
+- **The keyboard matches the launcher.** Its keys, panel, key preview and strips have the same continuous corners (keys a little rounder, as iOS 26's are); the Return and Send key and the swipe trail take the launcher's accent (Uno orange, or the wallpaper's) instead of iOS blue; its rim light follows Edge Highlight.
+- **Every emoji.** All of Unicode Emoji 16.0 (1,906, from 629), every country's flag among them, each searchable by its name and the words people use for it, 195 with skin tones on a long press. Any the phone's font cannot draw is left out. The keycap # had been missing, and a word's emoji now prefers the one it names.
+- **Text Replacement**, as on iOS: a shortcut (omw comes built in) shows its phrase in the strip, space puts it in, Delete straight after puts the shortcut back. Add and remove them in Settings › Keyboard.
+- **Address fields**: "@" and "." beside the space bar in an email field; "/", "." and ".com" in a web address.
+- **More room above Android's keyboard switcher** (32 dp, from 20), which a thumb on the bottom row kept hitting.
+- **Tested:** 1,143 unit tests, passing. Seen on an emulator: Home, widgets, the side dock, the welcome sheet, the press lens, the keyboard on its settings page. **Not seen:** any of it on a phone; Spotlight, the hold menu and Discover with their new corners; a sheet's bottom corners following the display (the emulator reports no rounded corners); Text Replacement and the address keys typed through the real keyboard.
+
 ## 0.122.0-uno01
 
 - **The keyboard learns how you type.** Where your taps really land on each key: once it has seen a key tapped a dozen times in words you kept, autocorrect reads your taps against that spot instead of the drawn centre (by at most about a third of a key), so a tap between two keys goes the way your hand usually means. How much autocorrect you want: if you undo more than about one correction in eight, it narrows how far a correction may stray from what you typed and stops replacing real words on context alone, and relaxes again when you keep its corrections. The layout you last used in each app, when you have more than one. The emoji you put after a word. Settings shows a one-line summary under Typing Habits, with Reset.

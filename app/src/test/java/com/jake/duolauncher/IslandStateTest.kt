@@ -107,6 +107,29 @@ class IslandStateTest {
         assertNull(state.peekCard)
     }
 
+    @Test fun aCardDoesNotOpenTheIslandUnderAFingerPullingIt() {
+        state.pullFraction = .3f
+        state.showPeekCard(card())
+        assertNull(state.peekCard); assertFalse(state.expanded)
+        // Kept one tap away for afterwards.
+        assertEquals("Title", state.recentCard?.title)
+    }
+
+    @Test fun aNotificationHeldOffIsStillRememberedAsTheRecentOne() {
+        state.rememberRecent(card("while searching"))
+        assertNull(state.peekCard); assertFalse(state.expanded)
+        assertEquals("while searching", state.recentCard?.text)
+    }
+
+    @Test fun aFlashThatWaitedTooLongForThePillIsStale() {
+        state.showEvent(event("VPN on"), nowMs = 0L)
+        val now = System.currentTimeMillis()
+        assertFalse(state.flashStale(now))
+        assertTrue(state.flashStale(now + FLASH_STALE_MS + 1L))
+        state.dismissFlash()
+        assertFalse("nothing waiting is never stale", state.flashStale(now + FLASH_STALE_MS + 1L))
+    }
+
     @Test fun aCardClearsAFlash() {
         state.showEvent(event("VPN on"))
         state.showPeekCard(card())

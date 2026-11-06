@@ -165,7 +165,7 @@ class WeatherWidgetIntegrationTest {
     }
 
     @Test fun weatherCatalogBindsBothProvidersAtTheirActualSizesAndPersists() {
-        check(android.os.Build.HARDWARE in listOf("ranchu", "goldfish")); LiveDiscover.attachNativeFeed = true
+        check(android.os.Build.HARDWARE in listOf("ranchu", "goldfish"))
         val previousHome = shell("cmd role get-role-holders android.app.role.HOME").lineSequence().firstOrNull().orEmpty()
         shell("cmd role add-role-holder android.app.role.HOME com.jake.duolauncher 0"); shell("input keyevent KEYCODE_HOME")
         var before: HomeLayout? = null; var idsBefore = emptySet<Int>()
@@ -173,8 +173,8 @@ class WeatherWidgetIntegrationTest {
         var lastModel: LauncherModel? = null
         var lastController: WidgetController? = null
         try {
-            await { LiveDiscover.owner.get() != null }
-            var activity = requireNotNull(LiveDiscover.owner.get())
+            await { RunningLauncher.activity.get() != null }
+            var activity = requireNotNull(RunningLauncher.activity.get())
             var model = ViewModelProvider(activity)[LauncherModel::class.java]
             await { !model.state.value.loading }
             var controller = MainActivity::class.java.getDeclaredField("widgets").apply { isAccessible = true }
@@ -248,8 +248,8 @@ class WeatherWidgetIntegrationTest {
             screenshot("weather-widgets-bound.png")
             val oldActivity = activity
             instrumentation.runOnMainSync { oldActivity.recreate() }
-            await { LiveDiscover.owner.get()?.let { it !== oldActivity } == true }
-            activity = requireNotNull(LiveDiscover.owner.get()); model = ViewModelProvider(activity)[LauncherModel::class.java]
+            await { RunningLauncher.activity.get()?.let { it !== oldActivity } == true }
+            activity = requireNotNull(RunningLauncher.activity.get()); model = ViewModelProvider(activity)[LauncherModel::class.java]
             await { !model.state.value.loading }
             controller = MainActivity::class.java.getDeclaredField("widgets").apply { isAccessible = true }
                 .get(activity) as WidgetController
@@ -274,7 +274,7 @@ class WeatherWidgetIntegrationTest {
                 ?: "com.google.android.apps.nexuslauncher"
             shell("cmd role add-role-holder android.app.role.HOME $fallback 0")
             instrumentation.runOnMainSync {
-                (LiveDiscover.owner.get() ?: lastActivity)?.finish(); LiveDiscover.host.get()?.finish()
+                (RunningLauncher.activity.get() ?: lastActivity)?.finish()
             }
             if (previousHome.isNotEmpty()) shell("cmd role add-role-holder android.app.role.HOME $previousHome 0")
             else shell("cmd role remove-role-holder android.app.role.HOME $fallback 0")

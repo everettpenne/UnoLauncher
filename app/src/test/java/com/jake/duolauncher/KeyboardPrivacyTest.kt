@@ -13,7 +13,7 @@ import java.io.File
 class KeyboardPrivacyTest {
     private val network = listOf(
         "java.net", "javax.net", "okhttp", "android.net.http", "android.net.ConnectivityManager", "android.net.Network",
-        "android.webkit", "HttpURLConnection", "Socket", "URL(", "FeedFetcher", "DiscoverClient",
+        "android.webkit", "HttpURLConnection", "Socket", "URL(", "FeedFetcher",
         "android.util.Log", "Log.",
         // The clipboard may be read, never written by the keyboard itself, and never cleared: copy and cut go through the app.
         "setPrimaryClip", "ClipData.new", "clearPrimaryClip",

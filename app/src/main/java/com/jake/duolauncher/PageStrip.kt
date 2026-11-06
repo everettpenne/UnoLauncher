@@ -53,7 +53,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-/** The page-dots capsule: Discover, one dot per Home page, All apps. With glass on it carries an
+/** The page-dots capsule: My feed, one dot per Home page, All apps. With glass on it carries an
  * iOS 26-style selection lens. The lens rides the pager, so it glides between items as pages
  * scroll; resting a finger on the strip lifts it, and dragging along the strip scrubs through
  * the pages with the lens under the finger, magnifying the dot or icon it sits on.
@@ -65,7 +65,7 @@ internal fun PageStrip(
     visibleHomePages: Int,
     showCompass: Boolean,
     glass: PageGlass?,
-    onDiscover: () -> Unit,
+    onFeed: () -> Unit,
     onLibrary: () -> Unit,
     modifier: Modifier = Modifier,
     onBounds: (androidx.compose.ui.geometry.Rect) -> Unit = {},
@@ -132,8 +132,8 @@ internal fun PageStrip(
                     }
                 } else Modifier),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            if (showCompass) IconButton(onClick = onDiscover, Modifier.size(PageStripLayout.ICON_DP.dp).testTag("discover-page-link")) {
-                Icon(Icons.Rounded.Explore, "Discover", tint = ink.soft(.65f), modifier = Modifier.size(17.dp))
+            if (showCompass) IconButton(onClick = onFeed, Modifier.size(PageStripLayout.ICON_DP.dp).testTag("feed-page-link")) {
+                Icon(Icons.Rounded.Explore, "My feed", tint = ink.soft(.65f), modifier = Modifier.size(17.dp))
             }
             if (dotsMode) repeat(visibleHomePages) { index ->
                 Box(Modifier.size(PageStripLayout.DOT_DP.dp).clip(CircleShape)

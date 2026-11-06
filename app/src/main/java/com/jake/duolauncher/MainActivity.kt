@@ -52,6 +52,8 @@ class MainActivity : ComponentActivity() {
         private set
     private val homeRequests = mutableIntStateOf(0)
     private val searchRequests = mutableIntStateOf(0)
+    /** The island's feed button over other apps (and anything else) asked for My feed. */
+    private val feedRequests = mutableIntStateOf(0)
     private val feedSetupRequests = mutableIntStateOf(0)
     private val customizeRequests = mutableIntStateOf(0)
     /** Uno Keyboard's settings button asks for its own page of the Customize sheet. */
@@ -123,21 +125,17 @@ class MainActivity : ComponentActivity() {
         if (grants.values.any { it }) requestAppearanceLocation(keepPending = true)
         else finishAppearanceLocation("Location permission wasn’t granted. Using the system theme until you set a place.")
     })
-    private var openingDiscover = false
-    /** The three activity-level dialogs are glass cards in the Compose tree (LauncherScreen); these are their visibility. */
+    /** The two activity-level dialogs are glass cards in the Compose tree (LauncherScreen); these are their visibility. */
     internal val shadeSetupVisible = mutableStateOf(false)
-    internal val discoverFallbackVisible = mutableStateOf(false)
-    internal val discoverFallbackHasGoogle = mutableStateOf(false)
     internal val islandEverywherePromptVisible = mutableStateOf(false)
     private var returningFromShadeSettings = false
-    private var shadeSetupOwnsExternalUi = false
-    private var recreatingShadeSetup = false
     private var shadePromptDismissedThisRun = false
     private val shadePrefs by lazy { getSharedPreferences("shade", MODE_PRIVATE) }
     private fun shadePromptDeclined() = shadePromptDismissedThisRun ||
         runCatching { shadePrefs.getBoolean("declined", false) }.getOrDefault(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        RunningLauncher.activity = java.lang.ref.WeakReference(this)
         // Before anything can prune widget ids: stacked widgets are not on the grid but must stay bound.
         UpdateSecurity.appVersion = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "unknown"
         WidgetStacks.init(this)
@@ -164,16 +162,10 @@ class MainActivity : ComponentActivity() {
         // consume the IME insets move, so the pager/dock/rail stay put while the floating bottom
         // glass tracks the keyboard's top edge.
         @Suppress("DEPRECATION") window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        widgets = WidgetController(this, model) { active ->
-            LiveDiscover.setExternalResultPending(this, "main", "widget-setup", active)
-        }.also { it.restore(savedInstanceState) }
-        backups = BackupController(this, model, widgets, onExternalResultChanged = { active ->
-            LiveDiscover.setExternalResultPending(this, "main", "layout-backup", active)
-        }, onSettingsApplied = { extrasStore.reload(); appearance.reloadFromPreferences(); LargeFolders.reload(); WidgetData.reload(); IslandThemes.reload() },
+        widgets = WidgetController(this, model).also { it.restore(savedInstanceState) }
+        backups = BackupController(this, model, widgets, onSettingsApplied = { extrasStore.reload(); appearance.reloadFromPreferences(); LargeFolders.reload(); WidgetData.reload(); IslandThemes.reload() },
             feedSources = { feeds.state.value.sources }, onFeedsRestored = { feeds.restoreFeeds(it) }).also { it.restore() }
-        backgrounds = LauncherBackgroundController(this) { active ->
-            LiveDiscover.setExternalResultPending(this, "main", "launcher-background", active)
-        }
+        backgrounds = LauncherBackgroundController(this)
         status = DeviceStatusMonitor(this).also { lifecycle.addObserver(it) }
         IslandTools.load(this)
         NotificationFeed.onPeek = { peek ->
@@ -186,13 +178,16 @@ class MainActivity : ComponentActivity() {
                     cardAlreadyDown = island.peekCard != null,
                     shadeOpenedAtMs = IslandRuntime.shadeOpenedAtMs,
                     nowMs = System.currentTimeMillis(),
-                    spotlightOpen = IslandRuntime.spotlightOpen,
+                    homeCovered = IslandRuntime.homeCovered,
                 )) {
                     IslandEventArbiter.NotificationSurface.CARD -> island.showPeekCard(peek)
                     IslandEventArbiter.NotificationSurface.PILL ->
                         if (app != null) island.showPeek(app, peek.appLabel, peek.open)
                         else island.showEvent(IslandEvent(peek.appLabel, IslandSymbol.NOTIFICATION))
-                    IslandEventArbiter.NotificationSurface.NONE -> Unit
+                    // Held off while Home is taken over (search, a sheet): not shown, but kept as the island's recent notification, so it is
+                    // one tap away once the person is back. Not when the shade has just shown it: they have seen it.
+                    IslandEventArbiter.NotificationSurface.NONE ->
+                        if (IslandRuntime.homeCovered && (peek.title != null || peek.text != null)) island.rememberRecent(peek)
                 }
             }
         }
@@ -218,7 +213,7 @@ class MainActivity : ComponentActivity() {
                 LauncherScreen(state, model, widgets, homeRequests.intValue,
                     onLaunch = { launchApp(it) }, onMakeDefault = ::makeDefault, onAppInfo = ::appInfo,
                     isDefaultHome = defaultHome.value, deviceStatus = deviceStatus, onStatusMode = ::setStatusMode, onWallpaperPreview = ::previewWallpaper,
-                    onDiscover = ::openDiscover, searchRequests = searchRequests.intValue,
+                    feedRequests = feedRequests.intValue, searchRequests = searchRequests.intValue,
                     onLaunchFrom = ::launchApp, onGoogleSearch = ::openGoogleSearch,
                     appearance = appearance.state,
                     onAppearanceMode = { cancelAppearanceLocation(); appearance.setMode(it, systemDark()) },
@@ -269,9 +264,6 @@ class MainActivity : ComponentActivity() {
             }
         }
         FoldRenderExperiment.attach(this)
-        // Reassert the token after recreation (and after process restoration, where the
-        // in-memory owner set is empty) before any external UI can uncover Discover.
-        if (returningFromShadeSettings || restoreShadeDialog) ownShadeSetupExternally()
         if (restoreShadeDialog) window.decorView.post { if (!isFinishing && !isDestroyed) showShadeSetup() }
     }
 
@@ -301,8 +293,6 @@ class MainActivity : ComponentActivity() {
         widgets.host.stopListening(); super.onStop()
     }
     override fun onDestroy() {
-        recreatingShadeSetup = isChangingConfigurations
-        if (!isChangingConfigurations) releaseShadeSetupOwnership()
         cancelAppearanceLocation()
         if (!isChangingConfigurations) IslandThemeController.current?.let { it.dispose(); IslandThemeController.current = null }
         super.onDestroy()
@@ -315,21 +305,10 @@ class MainActivity : ComponentActivity() {
             pendingSplitSecond = null; splitLauncherStopped = false
             splitHandler.removeCallbacks(openSplitSecond); splitHandler.removeCallbacks(abandonSplit)
         }
-        if (returningFromShadeSettings) {
-            returningFromShadeSettings = false
-            releaseShadeSetupOwnership()
-        }
-        val discover = DiscoverSession.host.get()
-        if (discover != null) window.decorView.doOnPreDraw {
-            it.postOnAnimation { if (DiscoverSession.host.get() === discover) DiscoverSession.dismiss() }
-        }
+        returningFromShadeSettings = false
         notificationAccess.value = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
         accessLost.value = NotificationAccessWatch.lost(getSharedPreferences("access_watch", MODE_PRIVATE), notificationAccess.value)
         model.refresh(); appearance.refresh(systemDark()); updateDefaultHome(); feeds.refreshIfStale(); updates.checkIfStale(); syncIslandOverlay()
-        window.decorView.post {
-            if (!isFinishing && !isDestroyed && !LiveDiscover.viewport.isEmpty)
-                LiveDiscover.prepare(this, LiveDiscover.viewport, LiveDiscover.pageWidth)
-        }
     }
 
     internal fun openSystemShade(panel: ShadePanel) {
@@ -349,7 +328,6 @@ class MainActivity : ComponentActivity() {
 
     internal fun showShadeSetup() {
         if (shadeSetupVisible.value) return
-        ownShadeSetupExternally()
         shadeSetupVisible.value = true
     }
 
@@ -359,7 +337,6 @@ class MainActivity : ComponentActivity() {
         shadePromptDismissedThisRun = true
         runCatching { shadePrefs.edit().putBoolean("declined", true).apply() }
         shadeSetupVisible.value = false
-        releaseShadeSetupOwnership()
     }
 
     internal fun shadeSetupOpenSettings() {
@@ -370,7 +347,6 @@ class MainActivity : ComponentActivity() {
         } catch (_: android.content.ActivityNotFoundException) {
             returningFromShadeSettings = false
             shadeSetupVisible.value = false
-            releaseShadeSetupOwnership()
             Toast.makeText(this, "Accessibility settings are unavailable.", Toast.LENGTH_LONG).show()
         }
     }
@@ -380,17 +356,6 @@ class MainActivity : ComponentActivity() {
         showFirstRun.value = false
     }
 
-    private fun ownShadeSetupExternally() {
-        if (shadeSetupOwnsExternalUi) return
-        shadeSetupOwnsExternalUi = true
-        LiveDiscover.setExternalResultPending(this, "main", "shade-service-setup", true)
-    }
-
-    private fun releaseShadeSetupOwnership() {
-        if (!shadeSetupOwnsExternalUi) return
-        shadeSetupOwnsExternalUi = false
-        LiveDiscover.setExternalResultPending(this, "main", "shade-service-setup", false)
-    }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         // Re-applies what Home last asked for (the rail, or jiggle mode on the iOS layout, hides the status bar). A popup (the Edit menu)
@@ -413,7 +378,7 @@ class MainActivity : ComponentActivity() {
             "search" -> searchRequests.intValue++
             "customize" -> customizeRequests.intValue++
             "keyboard" -> keyboardSettingsRequests.intValue++
-            "feed" -> window.decorView.post { openDiscover() }
+            "feed" -> feedRequests.intValue++
         }
     }
 
@@ -502,41 +467,6 @@ class MainActivity : ComponentActivity() {
         true
     } catch (_: android.content.ActivityNotFoundException) { false }
       catch (_: SecurityException) { false }
-
-    private fun openDiscover() {
-        if (DiscoverEmbedding.supported(this)) {
-            if (openingDiscover) return
-            openingDiscover = true
-            // A very quick reopen can arrive before the previous return's deferred cleanup.
-            // Finish that session before taking a new image, so it cannot invalidate this copy.
-            DiscoverSession.dismiss()
-            DiscoverMotion.capture(this) {
-                openingDiscover = false
-                if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) return@capture
-                DiscoverSession.apps = model.state.value.apps
-                startActivity(Intent(this, DiscoverActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or Intent.FLAG_ACTIVITY_NO_ANIMATION))
-            }
-        }
-        else showDiscoverFallback()
-    }
-
-    private fun showDiscoverFallback() {
-        discoverFallbackHasGoogle.value = packageManager.getLaunchIntentForPackage(DiscoverClient.GOOGLE_PACKAGE) != null
-        discoverFallbackVisible.value = true
-    }
-
-    internal fun discoverFallbackStay() { discoverFallbackVisible.value = false }
-
-    internal fun discoverFallbackAddFeed() {
-        discoverFallbackVisible.value = false
-        feedSetupRequests.intValue++
-    }
-
-    internal fun discoverFallbackOpenGoogle() {
-        discoverFallbackVisible.value = false
-        runCatching { packageManager.getLaunchIntentForPackage(DiscoverClient.GOOGLE_PACKAGE)?.let(::startActivity) }
-    }
 
     private var overlaySettingsReturned = false
 
@@ -646,7 +576,6 @@ class MainActivity : ComponentActivity() {
     private fun useAppearanceLocation() {
         cancelAppearanceLocation()
         appearance.locationStatus("Waiting for device location…")
-        LiveDiscover.setExternalResultPending(this, "main", "appearance-location", true)
         if (hasCoarseLocation() || hasFineLocation())
             requestAppearanceLocation(keepPending = true)
         else {
@@ -659,7 +588,6 @@ class MainActivity : ComponentActivity() {
     // Permission is checked at the top and every call is inside runCatching, which absorbs a revoked grant.
     @android.annotation.SuppressLint("MissingPermission")
     private fun requestAppearanceLocation(keepPending: Boolean = false) {
-        if (!keepPending) LiveDiscover.setExternalResultPending(this, "main", "appearance-location", true)
         val generation = ++appearanceLocationGeneration
         val manager = getSystemService(LocationManager::class.java)
         if (!hasCoarseLocation() && !hasFineLocation()) {
@@ -727,7 +655,6 @@ class MainActivity : ComponentActivity() {
         appearancePermissionGeneration = -1
         appearanceLocationCancellation?.cancel(); appearanceLocationCancellation = null
         if (::appearance.isInitialized) appearance.locationStatus(null)
-        LiveDiscover.setExternalResultPending(this, "main", "appearance-location", false)
     }
 
     private fun finishAppearanceLocation(message: String?) {
@@ -735,7 +662,6 @@ class MainActivity : ComponentActivity() {
         appearancePermissionGeneration = -1
         appearanceLocationCancellation = null
         appearance.locationStatus(message)
-        LiveDiscover.setExternalResultPending(this, "main", "appearance-location", false)
     }
 
     /** Whether Home last asked for dark status bar icons (a light wallpaper under them). */
@@ -751,7 +677,6 @@ class MainActivity : ComponentActivity() {
 
     private fun setStatusMode(vertical: Boolean) {
         lastStatusHidden = vertical
-        LiveDiscover.host.get()?.statusMode(vertical)
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         if (vertical) controller.hide(WindowInsetsCompat.Type.statusBars()) else controller.show(WindowInsetsCompat.Type.statusBars())
@@ -783,4 +708,9 @@ class MainActivity : ComponentActivity() {
         const val SPLIT_GIVE_UP_MS = 12_000L
         const val SPLIT_SETTLE_MS = 700L
     }
+}
+
+/** The launcher activity now running. Instrumented tests that drive Home through intents (and so have no scenario holding it) reach it here. */
+internal object RunningLauncher {
+    var activity = java.lang.ref.WeakReference<MainActivity>(null)
 }

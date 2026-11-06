@@ -111,7 +111,6 @@ class NativeWidgetHomeBehaviorIntegrationTest {
         val args = InstrumentationRegistry.getArguments()
         val variant = args.getString("duoWidgetHomeVariant", "unspecified")
             .replace(Regex("[^A-Za-z0-9_.-]"), "_")
-        val previousAttach = LiveDiscover.attachNativeFeed
         val previousHome = shell("cmd role get-role-holders android.app.role.HOME").lineSequence().firstOrNull().orEmpty()
         val hadBindGrant = shell("dumpsys appwidget").lineSequence().any {
             it.contains("user=0 package=com.jake.duolauncher")
@@ -121,12 +120,11 @@ class NativeWidgetHomeBehaviorIntegrationTest {
         var lastMain: MainActivity? = null
         var primaryFailure: Throwable? = null
         try {
-            LiveDiscover.attachNativeFeed = true
             shell("cmd role add-role-holder android.app.role.HOME com.jake.duolauncher 0")
             shell("appwidget grantbind --package com.jake.duolauncher --user 0")
             shell("input keyevent KEYCODE_HOME")
-            await { LiveDiscover.owner.get() != null }
-            val main = requireNotNull(LiveDiscover.owner.get()); lastMain = main
+            await { RunningLauncher.activity.get() != null }
+            val main = requireNotNull(RunningLauncher.activity.get()); lastMain = main
             val initialMainIdentity = System.identityHashCode(main)
             var model = ViewModelProvider(main)[LauncherModel::class.java]
             await { !model.state.value.loading }
@@ -162,7 +160,7 @@ class NativeWidgetHomeBehaviorIntegrationTest {
                 await(8_000) { automation.rootInActiveWindow?.packageName == "com.jake.duolauncher" }; true
             }.getOrDefault(false)
             val afterHome = shell("dumpsys activity activities")
-            val postMain = LiveDiscover.owner.get()
+            val postMain = RunningLauncher.activity.get()
             File(context.filesDir, "native-widget-home-$variant.txt").writeText(buildString {
                 appendLine("reachedHome=$reachedHome")
                 appendLine("mainIdentityBefore=$initialMainIdentity")
@@ -202,9 +200,9 @@ class NativeWidgetHomeBehaviorIntegrationTest {
                 assertEquals(assignedId, model.placement(slot)?.id)
             }
             assertFalse(shell("dumpsys activity activities").contains("ResultInfo{who=null, request=701"))
-            click("Discover")
-            await(20_000) { LiveDiscover.progress >= .99f && LiveDiscover.message.value == null }
-            click("Back to home"); await { LiveDiscover.progress == 0f }
+            click("My feed")
+            await { find("Back to home")?.isVisibleToUser == true }
+            click("Back to home"); await { find("My feed")?.isVisibleToUser == true }
         } catch (failure: Throwable) {
             primaryFailure = failure
             throw failure
@@ -213,7 +211,7 @@ class NativeWidgetHomeBehaviorIntegrationTest {
             fun cleanup(block: () -> Unit) = try { block() } catch (failure: Throwable) {
                 if (cleanupFailure == null) cleanupFailure = failure else cleanupFailure?.addSuppressed(failure)
             }
-            val main = LiveDiscover.owner.get() ?: lastMain
+            val main = RunningLauncher.activity.get() ?: lastMain
             if (main != null && !main.isDestroyed && baseline != null) cleanup { instrumentation.runOnMainSync {
                 val model = ViewModelProvider(main)[LauncherModel::class.java]
                 val widgets = MainActivity::class.java.getDeclaredField("widgets").apply { isAccessible = true }
@@ -226,13 +224,12 @@ class NativeWidgetHomeBehaviorIntegrationTest {
             val cleanupHome = previousHome.takeIf { it.isNotEmpty() && it != "com.jake.duolauncher" }
                 ?: "com.google.android.apps.nexuslauncher"
             cleanup { shell("cmd role add-role-holder android.app.role.HOME $cleanupHome 0") }
-            cleanup { instrumentation.runOnMainSync { LiveDiscover.owner.get()?.finish(); LiveDiscover.host.get()?.finish() } }
+            cleanup { instrumentation.runOnMainSync { RunningLauncher.activity.get()?.finish() } }
             cleanup { shell("appwidget ${if (hadBindGrant) "grantbind" else "revokebind"} --package com.jake.duolauncher --user 0") }
             cleanup {
                 if (previousHome.isNotEmpty()) shell("cmd role add-role-holder android.app.role.HOME $previousHome 0")
                 else shell("cmd role remove-role-holder android.app.role.HOME $cleanupHome 0")
             }
-            LiveDiscover.attachNativeFeed = previousAttach
             cleanupFailure?.let { failure -> if (primaryFailure != null) primaryFailure?.addSuppressed(failure) else throw failure }
         }
     }

@@ -13,7 +13,7 @@ import org.junit.rules.RuleChain
 /** A double tap on empty Home space locks the screen, only when the person has switched that on, and a single tap does nothing. */
 class DoubleTapLockInstrumentedTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules: RuleChain = RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(WhatsNewSeen()).around(compose)
 
     @After fun off() { compose.runOnUiThread { compose.activity.extrasStore.setDoubleTapLock(false) } }
 

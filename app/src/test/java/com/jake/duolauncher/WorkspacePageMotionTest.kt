@@ -12,7 +12,7 @@ class WorkspacePageMotionTest {
         homeStride = 500f,
     )
 
-    @Test fun `discover homes and library have the intended endpoints`() {
+    @Test fun `feed homes and library have the intended endpoints`() {
         assertEquals(-1000f, motion.offset(0f), 0f)
         assertEquals(0f, motion.offset(1f), 0f)
         assertEquals(500f, motion.offset(2f), 0f)
@@ -47,13 +47,13 @@ class WorkspacePageMotionTest {
         }
     }
 
-    @Test fun `workspace without discover starts at physical page zero`() {
-        val noDiscover = WorkspacePageMotion(0, 3, 1000f, 500f)
-        assertEquals(0f, noDiscover.offset(0f), 0f)
-        assertEquals(500f, noDiscover.offset(1f), 0f)
-        assertEquals(1000f, noDiscover.offset(2f), 0f)
-        assertEquals(2000f, noDiscover.offset(3f), 0f)
-        assertEquals(3f, noDiscover.position(2000f), 0f)
+    @Test fun `workspace without a leading page starts at physical page zero`() {
+        val noLeading = WorkspacePageMotion(0, 3, 1000f, 500f)
+        assertEquals(0f, noLeading.offset(0f), 0f)
+        assertEquals(500f, noLeading.offset(1f), 0f)
+        assertEquals(1000f, noLeading.offset(2f), 0f)
+        assertEquals(2000f, noLeading.offset(3f), 0f)
+        assertEquals(3f, noLeading.position(2000f), 0f)
     }
 
     @Test fun `half width home panes preserve one to one visual input`() {

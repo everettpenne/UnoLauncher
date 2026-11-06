@@ -41,7 +41,6 @@ data class FeedState(
     /** Each source's last fetch error, keyed by source id; empty when every feed came back. Not persisted. */
     val sourceErrors: Map<String, String> = emptyMap(),
     val lastRefreshAt: Long = 0L,
-    val feedPreferred: Boolean = false,
     /** Links the user has opened, most recent first; used to dim read items and count the new ones. */
     val readLinks: List<String> = emptyList(),
     /** Links the user has saved for later, most recent first; kept past the normal cache cap. */
@@ -255,8 +254,6 @@ class FeedStore(private val context: Context, private val scope: CoroutineScope)
         sources = decodeSources(runCatching { prefs.getString("sources", "[]") }.getOrDefault("[]") ?: "[]"),
         entries = decodeEntries(runCatching { prefs.getString("entries", "[]") }.getOrDefault("[]") ?: "[]"),
         lastRefreshAt = runCatching { prefs.getLong("last_refresh", 0L) }.getOrDefault(0L),
-        // The feed is the main Discover surface; Google's own Discover is an extra where its app exists.
-        feedPreferred = runCatching { prefs.getBoolean("preferred", true) }.getOrDefault(true),
         readLinks = decodeLinks(runCatching { prefs.getString("read_links", "[]") }.getOrDefault("[]") ?: "[]"),
         savedLinks = decodeLinks(runCatching { prefs.getString("saved_links", "[]") }.getOrDefault("[]") ?: "[]", max = MAX_SAVED_LINKS),
         keepPerFeed = runCatching { prefs.getInt("keep_per_feed", DEFAULT_FEED_KEEP) }.getOrDefault(DEFAULT_FEED_KEEP)
@@ -268,7 +265,7 @@ class FeedStore(private val context: Context, private val scope: CoroutineScope)
             .putString("sources", encodeSources(state.sources))
             .putString("entries", encodeEntries(state.entries))
             .putLong("last_refresh", state.lastRefreshAt)
-            .putBoolean("preferred", state.feedPreferred)
+            .remove("preferred")
             .putString("read_links", encodeLinks(state.readLinks))
             .putString("saved_links", encodeLinks(state.savedLinks))
             .putInt("keep_per_feed", state.keepPerFeed)
@@ -425,11 +422,6 @@ class FeedStore(private val context: Context, private val scope: CoroutineScope)
         _state.update { it.copy(sources = it.sources.map { s -> if (s.id == id) s.copy(enabled = enabled) else s }) }
         save(_state.value)
         if (enabled) refresh()
-    }
-
-    fun setPreferred(preferred: Boolean) {
-        _state.update { it.copy(feedPreferred = preferred) }
-        save(_state.value)
     }
 
     /** Sets how many entries each feed keeps ([FEED_KEEP_CHOICES]) and trims what is cached to match at once. Saved entries are never trimmed. */

@@ -207,9 +207,14 @@ internal class IslandOverlayHost(
             var hideOver by androidx.compose.runtime.remember { mutableStateOf(emptySet<String>()) }
             val hiddenOverApp = HideOverApps.hidden(hideOverOn, hideOver, IslandRuntime.foregroundPackage, IslandRuntime.launcherInFront)
             val fullScreenHidden = FullScreenPolicy.hidden(fullScreen, NotificationFeed.ongoingCall != null, IslandTools.ringing)
-            LaunchedEffect(visible, fullScreenHidden, hiddenOverApp) {
-                val show = visible && !fullScreenHidden && !hiddenOverApp
+            // Home taken over by something the person opened (search, a settings sheet, the control panel, a drag): this window draws the Home
+            // island above the launcher's, so it steps aside as Home's own island does, fading, and comes back after. Only a ringing timer stays.
+            val yielded = IslandEventArbiter.overlayYields(IslandRuntime.homeCovered, IslandTools.ringing)
+            LaunchedEffect(visible, fullScreenHidden, hiddenOverApp, yielded) {
+                val show = visible && !fullScreenHidden && !hiddenOverApp && !yielded
                 hiddenForFullScreen = fullScreenHidden
+                // Stepping aside, the window waits for the fade below before it shrinks away, so the island fades rather than vanishing.
+                if (!show && yielded && shown) delay(YIELD_FADE_MS + 20L)
                 if (shown != show) { shown = show; applyLayout() } else updateHud()
             }
             LaunchedEffect(Unit) {
@@ -237,7 +242,9 @@ internal class IslandOverlayHost(
                     delay(2_000L)
                 }
             }
-            if (visible && !fullScreenHidden) {
+            if (visible && !fullScreenHidden) androidx.compose.animation.AnimatedVisibility(!yielded,
+                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200, delayMillis = 60)),
+                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(YIELD_FADE_MS.toInt()))) {
                 DynamicIsland(
                     state = IslandRuntime.state,
                     glass = null,
@@ -417,3 +424,6 @@ private fun readIslandCameraOnly(context: Context): Boolean =
 private fun WindowManager.LayoutParams.noMoveAnimation() {
     if (android.os.Build.VERSION.SDK_INT >= 34) setCanPlayMoveAnimation(false)
 }
+
+/** How long the overlay island takes to fade when it steps aside for what has taken Home over (as Home's own island does). */
+private const val YIELD_FADE_MS = 160L

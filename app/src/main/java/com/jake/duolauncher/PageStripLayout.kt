@@ -2,11 +2,11 @@ package com.jake.duolauncher
 
 import kotlin.math.floor
 
-/** Item geometry of the page-dots strip: an optional Discover button, one dot per Home page, and
+/** Item geometry of the page-dots strip: an optional My feed button, one dot per Home page, and
  * the All apps button. The selection lens needs to know where each item sits, so the widths
  * here are the single source for both the strip's layout and the lens's position.
  *
- * Logical pages follow the pager: Discover is -1, Home pages are 0 until `dots`, and All apps is
+ * Logical pages follow the pager: My feed is -1, Home pages are 0 until `dots`, and All apps is
  * `dots`.
  */
 internal object PageStripLayout {
@@ -46,7 +46,7 @@ internal object PageStripLayout {
     /** The logical page an item selects. */
     fun pageFor(item: Int, showCompass: Boolean): Int = item + firstItemPage(showCompass)
 
-    /** The item for a logical page, or null when that page has no item (Discover while it's hidden). */
+    /** The item for a logical page, or null when that page has no item (My feed while it's hidden). */
     fun itemFor(page: Int, showCompass: Boolean, dots: Int): Int? {
         val item = page - firstItemPage(showCompass)
         return item.takeIf { it in 0..(if (showCompass) dots + 1 else dots) }

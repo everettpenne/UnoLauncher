@@ -12,7 +12,7 @@ import java.io.File
 /** A developer aid: measures how tall placed widgets really are against the rows they should cover (not part of the suites). */
 class WidgetHeightProbeInstrumentedTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
     private fun model() = ViewModelProvider(compose.activity)[LauncherModel::class.java]
 
     @Test fun probe() {

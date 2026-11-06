@@ -69,6 +69,9 @@ data class HomeGeometry(
  * It reuses [HomeGeometry]'s fields so the rest of Home needs no second layout: the widget band's pitch, (widgetHeight + widgetGapY) / 2, is made
  * equal to the row pitch, which turns the side layout's two-pitch grid into a uniform one everywhere it is measured.
  */
+/** How far below the safe area's top every page's content starts: the iOS layout's Home grid, My feed and the App Library, so their tops line up. */
+const val PAGE_TOP_DP = 16f
+
 fun iosHomeGeometry(width: Float, height: Float, labels: Boolean, labelHeight: Float = 20f, iconScale: Float = 1f): HomeGeometry {
     val s = (width / 393f).coerceIn(.85f, 1.15f)
     val margin = 27.5f * s
@@ -82,7 +85,9 @@ fun iosHomeGeometry(width: Float, height: Float, labels: Boolean, labelHeight: F
     val dockHeight = icon + 30f * s
     val pillHeight = 32f
     val pillGap = 12f * s
-    val contentTop = 14f * s
+    // The grid starts where My feed and the App Library start (PAGE_TOP_DP), so the tops line up as the pages turn. It was 14 dp scaled with
+    // the screen (about 14.6 dp on a Pixel 10a), a little above those pages' 16.
+    val contentTop = PAGE_TOP_DP
     val reserve = dockBottom + dockHeight + pillGap + pillHeight + pillGap
     val fitPitch = (height - contentTop - reserve) / GRID_ROWS
     val pitchY = minOf(98f * s, fitPitch).coerceAtLeast(48f)

@@ -112,8 +112,27 @@ class SpotlightEmergeTest {
     }
 
     @Test fun contentAppearsOnlyOnceThereIsRoomForIt() {
-        assertEquals(0f, SpotlightEmerge.contentAlpha(.3f), 0f)
-        assertEquals(1f, SpotlightEmerge.contentAlpha(1f), 1e-4f)
-        assertTrue(SpotlightEmerge.contentAlpha(.7f) in 0.2f..0.8f)
+        assertEquals(0f, SpotlightEmerge.reveal(.15f, 0f), 0f)
+        // Each lands rather than stops: its movement runs a touch past its place before settling.
+        assertTrue((1..99).map { SpotlightEmerge.settle(it / 100f, 0f) }.any { it > 1f })
+        assertEquals(1f, SpotlightEmerge.settle(1f, 1f), 1e-4f)
+        // Everything is there once the panel is open, however far down it sits.
+        for (depth in listOf(0f, .5f, 1f, 1.4f)) assertEquals(1f, SpotlightEmerge.reveal(1f, depth), 1e-4f)
+    }
+
+    @Test fun theFieldComesOutFirstAndTheRowsFollowItDown() {
+        val p = .6f
+        val field = SpotlightEmerge.reveal(p, 0f); val middle = SpotlightEmerge.reveal(p, .5f); val bottom = SpotlightEmerge.reveal(p, 1f)
+        assertTrue("staggered: $field > $middle > $bottom", field > middle && middle > bottom)
+        // Each drops into its place from above, the lower ones from further, and is in place once out.
+        assertTrue(SpotlightEmerge.dropDp(0f, 1f) < SpotlightEmerge.dropDp(0f, 0f) && SpotlightEmerge.dropDp(0f, 0f) < 0f)
+        // The contents take longer than the outline's spring (about 170 ms), so the cascade is seen.
+        assertTrue(SpotlightEmerge.CONTENT_MS >= 400)
+        assertEquals(0f, SpotlightEmerge.dropDp(1f, .7f), 0f)
+        // The field widens from about the pill's width to its own.
+        assertTrue(SpotlightEmerge.fieldWidth(0f) < 1f); assertEquals(1f, SpotlightEmerge.fieldWidth(1f), 0f)
+        // Closing is the same in reverse: at a given progress the bottom rows have already gone further back than the field.
+        val closing = .5f
+        assertTrue(SpotlightEmerge.reveal(closing, 1f) <= SpotlightEmerge.reveal(closing, 0f))
     }
 }

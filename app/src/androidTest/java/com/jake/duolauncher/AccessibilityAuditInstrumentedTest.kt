@@ -18,7 +18,7 @@ import java.io.File
  */
 class AccessibilityAuditInstrumentedTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
 
     private val report = StringBuilder()
     private var unlabelled = 0

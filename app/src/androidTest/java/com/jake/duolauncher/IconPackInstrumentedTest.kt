@@ -12,7 +12,7 @@ import org.junit.Test
 /** The debug build carries a one-icon pack (res/xml/appfilter.xml in src/debug) that turns Chrome red. */
 class IconPackInstrumentedTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
     private val chrome = ComponentName("com.android.chrome", "com.google.android.apps.chrome.Main")
 
     @Test fun aPackIsLoadedAndItsIconReplacesTheAppsIcon() {

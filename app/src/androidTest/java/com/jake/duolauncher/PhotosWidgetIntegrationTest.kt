@@ -19,7 +19,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class PhotosWidgetIntegrationTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
     private fun model() = ViewModelProvider(compose.activity)[LauncherModel::class.java]
     private fun present(tag: String) = compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
 

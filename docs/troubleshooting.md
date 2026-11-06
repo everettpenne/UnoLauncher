@@ -16,17 +16,6 @@ Android's [app-signing documentation](https://source.android.com/docs/security/f
 
 Do not uninstall or clear storage from a configured installation just to test a differently signed APK: that removes its layout, selected launcher photo, and Android widget bindings. Keep the configured install and test the other signer on a separate device or disposable emulator. If you deliberately replace the install, save a layout backup first, but expect provider widgets to require **Reconnect** and the launcher photo to be absent from the backup.
 
-## Discover is missing or has no feed
-
-Discover requires the installed Google app plus device support for Uno Launcher's embedding path. Google account, network, app settings, Android, and vendor updates can affect it.
-
-- If a recovery card appears, choose **Retry**.
-- Choose **Open Google** to check whether the Google app itself can show content.
-- Choose **Back to Home**, press Back, or use the return arrow to leave Discover.
-- If **Open Google** is absent, the Google app has no launchable activity available to Uno.
-
-A recovery screen proves that Uno Launcher can return safely; it does not prove that the device supports the live embedded feed. A short swipe that begins inside Google's feed can also rebound because Google owns that gesture. Try a deliberate swipe, the Uno-owned dock or rail, or the return arrow.
-
 ## The search button does not open Google
 
 In **Launcher settings → Search**, check **Search button opens Google**. Uno Launcher asks the Google app to open Android's global search screen. If that activity is missing or blocked, Uno falls back to **All apps** with its local **Search apps** field. You can turn the setting off to use local app search every time.

@@ -11,10 +11,10 @@ To make Uno Launcher the launcher, choose **Set as home app** in Launcher settin
 ## Move around Home
 
 - Swipe horizontally across Home, the dock, or the right rail to move one page per gesture.
-- Swipe right from Home 1 for **My feed** (or Google Discover where the Google app is installed and you haven't chosen the feed). On a fresh install the feed page is empty: it offers the GrapheneOS announcements and release feeds, and nothing is contacted until you tap one. Swipe left, press Back, or use its right-pointing arrow to return.
+- Swipe right from Home 1 for **My feed**. On a fresh install the feed page is empty: it offers the GrapheneOS announcements and release feeds, and nothing is contacted until you tap one. Swipe left, press Back, or use its right-pointing arrow to return.
 - Swipe past the last Home page for **All apps**. Its **Search apps** field always searches installed apps locally.
-- The dock and its search control stay on the right. The page controls also open Discover or All apps.
-- Pressing the system Home control from an app returns to the Home page or pair of pages you last had visible. From All apps, search, or Discover it returns to the last Home view.
+- The dock and its search control stay on the right. The page controls also open My feed or All apps.
+- Pressing the system Home control from an app returns to the Home page or pair of pages you last had visible. From All apps, search, or My feed it returns to the last Home view.
 
 ## Customize Home
 
@@ -26,7 +26,7 @@ Swipe up anywhere on Home to open **Launcher settings** (not when the swipe star
 - **Notifications & privacy:** notification access, badges, how much a new notification's card shows, hidden apps, Focus, and what every permission can see (the permission ledger).
 - **Gestures & feel:** app names, the upper-right status display, pull-down and right-hand swipes, the control panel's tiles and shortcuts, haptics and sounds.
 - **Search:** the Google button, suggestions, and contacts.
-- **News feed:** your own headlines in place of Discover.
+- **News feed:** your own headlines on My feed.
 - **Keyboard:** the Uno Keyboard's suggestions, autocorrect, haptics and one-handed mode.
 - **Backup & about:** save or restore your layout and settings, updates, and help & setup.
 

@@ -51,7 +51,7 @@ import kotlinx.coroutines.flow.collect
  */
 internal val LocalFeedFollow = staticCompositionLocalOf<(String, (FeedAddResult) -> Unit) -> Unit> { { _, _ -> } }
 
-/** The local news feed surface shown in the Discover slot. Fetches nothing on its own;
+/** The local news feed: My feed, the page before the first Home page. Fetches nothing on its own;
  * it renders the on-device cache and asks the owner to refresh or to add a source.
  */
 @Composable

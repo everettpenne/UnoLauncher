@@ -57,7 +57,7 @@ Screenshots show sample data on a phone-sized emulator, and some predate the new
 | Move an app or widget | Long-press, then drag. Hold at a screen edge to change or create a page |
 | Make a folder | Drop an app onto the **middle** of another app. Drop nearer the edge to just move it there. Drop an app on a **large folder** to put it inside |
 | Add to the dock | Drag an app into a free dock slot (move one out first if the dock is full) |
-| Open Discover / your news feed | Swipe right from the first Home page, or tap the compass. It shows Google's feed when available, otherwise your own feed |
+| Open My feed | Swipe right from the first Home page, or tap the compass |
 | Use split screen | Long-press an app, **Open in split screen**, then pick the second app |
 
 The ring around the clock shows battery, the arcs inside it show Wi-Fi strength, and the dots show cellular strength.
@@ -116,7 +116,7 @@ Pulling down for Android's own notification and Quick Settings panels needs an a
 - A dynamic island with Live Updates, music, calls, timers, privacy marks, system alerts, bubbles, a hosted widget and per-app control.
 - A control panel, Focus, Spotlight-style search with app hand-off, badges, and contact search (all optional).
 - An iOS-inspired look in the Inter typeface: liquid-glass dock, widgets, sheets and controls that blur and refract what is behind them (adjustable, with an off switch), continuous corners on icons, panels, sheets and widgets, a spring-scale press with no ripple.
-- A private RSS/Atom news feed that fills the Discover slot without a Google account or app. It starts empty and contacts nothing until you add a feed.
+- My feed: a private RSS/Atom news feed, the page before the first Home page, with no Google account or app. It starts empty and contacts nothing until you add a feed.
 - Uno Keyboard, a local on-screen keyboard.
 - Photo wallpapers, light, dark and sunrise-to-sunset appearance, layout and settings backup, and a self-updater.
 
@@ -133,7 +133,7 @@ No launcher account, server, advertising, analytics or automatic crash upload is
 
 ## Known limits
 
-- Discover can differ across Google, Android and vendor updates; recovery controls always return you Home. The news feed works without the Google app, reads RSS 2.0 and Atom with plain summaries, and needs a browser to open stories.
+- My feed works without the Google app, reads RSS 2.0 and Atom with plain summaries, and needs a browser to open stories.
 - Work apps and widgets remain subject to administrator policy. Private Space is not supported yet, folders do not nest (as on iOS) and are not in the dock yet; the reasons are in [Non-goals](docs/design.md#non-goals-for-now).
 - Imported Android widgets must be bound again; backups exclude widget stacks, photo backgrounds and system widget capabilities. A large folder or widget restored on another phone keeps its apps only where the same apps exist. Known problems and unverified features are listed in [future fixes needed](docs/future-fixes.md).
 - The full-screen rule is landscape only (portrait full-screen apps cannot be detected without reading other apps' windows, which Uno will not do). Moon phase is the mean cycle and can be hours off.

@@ -41,14 +41,15 @@ internal object IslandEventArbiter {
      * @param cardAlreadyDown whether the island is already presenting a notification card.
      * @param shadeOpenedAtMs when the launcher last opened the notification shade, 0 if never.
      * @param nowMs now.
-     * @param spotlightOpen whether Spotlight (the search grown out of the island) is open. While it is, the island
-     *   holds off: no card drops and no name-only flash fires underneath the search, so a notification never
-     *   auto-expands the island while the user is typing.
+     * @param homeCovered whether something the person opened has taken Home over (Spotlight, a settings sheet, the
+     *   control panel, a drag: IslandRuntime.homeCovered). While it has, the island holds off: no card drops and no
+     *   name-only flash fires underneath it, so a notification never auto-expands the island while the person is
+     *   typing a search or changing a setting. The caller keeps the notification as the island's recent one instead.
      */
     fun notificationSurface(hasTitleOrText: Boolean, cardAlreadyDown: Boolean, shadeOpenedAtMs: Long, nowMs: Long,
-        spotlightOpen: Boolean = false): NotificationSurface = when {
+        homeCovered: Boolean = false): NotificationSurface = when {
         shadeOpenedAtMs > 0L && nowMs - shadeOpenedAtMs in 0 until SHADE_ANNOUNCE_COOLDOWN_MS -> NotificationSurface.NONE
-        spotlightOpen -> NotificationSurface.NONE
+        homeCovered -> NotificationSurface.NONE
         hasTitleOrText -> NotificationSurface.CARD
         cardAlreadyDown -> NotificationSurface.NONE
         else -> NotificationSurface.PILL
@@ -75,6 +76,22 @@ internal object IslandEventArbiter {
     enum class BatteryOwner { RAIL, ISLAND }
 
     fun batteryLevelOwner(statusRailShown: Boolean): BatteryOwner = if (statusRailShown) BatteryOwner.RAIL else BatteryOwner.ISLAND
+
+    /**
+     * Whether the island steps aside for what has taken Home over ([homeCovered]: Spotlight, a settings sheet, the control panel, a drag).
+     * What the person opened wins over the island, whatever it is showing (music, a Live Update, a flash), and the island comes back
+     * when it closes; only a ringing timer, which has to be seen and stopped, keeps the island. (Home also closes search and the control
+     * panel when a timer rings, since its own island is drawn under them; a settings sheet stays open.)
+     */
+    fun overlayYields(homeCovered: Boolean, timerRinging: Boolean): Boolean = homeCovered && !timerRinging
+
+    /**
+     * Whether an event flash on the pill is being seen, so its few seconds count: the pill is showing ([islandShown]) and is a pill, not
+     * open, peeking or being pulled. A flash that arrives while the island is open (the music panel, a card) or stepped aside used to play
+     * its seconds out unseen and be lost; now it waits for the pill, unless it has gone stale ([FLASH_STALE_MS]).
+     */
+    fun flashOnScreen(flashing: Boolean, islandShown: Boolean, expanded: Boolean, peeked: Boolean, pulling: Boolean): Boolean =
+        flashing && islandShown && !expanded && !peeked && !pulling
 
     /**
      * True when a press at [x],[y] (window pixels) lands on the collapsed pill, so a downward pull there

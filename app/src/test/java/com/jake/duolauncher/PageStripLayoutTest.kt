@@ -33,7 +33,7 @@ class PageStripLayoutTest {
                 assertEquals("item $item compass=$compass", item, PageStripLayout.itemFor(page, compass, 4))
             }
         }
-        assertEquals("compass selects Discover", -1, PageStripLayout.pageFor(0, true))
+        assertEquals("compass selects My feed", -1, PageStripLayout.pageFor(0, true))
         assertEquals("first dot is Home 1", 0, PageStripLayout.pageFor(1, true))
         assertEquals("library is the page after the last dot", 4, PageStripLayout.pageFor(5, true))
         assertNull("no compass item while hidden", PageStripLayout.itemFor(-1, false, 4))
@@ -42,7 +42,7 @@ class PageStripLayoutTest {
     @Test fun lensSitsOnTheItemAtWholePagesAndGlidesBetween() {
         val widths = PageStripLayout.widths(true, 3)
         val centers = PageStripLayout.centers(widths)
-        // Discover (-1), Home 1..3 (0..2), All apps (3).
+        // My feed (-1), Home 1..3 (0..2), All apps (3).
         listOf(-1f, 0f, 1f, 2f, 3f).forEachIndexed { index, page ->
             assertEquals(centers[index], PageStripLayout.centerAt(page, widths, true), 0.001f)
         }
@@ -56,7 +56,7 @@ class PageStripLayoutTest {
         val widths = PageStripLayout.widths(false, 3)
         val centers = PageStripLayout.centers(widths)
         assertEquals(centers[0], PageStripLayout.centerAt(0f, widths, false), 0.001f)
-        assertEquals("Discover has no item, so the lens holds at the first dot",
+        assertEquals("My feed has no item, so the lens holds at the first dot",
             centers[0], PageStripLayout.centerAt(-1f, widths, false), 0.001f)
     }
 

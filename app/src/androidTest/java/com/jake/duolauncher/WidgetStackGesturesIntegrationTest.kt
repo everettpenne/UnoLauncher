@@ -14,7 +14,7 @@ import org.junit.Test
 /** Stacks by gesture: a vertical swipe on a stack switches its widget, and a widget held over another's middle stacks onto it. */
 class WidgetStackGesturesIntegrationTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
     private fun model() = ViewModelProvider(compose.activity)[LauncherModel::class.java]
     private fun present(tag: String) = compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
     private fun root() = compose.onNodeWithTag("launcher-root")

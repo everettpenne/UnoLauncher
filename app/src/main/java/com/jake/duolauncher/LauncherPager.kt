@@ -2,11 +2,11 @@ package com.jake.duolauncher
 
 import androidx.compose.foundation.pager.PagerState
 
-/** Home/drop indices stay zero based; Discover is logical page -1. */
+/** Home/drop indices stay zero based; My feed is logical page -1. */
 internal class LauncherPager(val state: PagerState, private val firstHome: Int) {
     val currentPage get() = state.currentPage - firstHome
     val settledPage get() = state.settledPage - firstHome
-    /** The pager's position in logical pages, fractional while it scrolls (Discover is -1). */
+    /** The pager's position in logical pages, fractional while it scrolls (My feed is -1). */
     val position: Float get() = state.currentPage + state.currentPageOffsetFraction - firstHome
     fun requestScrollToPage(page: Int) = state.requestScrollToPage(page + firstHome)
     suspend fun scrollToPage(page: Int) = state.scrollToPage(page + firstHome)

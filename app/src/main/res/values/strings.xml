@@ -32,14 +32,7 @@
     <string name="restore">Restore</string>
     <string name="replace">Replace</string>
 
-    <!-- DiscoverActivity.kt -->
-    <string name="discover">Discover</string>
     <string name="retry">Retry</string>
-    <string name="open_google">Open Google</string>
-    <string name="back_to_home">Back to home</string>
-
-    <!-- DiscoverContent.kt -->
-    <string name="back_to_home_2">Back to Home</string>
 
     <!-- ExtrasSettings.kt -->
     <string name="turn_on_uno_keyboard">Turn on Uno Keyboard</string>
@@ -74,9 +67,6 @@
     <string name="shade_gestures_message">Swiping down on Home can open Notifications or Quick Settings. Android lets a launcher do that only through an accessibility service, so it stays off until you turn it on.\n\nIt can: open those two panels when you swipe, and draw the dynamic island above other apps and the status bar (an accessibility service is the only window Android lets sit there).\nIt can’t: read your screen, see other apps, or tap or type for you.\n\nWithout it, the island can still show above other apps through “Display over other apps”, under the status bar. Turn the service off any time in Settings → Accessibility. Uno Launcher works the same without it.</string>
     <string name="no_thanks">No thanks</string>
     <string name="open_settings">Open settings</string>
-    <string name="discover_unavailable_title">Discover isn’t available here</string>
-    <string name="discover_unavailable_message">Uno Launcher can’t place the Discover feed beside Home on this device. You can open the Google app, add your own news feeds for this slot, or stay on Home.</string>
-    <string name="stay_on_home">Stay on Home</string>
     <string name="island_everywhere_title">Island everywhere</string>
     <string name="island_everywhere_message">This shows the island above other apps using Android’s “display over other apps” permission. The island window is exactly the island’s size, never draws on the lock screen or when the screen is off, and touches outside it pass through to the app beneath. Android draws this kind of window beneath the status bar, so over other apps the island can be seen but not tapped. For a tappable island, choose “Tappable island” and turn on Uno Launcher shade gestures in Accessibility; it draws only the island and reads nothing from other apps. Nothing is read, stored, or sent that the island doesn’t already show on Home.</string>
     <string name="tappable_island">Tappable island</string>

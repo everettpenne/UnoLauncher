@@ -10,7 +10,7 @@ import org.junit.Test
 
 class SystemWallpaperSyncInstrumentedTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
 
     /** The switch is off by default, and turning it on hands the chosen background to both the home and lock screens. */
     @Test fun turningOnTheSwitchSetsHomeAndLockWallpaper() {

@@ -38,11 +38,14 @@ internal object IslandRuntime {
     /** When the launcher last opened the notification shade (0 if never), so the island does not re-announce a
      * notification the shade has just presented (see [IslandEventArbiter.notificationSurface]). */
     @Volatile var shadeOpenedAtMs = 0L
-    /** True while Spotlight (the search grown out of the island) is open. While it is, the island holds off: a
-     * notification does not drop a card or auto-expand under the search (IslandEventArbiter.notificationSurface),
-     * and the island itself is not composed (LauncherScreen), so its cutout tap cannot expand it either. */
-    @Volatile var spotlightOpen = false
-    
+    /** True while something the person opened on Home has taken it over: Spotlight (the search grown out of the island), a settings sheet,
+     *  the control panel, a drag or first run. Set by Home. While Home is in front and taken over, the island steps aside for it (see
+     *  [homeCovered] and IslandEventArbiter.overlayYields); it was only the Home window's island that did, so the overlay's (which draws the
+     *  Home island when the accessibility service is on) stayed on top of the search with its music pill. */
+    var homeTakeover by mutableStateOf(false)
+    /** Home is in front and taken over (see [homeTakeover]): the island yields, and a notification does not drop a card under it. */
+    val homeCovered: Boolean get() = launcherInFront && homeTakeover
+
     fun updateOverlay(active: Boolean) {
         overlayActive = active
         if (!active) { state.collapse(); state.dismissFlash() }

@@ -43,6 +43,8 @@ class IosHomeTest {
         // A foldable's cover screen, less its bars: about 411 x 730.
         val g = iosHomeGeometry(411f, 730f, labels = true)
         assertTrue(g.contentTop + GRID_ROWS * g.rowHeight + g.bottomBarReserve <= 730f + .01f)
+        // Home's first row starts where My feed and the App Library start, on any phone width, so the tops line up as the pages turn.
+        for (w in listOf(360f, 393f, 411f, 430f)) assertEquals(PAGE_TOP_DP, iosHomeGeometry(w, 780f, true).contentTop, 0f)
         // The name still fits under the icon.
         assertTrue(g.iconSize + 20f <= g.rowHeight)
         assertTrue(g.widgetGapY > 0f)

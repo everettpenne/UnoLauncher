@@ -25,7 +25,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class LeadingWidgetInteractionIntegrationTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
     private fun model() = ViewModelProvider(compose.activity)[LauncherModel::class.java]

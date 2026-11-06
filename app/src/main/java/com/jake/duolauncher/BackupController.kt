@@ -22,7 +22,6 @@ class BackupController(
     private val activity: ComponentActivity,
     private val model: LauncherModel,
     private val widgets: WidgetController,
-    private val onExternalResultChanged: (Boolean) -> Unit,
     private val onSettingsApplied: () -> Unit = {},
     /** The feeds followed now, saved with the layout. */
     private val feedSources: () -> List<com.jake.duolauncher.feed.FeedSource> = { emptyList() },
@@ -69,15 +68,13 @@ class BackupController(
         operation = saved?.first
         val raw = saved?.second
         importRaw = raw.takeIf { operation == OP_PREVIEW }
-        if (raw != null || operation != null) onExternalResultChanged(true)
         if (operation == OP_PREVIEW && raw == null) clearTransaction()
         else if (raw != null) parsePreview(raw, persist = false)
         else if (saved?.third != null && operation == OP_IMPORT) readImport(Uri.parse(saved.third), generation)
         else if (saved?.third != null && operation == OP_EXPORT) writeExport(Uri.parse(saved.third), generation)
         else if (operation != null) {
             pickerPending = true
-            onExternalResultChanged(true)
-        } else onExternalResultChanged(false)
+        }
     }
 
     fun startExport(fileName: String = "duo-launcher-layout.json") {
@@ -139,7 +136,6 @@ class BackupController(
         val editor = store.edit().clear().putString(KEY_OPERATION, value)
         payload?.let { editor.putString(KEY_EXPORT, it) }
         editor.apply()
-        onExternalResultChanged(true)
     }
 
     private fun writeExport(uri: Uri, token: Int) {
@@ -189,7 +185,6 @@ class BackupController(
                 importRaw = raw
                 preview = it; pickerPending = false; operation = OP_PREVIEW
                 if (persist) store.edit().putString(KEY_OPERATION, OP_PREVIEW).putString(KEY_PREVIEW, raw).apply()
-                onExternalResultChanged(true)
             }.onFailure {
                 if (token != generation) return@onFailure
                 errorMessage = it.message ?: "This layout backup is invalid."
@@ -226,7 +221,6 @@ class BackupController(
         operation = null; pickerPending = false; preview = null
         importRaw = null
         store.edit().clear().apply()
-        onExternalResultChanged(false)
         if (clearMessages) clearMessage()
     }
 

@@ -22,6 +22,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -47,6 +49,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
@@ -262,9 +265,74 @@ internal object SpotlightEmerge {
     /** The panel's outline at [progress], from [start] (the island's body, in the panel's own px) to the whole [panel]. */
     fun rect(progress: Float, start: PxRect, panel: PxRect): PxRect = IslandMorph.lerp(start, panel, progress.coerceIn(0f, 1f))
 
-    /** The fields and results fade in during the second half of the growth, so they are never seen cut off by a small outline. */
-    fun contentAlpha(progress: Float) = ((progress - .45f) / .55f).coerceIn(0f, 1f)
+    /**
+     * How far an element [depth] of the way down the panel (0 the search field at the top, 1 the bottom) has come out, at [progress]: none until
+     * the outline has room for it, then eased in over [REVEAL_SPAN]. Each starts a little later the lower it sits, so the field comes out of
+     * the island first and the rows follow it down the panel, all of them there by the time it is open; closing, they go back bottom first.
+     * They all used to fade in together over the second half, which read as a finished page appearing, not one being drawn out of the island.
+     */
+    fun reveal(progress: Float, depth: Float): Float { val u = phase(progress, depth); return 1f - (1f - u) * (1f - u) * (1f - u) }
+
+    /** Where an element is on its way into place (for its drop and its size): as [reveal], but it runs a touch past and settles back, so it lands
+     *  rather than stops. */
+    fun settle(progress: Float, depth: Float): Float {
+        val v = phase(progress, depth) - 1f
+        return 1f + (SETTLE + 1f) * v * v * v + SETTLE * v * v
+    }
+
+    private fun phase(progress: Float, depth: Float): Float =
+        ((progress - (REVEAL_FIRST + REVEAL_STAGGER * depth.coerceIn(0f, 1f))) / REVEAL_SPAN).coerceIn(0f, 1f)
+    private const val REVEAL_FIRST = .18f
+    private const val REVEAL_STAGGER = .4f
+    private const val REVEAL_SPAN = .42f
+    private const val SETTLE = 1.4f
+
+    /**
+     * The contents come out on their own clock, over this long, while the outline springs open (about 170 ms): timed off the outline itself,
+     * even staggered, the whole cascade was over in a few frames and read as the page appearing at once. Closing follows the outline (see
+     * [Spotlight]'s contentProgress), so a swipe up takes the contents with it.
+     */
+    const val CONTENT_MS = 480
+
+    /** How far above its place an element is while it comes out ([settle]), in dp: it drops out of the island, the lower ones from further. */
+    fun dropDp(settle: Float, depth: Float): Float = -(1f - settle) * (10f + 16f * depth.coerceIn(0f, 1f))
+
+    /** The search field widens from the pill's width to its own as it comes out ([settle]; its share of its own width). */
+    fun fieldWidth(settle: Float): Float = .78f + .22f * settle
 }
+
+/**
+ * [SpotlightEmerge.reveal] on an element of the panel: it fades in, drops into its place and settles to full size as the panel grows, timed by how
+ * far down the panel ([panelTop], [panelHeight], window px) it sits; [field] also widens it from the pill's width. Read in the draw phase only,
+ * so the growth redraws and never recomposes.
+ */
+private fun Modifier.emerging(on: Boolean, progress: () -> Float, panelTop: () -> Float, panelHeight: () -> Float, field: Boolean = false): Modifier {
+    if (!on) return this
+    return this.then(Modifier.composed {
+        var top by remember { mutableFloatStateOf(0f) }
+        Modifier.onGloballyPositioned { top = it.positionInWindow().y }.graphicsLayer {
+            val h = panelHeight()
+            val depth = if (h > 0f) (top - panelTop()) / h else 0f
+            val p = progress()
+            alpha = SpotlightEmerge.reveal(p, depth)
+            val m = SpotlightEmerge.settle(p, depth)
+            translationY = SpotlightEmerge.dropDp(m, depth).dp.toPx()
+            val s = .94f + .06f * m
+            scaleX = if (field) SpotlightEmerge.fieldWidth(m) else s; scaleY = s
+            transformOrigin = TransformOrigin(.5f, 0f)
+        }
+    })
+}
+
+/** What [emerging] reads, handed down to the panel's rows and headers so each comes out on its own. Null outside search (the App Library shares
+ *  HandoffRow), where nothing emerges. */
+private class EmergeSource(val on: Boolean, val progress: () -> Float, val panelTop: () -> Float, val panelHeight: () -> Float)
+private val LocalEmerge = staticCompositionLocalOf<EmergeSource?> { null }
+
+/** [emerging] with what search handed down, or nothing outside it. */
+@Composable
+private fun Modifier.emergingHere(field: Boolean = false): Modifier =
+    LocalEmerge.current?.let { emerging(it.on, it.progress, it.panelTop, it.panelHeight, field) } ?: this
 
 /** What the search key should do, decided pure so it is unit-tested: the top app (as on iOS), else the typed action,
  * else the first contact for "call"/"text", else a web search of the words. */
@@ -538,16 +606,22 @@ internal fun Spotlight(
                 }
             }
             .padding(16.dp).testTag("spotlight")) {
-          // Everything inside fades in once the panel is big enough to hold it; the top is kept clear of the camera hole.
-          // It settles down into place from the island as it fades in, and lifts back up into it as it fades out.
-          Column(Modifier.graphicsLayer {
-              val a = if (pill != null) SpotlightEmerge.contentAlpha(effectiveProgress()) else 1f
-              alpha = a
-              if (animationsOn) { translationY = -(1f - a) * 8.dp.toPx(); val s = .97f + .03f * a; scaleX = s; scaleY = s; transformOrigin = TransformOrigin(.5f, 0f) }
-          }) {
+          // Each element comes out of the island on its own as the panel grows (SpotlightEmerge.reveal): the field first, widening from the
+          // pill, then the rows down the panel, each dropping into its place; closing, they go back bottom first. The top is kept clear of the
+          // camera hole. Without an island, or with animations off, everything is simply there.
+          // Their own clock (SpotlightEmerge.CONTENT_MS) opening; the outline's progress closing, whichever is lower.
+          val contentClock = remember { Animatable(if (pill != null && animationsOn) 0f else 1f) }
+          LaunchedEffect(visible) {
+              if (visible && pill != null && animationsOn) contentClock.animateTo(1f, tween(SpotlightEmerge.CONTENT_MS, easing = LinearEasing))
+          }
+          val emerge = remember(pill != null, animationsOn) {
+              EmergeSource(pill != null && animationsOn, { minOf(contentClock.value, effectiveProgress()) }, { panelPos.y }, { panelSize.height.toFloat() })
+          }
+          CompositionLocalProvider(LocalEmerge provides emerge) {
+          Column {
             if (pill != null) Spacer(Modifier.height(with(density) { (pillBottom - pillTop).toDp() }.coerceAtLeast(0.dp)))
             CompositionLocalProvider(LocalContentColor provides ink) {
-            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().focusRequester(focus).testTag("spotlight-field"),
+            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().emergingHere(field = true).focusRequester(focus).testTag("spotlight-field"),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = ink, unfocusedTextColor = ink, cursorColor = ink,
                     focusedBorderColor = ink.copy(alpha = .55f), unfocusedBorderColor = ink.copy(alpha = .25f),
@@ -575,7 +649,7 @@ internal fun Spotlight(
             val webOffered = suggestions.any { it.kind == HandoffKind.WEB }
             LazyColumn(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (smart != null) item("smart") {
-                    Column(Modifier.fillMaxWidth().clip(Corner.inside(capCorner, 16.dp)).background(ink.copy(alpha = .10f))
+                    Column(Modifier.fillMaxWidth().emergingHere().clip(Corner.inside(capCorner, 16.dp)).background(ink.copy(alpha = .10f))
                         .clickable {
                             val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
                             clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Spotlight answer", smart.text))
@@ -679,11 +753,11 @@ internal fun Spotlight(
                     }
                 }
                 if (typed && nothing) item("none") {
-                    Text(stringResource(com.jake.duolauncher.R.string.nothing_found), Modifier.padding(12.dp), color = ink.copy(alpha = .7f))
+                    Text(stringResource(com.jake.duolauncher.R.string.nothing_found), Modifier.emergingHere().padding(12.dp), color = ink.copy(alpha = .7f))
                 }
                 // With no launch history yet the panel would otherwise just be quick actions; teach the typed commands too.
                 if (!typed && suggested.isEmpty()) item("hint") {
-                    Text(stringResource(com.jake.duolauncher.R.string.spotlight_try), Modifier.padding(12.dp),
+                    Text(stringResource(com.jake.duolauncher.R.string.spotlight_try), Modifier.emergingHere().padding(12.dp),
                         color = ink.copy(alpha = .6f), style = UnoType.footnote)
                 }
                 if (suggestions.isNotEmpty()) item("elsewhere-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_elsewhere), ink) }
@@ -702,6 +776,7 @@ internal fun Spotlight(
             }
             }
           }
+          }
         }
     }
     }
@@ -710,7 +785,7 @@ internal fun Spotlight(
 /** A "search elsewhere" suggestion: the target app's own icon, and a plain label saying where the search will go. */
 @Composable
 internal fun HandoffRow(target: HandoffTarget, ink: Color, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.small).padding(horizontal = 6.dp, vertical = 6.dp)
+    Row(modifier.fillMaxWidth().emergingHere().heightIn(min = 52.dp).clip(Corner.small).padding(horizontal = 6.dp, vertical = 6.dp)
         .testTag("handoff-${target.kind.name.lowercase()}-${target.packageName}"), verticalAlignment = Alignment.CenterVertically) {
         val icon = target.icon
         if (icon != null) Image(icon.asImageBitmap(), null, Modifier.size(40.dp).clip(Corner.icon))
@@ -725,7 +800,7 @@ internal fun HandoffRow(target: HandoffTarget, ink: Color, modifier: Modifier = 
 
 @Composable
 private fun SpotlightHeader(text: String, ink: Color) {
-    Text(text.uppercase(), Modifier.padding(start = 8.dp, top = 12.dp, bottom = 4.dp), color = ink.copy(alpha = .6f),
+    Text(text.uppercase(), Modifier.emergingHere().padding(start = 8.dp, top = 12.dp, bottom = 4.dp), color = ink.copy(alpha = .6f),
         style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
 }
 
@@ -747,7 +822,7 @@ private fun actionIcon(action: QuickAction): ImageVector = when (action) {
 @Composable
 private fun SpotlightRow(title: String, subtitle: String?, tag: String, highlighted: Boolean, ink: Color, onClick: () -> Unit,
     titleLines: Int = 1, match: IntRange? = null, leading: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(Corner.small)
+    Row(Modifier.fillMaxWidth().emergingHere().heightIn(min = 52.dp).clip(Corner.small)
         .then(if (highlighted) Modifier.background(ink.copy(alpha = .09f)) else Modifier)
         .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
         .padding(horizontal = 6.dp, vertical = 6.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically) {

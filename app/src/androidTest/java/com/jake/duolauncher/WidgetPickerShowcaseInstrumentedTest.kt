@@ -12,7 +12,7 @@ import java.io.File
 /** A developer aid: opens the widget picker over Home and photographs it, scrolling a screen at a time (not part of the suites). */
 class WidgetPickerShowcaseInstrumentedTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
 
     private fun shot(name: String) {
         compose.waitForIdle(); Thread.sleep(1_200)

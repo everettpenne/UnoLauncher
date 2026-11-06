@@ -39,7 +39,7 @@ the inset between them.
 | `Corner.medium` | 16 dp | cards and items inside a panel |
 | `Corner.large` | 24 dp | menus, drop targets |
 | `Corner.widget` | 26 dp | widgets (Card and Glass styles alike) |
-| `Corner.xlarge` | 32 dp | floating containers: panels, dialogs, folders, Discover's page |
+| `Corner.xlarge` | 32 dp | floating containers: panels, dialogs, folders, the feed's page |
 | `Corner.sheet` / `Corner.floatingSheet(inset)` | 42 dp top; display radius − inset at the bottom | sheets, which float 8 dp in from the screen's sides and bottom |
 | `Corner.pill` | 50% | capsules and circles |
 | `Corner.icon` | superellipse, 22.37% of side | app-icon silhouette (Apple's ratio) |
@@ -63,7 +63,7 @@ Where a radius is not a token it is derived, never picked:
 - **Sheets:** their bottom corners are concentric with the display's own (Android 12's `Display.getRoundedCorner`), as iOS 26's are.
   Where the display reports none (the emulator), all four are 42 dp.
 - **Nested:** anything inside a rounded container uses `Corner.inside(parent, inset)`: the settings cards, the island's cards, Spotlight's
-  answer card (44 − 16) and Discover's surface around its page (32 + 16).
+  answer card (44 − 16).
 - **Hand-drawn outlines:** the island's body as it morphs, its rims, and search growing out of it use `IslandMorph.outline`, so they match:
   Apple's squircle pill (`SquircleCapsule`: superellipse ends 1.25 half-heights long, exponent 2.6) while it is pill-height, easing back to a
   stadium by twice the open corner, where `continuousPath`'s corner takes over. Detached capsules and the ring round the camera stay circles.
@@ -150,7 +150,7 @@ contrast against its glass tint.
 The page dots (and, until Uno is the Home app, the "Set as home app" button above them) occupy
 a fixed strip. Content pages reserve exactly that space instead of guessing: 8 dp margin +
 32 dp capsule + 8 dp gap = **48 dp**, or **96 dp** with the setup button. Home pages, All apps,
-the feed page and the native Google Discover window all use `PageIndicatorLayout.reserveDp`.
+and the feed page all use `PageIndicatorLayout.reserveDp`.
 
 ## Home geometry
 
@@ -169,27 +169,27 @@ the feed page and the native Google Discover window all use `PageIndicatorLayout
 
 ## Glass rules (`LiquidGlass.kt`)
 
-All surfaces share one lens (`liquidGlass`), tuned by `GlassSettings`
-(height, amount, chromatic; defaults 0.55 / 0.55 / 0, each persisted 0–1):
+All surfaces share one lens (`liquidGlass`), tuned toward iOS 26's Liquid Glass by `GlassSettings`
+(height, amount, chromatic; defaults 0.44 / 0.21 / 0.5):
 
-- Refraction height 8–44 dp (capped at 72 px), amount 16–132 dp, depth always on,
-  chromatic aberration engages above 5%.
+- Refraction concentrated in a band about 24 dp in from the edge (8–44 dp, capped at 72 px), moving what is behind it about
+  40 dp (16–132 dp), depth always on, and a faint chromatic split at the edge. The amount was 80 dp, about twice the
+  backdrop library's own iOS-style glass (24 dp / 32 dp), so the dock and widgets warped the wallpaper far more than an iPhone does.
+- Vibrancy (1.5 saturation) and a wallpaper-adaptive tone (`BackdropTone`) on every surface; the directional rim (`GlassRim`)
+  follows the light, and the tilt when that is on.
 - Tint follows the wallpaper: the photo's muted palette blended 50% into the theme
   glass; the drawn dunes keep the theme glass.
 
-Per-surface tint and blur (alpha over the theme/derived tint):
+Two materials, after iOS 26's (`GlassKind`):
 
-| Surface | Tint alpha | Blur |
-| --- | --- | --- |
-| Dock, status rail | 0.12 | 0.75 dp |
-| Circle controls, page dots | 0.12–0.14 | 0.75–1 dp |
-| Island | 0.34 | 2 dp |
-| Feed page | 0.55–0.82 | 2 dp |
-| Discover recovery | 0.45 | 3 dp |
-| All apps panel | 0.40 | 6 dp |
-| Folder panel | 0.90 | 4 dp |
-| Glass sheet | surface @ 0.58 | 8 dp |
-| Widget gallery | 0.62 | 12 dp |
+| Material | For | Tint alpha | Blur |
+| --- | --- | --- | --- |
+| Clear | the dock, rail, page dots, pills, widgets, round controls | 0.12 (a quarter of it with Clear glass on) | 2 dp |
+| Regular | sheets, dialogs, menus, the control panel, folders, the feed, All apps, the widget picker | 0.44 | 14 dp |
+
+Regular glass is legible the way iOS's is: by blurring what is behind it more and painting over it less (it was 8 dp and 0.56,
+a tinted pane more than glass). Clear glass still softens the wallpaper a little, as iOS's clear glass does (it was 0.75 dp).
+The island, the glass sheet and dialogs keep their own tints.
 
 ## Home layouts: Side dock and iOS (`HomeStyle`, `iosHomeGeometry`)
 
@@ -264,7 +264,7 @@ widgets, the status rail, the page-dots strip and the circle controls.
 
 iOS 26's selection lens: a nearly clear glass capsule that refracts at its rim and magnifies
 (1.18x) whatever is under it. On the page-dots strip it rides the pager's fractional position, so
-it glides between Discover, the Home dots and All apps as pages scroll; pressing and dragging
+it glides between My feed, the Home dots and All apps as pages scroll; pressing and dragging
 along the strip scrubs pages with the lens under the finger and lifts it (scale up to 1.14x).
 The strip's items are recorded into their own layer backdrop and combined with the Home
 backdrop, so the lens magnifies the icons and not just the wallpaper. Item geometry and the
@@ -281,6 +281,17 @@ Dock icons carry a press-only variant (alpha and lift follow the press spring).
 Three stacked blur bands (2, 6 and 14 dp over 100%, 70% and 40% of the strip) fade out away from
 the top and bottom screen edges. The top strip is the system inset plus 24 dp; the bottom strip is
 the page-dots reserve. They sit below the island, rail, dock and dots and never take touches.
+
+The iOS layout has the top strip only. Nothing scrolls under its bottom (the grid stops above the Search pill; the App Library and
+the feed scroll inside their own panels), so the bottom strip only blurred the wallpaper behind the dock, which an iPhone does not,
+and it was the costliest thing on Home: measured on a Pixel 10a, removing it took the median frame of a page swipe from about 35 ms
+to 24 ms. The iOS layout's dock and Search pill sample the wallpaper alone for the same reason (no page passes under them); with both
+changes the median was about 21 ms and janky frames fell from 20 % to 6 %. The side layout keeps both strips and the combined backdrop:
+its pages run under the dock and the status rail.
+
+How to measure: `adb shell dumpsys gfxinfo <package> framestats` after a few page swipes gives each frame's phases (the render
+thread's IssueDrawCommands and the GPU's completion were the costs; the UI thread, Compose included, was about 3 ms). Time the
+`-PunoDev` release build (a minified copy with its own id), never a debug build.
 
 ## Island activities (`IslandActivities.kt`)
 
@@ -472,7 +483,7 @@ The strength setting (`TiltMath.gainFor`, 1x to 6x) multiplies the roll, and `Gl
 
 ## Spotlight
 
-Search grows out of the island (`SpotlightEmerge`): the panel begins as the island's body exactly where and how big it was (the open island, when search is opened from its Search button), and its outline grows to the full panel with the island's own corner rule at every size (`IslandMorph.cornerPx`); the content is not scaled, it is uncovered and fades in during the second half. It shrinks back into the settled pill as drawn (`IslandState.restPill`, with the status bar grid's edges), so the island takes over without a jump. Without an island it opens from the top, inside the safe area.
+Search grows out of the island (`SpotlightEmerge`): the panel begins as the island's body exactly where and how big it was (the open island, when search is opened from its Search button), and its outline grows to the full panel with the island's own corner rule at every size (`IslandMorph.cornerPx`); the content is not scaled down with it. It comes out on its own clock (`SpotlightEmerge.CONTENT_MS`, 480 ms, while the outline springs open in about 170 ms): the field first, widening from the pill's width, then each header and row down the panel a little later than the one above, each fading in and dropping into place with a small settle (`reveal`, `settle`). Timed off the outline, even staggered, it was over in a few frames and read as the page appearing at once. Closing follows the outline, bottom rows first, so a swipe up takes the content with it. It shrinks back into the settled pill as drawn (`IslandState.restPill`, with the status bar grid's edges), so the island takes over without a jump. Without an island it opens from the top, inside the safe area.
 
 **Island motion is anchored to the camera** (`IslandMorph`): the body's pulse, press squash and morph stretch scale about the camera hole; the grid's edge corrections unwind with the width spring and the hand-set drop with the height spring; privacy dots and capsules stay on the camera's line; capsules split off only once the body has nearly landed. When a sheet, the control panel, search or a drag takes over Home, the island closes and fades rather than vanishing. A long press on the pill opens the app behind its leading activity (call, player, Live Update).
 
@@ -546,5 +557,12 @@ Uno borrows on purpose: **Apple's look** (island, glass, squircles, Spotlight-st
 3. **One control centre.** The control panel is the default right-hand pull-down. Android's own Quick Settings is an explicitly named alternative, **Android mode** (Gestures & feel), and needs the optional shade service. A panel row that leaves Uno for Android's Settings (brightness access, Do Not Disturb access, System settings) carries a chevron so the jump is expected.
 4. **Imports are restyled before they ship.** Anything adopted from another platform (HyperOS's music bar, HyperBridge's progress cards, SmartIsland's bubbles) is redrawn in the island / glass / `Corner` / motion system first. "From X" is a sourcing note in the changelog, never a style.
 5. **Own the vocabulary.** User-facing names are Uno's: *Launcher settings*, *Focus* (hides the apps you pick; it is the launcher's, not Android's), *Do Not Disturb* (Android's, and the island says so), *Live Updates*, *Search*. "Spotlight" is a code name only (`Spotlight.kt`); no screen says it. One word, one meaning: Focus never also names Do Not Disturb.
-6. **Back always works.** Every overlay, sheet and page (Search, control panel, folders, widget picker, settings pages, Discover) handles system Back by closing one level. Swipes (return from the feed, pulls) are conveniences on top of Back, never a replacement. A new surface without a Back handler does not ship.
+6. **Back always works.** Every overlay, sheet and page (Search, control panel, folders, widget picker, settings pages, My feed) handles system Back by closing one level. Swipes (return from the feed, pulls) are conveniences on top of Back, never a replacement. A new surface without a Back handler does not ship.
 7. **Consent speaks in the product's voice.** Permission explainers and the ledger use the same plain wording and glass styling as the rest of the settings; they are part of the product, not an interruption of it.
+8. **When two things want the island, one wins and the other waits** (`IslandEventArbiter`):
+   - *What the person opened beats what the island shows.* Search, a settings sheet, the control panel, a drag or first run takes Home over (`IslandRuntime.homeTakeover`); both islands (Home's, and the overlay's that draws it when the accessibility service is on) fade out of the way and back after (`overlayYields`). The overlay's used to stay on top of search with its music pill.
+   - *A ringing timer beats everything.* It keeps the island, and search and the control panel close for it, since Home's island is drawn under them.
+   - *A notification that arrives while Home is taken over* drops no card and flashes nothing, but is kept as the island's recent notification, one tap away after.
+   - *A flash waits for the pill.* While the island is open, peeking, pulled or stepped aside its seconds do not count (`flashOnScreen`); it shows when the pill does, unless it has waited 10 s (`FLASH_STALE_MS`).
+   - *The finger beats a card.* A card arriving while the island is being pulled is kept as the recent notification instead of opening it under the finger; opening search or the control panel tucks a card that is down away.
+   - *The island stays above dialogs*, as an iPhone's does above alerts.

@@ -51,8 +51,19 @@ class GlassKindTest {
     @Test fun twoMaterialsAsOnIos() {
         val clear = com.jake.duolauncher.appearance.GlassKind.CLEAR
         val regular = com.jake.duolauncher.appearance.GlassKind.REGULAR
-        assertTrue(clear.tintAlpha < .2f && clear.blurDp < 2f)
+        assertTrue(clear.tintAlpha < .2f && clear.blurDp <= 2f)
         assertTrue(regular.tintAlpha > .4f && regular.blurDp >= 6f)
+        // Regular glass gets its legibility from blur more than paint, as iOS 26's does.
+        assertTrue(regular.blurDp >= 12f && regular.tintAlpha < .5f)
+    }
+
+    @Test fun theLensIsTunedTowardIos26() {
+        // The surfaces' lens (LiquidGlass.liquidGlass): a band about 24 dp in from the edge, moving what is behind it about 40 dp, and a faint
+        // colour split at the edge. 80 dp of movement warped the wallpaper under the dock about twice as much as iOS's glass.
+        val s = com.jake.duolauncher.appearance.GlassSettings.Default
+        assertEquals(24f, androidx.compose.ui.util.lerp(8f, 44f, s.height), 1f)
+        assertEquals(40f, androidx.compose.ui.util.lerp(16f, 132f, s.amount), 1.5f)
+        assertTrue(s.chromatic > .05f)
     }
 }
 

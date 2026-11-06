@@ -26,7 +26,6 @@ enum class WidgetSetupStatus { BINDING, CONFIGURING }
 class WidgetController(
     private val activity: ComponentActivity,
     private val model: LauncherModel,
-    private val onExternalSetupChanged: (Boolean) -> Unit = {},
 ) {
     val host: android.appwidget.AppWidgetHost = ZeroPaddingWidgetHost(activity, 1024)
     val manager = AppWidgetManager.getInstance(activity)
@@ -88,7 +87,6 @@ class WidgetController(
             setupStatus = restoredStatus
             pendingOptions = restoredOptions
             persistPending()
-            onExternalSetupChanged(true)
         } else {
             // A malformed bundle may point at a widget already owned by Home or Undo.
             // Clear the transaction, but only delete an ID known to be unretained.
@@ -202,7 +200,6 @@ class WidgetController(
         try {
             if (manager.bindAppWidgetIdIfAllowed(pendingId, provider.profile, provider.provider, pendingOptions)) configure()
             else {
-                onExternalSetupChanged(true)
                 bind.launch(Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
                     .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, pendingId)
                     .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, provider.provider)
@@ -224,7 +221,6 @@ class WidgetController(
         else try {
             setupStatus = WidgetSetupStatus.CONFIGURING
             persistPending()
-            onExternalSetupChanged(true)
             host.startAppWidgetConfigureActivityForResult(activity, pendingId, 0, CONFIGURE, null)
         }
         catch (_: Exception) { fail() }
@@ -280,7 +276,6 @@ class WidgetController(
             val profile = pendingProfile ?: return fail()
             setupStatus = WidgetSetupStatus.BINDING
             persistPending()
-            onExternalSetupChanged(true)
             try {
                 bind.launch(Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
                     .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, pendingId)
@@ -302,7 +297,6 @@ class WidgetController(
         setupStatus = null
         pendingOptions = null
         pendingStore.edit().clear().apply()
-        onExternalSetupChanged(false)
     }
 
     private fun fail() {
@@ -316,7 +310,6 @@ class WidgetController(
         if (id != null && pendingPlacement == null && id in host.appWidgetIds && canReconfigure(id)) {
             reconfigureWidgetId = id
             reconfigureStore.edit().putInt(RECONFIGURE_ID, id).apply()
-            onExternalSetupChanged(true)
         } else clearReconfigure(notify = pendingPlacement == null)
     }
 
@@ -327,7 +320,6 @@ class WidgetController(
             clearReconfigure()
             return false
         }
-        onExternalSetupChanged(true)
         return try {
             host.startAppWidgetConfigureActivityForResult(activity, id, 0, RECONFIGURE, null)
             true
@@ -341,7 +333,6 @@ class WidgetController(
     private fun clearReconfigure(notify: Boolean = true) {
         reconfigureWidgetId = null
         reconfigureStore.edit().clear().apply()
-        if (notify) onExternalSetupChanged(false)
     }
 
     private fun writePlacement(bundle: Bundle, key: String, value: WidgetPlacement) {

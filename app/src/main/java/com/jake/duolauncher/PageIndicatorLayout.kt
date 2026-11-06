@@ -8,7 +8,7 @@ package com.jake.duolauncher
 internal object PageIndicatorLayout {
     /** Gap between the strip and the bottom of the safe area. */
     const val BOTTOM_MARGIN_DP = 8f
-    /** Height of the dots capsule: its tallest children are the 32 dp Discover/All apps buttons. */
+    /** Height of the dots capsule: its tallest children are the 32 dp My feed/All apps buttons. */
     const val CAPSULE_HEIGHT_DP = 32f
     /** Clear space between the strip and the content above it (the spacing scale's sibling gap). */
     const val CONTENT_GAP_DP = 8f

@@ -247,19 +247,6 @@ internal fun continuousPath(left: Float, top: Float, width: Float, height: Float
 /** The app-icon superellipse as a shape. It is a [CornerBasedShape], like [ContinuousShape], so the glass lens takes it (the press lens over a
  *  Home icon now has the icon's own outline); the lens reads its radius for the refraction, and clips to the superellipse. The corners are
  *  always equal: [copy] keeps the top-start corner. */
-/** The same outline as [continuousPath], into a framework [android.graphics.Path] (for views drawn on a Canvas, such as Discover's frame). */
-internal fun continuousPath(path: android.graphics.Path, left: Float, top: Float, right: Float, bottom: Float, radius: Float) {
-    path.reset()
-    ContinuousCorners.build(right - left, bottom - top, radius, radius, radius, radius, AndroidPathSink(path))
-    path.offset(left, top)
-}
-
-/** Discover's outer surface. With the native feed it fills the window and holds the feed's page (Corner.xlarge) 16 dp in, so it is concentric
- *  with it; without, it is a floating panel. Discover's window frame cuts its outline with the same radius, so the two always agree. */
-internal object DiscoverCorners {
-    const val FEED_DP = Corner.XLARGE_DP + 16f
-    const val FLOATING_DP = Corner.XLARGE_DP
-}
 
 @Immutable
 internal class SquircleShape private constructor(private val corner: CornerSize) : CornerBasedShape(corner, corner, corner, corner) {

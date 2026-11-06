@@ -24,7 +24,7 @@ import java.io.File
 /** A developer aid: places the Media player and battery widgets over the active wallpaper and photographs Home (not part of the suites). */
 class WidgetShowcaseInstrumentedTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
     private fun model() = ViewModelProvider(compose.activity)[LauncherModel::class.java]
 
     private fun shot(name: String) {

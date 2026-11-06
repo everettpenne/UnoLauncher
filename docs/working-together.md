@@ -33,7 +33,7 @@ The code is grouped by feature, one folder (and Kotlin package) each, under `app
 | `panel/` | The control panel and its system controls | A trusted contributor; no new system hooks without the owner |
 | `island/` | The dynamic island, its overlay, media, calls, Live Updates and permission ledger | The owner, for now (see below) |
 | `keyboard/` | Uno Keyboard | The owner and the most trusted contributors only: it sees everything typed |
-| *(top level)* | Home, state, paging, drag, Android widget hosting, Discover, backup, the updater, setup | The owner, permanently |
+| *(top level)* | Home, state, paging, drag, Android widget hosting, backup, the updater, setup | The owner, permanently |
 
 Moving between folders is an import change, not a design change: everything is `internal` to the one module, so a package is a place to find things and a boundary to review, not a hard wall. The map of what lives where is in the [code map](architecture.md).
 

@@ -17,7 +17,7 @@ import org.junit.Test
 /** The Media player, Glance and Liquid battery widgets, placed on Home and drawn. */
 class NewWidgetsIntegrationTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
     private fun model() = ViewModelProvider(compose.activity)[LauncherModel::class.java]
     private fun present(tag: String) = compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
 

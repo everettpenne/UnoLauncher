@@ -297,8 +297,8 @@ private fun LauncherHelp(
         row { HelpSection(Icons.Rounded.SwipeDown, "Notifications and Quick Settings",
             "Optional. Swiping down on Home can open the system panels, but Android only allows that through an accessibility service you turn on yourself. It can’t read your screen or see other apps, and you can turn it off any time in Settings › Accessibility. If you decline, swiping down on Home just does nothing.") }
         row { ActionRow("Set Up Shade Gestures", "help-shade-setup", onClick = onShadeSetup) }
-        row { HelpSection(Icons.Rounded.Explore, "Discover",
-            "Swipe right from the first Home page. If Google can't provide the feed, Uno Launcher keeps a Home return and recovery actions available. Add your own feeds under News Feed to fill this slot without Google.") }
+        row { HelpSection(Icons.Rounded.Explore, "My feed",
+            "Swipe right from the first Home page for your own news: the feeds you add under News Feed, and nothing else. Uno Launcher fetches only those, and only when you open the page or refresh it.") }
     }
 }
 

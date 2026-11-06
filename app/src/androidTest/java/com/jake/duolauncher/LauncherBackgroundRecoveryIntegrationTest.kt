@@ -21,7 +21,7 @@ import java.io.File
 
 class LauncherBackgroundRecoveryIntegrationTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
 
     @Test fun readyLocalPreviewRecoversWithoutSourceAndDropsStaleGrantRecord() {
         val context = compose.activity.applicationContext

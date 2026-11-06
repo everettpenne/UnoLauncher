@@ -25,7 +25,7 @@ import kotlin.math.abs
 /** Coverage for fixed controls that live outside the pager's own layout bounds. */
 class RailPagerGestureIntegrationTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
 
     private fun readyOnLastHomePage(): String {
         check(android.os.Build.HARDWARE in listOf("ranchu", "goldfish"))

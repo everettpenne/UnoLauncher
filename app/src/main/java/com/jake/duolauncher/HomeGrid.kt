@@ -95,7 +95,6 @@ internal fun ExpandedWorkspace(
     target: DropTarget?,
     insertionTarget: DropTarget?,
     feed: FeedState,
-    feedVisible: Boolean,
     onFeedRefresh: () -> Unit,
     onFeedOpenEntry: (String) -> Unit,
     onFeedToggleSave: (String) -> Unit,
@@ -134,9 +133,9 @@ internal fun ExpandedWorkspace(
                 start + homePaneWidth > scroll && start < scroll + viewportPx + overscanPx
             }
             val nearestLogicalPage = nativePager.currentPage - firstHome
-            // While Discover is current, keep the initial Home pair cached. Otherwise Home 2
-            // is recreated midway through the first native exit and provider inflation can
-            // block the gesture frame even though that pane began offscreen.
+            // While the feed is current, keep the initial Home pair cached. Otherwise Home 2
+            // is recreated midway through the swipe back and provider inflation can block the
+            // gesture frame even though that pane began offscreen.
             val retentionAnchor = nearestLogicalPage.coerceAtLeast(0)
             (intersectingHomes + (retentionAnchor - 1..retentionAnchor + 1))
                 .filter { it in 0 until visibleHomePages }.distinct().sorted()
@@ -148,7 +147,7 @@ internal fun ExpandedWorkspace(
             IntOffset((x - motion.offset(physicalPosition)).roundToInt(), 0)
         }
     }
-    val showDiscover by remember(nativePager, firstHome) {
+    val showFeed by remember(nativePager, firstHome) {
         derivedStateOf(structuralEqualityPolicy()) {
             firstHome > 0 && nativePager.currentPage + nativePager.currentPageOffsetFraction <= firstHome + .25f
         }
@@ -170,14 +169,14 @@ internal fun ExpandedWorkspace(
     }
 
     Box(Modifier.fillMaxSize().clipToBounds().testTag("expanded-workspace")) {
-        // Discover and the library abut the viewport edge, so in the overscan run under the
+        // The feed and the library abut the viewport edge, so in the overscan run under the
         // dock they would peek out at rest. They stay clipped to the original viewport;
         // only Home panes slide beneath the glass.
-        if (showDiscover) Box(Modifier.width(viewportWidth).fillMaxHeight().clipToBounds()) {
-            key("discover-pane") {
+        if (showFeed) Box(Modifier.width(viewportWidth).fillMaxHeight().clipToBounds()) {
+            key("feed-pane") {
                 Box(Modifier.place(-viewportPx).width(viewportWidth).fillMaxHeight()) {
-                    DiscoverContent(Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace),
-                        feed, feedVisible, onFeedRefresh, onFeedOpenEntry, onFeedAdd, onFeedToggleSave, glassBackdrop, glassTint, settings)
+                    com.jake.duolauncher.feed.FeedPage(feed, onFeedRefresh, onFeedOpenEntry, onFeedAdd, onFeedToggleSave,
+                        Modifier.fillMaxSize().padding(start = 16.dp, top = 16.dp, bottom = bottomSpace), glassBackdrop, glassTint, settings)
                 }
             }
         }

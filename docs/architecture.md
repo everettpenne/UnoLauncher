@@ -20,9 +20,9 @@ All paths below are relative to `app/src/main/java/com/jake/duolauncher/`. Featu
 | Search | `search/` | The search panel that grows from the island, answers, hand-off to other apps, All apps, optional contacts |
 | Control panel | `panel/` | The pull-down panel and the system controls it drives |
 | Appearance | `appearance/` | Photo and dune wallpapers, liquid glass, ink, corners, type, colour from wallpaper, scheduling, and the glass UI kit for menus (`GlassUi.kt`) |
-| News feed | `feed/` | User-added RSS/Atom sources, direct bounded fetching, on-device cache, and the Discover-slot surface |
+| News feed | `feed/` | User-added RSS/Atom sources, direct bounded fetching, on-device cache, and My feed, the page before the first Home page |
 | Keyboard | `keyboard/` | Uno Keyboard (the input method) and its tests' privacy gate |
-| Google features | `GoogleSearch.kt`, `DiscoverClient.kt`, `LiveDiscoverActivity.kt`, `DiscoverBounds.kt` | Search intents, feed protocol, persistent host and embedding compatibility |
+| Google search | `GoogleSearch.kt` | Hands the search control to the Google app when the person chooses Google search |
 | Settings and sheets | `CustomizationSheet.kt`, `LauncherActionSheet.kt`, `ExtrasSettings.kt`, `ExtrasStore.kt` | Long-press actions, settings pages and the saved settings |
 | Status | `DeviceStatus.kt`, `StatusRail.kt` | Live status and its presentation |
 | Backup and shade access | `LayoutBackup.kt`, `BackupController.kt`, `SettingsBackup.kt`, `SystemShadeController.kt`, `Updates.kt` | Portable layout and settings import/export, optional system-panel actions, the self-updater |
@@ -45,13 +45,10 @@ The shared ancestor recognizes horizontal one-page gestures across the page, doc
 
 Widget size publication uses measured content with `updateAppWidgetOptions`, posted/coalesced after layout. Framework padding behavior is relevant when changing this. Nearby pages remain composed to avoid expensive RemoteViews reinflation during a swipe.
 
-## Discover ownership
+## The leading page
 
-The live path keeps a persistent Google window and live Home graphics layers. Healthy Discover backing remains transparent; a recovery surface appears while a status message is present, including a delayed connection or an error. Google reports feed progress but owns native feed gestures, so a timeout or progress reversal is not proof that a finger was released.
-
-`DiscoverBounds.kt` contains an unsupported alignment-hint workaround scoped to audited Window Extensions versions 8–10. Other versions retain normal alignment. This avoids an additional vendor task-fragment transition in the tested configuration; it is not a public SystemUI animation API or a compatibility guarantee. Keep the version guard, host-start recovery and fallback path when changing embedding behavior.
-
-The leading pager slot has exactly one owner at a time. When feeds are configured and the user prefers them (or Window Extensions are absent), the news feed owns the slot: `LauncherScreen` enables the leading page and calls `LiveDiscover.setFeedOwnsSlot(true)`, which keeps the Google window closed and ignores its progress callbacks. Flipping the preference off returns the slot to Google through the normal prepare path. Never drive both surfaces from the same page state.
+The page before the first Home page is always My feed (`feed/`), Uno's own RSS/Atom page. Google Discover was removed in
+0.127: Uno no longer embeds another app's window, keeps a second copy of the pages for one, or holds any Google feed protocol.
 
 ## Persistence and recovery
 

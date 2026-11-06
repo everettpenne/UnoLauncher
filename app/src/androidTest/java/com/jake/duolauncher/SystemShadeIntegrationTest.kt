@@ -36,7 +36,7 @@ class SystemShadeIntegrationTest {
         UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES
     )
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
     private val component = "com.jake.duolauncher/com.jake.duolauncher.SystemShadeAccessibilityService"
 
     private fun shell(command: String) = ParcelFileDescriptor.AutoCloseInputStream(
@@ -151,21 +151,16 @@ class SystemShadeIntegrationTest {
             }
             await { findText("Shade gestures (optional)") != null }
             assertEquals("Opening setup must not edit Home", layout, model.state.value.layout)
-            assertTrue("The native setup dialog must own Discover before Settings is opened",
-                LiveDiscover.hasExternalResultPending("main", "shade-service-setup"))
 
             compose.activityRule.scenario.recreate()
             await { findText("Shade gestures (optional)") != null }
-            assertTrue("Recreated setup must retain Discover ownership",
-                LiveDiscover.hasExternalResultPending("main", "shade-service-setup"))
 
             clickSystemText("No thanks")
             await { findText("Shade gestures (optional)") == null }
-            await { !LiveDiscover.hasExternalResultPending("main", "shade-service-setup") }
             val recreatedModel = ViewModelProvider(compose.activity)[LauncherModel::class.java]
             compose.waitUntil(5_000) { !recreatedModel.state.value.loading }
             assertEquals("Cancel must preserve every placement", layout, recreatedModel.state.value.layout)
-            compose.onNodeWithTag("discover-page-link").assertIsDisplayed().assertHasClickAction()
+            compose.onNodeWithTag("feed-page-link").assertIsDisplayed().assertHasClickAction()
 
             // Denial must stick: another swipe on Home is a silent no-op, never a second prompt.
             compose.onNodeWithTag("launcher-root").performTouchInput {

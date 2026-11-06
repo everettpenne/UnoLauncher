@@ -83,7 +83,7 @@ internal object SettingsSearch {
         SettingEntry("App & Web Suggestions", CustomizationPage.SEARCH, "spotlight suggestions stores browser"),
         SettingEntry("Contacts", CustomizationPage.SEARCH, "people phone all apps app library"),
         // News feed
-        SettingEntry("News Feed", CustomizationPage.FEED, "rss headlines discover articles opml"),
+        SettingEntry("News Feed", CustomizationPage.FEED, "rss headlines my feed articles opml"),
         // Keyboard
         SettingEntry("Uno Keyboard", CustomizationPage.KEYBOARD, "typing ime turn on"),
         SettingEntry("Predictive", CustomizationPage.KEYBOARD, "keyboard suggestions words predictions"),

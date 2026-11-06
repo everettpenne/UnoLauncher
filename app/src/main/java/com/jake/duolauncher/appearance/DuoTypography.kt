@@ -84,7 +84,7 @@ internal object UnoType {
  * | displayMedium  | title1                    | (spare) |
  * | displaySmall   | title2                    | (spare) |
  * | headlineLarge  | title3                    | (spare) |
- * | headlineMedium | title1                    | page title (Discover, My feed) |
+ * | headlineMedium | title1                    | page title (My feed, App Library) |
  * | headlineSmall  | title2                    | sheet title (All apps, Widgets, Welcome) |
  * | titleLarge     | title3 (600)              | dialog title |
  * | titleMedium    | headline                  | section header |

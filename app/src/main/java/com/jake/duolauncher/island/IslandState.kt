@@ -195,10 +195,17 @@ internal class IslandState {
 
     private class Flash(val title: String, val icon: androidx.compose.ui.graphics.ImageBitmap?,
         val component: android.content.ComponentName?, val symbol: IslandSymbol, val tint: Color? = null,
-        val open: android.app.PendingIntent? = null)
+        val open: android.app.PendingIntent? = null, val at: Long = System.currentTimeMillis())
     private val queued = ArrayDeque<Flash>()
+    /** When the flash on show (or waiting to be seen) happened. */
+    private var flashAt = 0L
+
+    /** Whether the flash waiting for the pill (held while the island was open or stepped aside: see IslandEventArbiter.flashOnScreen) is too
+     *  old to be worth showing when the pill comes back. */
+    fun flashStale(nowMs: Long): Boolean = flashTitle != null && nowMs - flashAt > FLASH_STALE_MS
 
     private fun present(flash: Flash) {
+        flashAt = flash.at
         flashTitle = flash.title
         flashIcon = flash.icon
         flashComponent = flash.component
@@ -291,14 +298,22 @@ internal class IslandState {
     var peekKey by mutableIntStateOf(0)
         private set
 
+    /** Keeps [peek] as the island's recent notification, one tap away for a little while, without showing it now. A turn-by-turn instruction
+     *  is not a notification to come back to; its own card is on the panel. */
+    fun rememberRecent(peek: PeekNotification) {
+        if (!peek.navigation && !peek.quickActions) { recentCard = peek; recentAt = System.currentTimeMillis() }
+    }
+
     /** Drops the card down, unless the person already has the island open for something else (their music, a timer). */
     fun showPeekCard(peek: PeekNotification) {
         // Remembered even when the card itself cannot be shown now (the island is open for something else, or a timer is ringing), so it is
-        // still there to look at afterwards. A turn-by-turn instruction is not a notification to come back to; its own card is on the panel.
-        if (!peek.navigation && !peek.quickActions) { recentCard = peek; recentAt = System.currentTimeMillis() }
+        // still there to look at afterwards.
+        rememberRecent(peek)
         if (expanded && peekCard == null) return
         // A ringing timer has the island until it is dealt with.
         if (IslandTools.ringing) return
+        // The person's finger is on the island, pulling it: the gesture is theirs, and a card opening it under them would take it away.
+        if (pullFraction != null) return
         dismissFlash()
         peekCard = peek; peekKey++; expanded = true; peeked = false
     }

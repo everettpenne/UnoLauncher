@@ -28,8 +28,8 @@ class NativeWidgetProcessDeathIntegrationTest {
     }
     private fun main(): MainActivity {
         shell("input keyevent KEYCODE_HOME")
-        await { LiveDiscover.owner.get() != null }
-        return requireNotNull(LiveDiscover.owner.get())
+        await { RunningLauncher.activity.get() != null }
+        return requireNotNull(RunningLauncher.activity.get())
     }
     private fun requireSafeHarness() {
         assumeTrue("Run only through the explicit process-death harness",
@@ -60,7 +60,6 @@ class NativeWidgetProcessDeathIntegrationTest {
     @Test fun stage1LeaveRequiredConfigurationPending() {
         requireSafeHarness()
         record.edit().clear().commit()
-        LiveDiscover.attachNativeFeed = true
         val main = main()
         val model = ViewModelProvider(main)[LauncherModel::class.java]
         await { !model.state.value.loading }
@@ -98,7 +97,6 @@ class NativeWidgetProcessDeathIntegrationTest {
         val producerPid = record.getInt("producerPid", -1)
         assertTrue("Stage1 producer marker is missing", producerPid > 0 && record.getString("producerStage", null) == "new-widget")
         assertNotEquals("Consumer must run in a new target process", producerPid, android.os.Process.myPid())
-        LiveDiscover.attachNativeFeed = true
         val main = main()
         val model = ViewModelProvider(main)[LauncherModel::class.java]
         await { !model.state.value.loading }

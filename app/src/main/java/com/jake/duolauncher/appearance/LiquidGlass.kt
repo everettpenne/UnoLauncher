@@ -67,15 +67,20 @@ internal fun Modifier.recordBackdrop(backdrop: LayerBackdrop): Modifier = layerB
  * [height] is the rim band the lens bends, [amount] is the displacement it applies, and
  * [chromatic] engages the color fringe above a small threshold.
  */
+/**
+ * The lens every glass surface shares, tuned toward iOS 26's Liquid Glass: the bending is concentrated in a band about 24 dp in from the edge and
+ * moves what is behind it about 40 dp (it was 28 dp and 80 dp, about twice what the backdrop library's own iOS-style glass uses, so the dock and
+ * widgets warped the wallpaper far more than an iPhone's glass does), and the edge splits the light faintly into colour, as Liquid Glass's does.
+ */
 internal data class GlassSettings(
-    val height: Float = .55f,
-    val amount: Float = .55f,
-    val chromatic: Float = 0f,
+    val height: Float = .44f,
+    val amount: Float = .21f,
+    val chromatic: Float = .5f,
 ) {
     companion object { val Default = GlassSettings() }
 }
 
-/** Glass settings for surfaces drawn inside the Home pager (widgets, Discover, the feed).
+/** Glass settings for surfaces drawn inside the Home pager (widgets, the feed).
  * Those surfaces must sample the wallpaper-only backdrop: the pager itself records into
  * the pages backdrop, so sampling that from inside it would draw the layer into itself.
  * Null when liquid glass is off, and outside the pager.
@@ -254,11 +259,13 @@ internal fun BackdropEffectScope.glassColor(tone: GlassTone) =
  */
 internal enum class GlassKind(val blurDp: Float, val tintAlpha: Float) {
     /** Floating over the wallpaper with little or no text of its own: the dock, the status rail, the page dots, pills, widgets, round
-     *  controls. Nearly clear; with Clear glass on (see [GlassFinish]) clearer still, with a fine bright edge. */
-    CLEAR(.75f, .12f),
+     *  controls. Nearly clear; with Clear glass on (see [GlassFinish]) clearer still, with a fine bright edge. iOS 26's clear glass still
+     *  softens what is behind it a little, so it has a light 2 dp blur (it was .75 dp, which left the wallpaper's detail sharp under it). */
+    CLEAR(2f, .12f),
     /** Holding text and controls: sheets, dialogs, menus, the control panel, folders, the feed, All apps, the widget picker. Frosted enough
-     *  to read on any wallpaper. */
-    REGULAR(8f, .56f),
+     *  to read on any wallpaper, the way iOS 26's regular glass is: by blurring what is behind it more and painting over it less (14 dp and
+     *  44 %; it was 8 dp and 56 %, a tinted pane more than glass). The wallpaper-adaptive tone (BackdropTone) holds the ink up. */
+    REGULAR(14f, .44f),
 }
 
 /** Liquid-glass surface of [kind]: vibrancy, blur and lens refraction over the recorded backdrop, tuned by the [GlassSettings] knobs so every

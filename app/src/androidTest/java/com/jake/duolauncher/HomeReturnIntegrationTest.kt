@@ -12,7 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertNotSame
 import org.junit.Test
 
-/** Native Discover stays attached while Android dispatches real HOME intents. */
+/** Android dispatches real HOME intents to Home, from each of its pages. */
 class HomeReturnIntegrationTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val automation get() = instrumentation.uiAutomation
@@ -61,8 +61,8 @@ class HomeReturnIntegrationTest {
         val deadline = SystemClock.uptimeMillis() + 15_000L
         while (true) {
             val returned = automation.rootInActiveWindow?.packageName?.toString() == context.packageName &&
-                LiveDiscover.owner.get()?.hasWindowFocus() == true &&
-                (expectedOwner == null || LiveDiscover.owner.get() === expectedOwner) &&
+                RunningLauncher.activity.get()?.hasWindowFocus() == true &&
+                (expectedOwner == null || RunningLauncher.activity.get() === expectedOwner) &&
                 node(expected, state = true)?.isVisibleToUser == true
             if (!returned) stableSince = 0L
             else if (stableSince == 0L) stableSince = SystemClock.uptimeMillis()
@@ -72,7 +72,7 @@ class HomeReturnIntegrationTest {
                 java.io.File(directory, "home-return-timeout.png").outputStream().use { output ->
                     automation.takeScreenshot()?.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output)
                 }
-                val main = LiveDiscover.owner.get()
+                val main = RunningLauncher.activity.get()
                 val states = mutableListOf<String>()
                 fun collect(candidate: AccessibilityNodeInfo?) {
                     if (candidate == null) return
@@ -98,7 +98,6 @@ class HomeReturnIntegrationTest {
         check(android.os.Build.HARDWARE in listOf("ranchu", "goldfish")) {
             "Home return instrumentation only runs on an emulator"
         }
-        LiveDiscover.attachNativeFeed = true
         val previousHome = shell("cmd role get-role-holders android.app.role.HOME")
             .lineSequence().firstOrNull().orEmpty()
         shell("cmd role add-role-holder android.app.role.HOME com.jake.duolauncher 0")
@@ -106,18 +105,18 @@ class HomeReturnIntegrationTest {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         var before: HomeLayout? = null
         try {
-            await { LiveDiscover.owner.get() != null }
+            await { RunningLauncher.activity.get() != null }
             await {
                 var loaded = false
                 instrumentation.runOnMainSync {
-                    loaded = !ViewModelProvider(LiveDiscover.owner.get()!!)[LauncherModel::class.java]
+                    loaded = !ViewModelProvider(RunningLauncher.activity.get()!!)[LauncherModel::class.java]
                         .state.value.loading
                 }
                 loaded
             }
             var pages = 0
             instrumentation.runOnMainSync {
-                val model = ViewModelProvider(LiveDiscover.owner.get()!!)[LauncherModel::class.java]
+                val model = ViewModelProvider(RunningLauncher.activity.get()!!)[LauncherModel::class.java]
                 before = model.state.value.layout
                 val apps = model.state.value.apps.filter { it.id !in model.state.value.dock }.take(2)
                 check(apps.size == 2) { "Fixture needs two apps outside the dock" }
@@ -130,17 +129,17 @@ class HomeReturnIntegrationTest {
             val expected = "Home page 2 of $pages"
             click("Home page 2")
             await { node(expected, state = true)?.isVisibleToUser == true }
-            val selectedOwner = checkNotNull(LiveDiscover.owner.get())
+            val selectedOwner = checkNotNull(RunningLauncher.activity.get())
 
             context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             await { automation.rootInActiveWindow?.packageName?.toString() == "com.android.settings" }
             shell("input keyevent KEYCODE_HOME")
             waitForReturnedPage(expected, selectedOwner)
 
-            val oldOwner = checkNotNull(LiveDiscover.owner.get())
+            val oldOwner = checkNotNull(RunningLauncher.activity.get())
             instrumentation.runOnMainSync { oldOwner.recreate() }
-            await { LiveDiscover.owner.get()?.let { it !== oldOwner } == true }
-            assertNotSame(oldOwner, LiveDiscover.owner.get())
+            await { RunningLauncher.activity.get()?.let { it !== oldOwner } == true }
+            assertNotSame(oldOwner, RunningLauncher.activity.get())
             waitForReturnedPage(expected)
 
             click("App Library page")
@@ -148,21 +147,20 @@ class HomeReturnIntegrationTest {
             shell("input keyevent KEYCODE_HOME")
             waitForReturnedPage(expected)
 
-            click("Discover")
-            await { node("Discover", state = true)?.isVisibleToUser == true }
+            click("My feed")
+            await { node("Feed", state = true)?.isVisibleToUser == true }
             shell("input keyevent KEYCODE_HOME")
             waitForReturnedPage(expected)
         } finally {
             before?.let { layout -> instrumentation.runOnMainSync {
-                LiveDiscover.owner.get()?.let { ViewModelProvider(it)[LauncherModel::class.java].restoreLayout(layout) }
+                RunningLauncher.activity.get()?.let { ViewModelProvider(it)[LauncherModel::class.java].restoreLayout(layout) }
             } }
             val cleanupHome = previousHome.takeIf { it.isNotEmpty() && it != "com.jake.duolauncher" }
                 ?: "com.google.android.apps.nexuslauncher"
             shell("cmd role add-role-holder android.app.role.HOME $cleanupHome 0")
             try {
                 instrumentation.runOnMainSync {
-                    LiveDiscover.owner.get()?.finish()
-                    LiveDiscover.host.get()?.finish()
+                    RunningLauncher.activity.get()?.finish()
                 }
             } finally {
                 if (previousHome.isNotEmpty())

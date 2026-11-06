@@ -13,7 +13,7 @@ import java.io.File
 /** Walks every settings page and saves a screenshot of each (tour-*.png in the app's files folder) so the whole launcher can be reviewed by eye. */
 class LauncherTourInstrumentedTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
 
     private fun shot(name: String, settle: Boolean = true) {
         if (settle) compose.waitForIdle()

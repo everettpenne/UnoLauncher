@@ -10,7 +10,7 @@ import org.junit.Test
 /** Entering a place by hand, and "Use device location", on the Appearance settings. */
 class PlaceEntryInstrumentedTest {
     private val compose = createAndroidComposeRule<MainActivity>()
-    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WithoutNativeFeed()).around(compose)
+    @get:Rule val rules = org.junit.rules.RuleChain.outerRule(WhatsNewSeen()).around(compose)
 
     private fun open() {
         val model = ViewModelProvider(compose.activity)[LauncherModel::class.java]

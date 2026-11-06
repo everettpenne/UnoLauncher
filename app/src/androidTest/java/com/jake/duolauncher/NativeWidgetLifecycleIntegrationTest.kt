@@ -11,7 +11,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Test
 
-/** Real-window widget setup coverage. Discover remains attached throughout this test. */
+/** Real-window widget setup coverage. */
 class NativeWidgetLifecycleIntegrationTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val automation get() = instrumentation.uiAutomation
@@ -145,9 +145,8 @@ class NativeWidgetLifecycleIntegrationTest {
         await { find(query)?.isVisibleToUser == true }
     }
 
-    @Test fun mandatoryConfigurationReturnsToMainPersistsAndDiscoverStillWorks() {
+    @Test fun mandatoryConfigurationReturnsToMainPersistsAndTheFeedStillWorks() {
         check(android.os.Build.HARDWARE in listOf("ranchu", "goldfish"))
-        LiveDiscover.attachNativeFeed = true
         val previousHome = shell("cmd role get-role-holders android.app.role.HOME").lineSequence().firstOrNull().orEmpty()
         val hadBindGrant = shell("dumpsys appwidget").lineSequence().any {
             it.contains("user=0 package=com.jake.duolauncher")
@@ -160,8 +159,8 @@ class NativeWidgetLifecycleIntegrationTest {
         var slot = -1
         var lastMain: MainActivity? = null
         try {
-            await { LiveDiscover.owner.get() != null }
-            var main = requireNotNull(LiveDiscover.owner.get())
+            await { RunningLauncher.activity.get() != null }
+            var main = requireNotNull(RunningLauncher.activity.get())
             lastMain = main
             var model = launcherModel(main)
             val widgetsField = MainActivity::class.java.getDeclaredField("widgets").apply { isAccessible = true }
@@ -230,7 +229,7 @@ class NativeWidgetLifecycleIntegrationTest {
 
             click("Cancel fixture configuration")
             await { automation.rootInActiveWindow?.packageName == "com.jake.duolauncher" }
-            main = requireNotNull(LiveDiscover.owner.get())
+            main = requireNotNull(RunningLauncher.activity.get())
             lastMain = main
             model = launcherModel(main)
             widgets = widgetsField.get(main) as WidgetController
@@ -259,16 +258,16 @@ class NativeWidgetLifecycleIntegrationTest {
             assertFalse("Successful bind/configure results must not remain queued above MainActivity",
                 activityDump.contains("ResultInfo{who=null, request=701") || activityDump.contains("ResultInfo{who=null, request=700"))
 
-            click("Discover")
-            await(20_000) { LiveDiscover.progress >= .99f && LiveDiscover.message.value == null }
+            click("My feed")
+            await { find("Back to home")?.isVisibleToUser == true }
             click("Back to home")
-            await { LiveDiscover.progress == 0f }
+            await { find("My feed")?.isVisibleToUser == true }
             assertEquals(committedId, model.placement(slot)?.id)
         } finally {
             val cleanupHome = previousHome.takeIf { it.isNotEmpty() && it != "com.jake.duolauncher" }
                 ?: "com.google.android.apps.nexuslauncher"
             try {
-                val cleanupMain = lastMain ?: LiveDiscover.owner.get()
+                val cleanupMain = lastMain ?: RunningLauncher.activity.get()
                 if (cleanupMain != null && before != null) instrumentation.runOnMainSync {
                     val model = ViewModelProvider(cleanupMain)[LauncherModel::class.java]
                     val widgets = MainActivity::class.java.getDeclaredField("widgets").apply { isAccessible = true }
@@ -281,8 +280,7 @@ class NativeWidgetLifecycleIntegrationTest {
                 shell("cmd role add-role-holder android.app.role.HOME $cleanupHome 0")
                 try {
                     instrumentation.runOnMainSync {
-                        LiveDiscover.owner.get()?.finish()
-                        LiveDiscover.host.get()?.finish()
+                        RunningLauncher.activity.get()?.finish()
                     }
                 } finally {
                     shell("appwidget ${if (hadBindGrant) "grantbind" else "revokebind"} --package com.jake.duolauncher --user 0")

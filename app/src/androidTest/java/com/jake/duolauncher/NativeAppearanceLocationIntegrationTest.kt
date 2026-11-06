@@ -20,7 +20,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.File
 
-/** Exercises the real permission controller while the native Discover host is enabled. */
+/** Exercises the real permission controller. */
 class NativeAppearanceLocationIntegrationTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val automation get() = instrumentation.uiAutomation
@@ -152,15 +152,13 @@ class NativeAppearanceLocationIntegrationTest {
         val originalBackground = backgroundPrefs.all.toMap()
         val backgroundFile = launcherBackgroundFile(context)
         val originalBackgroundBytes = backgroundFile.takeIf(File::isFile)?.readBytes()
-        val originalAttachNativeFeed = LiveDiscover.attachNativeFeed
 
-        LiveDiscover.attachNativeFeed = true
         try {
             // Start from a fresh denial state so Android presents the real runtime dialog once.
             clearPermissionDecisionFlags()
             shell("cmd role add-role-holder android.app.role.HOME $packageName 0")
             shell("input keyevent KEYCODE_HOME")
-            await { LiveDiscover.owner.get() != null && automation.rootInActiveWindow?.packageName == packageName }
+            await { RunningLauncher.activity.get() != null && automation.rootInActiveWindow?.packageName == packageName }
 
             // Merely starting Home must never request location permission.
             SystemClock.sleep(750)
@@ -179,9 +177,9 @@ class NativeAppearanceLocationIntegrationTest {
                 .contains("permissioncontroller") && find("Don’t allow")?.isVisibleToUser == true }
             click("Don’t allow")
 
-            await { automation.rootInActiveWindow?.packageName == packageName && LiveDiscover.owner.get() != null }
+            await { automation.rootInActiveWindow?.packageName == packageName && RunningLauncher.activity.get() != null }
             val denied = "Location permission wasn’t granted. Using the system theme until you set a place."
-            val returnedMain = requireNotNull(LiveDiscover.owner.get())
+            val returnedMain = requireNotNull(RunningLauncher.activity.get())
             val appearanceField = MainActivity::class.java.getDeclaredField("appearance").apply { isAccessible = true }
             await { (appearanceField.get(returnedMain) as AppearanceStore).state.locationStatus == denied }
             await { find(denied)?.isVisibleToUser == true }
@@ -191,11 +189,11 @@ class NativeAppearanceLocationIntegrationTest {
             assertArrayEquals(photoBefore, backgroundFile.takeIf(File::isFile)?.readBytes())
 
             click("Close settings")
-            await { find("Discover")?.isVisibleToUser == true }
-            click("Discover")
-            await(20_000) { LiveDiscover.progress >= .99f && LiveDiscover.message.value == null }
+            await { find("My feed")?.isVisibleToUser == true }
+            click("My feed")
+            await { find("Back to home")?.isVisibleToUser == true }
             click("Back to home")
-            await { LiveDiscover.progress == 0f && find("Discover")?.isVisibleToUser == true }
+            await { find("My feed")?.isVisibleToUser == true }
             assertEquals(launcherBefore, launcherPrefs.all.toMap())
             assertEquals(appearanceBefore, appearancePrefs.all.toMap())
             assertEquals(backgroundBefore, backgroundPrefs.all.toMap())
@@ -209,9 +207,7 @@ class NativeAppearanceLocationIntegrationTest {
                 SystemClock.sleep(400)
             }
             instrumentation.runOnMainSync {
-                DiscoverSession.dismiss()
-                LiveDiscover.owner.get()?.finish()
-                LiveDiscover.host.get()?.finish()
+                RunningLauncher.activity.get()?.finish()
             }
             restore(launcherPrefs, originalLauncher)
             restore(appearancePrefs, originalAppearance)
@@ -222,7 +218,6 @@ class NativeAppearanceLocationIntegrationTest {
             if (originallyUserFixed) shell("pm set-permission-flags --user 0 $packageName $permission user-fixed")
             if (previousHome.isNotBlank()) shell("cmd role add-role-holder android.app.role.HOME $previousHome 0")
             else shell("cmd role remove-role-holder android.app.role.HOME $cleanupHome 0")
-            LiveDiscover.attachNativeFeed = originalAttachNativeFeed
         }
     }
 }

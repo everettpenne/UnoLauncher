@@ -738,9 +738,13 @@ internal fun DynamicIsland(
     LaunchedEffect(absorbTick) {
         if (absorbTick > 0 && animationsOn) motion.kick(this, 1f + (IslandThemes.active.motion.pulse - 1f) * .7f, motionSpecs)
     }
-    // Flash returns to the collapsed clock after a beat.
-    LaunchedEffect(state.flashKey) {
-        if (state.flashTitle != null) { delay(IslandPolicy.FLASH_MS); state.advanceFlash() }
+    // Flash returns to the collapsed clock after a beat: a beat on the pill, where it is seen. While the island is open, peeking or pulled the
+    // flash waits for the pill (it used to time out unseen behind the open panel), and one that has waited too long is dropped, not shown late.
+    val flashSeen = IslandEventArbiter.flashOnScreen(flashActive, islandShown = true, state.expanded, state.peeked, pulling)
+    LaunchedEffect(state.flashKey, flashSeen) {
+        if (!flashSeen) return@LaunchedEffect
+        if (state.flashStale(System.currentTimeMillis())) { state.advanceFlash(); return@LaunchedEffect }
+        delay(IslandPolicy.FLASH_MS); state.advanceFlash()
     }
     // An idle open island tucks itself back in. A finger resting on its bottom holds it open, and a pull in progress is not idle.
     LaunchedEffect(state.expanded, state.peeked, pulling, state.holdingOpen, IslandTools.interactions, isPlaying, state.peekKey, state.peekEditing) {
@@ -1524,6 +1528,9 @@ internal const val MAX_EVENT_EXTRA_DP = 140f
 
 /** How many flashes can wait behind the one on screen; beyond that the oldest waiting one is dropped. */
 internal const val MAX_QUEUED_FLASHES = 3
+
+/** A flash that waited this long for the pill (the island was open, or stepped aside for search or a sheet) is dropped rather than shown late. */
+internal const val FLASH_STALE_MS = 10_000L
 
 /** Extra panel height, in dp, when the music card is showing: artwork and track above, the controls below. */
 internal const val MEDIA_ROW_DP = 126f

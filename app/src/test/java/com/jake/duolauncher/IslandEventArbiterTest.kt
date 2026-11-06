@@ -43,20 +43,41 @@ class IslandEventArbiterTest {
             IslandEventArbiter.notificationSurface(hasTitleOrText = false, cardAlreadyDown = false, shadeOpenedAtMs = opened, nowMs = now))
     }
 
-    @Test fun whileSpotlightIsOpenNoNotificationDropsACardOrFlashes() {
-        // Spotlight owns the screen: neither a titled card (which would auto-expand the island) nor a name-only flash
-        // fires underneath the search.
+    @Test fun whileHomeIsTakenOverNoNotificationDropsACardOrFlashes() {
+        // Search, a settings sheet or the control panel owns the screen: neither a titled card (which would auto-expand the island) nor a
+        // name-only flash fires underneath it.
         assertEquals(IslandEventArbiter.NotificationSurface.NONE,
-            IslandEventArbiter.notificationSurface(hasTitleOrText = true, cardAlreadyDown = false, shadeOpenedAtMs = 0L, nowMs = 1_000L, spotlightOpen = true))
+            IslandEventArbiter.notificationSurface(hasTitleOrText = true, cardAlreadyDown = false, shadeOpenedAtMs = 0L, nowMs = 1_000L, homeCovered = true))
         assertEquals(IslandEventArbiter.NotificationSurface.NONE,
-            IslandEventArbiter.notificationSurface(hasTitleOrText = false, cardAlreadyDown = false, shadeOpenedAtMs = 0L, nowMs = 1_000L, spotlightOpen = true))
+            IslandEventArbiter.notificationSurface(hasTitleOrText = false, cardAlreadyDown = false, shadeOpenedAtMs = 0L, nowMs = 1_000L, homeCovered = true))
     }
 
-    @Test fun whenSpotlightClosesTheIslandOwnsNotificationsAgain() {
+    @Test fun whenHomeIsBackTheIslandOwnsNotificationsAgain() {
         assertEquals(IslandEventArbiter.NotificationSurface.CARD,
-            IslandEventArbiter.notificationSurface(hasTitleOrText = true, cardAlreadyDown = false, shadeOpenedAtMs = 0L, nowMs = 1_000L, spotlightOpen = false))
+            IslandEventArbiter.notificationSurface(hasTitleOrText = true, cardAlreadyDown = false, shadeOpenedAtMs = 0L, nowMs = 1_000L, homeCovered = false))
         assertEquals(IslandEventArbiter.NotificationSurface.PILL,
-            IslandEventArbiter.notificationSurface(hasTitleOrText = false, cardAlreadyDown = false, shadeOpenedAtMs = 0L, nowMs = 1_000L, spotlightOpen = false))
+            IslandEventArbiter.notificationSurface(hasTitleOrText = false, cardAlreadyDown = false, shadeOpenedAtMs = 0L, nowMs = 1_000L, homeCovered = false))
+    }
+
+    // --- the island and what the person opened ---
+
+    @Test fun theIslandStepsAsideForWhatThePersonOpenedButNotForARingingTimer() {
+        // Music on the pill, then search pulled down: search wins, the island steps aside.
+        assertTrue(IslandEventArbiter.overlayYields(homeCovered = true, timerRinging = false))
+        // A ringing timer has to be seen and stopped: it keeps the island.
+        assertFalse(IslandEventArbiter.overlayYields(homeCovered = true, timerRinging = true))
+        // Nothing has Home: the island stays (over apps, homeCovered is false whatever Home left open).
+        assertFalse(IslandEventArbiter.overlayYields(homeCovered = false, timerRinging = false))
+    }
+
+    @Test fun aFlashOnlyCountsItsSecondsWhileThePillIsSeen() {
+        assertTrue(IslandEventArbiter.flashOnScreen(flashing = true, islandShown = true, expanded = false, peeked = false, pulling = false))
+        // Held behind the open panel, a peek, a pull, or while the island has stepped aside.
+        assertFalse(IslandEventArbiter.flashOnScreen(flashing = true, islandShown = true, expanded = true, peeked = false, pulling = false))
+        assertFalse(IslandEventArbiter.flashOnScreen(flashing = true, islandShown = true, expanded = false, peeked = true, pulling = false))
+        assertFalse(IslandEventArbiter.flashOnScreen(flashing = true, islandShown = true, expanded = false, peeked = false, pulling = true))
+        assertFalse(IslandEventArbiter.flashOnScreen(flashing = true, islandShown = false, expanded = false, peeked = false, pulling = false))
+        assertFalse(IslandEventArbiter.flashOnScreen(flashing = false, islandShown = true, expanded = false, peeked = false, pulling = false))
     }
 
     // --- clock and battery owners ---

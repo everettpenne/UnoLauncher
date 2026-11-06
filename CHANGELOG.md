@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.127.0-uno01
+
+- **Google Discover is gone.** My feed, Uno's own RSS page, is always the page before the first Home page. Uno no longer embeds Google's window, keeps the Window Extensions split for it, or draws a second copy of Home for it; the Discover fallback dialog went with it.
+- **Smoother paging.** Measured on a Pixel 10a, a page swipe's median frame went from about 35 ms to about 20 ms and janky frames from 20 % to 6 %. On the iOS layout the bottom edge blur is gone (it only blurred the wallpaper behind the dock) and the dock and Search pill sample the wallpaper alone; two full-screen offscreen layers that only served Discover are gone everywhere.
+- **The island steps aside.** Opening search, a settings sheet or the control panel no longer leaves the island (its music pill, say) drawn on top of them; it fades out and comes back after. A ringing timer is the exception, and closes search and the control panel so it can be stopped. A notification that arrives meanwhile is kept as the island's recent card, a flash waits until the pill is showing, and a card never opens under a finger pulling the island.
+- **Search comes out of the island.** Its field widens out of the pill, then the rows follow down the panel, each landing with a small settle.
+- **Glass closer to iOS 26.** A gentler lens with a faint chromatic edge; the frosted glass of menus and panels blurs more and tints less.
+- **Home lines up.** Home's first row starts where My feed and the App Library do, and leaving an app opened from either of them lands straight on Home instead of swiping across to it.
+- **Tested:** 1,155 unit tests, passing (Discover's own tests went with it). On a Pixel 10a: paging frames before and after, and My feed as the leading page. On an emulator: the island stepping aside for search, Home's alignment, and the return to Home. **Not seen:** the Spotlight cascade and the island's alert behaviour on a phone; the regular glass's lighter tint over a busy wallpaper.
+
 ## 0.126.0-uno01
 
 - **The split is rubber.** A second activity is pulled out of the pill's own end: the end stretches into a tip on a join that narrows to a waist, snaps, and the tip pops into its place, a touch big before it settles, while the pill recoils and jiggles back. Going back plays it in reverse. It replaces 0.125's drop sliding out on a neck.

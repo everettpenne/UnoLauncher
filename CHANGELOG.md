@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.127.1-uno01
+
+- **Wallpaper folders.** Appearance › Folders › Add Folder picks a folder with Android's folder picker (Pictures/Wallpapers, Downloads, a memory card); its pictures appear three to a row, and tapping one opens it in the wallpaper editor as a photo does. Uno reads only the folders you add (the pictures directly in each, the first 60 by name), needs no storage permission, and gives a folder's access back when it is removed.
+- **Spotlight closes the way it opens.** Its contents shrink, fade and rise back toward the island, bottom rows first and the field last, while the outline waits a beat and then draws in, so they are seen leaving rather than cut away.
+- **The open island rounds like the screen.** The open panel, peeks, cards and search take the display's own corner radius (read from Android) instead of the concentric one, which on a Pixel 10a left them squarer than the screen.
+- **Tested:** 1,157 unit tests, passing. On an emulator: adding a folder, its pictures, opening one in the editor, and removing the folder. **Not seen:** any of it on a phone; the new corner radius and Spotlight's close were checked as numbers and simulated frames only.
+
 ## 0.127.0-uno01
 
 - **Google Discover is gone.** My feed, Uno's own RSS page, is always the page before the first Home page. Uno no longer embeds Google's window, keeps the Window Extensions split for it, or draws a second copy of Home for it; the Discover fallback dialog went with it.

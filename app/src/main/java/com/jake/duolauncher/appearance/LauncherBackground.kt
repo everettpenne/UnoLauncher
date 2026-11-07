@@ -211,6 +211,24 @@ class LauncherBackgroundController(
         }
     }
 
+    /**
+     * Uses [uri], a picture in one of the wallpaper folders ([WallpaperFolders]), as if the photo picker had returned it: the same preview,
+     * framing and Done. It is readable through its folder's grant, so the picker's own grant is neither needed nor kept for it.
+     */
+    fun choosePicture(uri: Uri) {
+        pendingBuiltin = null
+        adjust = WallpaperAdjust()
+        prefs.edit().remove(PREVIEW_ADJUST).apply()
+        discardPreview()
+        releasePreviewGrant()
+        cleanupStagedFiles()
+        generation++; loading = false; errorMessage = null; successMessage = null
+        val operation = UUID.randomUUID().toString()
+        prefs.edit().remove(PICKER_PENDING).putString(PENDING_OPERATION, operation)
+            .remove(PENDING_URI).remove(PREVIEW_PHASE).remove(PREVIEW_FILE).apply()
+        beginPreview(uri, operation)
+    }
+
     /** Drops a committed photo and reveals the currently selected built-in background. */
     fun reset() {
         pendingBuiltin = null

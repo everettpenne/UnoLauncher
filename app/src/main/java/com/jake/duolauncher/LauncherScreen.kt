@@ -1507,8 +1507,13 @@ internal fun LauncherScreen(
             // Read in here, so a change to the pill (an event widening it) recomposes only search while it is open, not all of Home.
             val spotlightPill = if (appearance.island) island.restPill else null
             // Read here, in composition: a transition's value read only inside the panel's draw did not redraw it, so it jumped open.
+            // Opening, the outline springs out at once and the contents follow it; closing, it waits for the contents to start going back
+            // (SpotlightEmerge.OUTLINE_CLOSE_DELAY_MS) and then draws in, so they are seen leaving rather than cut off.
             val grow by transition.animateFloat(transitionSpec = {
-                UnoMotion.open()
+                if (targetState == androidx.compose.animation.EnterExitState.Visible) UnoMotion.open()
+                else androidx.compose.animation.core.tween(com.jake.duolauncher.search.SpotlightEmerge.OUTLINE_CLOSE_MS,
+                    delayMillis = com.jake.duolauncher.search.SpotlightEmerge.OUTLINE_CLOSE_DELAY_MS,
+                    easing = androidx.compose.animation.core.FastOutSlowInEasing)
             }, label = "search grows from the island") { if (it == androidx.compose.animation.EnterExitState.Visible) 1f else 0f }
             Spotlight(controlGlass, state.apps, state.hiddenApps, feed.shownEntries, extras?.store?.state?.contactSearch == true, handoffResolver,
                 onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },

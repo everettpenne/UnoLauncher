@@ -137,18 +137,19 @@ internal object IslandGeometry {
      * panel was widened). */
     const val CORNER_CAP_DP = 44f
     private const val MIN_CAP_DP = 24f
-    private const val MAX_CAP_DP = 64f
+    private const val MAX_CAP_DP = 72f
 
     /**
-     * Apple's rule for the open island: concentric with the display. Its corner is the display's corner [displayCornerDp] less the island's
-     * margin from the top of the screen [topMarginDp] (55 − 11 = 44 pt on an iPhone), so the panel's corners run parallel to the phone's own.
-     * [CORNER_CAP_DP] when the display reports no corners; kept between 24 and 64 dp so an odd report never makes a slab or a blob.
+     * The open island's corner: the display's own corner radius [displayCornerDp] (on a Pixel 10a, its screen's), so every expanded state (the
+     * open panel, a peek, a card dropping from the island, search grown out of it) rounds exactly as the phone does. It was Apple's concentric
+     * rule (the display's corner less the island's margin from the top), which on the 10a left the panel noticeably squarer than the screen.
+     * [CORNER_CAP_DP] when the display reports no corners; kept between 24 and 72 dp so an odd report never makes a slab or a blob.
      */
-    fun concentricCapDp(displayCornerDp: Float?, topMarginDp: Float): Float =
+    fun displayCapDp(displayCornerDp: Float?): Float =
         if (displayCornerDp == null || !(displayCornerDp > 0f)) CORNER_CAP_DP
-        else (displayCornerDp - topMarginDp.coerceAtLeast(0f)).coerceIn(MIN_CAP_DP, MAX_CAP_DP)
+        else displayCornerDp.coerceIn(MIN_CAP_DP, MAX_CAP_DP)
 
-    /** The open island's corner on this phone, [concentricCapDp] of its display (set by the island when it is drawn). The body, search and the
+    /** The open island's corner on this phone, [displayCapDp] of its display (set by the island when it is drawn). The body, search and the
      * open island's cards all read it, so they agree. Snapshot state, so a change redraws them. */
     var cornerCapDp by androidx.compose.runtime.mutableFloatStateOf(CORNER_CAP_DP)
 
@@ -322,8 +323,8 @@ internal object IslandGeometry {
         // reach the glass column on the right, whatever the dock-width preset.
         // Clear of the dock or rail when there is one; with none, only the island's own edge margin, so the open panel can reach the 8 dp that covers
         // the status bar's icons (its rounded top corners cut in far enough that, at 16 dp, the clock and battery showed just outside them).
-        // Apple's open island is as far from each side of the screen as it is from the top ([openSideGap]), so with its corner concentric with the
-        // display's (see [concentricCapDp]) every edge of it runs parallel to the phone's own. Without a camera at the top it keeps the old share.
+        // Apple's open island is as far from each side of the screen as it is from the top ([openSideGap]), and rounds as the screen does
+        // (its corner is the display's own: see [displayCapDp]). Without a camera at the top it keeps the old share.
         val sideGap = openSideGap(cutout, top)
         // The edge margin never pushes the open panel narrower than the equal gap asks for (a camera close to the top gives a gap under 8 dp).
         val edge = if (sideGap != null) min(margin, sideGap) else margin

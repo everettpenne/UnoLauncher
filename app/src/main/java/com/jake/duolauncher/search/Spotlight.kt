@@ -294,6 +294,16 @@ internal object SpotlightEmerge {
      */
     const val CONTENT_MS = 480
 
+    /**
+     * Closing is the opening in reverse: the contents run their clock back down over [CLOSE_CONTENT_MS], so the bottom rows go first and the
+     * field last, each shrinking, fading and rising back toward the island; the outline holds for [OUTLINE_CLOSE_DELAY_MS] and then shrinks into
+     * the pill over [OUTLINE_CLOSE_MS], so it is still drawing them in as the field goes. They used to stay put while the outline closed over
+     * them in a few frames, which read as the page being cut away rather than taken back.
+     */
+    const val CLOSE_CONTENT_MS = 240
+    const val OUTLINE_CLOSE_DELAY_MS = 120
+    const val OUTLINE_CLOSE_MS = 300
+
     /** How far above its place an element is while it comes out ([settle]), in dp: it drops out of the island, the lower ones from further. */
     fun dropDp(settle: Float, depth: Float): Float = -(1f - settle) * (10f + 16f * depth.coerceIn(0f, 1f))
 
@@ -609,10 +619,13 @@ internal fun Spotlight(
           // Each element comes out of the island on its own as the panel grows (SpotlightEmerge.reveal): the field first, widening from the
           // pill, then the rows down the panel, each dropping into its place; closing, they go back bottom first. The top is kept clear of the
           // camera hole. Without an island, or with animations off, everything is simply there.
-          // Their own clock (SpotlightEmerge.CONTENT_MS) opening; the outline's progress closing, whichever is lower.
+          // Their own clock, both ways (SpotlightEmerge.CONTENT_MS opening, CLOSE_CONTENT_MS closing, in reverse); a swipe up that closes the
+          // panel under the finger takes them with the outline, whichever is lower.
           val contentClock = remember { Animatable(if (pill != null && animationsOn) 0f else 1f) }
           LaunchedEffect(visible) {
-              if (visible && pill != null && animationsOn) contentClock.animateTo(1f, tween(SpotlightEmerge.CONTENT_MS, easing = LinearEasing))
+              if (pill == null || !animationsOn) return@LaunchedEffect
+              if (visible) contentClock.animateTo(1f, tween(SpotlightEmerge.CONTENT_MS, easing = LinearEasing))
+              else contentClock.animateTo(0f, tween(SpotlightEmerge.CLOSE_CONTENT_MS, easing = LinearEasing))
           }
           val emerge = remember(pill != null, animationsOn) {
               EmergeSource(pill != null && animationsOn, { minOf(contentClock.value, effectiveProgress()) }, { panelPos.y }, { panelSize.height.toFloat() })

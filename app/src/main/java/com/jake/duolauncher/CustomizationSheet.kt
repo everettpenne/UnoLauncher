@@ -376,9 +376,78 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     SettingsGroup(header = "Built-in", footer = "The scenes follow light and dark.") {
         row { Box(Modifier.padding(vertical = Space.M.dp)) { BuiltInBackgroundPicker(backgrounds.builtin.takeIf { !backgrounds.photoSelected }, backgrounds::chooseBuiltin, dark) } }
     }
+    WallpaperFolderGroups(backgrounds)
     SettingsGroup(footer = "Android Wallpaper Too also sets the phone's own Home and lock screen to the picture you choose here, replacing what is there. Nothing leaves the phone.") {
         row { SettingsSwitch("Android Wallpaper Too", backgrounds.systemSync, backgrounds::chooseSystemSync, "system-wallpaper-sync-switch") }
         row { ActionRow("Open Android Wallpaper", "wallpaper-preview", onClick = onWallpaperPreview) }
+    }
+}
+
+/**
+ * Folders of wallpapers the person added with Android's folder picker ([WallpaperFolders]): each folder's pictures, three to a row like the
+ * built-in scenes, then Add Folder. Tapping a picture opens it in the wallpaper editor, as a photo from the picker does. Uno reads only these
+ * folders, and gives a folder's access back when it is removed.
+ */
+@Composable private fun WallpaperFolderGroups(backgrounds: LauncherBackgroundController) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var revision by remember { mutableIntStateOf(0) }
+    val folders by produceState(emptyList<Pair<WallpaperFolder, List<WallpaperImage>>>(), revision) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            WallpaperFolders.folders(context).map { it to WallpaperFolders.images(context, it.tree) }
+        }
+    }
+    var refused by remember { mutableStateOf(false) }
+    val pickFolder = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { tree ->
+        if (tree != null) { refused = !WallpaperFolders.add(context, tree); revision++ }
+    }
+    folders.forEach { (folder, images) ->
+        SettingsGroup(header = folder.name, footer = if (images.isEmpty()) "No pictures directly in this folder."
+            else if (images.size >= WallpaperFolders.MAX_IMAGES) "The first ${WallpaperFolders.MAX_IMAGES} pictures, by name." else null) {
+            if (images.isNotEmpty()) row { Box(Modifier.padding(vertical = Space.M.dp)) {
+                WallpaperFolderPictures(images, enabled = !backgrounds.loading, onSelect = { backgrounds.choosePicture(it.uri) })
+            } }
+            row { ActionRow("Remove Folder", "wallpaper-folder-remove", destructive = true, onClick = {
+                WallpaperFolders.remove(context, folder.tree); revision++
+            }) }
+        }
+    }
+    SettingsGroup(header = if (folders.isEmpty()) "Folders" else null,
+        footer = if (refused) "Android didn't allow Uno to keep reading that folder. Try another one."
+            else "Add folders of wallpapers from your phone or a memory card. Uno reads only the folders you add, and only to show their pictures here; removing a folder gives the access back.") {
+        row { ActionRow("Add Folder", "wallpaper-folder-add", onClick = {
+            refused = false
+            runCatching { pickFolder.launch(null) }.onFailure { refused = true }
+        }) }
+    }
+}
+
+/** A folder's pictures, three to a row, each its own thumbnail loaded off the main thread. */
+@Composable private fun WallpaperFolderPictures(images: List<WallpaperImage>, enabled: Boolean, onSelect: (WallpaperImage) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        images.chunked(3).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { image ->
+                    val thumbnail by produceState<android.graphics.Bitmap?>(null, image.uri) {
+                        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            with(density) { WallpaperFolders.thumbnail(context, image.uri, 112.dp.roundToPx(), 200.dp.roundToPx()) }
+                        }
+                    }
+                    Surface(onClick = { onSelect(image) }, enabled = enabled,
+                        modifier = Modifier.weight(1f).height(160.dp).testTag("wallpaper-folder-picture").semantics { contentDescription = image.name },
+                        shape = Corner.medium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .08f)) {
+                        Box(Modifier.padding(6.dp).fillMaxSize().clip(Corner.inside(Corner.MEDIUM_DP.dp, 6.dp))) {
+                            thumbnail?.let { Image(it.asImageBitmap(), null, Modifier.matchParentSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop) }
+                        }
+                    }
+                }
+                // Keep the last row's tiles the width of the others.
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
     }
 }
 

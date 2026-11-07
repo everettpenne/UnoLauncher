@@ -676,14 +676,14 @@ internal fun DynamicIsland(
     val squashGain = ((theme.motion.pulse - 1f).coerceIn(0f, .3f) / .1f).coerceAtLeast(.25f)
     // A capsule is as round as its shorter side allows; turned sideways the pill is taller than it is wide.
     val panelScale = theme.panel.scale
-    // Apple's open island is concentric with the display: its corner is the display's top corner less the island's margin from the top of
-    // the screen. Worked out once for this phone and shared through IslandGeometry.cornerCapDp, which the body, search and the cards read.
+    // The open island rounds as the phone's own screen does: its corner is the display's top corner radius (IslandGeometry.displayCapDp).
+    // Worked out once for this phone and shared through IslandGeometry.cornerCapDp, which the body, search and the cards read.
     val displayTopCornerDp = remember(context, d) {
         com.jake.duolauncher.appearance.displayCornerRadiusPx(context,
             listOf(android.view.RoundedCorner.POSITION_TOP_LEFT, android.view.RoundedCorner.POSITION_TOP_RIGHT))?.let { it / d } }
     val capDp = remember(environment, d, sizeScale, displayTopCornerDp) {
         val open = IslandGeometry.frame(environment, d, 1f, sizeScale)
-        if (open.side != IslandSide.TOP) IslandGeometry.cornerCapDp else IslandGeometry.concentricCapDp(displayTopCornerDp, open.top / d) }
+        if (open.side != IslandSide.TOP) IslandGeometry.cornerCapDp else IslandGeometry.displayCapDp(displayTopCornerDp) }
     SideEffect { if (IslandGeometry.cornerCapDp != capDp) IslandGeometry.cornerCapDp = capDp }
     val cornerPx = remember(panelScale, d, capDp) { derivedStateOf {
         val f = frameState.value

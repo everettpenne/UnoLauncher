@@ -13,6 +13,7 @@ internal object SettingsSearch {
         SettingEntry("Wallpaper", CustomizationPage.APPEARANCE, "background photo image choose edit styles duotone black white blur crop"),
         SettingEntry("Edit Photo", CustomizationPage.APPEARANCE, "wallpaper adjust crop zoom brightness warmth style"),
         SettingEntry("Android Wallpaper Too", CustomizationPage.APPEARANCE, "wallpaper system lock screen home also set"),
+        SettingEntry("Wallpaper Folders", CustomizationPage.APPEARANCE, "add folder directory pictures images gallery memory card downloads"),
         SettingEntry("Light & Dark", CustomizationPage.APPEARANCE, "dark mode night theme sunset sunrise appearance automatic"),
         SettingEntry("Glass: Clear, Frosted or Off", CustomizationPage.APPEARANCE, "liquid glass blur frosted transparent ios edge tint dock material"),
         SettingEntry("Text Replacement", CustomizationPage.KEYBOARD, "keyboard shortcut phrase expand abbreviation omw snippet"),

@@ -128,6 +128,16 @@ class SpotlightEmergeTest {
         assertTrue(SpotlightEmerge.dropDp(0f, 1f) < SpotlightEmerge.dropDp(0f, 0f) && SpotlightEmerge.dropDp(0f, 0f) < 0f)
         // The contents take longer than the outline's spring (about 170 ms), so the cascade is seen.
         assertTrue(SpotlightEmerge.CONTENT_MS >= 400)
+    }
+
+    @Test fun closingTakesTheContentsBackBeforeTheOutlineCloses() {
+        // The outline waits for the contents to start going, and they are gone before it has finished drawing in.
+        assertTrue(SpotlightEmerge.OUTLINE_CLOSE_DELAY_MS > 0)
+        assertTrue(SpotlightEmerge.CLOSE_CONTENT_MS < SpotlightEmerge.OUTLINE_CLOSE_DELAY_MS + SpotlightEmerge.OUTLINE_CLOSE_MS)
+        // Running the clock back down, the bottom rows go first and the field last.
+        val clock = .7f
+        assertTrue(SpotlightEmerge.reveal(clock, 1f) < SpotlightEmerge.reveal(clock, 0f))
+        assertEquals(0f, SpotlightEmerge.reveal(0f, 0f), 0f)
         assertEquals(0f, SpotlightEmerge.dropDp(1f, .7f), 0f)
         // The field widens from about the pill's width to its own.
         assertTrue(SpotlightEmerge.fieldWidth(0f) < 1f); assertEquals(1f, SpotlightEmerge.fieldWidth(1f), 0f)

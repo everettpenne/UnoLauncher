@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.127.2-uno01
+
+- **A slower, smoother island.** It opens and closes 30 % more slowly (search grows out of it at the same tempo), and the overlay window grows as soon as the island is pressed.
+- **Home stays still behind the island.** When the accessibility service draws the island above the status bar, Home no longer hides the bar for it, and the edge blur no longer follows the bar as it comes and goes. On a Pixel 10a, Home went from about 120 redrawn frames per three opens (17 to 31 % of them late) to almost none.
+- **Smoother search.** The island's window keeps its size while it steps aside for search, instead of being resized as search opens and closes; on a Pixel 10a, Home's late frames during search fell from 13–14 % to 8–11 %.
+- **The charging ring peeks out from behind the island.** The battery (and timer) ring follows the island's own squircle edge and is drawn beneath it, a thin band of colour round a whole black pill, instead of a rounded rectangle drawn over its edge.
+- **Tested:** 1,160 unit tests, passing. On a Pixel 10a: frame timings of the island and search, the expanded island over the status bar, and the ring at 15 %, 62 % and 100 %. **Not seen:** a real finger's press (the early window growth is unmeasured), and the island without the accessibility service, where the bar still hides.
+
 ## 0.127.1-uno01
 
 - **Wallpaper folders.** Appearance › Folders › Add Folder picks a folder with Android's folder picker (Pictures/Wallpapers, Downloads, a memory card); its pictures appear three to a row, and tapping one opens it in the wallpaper editor as a photo does. Uno reads only the folders you add (the pictures directly in each, the first 60 by name), needs no storage permission, and gives a folder's access back when it is removed.

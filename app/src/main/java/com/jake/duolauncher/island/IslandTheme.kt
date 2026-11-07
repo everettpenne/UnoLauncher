@@ -80,6 +80,14 @@ internal enum class IslandMotion(
 
     companion object {
         /**
+         * How much longer the island takes to open and close than its styles' own numbers say: 30 %, the same springs and bounce over more
+         * frames, so each frame moves the island less and the motion reads smoother. A spring's time goes as one over the root of its stiffness,
+         * so every opening and closing stiffness is divided by the square of this ([tempoStiffness]); damping, and so overshoot, is unchanged.
+         */
+        const val TEMPO = 1.3f
+        fun tempoStiffness(stiffness: Float): Float = stiffness / (TEMPO * TEMPO)
+
+        /**
          * The width a coupled motion (see [coupling]) gives the body for a height progress [h]. Below half open the two move together;
          * from there the width runs ahead of the height on the way up and comes back the other way as the height overshoots, so the body
          * is wide and flat while it is short and narrow and tall when it is stretched. Pure, so it is unit-tested.
@@ -159,10 +167,11 @@ internal data class IslandTheme(
         androidx.compose.animation.core.spring(if (tunedDamping) (dampingRatio * motion.damping).coerceIn(.3f, 1.2f) else dampingRatio, stiffness * motion.stiffness)
 
     /** The springs that open the island: one for its height, one for its width (see [IslandMotion]). Not clamped to the panel's size: overshoot shows. */
-    fun heightSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(motion.heightDamping.coerceIn(.3f, 1.2f), motion.heightStiffness)
-    fun widthSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(motion.widthDamping.coerceIn(.3f, 1.2f), motion.widthStiffness)
-    /** The spring that closes it: critically damped, so it settles onto the camera without going past it. */
-    fun closeSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(1f, motion.closeStiffness)
+    /** Both at the island's [IslandMotion.TEMPO]. */
+    fun heightSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(motion.heightDamping.coerceIn(.3f, 1.2f), IslandMotion.tempoStiffness(motion.heightStiffness))
+    fun widthSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(motion.widthDamping.coerceIn(.3f, 1.2f), IslandMotion.tempoStiffness(motion.widthStiffness))
+    /** The spring that closes it: critically damped, so it settles onto the camera without going past it; at the same [IslandMotion.TEMPO]. */
+    fun closeSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(1f, IslandMotion.tempoStiffness(motion.closeStiffness))
 
     /** The chip fill: [ink] at a low alpha. */
     fun chip(alpha: Float = .14f): Color = ink.copy(alpha = alpha)

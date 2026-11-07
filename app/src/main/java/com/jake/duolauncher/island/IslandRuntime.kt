@@ -43,12 +43,14 @@ internal object IslandRuntime {
      *  [homeCovered] and IslandEventArbiter.overlayYields); it was only the Home window's island that did, so the overlay's (which draws the
      *  Home island when the accessibility service is on) stayed on top of the search with its music pill. */
     var homeTakeover by mutableStateOf(false)
+    /** The overlay is showing the island above the status bar (it is the accessibility service's window), so Home need not hide the bar for it. */
+    var overlayAboveStatusBar by mutableStateOf(false)
     /** Home is in front and taken over (see [homeTakeover]): the island yields, and a notification does not drop a card under it. */
     val homeCovered: Boolean get() = launcherInFront && homeTakeover
 
     fun updateOverlay(active: Boolean) {
         overlayActive = active
-        if (!active) { state.collapse(); state.dismissFlash() }
+        if (!active) { state.collapse(); state.dismissFlash(); overlayAboveStatusBar = false }
     }
 }
 

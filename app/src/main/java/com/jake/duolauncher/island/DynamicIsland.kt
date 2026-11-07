@@ -774,7 +774,11 @@ internal fun DynamicIsland(
     // Whether anything is, or is about to be, taller than the collapsed pill: only a threshold, so the island recomposes when it is crossed and
     // not on every frame of the morph.
     val morphing by remember { derivedStateOf { progressState.value > .002f || state.pullFraction != null } }
-    val windowTall = morphing || state.expanded || state.peeked || state.holdingOpen || peekShown != null
+    // A finger on the island counts too: a tap opens it a moment after the finger lands, so the window grows then, while nothing moves yet.
+    // Growing it is a relayout of the window (about 10 ms on a Pixel 10a); on the first frame of the opening it cost that frame.
+    val islandTouch = remember { MutableInteractionSource() }
+    val islandPressed by islandTouch.collectIsPressedAsState()
+    val windowTall = morphing || islandPressed || state.expanded || state.peeked || state.holdingOpen || peekShown != null
     val windowRect: PxRect? = if (anchoredToWindow && openFrame.side == IslandSide.TOP) {
         // The biggest the island gets, in both directions: worked out once for the environment, not on every animation frame.
         // Sized for the island at its most overshot (a bounce carries it past the panel), so a bounce is never clipped by the window.
@@ -1058,8 +1062,6 @@ internal fun DynamicIsland(
         }
         val chargingIdle = plan.leading == null && deviceStatus.charging
         val quickActionsOn = (plan.leading != null || chargingIdle) && !(state.expanded || state.peeked || flashActive || IslandTools.ringing)
-        val islandTouch = remember { MutableInteractionSource() }
-        val islandPressed by islandTouch.collectIsPressedAsState()
         val squash = IslandThemes.active.motion.pulse - 1f
         SideEffect {
             motionInputs.pressX = if (islandPressed && !pulling) 1f + squash * .55f else 1f
@@ -1103,8 +1105,9 @@ internal fun DynamicIsland(
                 }
             }
             .islandSized { frameState.value }
+            // Before the body, so the ring is drawn under it and peeks out round its edge.
+            .islandRing(ring, { cornerPx.value }, 2f * d)
             .islandBody(glass?.backdrop, { cornerPx.value }, settings = glass?.settings ?: GlassSettings.Default)
-            .islandRing(ring, { cornerPx.value }, 2.5f * d)
             .graphicsLayer { shape = IslandOutlineShape(cornerPx.value, d); clip = true }
             // The playing track's colour rising from the island's bottom edge, swaying like a low flame while audio really plays.
             .drawBehind {

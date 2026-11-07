@@ -72,6 +72,8 @@ internal class IslandOverlayHost(
 
     // What the island last asked for, and whether it may be shown at all.
     private var shown = true
+    /** Not shown only because it has stepped aside for something opened on Home (search, a sheet): it is coming back in a moment. */
+    private var steppedAside = false
     private var lastFrame: IslandFrame? = null
     private var lastWindow: PxRect? = null
 
@@ -215,7 +217,11 @@ internal class IslandOverlayHost(
                 hiddenForFullScreen = fullScreenHidden
                 // Stepping aside, the window waits for the fade below before it shrinks away, so the island fades rather than vanishing.
                 if (!show && yielded && shown) delay(YIELD_FADE_MS + 20L)
+                steppedAside = !show && yielded && visible && !fullScreenHidden && !hiddenOverApp
                 if (shown != show) { shown = show; applyLayout() } else updateHud()
+                // An accessibility overlay draws above the status bar (an app overlay draws beneath it): Home then need not hide the bar
+                // for the island, which made Home redraw behind it as the bar went and came back.
+                IslandRuntime.overlayAboveStatusBar = show && !needsOverlayPermission
             }
             LaunchedEffect(Unit) {
                 while (true) {
@@ -308,6 +314,10 @@ internal class IslandOverlayHost(
         val frame = lastFrame
         val window = lastWindow
         when {
+            // Stepped aside for search or a sheet on Home: the faded-out window keeps its size and place, and the touch window stops taking
+            // touches where it is. Shrinking both to 1x1 and growing them back resized two windows as search opened and again as it closed;
+            // each resize stalled the process's main thread for 10 to 20 ms (on a Pixel 10a), dropping frames of search's own animation in Home.
+            !shown && steppedAside && frame != null && window != null -> disarmTouchWindow(manager)
             !shown -> {
                 setLayout(manager, view, params, flags = OverlayPolicy.WINDOW_FLAGS and outsideFlag.inv() or untouchable,
                     width = 1, height = 1, gravity = Gravity.TOP or Gravity.START, x = 0, y = 0)
@@ -366,6 +376,13 @@ internal class IslandOverlayHost(
         val p = touchParams ?: return
         setLayout(manager, v, p, OverlayPolicy.WINDOW_FLAGS and outsideFlag.inv() or untouchable, 1, 1,
             Gravity.TOP or Gravity.START, 0, 0)
+    }
+
+    /** Makes the touch window untouchable where it is, without resizing it (see [applyLayout]). */
+    private fun disarmTouchWindow(manager: WindowManager) {
+        val v = touchView ?: return
+        val p = touchParams ?: return
+        setLayout(manager, v, p, OverlayPolicy.WINDOW_FLAGS and outsideFlag.inv() or untouchable, p.width, p.height, p.gravity, p.x, p.y)
     }
 
     /** Passes a touch the touch window received to the drawing window's view, shifted into that view's coordinates. */

@@ -337,7 +337,10 @@ internal fun LauncherScreen(
     // A flash waiting for the island to come back (it steps aside while something has Home: see homeTakeover) does not hold the bar off.
     val islandOut by remember(island) { derivedStateOf { island.expanded || island.peeked || island.pullFraction != null ||
         (island.flashTitle != null && !IslandRuntime.homeTakeover) } }
-    val islandCoversBar = iosLayout && (islandOut || spotlightOpen)
+    // When the overlay draws the island above the status bar (the accessibility service's window) the bar can stay: the island already covers
+    // it. Hiding it anyway made Home redraw behind the island on every frame the bar animated, which was most of the island's dropped frames.
+    // Search is drawn in Home's own window, under the bar, so it still hides it.
+    val islandCoversBar = iosLayout && ((islandOut && !IslandRuntime.overlayAboveStatusBar) || spotlightOpen)
     var barHeldForIsland by remember { mutableStateOf(false) }
     LaunchedEffect(islandCoversBar) { if (islandCoversBar) barHeldForIsland = true else { delay(380); barHeldForIsland = false } }
     // In jiggle mode the status bar gives its row to the Edit bar's two buttons on every layout, as an iPhone's does.
@@ -882,8 +885,12 @@ internal fun LauncherScreen(
             }
             // Soft blur toward the top and bottom edges, beneath the island, rail, dock and page dots.
             if (glassEnabled) {
-                // The edge blur hugs the screen edges (system bars + cutout), never the keyboard.
-                val insets = WindowInsets.systemBars.union(WindowInsets.displayCutout).asPaddingValues()
+                // The edge blur hugs the screen edges (system bars + cutout), never the keyboard. Measured from the bars whether they show or not:
+                // the status bar hides while the island is open (on the iOS layout), and following it re-laid the strip out and re-blurred all
+                // of Home on every frame of the island's open and close (on a Pixel 10a this halved Home's late frames, 31 % to 17 %, and its
+                // render-thread time during them).
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                val insets = WindowInsets.systemBarsIgnoringVisibility.union(WindowInsets.displayCutout).asPaddingValues()
                 val topInset = insets.calculateTopPadding()
                 val bottomInset = insets.calculateBottomPadding()
                 ScrollEdgeBlur(homeBackdrop.combined, atTop = true, height = topInset + EdgeBlur.TOP_EXTRA,
@@ -1510,7 +1517,9 @@ internal fun LauncherScreen(
             // Opening, the outline springs out at once and the contents follow it; closing, it waits for the contents to start going back
             // (SpotlightEmerge.OUTLINE_CLOSE_DELAY_MS) and then draws in, so they are seen leaving rather than cut off.
             val grow by transition.animateFloat(transitionSpec = {
-                if (targetState == androidx.compose.animation.EnterExitState.Visible) UnoMotion.open()
+                // The island's own tempo (IslandMotion.TEMPO): search is the island grown, so it opens as unhurriedly as the island does.
+                if (targetState == androidx.compose.animation.EnterExitState.Visible) androidx.compose.animation.core.spring(UnoMotion.OPEN_DAMPING,
+                    com.jake.duolauncher.island.IslandMotion.tempoStiffness(UnoMotion.OPEN_STIFFNESS))
                 else androidx.compose.animation.core.tween(com.jake.duolauncher.search.SpotlightEmerge.OUTLINE_CLOSE_MS,
                     delayMillis = com.jake.duolauncher.search.SpotlightEmerge.OUTLINE_CLOSE_DELAY_MS,
                     easing = androidx.compose.animation.core.FastOutSlowInEasing)

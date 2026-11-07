@@ -13,7 +13,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 
 /** What the ring around the collapsed island is currently showing, if anything. */
 internal data class RingState(val fraction: Float, val color: Color)
@@ -37,52 +39,72 @@ internal object IslandRingLogic {
         else -> null
     }
 
-    /** The arc (start..end as distances along the outline) for [fraction] of a loop. The outline begins at the top centre and runs
-     * clockwise, so its bottom centre is half way round; the arc is centred there and grows evenly up both sides, meeting at the top when
-     * full, like a level rising in the pill. It used to start at the top centre and run clockwise, which left the pill lopsided: one side
-     * lit, the other dark.
-     */
-    fun arc(length: Float, fraction: Float): ClosedFloatingPointRange<Float>? {
-        if (length <= 0f || fraction <= 0f) return null
-        val half = length * fraction.coerceIn(0f, 1f) / 2f
-        return (length / 2f - half)..(length / 2f + half)
+    /** The arc (as distances along an outline of [length]) for [fraction] of a loop, centred at [centre] (the outline's bottom centre) so it
+     * grows evenly up both sides, meeting at the top when full, like a level rising in the pill: one range, or two where it runs past the
+     * outline's start, which may be anywhere. It used to start at the top centre and run clockwise, which left the pill lopsided. */
+    fun arcs(length: Float, centre: Float, fraction: Float): List<ClosedFloatingPointRange<Float>> {
+        if (length <= 0f || fraction <= 0f) return emptyList()
+        if (fraction >= 1f) return listOf(0f..length)
+        val half = length * fraction / 2f
+        val c = ((centre % length) + length) % length
+        val start = c - half; val end = c + half
+        return when {
+            start < 0f -> listOf(0f..end, (length + start)..length)
+            end > length -> listOf(start..length, 0f..(end - length))
+            else -> listOf(start..end)
+        }
+    }
+
+    /** The distance along an outline of [length] where [distanceSq] (of the point there, from a target) is least: a coarse pass, then a fine one. */
+    fun closestAlong(length: Float, distanceSq: (Float) -> Float): Float {
+        if (length <= 0f) return 0f
+        val coarse = 96
+        var best = 0f; var bestD = Float.MAX_VALUE
+        for (i in 0 until coarse) { val at = length * i / coarse; val dd = distanceSq(at); if (dd < bestD) { bestD = dd; best = at } }
+        val step = length / coarse
+        for (i in -16..16) { val at = ((best + step * i / 16f) % length + length) % length; val dd = distanceSq(at); if (dd < bestD) { bestD = dd; best = at } }
+        return best
     }
 }
 
-/** Draws [ring] as a progress arc hugging the island's outline, clockwise from the top centre, over a faint track. */
-/** [cornerPx] is read as the ring draws, so a morphing island's ring follows its corner without recomposing. */
+/** Draws [ring] behind the island, peeking out from under its edge by [strokePx]: a faint track all the way round and the progress arc,
+ * rising from the bottom centre evenly up both sides ([IslandRingLogic.arcs]). It follows the island's own outline ([IslandMorph.outline],
+ * Apple's squircle pill), not a circular-cornered rectangle inset from it, which drifted off the pill's edge at its ends; and it is drawn under
+ * the island, not over its edge, so the pill stays whole and black, ringed by a thin line of colour round it.
+ * [cornerPx] is read as the ring draws, so a morphing island's ring follows its corner without recomposing. */
 internal fun Modifier.islandRing(ring: RingState?, cornerPx: () -> Float, strokePx: Float): Modifier =
     if (ring == null) this else {
-        // The ring's three paths are made once for the modifier's lifetime and rewound on each draw. Building them inside the draw
-        // lambda allocated a Path, a PathMeasure and a segment Path on every animation frame while the ring's corner followed a morph.
+        // Made once for the modifier's lifetime. The outline and where its bottom centre lies along it are worked out again only when the
+        // island's size or corner changes (the ring shows on the resting pill, so that is rarely), not on every frame.
         val outline = Path()
         val measure = PathMeasure()
         val piece = Path()
+        val sink = ComposePathSink(outline)
+        var builtFor = Triple(-1f, -1f, -1f)
+        var length = 0f
+        var bottom = 0f
         drawWithContent {
-            val inset = strokePx / 2f + 1f
-            val w = size.width - inset * 2; val h = size.height - inset * 2
+            val w = size.width; val h = size.height
             if (w <= 0f || h <= 0f) { drawContent(); return@drawWithContent }
-            val radius = (cornerPx() - inset).coerceIn(0f, minOf(w, h) / 2f)
-            // Built by hand so it starts at the top centre and runs clockwise (a library round-rect starts elsewhere).
-            outline.rewind()
-            val cx = inset + w / 2f; val l = inset; val t = inset; val rt = inset + w; val bt = inset + h; val d = radius * 2f
-            outline.moveTo(cx, t)
-            outline.lineTo(rt - radius, t)
-            outline.arcTo(androidx.compose.ui.geometry.Rect(rt - d, t, rt, t + d), -90f, 90f, false)
-            outline.lineTo(rt, bt - radius)
-            outline.arcTo(androidx.compose.ui.geometry.Rect(rt - d, bt - d, rt, bt), 0f, 90f, false)
-            outline.lineTo(l + radius, bt)
-            outline.arcTo(androidx.compose.ui.geometry.Rect(l, bt - d, l + d, bt), 90f, 90f, false)
-            outline.lineTo(l, t + radius)
-            outline.arcTo(androidx.compose.ui.geometry.Rect(l, t, l + d, t + d), 180f, 90f, false)
-            outline.close()
-            drawContent()
-            measure.setPath(outline, false)
-            drawPath(outline, ring.color.copy(alpha = .22f), style = Stroke(strokePx))
-            IslandRingLogic.arc(measure.length, ring.fraction)?.let { range ->
-                piece.rewind()
-                if (measure.getSegment(range.start, range.endInclusive, piece, true))
-                    drawPath(piece, ring.color, style = Stroke(strokePx, cap = StrokeCap.Round))
+            val r = cornerPx().coerceIn(0f, minOf(w, h) / 2f)
+            if (builtFor != Triple(w, h, r)) {
+                outline.rewind()
+                IslandMorph.outline(w, h, r, density, sink)
+                measure.setPath(outline, false)
+                length = measure.length
+                bottom = IslandRingLogic.closestAlong(length) { at -> measure.getPosition(at).let { (it.x - w / 2f) * (it.x - w / 2f) + (it.y - h) * (it.y - h) } }
+                builtFor = Triple(w, h, r)
             }
+            // A stroke twice as wide as the band, centred on the edge, with the island's inside cut away: only the outer half shows. The body
+            // is drawn over it anyway; the cut keeps the colour from showing through a glass island, which is not opaque.
+            clipPath(outline, ClipOp.Difference) {
+                drawPath(outline, ring.color.copy(alpha = .22f), style = Stroke(strokePx * 2f))
+                for (range in IslandRingLogic.arcs(length, bottom, ring.fraction)) {
+                    piece.rewind()
+                    if (measure.getSegment(range.start, range.endInclusive, piece, true))
+                        drawPath(piece, ring.color, style = Stroke(strokePx * 2f, cap = StrokeCap.Round))
+                }
+            }
+            drawContent()
         }
     }

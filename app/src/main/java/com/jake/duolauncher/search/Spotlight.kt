@@ -288,11 +288,11 @@ internal object SpotlightEmerge {
     private const val SETTLE = 1.4f
 
     /**
-     * The contents come out on their own clock, over this long, while the outline springs open (about 170 ms): timed off the outline itself,
+     * The contents come out on their own clock, over this long, while the outline springs open (about 220 ms, at the island's tempo): timed off the outline itself,
      * even staggered, the whole cascade was over in a few frames and read as the page appearing at once. Closing follows the outline (see
      * [Spotlight]'s contentProgress), so a swipe up takes the contents with it.
      */
-    const val CONTENT_MS = 480
+    const val CONTENT_MS = 620
 
     /**
      * Closing is the opening in reverse: the contents run their clock back down over [CLOSE_CONTENT_MS], so the bottom rows go first and the
@@ -300,9 +300,9 @@ internal object SpotlightEmerge {
      * the pill over [OUTLINE_CLOSE_MS], so it is still drawing them in as the field goes. They used to stay put while the outline closed over
      * them in a few frames, which read as the page being cut away rather than taken back.
      */
-    const val CLOSE_CONTENT_MS = 240
-    const val OUTLINE_CLOSE_DELAY_MS = 120
-    const val OUTLINE_CLOSE_MS = 300
+    const val CLOSE_CONTENT_MS = 310
+    const val OUTLINE_CLOSE_DELAY_MS = 155
+    const val OUTLINE_CLOSE_MS = 390
 
     /** How far above its place an element is while it comes out ([settle]), in dp: it drops out of the island, the lower ones from further. */
     fun dropDp(settle: Float, depth: Float): Float = -(1f - settle) * (10f + 16f * depth.coerceIn(0f, 1f))
@@ -521,8 +521,10 @@ internal fun Spotlight(
         contentAlignment = Alignment.TopCenter) {
         // Without an island the panel opens from the top, inside the safe area. It pads for the
         // system bars and cutout only; the IME is handled by the imePadding below, so the keyboard
-        // is never double-counted.
-        Column(Modifier.then(if (pill == null) Modifier.windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout)).padding(top = 8.dp) else Modifier)
+        // is never double-counted. The bars are measured whether they show or not: Home hides the status bar while search is open, and
+        // following it moved the panel and re-laid it out on every frame of the bar's animation, as search opened and again as it closed.
+        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+        Column(Modifier.then(if (pill == null) Modifier.windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.union(WindowInsets.displayCutout)).padding(top = 8.dp) else Modifier)
             .padding(top = with(density) { pillTop.toDp() })
             .imePadding().padding(horizontal = 12.dp)
             .widthIn(max = IslandGeometry.expandedWidthDp(LocalConfiguration.current.screenWidthDp.toFloat()).dp)

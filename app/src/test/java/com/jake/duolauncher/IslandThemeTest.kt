@@ -226,4 +226,16 @@ class IslandThemeTest {
         assertTrue(rejected(file(extra = ""","apps":{"com.a":"#101010"}""")).contains("com.a"))
         assertTrue(rejected(file(extra = ""","progress":{"finished":"#101010"}""")).contains("finished"))
     }
+
+    @Test fun theIslandOpensAndClosesAtItsTempo() {
+        // 30 % longer than each style's own numbers: stiffness over 1.3 squared, damping (and so the bounce) unchanged.
+        for (motion in com.jake.duolauncher.island.IslandMotion.entries) {
+            val theme = com.jake.duolauncher.island.IslandTheme("t", motion = motion)
+            val k = com.jake.duolauncher.island.IslandMotion.TEMPO * com.jake.duolauncher.island.IslandMotion.TEMPO
+            assertEquals(motion.name, motion.heightStiffness / k, theme.heightSpring().stiffness, .01f)
+            assertEquals(motion.name, motion.widthStiffness / k, theme.widthSpring().stiffness, .01f)
+            assertEquals(motion.name, motion.closeStiffness / k, theme.closeSpring().stiffness, .01f)
+        }
+        assertTrue(com.jake.duolauncher.island.IslandMotion.TEMPO > 1f)
+    }
 }

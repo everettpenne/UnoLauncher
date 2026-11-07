@@ -294,6 +294,12 @@ How to measure: `adb shell dumpsys gfxinfo <package> framestats` after a few pag
 thread's IssueDrawCommands and the GPU's completion were the costs; the UI thread, Compose included, was about 3 ms). Time the
 `-PunoDev` release build (a minified copy with its own id), never a debug build.
 
+## Island tempo
+
+The island opens and closes 30 % slower than its motion styles' own numbers (`IslandMotion.TEMPO`): every opening and closing stiffness is
+divided by 1.3², so the same springs and the same bounce play over more frames (the island already draws at the display's full rate, 120 Hz
+on a Pixel 10a). Search's growth out of the island, its contents and its close are stretched by the same factor.
+
 ## Island activities (`IslandActivities.kt`)
 
 The pill body is **true black** (`#000000`, an OLED pixel that is off) so the camera hole disappears
@@ -484,7 +490,7 @@ The strength setting (`TiltMath.gainFor`, 1x to 6x) multiplies the roll, and `Gl
 
 ## Spotlight
 
-Search grows out of the island (`SpotlightEmerge`): the panel begins as the island's body exactly where and how big it was (the open island, when search is opened from its Search button), and its outline grows to the full panel with the island's own corner rule at every size (`IslandMorph.cornerPx`); the content is not scaled down with it. It comes out on its own clock (`SpotlightEmerge.CONTENT_MS`, 480 ms, while the outline springs open in about 170 ms): the field first, widening from the pill's width, then each header and row down the panel a little later than the one above, each fading in and dropping into place with a small settle (`reveal`, `settle`). Timed off the outline, even staggered, it was over in a few frames and read as the page appearing at once. Closing is the same in reverse: the clock runs back down over 240 ms (`CLOSE_CONTENT_MS`), bottom rows first and the field last, each shrinking, fading and rising back toward the island, while the outline waits 120 ms and then draws in over 300 ms, so they are seen leaving rather than cut off. A swipe up that closes the panel under the finger takes the content with the outline. It shrinks back into the settled pill as drawn (`IslandState.restPill`, with the status bar grid's edges), so the island takes over without a jump. Without an island it opens from the top, inside the safe area.
+Search grows out of the island (`SpotlightEmerge`): the panel begins as the island's body exactly where and how big it was (the open island, when search is opened from its Search button), and its outline grows to the full panel with the island's own corner rule at every size (`IslandMorph.cornerPx`); the content is not scaled down with it. It comes out on its own clock (`SpotlightEmerge.CONTENT_MS`, 620 ms, while the outline springs open in about 220 ms): the field first, widening from the pill's width, then each header and row down the panel a little later than the one above, each fading in and dropping into place with a small settle (`reveal`, `settle`). Timed off the outline, even staggered, it was over in a few frames and read as the page appearing at once. Closing is the same in reverse: the clock runs back down over 310 ms (`CLOSE_CONTENT_MS`), bottom rows first and the field last, each shrinking, fading and rising back toward the island, while the outline waits 155 ms and then draws in over 390 ms, so they are seen leaving rather than cut off. A swipe up that closes the panel under the finger takes the content with the outline. It shrinks back into the settled pill as drawn (`IslandState.restPill`, with the status bar grid's edges), so the island takes over without a jump. Without an island it opens from the top, inside the safe area. All of it runs at the island's tempo (`IslandMotion.TEMPO`).
 
 **Island motion is anchored to the camera** (`IslandMorph`): the body's pulse, press squash and morph stretch scale about the camera hole; the grid's edge corrections unwind with the width spring and the hand-set drop with the height spring; privacy dots and capsules stay on the camera's line; capsules split off only once the body has nearly landed. When a sheet, the control panel, search or a drag takes over Home, the island closes and fades rather than vanishing. A long press on the pill opens the app behind its leading activity (call, player, Live Update).
 

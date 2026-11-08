@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.127.3-uno01
+
+- **The island lands exactly.** Its open and close springs stopped 1 % short and jumped the rest in one frame (7 to 9 px on a Pixel 10a); they now settle all the way, and the close is a shade under critically damped so it lands crisply instead of creeping (it goes past by well under a pixel).
+- **Its contents grow with it.** The open panel's contents are drawn no wider than the body and grow with it, so they appear from about the fifth frame instead of after a fifth of a second of empty black, and the blur clears quickly enough that they are readable through most of the opening. The handle fades in with them instead of sitting alone on the small pill.
+- **The ring slides under the island.** The charging or timer ring recedes beneath the body as the island opens and comes back out over the last fifth of the close; it used to vanish on the tap and reappear round a body still nearly the panel's size.
+- **Search hands back to the island as one shape.** The island now returns as search shrinks into it, fading in over its last stretch; it used to come back on the first frame of the close, on top of search's still panel-sized body. Search also opens 30 % more slowly than the island, since it grows several times as far.
+- The open island keeps "N min to full" while it closes, instead of dropping the line and jumping the battery level down.
+- **Tested:** 1,162 unit tests, passing. On a Pixel 10a, recorded frame by frame: the island opening and closing, the charging ring, a notification card arriving and being swiped away, a timer started from search, and a stopwatch capsule splitting off. **Not seen:** music (no player was running), and the island without the accessibility service, whose window Android holds at 80 % opacity.
+
 ## 0.127.2-uno01
 
 - **A slower, smoother island.** It opens and closes 30 % more slowly (search grows out of it at the same tempo), and the overlay window grows as soon as the island is pressed.

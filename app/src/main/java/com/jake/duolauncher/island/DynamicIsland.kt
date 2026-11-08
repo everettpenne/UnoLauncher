@@ -194,9 +194,10 @@ internal fun DynamicIsland(
             delay(if (IslandTools.swRunning) 100L else if (IslandTools.timerActive) 500L else if ((state.expanded || state.peeked) && (state.playing || state.cameraActive || state.micActive || state.recordingActive || state.recentCard != null)) 1_000L else if (LiveUpdateLogic.needsSecondTick(NotificationFeed.liveUpdates) || NotificationFeed.ongoingCall != null) 1_000L else 5_000L)
         }
     }
-    // How long until the battery is full, asked of the system only while the island is open on a charging phone.
+    // How long until the battery is full, asked of the system only while the island is open on a charging phone. Kept while it closes (as the
+    // alarm is, below): cleared on the tap that closes it, the line blinked out of the shrinking panel and the battery level jumped down into its place.
     val chargeLeft by produceState<String?>(null, state.expanded, deviceStatus.charging, deviceStatus.battery) {
-        value = null
+        if (deviceStatus.charging != true) value = null
         if (state.expanded && deviceStatus.charging == true) {
             val battery = context.getSystemService(android.os.BatteryManager::class.java)
             value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
@@ -311,16 +312,13 @@ internal fun DynamicIsland(
     val showOpenFace by remember(coupling) { derivedStateOf { revealState.value > .08f } }
     val collapsedAlpha = remember(coupling) { { (1f - revealState.value / .3f).coerceIn(0f, 1f) } }
     // The face is fully there by the time the body is as open as the peek rests (and no later than 40 %), so a held peek is never half faded.
-    //
-    // The face is also held back until the body is nearly as wide as the panel: it is laid out at the panel's width, so in a narrower body its
-    // first words were cut off at the sides (and blurred), as the island opened.
     val expandedAlpha = remember(coupling) { {
         val end = minOf(.4f, peekState.floatValue * .92f)
         val tall = ((revealState.value - (end - .2f)) / .2f).coerceIn(0f, 1f)
         val p = progressState.value
-        // From 60 % of the panel's width: at .72 the body was an empty black slab for several frames of every open and close. The face is
-        // still scaled in and sharpened from a blur over that range (morphFace), so its edges are not seen cut off.
-        val wide = ((if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value) - .6f) / .4f
+        // The face is drawn no wider than the body (morphFace's fit), so it can start once the body is a third of the way across and be
+        // whole by three quarters; it used to wait for 60 %, and the body was an empty black slab for a fifth of a second of every open.
+        val wide = ((if (coupling > 0f) IslandMotion.coupledWidth(p, coupling) else widthState.value) - .3f) / .45f
         tall * wide.coerceIn(0f, 1f)
     } }
     val pastHalfOpen by remember { derivedStateOf { progressState.value >= .5f } }
@@ -716,7 +714,9 @@ internal fun DynamicIsland(
     // A progress ring around the collapsed pill: a running timer, or the battery level while charging.
     // The status rail owns the battery level when it is shown, so the island draws a level ring only while
     // charging with the rail off (IslandEventArbiter.chargingRingSurface); the charging icon stays either way.
-    val ring = IslandRingLogic.choose(flashActive, pastHalfOpen || state.expanded || state.peeked || pulling, IslandTools.ringing,
+    // Gone past half open; below that it is there, and IslandRingLogic.shown fades it with the morph, so it recedes under the body as the island
+    // opens and comes back out from under it as the island lands on the pill, instead of vanishing on the tap and reappearing round a big body.
+    val ring = IslandRingLogic.choose(flashActive, pastHalfOpen, IslandTools.ringing,
         // The timer rings the island only when the island is showing it; in a capsule, a ring round the island would be about something else.
         IslandTools.timerActive && plan.leading == LiveKind.TIMER, 1f - IslandClock.progress(clockMs, IslandTools.timerEndAt, IslandTools.timerTotal),
         IslandEventArbiter.chargingRingSurface(statusRailShown, deviceStatus.charging == true), deviceStatus.battery, IslandThemes.active.timer, IslandThemes.active.charging, state.flashTint)
@@ -1106,7 +1106,7 @@ internal fun DynamicIsland(
             }
             .islandSized { frameState.value }
             // Before the body, so the ring is drawn under it and peeks out round its edge.
-            .islandRing(ring, { cornerPx.value }, 2f * d)
+            .islandRing(ring, { cornerPx.value }, 2f * d) { IslandRingLogic.shown(progressState.value) }
             .islandBody(glass?.backdrop, { cornerPx.value }, settings = glass?.settings ?: GlassSettings.Default)
             .graphicsLayer { shape = IslandOutlineShape(cornerPx.value, d); clip = true }
             // The playing track's colour rising from the island's bottom edge, swaying like a low flame while audio really plays.
@@ -1279,6 +1279,9 @@ internal fun DynamicIsland(
             }
             .testTag("dynamic-island")) {
             val openHole = openFrame.hole
+            // How wide the body is for the open face (see morphFace): only under a camera at the top, where the face is centred on the body. Beside a
+            // side camera the face is held against the outer edge, and scaling it about its middle would move it off that edge.
+            val faceFit: (() -> Float)? = if (sideways || openFrame.width <= 0f) null else { { frameState.value.width / openFrame.width } }
             // Where the open face starts. Camera on top: below the hole. Camera on a side edge: beside it, on the inward side, so the
             // panel opens away from the edge the camera is on. These come from the open frame: the camera's place does not move as it grows.
             val faceTop = if (openHole != null && !sideways) (openHole.bottom / d).dp + 6.dp else 12.dp
@@ -1345,7 +1348,7 @@ internal fun DynamicIsland(
             }
             // A new notification as a card: icon, who or what, and the text if the level allows. Tap opens it; swipe up or wait to dismiss.
             peekShown?.let { peek ->
-                if (showOpenFace) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)
+                if (showOpenFace) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade, fit = faceFit)
                     // The app's colour glows out from behind its icon into the island's own black. It is drawn across the whole body, before
                     // the padding, so it has no card edge of its own: the notification is part of the island, not a panel laid on it.
                     .then(IslandThemes.active.wash(peek.packageName, peek.tint)?.let { c -> Modifier.drawBehind {
@@ -1382,7 +1385,9 @@ internal fun DynamicIsland(
                 }
             }
             // The handle at the bottom of the open island: a finger resting on it keeps the island open.
+            // It comes in with the face: on the first frames of an open it sat alone on a pill-sized black body, a grey dash under the camera.
             if (state.expanded || state.peeked) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp).size(width = 34.dp, height = 4.dp)
+                .graphicsLayer { alpha = expandedAlpha() }
                 .clip(CircleShape).background(themeInk.copy(alpha = if (state.holdingOpen) .85f else .22f)).testTag("island-hold-handle"))
             // Whatever colour the card glows with (a notification's wash, the playing track's flame, the light edge) is faded to pure black over the
             // camera hole, so on an AMOLED panel the hole and the island read as one black shape. Drawn last, over the faces, and only as a veil of black:
@@ -1404,7 +1409,7 @@ internal fun DynamicIsland(
                     }
                 }.testTag("island-cutout-veil"))
             // Expanded face: live panel, starting below the camera hole.
-            if (showOpenFace && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade)
+            if (showOpenFace && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade, fit = faceFit)
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop).testTag("island-main-face")) {
                 if (narration != null) {
                     Text(narration, color = themeInk.copy(alpha = .6f), style = UnoType.caption2.tight, fontWeight = FontWeight.Medium,

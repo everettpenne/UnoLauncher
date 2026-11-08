@@ -326,6 +326,8 @@ internal fun LauncherScreen(
     }
     var controlPanelOpen by remember { mutableStateOf(false) }
     var spotlightOpen by remember { mutableStateOf(false) }
+    // Search is still on screen, closing into the island, after spotlightOpen goes false (see where Spotlight is drawn below).
+    var spotlightLanding by remember { mutableStateOf(false) }
     // Jiggle mode on the iOS layout hides the status bar too: its Edit and Done capsules take that row, as on an iPhone.
     //
     // So does anything grown out of the island on the iOS layout (the island open, peeking or being pulled down, and search growing out of
@@ -1052,7 +1054,9 @@ internal fun LauncherScreen(
             //
             // What has taken Home over is shared with the overlay's island too (IslandRuntime.homeTakeover), which steps aside the same way; it
             // used to stay on top of search with its music pill, being a window of its own above this one.
-            val homeTakeover = sheet.isNotEmpty() || showFirstRun || drag.active || controlPanelOpen || spotlightOpen
+            // Search counts until it has nearly shrunk back into the pill, not just until it starts closing: the island came back on the first
+            // frame of the close and sat on top of search's still panel-sized body, two black shapes for a moment, then the body slid under it.
+            val homeTakeover = sheet.isNotEmpty() || showFirstRun || drag.active || controlPanelOpen || spotlightOpen || spotlightLanding
             SideEffect { IslandRuntime.homeTakeover = homeTakeover }
             if (appearance.island && !islandEverywhere && !IslandRuntime.overlayActive) androidx.compose.animation.AnimatedVisibility(
                 !homeTakeover,
@@ -1517,13 +1521,18 @@ internal fun LauncherScreen(
             // Opening, the outline springs out at once and the contents follow it; closing, it waits for the contents to start going back
             // (SpotlightEmerge.OUTLINE_CLOSE_DELAY_MS) and then draws in, so they are seen leaving rather than cut off.
             val grow by transition.animateFloat(transitionSpec = {
-                // The island's own tempo (IslandMotion.TEMPO): search is the island grown, so it opens as unhurriedly as the island does.
+                // Slower than the island (SpotlightEmerge.OPEN_TEMPO on top of IslandMotion.TEMPO): search grows much further than the island does.
                 if (targetState == androidx.compose.animation.EnterExitState.Visible) androidx.compose.animation.core.spring(UnoMotion.OPEN_DAMPING,
-                    com.jake.duolauncher.island.IslandMotion.tempoStiffness(UnoMotion.OPEN_STIFFNESS))
+                    com.jake.duolauncher.search.SpotlightEmerge.outlineOpenStiffness())
                 else androidx.compose.animation.core.tween(com.jake.duolauncher.search.SpotlightEmerge.OUTLINE_CLOSE_MS,
                     delayMillis = com.jake.duolauncher.search.SpotlightEmerge.OUTLINE_CLOSE_DELAY_MS,
                     easing = androidx.compose.animation.core.FastOutSlowInEasing)
             }, label = "search grows from the island") { if (it == androidx.compose.animation.EnterExitState.Visible) 1f else 0f }
+            // Closing, the island is let back once search is a quarter of the way out of the pill: its fade-in (60 ms wait, 200 ms) then overlaps
+            // search's last stretch into the very place it sits, so the two meet as one shape.
+            val landing = !spotlightOpen && grow > .25f
+            SideEffect { spotlightLanding = landing }
+            DisposableEffect(Unit) { onDispose { spotlightLanding = false } }
             Spotlight(controlGlass, state.apps, state.hiddenApps, feed.shownEntries, extras?.store?.state?.contactSearch == true, handoffResolver,
                 onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },
                 onLaunchFrom = { app, bounds -> spotlightOpen = false; onLaunchFrom(app, bounds) },

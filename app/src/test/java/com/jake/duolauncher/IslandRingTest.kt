@@ -50,4 +50,13 @@ class IslandRingTest {
         assertEquals(37f, IslandRingLogic.closestAlong(100f) { (it - 37f) * (it - 37f) }, .1f)
         assertEquals(0f, IslandRingLogic.closestAlong(0f) { it }, 0f)
     }
+
+    @Test fun theRingIsWholeOnThePillAndGoneByAFifthOpen() {
+        assertEquals(1f, IslandRingLogic.shown(0f), 0f)
+        assertEquals(0f, IslandRingLogic.shown(.2f), 0f)
+        assertEquals(0f, IslandRingLogic.shown(1f), 0f)
+        val mid = IslandRingLogic.shown(.1f)
+        assertTrue(mid > 0f && mid < 1f)
+        assertTrue(IslandRingLogic.shown(.05f) > IslandRingLogic.shown(.15f))
+    }
 }

@@ -288,11 +288,23 @@ internal object SpotlightEmerge {
     private const val SETTLE = 1.4f
 
     /**
-     * The contents come out on their own clock, over this long, while the outline springs open (about 220 ms, at the island's tempo): timed off the outline itself,
+     * How much longer search takes to open than the island does, on top of the island's own tempo ([com.jake.duolauncher.island.IslandMotion.TEMPO]):
+     * it grows into a panel several times the open island's height in about the same time, so it moved several times as far each frame and
+     * read as quicker and jumpier than the island. Its outline's stiffness is divided by the square of this ([outlineOpenStiffness]) and the
+     * contents' clock ([CONTENT_MS]) runs this much longer.
+     */
+    const val OPEN_TEMPO = 1.3f
+
+    /** The outline's opening spring stiffness: Uno's open spring at the island's tempo, and [OPEN_TEMPO] slower again. */
+    fun outlineOpenStiffness(): Float =
+        com.jake.duolauncher.island.IslandMotion.tempoStiffness(com.jake.duolauncher.appearance.UnoMotion.OPEN_STIFFNESS) / (OPEN_TEMPO * OPEN_TEMPO)
+
+    /**
+     * The contents come out on their own clock, over this long, while the outline springs open (about 290 ms, see [OPEN_TEMPO]): timed off the outline itself,
      * even staggered, the whole cascade was over in a few frames and read as the page appearing at once. Closing follows the outline (see
      * [Spotlight]'s contentProgress), so a swipe up takes the contents with it.
      */
-    const val CONTENT_MS = 620
+    const val CONTENT_MS = 806
 
     /**
      * Closing is the opening in reverse: the contents run their clock back down over [CLOSE_CONTENT_MS], so the bottom rows go first and the

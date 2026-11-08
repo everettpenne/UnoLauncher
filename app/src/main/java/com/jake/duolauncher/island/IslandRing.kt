@@ -42,6 +42,16 @@ internal object IslandRingLogic {
     /** The arc (as distances along an outline of [length]) for [fraction] of a loop, centred at [centre] (the outline's bottom centre) so it
      * grows evenly up both sides, meeting at the top when full, like a level rising in the pill: one range, or two where it runs past the
      * outline's start, which may be anywhere. It used to start at the top centre and run clockwise, which left the pill lopsided. */
+    /**
+     * How much of the ring shows for the morph's [progress] (0 the pill, 1 open): all of it on the pill, none once the island is a fifth of the way
+     * open, eased both ways. Before, the ring was all there or not at all, cut at half open, so closing showed a green outline round a body still
+     * nearly the panel's size, which then shrank inside it.
+     */
+    fun shown(progress: Float): Float {
+        val t = (1f - progress / .2f).coerceIn(0f, 1f)
+        return t * t * (3f - 2f * t)
+    }
+
     fun arcs(length: Float, centre: Float, fraction: Float): List<ClosedFloatingPointRange<Float>> {
         if (length <= 0f || fraction <= 0f) return emptyList()
         if (fraction >= 1f) return listOf(0f..length)
@@ -72,7 +82,7 @@ internal object IslandRingLogic {
  * Apple's squircle pill), not a circular-cornered rectangle inset from it, which drifted off the pill's edge at its ends; and it is drawn under
  * the island, not over its edge, so the pill stays whole and black, ringed by a thin line of colour round it.
  * [cornerPx] is read as the ring draws, so a morphing island's ring follows its corner without recomposing. */
-internal fun Modifier.islandRing(ring: RingState?, cornerPx: () -> Float, strokePx: Float): Modifier =
+internal fun Modifier.islandRing(ring: RingState?, cornerPx: () -> Float, strokePx: Float, shown: () -> Float = { 1f }): Modifier =
     if (ring == null) this else {
         // Made once for the modifier's lifetime. The outline and where its bottom centre lies along it are worked out again only when the
         // island's size or corner changes (the ring shows on the resting pill, so that is rarely), not on every frame.
@@ -85,7 +95,8 @@ internal fun Modifier.islandRing(ring: RingState?, cornerPx: () -> Float, stroke
         var bottom = 0f
         drawWithContent {
             val w = size.width; val h = size.height
-            if (w <= 0f || h <= 0f) { drawContent(); return@drawWithContent }
+            val k = shown().coerceIn(0f, 1f)
+            if (w <= 0f || h <= 0f || k <= .001f) { drawContent(); return@drawWithContent }
             val r = cornerPx().coerceIn(0f, minOf(w, h) / 2f)
             if (builtFor != Triple(w, h, r)) {
                 outline.rewind()
@@ -97,12 +108,14 @@ internal fun Modifier.islandRing(ring: RingState?, cornerPx: () -> Float, stroke
             }
             // A stroke twice as wide as the band, centred on the edge, with the island's inside cut away: only the outer half shows. The body
             // is drawn over it anyway; the cut keeps the colour from showing through a glass island, which is not opaque.
+            // [shown] slides the band out from under the body as it comes (its width grows from nothing) and fades it in with it.
+            val band = strokePx * 2f * k
             clipPath(outline, ClipOp.Difference) {
-                drawPath(outline, ring.color.copy(alpha = .22f), style = Stroke(strokePx * 2f))
+                drawPath(outline, ring.color.copy(alpha = .22f * k), style = Stroke(band))
                 for (range in IslandRingLogic.arcs(length, bottom, ring.fraction)) {
                     piece.rewind()
                     if (measure.getSegment(range.start, range.endInclusive, piece, true))
-                        drawPath(piece, ring.color, style = Stroke(strokePx * 2f, cap = StrokeCap.Round))
+                        drawPath(piece, ring.color.copy(alpha = ring.color.alpha * k), style = Stroke(band, cap = StrokeCap.Round))
                 }
             }
             drawContent()

@@ -98,10 +98,18 @@ class IslandThemeTest {
 
     @Test fun motionTunesSpringsWithinSaneBounds() {
         val bouncy = IslandTheme.Classic.copy(motion = IslandMotion.BOUNCY)
-        assertTrue(bouncy.spring<Float>(.1f, 300f).dampingRatio >= .3f)
-        assertTrue(IslandTheme.Classic.spring<Float>(5f, 300f).dampingRatio <= 1.2f)
+        assertTrue(bouncy.spring(.1f, 300f).dampingRatio >= .3f)
+        assertTrue(IslandTheme.Classic.spring(5f, 300f).dampingRatio <= 1.2f)
         // Closing is never tuned, so the island still settles onto the camera without overshoot.
-        assertEquals(1f, bouncy.spring<Float>(1f, 420f, tunedDamping = false).dampingRatio, 0f)
+        assertEquals(1f, bouncy.spring(1f, 420f, tunedDamping = false).dampingRatio, 0f)
+    }
+
+    @Test fun morphSpringsSettleExactlyInsteadOfSnappingTheLastPercent() {
+        val t = IslandTheme.Classic
+        for (spec in listOf(t.heightSpring(), t.widthSpring(), t.closeSpring(), t.spring(.8f, 380f)))
+            assertTrue(spec.visibilityThreshold!! <= .001f)
+        // A shade under critical: lands crisply, past the camera by far less than a pixel.
+        assertTrue(t.closeSpring().dampingRatio in .9f..1f)
     }
 
     @Test fun theDocumentedSampleThemeParses() {
@@ -116,7 +124,8 @@ class IslandThemeTest {
         for (motion in IslandMotion.values()) {
             val theme = IslandTheme.Classic.copy(motion = motion)
             assertTrue(motion.name, theme.heightSpring().dampingRatio in .3f..1.2f && theme.widthSpring().dampingRatio in .3f..1.2f)
-            assertEquals("closing never overshoots", 1f, theme.closeSpring().dampingRatio, 0f)
+            // Closing goes past the camera by under a tenth of a percent of the way: far less than a pixel.
+            assertTrue("closing never visibly overshoots", overshoot(theme.closeSpring().dampingRatio) < .001)
             // Even the wildest bounce has to fit inside the room the island is given (see IslandGeometry.MAX_OVERSHOOT).
             assertTrue(motion.name, 1.0 + maxOf(overshoot(motion.heightDamping), overshoot(motion.widthDamping)) <= IslandGeometry.MAX_OVERSHOOT + .02)
             assertTrue(motion.pulse in 1f..1.3f)

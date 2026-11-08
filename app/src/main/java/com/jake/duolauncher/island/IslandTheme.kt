@@ -163,21 +163,30 @@ internal data class IslandTheme(
     }
 
     /** A spring tuned by [motion]. Closing springs pass [tunedDamping] = false so the island still settles without overshoot. */
-    fun <T> spring(dampingRatio: Float, stiffness: Float, tunedDamping: Boolean = true): SpringSpec<T> =
-        androidx.compose.animation.core.spring(if (tunedDamping) (dampingRatio * motion.damping).coerceIn(.3f, 1.2f) else dampingRatio, stiffness * motion.stiffness)
+    fun spring(dampingRatio: Float, stiffness: Float, tunedDamping: Boolean = true): SpringSpec<Float> =
+        androidx.compose.animation.core.spring(if (tunedDamping) (dampingRatio * motion.damping).coerceIn(.3f, 1.2f) else dampingRatio, stiffness * motion.stiffness,
+            SETTLE_THRESHOLD)
 
     /** The springs that open the island: one for its height, one for its width (see [IslandMotion]). Not clamped to the panel's size: overshoot shows. */
     /** Both at the island's [IslandMotion.TEMPO]. */
-    fun heightSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(motion.heightDamping.coerceIn(.3f, 1.2f), IslandMotion.tempoStiffness(motion.heightStiffness))
-    fun widthSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(motion.widthDamping.coerceIn(.3f, 1.2f), IslandMotion.tempoStiffness(motion.widthStiffness))
-    /** The spring that closes it: critically damped, so it settles onto the camera without going past it; at the same [IslandMotion.TEMPO]. */
-    fun closeSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(1f, IslandMotion.tempoStiffness(motion.closeStiffness))
+    fun heightSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(motion.heightDamping.coerceIn(.3f, 1.2f), IslandMotion.tempoStiffness(motion.heightStiffness), SETTLE_THRESHOLD)
+    fun widthSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(motion.widthDamping.coerceIn(.3f, 1.2f), IslandMotion.tempoStiffness(motion.widthStiffness), SETTLE_THRESHOLD)
+    /** The spring that closes it, at the same [IslandMotion.TEMPO]. A shade under critical damping: it goes past the camera by well under a pixel
+     *  (0.07 % of the way), which cannot be seen, and in return lands crisply instead of creeping the last stretch, as a critically damped spring does. */
+    fun closeSpring(): SpringSpec<Float> = androidx.compose.animation.core.spring(CLOSE_DAMPING, IslandMotion.tempoStiffness(motion.closeStiffness), SETTLE_THRESHOLD)
 
     /** The chip fill: [ink] at a low alpha. */
     fun chip(alpha: Float = .14f): Color = ink.copy(alpha = alpha)
 
     companion object {
         val Classic = IslandTheme("Classic")
+        /**
+         * How close a spring must get before it stops and puts the value where it was going. Compose's default for a Float is 0.01, which for
+         * the morph's 0-to-1 progress is 1 % of the way: seen on a Pixel 10a, every open and every close ended with the body jumping its last
+         * 7 to 9 px in one frame. This is a twentieth of a pixel there, so the end is not seen at all.
+         */
+        const val SETTLE_THRESHOLD = .0005f
+        const val CLOSE_DAMPING = .92f
     }
 }
 

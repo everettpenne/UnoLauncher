@@ -236,19 +236,26 @@ internal fun Modifier.fadeAtBodyBottom(fade: BodyFade): Modifier {
 
 /** Brings a face in and out of the island as it morphs: it fades, grows from a little smaller and sharpens out of a blur as the body opens around it,
  * and does the reverse as it closes. (iOS does the same: the content is part of the liquid, not a picture laid over it.) With animations off it only fades.
+ *
+ * [fit], when given, is how wide the body is now for the face's full width (0 to 1): the face is drawn that much smaller, so it is never wider than
+ * the body it is in and grows with it, and so it can come in while the body is still narrow instead of waiting behind an empty black slab. The blur
+ * clears faster than the face fades in (it goes with the square of what is left), so the face is legible for most of its fade, not a smudge.
  */
-internal fun Modifier.morphFace(alphaOf: () -> Float, blurOk: Boolean, fade: BodyFade? = null, fromCamera: Boolean = fade != null): Modifier = then(if (fade == null) Modifier else Modifier.fadeAtBodyBottom(fade)).graphicsLayer {
+internal fun Modifier.morphFace(alphaOf: () -> Float, blurOk: Boolean, fade: BodyFade? = null, fromCamera: Boolean = fade != null,
+    fit: (() -> Float)? = null): Modifier = then(if (fade == null) Modifier else Modifier.fadeAtBodyBottom(fade)).graphicsLayer {
     val a = alphaOf()
     alpha = a
-    val scale = if (blurOk) .94f + .06f * a else 1f
+    val grow = if (blurOk) .95f + .05f * a else 1f
+    val scale = if (blurOk && fit != null) grow * fit().coerceIn(.55f, 1f) else grow
     scaleX = scale; scaleY = scale
     // The open face grows out of the camera at its top centre and settles down into place, and shrinks back up into it; the collapsed face
     // swells and shrinks in place about its middle.
     transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, if (fromCamera) 0f else .5f)
     if (fromCamera && blurOk) translationY = -(1f - a) * 6.dp.toPx()
     renderEffect = if (blurOk && a > .01f && a < .98f) {
-        val radius = (1f - a) * 12.dp.toPx()
-        androidx.compose.ui.graphics.BlurEffect(radius, radius, androidx.compose.ui.graphics.TileMode.Decal)
+        val left = 1f - a
+        val radius = left * left * 10.dp.toPx()
+        if (radius < .5f) null else androidx.compose.ui.graphics.BlurEffect(radius, radius, androidx.compose.ui.graphics.TileMode.Decal)
     } else null
 }
 

@@ -72,6 +72,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -83,6 +84,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawWithCache
 import kotlinx.coroutines.withContext
 
 /** The panel's maximum height: 560 dp minus the requested ~25 px (24 dp — the closest 8 dp-grid step), so a
@@ -261,6 +263,19 @@ internal object SpotlightRank {
  * way, which squashed its corners flat (a pill-sized panel had nearly square corners) and squeezed the text, and it grew from a pill drawn without
  * the status bar grid's edges, a few dp off the real island.
  */
+/** The look of the search bar the island becomes. */
+internal object SpotlightBar {
+    /** The search bar's text: larger than a result row's, since it is the one thing in the bar. */
+    val fieldStyle get() = UnoType.callout.copy(fontSize = 21.sp, lineHeight = 26.sp)
+
+    /** The bar's fill, down its height: solid black to the bottom of the camera's band ([solidTo], 0 to 1), so the camera stays hidden, then thinning into the glass under it.
+     *  Enough stays at the bottom for white text to read on a bright wallpaper. With no glass behind it, it stays black. */
+    fun barFill(solidTo: Float, hasGlass: Boolean): androidx.compose.ui.graphics.Brush =
+        if (!hasGlass) androidx.compose.ui.graphics.SolidColor(Color.Black)
+        else androidx.compose.ui.graphics.Brush.verticalGradient(
+            0f to Color.Black, solidTo to Color.Black, (solidTo + (1f - solidTo) * .55f).coerceAtMost(.99f) to Color.Black.copy(alpha = .68f), 1f to Color.Black.copy(alpha = .42f))
+}
+
 internal object SpotlightEmerge {
     /** The panel's outline at [progress], from [start] (the island's body, in the panel's own px) to the whole [panel]. */
     fun rect(progress: Float, start: PxRect, panel: PxRect): PxRect = IslandMorph.lerp(start, panel, progress.coerceIn(0f, 1f))
@@ -522,25 +537,10 @@ internal fun Spotlight(
     // wherever this parent really is.
     val view = androidx.compose.ui.platform.LocalView.current
     var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
-    Box(modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() }) {
-    Box(Modifier.layout { measurable, constraints ->
-            // Exactly the window's size, placed so its top-left corner is the window's (a size modifier would centre it instead).
-            val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(view.rootView.width, view.rootView.height))
-            layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(-origin.x.roundToInt(), -origin.y.roundToInt()) }
-        }
-        .drawBehind { drawRect(Color.Black.copy(alpha = .38f * effectiveProgress().coerceIn(0f, 1f))) }
-        .clickable(interactionSource = quiet, indication = null, onClick = onDismiss).testTag("spotlight-scrim"),
-        contentAlignment = Alignment.TopCenter) {
-        // Without an island the panel opens from the top, inside the safe area. It pads for the
-        // system bars and cutout only; the IME is handled by the imePadding below, so the keyboard
-        // is never double-counted. The bars are measured whether they show or not: Home hides the status bar while search is open, and
-        // following it moved the panel and re-laid it out on every frame of the bar's animation, as search opened and again as it closed.
-        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-        Column(Modifier.then(if (pill == null) Modifier.windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.union(WindowInsets.displayCutout)).padding(top = 8.dp) else Modifier)
-            .padding(top = with(density) { pillTop.toDp() })
-            .imePadding().padding(horizontal = 12.dp)
-            .widthIn(max = IslandGeometry.expandedWidthDp(LocalConfiguration.current.screenWidthDp.toFloat()).dp)
-            .fillMaxWidth().heightIn(max = SPOTLIGHT_MAX_HEIGHT_DP.dp)
+    // Search as iOS 27 does it: the island itself becomes the search bar, with the results on a card of their own floating under it and Home left in view.
+    // With no island to grow out of, it is still one panel over a dimmed screen. What is searched, and the morph out of the island, are shared.
+    val floating = pill != null
+    val panelChrome = Modifier
             .onGloballyPositioned { panelSize = it.size; panelPos = it.positionInWindow() }
             .graphicsLayer {
                 transformOrigin = TransformOrigin(.5f, 0f)
@@ -560,7 +560,8 @@ internal fun Spotlight(
                 clip = true
             }
             .drawWithContent {
-                drawRect(Color.Black)
+                // The floating bar paints its own fill, which is only black at the top (see barFill).
+                if (!floating) drawRect(Color.Black)
                 drawContent()
                 // The hairline rim, on the outline as it grows (the island has none on its pill, so it comes in with the panel).
                 val r = outline()
@@ -571,6 +572,7 @@ internal fun Spotlight(
                     rim, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
             }
             .clickable(interactionSource = quiet, indication = null) {}
+    val swipeToClose = Modifier
             .pointerInput(Unit) {
                 // A swipe up from the bottom of the panel collapses it back into the island, like the island's swipe-up-close: the
                 // finger is tracked in the Initial pass (so the panel owns the drag before the result list can scroll it), its upward
@@ -629,12 +631,6 @@ internal fun Spotlight(
                     }
                 }
             }
-            .padding(16.dp).testTag("spotlight")) {
-          // Each element comes out of the island on its own as the panel grows (SpotlightEmerge.reveal): the field first, widening from the
-          // pill, then the rows down the panel, each dropping into its place; closing, they go back bottom first. The top is kept clear of the
-          // camera hole. Without an island, or with animations off, everything is simply there.
-          // Their own clock, both ways (SpotlightEmerge.CONTENT_MS opening, CLOSE_CONTENT_MS closing, in reverse); a swipe up that closes the
-          // panel under the finger takes them with the outline, whichever is lower.
           val contentClock = remember { Animatable(if (pill != null && animationsOn) 0f else 1f) }
           LaunchedEffect(visible) {
               if (pill == null || !animationsOn) return@LaunchedEffect
@@ -644,21 +640,12 @@ internal fun Spotlight(
           val emerge = remember(pill != null, animationsOn) {
               EmergeSource(pill != null && animationsOn, { minOf(contentClock.value, effectiveProgress()) }, { panelPos.y }, { panelSize.height.toFloat() })
           }
-          CompositionLocalProvider(LocalEmerge provides emerge) {
-          Column {
-            if (pill != null) Spacer(Modifier.height(with(density) { (pillBottom - pillTop).toDp() }.coerceAtLeast(0.dp)))
-            CompositionLocalProvider(LocalContentColor provides ink) {
-            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().emergingHere(field = true).focusRequester(focus).testTag("spotlight-field"),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = ink, unfocusedTextColor = ink, cursorColor = ink,
-                    focusedBorderColor = ink.copy(alpha = .55f), unfocusedBorderColor = ink.copy(alpha = .25f),
-                    focusedPlaceholderColor = ink.copy(alpha = .55f), unfocusedPlaceholderColor = ink.copy(alpha = .55f),
-                    focusedLeadingIconColor = ink.copy(alpha = .8f), unfocusedLeadingIconColor = ink.copy(alpha = .8f),
-                    focusedTrailingIconColor = ink.copy(alpha = .8f), unfocusedTrailingIconColor = ink.copy(alpha = .8f)),
-                placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_apps_answers_feeds), maxLines = 1) }, singleLine = true, shape = Corner.pill,
-                // Enter opens the top app, as on iOS; with no app to open it searches the web in your browser with the words typed.
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
-                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
+    var cardSize by remember { mutableStateOf(IntSize.Zero) }
+    var cardPos by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    val cardEmerge = remember(pill != null, animationsOn) {
+        EmergeSource(pill != null && animationsOn, { minOf(contentClock.value, effectiveProgress()) }, { cardPos.y }, { cardSize.height.toFloat() })
+    }
+    val onEnter: () -> Unit = {
                     when (SpotlightEnter.route(appResults.isNotEmpty(), singleQuick != null, actionContacts.isNotEmpty(), query.isBlank())) {
                         SpotlightEnter.Route.APP -> launch(appResults.first())
                         SpotlightEnter.Route.QUICK -> singleQuick?.let { actions.run(it, focusOn(), onToggleFocus); onDismiss() }
@@ -668,13 +655,41 @@ internal fun Spotlight(
                         SpotlightEnter.Route.WEB -> if (handoff.searchWeb(query)) onDismiss()
                         SpotlightEnter.Route.NONE -> Unit
                     }
-                }),
+    }
+    val searchOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search)
+    val searchActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { onEnter() })
+    val panelField: @Composable () -> Unit = {
+            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().emergingHere(field = true).focusRequester(focus).testTag("spotlight-field"),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = ink, unfocusedTextColor = ink, cursorColor = ink,
+                    focusedBorderColor = ink.copy(alpha = .55f), unfocusedBorderColor = ink.copy(alpha = .25f),
+                    focusedPlaceholderColor = ink.copy(alpha = .55f), unfocusedPlaceholderColor = ink.copy(alpha = .55f),
+                    focusedLeadingIconColor = ink.copy(alpha = .8f), unfocusedLeadingIconColor = ink.copy(alpha = .8f),
+                    focusedTrailingIconColor = ink.copy(alpha = .8f), unfocusedTrailingIconColor = ink.copy(alpha = .8f)),
+                placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_apps_answers_feeds), maxLines = 1) }, singleLine = true, shape = Corner.pill,
+                // Enter opens the top app, as on iOS; with no app to open it searches the web in your browser with the words typed.
+                keyboardOptions = searchOptions,
+                keyboardActions = searchActions,
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search") } })
+    }
+    val barField: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).emergingHere(field = true), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (query.isEmpty()) Text(stringResource(com.jake.duolauncher.R.string.search_apps_answers_feeds), color = ink.copy(alpha = .72f), style = SpotlightBar.fieldStyle, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis)
+                androidx.compose.foundation.text.BasicTextField(query, { query = it }, Modifier.fillMaxWidth().focusRequester(focus).testTag("spotlight-field"), singleLine = true,
+                    textStyle = SpotlightBar.fieldStyle.copy(color = ink), cursorBrush = androidx.compose.ui.graphics.SolidColor(ink),
+                    keyboardOptions = searchOptions, keyboardActions = searchActions)
+            }
+            if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search", tint = ink.copy(alpha = .8f)) }
+        }
+    }
+    val resultsList: @Composable (Modifier) -> Unit = { listModifier ->
             val nothing = smart == null && singleQuick == null && actionContacts.isEmpty() && settingsHits.isEmpty() && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()
             val typed = query.isNotBlank()
             val webOffered = suggestions.any { it.kind == HandoffKind.WEB }
-            LazyColumn(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            LazyColumn(listModifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (smart != null) item("smart") {
                     Column(Modifier.fillMaxWidth().emergingHere().clip(Corner.inside(capCorner, 16.dp)).background(ink.copy(alpha = .10f))
                         .clickable {
@@ -717,7 +732,20 @@ internal fun Spotlight(
                         }
                     }
                 }
-                if (!typed && suggested.isNotEmpty()) {
+                if (floating && !typed && suggested.isNotEmpty()) item("suggested-grid") {
+                    Row(Modifier.fillMaxWidth().emergingHere().padding(vertical = 8.dp)) {
+                        suggested.take(4).forEach { app ->
+                            Column(Modifier.weight(1f).clip(Corner.small).clickable(role = androidx.compose.ui.semantics.Role.Button) { launch(app) }.padding(vertical = 4.dp)
+                                .testTag("spotlight-app-${app.id}"), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Image(app.image, app.label, Modifier.size(58.dp)
+                                    .onGloballyPositioned { iconBounds[app.id] = it.boundsInWindow().toAndroidBounds() }.glassIcon(lift = false).clip(Corner.icon))
+                                Text(app.label, Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp), color = ink, style = UnoType.caption2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                        repeat(4 - suggested.size.coerceAtMost(4)) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+                if (!floating && !typed && suggested.isNotEmpty()) {
                     item("suggested-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_suggested), ink) }
                     items(suggested, key = { "suggested-${it.id}" }) { app ->
                         SpotlightRow(app.label, null, "spotlight-app-${app.id}", false, ink, { launch(app) }) {
@@ -728,8 +756,8 @@ internal fun Spotlight(
                 }
                 // Before anything is typed the panel also offers the quick actions that need no argument, one tap instead of a command.
                 if (!typed && idle.isNotEmpty()) {
-                    item("idle-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_actions), ink) }
-                    items(idle, key = { "idle-${it.javaClass.simpleName}" }) { action ->
+                    if (!floating) item("idle-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_actions), ink) }
+                    items(if (floating) idle.take(2) else idle, key = { "idle-${it.javaClass.simpleName}" }) { action ->
                         SpotlightRow(action.label, action.detail, "spotlight-idle-${action.javaClass.simpleName.lowercase()}", false, ink, {
                             actions.run(action, focusOn(), onToggleFocus)
                             onDismiss()
@@ -783,7 +811,7 @@ internal fun Spotlight(
                     Text(stringResource(com.jake.duolauncher.R.string.nothing_found), Modifier.emergingHere().padding(12.dp), color = ink.copy(alpha = .7f))
                 }
                 // With no launch history yet the panel would otherwise just be quick actions; teach the typed commands too.
-                if (!typed && suggested.isEmpty()) item("hint") {
+                if (!floating && !typed && suggested.isEmpty()) item("hint") {
                     Text(stringResource(com.jake.duolauncher.R.string.spotlight_try), Modifier.emergingHere().padding(12.dp),
                         color = ink.copy(alpha = .6f), style = UnoType.footnote)
                 }
@@ -801,6 +829,72 @@ internal fun Spotlight(
                     }
                 }
             }
+    }
+    Box(modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() }) {
+    Box(Modifier.layout { measurable, constraints ->
+            // Exactly the window's size, placed so its top-left corner is the window's (a size modifier would centre it instead).
+            val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(view.rootView.width, view.rootView.height))
+            layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(-origin.x.roundToInt(), -origin.y.roundToInt()) }
+        }
+        .drawBehind { drawRect(Color.Black.copy(alpha = (if (floating) .12f else .38f) * effectiveProgress().coerceIn(0f, 1f))) }
+        .clickable(interactionSource = quiet, indication = null, onClick = onDismiss).testTag("spotlight-scrim"),
+        contentAlignment = Alignment.TopCenter) {
+        // Without an island the panel opens from the top, inside the safe area. It pads for the
+        // system bars and cutout only; the IME is handled by the imePadding below, so the keyboard
+        // is never double-counted. The bars are measured whether they show or not: Home hides the status bar while search is open, and
+        // following it moved the panel and re-laid it out on every frame of the bar's animation, as search opened and again as it closed.
+        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+        if (floating) Column(Modifier.padding(top = with(density) { pillTop.toDp() }).imePadding().padding(horizontal = 12.dp)
+            .widthIn(max = IslandGeometry.expandedWidthDp(LocalConfiguration.current.screenWidthDp.toFloat()).dp).fillMaxWidth()) {
+            // The bar: the island's own body, grown wide (the morph follows this and not the card). The camera sits in its top, the field under it.
+            // Its fill is black round the camera and fades into liquid glass toward the bottom edge; while it is still the pill it is all black.
+            Box(Modifier.fillMaxWidth().then(panelChrome).testTag("spotlight")) {
+                if (glass != null && panelSize.width > 0) {
+                    val barCorner = with(density) { IslandMorph.cornerPx(panelSize.width.toFloat(), panelSize.height.toFloat(), density.density, panelScale).toDp() }
+                    Box(Modifier.matchParentSize().liquidGlass(glass.backdrop, ContinuousShape(barCorner), Color.Black, GlassKind.CLEAR, glass.settings, depth = false))
+                }
+                val solidPx = pillBottom - pillTop
+                Box(Modifier.matchParentSize().drawWithCache {
+                    val fill = SpotlightBar.barFill((solidPx / size.height).coerceIn(0f, 1f), hasGlass = glass != null)
+                    onDrawBehind {
+                        drawRect(fill)
+                        val p = effectiveProgress().coerceIn(0f, 1f)
+                        if (p < 1f) drawRect(Color.Black.copy(alpha = 1f - p))
+                    }
+                })
+                // As tall as the camera's band and a row of text, with the field centred in the whole bar.
+                Box(Modifier.fillMaxWidth().height(with(density) { (pillBottom - pillTop).toDp() }.coerceAtLeast(0.dp) + 50.dp).padding(horizontal = 22.dp), contentAlignment = Alignment.CenterStart) {
+                    CompositionLocalProvider(LocalEmerge provides emerge, LocalContentColor provides ink) { barField() }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            // The results, a card floating under the bar that drops out of it as it opens, as tall as what is on it (never under the keyboard).
+            val cardShape = Corner.floatingSheet(0.dp)
+            Column(Modifier.weight(1f, fill = false).fillMaxWidth().onGloballyPositioned { cardSize = it.size; cardPos = it.positionInWindow() }
+                .graphicsLayer {
+                    val p = effectiveProgress().coerceIn(0f, 1f)
+                    alpha = p; scaleX = .94f + .06f * p; scaleY = .94f + .06f * p
+                    translationY = -(1f - p) * 28.dp.toPx(); transformOrigin = TransformOrigin(.5f, 0f)
+                }
+                .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, cardShape, Color.Black, GlassKind.REGULAR, glass.settings) else Modifier.clip(cardShape).background(Color(0xFF1C1C1E)))
+                .background(Color.Black.copy(alpha = .52f), cardShape)
+                .clickable(interactionSource = quiet, indication = null) {}.then(swipeToClose).padding(horizontal = 10.dp, vertical = 8.dp).testTag("spotlight-results")) {
+                CompositionLocalProvider(LocalEmerge provides cardEmerge, LocalContentColor provides ink) { resultsList(Modifier) }
+            }
+        } else
+        Column(Modifier.then(if (pill == null) Modifier.windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.union(WindowInsets.displayCutout)).padding(top = 8.dp) else Modifier)
+            .padding(top = with(density) { pillTop.toDp() })
+            .imePadding().padding(horizontal = 12.dp)
+            .widthIn(max = IslandGeometry.expandedWidthDp(LocalConfiguration.current.screenWidthDp.toFloat()).dp)
+            .fillMaxWidth().heightIn(max = SPOTLIGHT_MAX_HEIGHT_DP.dp)
+            .then(panelChrome).then(swipeToClose)
+            .padding(16.dp).testTag("spotlight")) {
+          CompositionLocalProvider(LocalEmerge provides emerge) {
+          Column {
+            if (pill != null) Spacer(Modifier.height(with(density) { (pillBottom - pillTop).toDp() }.coerceAtLeast(0.dp)))
+            CompositionLocalProvider(LocalContentColor provides ink) {
+            panelField()
+            resultsList(Modifier.padding(top = 12.dp))
             }
           }
           }

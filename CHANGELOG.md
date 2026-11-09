@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.128.1-uno01
+
+- **Search's results card follows what you type.** It animates to the height its results need instead of jumping with each letter, and a letter typed while it is moving carries on from its current speed. Rows fade in and out and slide to their new places as the results change.
+- **Tested:** 1,168 unit tests, passing (1 skipped). On an emulator, a new device test stepped frame by frame: growing 321 to 1,118 px over about 20 frames, at most about 100 px in one, and no jump when a letter lands mid-way. **Not seen:** how it feels typing quickly on a phone.
+
 ## 0.128.0-uno01
 
 - **Search, as on iOS 27.** The island itself becomes the search bar, black round the camera and fading into liquid glass at its bottom edge, with larger text centred in it. Results sit on a frosted card floating under it, with Home left in view: up to four suggested apps in a row and two quick actions, or the results as you type. Without an island, search is the panel it was.

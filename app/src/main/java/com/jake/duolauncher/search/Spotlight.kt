@@ -50,6 +50,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
@@ -265,6 +266,14 @@ internal object SpotlightRank {
  */
 /** The look of the search bar the island becomes. */
 internal object SpotlightBar {
+    /** The card's height following its results as the query changes: quick enough to keep up with typing, and settling without a bounce. */
+    val cardResize = androidx.compose.animation.core.spring<IntSize>(dampingRatio = .92f, stiffness = 420f, visibilityThreshold = IntSize(1, 1))
+
+    /** A row arriving, going or moving as the results change, so they do not pop while the card is resizing. */
+    val rowFadeIn = androidx.compose.animation.core.tween<Float>(170, delayMillis = 40)
+    val rowFadeOut = androidx.compose.animation.core.tween<Float>(90)
+    val rowMove = androidx.compose.animation.core.spring<androidx.compose.ui.unit.IntOffset>(dampingRatio = .92f, stiffness = 420f,
+        visibilityThreshold = androidx.compose.ui.unit.IntOffset(1, 1))
     /** The search bar's text: larger than a result row's, since it is the one thing in the bar. */
     val fieldStyle get() = UnoType.callout.copy(fontSize = 21.sp, lineHeight = 26.sp)
 
@@ -691,7 +700,7 @@ internal fun Spotlight(
             val webOffered = suggestions.any { it.kind == HandoffKind.WEB }
             LazyColumn(listModifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (smart != null) item("smart") {
-                    Column(Modifier.fillMaxWidth().emergingHere().clip(Corner.inside(capCorner, 16.dp)).background(ink.copy(alpha = .10f))
+                    Column(rowMotion().fillMaxWidth().emergingHere().clip(Corner.inside(capCorner, 16.dp)).background(ink.copy(alpha = .10f))
                         .clickable {
                             val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
                             clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Spotlight answer", smart.text))
@@ -705,10 +714,10 @@ internal fun Spotlight(
                     }
                 }
                 if (singleQuick != null) item("quick-header") {
-                    SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_actions), ink)
+                    SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_actions), ink)
                 }
                 if (singleQuick != null) item("quick") {
-                    SpotlightRow(singleQuick.label, singleQuick.detail, "spotlight-quick", true, ink, {
+                    SpotlightRow(rowMotion(), singleQuick.label, singleQuick.detail, "spotlight-quick", true, ink, {
                         actions.run(singleQuick, focusOn(), onToggleFocus)
                         onDismiss()
                     }) {
@@ -719,10 +728,10 @@ internal fun Spotlight(
                 }
                 if (actionContacts.isNotEmpty()) {
                     item("actions-header") {
-                        SpotlightHeader(if (contactKind == ContactActionKind.DIAL) "Call" else "Message", ink)
+                        SpotlightHeader(rowMotion(), if (contactKind == ContactActionKind.DIAL) "Call" else "Message", ink)
                     }
                     items(actionContacts, key = { "action-${it.name}-${it.number}" }) { contact ->
-                        SpotlightRow(contact.name, contact.number, "spotlight-action-${contact.number}", false, ink, {
+                        SpotlightRow(rowMotion(), contact.name, contact.number, "spotlight-action-${contact.number}", false, ink, {
                             actions.openContact(contactKind ?: ContactActionKind.DIAL, contact.number)
                             onDismiss()
                         }) {
@@ -733,7 +742,7 @@ internal fun Spotlight(
                     }
                 }
                 if (floating && !typed && suggested.isNotEmpty()) item("suggested-grid") {
-                    Row(Modifier.fillMaxWidth().emergingHere().padding(vertical = 8.dp)) {
+                    Row(rowMotion().fillMaxWidth().emergingHere().padding(vertical = 8.dp)) {
                         suggested.take(4).forEach { app ->
                             Column(Modifier.weight(1f).clip(Corner.small).clickable(role = androidx.compose.ui.semantics.Role.Button) { launch(app) }.padding(vertical = 4.dp)
                                 .testTag("spotlight-app-${app.id}"), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -746,9 +755,9 @@ internal fun Spotlight(
                     }
                 }
                 if (!floating && !typed && suggested.isNotEmpty()) {
-                    item("suggested-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_suggested), ink) }
+                    item("suggested-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_suggested), ink) }
                     items(suggested, key = { "suggested-${it.id}" }) { app ->
-                        SpotlightRow(app.label, null, "spotlight-app-${app.id}", false, ink, { launch(app) }) {
+                        SpotlightRow(rowMotion(), app.label, null, "spotlight-app-${app.id}", false, ink, { launch(app) }) {
                             Image(app.image, null, Modifier.size(40.dp)
                             .onGloballyPositioned { iconBounds[app.id] = it.boundsInWindow().toAndroidBounds() }.glassIcon(lift = false).clip(Corner.icon))
                         }
@@ -756,9 +765,9 @@ internal fun Spotlight(
                 }
                 // Before anything is typed the panel also offers the quick actions that need no argument, one tap instead of a command.
                 if (!typed && idle.isNotEmpty()) {
-                    if (!floating) item("idle-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_actions), ink) }
+                    if (!floating) item("idle-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_actions), ink) }
                     items(if (floating) idle.take(2) else idle, key = { "idle-${it.javaClass.simpleName}" }) { action ->
-                        SpotlightRow(action.label, action.detail, "spotlight-idle-${action.javaClass.simpleName.lowercase()}", false, ink, {
+                        SpotlightRow(rowMotion(), action.label, action.detail, "spotlight-idle-${action.javaClass.simpleName.lowercase()}", false, ink, {
                             actions.run(action, focusOn(), onToggleFocus)
                             onDismiss()
                         }) {
@@ -768,29 +777,29 @@ internal fun Spotlight(
                         }
                     }
                 }
-                if (appResults.isNotEmpty()) item("apps-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_apps), ink) }
+                if (appResults.isNotEmpty()) item("apps-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_apps), ink) }
                 itemsIndexed(appResults, key = { _, app -> "app-${app.id}" }) { index, app ->
                     // The first result is what Enter opens, so it is marked as the top hit. A work app says so, so the personal and work
                     // copies of one app are told apart by more than the small briefcase.
                     val topHit = if (index == 0) stringResource(com.jake.duolauncher.R.string.spotlight_top_hit) else null
-                    SpotlightRow(app.label, listOfNotNull(topHit, app.profileLabel.takeIf { app.isWork }, app.description).joinToString(" · ").ifEmpty { null },
+                    SpotlightRow(rowMotion(), app.label, listOfNotNull(topHit, app.profileLabel.takeIf { app.isWork }, app.description).joinToString(" · ").ifEmpty { null },
                         "spotlight-app-${app.id}", index == 0, ink, { launch(app) },
                         match = SpotlightRank.highlightRange(app.label, query)) {
                         Image(app.image, null, Modifier.size(40.dp)
                             .onGloballyPositioned { iconBounds[app.id] = it.boundsInWindow().toAndroidBounds() }.glassIcon(lift = false).clip(Corner.icon))
                     }
                 }
-                if (contacts.isNotEmpty()) item("contacts-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_contacts), ink) }
+                if (contacts.isNotEmpty()) item("contacts-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_contacts), ink) }
                 items(contacts, key = { "contact-${it.id}" }) { contact ->
-                    SpotlightRow(contact.name, null, "spotlight-contact-${contact.id}", false, ink, { onOpenContact(contact) }) {
+                    SpotlightRow(rowMotion(), contact.name, null, "spotlight-contact-${contact.id}", false, ink, { onOpenContact(contact) }) {
                         Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), CircleShape), contentAlignment = Alignment.Center) {
                             Text(contact.name.firstOrNull()?.uppercase() ?: "?", fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
-                if (settingsHits.isNotEmpty()) item("settings-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_settings), ink) }
+                if (settingsHits.isNotEmpty()) item("settings-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_settings), ink) }
                 items(settingsHits, key = { "settings-${it.action}" }) { page ->
-                    SpotlightRow(page.label, stringResource(com.jake.duolauncher.R.string.spotlight_settings_detail), "spotlight-settings-${page.label.lowercase().replace(' ', '-')}", false, ink, {
+                    SpotlightRow(rowMotion(), page.label, stringResource(com.jake.duolauncher.R.string.spotlight_settings_detail), "spotlight-settings-${page.label.lowercase().replace(' ', '-')}", false, ink, {
                         runCatching { context.startActivity(android.content.Intent(page.action).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
                         onDismiss()
                     }) {
@@ -799,9 +808,9 @@ internal fun Spotlight(
                         }
                     }
                 }
-                if (feedResults.isNotEmpty()) item("feed-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_headlines), ink) }
+                if (feedResults.isNotEmpty()) item("feed-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_headlines), ink) }
                 items(feedResults, key = { "feed-${it.link}" }) { entry ->
-                    SpotlightRow(entry.title, entry.sourceLabel, "spotlight-feed", false, ink, { onOpenFeedLink(entry.link) }, titleLines = 2) {
+                    SpotlightRow(rowMotion(), entry.title, entry.sourceLabel, "spotlight-feed", false, ink, { onOpenFeedLink(entry.link) }, titleLines = 2) {
                         Box(Modifier.size(40.dp).background(ink.copy(alpha = .10f), Corner.icon), contentAlignment = Alignment.Center) {
                             Icon(Icons.Rounded.RssFeed, null, Modifier.size(20.dp))
                         }
@@ -815,13 +824,13 @@ internal fun Spotlight(
                     Text(stringResource(com.jake.duolauncher.R.string.spotlight_try), Modifier.emergingHere().padding(12.dp),
                         color = ink.copy(alpha = .6f), style = UnoType.footnote)
                 }
-                if (suggestions.isNotEmpty()) item("elsewhere-header") { SpotlightHeader(stringResource(com.jake.duolauncher.R.string.spotlight_elsewhere), ink) }
+                if (suggestions.isNotEmpty()) item("elsewhere-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_elsewhere), ink) }
                 items(suggestions, key = { "handoff-${it.kind}-${it.packageName}" }) { target ->
-                    HandoffRow(target, ink, Modifier.clickable { handoff.open(target, query); onDismiss() })
+                    HandoffRow(target, ink, rowMotion().clickable { handoff.open(target, query); onDismiss() })
                 }
                 // Enter already searches the web; this row makes the same action visible, whatever the handoff setting.
                 if (typed && !webOffered) item("web") {
-                    SpotlightRow(stringResource(com.jake.duolauncher.R.string.spotlight_search_web, query.trim()), null, "spotlight-web", false, ink,
+                    SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_search_web, query.trim()), null, "spotlight-web", false, ink,
                         { if (handoff.searchWeb(query)) onDismiss() }) {
                         Box(Modifier.size(40.dp).background(ink.copy(alpha = .12f), Corner.icon), contentAlignment = Alignment.Center) {
                             Icon(Icons.Rounded.Search, null, Modifier.size(20.dp))
@@ -878,7 +887,10 @@ internal fun Spotlight(
                 }
                 .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, cardShape, Color.Black, GlassKind.REGULAR, glass.settings) else Modifier.clip(cardShape).background(Color(0xFF1C1C1E)))
                 .background(Color.Black.copy(alpha = .52f), cardShape)
-                .clickable(interactionSource = quiet, indication = null) {}.then(swipeToClose).padding(horizontal = 10.dp, vertical = 8.dp).testTag("spotlight-results")) {
+                .clickable(interactionSource = quiet, indication = null) {}.then(swipeToClose).testTag("spotlight-results")
+                // Inside the glass, so the glass itself is the size that is moving. A letter typed mid-way carries on from the card's current speed.
+                .then(if (animationsOn) Modifier.animateContentSize(SpotlightBar.cardResize) else Modifier)
+                .padding(horizontal = 10.dp, vertical = 8.dp)) {
                 CompositionLocalProvider(LocalEmerge provides cardEmerge, LocalContentColor provides ink) { resultsList(Modifier) }
             }
         } else
@@ -919,9 +931,13 @@ internal fun HandoffRow(target: HandoffTarget, ink: Color, modifier: Modifier = 
     }
 }
 
+/** How a row of the results list arrives, goes and moves (see SpotlightBar). */
+private fun androidx.compose.foundation.lazy.LazyItemScope.rowMotion(): Modifier =
+    Modifier.animateItem(fadeInSpec = SpotlightBar.rowFadeIn, placementSpec = SpotlightBar.rowMove, fadeOutSpec = SpotlightBar.rowFadeOut)
+
 @Composable
-private fun SpotlightHeader(text: String, ink: Color) {
-    Text(text.uppercase(), Modifier.emergingHere().padding(start = 8.dp, top = 12.dp, bottom = 4.dp), color = ink.copy(alpha = .6f),
+private fun SpotlightHeader(modifier: Modifier, text: String, ink: Color) {
+    Text(text.uppercase(), modifier.emergingHere().padding(start = 8.dp, top = 12.dp, bottom = 4.dp), color = ink.copy(alpha = .6f),
         style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
 }
 
@@ -941,9 +957,9 @@ private fun actionIcon(action: QuickAction): ImageVector = when (action) {
 
 /** One result: a 40 dp leading mark, a title, an optional second line; the top hit sits on a faint plate. */
 @Composable
-private fun SpotlightRow(title: String, subtitle: String?, tag: String, highlighted: Boolean, ink: Color, onClick: () -> Unit,
+private fun SpotlightRow(modifier: Modifier, title: String, subtitle: String?, tag: String, highlighted: Boolean, ink: Color, onClick: () -> Unit,
     titleLines: Int = 1, match: IntRange? = null, leading: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().emergingHere().heightIn(min = 52.dp).clip(Corner.small)
+    Row(modifier.fillMaxWidth().emergingHere().heightIn(min = 52.dp).clip(Corner.small)
         .then(if (highlighted) Modifier.background(ink.copy(alpha = .09f)) else Modifier)
         .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
         .padding(horizontal = 6.dp, vertical = 6.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically) {

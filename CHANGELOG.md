@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.128.0-uno01
+
+- **Search, as on iOS 27.** The island itself becomes the search bar, black round the camera and fading into liquid glass at its bottom edge, with larger text centred in it. Results sit on a frosted card floating under it, with Home left in view: up to four suggested apps in a row and two quick actions, or the results as you type. Without an island, search is the panel it was.
+- **The open island, rearranged.** The date and battery use the empty band beside the camera, the time is the one large thing on the panel with its AM or PM small, status lines sit opposite it, and Search is one wide pill with Feed and Settings as round buttons beside it.
+- **Faster glass.** Uno now carries its own fork of the Backdrop library (`third_party/backdrop`). Clear glass on the wallpaper (widgets, the iOS layout's dock) is one draw from a shared, once-blurred picture instead of a blur and lens per surface, and frosted glass, the edge blur and the blurred backgrounds behind folders and menus render at half size. On a Pixel 10a against 0.127.3, over four alternating rounds: a page swipe's median frame went from 21.0 to 18.9 ms and frames over 25 ms from 35 % to 27 %; a settings sheet's from 18.7 to 16.5 ms and 28 % to 15 %.
+- **Tested:** 1,168 unit tests, passing (1 skipped). On an emulator: the island's and Spotlight's device tests, shared and half-size glass against the live glass on a test pattern, and the open island's layout. On a Pixel 10a: the frame timings, the dock's glass, and the new search opening, closing and with long text. **Not seen:** the open island's layout around the Pixel's real camera; a full row of four suggestions; a Home full of glass widgets; search with the accessibility overlay's own island in place of the installed copy's.
+
 ## 0.127.3-uno01
 
 - **The island lands exactly.** Its open and close springs stopped 1 % short and jumped the rest in one frame (7 to 9 px on a Pixel 10a); they now settle all the way, and the close is a shade under critically damped so it lands crisply instead of creeping (it goes past by well under a pixel).

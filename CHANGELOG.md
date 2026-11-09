@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.128.2-uno01
+
+- **The battery is off the open island.** The level, its icon and the "Charging" label are left to the status bar; the time to full stays, since the status bar does not show it.
+- **A running timer or stopwatch shows on the open island.** Its time sits opposite the clock, where the panel only used to say "Timer".
+- **Rows no longer clip what is in them.** The music cover's left corners, the first letter of a held notification's lines and the edge of a Live Update card were being cut by a large rounded corner kept for the press ripple. These rows now dip under the finger instead.
+- **A calmer panel.** The date comes in clear of the rounded corner, labels such as "Now playing" go when the card below already says so, and the feed headline is quieter, marked with the feed's icon, opens the feed when tapped, and takes one line when the panel has anything else to show.
+- **Tested:** 1,172 unit tests, passing (1 skipped). On an emulator: 51 island device tests, and screenshots of the panel idle, with music, with a timer, and with a held notification and privacy marks. **Not seen:** any of it on a phone, around the Pixel's real camera and corner.
+
 ## 0.128.1-uno01
 
 - **Search's results card follows what you type.** It animates to the height its results need instead of jumping with each letter, and a letter typed while it is moving carries on from its current speed. Rows fade in and out and slide to their new places as the results change.

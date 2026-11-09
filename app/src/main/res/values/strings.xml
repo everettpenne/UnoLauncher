@@ -413,10 +413,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Search\'s results card now grows and shrinks smoothly as you type, and its results fade and slide into place.</string>
-    <string name="whats_new_2">Search is the island itself: a bar that fades into liquid glass, from 0.128.</string>
-    <string name="whats_new_3">The open island is rearranged round the camera, with a large clock and Search up front, from 0.128.</string>
-    <string name="whats_new_4">Faster glass on widgets, the dock, sheets and menus, from 0.128.</string>
+    <string name="whats_new_1">The open island is calmer: the battery is left to the status bar, and a running timer shows its time.</string>
+    <string name="whats_new_2">Music covers and notification text on the open island are no longer clipped at the edge.</string>
+    <string name="whats_new_3">Tap the feed headline on the open island to open the feed.</string>
+    <string name="whats_new_4">Search as the island\'s own bar, with a results card that follows what you type, from 0.128.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

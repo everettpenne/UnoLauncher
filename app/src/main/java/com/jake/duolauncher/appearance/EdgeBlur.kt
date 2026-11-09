@@ -62,7 +62,9 @@ internal fun ScrollEdgeBlur(backdrop: Backdrop, atTop: Boolean, height: Dp, modi
                     shape = { RectangleShape },
                     effects = { blur(band.radiusDp.dp.toPx()) },
                     highlight = null,
-                    shadow = null))
+                    shadow = null,
+                    // Blurred detail is gone anyway, so a quarter of the pixels looks the same.
+                    renderScale = GlassKind.REGULAR.renderScale))
         }
     }
 }

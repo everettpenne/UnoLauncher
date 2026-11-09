@@ -19,6 +19,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -49,14 +54,17 @@ import com.kyant.backdrop.highlight.Highlight
  * had nothing to bend: only the tint and rim showed. Each layer now records into its own
  * backdrop, and glass surfaces sample [combined], which draws both in order.
  */
-internal class HomeBackdrop(val wallpaper: LayerBackdrop, val pages: LayerBackdrop, val combined: Backdrop)
+internal class HomeBackdrop(val wallpaper: LayerBackdrop, val pages: LayerBackdrop, val combined: Backdrop,
+    /** The wallpaper as drawn, before it drifts with the pages: what the picture for clear glass is made from (see SharedWallpaper). */
+    val art: LayerBackdrop)
 
 @Composable
 internal fun rememberHomeBackdrop(): HomeBackdrop {
     val wallpaper = rememberLayerBackdrop()
     val pages = rememberLayerBackdrop()
     val combined = rememberCombinedBackdrop(wallpaper, pages)
-    return remember(wallpaper, pages, combined) { HomeBackdrop(wallpaper, pages, combined) }
+    val art = rememberLayerBackdrop()
+    return remember(wallpaper, pages, combined, art) { HomeBackdrop(wallpaper, pages, combined, art) }
 }
 
 /** Records a subtree into [backdrop] without applying any glass of its own. */
@@ -257,15 +265,17 @@ internal fun BackdropEffectScope.glassColor(tone: GlassTone) =
  * Before this, each surface set its own blur (0.75 to 12 dp) and tint (0.12 to 0.62), so the dock, a folder, search results and the widget
  * picker were four different glasses.
  */
-internal enum class GlassKind(val blurDp: Float, val tintAlpha: Float) {
+internal enum class GlassKind(val blurDp: Float, val tintAlpha: Float,
+    /** The fraction of full size the surface is blurred and bent at. Frosted glass has no fine detail left, so it can be half; clear glass does. */
+    val renderScale: Float) {
     /** Floating over the wallpaper with little or no text of its own: the dock, the status rail, the page dots, pills, widgets, round
      *  controls. Nearly clear; with Clear glass on (see [GlassFinish]) clearer still, with a fine bright edge. iOS 26's clear glass still
      *  softens what is behind it a little, so it has a light 2 dp blur (it was .75 dp, which left the wallpaper's detail sharp under it). */
-    CLEAR(2f, .12f),
+    CLEAR(2f, .12f, 1f),
     /** Holding text and controls: sheets, dialogs, menus, the control panel, folders, the feed, All apps, the widget picker. Frosted enough
      *  to read on any wallpaper, the way iOS 26's regular glass is: by blurring what is behind it more and painting over it less (14 dp and
      *  44 %; it was 8 dp and 56 %, a tinted pane more than glass). The wallpaper-adaptive tone (BackdropTone) holds the ink up. */
-    REGULAR(14f, .44f),
+    REGULAR(14f, .44f, .5f),
 }
 
 /** Liquid-glass surface of [kind]: vibrancy, blur and lens refraction over the recorded backdrop, tuned by the [GlassSettings] knobs so every
@@ -286,6 +296,35 @@ internal fun Modifier.liquidGlass(
     val tone = rememberGlassTone()
     val surface = tint.copy(alpha = kind.tintAlpha)
     val clear = kind == GlassKind.CLEAR
+    // Clear glass on the plain wallpaper is one draw from the shared picture (see SharedWallpaper) once that is ready; the rest is live.
+    val shared = SharedWallpaperRuntime.current?.takeIf { clear && it.source === backdrop }
+    val sharedImage = shared?.image
+    if (shared != null && sharedImage != null && exportedBackdrop == null) {
+        var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+        val corners = remember { GlassCorners() }
+        val colorFilter = remember(tone) { com.kyant.backdrop.effects.colorControlsColorFilter(tone.brightness, tone.contrast, 1.5f) }
+        return onGloballyPositioned { origin = it.positionInWindow() }.drawBackdrop(
+            backdrop = com.kyant.backdrop.backdrops.emptyBackdrop(),
+            shape = { shape },
+            effects = { },
+            highlight = { if (GlassFinish.clear) GlassFinish.Edge else GlassRim.Light },
+            shadow = { if (depth) GlassDepth.shadow() else null },
+            direct = true,
+            onDrawBehind = {
+                val radii = corners.of(shape, size, this, layoutDirection)
+                if (radii != null) with(shared) {
+                    drawLens(sharedImage, origin.x, origin.y, radii,
+                        refractionHeight = lerp(8f, 44f, settings.height).coerceAtMost(72f).dp.toPx(),
+                        refractionAmount = lerp(16f, 132f, settings.amount).dp.toPx(),
+                        chromatic = settings.chromatic > 0.05f, colorFilter = colorFilter)
+                }
+            },
+            onDrawSurface = {
+                drawRect(GlassFinish.tint(surface))
+                if (GlassFinish.clear) drawRect(GlassFinish.Sheen)
+            },
+        )
+    }
     return drawBackdrop(
     backdrop = backdrop,
     shape = { shape },
@@ -306,6 +345,7 @@ internal fun Modifier.liquidGlass(
         drawRect(if (clear) GlassFinish.tint(surface) else surface)
         if (clear && GlassFinish.clear) drawRect(GlassFinish.Sheen)
     },
+    renderScale = kind.renderScale,
     )
 }
 

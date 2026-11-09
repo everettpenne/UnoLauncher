@@ -85,7 +85,7 @@ internal fun AppContextMenu(
             .then(if (glass != null) Modifier.drawBackdrop(
                 backdrop = glass.backdrop, shape = { androidx.compose.ui.graphics.RectangleShape },
                 effects = { blur(9.dp.toPx() * appear.value) }, highlight = { null }, shadow = { null },
-                onDrawSurface = { })
+                onDrawSurface = { }, renderScale = com.jake.duolauncher.appearance.GlassKind.REGULAR.renderScale)
                 else Modifier.background(Color.Black.copy(alpha = .30f * appear.value)))
             .pointerInput(Unit) { detectTapGestures { onDismiss() } }.testTag("app-context-scrim"))
         // The icon sits at the middle top of a Home cell (its size on Home) and at the start of a library row (40 dp).

@@ -18,6 +18,10 @@ gradle/wrapper/gradle-wrapper.properties
 app/build.gradle.kts
 app/proguard-rules.pro
 app/src/
+third_party/backdrop/LICENSE
+third_party/backdrop/README.md
+third_party/backdrop/build.gradle.kts
+third_party/backdrop/src/
 scripts/gradle.sh
 scripts/export-public-source.sh
 scripts/check-public-source.sh

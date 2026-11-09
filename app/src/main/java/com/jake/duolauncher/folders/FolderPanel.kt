@@ -114,7 +114,7 @@ internal fun FolderPanel(
         // The screen behind goes soft and dim, as it does on iOS, rather than a flat grey.
         .then(if (glassBackdrop != null) Modifier.drawBackdrop(backdrop = glassBackdrop, shape = { androidx.compose.ui.graphics.RectangleShape },
             effects = { blur(22.dp.toPx() * reveal) }, highlight = { null }, shadow = { null },
-            onDrawSurface = { drawRect(Color.Black.copy(alpha = .30f * reveal)) })
+            onDrawSurface = { drawRect(Color.Black.copy(alpha = .30f * reveal)) }, renderScale = com.jake.duolauncher.appearance.GlassKind.REGULAR.renderScale)
             else Modifier.background(Color.Black.copy(alpha = .42f * reveal)))
         .clickable(
             interactionSource = remember { MutableInteractionSource() },

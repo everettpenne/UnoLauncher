@@ -102,7 +102,7 @@ dependencies {
     implementation("androidx.palette:palette-ktx:1.0.0")
     // Uno Keyboard's autofill chips: the style the platform asks inline suggestions to be drawn in.
     implementation("androidx.autofill:autofill:1.1.0")
-    implementation("io.github.kyant0:backdrop:1.0.0")
+    implementation(project(":backdrop"))
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

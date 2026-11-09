@@ -66,12 +66,12 @@ internal object FrostedBlur {
     const val SHRINK = 20
     const val RADIUS = 2
 
-    fun blurred(source: Bitmap): Bitmap {
-        val w = (source.width / SHRINK).coerceAtLeast(8)
-        val h = (source.height / SHRINK).coerceAtLeast(8)
+    fun blurred(source: Bitmap, shrink: Int = SHRINK, radius: Int = RADIUS): Bitmap {
+        val w = (source.width / shrink).coerceAtLeast(8)
+        val h = (source.height / shrink).coerceAtLeast(8)
         val small = Bitmap.createScaledBitmap(source.copy(Bitmap.Config.ARGB_8888, false), w, h, true)
         val pixels = IntArray(w * h).also { small.getPixels(it, 0, w, 0, 0, w, h) }
-        val out = boxBlur(boxBlur(pixels, w, h, RADIUS), w, h, RADIUS)
+        val out = boxBlur(boxBlur(pixels, w, h, radius), w, h, radius)
         return Bitmap.createBitmap(out, w, h, Bitmap.Config.ARGB_8888)
     }
 

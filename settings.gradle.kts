@@ -7,6 +7,9 @@ dependencyResolutionManagement {
 }
 rootProject.name = "DuoLauncher"
 include(":app")
+// Uno's fork of the Backdrop library: see third_party/backdrop/README.md.
+include(":backdrop")
+project(":backdrop").projectDir = file("third_party/backdrop")
 
 // Optional isolated experiment; excluded from ordinary launcher builds.
 if (providers.gradleProperty("duoProbe").isPresent) include(":discover-probe")

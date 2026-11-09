@@ -628,6 +628,11 @@ internal fun LauncherScreen(
         val animationsOn = remember { android.provider.Settings.Global.getFloat(launcherActivity.contentResolver,
             android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f }
         val driftOn = appearance.wallpaperDepth && animationsOn
+        // The wallpaper blurred once and read by the dock and every widget (see SharedGlass); rebuilt when anything that changes the wallpaper does.
+        if (glassEnabled) rememberSharedWallpaper(homeBackdrop.wallpaper, homeBackdrop.art.graphicsLayer,
+            listOf(appearance.dark, LauncherBackgroundCache.revision.intValue, DuneSceneCache.version.intValue, androidx.compose.ui.platform.LocalWindowInfo.current.containerSize)) { width ->
+            if (driftOn) WallpaperDepth.drift(nativePager.currentPage + nativePager.currentPageOffsetFraction, nativePager.pageCount, width) else null
+        }
         Box(Modifier.matchParentSize().then(if (glassEnabled) Modifier.recordBackdrop(homeBackdrop.wallpaper) else Modifier)) {
             Box(Modifier.matchParentSize().graphicsLayer {
                 if (driftOn) {
@@ -636,7 +641,7 @@ internal fun LauncherScreen(
                     val drift = WallpaperDepth.drift(position, pages, size.width)
                     scaleX = drift.scale; scaleY = drift.scale; translationX = drift.translationX
                 }
-            }) { DuneWallpaper() }
+            }) { DuneWallpaper(if (glassEnabled) Modifier.recordBackdrop(homeBackdrop.art) else Modifier) }
         }
         // On the App Library and the feed the wallpaper behind the glass cards is blurred, as on iOS: the blurred picture fades in as those pages come
         // into view (and out as Home returns), so the cards are translucent glass over a soft background. One picture drawn with an alpha: it costs

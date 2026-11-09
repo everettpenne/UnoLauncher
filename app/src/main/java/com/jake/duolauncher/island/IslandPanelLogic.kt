@@ -5,6 +5,29 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+/** How the open island's first lines are laid out round a camera at the top. Pure, so it is unit-tested. */
+internal object OpenIslandLayout {
+    /** The panel's side padding, and the clear space kept between what sits beside the camera and the camera. */
+    const val SIDE_DP = 18f
+    const val CAMERA_GAP_DP = 12f
+    /** Narrower than this, the date or the battery would not fit beside the camera. */
+    const val MIN_EAR_DP = 84f
+
+    /** The room, in dp, on the left and right of a camera hole running from [holeLeftDp] to [holeRightDp] in a panel [panelWidthDp] wide;
+     *  null when either side is too narrow to use (the panel then keeps the date under the time). */
+    fun ears(holeLeftDp: Float, holeRightDp: Float, panelWidthDp: Float): Pair<Float, Float>? {
+        val left = holeLeftDp - SIDE_DP - CAMERA_GAP_DP
+        val right = panelWidthDp - holeRightDp - SIDE_DP - CAMERA_GAP_DP
+        return if (left >= MIN_EAR_DP && right >= MIN_EAR_DP) left to right else null
+    }
+
+    /** A formatted time split into its digits and whatever follows them ("12:41" and " PM"), so the two can be set at different sizes. */
+    fun splitMeridiem(time: String): Pair<String, String> {
+        val end = time.indexOfLast { it.isDigit() } + 1
+        return if (end <= 0) time to "" else time.substring(0, end) to time.substring(end)
+    }
+}
+
 /** The open panel's height budget for the rows that depend on what the person has set up, so the panel is never shorter than its content. */
 internal object PanelHeight {
     /** The feed headline under the music or the clock: its spacer and two lines of text. */

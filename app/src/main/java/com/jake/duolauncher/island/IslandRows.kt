@@ -299,7 +299,7 @@ internal fun IslandAction(icon: ImageVector, label: String, showLabel: Boolean, 
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) .92f else 1f, IslandThemes.active.spring(.55f, 700f), label = "island action press")
     val chip = modifier.graphicsLayer { scaleX = scale; scaleY = scale }.clip(IslandThemes.active.controlShape())
-        .background(themeInk.copy(alpha = if (pressed) .2f else .12f))
+        .background(themeInk.copy(alpha = if (pressed) .2f else if (showLabel) .12f else .1f))
         .clickable(interactionSource = source, indication = null, role = Role.Button) { UnoFeedback.play(Cue.TICK, haptic); onClick() }
     if (!showLabel) {
         Box(chip.size(40.dp).semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
@@ -313,6 +313,24 @@ internal fun IslandAction(icon: ImageVector, label: String, showLabel: Boolean, 
         horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally)) {
         Icon(icon, null, tint = themeInk, modifier = Modifier.size(15.dp))
         Text(label, color = themeInk, style = UnoType.caption1.tight, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
+    }
+}
+
+/** The open island's main action: a wide pill that reads as a search field, beside the round secondary buttons. Too narrow for its word, just the icon. */
+@Composable
+internal fun IslandSearchPill(label: String, showLabel: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val haptic = LocalHapticFeedback.current
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) .96f else 1f, IslandThemes.active.spring(.55f, 700f), label = "island search press")
+    Row(modifier.height(40.dp).graphicsLayer { scaleX = scale; scaleY = scale }.clip(IslandThemes.active.controlShape())
+        .background(themeInk.copy(alpha = if (pressed) .22f else .14f))
+        .clickable(interactionSource = source, indication = null, role = Role.Button) { UnoFeedback.play(Cue.TICK, haptic); onClick() }
+        .then(if (showLabel) Modifier.padding(horizontal = 14.dp) else Modifier.semantics { contentDescription = label }),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = if (showLabel) Arrangement.spacedBy(8.dp) else Arrangement.Center) {
+        Icon(Icons.Rounded.Search, null, tint = themeInk.copy(alpha = .7f), modifier = Modifier.size(18.dp))
+        if (showLabel) Text(label, color = themeInk.copy(alpha = .7f), fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
     }
 }
 

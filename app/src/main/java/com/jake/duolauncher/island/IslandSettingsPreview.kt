@@ -322,13 +322,14 @@ private fun SceneFace(scene: PreviewScene, s: PreviewSettings, theme: IslandThem
         PreviewScene.OPEN -> Column(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = bodyTop, bottom = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.island_preview_time), color = ink, style = UnoType.title2.tight, fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.island_preview_date), color = ink.copy(alpha = .65f), style = UnoType.caption2.tight)
+                Text(stringResource(R.string.island_preview_time), Modifier.weight(1f), color = ink, style = UnoType.title2.tight, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.island_preview_date), color = ink.copy(alpha = .65f), style = UnoType.caption2.tight)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f).height(30.dp).clip(theme.controlShape()).background(theme.chip()).padding(horizontal = 12.dp), contentAlignment = Alignment.CenterStart) {
+                    Icon(Icons.Rounded.Search, null, tint = ink.copy(alpha = .7f), modifier = Modifier.size(15.dp))
                 }
-                Box(Modifier.clip(theme.controlShape()).background(theme.chip()).padding(horizontal = 12.dp, vertical = 6.dp)) {
-                    Icon(Icons.Rounded.Search, null, tint = ink, modifier = Modifier.size(16.dp))
-                }
+                repeat(2) { Box(Modifier.size(30.dp).clip(theme.controlShape()).background(theme.chip(.1f))) }
             }
             if (s.shortcuts) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf(Color(0xFF0A84FF) to Icons.Rounded.Phone, Color(0xFF34C759) to Icons.Rounded.ChatBubble,

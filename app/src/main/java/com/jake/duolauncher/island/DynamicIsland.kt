@@ -89,6 +89,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -478,13 +479,20 @@ internal fun DynamicIsland(
         charging = deviceStatus.charging == true,
     )
     // The reply field is a little taller than the plain action buttons, so its send button keeps a full 44 dp touch target.
+    // The room beside a camera at the top of the open panel (see OpenIslandLayout), from the plain open frame: where the camera sits and how wide the
+    // panel is do not depend on what is in it, and the panel's height, below, depends on this.
+    val openEars = remember(environment, d, sizeScale) {
+        val f = IslandGeometry.frame(environment, d, 1f, sizeScale)
+        f.hole?.takeIf { f.side == IslandSide.TOP }?.let { OpenIslandLayout.ears(it.left / d, it.right / d, f.width / d) }
+    }
     val actionsRowDp = if (state.peekEditing) REPLY_ROW_DP else PEEK_ACTIONS_ROW_DP
     val extraBody = if (peekShown != null) (if (peekShown.chargingCard) IslandCards.CHARGING_EXTRA_DP else if (peekShown.kind != null) IslandCards.extraDp(peekShown.kind, navCard) else if (peekShown.actions.isNotEmpty()) actionsRowDp else 0f) + (if (peekShown.navigation) NavigationText.TURN_CARD_EXTRA_DP else 0f)
         else (if (anyPrivacy) PRIVACY_ROW_DP else 0f) +
         (if (recentLive) RECENT_ROW_DP + (if (recent!!.actions.isNotEmpty()) actionsRowDp else 0f) else 0f) +
         (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) updateRowDp else 0f) + widgetRowDp() +
         (if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) +
-        (if (narration != null) NARRATION_ROW_DP else 0f) +
+        // With room beside the camera the narration sits opposite the time and needs no row of its own.
+        (if (narration != null && openEars == null) NARRATION_ROW_DP else 0f) +
         // The headline and a larger system font need room the panel's base height does not have; without it the Search / Feed / Settings row
         // was cut off the bottom of the open island whenever the feed had a headline to show.
         PanelHeight.extraDp(feedHeadline != null, configuration.fontScale) - actionsTrimDp
@@ -646,7 +654,7 @@ internal fun DynamicIsland(
             else -> 0f
         }
         val faceTopPx = openFrame.hole?.bottom ?: collapsedHeight
-        val wanted = (faceTopPx / d + 6f + (if (narration != null) NARRATION_ROW_DP else 0f) + 44f + firstRowDp + 10f) * d
+        val wanted = (faceTopPx / d + 6f + (if (narration != null && openEars == null) NARRATION_ROW_DP else 0f) + 44f + firstRowDp + 10f) * d
         val fraction = ((wanted - collapsedHeight) / (openFrame.height - collapsedHeight).coerceAtLeast(1f)).coerceIn(.25f, .85f)
         SideEffect { peekState.floatValue = fraction }
     }
@@ -1410,39 +1418,67 @@ internal fun DynamicIsland(
                 }.testTag("island-cutout-veil"))
             // Expanded face: live panel, starting below the camera hole.
             if (showOpenFace && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade, fit = faceFit)
-                .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop).testTag("island-main-face")) {
-                if (narration != null) {
+                .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = if (openEars != null) 0.dp else faceTop).testTag("island-main-face")) {
+                val dateText = now.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
+                val battery: @Composable () -> Unit = {
+                    Text(if (deviceStatus.battery != null) "${deviceStatus.battery}%" else "\u2014",
+                        color = if (deviceStatus.charging == true) IslandThemes.active.charging else themeInk,
+                        fontSize = if (openEars != null) 13.sp else 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"))
+                    Spacer(Modifier.width(6.dp))
+                    BatteryGlyph(deviceStatus.battery, deviceStatus.charging == true)
+                }
+                val alarmLine: @Composable () -> Unit = {
+                    nextAlarm?.let { alarm ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Alarm, "Next alarm", tint = IslandThemes.active.timer, modifier = Modifier.size(12.dp))
+                            Spacer(Modifier.width(3.dp))
+                            Text(alarm, color = IslandThemes.active.timer.copy(alpha = .9f), style = UnoType.caption1.tight, maxLines = 1,
+                                modifier = Modifier.testTag("island-next-alarm"))
+                        }
+                    }
+                }
+                // The band beside the camera, which used to be empty: the date on one side and the battery on the other, centred on the camera.
+                openEars?.let { (leftDp, rightDp) ->
+                    val earTop = ((((openHole?.top ?: 0f) + (openHole?.bottom ?: 0f)) / 2f / d).dp - 11.dp).coerceAtLeast(0.dp)
+                    Box(Modifier.fillMaxWidth().height(faceTop)) {
+                        Row(Modifier.fillMaxWidth().padding(top = earTop).height(22.dp), horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text(dateText, Modifier.width(leftDp.dp), color = themeInk.copy(alpha = .72f), style = UnoType.caption1.tight,
+                                fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(Modifier.width(rightDp.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) { battery() }
+                        }
+                    }
+                }
+                if (narration != null && openEars == null) {
                     Text(narration, color = themeInk.copy(alpha = .6f), style = UnoType.caption2.tight, fontWeight = FontWeight.Medium,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-narration"))
                     Spacer(Modifier.height(4.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(now.format(timeFormatter), color = themeInk,
-                            fontSize = 24.sp, fontWeight = FontWeight.SemiBold,
-                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum", letterSpacing = (-.3).sp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = themeInk.copy(alpha = .85f), style = UnoType.caption1.tight, maxLines = 1)
-                            nextAlarm?.let { alarm ->
-                                Spacer(Modifier.width(8.dp))
-                                Icon(Icons.Rounded.Alarm, "Next alarm", tint = IslandThemes.active.timer, modifier = Modifier.size(12.dp))
-                                Spacer(Modifier.width(3.dp))
-                                Text(alarm, color = IslandThemes.active.timer.copy(alpha = .9f), style = UnoType.caption1.tight, maxLines = 1,
-                                    modifier = Modifier.testTag("island-next-alarm"))
-                            }
+                        // The one big thing on the panel, with the AM or PM set small beside it. It has the height the date under it used to take.
+                        val (digits, meridiem) = OpenIslandLayout.splitMeridiem(now.format(timeFormatter))
+                        Text(androidx.compose.ui.text.buildAnnotatedString {
+                            append(digits)
+                            if (meridiem.isNotEmpty()) withStyle(androidx.compose.ui.text.SpanStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp,
+                                color = themeInk.copy(alpha = .6f))) { append(meridiem) }
+                        }, color = themeInk, fontSize = if (openEars != null) 32.sp else 24.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum", letterSpacing = (if (openEars != null) -.7 else -.3).sp))
+                        if (openEars == null) Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(dateText, color = themeInk.copy(alpha = .85f), style = UnoType.caption1.tight, maxLines = 1)
+                            if (nextAlarm != null) Spacer(Modifier.width(8.dp))
+                            alarmLine()
                         }
                     }
                     Column(horizontalAlignment = Alignment.End) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (deviceStatus.battery != null) "${deviceStatus.battery}%" else "—",
-                                color = if (deviceStatus.charging == true) IslandThemes.active.charging else themeInk,
-                                fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"))
-                            Spacer(Modifier.width(6.dp))
-                            BatteryGlyph(deviceStatus.battery, deviceStatus.charging == true)
-                        }
+                        if (openEars == null) Row(verticalAlignment = Alignment.CenterVertically) { battery() }
+                        // At most two lines here, or they would be taller than the time and push the buttons down; the label is the one that goes.
+                        if (openEars != null && narration != null && (chargeLeft == null || nextAlarm == null)) Text(narration, color = themeInk.copy(alpha = .6f), style = UnoType.caption1.tight, fontWeight = FontWeight.Medium,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-narration"))
                         chargeLeft?.let { Text(it, color = IslandThemes.active.charging.copy(alpha = .85f), style = UnoType.caption2.tight, maxLines = 1,
                             modifier = Modifier.testTag("island-charge-left")) }
+                        if (openEars != null) alarmLine()
                     }
                 }
                 if (recentLive) {
@@ -1513,13 +1549,10 @@ internal fun DynamicIsland(
                         IslandAction(Icons.Rounded.RssFeed, "Feed", false, onOpenFeed)
                         IslandAction(Icons.Rounded.Tune, "Settings", false, onCustomize)
                     } else {
-                        // Three equal chips across the panel; icon-only ones keep their own size and sit centred.
-                        val share = if (actionLabelsFit) Modifier.weight(1f) else Modifier
-                        if (!actionLabelsFit) Spacer(Modifier.weight(1f))
-                        IslandAction(Icons.Rounded.Search, "Search", actionLabelsFit, onSearch, share)
-                        IslandAction(Icons.Rounded.RssFeed, "Feed", actionLabelsFit, onOpenFeed, share)
-                        IslandAction(Icons.Rounded.Tune, "Settings", actionLabelsFit, onCustomize, share)
-                        if (!actionLabelsFit) Spacer(Modifier.weight(1f))
+                        // One main action and two lesser ones, instead of three equal chips with nothing to tell them apart.
+                        IslandSearchPill("Search", actionLabelsFit, onSearch, Modifier.weight(1f))
+                        IslandAction(Icons.Rounded.RssFeed, "Feed", false, onOpenFeed)
+                        IslandAction(Icons.Rounded.Tune, "Settings", false, onCustomize)
                     }
                 }
             }

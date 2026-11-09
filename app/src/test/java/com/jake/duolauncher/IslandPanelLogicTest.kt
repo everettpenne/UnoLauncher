@@ -71,13 +71,11 @@ class IslandPanelLogicTest {
     // --- the panel's narration line (why it shows what it shows) ---
 
     private fun narrate(card: Boolean = false, call: Boolean = false, navigating: Boolean = false, ringing: Boolean = false,
-        timer: Boolean = false, stopwatch: Boolean = false, media: Boolean = false, update: Boolean = false,
-        charging: Boolean = false) = IslandNarration.label(card, call, navigating, ringing, timer, stopwatch, media, update, charging)
+        timer: Boolean = false, stopwatch: Boolean = false, media: Boolean = false, update: Boolean = false) = IslandNarration.label(card, call, navigating, ringing, timer, stopwatch, media, update)
 
     @Test fun narrationNamesTheOneLiveThingInOrderOfImportance() {
         assertNull("an idle panel narrates nothing", narrate())
-        assertEquals("Charging", narrate(charging = true))
-        assertEquals("Live update", narrate(update = true, charging = true))
+        assertEquals("Live update", narrate(update = true))
         assertEquals("Now playing", narrate(media = true, update = true))
         assertEquals("Stopwatch", narrate(stopwatch = true, media = true))
         assertEquals("Timer", narrate(timer = true, stopwatch = true))

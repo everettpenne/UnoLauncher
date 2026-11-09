@@ -476,7 +476,6 @@ internal fun DynamicIsland(
         stopwatchRunning = IslandTools.swRunning,
         mediaShown = mediaVisible,
         liveUpdate = updates.isNotEmpty(),
-        charging = deviceStatus.charging == true,
     )
     // The reply field is a little taller than the plain action buttons, so its send button keeps a full 44 dp touch target.
     // The room beside a camera at the top of the open panel (see OpenIslandLayout), from the plain open frame: where the camera sits and how wide the
@@ -486,6 +485,7 @@ internal fun DynamicIsland(
         f.hole?.takeIf { f.side == IslandSide.TOP }?.let { OpenIslandLayout.ears(it.left / d, it.right / d, f.width / d) }
     }
     val actionsRowDp = if (state.peekEditing) REPLY_ROW_DP else PEEK_ACTIONS_ROW_DP
+    val headlineLines = PanelHeight.headlineLines(anyPrivacy || recentLive || mediaVisible || callActive || updates.isNotEmpty() || IslandWidgetState.id >= 0)
     val extraBody = if (peekShown != null) (if (peekShown.chargingCard) IslandCards.CHARGING_EXTRA_DP else if (peekShown.kind != null) IslandCards.extraDp(peekShown.kind, navCard) else if (peekShown.actions.isNotEmpty()) actionsRowDp else 0f) + (if (peekShown.navigation) NavigationText.TURN_CARD_EXTRA_DP else 0f)
         else (if (anyPrivacy) PRIVACY_ROW_DP else 0f) +
         (if (recentLive) RECENT_ROW_DP + (if (recent!!.actions.isNotEmpty()) actionsRowDp else 0f) else 0f) +
@@ -495,7 +495,7 @@ internal fun DynamicIsland(
         (if (narration != null && openEars == null) NARRATION_ROW_DP else 0f) +
         // The headline and a larger system font need room the panel's base height does not have; without it the Search / Feed / Settings row
         // was cut off the bottom of the open island whenever the feed had a headline to show.
-        PanelHeight.extraDp(feedHeadline != null, configuration.fontScale) - actionsTrimDp
+        PanelHeight.extraDp(feedHeadline != null, configuration.fontScale, headlineLines) - actionsTrimDp
     // The fully open island at its current content. Which side the camera is on, where it sits in the island and how big the open panel is do
     // not change during the morph, so the faces are laid out from this one frame. [frameState] is the live frame; it is read only when the
     // island lays out, draws and positions itself.
@@ -1349,8 +1349,8 @@ internal fun DynamicIsland(
                         Box(Modifier.size(7.dp).clip(CircleShape).background(recent?.tint?.let { Color(it) } ?: themeInk).testTag("island-recent-dot"))
                     }
                     // Charging at rest is the ring round the pill (from the bottom, evenly up both sides), not a glyph on one side: a lone
-                    // battery glyph right of the camera left the resting pill lopsided. Plugging in still flashes "Charging N%", and the open
-                    // panel has the level. The battery level itself is the status bar's (or the rail's).
+                    // battery glyph right of the camera left the resting pill lopsided. Plugging in still flashes "Charging N%". The battery
+                    // level itself is the status bar's (or the rail's).
                 }
                 CollapsedFace(frameState, d, collapsedAlpha, animationsOn, leading, trailing)
             }
@@ -1420,14 +1420,6 @@ internal fun DynamicIsland(
             if (showOpenFace && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade, fit = faceFit)
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = if (openEars != null) 0.dp else faceTop).testTag("island-main-face")) {
                 val dateText = now.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
-                val battery: @Composable () -> Unit = {
-                    Text(if (deviceStatus.battery != null) "${deviceStatus.battery}%" else "\u2014",
-                        color = if (deviceStatus.charging == true) IslandThemes.active.charging else themeInk,
-                        fontSize = if (openEars != null) 13.sp else 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
-                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"))
-                    Spacer(Modifier.width(6.dp))
-                    BatteryGlyph(deviceStatus.battery, deviceStatus.charging == true)
-                }
                 val alarmLine: @Composable () -> Unit = {
                     nextAlarm?.let { alarm ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1438,16 +1430,14 @@ internal fun DynamicIsland(
                         }
                     }
                 }
-                // The band beside the camera, which used to be empty: the date on one side and the battery on the other, centred on the camera.
-                openEars?.let { (leftDp, rightDp) ->
+                // The band beside the camera, which used to be empty: the date, centred on the camera and brought in clear of the panel's corner. The battery
+                // is the status bar's; the privacy dots have the other side.
+                openEars?.let { (leftDp, _) ->
                     val earTop = ((((openHole?.top ?: 0f) + (openHole?.bottom ?: 0f)) / 2f / d).dp - 11.dp).coerceAtLeast(0.dp)
+                    val indent = OpenIslandLayout.earIndent(IslandGeometry.cornerCapDp * IslandThemes.active.panel.scale, earTop.value + 4f)
                     Box(Modifier.fillMaxWidth().height(faceTop)) {
-                        Row(Modifier.fillMaxWidth().padding(top = earTop).height(22.dp), horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Text(dateText, Modifier.width(leftDp.dp), color = themeInk.copy(alpha = .72f), style = UnoType.caption1.tight,
-                                fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Row(Modifier.width(rightDp.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) { battery() }
-                        }
+                        Text(dateText, Modifier.padding(start = indent.dp, top = earTop).height(22.dp).width((leftDp - indent).dp).wrapContentHeight(Alignment.CenterVertically),
+                            color = themeInk.copy(alpha = .72f), style = UnoType.caption1.tight, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 if (narration != null && openEars == null) {
@@ -1471,14 +1461,26 @@ internal fun DynamicIsland(
                             alarmLine()
                         }
                     }
+                    // A timer or stopwatch still running while the panel is open: what is left, which the panel did not show at all, only the word "Timer".
+                    val timerLeft = IslandTools.timerActive && !IslandTools.ringing
+                    val clockShown = timerLeft || IslandTools.swRunning
+                    val note = if (openEars == null) null else OpenIslandLayout.heroNote(narration, mediaVisible || callActive || updates.isNotEmpty() || recentLive, clockShown)
+                    val lines = OpenIslandLayout.heroLines(clockShown, note != null, chargeLeft != null, openEars != null && nextAlarm != null)
                     Column(horizontalAlignment = Alignment.End) {
-                        if (openEars == null) Row(verticalAlignment = Alignment.CenterVertically) { battery() }
-                        // At most two lines here, or they would be taller than the time and push the buttons down; the label is the one that goes.
-                        if (openEars != null && narration != null && (chargeLeft == null || nextAlarm == null)) Text(narration, color = themeInk.copy(alpha = .6f), style = UnoType.caption1.tight, fontWeight = FontWeight.Medium,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-narration"))
-                        chargeLeft?.let { Text(it, color = IslandThemes.active.charging.copy(alpha = .85f), style = UnoType.caption2.tight, maxLines = 1,
-                            modifier = Modifier.testTag("island-charge-left")) }
-                        if (openEars != null) alarmLine()
+                        lines.forEach { line -> when (line) {
+                            OpenIslandLayout.HeroLine.CLOCK -> Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("island-open-clock")) {
+                                Icon(Icons.Rounded.Timer, null, tint = IslandThemes.active.timer, modifier = Modifier.size(15.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(if (timerLeft) IslandClock.countdown(IslandClock.remainingMs(clockMs, IslandTools.timerEndAt)) else IslandClock.stopwatch(IslandTools.elapsedMs(clockMs)),
+                                    color = IslandThemes.active.timer, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"))
+                            }
+                            OpenIslandLayout.HeroLine.NOTE -> Text(note.orEmpty(), color = themeInk.copy(alpha = .6f), style = UnoType.caption1.tight, fontWeight = FontWeight.Medium,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-narration"))
+                            OpenIslandLayout.HeroLine.CHARGE -> Text(chargeLeft.orEmpty(), color = IslandThemes.active.charging.copy(alpha = .85f), style = UnoType.caption2.tight, maxLines = 1,
+                                modifier = Modifier.testTag("island-charge-left"))
+                            OpenIslandLayout.HeroLine.ALARM -> alarmLine()
+                        } }
                     }
                 }
                 if (recentLive) {
@@ -1530,8 +1532,12 @@ internal fun DynamicIsland(
                 }
                 Spacer(Modifier.height(8.dp))
                 feedHeadline?.let { headline ->
-                    Text(headline, color = themeInk.copy(alpha = .95f), style = UnoType.footnote.tight,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    // Marked as the feed's and quieter than the panel's own content, and it opens the feed: it used to be plain bright text that belonged to nothing.
+                    Row(Modifier.fillMaxWidth().islandRowPress(onOpenFeed).testTag("island-headline"), verticalAlignment = if (headlineLines > 1) Alignment.Top else Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.RssFeed, null, tint = themeInk.copy(alpha = .45f), modifier = Modifier.padding(top = if (headlineLines > 1) 2.dp else 0.dp).size(12.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(headline, color = themeInk.copy(alpha = .72f), style = UnoType.footnote.tight, maxLines = headlineLines, overflow = TextOverflow.Ellipsis)
+                    }
                     Spacer(Modifier.height(6.dp))
                 }
                 if (quickApps.isNotEmpty()) Row(Modifier.fillMaxWidth().height(QUICK_ROW_DP.dp - 6.dp).padding(bottom = 6.dp),

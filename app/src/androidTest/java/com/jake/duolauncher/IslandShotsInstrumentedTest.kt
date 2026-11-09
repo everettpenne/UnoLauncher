@@ -62,7 +62,7 @@ class IslandShotsInstrumentedTest {
 
     private fun takeShot(name: String) {
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
-        val crop = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, minOf(760, bitmap.height))
+        val crop = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, minOf(1200, bitmap.height))
         File(context.filesDir, "island-$name.png").outputStream().use { crop.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
@@ -85,6 +85,13 @@ class IslandShotsInstrumentedTest {
         compose.runOnIdle { state.collapse() }
         compose.runOnIdle { state.showPeekCard(PeekNotification("com.example.chat", "Messages", "Ada Lovelace", "Are we still on for lunch? I found the place with the good noodles.", null, null, 6)) }
         shot("6-card")
+    }
+
+    @Test fun timerOpen() {
+        show()
+        compose.runOnIdle { IslandTools.startTimer(context, 5 * 60_000L) }
+        openShot("5-timer-open")
+        compose.runOnIdle { IslandTools.cancelTimer(context) }
     }
 
     @Test fun newThings() {

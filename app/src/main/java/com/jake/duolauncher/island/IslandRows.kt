@@ -165,8 +165,8 @@ internal fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: 
     art: androidx.compose.ui.graphics.ImageBitmap? = null, onPrevious: () -> Unit, onPlayPause: () -> Unit,
     onNext: () -> Unit, progress: Float? = null, durationMs: Long? = null, onSeek: ((Float) -> Unit)? = null, onOpenPlayer: (() -> Unit)? = null) {
     Column(Modifier.fillMaxWidth().testTag("island-media")) {
-        Row(Modifier.fillMaxWidth().clip(islandCardShape())
-            .then(if (onOpenPlayer != null) Modifier.clickable(onClick = onOpenPlayer).testTag("island-open-player") else Modifier),
+        Row(Modifier.fillMaxWidth()
+            .then(if (onOpenPlayer != null) Modifier.islandRowPress(onOpenPlayer).testTag("island-open-player") else Modifier),
             verticalAlignment = Alignment.CenterVertically) {
             // The cover when the player gives one; otherwise the bars, which are still while paused and move while playing.
             Box(Modifier.size(MEDIA_ART_DP.dp).clip(com.jake.duolauncher.appearance.ContinuousShape(12.dp)).background(themeInk.copy(alpha = .1f)),
@@ -198,6 +198,18 @@ internal fun PlaybackRow(playing: Boolean, tint: Color, title: String?, artist: 
             MediaButton(Icons.Rounded.SkipNext, "Next", onNext)
         }
     }
+}
+
+/**
+ * A tappable row with no background of its own on the open island: it dips a little under the finger. It is not clipped to a card's shape for its ripple, as
+ * these rows were: their content runs to their edge, so the card's large corners cut the left of a music cover and the first letter of a notification's lines.
+ */
+@Composable
+internal fun Modifier.islandRowPress(onClick: () -> Unit): Modifier {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) .98f else 1f, IslandThemes.active.spring(.55f, 700f), label = "island row press")
+    return graphicsLayer { scaleX = scale; scaleY = scale }.clickable(interactionSource = source, indication = null, onClick = onClick)
 }
 
 /** A thin track position bar: tap to jump, drag to scrub, with the time played on its left and the time left on its right. The seek is sent once
@@ -336,7 +348,7 @@ internal fun IslandSearchPill(label: String, showLabel: Boolean, onClick: () -> 
 
 /**
  * The battery as a small drawn cell, the way the status bar draws one: an outline with a nub, filled to the level, green while charging and
- * red at 20% or less. On the open island beside its percentage, so the level reads at a glance and not only as a number.
+ * red at 20% or less. On the card shown on plugging in, so the level reads at a glance and not only as a number.
  */
 @Composable
 internal fun BatteryGlyph(level: Int?, charging: Boolean, modifier: Modifier = Modifier) {

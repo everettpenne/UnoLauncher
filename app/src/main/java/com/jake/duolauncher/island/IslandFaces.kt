@@ -186,7 +186,7 @@ internal fun RowScope.NavigationCardBody(peek: PeekNotification) {
 internal fun RecentNotificationRow(peek: PeekNotification, state: IslandState, canReply: Boolean) {
     val context = LocalContext.current
     Column(Modifier.fillMaxWidth().clip(islandCardShape()).background(themeInk.copy(alpha = .08f)).padding(10.dp).testTag("island-recent")) {
-        Row(Modifier.fillMaxWidth().clip(islandInnerShape(10f)).clickable {
+        Row(Modifier.fillMaxWidth().islandRowPress {
             if (!sendTapAction(context, peek.open))
                 context.packageManager.getLaunchIntentForPackage(peek.packageName)?.let { runCatching { context.startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
             state.clearRecent(); state.collapse()

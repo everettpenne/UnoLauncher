@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.130.0-uno01
+
+- **Ask Qwen, on the phone.** With [Uno Lab](https://github.com/everettpenne/UnoLab) 0.2.0 installed and **Local assistant** switched on (Launcher settings, off by default), search offers an **Ask Qwen** row for a question it can't answer itself. Tapping it asks Qwen3.8-2B, which runs in Uno Lab, never in the launcher: a request it reads as one of Uno's actions (a timer, an alarm, the torch, Focus, a note, opening an app, a call or message, a web search) comes back as a row you tap to run, and anything else as a short answer written into the results. Nothing is done on the model's word alone, the question goes only to Uno Lab (which has no network access), and the two apps check each other's signing keys.
+- 1,185 unit tests, passing (1 skipped). On an emulator: Spotlight's device tests with a stand-in assistant (the Ask row, an action row, a streamed answer card, and nothing when the setting is off or Uno Lab is absent); and Uno Lab's own service with the real model, which turned "pasta timer 12 minutes" into a 12-minute timer and refused an app that is not Uno. **Not seen:** the two together on a phone, and their speed there.
+
 ## 0.129.1-uno01
 
 - **The open island's glass now shows with the accessibility service on.** With the service on, Home's island is drawn in the service's own window above the status bar, which could not see Home, so 0.129.0's glass band stayed black there. It now bends the picture of the wallpaper Home already keeps for the dock and widgets, placed by where the island is on screen, once that picture is ready; it uses your glass settings, and it stays black over other apps. It shows the wallpaper only, not the icons and widgets on it. On Home the closed pill gains the same faint glass rim it has without the service.

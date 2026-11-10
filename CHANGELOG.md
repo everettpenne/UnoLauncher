@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.131.1-uno01
+
+- **Ask Qwen is more dependable.** Fixes from trying it on a Pixel 10a:
+  - Ask Qwen no longer goes missing for a whole search when Uno Lab is still starting its model.
+  - Clearer answers: with Uno Lab 0.3.1 an answer is a few plain sentences, never markdown or a placeholder, and Uno hides text that isn't an answer.
+  - Alarms read right: "remind me in 10 minutes" is a 10-minute alarm, not 10:00, and clock times are no longer shifted (no phone facts go with a request that may become an action).
+  - A plain reason when it can't do something: a timer over 24 hours, a time that isn't on the clock, a note with no Note widget on Home, an app or contact that isn't there.
+  - "time my run" starts the stopwatch.
+  - "call" or "text" someone with contact search off offers to open search settings instead of showing nothing.
+- 1,201 unit tests, passing; lint clean. On an emulator: Spotlight's 14 device tests with a stand-in assistant. Uno Lab 0.3.1's prompts were checked against the real model on a Mac (about 30 requests, several sampling seeds). **Not seen:** this build on a phone.
+
 ## 0.131.0-uno01
 
 - **Ask Qwen knows what your question needs from the phone.** With each question, Uno now gives Qwen (in Uno Lab, on the phone) the facts it points at, read at that moment: always the date and time, battery, next alarm and Focus/Do Not Disturb/ringer; and only when the question is about them, things like your calendar (with Calendar access), location, recent notifications, installed apps, screen time, storage, network, your note and checklist, or the clipboard. Each kind has its own switch under Extras › Search › **What Qwen Can See**, all on once the assistant is on. They go to Uno Lab with that one question, at most about 1,000 characters, and are never stored or sent over the network. Messages, headlines and the clipboard are written by others, so they are marked as quotes and never go with a request Qwen may turn into an action. Needs Uno Lab 0.3.0; with Uno Lab 0.2.0 the question goes alone, as before.

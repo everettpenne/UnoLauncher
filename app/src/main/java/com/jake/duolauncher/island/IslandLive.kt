@@ -175,6 +175,12 @@ internal object IslandGlow {
     const val PAUSED = .16f
     fun target(mediaShown: Boolean, playing: Boolean, somethingElseHasIt: Boolean): Float =
         if (!mediaShown || somethingElseHasIt) 0f else if (playing) PLAYING else PAUSED
+
+    /** The track's colour in the open island's glass: none down to [solidTo] (where the body turns from black into glass, 0 to 1), then deepening to the bottom edge. */
+    fun glassStops(solidTo: Float, tint: androidx.compose.ui.graphics.Color): Array<Pair<Float, androidx.compose.ui.graphics.Color>> {
+        val s = solidTo.coerceIn(0f, .98f)
+        return arrayOf(0f to tint.copy(alpha = 0f), s to tint.copy(alpha = 0f), (s + (1f - s) * .55f).coerceAtMost(.99f) to tint.copy(alpha = .3f), 1f to tint.copy(alpha = .6f))
+    }
 }
 
 /** The colour the island borrows from album artwork: the most common vivid hue in a small copy of the picture, lifted so it

@@ -4,50 +4,26 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.sqrt
 
-/** How the open island's first lines are laid out round a camera at the top. Pure, so it is unit-tested. */
+/** What sits opposite the open island's clock. Pure, so it is unit-tested. */
 internal object OpenIslandLayout {
-    /** The panel's side padding, and the clear space kept between what sits beside the camera and the camera. */
-    const val SIDE_DP = 18f
-    const val CAMERA_GAP_DP = 12f
-    /** Narrower than this, the date or the battery would not fit beside the camera. */
-    const val MIN_EAR_DP = 84f
-    /** The clear space kept between what sits beside the camera and the panel's rounded corner. */
-    const val CORNER_CLEAR_DP = 8f
-    const val MAX_HERO_LINES = 2
+    /** The line under the date, opposite the time. */
+    enum class HeroLine { CLOCK, CHARGE, NOTE }
 
-    /** The room, in dp, on the left and right of a camera hole running from [holeLeftDp] to [holeRightDp] in a panel [panelWidthDp] wide;
-     *  null when either side is too narrow to use (the panel then keeps the date under the time). */
-    fun ears(holeLeftDp: Float, holeRightDp: Float, panelWidthDp: Float): Pair<Float, Float>? {
-        val left = holeLeftDp - SIDE_DP - CAMERA_GAP_DP
-        val right = panelWidthDp - holeRightDp - SIDE_DP - CAMERA_GAP_DP
-        return if (left >= MIN_EAR_DP && right >= MIN_EAR_DP) left to right else null
+    /** Which one shows: one line under the date, or they would be taller than the time and push the buttons down. A running timer or stopwatch is worth the
+     *  most and the label about what the panel is showing the least. */
+    fun heroStatus(clock: Boolean, charge: Boolean, note: Boolean): HeroLine? = when {
+        clock -> HeroLine.CLOCK
+        charge -> HeroLine.CHARGE
+        note -> HeroLine.NOTE
+        else -> null
     }
-
-    /** A formatted time split into its digits and whatever follows them ("12:41" and " PM"), so the two can be set at different sizes. */
-    /** How far, in dp, what sits in the band beside the camera has to come in from the panel's side beyond [SIDE_DP] so its top clears the panel's rounded
-     *  corner by [CORNER_CLEAR_DP]: the corner curves away just where that band is, and text at the plain side padding all but touched it. [cornerDp] is the
-     *  panel's corner radius and [textTopDp] how far down the panel the text's top is. */
-    fun earIndent(cornerDp: Float, textTopDp: Float): Float {
-        val fromCorner = (cornerDp - textTopDp).coerceAtLeast(0f)
-        val curve = cornerDp - sqrt((cornerDp * cornerDp - fromCorner * fromCorner).coerceAtLeast(0f))
-        return (curve + CORNER_CLEAR_DP - SIDE_DP).coerceAtLeast(0f)
-    }
-
-    /** The small lines opposite the time, in the order they are shown top to bottom. */
-    enum class HeroLine { CLOCK, NOTE, CHARGE, ALARM }
-
-    /** Which of them show: at most [MAX_HERO_LINES], or they would be taller than the time and push the buttons down. A running timer or stopwatch is
-     *  worth the most and the label about what the panel is showing the least. */
-    fun heroLines(clock: Boolean, note: Boolean, charge: Boolean, alarm: Boolean): List<HeroLine> =
-        buildList { if (clock) add(HeroLine.CLOCK); if (charge) add(HeroLine.CHARGE); if (alarm) add(HeroLine.ALARM); if (note) add(HeroLine.NOTE) }
-            .take(MAX_HERO_LINES).sorted()
 
     /** The label opposite the time, or null when what is below it already says so (a music card does not need "Now playing" over it) or the time left
      *  on a running timer or stopwatch is there instead. */
     fun heroNote(narration: String?, rowBelowSaysIt: Boolean, clockShown: Boolean): String? = narration.takeUnless { rowBelowSaysIt || clockShown }
 
+    /** A formatted time split into its digits and whatever follows them ("12:41" and " PM"), so the two can be set at different sizes. */
     fun splitMeridiem(time: String): Pair<String, String> {
         val end = time.indexOfLast { it.isDigit() } + 1
         return if (end <= 0) time to "" else time.substring(0, end) to time.substring(end)

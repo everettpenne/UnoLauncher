@@ -154,16 +154,21 @@ internal fun Modifier.islandBody(
     cornerPx: () -> Float,
     rimWidth: Dp = 2.5.dp,
     settings: GlassSettings,
+    /** What fills the body when it is not solid black: the ramp of search's bar, so the open island turns into the same glass. */
+    interior: androidx.compose.ui.graphics.Brush? = null,
+    /** How far the body has become that glass, 0 the pill to 1 open: its dark rim goes and the surface takes clear glass's tint. Read as it draws. */
+    openness: () -> Float = { 0f },
 ): Modifier {
     val fill = themeFill
     val densityValue = androidx.compose.ui.platform.LocalDensity.current.density
     if (backdrop == null) return drawBehind { drawPath(IslandMorph.outlinePath(0f, 0f, size.width, size.height, cornerPx(), density), fill) }
+    val tone = rememberGlassTone()
     return drawBackdrop(
         backdrop = backdrop,
         shape = { IslandOutlineShape(cornerPx(), densityValue) },
         effects = {
-            vibrancy()
-            backdropBlur(2.dp.toPx())
+            if (interior != null) glassColor(tone) else vibrancy()
+            backdropBlur(GlassKind.CLEAR.blurDp.dp.toPx())
             lens(
                 refractionHeight = androidx.compose.ui.util.lerp(8f, 44f, settings.height).coerceAtMost(72f).dp.toPx(),
                 refractionAmount = androidx.compose.ui.util.lerp(16f, 132f, settings.amount).dp.toPx(),
@@ -171,11 +176,18 @@ internal fun Modifier.islandBody(
                 chromaticAberration = settings.chromatic > 0.05f,
             )
         },
-        highlight = { GlassRim.Light },
+        // On search's bar the black is laid over the glass's edge light and dims it; here the light is drawn last, so open it is dimmed to match.
+        highlight = {
+            if (interior != null && openness() > .5f) (if (GlassFinish.clear) GlassFinish.Edge else GlassRim.Light)?.let { it.copy(alpha = it.alpha * .45f) }
+            else GlassRim.Light
+        },
         onDrawSurface = {
-            drawRect(fill.copy(alpha = .55f))
-            val rim = rimWidth.toPx()
-            drawPath(IslandMorph.outlinePath(rim, rim, size.width - 2 * rim, size.height - 2 * rim, (cornerPx() - rim).coerceAtLeast(0f), density), fill)
+            val open = if (interior == null) 0f else openness().coerceIn(0f, 1f)
+            drawRect(androidx.compose.ui.graphics.lerp(fill.copy(alpha = .55f), GlassFinish.tint(Color.Black.copy(alpha = GlassKind.CLEAR.tintAlpha)), open))
+            if (open > 0f && GlassFinish.clear) drawRect(GlassFinish.Sheen, alpha = open)
+            val rim = rimWidth.toPx() * (1f - open)
+            val inside = IslandMorph.outlinePath(rim, rim, size.width - 2 * rim, size.height - 2 * rim, (cornerPx() - rim).coerceAtLeast(0f), density)
+            if (interior != null) drawPath(inside, interior) else drawPath(inside, fill)
         },
     )
 }

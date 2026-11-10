@@ -478,12 +478,8 @@ internal fun DynamicIsland(
         liveUpdate = updates.isNotEmpty(),
     )
     // The reply field is a little taller than the plain action buttons, so its send button keeps a full 44 dp touch target.
-    // The room beside a camera at the top of the open panel (see OpenIslandLayout), from the plain open frame: where the camera sits and how wide the
-    // panel is do not depend on what is in it, and the panel's height, below, depends on this.
-    val openEars = remember(environment, d, sizeScale) {
-        val f = IslandGeometry.frame(environment, d, 1f, sizeScale)
-        f.hole?.takeIf { f.side == IslandSide.TOP }?.let { OpenIslandLayout.ears(it.left / d, it.right / d, f.width / d) }
-    }
+    // With a camera at the top the panel is laid out round it: the large clock, and the date opposite. Turned sideways, or with no camera, the date stays under the time.
+    val cameraAbove = remember(environment, d, sizeScale) { IslandGeometry.frame(environment, d, 1f, sizeScale).let { it.hole != null && it.side == IslandSide.TOP } }
     val actionsRowDp = if (state.peekEditing) REPLY_ROW_DP else PEEK_ACTIONS_ROW_DP
     val headlineLines = PanelHeight.headlineLines(anyPrivacy || recentLive || mediaVisible || callActive || updates.isNotEmpty() || IslandWidgetState.id >= 0)
     val extraBody = if (peekShown != null) (if (peekShown.chargingCard) IslandCards.CHARGING_EXTRA_DP else if (peekShown.kind != null) IslandCards.extraDp(peekShown.kind, navCard) else if (peekShown.actions.isNotEmpty()) actionsRowDp else 0f) + (if (peekShown.navigation) NavigationText.TURN_CARD_EXTRA_DP else 0f)
@@ -492,7 +488,7 @@ internal fun DynamicIsland(
         (if (mediaVisible) MEDIA_ROW_DP else 0f) + (if (callActive) CALL_ROW_DP else 0f) + (if (updates.isNotEmpty()) updateRowDp else 0f) + widgetRowDp() +
         (if (quickApps.isNotEmpty()) QUICK_ROW_DP else 0f) +
         // With room beside the camera the narration sits opposite the time and needs no row of its own.
-        (if (narration != null && openEars == null) NARRATION_ROW_DP else 0f) +
+        (if (narration != null && !cameraAbove) NARRATION_ROW_DP else 0f) +
         // The headline and a larger system font need room the panel's base height does not have; without it the Search / Feed / Settings row
         // was cut off the bottom of the open island whenever the feed had a headline to show.
         PanelHeight.extraDp(feedHeadline != null, configuration.fontScale, headlineLines) - actionsTrimDp
@@ -520,6 +516,24 @@ internal fun DynamicIsland(
     // The capsules split off the pill only once the body has nearly landed back on the camera. They used to come out the moment a close began,
     // from the middle of the still-open panel's sides, and fly up to the status bar while the panel shrank past them.
     val nearlyShut by remember { derivedStateOf { progressState.value < .12f } }
+    // Black round the camera, thinning into clear glass toward the bottom edge: search's bar's own ramp, over the height of the fully open body. A body still opening
+    // shows only the top of it, so the pill stays black and the camera hidden with nothing to animate. Only with glass behind it, so never over other apps, and only
+    // with the camera at the top, where black can be kept over it.
+    val fadeFill = themeFill
+    val openGlassSolid = remember(glass != null, openFrame.height, openFrame.hole, openFrame.side, d) {
+        val hole = openFrame.hole
+        if (glass == null || hole == null || openFrame.side != IslandSide.TOP || openFrame.height <= 0f) null else
+            // Black down to a band at the bottom edge, as on search's bar, however tall the panel: spread over a tall panel the same ramp read as a dim tint, not glass.
+            maxOf(hole.bottom + 6f * d, IslandGeometry.frame(environment, d, 0f, sizeScale).height, openFrame.height - OPEN_GLASS_BAND_DP * d) / openFrame.height
+    }
+    val openGlassFill = remember(openGlassSolid, openFrame.height, fadeFill) {
+        openGlassSolid?.let { androidx.compose.ui.graphics.Brush.verticalGradient(*com.jake.duolauncher.search.SpotlightBar.barStops(it, fadeFill), startY = 0f, endY = openFrame.height) }
+    }
+    // The playing track's colour, in that glass: on the open island it tints the band, in place of the flame rising over it.
+    val openGlassTint = remember(openGlassSolid, openFrame.height, artTint) {
+        openGlassSolid?.let { androidx.compose.ui.graphics.Brush.verticalGradient(*IslandGlow.glassStops(it, artTint), startY = 0f, endY = openFrame.height) }
+    }
+    val glassOpenness: () -> Float = remember(progressState) { { ((progressState.value - .06f) / .3f).coerceIn(0f, 1f) } }
     val capsulesWanted = !(state.expanded || state.peeked || pulling || flashActive || IslandTools.ringing) && nearlyShut
     val capsulePlan = if (capsulesWanted) IslandBubbles.layout(liveKinds) else emptyList()
     val capsuleMinDp = restTarget.height / d
@@ -654,7 +668,7 @@ internal fun DynamicIsland(
             else -> 0f
         }
         val faceTopPx = openFrame.hole?.bottom ?: collapsedHeight
-        val wanted = (faceTopPx / d + 6f + (if (narration != null && openEars == null) NARRATION_ROW_DP else 0f) + 44f + firstRowDp + 10f) * d
+        val wanted = (faceTopPx / d + 6f + (if (narration != null && !cameraAbove) NARRATION_ROW_DP else 0f) + 44f + firstRowDp + 10f) * d
         val fraction = ((wanted - collapsedHeight) / (openFrame.height - collapsedHeight).coerceAtLeast(1f)).coerceIn(.25f, .85f)
         SideEffect { peekState.floatValue = fraction }
     }
@@ -705,7 +719,8 @@ internal fun DynamicIsland(
         IslandGlow.target(mediaVisible && (state.expanded || plan.leading == LiveKind.MEDIA), isPlaying,
             flashActive || IslandTools.ringing || peekShown != null), tween(650), label = "island media glow")
     // The glow's flame stirs only while audio is really playing (not paused or lingering), and not at all with Android's animations off.
-    val flameAnimated = isPlaying && mediaVisible && animationsOn
+    // Only while the flame is what shows: once the body has opened into glass the track's colour is a still tint, and nothing needs to redraw for it.
+    val flameAnimated = isPlaying && mediaVisible && animationsOn && (openGlassTint == null || nearlyShut)
     val flameT by rememberFlameClock(flameAnimated)
     // The glow's two gradients are cached for the track's lifetime. The animated alpha is applied at draw time (never baked into the
     // colours), and the tongue is a unit gradient scaled at draw time, so its moving centre and breathing height never rebuild it.
@@ -1115,12 +1130,17 @@ internal fun DynamicIsland(
             .islandSized { frameState.value }
             // Before the body, so the ring is drawn under it and peeks out round its edge.
             .islandRing(ring, { cornerPx.value }, 2f * d) { IslandRingLogic.shown(progressState.value) }
-            .islandBody(glass?.backdrop, { cornerPx.value }, settings = glass?.settings ?: GlassSettings.Default)
+            .islandBody(glass?.backdrop, { cornerPx.value }, settings = glass?.settings ?: GlassSettings.Default, interior = openGlassFill, openness = glassOpenness)
             .graphicsLayer { shape = IslandOutlineShape(cornerPx.value, d); clip = true }
             // The playing track's colour rising from the island's bottom edge, swaying like a low flame while audio really plays.
             .drawBehind {
                 val a = glowAlpha.value
-                if (a > .01f) drawBottomGlow(glowWash, glowTongue, a, flameT, flameAnimated)
+                if (a > .01f) {
+                    // The small pill keeps the flame; as it opens into glass the flame hands over to the tint in the glass.
+                    val inGlass = if (openGlassTint != null) glassOpenness() else 0f
+                    if (inGlass < 1f) drawBottomGlow(glowWash, glowTongue, a * (1f - inGlass), flameT, flameAnimated)
+                    if (openGlassTint != null && inGlass > 0f) drawRect(openGlassTint, alpha = (a / IslandGlow.PLAYING).coerceIn(0f, 1f) * inGlass)
+                }
                 // A hairline of light along the top-left edge, as on a lit glass pill: the body stays black, so the camera hole is still hidden.
                 // Only on the opened island: on the small pill (and every time an app opens under it) a bright edge is a distraction.
                 if (rimOn && GlassRim.enabled && progressState.value > .55f) {
@@ -1418,7 +1438,7 @@ internal fun DynamicIsland(
                 }.testTag("island-cutout-veil"))
             // Expanded face: live panel, starting below the camera hole.
             if (showOpenFace && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade, fit = faceFit)
-                .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = if (openEars != null) 0.dp else faceTop).testTag("island-main-face")) {
+                .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop).testTag("island-main-face")) {
                 val dateText = now.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
                 val alarmLine: @Composable () -> Unit = {
                     nextAlarm?.let { alarm ->
@@ -1430,17 +1450,7 @@ internal fun DynamicIsland(
                         }
                     }
                 }
-                // The band beside the camera, which used to be empty: the date, centred on the camera and brought in clear of the panel's corner. The battery
-                // is the status bar's; the privacy dots have the other side.
-                openEars?.let { (leftDp, _) ->
-                    val earTop = ((((openHole?.top ?: 0f) + (openHole?.bottom ?: 0f)) / 2f / d).dp - 11.dp).coerceAtLeast(0.dp)
-                    val indent = OpenIslandLayout.earIndent(IslandGeometry.cornerCapDp * IslandThemes.active.panel.scale, earTop.value + 4f)
-                    Box(Modifier.fillMaxWidth().height(faceTop)) {
-                        Text(dateText, Modifier.padding(start = indent.dp, top = earTop).height(22.dp).width((leftDp - indent).dp).wrapContentHeight(Alignment.CenterVertically),
-                            color = themeInk.copy(alpha = .72f), style = UnoType.caption1.tight, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-                if (narration != null && openEars == null) {
+                if (narration != null && !cameraAbove) {
                     Text(narration, color = themeInk.copy(alpha = .6f), style = UnoType.caption2.tight, fontWeight = FontWeight.Medium,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-narration"))
                     Spacer(Modifier.height(4.dp))
@@ -1453,9 +1463,9 @@ internal fun DynamicIsland(
                             append(digits)
                             if (meridiem.isNotEmpty()) withStyle(androidx.compose.ui.text.SpanStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp,
                                 color = themeInk.copy(alpha = .6f))) { append(meridiem) }
-                        }, color = themeInk, fontSize = if (openEars != null) 32.sp else 24.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
-                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum", letterSpacing = (if (openEars != null) -.7 else -.3).sp))
-                        if (openEars == null) Row(verticalAlignment = Alignment.CenterVertically) {
+                        }, color = themeInk, fontSize = if (cameraAbove) 32.sp else 24.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum", letterSpacing = (if (cameraAbove) -.7 else -.3).sp))
+                        if (!cameraAbove) Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(dateText, color = themeInk.copy(alpha = .85f), style = UnoType.caption1.tight, maxLines = 1)
                             if (nextAlarm != null) Spacer(Modifier.width(8.dp))
                             alarmLine()
@@ -1464,10 +1474,16 @@ internal fun DynamicIsland(
                     // A timer or stopwatch still running while the panel is open: what is left, which the panel did not show at all, only the word "Timer".
                     val timerLeft = IslandTools.timerActive && !IslandTools.ringing
                     val clockShown = timerLeft || IslandTools.swRunning
-                    val note = if (openEars == null) null else OpenIslandLayout.heroNote(narration, mediaVisible || callActive || updates.isNotEmpty() || recentLive, clockShown)
-                    val lines = OpenIslandLayout.heroLines(clockShown, note != null, chargeLeft != null, openEars != null && nextAlarm != null)
+                    val note = if (!cameraAbove) null else OpenIslandLayout.heroNote(narration, mediaVisible || callActive || updates.isNotEmpty() || recentLive, clockShown)
+                    val status = OpenIslandLayout.heroStatus(clockShown, chargeLeft != null, note != null)
                     Column(horizontalAlignment = Alignment.End) {
-                        lines.forEach { line -> when (line) {
+                        // The date opposite the time, in the panel's body. It sat in the band beside the camera, where the rounded corner curves in under it.
+                        if (cameraAbove) Row(verticalAlignment = Alignment.CenterVertically) {
+                            alarmLine()
+                            if (nextAlarm != null) Spacer(Modifier.width(8.dp))
+                            Text(dateText, color = themeInk.copy(alpha = .72f), style = UnoType.footnote.tight, fontWeight = FontWeight.Medium, maxLines = 1, modifier = Modifier.testTag("island-date"))
+                        }
+                        when (status) {
                             OpenIslandLayout.HeroLine.CLOCK -> Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("island-open-clock")) {
                                 Icon(Icons.Rounded.Timer, null, tint = IslandThemes.active.timer, modifier = Modifier.size(15.dp))
                                 Spacer(Modifier.width(4.dp))
@@ -1475,12 +1491,12 @@ internal fun DynamicIsland(
                                     color = IslandThemes.active.timer, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                                     style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"))
                             }
-                            OpenIslandLayout.HeroLine.NOTE -> Text(note.orEmpty(), color = themeInk.copy(alpha = .6f), style = UnoType.caption1.tight, fontWeight = FontWeight.Medium,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-narration"))
                             OpenIslandLayout.HeroLine.CHARGE -> Text(chargeLeft.orEmpty(), color = IslandThemes.active.charging.copy(alpha = .85f), style = UnoType.caption2.tight, maxLines = 1,
                                 modifier = Modifier.testTag("island-charge-left"))
-                            OpenIslandLayout.HeroLine.ALARM -> alarmLine()
-                        } }
+                            OpenIslandLayout.HeroLine.NOTE -> Text(note.orEmpty(), color = themeInk.copy(alpha = .6f), style = UnoType.caption1.tight, fontWeight = FontWeight.Medium,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("island-narration"))
+                            null -> Unit
+                        }
                     }
                 }
                 if (recentLive) {
@@ -1534,9 +1550,9 @@ internal fun DynamicIsland(
                 feedHeadline?.let { headline ->
                     // Marked as the feed's and quieter than the panel's own content, and it opens the feed: it used to be plain bright text that belonged to nothing.
                     Row(Modifier.fillMaxWidth().islandRowPress(onOpenFeed).testTag("island-headline"), verticalAlignment = if (headlineLines > 1) Alignment.Top else Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.RssFeed, null, tint = themeInk.copy(alpha = .45f), modifier = Modifier.padding(top = if (headlineLines > 1) 2.dp else 0.dp).size(12.dp))
+                        Icon(Icons.Rounded.RssFeed, null, tint = themeInk.copy(alpha = .55f), modifier = Modifier.padding(top = if (headlineLines > 1) 2.dp else 0.dp).size(12.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text(headline, color = themeInk.copy(alpha = .72f), style = UnoType.footnote.tight, maxLines = headlineLines, overflow = TextOverflow.Ellipsis)
+                        Text(headline, color = themeInk.copy(alpha = .8f), style = UnoType.footnote.tight, maxLines = headlineLines, overflow = TextOverflow.Ellipsis)
                     }
                     Spacer(Modifier.height(6.dp))
                 }
@@ -1566,6 +1582,9 @@ internal fun DynamicIsland(
     }
     }
 }
+
+/** How tall, in dp, the band at the open island's bottom edge is that turns from black into glass. */
+internal const val OPEN_GLASS_BAND_DP = 110f
 
 /** How long after a Focus change a ringer change is treated as its side effect. */
 internal const val FOCUS_SIDE_EFFECT_MS = 1_500L

@@ -341,8 +341,8 @@ internal fun IslandSearchPill(label: String, showLabel: Boolean, onClick: () -> 
         .then(if (showLabel) Modifier.padding(horizontal = 14.dp) else Modifier.semantics { contentDescription = label }),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (showLabel) Arrangement.spacedBy(8.dp) else Arrangement.Center) {
-        Icon(Icons.Rounded.Search, null, tint = themeInk.copy(alpha = .7f), modifier = Modifier.size(18.dp))
-        if (showLabel) Text(label, color = themeInk.copy(alpha = .7f), fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
+        Icon(Icons.Rounded.Search, null, tint = themeInk.copy(alpha = .85f), modifier = Modifier.size(18.dp))
+        if (showLabel) Text(label, color = themeInk.copy(alpha = .85f), fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
     }
 }
 

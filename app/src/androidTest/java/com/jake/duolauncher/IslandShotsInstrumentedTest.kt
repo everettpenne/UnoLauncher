@@ -10,7 +10,18 @@ import android.graphics.Canvas
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.test.junit4.createComposeRule
+import com.jake.duolauncher.appearance.*
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
@@ -92,6 +103,72 @@ class IslandShotsInstrumentedTest {
         compose.runOnIdle { IslandTools.startTimer(context, 5 * 60_000L) }
         openShot("5-timer-open")
         compose.runOnIdle { IslandTools.cancelTimer(context) }
+    }
+
+    /** The open island with glass behind it, over a colourful picture and over a nearly white one. */
+    private fun showOnGlass(colors: List<Color>) {
+        compose.setContent {
+            DuoTheme(false) {
+                val backdrop = rememberLayerBackdrop()
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(Brush.linearGradient(colors, tileMode = TileMode.Repeated, start = Offset.Zero, end = Offset(700f, 900f))))
+                    DynamicIsland(state, glass = PageGlass(backdrop, Color.White.copy(alpha = .3f), GlassSettings.Default), deviceStatus = DeviceStatus(battery = 76, charging = true),
+                        feedHeadline = "Dune: Part Three trailer lands with the first look at the sandworm riding",
+                        environmentOverride = IslandEnvironment(PxRect(515f, 40f, 565f, 90f), 1080f, 80f, screenHeight = 2400f),
+                        onSearch = {}, onOpenFeed = {}, onCustomize = {})
+                }
+            }
+        }
+        Thread.sleep(2500); compose.waitForIdle()
+    }
+
+    @Test fun glassColourful() {
+        showOnGlass(listOf(Color(0xFF0A84FF), Color(0xFFFF375F), Color(0xFFFFD60A), Color(0xFF30D158)))
+        openShot("g1-colour-open")
+        compose.runOnIdle { state.collapse() }
+        compose.mainClock.autoAdvance = false
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.runOnIdle { state.toggle() }
+        compose.mainClock.advanceTimeBy(100); Thread.sleep(700); takeShot("g2-opening-early")
+        compose.mainClock.advanceTimeBy(80); Thread.sleep(700); takeShot("g3-opening-mid")
+        compose.mainClock.autoAdvance = true
+    }
+
+    @Test fun glassMusic() {
+        showOnGlass(listOf(Color(0xFF0A84FF), Color(0xFFFF375F), Color(0xFFFFD60A), Color(0xFF30D158)))
+        val art = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888).also { Canvas(it).drawColor(0xFFE2582B.toInt()) }
+        val s = MediaSession(context, "uno-island-glass").also { session = it }
+        s.setMetadata(MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE, "Night Drive").putString(MediaMetadata.METADATA_KEY_ARTIST, "The Examples")
+            .putLong(MediaMetadata.METADATA_KEY_DURATION, 240_000).putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, art).build())
+        s.setPlaybackState(PlaybackState.Builder().setState(PlaybackState.STATE_PLAYING, 83_000, 1f).setActions(PlaybackState.ACTION_PLAY_PAUSE).build())
+        s.isActive = true
+        compose.runOnIdle { NotificationFeed.nowPlaying = NowPlaying("Night Drive", "The Examples", art, true, s.controller); state.setPlaying(System.currentTimeMillis(), true) }
+        Thread.sleep(2200); compose.waitForIdle()
+        openShot("g5-music-open")
+    }
+
+    /** Search's bar over the same picture, to hold the open island's glass against. */
+    @Test fun glassSpotlight() {
+        val icon = Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888)
+        val apps = listOf("Calculator", "Calendar", "Camera", "Clock").map { AppEntry("com.example.${it.lowercase()}/.Main", it, icon) }
+        compose.setContent {
+            DuoTheme(false) {
+                val backdrop = rememberLayerBackdrop()
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(Brush.linearGradient(listOf(Color(0xFF0A84FF), Color(0xFFFF375F), Color(0xFFFFD60A), Color(0xFF30D158)), tileMode = TileMode.Repeated, start = Offset.Zero, end = Offset(700f, 900f))))
+                    com.jake.duolauncher.search.Spotlight(PageGlass(backdrop, Color.White.copy(alpha = .3f), GlassSettings.Default), apps, emptySet(), emptyList(), false,
+                        com.jake.duolauncher.search.HandoffResolver(context, ExtrasState()), onLaunch = {}, onOpenFeedLink = {}, onOpenContact = {}, onDismiss = {}, progress = { 1f },
+                        pill = IslandFrame(left = 330f, top = 30f, width = 420f, height = 100f, hole = null))
+                }
+            }
+        }
+        Thread.sleep(3000); compose.waitForIdle()
+        takeShot("g6-spotlight")
+    }
+
+    @Test fun glassBright() {
+        showOnGlass(listOf(Color.White, Color(0xFFF2F2F7), Color(0xFFFFE9C7)))
+        openShot("g4-bright-open")
     }
 
     @Test fun newThings() {

@@ -281,8 +281,13 @@ internal object SpotlightBar {
      *  Enough stays at the bottom for white text to read on a bright wallpaper. With no glass behind it, it stays black. */
     fun barFill(solidTo: Float, hasGlass: Boolean): androidx.compose.ui.graphics.Brush =
         if (!hasGlass) androidx.compose.ui.graphics.SolidColor(Color.Black)
-        else androidx.compose.ui.graphics.Brush.verticalGradient(
-            0f to Color.Black, solidTo to Color.Black, (solidTo + (1f - solidTo) * .55f).coerceAtMost(.99f) to Color.Black.copy(alpha = .68f), 1f to Color.Black.copy(alpha = .42f))
+        else androidx.compose.ui.graphics.Brush.verticalGradient(*barStops(solidTo))
+
+    /** The ramp of [barFill], which the open island's body shares so the two are the same glass: [fill] solid to [solidTo], then thinning. */
+    fun barStops(solidTo: Float, fill: Color = Color.Black): Array<Pair<Float, Color>> {
+        val s = solidTo.coerceIn(0f, .98f)
+        return arrayOf(0f to fill, s to fill, (s + (1f - s) * .55f).coerceAtMost(.99f) to fill.copy(alpha = .68f), 1f to fill.copy(alpha = .42f))
+    }
 }
 
 internal object SpotlightEmerge {

@@ -102,6 +102,8 @@ internal data class ExtrasState(
     val contactSearch: Boolean = false,
     /** Spotlight's "Ask Qwen" row, answered by Uno Lab on the phone (see search.LocalAssistant). Off until switched on. */
     val localAssistant: Boolean = false,
+    /** What Qwen can see: the phone-context sources switched off (search.context.PhoneContext). Empty, so all of them, by default. */
+    val contextOff: Set<String> = emptySet(),
     val kbAutocorrect: Boolean = true,
     val kbSuggestions: Boolean = true,
     val kbNumberRow: Boolean = false,
@@ -202,6 +204,7 @@ internal class ExtrasStore(context: Context) {
         notificationPeek = prefs.getBoolean("notificationPeek", false),
         contactSearch = prefs.getBoolean("contactSearch", false),
         localAssistant = prefs.getBoolean("localAssistant", false),
+        contextOff = prefs.getString("contextOff", null)?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty(),
         kbAutocorrect = prefs.getBoolean("kbAutocorrect", true),
         kbSuggestions = prefs.getBoolean("kbSuggestions", true),
         kbNumberRow = prefs.getBoolean("kbNumberRow", false),
@@ -277,6 +280,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("notificationPeek", next.notificationPeek)
             .putBoolean("contactSearch", next.contactSearch)
             .putBoolean("localAssistant", next.localAssistant)
+            .putString("contextOff", next.contextOff.joinToString(","))
             .putBoolean("kbAutocorrect", next.kbAutocorrect)
             .putBoolean("kbSuggestions", next.kbSuggestions)
             .putBoolean("kbNumberRow", next.kbNumberRow)
@@ -355,6 +359,7 @@ internal class ExtrasStore(context: Context) {
     fun setNotificationPeek(value: Boolean) = save(state.copy(notificationPeek = value))
     fun setContactSearch(value: Boolean) = save(state.copy(contactSearch = value))
     fun setLocalAssistant(value: Boolean) = save(state.copy(localAssistant = value))
+    fun setContextSource(id: String, on: Boolean) = save(state.copy(contextOff = if (on) state.contextOff - id else state.contextOff + id))
     fun setKbAutocorrect(value: Boolean) = save(state.copy(kbAutocorrect = value))
     fun setKbSuggestions(value: Boolean) = save(state.copy(kbSuggestions = value))
     fun setKbNumberRow(value: Boolean) = save(state.copy(kbNumberRow = value))
@@ -423,5 +428,9 @@ internal class ExtrasActions(
     val openNotificationAccess: () -> Unit = {},
     val hasNotificationAccess: () -> Boolean = { false },
     val toggleFocus: () -> Unit = {},
+    /** Any runtime permission (the assistant's calendar and location sources), asked for when the person taps its row. */
+    val requestPermission: (String) -> Unit = {},
+    val hasPermission: (String) -> Boolean = { false },
+    val openUsageAccess: () -> Unit = {},
     val islandWidget: IslandWidgetController? = null,
 )

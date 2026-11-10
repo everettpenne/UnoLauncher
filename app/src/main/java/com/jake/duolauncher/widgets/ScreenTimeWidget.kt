@@ -115,7 +115,7 @@ private fun openUsageAccess(context: Context) {
 }
 
 /** The apps in the foreground so far today, from the phone's usage stats. Guarded: with no grant it reads as empty. */
-private fun readUsageToday(context: Context): List<ScreenTime.AppUsage> {
+internal fun readUsageToday(context: Context): List<ScreenTime.AppUsage> {
     if (!hasUsageAccess(context)) return emptyList()
     return runCatching {
         val manager = context.getSystemService(UsageStatsManager::class.java)

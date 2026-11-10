@@ -49,6 +49,8 @@ internal data class LedgerInputs(
     val hideOverApps: Boolean = false,
     /** Spotlight's local assistant switch, or null when Uno Lab is not installed (no row is shown). */
     val localAssistant: Boolean? = null,
+    /** Calendar access: asked for only by the local assistant's Calendar source. */
+    val calendarAllowed: Boolean = false,
 )
 
 internal object PermissionLedger {
@@ -123,9 +125,13 @@ internal object PermissionLedger {
             LedgerRow("assistant", "Local assistant (Uno Lab)",
                 if (on) "On" else "Off", on,
                 "Answering a search question with Uno Lab's on-device model, if you switch it on in Extras › Search. No permission is involved: it is a connection to another app on this phone.",
-                "Uno Lab gets only the words in the search bar, and only when you tap Ask Qwen. It answers on the phone with no network. A suggested action (a timer, a call) runs only when you tap it.",
+                "When you tap Ask Qwen, Uno Lab gets the words in the search bar and the phone facts the question points at (Extras › Search › What Qwen Can See: the date and battery always; your calendar, messages, apps or storage only for a question about them). It answers on the phone with no network and keeps nothing. A suggested action (a timer, a call) runs only when you tap it.",
                 LedgerAction.NONE)
-        })
+        }, if (i.localAssistant == true || i.calendarAllowed) LedgerRow("calendar", "Calendar",
+            if (i.calendarAllowed) "Allowed" else "Not allowed", i.calendarAllowed,
+            "Letting the local assistant answer questions about your schedule, if you allow it from What Qwen Can See.",
+            "The titles and times of events in the next seven days, read only when you ask Qwen about your schedule, and handed to Uno Lab on this phone with that question. Nothing is stored or sent over the network.",
+            LedgerAction.APP_INFO) else null)
     }
 
     /** The plain-language line under the title: which island you actually have right now. */

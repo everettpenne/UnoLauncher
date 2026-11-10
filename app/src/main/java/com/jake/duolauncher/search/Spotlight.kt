@@ -444,6 +444,8 @@ internal fun Spotlight(
     onToggleFocus: () -> Unit = {},
     /** Uno Lab's assistant, when the person switched it on and Lab is installed; null hides Ask Qwen and binds nothing. */
     assistant: AssistantClient? = null,
+    /** What the phone's facts are read from, for the assistant (null: questions go without them). */
+    contextEnv: com.jake.duolauncher.search.context.ContextEnv? = null,
 ) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
@@ -508,7 +510,9 @@ internal fun Spotlight(
         askView = AskView.Thinking
         // An action first: a few dozen tokens, so it is quick. It becomes a row that runs only when tapped.
         // A failed action ask still gets an answer ask (which says why, if Lab is the problem); a cancel (the query changed) stops here.
-        val json = try { buildString { client.ask(q, AskMode.ACTION).collect { append(it) } } } catch (e: AssistantError) { null }
+        // The phone's facts for this question: for an action only trusted ones (a message or a headline must not steer a suggested action).
+        val actionContext = contextEnv?.let { com.jake.duolauncher.search.context.PhoneContext.build(q, action = true, it) }.orEmpty()
+        val json = try { buildString { client.ask(q, AskMode.ACTION, actionContext).collect { append(it) } } } catch (e: AssistantError) { null }
         val act = json?.let(AssistantIntent::parse)?.let { action ->
             when (action) {
                 is QuickAction.OpenApp -> SpotlightRank.apps(searchable, action.name, { it.label }, { scores[it.id] ?: 0.0 }, { it.description })
@@ -527,7 +531,8 @@ internal fun Spotlight(
         var text = ""
         askView = AskView.Answer("", done = false)
         try {
-            client.ask(q, AskMode.ANSWER).collect { piece -> text += piece; askView = AskView.Answer(text, done = false) }
+            val answerContext = contextEnv?.let { com.jake.duolauncher.search.context.PhoneContext.build(q, action = false, it) }.orEmpty()
+            client.ask(q, AskMode.ANSWER, answerContext).collect { piece -> text += piece; askView = AskView.Answer(text, done = false) }
             askView = AskView.Answer(text.trim(), done = true)
         } catch (e: AssistantError) {
             askView = AskView.Answer(text.trim(), done = true, error = e.message)

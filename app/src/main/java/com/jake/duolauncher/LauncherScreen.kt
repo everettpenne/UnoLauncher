@@ -1545,6 +1545,14 @@ internal fun LauncherScreen(
                 if (assistantOn && com.jake.duolauncher.search.LocalAssistant.isAvailable(launcherActivity))
                     com.jake.duolauncher.search.LocalAssistant(launcherActivity) else null
             }
+            // The phone's facts for the assistant, read from the latest state whenever a question is asked.
+            val latestState by androidx.compose.runtime.rememberUpdatedState(state)
+            val latestAppearance by androidx.compose.runtime.rememberUpdatedState(appearance)
+            val latestFeed by androidx.compose.runtime.rememberUpdatedState(feed)
+            val contextEnv = remember(assistant) {
+                assistant?.let { com.jake.duolauncher.search.context.ContextEnv(launcherActivity.applicationContext, { latestState },
+                    { extras?.store?.state }, { latestAppearance }, { latestFeed.shownEntries }) }
+            }
             Spotlight(controlGlass, state.apps, state.hiddenApps, feed.shownEntries, extras?.store?.state?.contactSearch == true, handoffResolver,
                 onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },
                 onLaunchFrom = { app, bounds -> spotlightOpen = false; onLaunchFrom(app, bounds) },
@@ -1554,7 +1562,7 @@ internal fun LauncherScreen(
                 noteSlot = state.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
                 focusOn = { extras?.store?.state?.focusOn == true },
                 onToggleFocus = { extras?.toggleFocus?.invoke() },
-                assistant = assistant)
+                assistant = assistant, contextEnv = contextEnv)
         }
         androidx.compose.animation.AnimatedVisibility(controlPanelOpen,
             enter = androidx.compose.animation.slideInVertically(UnoMotion.glide()) { -it / 2 } + androidx.compose.animation.fadeIn(UnoMotion.glide()),

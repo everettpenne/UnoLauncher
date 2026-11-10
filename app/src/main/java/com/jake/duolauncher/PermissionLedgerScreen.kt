@@ -70,6 +70,7 @@ private fun ledgerInputs(context: Context, actions: ExtrasActions): LedgerInputs
         alignmentRunning = StatusBarReaderService.isConnected(),
         sensorsAllowed = GrapheneSensors.allowed(context),
         localAssistant = actions.store.state.localAssistant.takeIf { com.jake.duolauncher.search.LocalAssistant.isAvailable(context) },
+        calendarAllowed = actions.hasPermission(android.Manifest.permission.READ_CALENDAR),
         hideOverApps = actions.store.state.let { it.islandEverywhere && ((it.islandHideOverOn && it.islandHideOver.isNotEmpty()) || it.islandHideInOwnApp) },
     )
 }

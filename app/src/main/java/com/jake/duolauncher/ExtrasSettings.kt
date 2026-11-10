@@ -123,7 +123,57 @@ private fun SearchGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasSt
     if (labPresent) SettingsGroup(footer = "Adds an Ask Qwen row to search for questions nothing else answers. Only when you tap it, the words you typed go to Uno Lab, which answers on this phone with no network. A suggested action runs only when you tap it.") {
         row { SettingsSwitch("Local assistant (Uno Lab)", s.localAssistant, store::setLocalAssistant, "local-assistant-switch") }
     }
+    if (labPresent && s.localAssistant) AssistantContextGroups(actions, store, s)
 }
+
+/**
+ * What Qwen can see: every kind of fact the phone can give the assistant with a question, each with its own switch, all on by default. Only
+ * the ones a question points at are sent, with that question, to Uno Lab on the phone; nothing is kept. Sources that need access Android has
+ * not given yet say so, and ask when tapped.
+ */
+@Composable
+private fun AssistantContextGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasState) {
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    val sources = com.jake.duolauncher.search.context.PhoneContext.sources
+    SettingsGroup(footer = "With each question, Uno sends Qwen the facts it points at, read from this phone at that moment: the date and battery always, " +
+        "and, for example, your calendar only for a question about your schedule. They go to Uno Lab, on this phone, for that question only, and are " +
+        "never stored or sent over the network. Messages, headlines and the clipboard are written by others, so they never go with a request Qwen may turn into an action.") {
+        row { ActionRow(if (expanded) "Hide What Qwen Can See" else "What Qwen Can See (${sources.count { it.id !in s.contextOff }} of ${sources.size} on)",
+            "assistant-context-toggle") { expanded = !expanded } }
+    }
+    if (!expanded) return
+    val needs = sources.associate { it.id to contextNeed(it.id, actions, s) }
+    sources.groupBy { it.group }.forEach { (group, list) ->
+        SettingsGroup(header = group.title) {
+            list.forEach { src ->
+                val need = needs[src.id]
+                row { SettingsSwitch(if (need != null && src.id !in s.contextOff) "${src.title} · needs access" else src.title, src.id !in s.contextOff, { on ->
+                    store.setContextSource(src.id, on)
+                    if (on) need?.second?.invoke()
+                }, "context-${src.id}") }
+                if (need != null && src.id !in s.contextOff) row { ActionRow(need.first, "context-${src.id}-allow") { need.second() } }
+            }
+        }
+    }
+}
+
+/** What a source still needs before it can say anything, and how to ask for it; null when it has what it needs. */
+@Composable
+private fun contextNeed(id: String, actions: ExtrasActions, s: ExtrasState): Pair<String, () -> Unit>? {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    return when (id) {
+        "calendar" -> if (actions.hasPermission(android.Manifest.permission.READ_CALENDAR)) null
+            else "Allow Calendar Access" to { actions.requestPermission(android.Manifest.permission.READ_CALENDAR) }
+        "location" -> if (actions.hasPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) || actions.hasPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)) null
+            else "Allow Location Access" to { actions.requestPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) }
+        "contacts" -> if (s.contactSearch && actions.hasContactsPermission()) null
+            else "Turn On Contacts in Search" to { actions.store.setContactSearch(true); if (!actions.hasContactsPermission()) actions.requestContacts() }
+        "screentime" -> if (com.jake.duolauncher.widgets.hasUsageAccess(context)) null else "Allow Usage Access" to actions.openUsageAccess
+        "notifications", "unread", "playing", "live" -> if (actions.hasNotificationAccess()) null else "Turn On Notification Access" to actions.openNotificationAccess
+        else -> null
+    }
+}
+
 
 @Composable
 private fun PrivacyGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasState, apps: List<AppEntry>) {

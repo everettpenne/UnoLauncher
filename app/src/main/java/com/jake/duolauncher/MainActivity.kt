@@ -75,6 +75,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()) { granted -> if (!granted) extrasStore.setContactSearch(false) }
     private val bluetoothPermission = activityResultRegistry.register("duo.extras.bluetooth", this,
         ActivityResultContracts.RequestPermission()) { granted -> if (!granted) extrasStore.setBluetoothAlerts(false) }
+    private val anyPermission = activityResultRegistry.register("duo.extras.permission", this, ActivityResultContracts.RequestPermission()) { }
     private val extrasActions by lazy {
         ExtrasActions(extrasStore,
             requestContacts = { contactsPermission.launch(android.Manifest.permission.READ_CONTACTS) },
@@ -83,7 +84,10 @@ class MainActivity : ComponentActivity() {
             hasBluetoothPermission = { checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED },
             openNotificationAccess = { startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
             hasNotificationAccess = { notificationAccess.value },
-            toggleFocus = ::toggleFocus, islandWidget = islandWidget)
+            toggleFocus = ::toggleFocus, islandWidget = islandWidget,
+            requestPermission = { anyPermission.launch(it) },
+            hasPermission = { checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED },
+            openUsageAccess = { runCatching { startActivity(Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)) } })
     }
     // Registered when the activity is created: a result launcher cannot be registered once the activity has started.
     private val islandWidget = IslandWidgetController(this)

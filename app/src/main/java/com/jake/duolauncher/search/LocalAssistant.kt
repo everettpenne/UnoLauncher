@@ -42,8 +42,9 @@ internal interface AssistantClient {
     fun open()
     /** Unbinds (Spotlight closed). Idempotent. */
     fun close()
-    /** Streams the reply in pieces; completes when done, fails with the assistant's reason. Cancelling the collector cancels the answer. */
-    fun ask(query: String, mode: AskMode): Flow<String>
+    /** Streams the reply in pieces; completes when done, fails with the assistant's reason. Cancelling the collector cancels the answer.
+     *  [context] is the phone's facts for this question (search.context.PhoneContext); an Uno Lab too old to take it gets the question alone. */
+    fun ask(query: String, mode: AskMode, context: String = ""): Flow<String>
     /** Opens Uno Lab's own screen with [query], to carry on there. */
     fun continueInLab(context: Context, query: String)
 }
@@ -136,7 +137,10 @@ internal class LocalAssistant(context: Context) : AssistantClient {
         _state.value = AssistantState.OFF
     }
 
-    override fun ask(query: String, mode: AskMode): Flow<String> = callbackFlow {
+    /** Uno Lab's interface version, asked once per connection: 0 for a Lab from before askWithContext (the call is unknown there and reads as 0). */
+    private var labVersion: Pair<IAssistant, Int>? = null
+
+    override fun ask(query: String, mode: AskMode, context: String): Flow<String> = callbackFlow {
         val svc = withTimeoutOrNull(15_000) { service.filterNotNull().first() } ?: throw AssistantError("Uno Lab isn't connected.")
         val finished = AtomicBoolean(false)
         val sink = object : IAnswerSink.Stub() {
@@ -145,7 +149,11 @@ internal class LocalAssistant(context: Context) : AssistantClient {
             override fun onError(why: String?) { finished.set(true); channel.close(AssistantError(why ?: "Uno Lab couldn't answer.")) }
         }
         try {
-            withContext(binderThread) { svc.ask(query.take(AskPolicy.MAX_QUERY), mode.wire, sink) }
+            withContext(binderThread) {
+                val version = labVersion?.takeIf { it.first === svc }?.second ?: runCatching { svc.version() }.getOrDefault(0).also { labVersion = svc to it }
+                if (context.isNotBlank() && version >= 1) svc.askWithContext(query.take(AskPolicy.MAX_QUERY), context, mode.wire, sink)
+                else svc.ask(query.take(AskPolicy.MAX_QUERY), mode.wire, sink)
+            }
         } catch (e: Exception) {
             throw AssistantError(if (e is SecurityException) "Uno Lab doesn't accept this copy of Uno." else "Uno Lab couldn't be reached.")
         }

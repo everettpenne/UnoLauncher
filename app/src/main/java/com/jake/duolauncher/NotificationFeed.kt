@@ -174,7 +174,27 @@ class UnoNotificationListener : NotificationListenerService() {
     private fun scheduleSweep() { handler?.let { it.removeCallbacks(sweep); it.postDelayed(sweep, LiveUpdateLogic.SAFETY_SWEEP_MS) } }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        handler?.post { peek(sbn); trackCall(sbn); scheduleSync() }
+        handler?.post { peek(sbn); trackCall(sbn); rememberForAssistant(sbn); scheduleSync() }
+    }
+
+    /**
+     * Keeps the notification's app, title and text in memory for Uno Lab's assistant ("who messaged me"), only while the assistant and its
+     * Recent notifications source are on; never written anywhere (search.context.RecentNotifications). Ongoing ones, group summaries and
+     * Uno's own are skipped, and one containing a blocked word is kept as its app's name alone.
+     */
+    private fun rememberForAssistant(sbn: StatusBarNotification) {
+        if (!prefs.getBoolean("localAssistant", false)) { com.jake.duolauncher.search.context.RecentNotifications.clear(); return }
+        if ("notifications" in prefs.getString("contextOff", null).orEmpty().split(',')) return
+        if (sbn.packageName == packageName) return
+        val flags = sbn.notification.flags
+        if (flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE or Notification.FLAG_GROUP_SUMMARY) != 0) return
+        val label = appLabelOf(sbn) ?: return
+        val e = sbn.notification.extras
+        val title = e.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+        val text = (e.getCharSequence(Notification.EXTRA_TEXT) ?: e.getCharSequence(Notification.EXTRA_BIG_TEXT))?.toString()
+        val blocked = com.jake.duolauncher.island.PeekContent.blocked(com.jake.duolauncher.island.PeekContent.parseWords(prefs.getString("peekBlocked", null)), title, text)
+        com.jake.duolauncher.search.context.RecentNotifications.record(com.jake.duolauncher.search.context.RecentNotifications.Entry(
+            sbn.packageName, label, if (blocked) null else title?.take(80), if (blocked) null else text?.take(200), sbn.postTime))
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {

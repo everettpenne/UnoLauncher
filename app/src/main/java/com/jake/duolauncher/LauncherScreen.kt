@@ -609,6 +609,7 @@ internal fun LauncherScreen(
         val homeBackdrop = rememberHomeBackdrop()
         val glassEnabled = appearance.liquidGlass
         val glassSettings = appearance.glass
+        SideEffect { SharedWallpaperRuntime.settings = glassSettings }
         // With "Color from wallpaper" on, the glass takes the wallpaper's hue as well as the muted palette tint.
         val wallpaperAccent = LocalWallpaperAccent.current
         val glassTint = (if (glassEnabled) rememberGlassTint(Glass) else Glass).let { base ->

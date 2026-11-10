@@ -7,6 +7,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.layer.GraphicsLayer
@@ -55,8 +60,34 @@ internal class SharedWallpaper(val source: Backdrop) {
     }
 }
 
-/** The one in this window, for [liquidGlass] to find. Home makes it. */
-internal object SharedWallpaperRuntime { var current by mutableStateOf<SharedWallpaper?>(null) }
+/** The one Home made, for [liquidGlass] to find, and for the island's overlay window, which has no backdrop of its own (see [SharedWallpaperBackdrop]). */
+internal object SharedWallpaperRuntime {
+    var current by mutableStateOf<SharedWallpaper?>(null)
+    /** Home's glass settings, so glass drawn in another window bends the same way. */
+    var settings by mutableStateOf(GlassSettings.Default)
+}
+
+/**
+ * [shared]'s picture as a backdrop, for glass in another window of this app over Home: the island's overlay, which sits above the status bar in a window of its
+ * own and so cannot sample Home's. It places the wallpaper by where the surface is on the screen, Home's window filling the screen. It shows the wallpaper only,
+ * not the icons and widgets on it; the open island's glass is a band at its bottom edge, over the top of the page.
+ */
+internal class SharedWallpaperBackdrop(private val shared: SharedWallpaper) : Backdrop {
+    override val isCoordinatesDependent: Boolean = true
+    private var made: Pair<Bitmap, androidx.compose.ui.graphics.ImageBitmap>? = null
+
+    override fun DrawScope.drawBackdrop(density: Density, coordinates: LayoutCoordinates?, layerBlock: (GraphicsLayerScope.() -> Unit)?) {
+        val image = shared.image ?: return
+        val at = coordinates?.positionOnScreen() ?: return
+        if (shared.artWidth <= 0) return
+        val bitmap = made?.takeIf { it.first === image }?.second ?: image.asImageBitmap().also { made = image to it }
+        val drift = shared.drift(shared.artWidth.toFloat())
+        val place = SharedWallpaperMap.place(image.width, shared.artWidth, shared.artHeight, drift?.scale ?: 1f, drift?.translationX ?: 0f, at.x, at.y)
+        withTransform({ translate(place.translateX, place.translateY); scale(place.scale, place.scale, androidx.compose.ui.geometry.Offset.Zero) }) {
+            drawImage(bitmap, filterQuality = androidx.compose.ui.graphics.FilterQuality.Low)
+        }
+    }
+}
 
 /** The sums behind the shared picture. Pure, so they are unit-tested. */
 internal object SharedWallpaperMap {

@@ -18,6 +18,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.jake.duolauncher.appearance.*
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -164,6 +166,30 @@ class IslandShotsInstrumentedTest {
         }
         Thread.sleep(3000); compose.waitForIdle()
         takeShot("g6-spotlight")
+    }
+
+    /** The overlay's way: no live backdrop, only the shared picture of the wallpaper (here the same stripes, a third the size), placed by screen position. */
+    @Test fun glassFromSharedPicture() {
+        val w = 1080; val h = 2400
+        val stripes = listOf(Color(0xFF0A84FF), Color(0xFFFF375F), Color(0xFFFFD60A), Color(0xFF30D158))
+        val full = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        Canvas(full).drawPaint(android.graphics.Paint().apply { shader = android.graphics.LinearGradient(0f, 0f, 700f, 900f, stripes.map { it.toArgb() }.toIntArray(), null, android.graphics.Shader.TileMode.REPEAT) })
+        val shared = SharedWallpaper(com.kyant.backdrop.backdrops.emptyBackdrop()).apply {
+            artWidth = w; artHeight = h; image = Bitmap.createScaledBitmap(full, w / 3, h / 3, true)
+        }
+        compose.setContent {
+            DuoTheme(false) {
+                Box(Modifier.fillMaxSize()) {
+                    androidx.compose.foundation.Image(full.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.FillBounds)
+                    DynamicIsland(state, glass = PageGlass(SharedWallpaperBackdrop(shared), Color.Black, GlassSettings.Default), deviceStatus = DeviceStatus(battery = 76, charging = true),
+                        feedHeadline = "Dune: Part Three trailer lands with the first look at the sandworm riding",
+                        environmentOverride = IslandEnvironment(PxRect(515f, 40f, 565f, 90f), 1080f, 80f, screenHeight = 2400f),
+                        onSearch = {}, onOpenFeed = {}, onCustomize = {})
+                }
+            }
+        }
+        Thread.sleep(2500); compose.waitForIdle()
+        openShot("g7-shared-picture")
     }
 
     @Test fun glassBright() {

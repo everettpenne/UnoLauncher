@@ -21,6 +21,10 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import com.jake.duolauncher.appearance.PageGlass
+import com.jake.duolauncher.appearance.SharedWallpaperBackdrop
+import com.jake.duolauncher.appearance.SharedWallpaperRuntime
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -251,9 +255,14 @@ internal class IslandOverlayHost(
             if (visible && !fullScreenHidden) androidx.compose.animation.AnimatedVisibility(!yielded,
                 enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200, delayMillis = 60)),
                 exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(YIELD_FADE_MS.toInt()))) {
+                // Over Home, the open island's glass bends Home's wallpaper, from the picture Home already keeps; over other apps there is none, and it stays black.
+                // Only once the picture is ready: a glass body with nothing behind it would be see-through.
+                val shared = SharedWallpaperRuntime.current
+                val overlayGlass = if (IslandRuntime.launcherInFront && shared?.image != null)
+                    remember(shared, SharedWallpaperRuntime.settings) { PageGlass(SharedWallpaperBackdrop(shared), androidx.compose.ui.graphics.Color.Black, SharedWallpaperRuntime.settings) } else null
                 DynamicIsland(
                     state = IslandRuntime.state,
-                    glass = null,
+                    glass = overlayGlass,
                     deviceStatus = rememberBatteryStatus(),
                     feedHeadline = null,
                     sizeScale = islandScale,

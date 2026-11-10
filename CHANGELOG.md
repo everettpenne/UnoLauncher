@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.129.1-uno01
+
+- **The open island's glass now shows with the accessibility service on.** With the service on, Home's island is drawn in the service's own window above the status bar, which could not see Home, so 0.129.0's glass band stayed black there. It now bends the picture of the wallpaper Home already keeps for the dock and widgets, placed by where the island is on screen, once that picture is ready; it uses your glass settings, and it stays black over other apps. It shows the wallpaper only, not the icons and widgets on it. On Home the closed pill gains the same faint glass rim it has without the service.
+- **Tested:** 1,171 unit tests, passing (1 skipped). On an emulator, the open island drawn with glass from the shared wallpaper picture alone, over the same wallpaper: it matches the live glass and lines up with the wallpaper behind it. **Not seen:** the real overlay window on a phone (switching the accessibility service on is left to the person), and the closed pill's glass rim on Home with the service on.
+
 ## 0.129.0-uno01
 
 - **The open island ends in liquid glass.** On Home its bottom edge turns from black into the same clear glass as search's bar, with search's own ramp: black round the camera and behind the clock and cards, glass in a band behind the Search row. It is still black while it opens, so the camera stays hidden, and over other apps, where there is nothing to bend.

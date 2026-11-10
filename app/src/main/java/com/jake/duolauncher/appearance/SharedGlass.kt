@@ -44,7 +44,8 @@ internal class SharedWallpaper(val source: Backdrop) {
     internal var artHeight = 0
     /** Where the wallpaper has drifted to as the pages move (see WallpaperDepth); null when it does not. Read while drawing. */
     internal var drift: (widthPx: Float) -> WallpaperDepth.Drift? = { null }
-    private val lens by lazy { ImageLens() }
+    // Made only on Android 13+ (RuntimeShader), the one place drawLens can reach it.
+    private val lens by lazy { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) ImageLens() else null }
 
     /** Paints the picture through the lens over a [size] surface whose top left is at ([surfaceX], [surfaceY]) in the window. */
     fun DrawScope.drawLens(
@@ -54,7 +55,7 @@ internal class SharedWallpaper(val source: Backdrop) {
         val drift = drift(artWidth.toFloat())
         val place = SharedWallpaperMap.place(image.width, artWidth, artHeight, drift?.scale ?: 1f, drift?.translationX ?: 0f, surfaceX, surfaceY)
         drawIntoCanvas { canvas ->
-            lens.draw(canvas.nativeCanvas, size.width, size.height, image, place.scale, place.translateX, place.translateY, radii, refractionHeight, refractionAmount,
+            lens?.draw(canvas.nativeCanvas, size.width, size.height, image, place.scale, place.translateX, place.translateY, radii, refractionHeight, refractionAmount,
                 depthEffect = true, chromaticAberration = chromatic, colorFilter = colorFilter)
         }
     }

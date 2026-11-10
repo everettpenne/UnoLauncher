@@ -61,7 +61,7 @@ internal fun AnalogClockFace(slot: Int, onOptions: () -> Unit) {
                 drawCircle(androidx.compose.ui.graphics.Color.White.copy(alpha = .9f), 1.5.dp.toPx(), c)
             }
         }
-        Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = ink.soft(), style = UnoType.caption2, maxLines = 1,
+        Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = ink.soft(), style = WidgetType.caption, maxLines = 1,
             modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }

@@ -86,7 +86,7 @@ internal fun BatteryFace(slot: Int, onOptions: () -> Unit) {
         }
         Text(if (reading.level >= 0) "${reading.level}%" else "—", color = ink.primary, style = WidgetType.number(22.sp),
             maxLines = 1, modifier = Modifier.align(Alignment.CenterHorizontally))
-        Text(reading.toFull ?: if (reading.charging) "Charging" else "On battery", color = ink.soft(), style = UnoType.caption2, maxLines = 1,
+        Text(reading.toFull ?: if (reading.charging) "Charging" else "On battery", color = ink.soft(), style = WidgetType.caption, maxLines = 1,
             modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }

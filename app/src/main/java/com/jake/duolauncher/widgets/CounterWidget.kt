@@ -31,19 +31,16 @@ internal fun CounterFace(slot: Int, onOptions: () -> Unit) {
     GlassCard(onClick = { WidgetData.set(slot, "count", WidgetText.clampCount(count + 1L).toString()) },
         modifier = Modifier.testTag("uno-counter-$slot")) {
         val ink = LocalGlassInk.current
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f).clip(Corner.small).clickable { editing = true }.testTag("counter-name")) { CardTitle(Icons.Rounded.Add, name, widgetAccent(WidgetColors.Blue)) }
-            Box(Modifier.size(28.dp).clip(CircleShape).background(ink.soft(.18f))
+        // The take-one-away button sits in the corner without making the header row taller, so the name lines up with every other widget's.
+        Box(Modifier.fillMaxWidth()) {
+            Box(Modifier.padding(end = 30.dp).clip(Corner.small).clickable { editing = true }.testTag("counter-name")) { CardTitle(Icons.Rounded.Add, name, widgetAccent(WidgetColors.Blue)) }
+            Box(Modifier.align(Alignment.CenterEnd).offset(x = 4.dp).size(26.dp).clip(CircleShape).background(ink.soft(.18f))
                 .clickable { WidgetData.set(slot, "count", WidgetText.clampCount(count - 1L).toString()) }.testTag("counter-minus"),
                 contentAlignment = Alignment.Center) { Text(stringResource(com.jake.duolauncher.R.string.text_6), color = ink.primary, style = UnoType.callout) }
         }
-        val accent = widgetAccent(WidgetColors.Blue)
-        Box(Modifier.align(Alignment.CenterHorizontally), contentAlignment = Alignment.Center) {
-            Box(Modifier.size(78.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(accent.copy(alpha = .34f), androidx.compose.ui.graphics.Color.Transparent))))
-            Text(count.toString(), color = ink.primary, style = WidgetType.number(46.sp), maxLines = 1,
-                modifier = Modifier.testTag("counter-value"))
-        }
-        Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_one), color = ink.soft(), style = UnoType.caption2, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text(count.toString(), color = ink.primary, style = WidgetType.hero, maxLines = 1,
+            modifier = Modifier.align(Alignment.CenterHorizontally).testTag("counter-value"))
+        Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_one), color = ink.soft(), style = WidgetType.caption, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
     if (editing) {
         var draft by remember { mutableStateOf(name) }

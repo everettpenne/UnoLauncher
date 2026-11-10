@@ -72,7 +72,7 @@ internal fun SunFace(slot: Int, onOptions: () -> Unit) {
                     Text(rise.format(format), color = ink.primary, style = UnoType.footnote.copy(fontWeight = FontWeight.Medium), maxLines = 1)
                     Text(set.format(format), color = ink.primary, style = UnoType.footnote.copy(fontWeight = FontWeight.Medium), maxLines = 1)
                 }
-                Text(SunText.dayLength(rise, set), color = ink.soft(), style = UnoType.caption2, maxLines = 1)
+                Text(SunText.dayLength(rise, set), color = ink.soft(), style = WidgetType.caption, maxLines = 1)
             }
         }
     }

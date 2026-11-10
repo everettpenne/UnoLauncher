@@ -38,11 +38,12 @@ internal fun CountdownFace(slot: Int, onOptions: () -> Unit) {
         if (target == null) Text(stringResource(com.jake.duolauncher.R.string.tap_to_set_a_date), color = ink.soft(), style = UnoType.footnote)
         else {
             val (big, unit) = Countdown.label(today, target)
-            Column {
-                Text(big, color = widgetAccent(WidgetColors.Warm), style = WidgetType.number(42.sp), maxLines = 1)
-                if (unit.isNotEmpty()) Text(unit, color = ink.soft(), style = UnoType.footnote)
+            // The number in the ink, as every widget's big number is (the accent is the header's), with its unit on its baseline.
+            Row {
+                Text(big, color = ink.primary, style = WidgetType.hero, maxLines = 1, modifier = Modifier.alignByBaseline())
+                if (unit.isNotEmpty()) { Spacer(Modifier.width(5.dp)); Text(unit, color = ink.soft(), style = WidgetType.unit, maxLines = 1, modifier = Modifier.alignByBaseline()) }
             }
-            Text(target.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")) + if (yearly) " · every year" else "", color = ink.soft(), style = UnoType.caption2, maxLines = 1)
+            Text(target.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")) + if (yearly) " · every year" else "", color = ink.soft(), style = WidgetType.caption, maxLines = 1)
         }
     }
     if (editing) {

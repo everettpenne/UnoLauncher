@@ -40,7 +40,7 @@ internal fun ChecklistFace(slot: Int, onOptions: () -> Unit) {
         if (items.isEmpty()) {
             Text(stringResource(com.jake.duolauncher.R.string.tap_to_add_a_task), color = ink.soft(), style = UnoType.footnote)
         } else {
-            Text("$done of $total done", color = ink.soft(), style = UnoType.caption2, maxLines = 1)
+            Text("$done of $total done", color = ink.soft(), style = WidgetType.caption, maxLines = 1)
             Column(Modifier.weight(1f).fillMaxWidth().padding(top = 3.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 items.take(Checklist.SHOWN).forEachIndexed { index, item ->
                     Row(Modifier.fillMaxWidth().clip(Corner.medium)

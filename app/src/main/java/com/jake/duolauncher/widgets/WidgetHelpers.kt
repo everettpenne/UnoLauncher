@@ -15,6 +15,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 
@@ -46,11 +47,32 @@ internal fun CardTitle(icon: androidx.compose.ui.graphics.vector.ImageVector, te
     }
 }
 
+/** A big time, its AM or PM set small and soft beside the digits, as the open island and iOS's widgets set it. */
+@Composable
+internal fun WidgetTime(time: String, color: Color, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.TextUnit = WidgetType.HERO_TIME) {
+    val (digits, meridiem) = OpenIslandLayout.splitMeridiem(time)
+    val soft = LocalGlassInk.current.soft()
+    Text(androidx.compose.ui.text.buildAnnotatedString {
+        append(digits)
+        if (meridiem.isNotEmpty()) withStyle(androidx.compose.ui.text.SpanStyle(fontSize = size * .44f, fontWeight = FontWeight.Medium, letterSpacing = 0.sp, color = soft)) { append(meridiem) }
+    }, color = color, style = WidgetType.number(size), maxLines = 1, modifier = modifier)
+}
+
 /** iOS widget type: the large figure (a time, a count, a percentage) is semibold, tightly tracked and with figures of one width, where
  * these widgets used thin Light figures. Pure, so the accent rule is unit-tested. */
 internal object WidgetType {
     fun number(size: androidx.compose.ui.unit.TextUnit) = androidx.compose.ui.text.TextStyle(fontSize = size, lineHeight = size * 1.06f,
         fontWeight = FontWeight.SemiBold, letterSpacing = (-0.03f * size.value).sp, fontFeatureSettings = "tnum")
+
+    /** The family's type, so the widgets read as one set: one size for the big number a small widget is about (a count, days to go), one for a big
+     *  time (its AM or PM set small beside it, see [WidgetTime]), and one style for the supporting line under them. They had grown five sizes of
+     *  big number between them (22 to 46 sp) and two of caption. */
+    val HERO = 40.sp
+    val HERO_TIME = 34.sp
+    val hero get() = number(HERO)
+    val caption get() = UnoType.caption1
+    /** A word set beside the big number, on its baseline ("23 days"). */
+    val unit get() = UnoType.footnote.copy(fontWeight = FontWeight.Medium)
 
     /** [accent] as a header colour over glass whose ink is [ink]: darkened toward black when the ink is dark (a light wallpaper). */
     fun legibleAccent(accent: Color, ink: Color, card: Boolean = false): Color = when {

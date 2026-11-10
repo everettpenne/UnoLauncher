@@ -61,10 +61,10 @@ internal fun NextAlarmFace(slot: Int, onOptions: () -> Unit) {
             val parts = NextAlarmText.describe(Instant.ofEpochMilli(nowMs).atZone(zone), Instant.ofEpochMilli(trigger).atZone(zone),
                 android.text.format.DateFormat.is24HourFormat(context))
             Text(parts.day, color = ink.soft(), style = UnoType.caption1, maxLines = 1)
-            Text(parts.time, color = ink.primary, style = WidgetType.number(34.sp), maxLines = 1, modifier = Modifier.testTag("next-alarm-time"))
+            WidgetTime(parts.time, ink.primary, Modifier.testTag("next-alarm-time"))
             Box(Modifier.clip(Corner.pill).background(widgetAccent(WidgetColors.Warm).copy(alpha = .26f))
                 .padding(horizontal = 9.dp, vertical = 3.dp)) {
-                Text(parts.remaining, color = ink.primary, style = UnoType.caption2, maxLines = 1)
+                Text(parts.remaining, color = ink.primary, style = WidgetType.caption, maxLines = 1)
             }
         }
     }

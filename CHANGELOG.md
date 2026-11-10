@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.131.0-uno01
+
+- **Ask Qwen knows what your question needs from the phone.** With each question, Uno now gives Qwen (in Uno Lab, on the phone) the facts it points at, read at that moment: always the date and time, battery, next alarm and Focus/Do Not Disturb/ringer; and only when the question is about them, things like your calendar (with Calendar access), location, recent notifications, installed apps, screen time, storage, network, your note and checklist, or the clipboard. Each kind has its own switch under Extras › Search › **What Qwen Can See**, all on once the assistant is on. They go to Uno Lab with that one question, at most about 1,000 characters, and are never stored or sent over the network. Messages, headlines and the clipboard are written by others, so they are marked as quotes and never go with a request Qwen may turn into an action. Needs Uno Lab 0.3.0; with Uno Lab 0.2.0 the question goes alone, as before.
+- 1,194 unit tests, passing. On an emulator: Spotlight's 11 device tests, with a stand-in assistant. **Not seen:** the phone facts with the real model, on a phone.
+
 ## 0.130.0-uno01
 
 - **Ask Qwen, on the phone.** With [Uno Lab](https://github.com/everettpenne/UnoLab) 0.2.0 installed and **Local assistant** switched on (Launcher settings, off by default), search offers an **Ask Qwen** row for a question it can't answer itself. Tapping it asks Qwen3.8-2B, which runs in Uno Lab, never in the launcher: a request it reads as one of Uno's actions (a timer, an alarm, the torch, Focus, a note, opening an app, a call or message, a web search) comes back as a row you tap to run, and anything else as a short answer written into the results. Nothing is done on the model's word alone, the question goes only to Uno Lab (which has no network access), and the two apps check each other's signing keys.

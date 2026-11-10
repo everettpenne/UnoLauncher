@@ -24,7 +24,8 @@ internal fun looksLikePhoneNumber(raw: String): Boolean {
 }
 
 /** On-device answers for All apps search: arithmetic ("12*(3+4)", "15% of 80") and unit conversion
- * ("5 km in mi", "212 f to c"). Nothing is sent anywhere, and a query that isn't clearly one of these
+ * ("5 km in mi", "212 f to c"). Worked out here, never sent anywhere (not even to the opt-in Uno Lab assistant, which
+ * is never offered for a query answered here), and a query that isn't clearly one of these
  * returns null so ordinary app search is untouched ("7-zip" and "2048" are app names, not sums).
  */
 internal object SearchSmarts {

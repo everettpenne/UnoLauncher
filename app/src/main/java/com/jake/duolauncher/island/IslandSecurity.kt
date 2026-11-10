@@ -47,6 +47,8 @@ internal data class LedgerInputs(
     val sensorsAllowed: Boolean? = null,
     /** The person chose apps to hide the island over, so the shade service is told which app is in front. */
     val hideOverApps: Boolean = false,
+    /** Spotlight's local assistant switch, or null when Uno Lab is not installed (no row is shown). */
+    val localAssistant: Boolean? = null,
 )
 
 internal object PermissionLedger {
@@ -117,6 +119,12 @@ internal object PermissionLedger {
                     if (allowed) "" else " With it off GrapheneOS gives the launcher still readings, so the light and the liquid stay level; nothing else changes.",
                 "The direction of gravity only (the gravity sensor, or the accelerometer where there is none), read while Home or the widget is on screen. Not motion history, steps or location. Nothing is stored or sent.",
                 LedgerAction.APP_INFO)
+        }, i.localAssistant?.let { on ->
+            LedgerRow("assistant", "Local assistant (Uno Lab)",
+                if (on) "On" else "Off", on,
+                "Answering a search question with Uno Lab's on-device model, if you switch it on in Extras › Search. No permission is involved: it is a connection to another app on this phone.",
+                "Uno Lab gets only the words in the search bar, and only when you tap Ask Qwen. It answers on the phone with no network. A suggested action (a timer, a call) runs only when you tap it.",
+                LedgerAction.NONE)
         })
     }
 

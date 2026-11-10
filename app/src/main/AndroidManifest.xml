@@ -37,6 +37,8 @@
     <!-- Nearby devices: only to read the name of a Bluetooth device that connects, for the island's alert. Asked for when that alert is switched on. -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <queries>
+        <!-- Uno Lab: to check it is installed and signed with its own key before Spotlight's opt-in "Ask Qwen" binds to its assistant. -->
+        <package android:name="com.everettpenne.unolab" />
         <!-- Icon packs: lets Uno list installed packs (each answers one of these launcher-theme intents). -->
         <intent>
             <action android:name="org.adw.launcher.THEMES" />

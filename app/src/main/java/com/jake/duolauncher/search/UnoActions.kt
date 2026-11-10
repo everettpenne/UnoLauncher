@@ -84,6 +84,7 @@ internal object ContactActions {
 
 /** Runs a typed action. Everything goes through the launcher's own machinery (the island's timer, stopwatch and
  * torch, Focus, the Note widget) or a standard Android intent handed to another app; nothing is sent anywhere.
+ * An action Uno Lab's assistant suggested runs here too, and only when its row is tapped.
  */
 internal class ActionResolver(
     private val context: Context,
@@ -101,7 +102,8 @@ internal class ActionResolver(
                 val on = action.desired ?: !focusOn
                 if (on != focusOn) toggleFocus()
             }
-            is QuickAction.Call, is QuickAction.Text -> Unit
+            // Resolved by Spotlight first (to a contact, an installed app, the browser), then run from there.
+            is QuickAction.Call, is QuickAction.Text, is QuickAction.OpenApp, is QuickAction.WebSearch -> Unit
             is QuickAction.Dial -> openContact(ContactActionKind.DIAL, action.number)
             is QuickAction.OpenLink -> open(ActionLogic.viewIntent(action.url))
         }

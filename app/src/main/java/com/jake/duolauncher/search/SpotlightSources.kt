@@ -17,6 +17,10 @@ internal sealed class QuickAction(val label: String, val detail: String) {
     class Dial(val number: String, label: String) : QuickAction(label, "Shows the dialer — no call is placed")
     /** A web address typed into search: opens it in the browser. */
     class OpenLink(val url: String, label: String) : QuickAction(label, "Opens in your browser")
+    /** An app named by Uno Lab's assistant; Spotlight resolves the name to an installed app before showing it. */
+    class OpenApp(val name: String, label: String) : QuickAction(label, "Opens the app")
+    /** A web search suggested by Uno Lab's assistant: handed to your browser, as Enter does. */
+    class WebSearch(val query: String, label: String) : QuickAction(label, "Opens your browser's own search")
 }
 
 /** What an alarm action asks for: a clock time, or a number of minutes from now. */
@@ -27,7 +31,8 @@ internal sealed interface AlarmTarget {
 
 /**
  * Extra things Spotlight finds besides apps, contacts and saved headlines: Android's settings pages, and a few quick actions
- * you type. All of it is decided on the device from the words typed; nothing is read from other apps and nothing is sent anywhere.
+ * you type. All of it is decided on the device from the words typed, and nothing is read from other apps or sent anywhere. (The one
+ * exception in Spotlight is the opt-in "Ask Qwen" row, see [LocalAssistant]: only when tapped, it hands the query to Uno Lab on the phone.)
  * Pure, so the matching is unit-tested.
  */
 internal object SpotlightSources {
@@ -103,12 +108,13 @@ internal object SpotlightSources {
             else -> 60.0
         }).toLong()
         if (seconds < 1 || seconds > MAX_TIMER_SECONDS) return null
-        val label = when {
-            seconds % 3600 == 0L -> "${seconds / 3600} h timer"
-            seconds % 60 == 0L -> "${seconds / 60} min timer"
-            else -> "$seconds s timer"
-        }
-        return QuickAction.Timer(seconds, label)
+        return QuickAction.Timer(seconds, timerLabel(seconds))
+    }
+
+    fun timerLabel(seconds: Long): String = when {
+        seconds % 3600 == 0L -> "${seconds / 3600} h timer"
+        seconds % 60 == 0L -> "${seconds / 60} min timer"
+        else -> "$seconds s timer"
     }
 
     // "note buy milk", "note remember to call Sam": everything after "note" is the note text.
@@ -152,13 +158,13 @@ internal object SpotlightSources {
         return QuickAction.Alarm(AlarmTarget.At(hour, minute), alarmClockLabel(hour, minute))
     }
 
-    private fun alarmInLabel(minutes: Int): String = when {
+    fun alarmInLabel(minutes: Int): String = when {
         minutes % 60 == 0 -> "Alarm in ${minutes / 60} h"
         minutes >= 60 -> "Alarm in ${minutes / 60} h ${minutes % 60} min"
         else -> "Alarm in $minutes min"
     }
 
-    private fun alarmClockLabel(hour: Int, minute: Int): String {
+    fun alarmClockLabel(hour: Int, minute: Int): String {
         val h12 = if (hour % 12 == 0) 12 else hour % 12
         val meridiem = if (hour < 12) "AM" else "PM"
         return "Alarm at $h12:%02d $meridiem".format(minute)

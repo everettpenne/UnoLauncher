@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
@@ -386,16 +387,24 @@ private fun Modifier.emergingHere(field: Boolean = false): Modifier =
     LocalEmerge.current?.let { emerging(it.on, it.progress, it.panelTop, it.panelHeight, field) } ?: this
 
 /** What the search key should do, decided pure so it is unit-tested: the top app (as on iOS), else the typed action,
- * else the first contact for "call"/"text", else a web search of the words. */
+ * else the first contact for "call"/"text", else the Ask Qwen row if it is offered, else a web search of the words. */
 internal object SpotlightEnter {
-    enum class Route { APP, QUICK, CONTACT, WEB, NONE }
-    fun route(hasApps: Boolean, hasQuick: Boolean, hasContacts: Boolean, queryBlank: Boolean): Route = when {
+    enum class Route { APP, QUICK, CONTACT, ASK, WEB, NONE }
+    fun route(hasApps: Boolean, hasQuick: Boolean, hasContacts: Boolean, queryBlank: Boolean, hasAsk: Boolean = false): Route = when {
         hasApps -> Route.APP
         hasQuick -> Route.QUICK
         hasContacts -> Route.CONTACT
+        hasAsk && !queryBlank -> Route.ASK
         !queryBlank -> Route.WEB
         else -> Route.NONE
     }
+}
+
+/** Where an Ask Qwen request is: thinking, an action to offer as a row (with what it resolved to), or an answer streaming in. */
+private sealed interface AskView {
+    data object Thinking : AskView
+    class Act(val action: QuickAction, val app: AppEntry? = null, val contacts: List<ContactPhone> = emptyList()) : AskView
+    data class Answer(val text: String, val done: Boolean, val error: String? = null) : AskView
 }
 
 /** Search from anywhere on Home: a panel that grows out of the island over whatever page you are on. One box finds apps, contacts (if you
@@ -433,6 +442,8 @@ internal fun Spotlight(
     focusOn: () -> Boolean = { false },
     /** Flips Focus (and its ringer change), as the control panel does. */
     onToggleFocus: () -> Unit = {},
+    /** Uno Lab's assistant, when the person switched it on and Lab is installed; null hides Ask Qwen and binds nothing. */
+    assistant: AssistantClient? = null,
 ) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
@@ -480,9 +491,52 @@ internal fun Spotlight(
         actionContacts = withContext(Dispatchers.IO) { ContactActions.search(context, actionName) }
     }
     val settingsHits = remember(query) { SpotlightSources.settings(query) }
-    // A recognised quick action is itself an answer, so it also keeps the "search elsewhere" rows away.
-    val suggestions = remember(query, appResults.size, smart, quick, handoff) {
-        handoff.targets(query, appResults.size, smart != null || quick != null)
+    // Uno Lab's assistant: bound (and the model warmed) only while search is open with the setting on, unbound as it closes.
+    DisposableEffect(assistant, visible) {
+        if (assistant != null && visible) assistant.open()
+        onDispose { assistant?.close() }
+    }
+    val assistantState by (assistant?.state ?: remember { kotlinx.coroutines.flow.MutableStateFlow(AssistantState.OFF) }).collectAsState()
+    val askOffered = assistant != null && AskPolicy.offer(query, smart, quick, assistantState)
+    // What was asked, and where the answer is: reset whenever the query changes, which also cancels a running answer.
+    var askedFor by remember(query) { mutableStateOf<String?>(null) }
+    var askView by remember(query) { mutableStateOf<AskView?>(null) }
+    var askCopied by remember(query) { mutableStateOf(false) }
+    LaunchedEffect(askedFor) {
+        val q = askedFor ?: return@LaunchedEffect
+        val client = assistant ?: return@LaunchedEffect
+        askView = AskView.Thinking
+        // An action first: a few dozen tokens, so it is quick. It becomes a row that runs only when tapped.
+        // A failed action ask still gets an answer ask (which says why, if Lab is the problem); a cancel (the query changed) stops here.
+        val json = try { buildString { client.ask(q, AskMode.ACTION).collect { append(it) } } } catch (e: AssistantError) { null }
+        val act = json?.let(AssistantIntent::parse)?.let { action ->
+            when (action) {
+                is QuickAction.OpenApp -> SpotlightRank.apps(searchable, action.name, { it.label }, { scores[it.id] ?: 0.0 }, { it.description })
+                    .firstOrNull()?.let { AskView.Act(QuickAction.OpenApp(it.label, "Open ${it.label}"), app = it) }
+                is QuickAction.Call, is QuickAction.Text -> {
+                    val name = if (action is QuickAction.Call) action.name else (action as QuickAction.Text).name
+                    val found = if (contactsEnabled) withContext(Dispatchers.IO) { ContactActions.search(context, name) } else emptyList()
+                    found.takeIf { it.isNotEmpty() }?.let { AskView.Act(action, contacts = it) }
+                }
+                is QuickAction.Note -> action.takeIf { noteSlot != null }?.let { AskView.Act(it) }
+                else -> AskView.Act(action)
+            }
+        }
+        if (act != null) { askView = act; return@LaunchedEffect }
+        // Not an action (or not one this phone can do): a short answer, streamed in as it is written.
+        var text = ""
+        askView = AskView.Answer("", done = false)
+        try {
+            client.ask(q, AskMode.ANSWER).collect { piece -> text += piece; askView = AskView.Answer(text, done = false) }
+            askView = AskView.Answer(text.trim(), done = true)
+        } catch (e: AssistantError) {
+            askView = AskView.Answer(text.trim(), done = true, error = e.message)
+        }
+    }
+    val askAnswered = askView is AskView.Act || (askView as? AskView.Answer)?.let { it.text.isNotBlank() } == true
+    // A recognised quick action is itself an answer, so it also keeps the "search elsewhere" rows away; so does an assistant answer.
+    val suggestions = remember(query, appResults.size, smart, quick, handoff, askAnswered) {
+        handoff.targets(query, appResults.size, smart != null || quick != null || askAnswered)
     }
     var contacts by remember { mutableStateOf(emptyList<ContactResult>()) }
     LaunchedEffect(query, contactsEnabled) {
@@ -660,12 +714,13 @@ internal fun Spotlight(
         EmergeSource(pill != null && animationsOn, { minOf(contentClock.value, effectiveProgress()) }, { cardPos.y }, { cardSize.height.toFloat() })
     }
     val onEnter: () -> Unit = {
-                    when (SpotlightEnter.route(appResults.isNotEmpty(), singleQuick != null, actionContacts.isNotEmpty(), query.isBlank())) {
+                    when (SpotlightEnter.route(appResults.isNotEmpty(), singleQuick != null, actionContacts.isNotEmpty(), query.isBlank(), askOffered && askView == null)) {
                         SpotlightEnter.Route.APP -> launch(appResults.first())
                         SpotlightEnter.Route.QUICK -> singleQuick?.let { actions.run(it, focusOn(), onToggleFocus); onDismiss() }
                         SpotlightEnter.Route.CONTACT -> actionContacts.firstOrNull()?.let {
                             actions.openContact(contactKind ?: ContactActionKind.DIAL, it.number); onDismiss()
                         }
+                        SpotlightEnter.Route.ASK -> askedFor = query
                         SpotlightEnter.Route.WEB -> if (handoff.searchWeb(query)) onDismiss()
                         SpotlightEnter.Route.NONE -> Unit
                     }
@@ -700,7 +755,7 @@ internal fun Spotlight(
         }
     }
     val resultsList: @Composable (Modifier) -> Unit = { listModifier ->
-            val nothing = smart == null && singleQuick == null && actionContacts.isEmpty() && settingsHits.isEmpty() && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()
+            val nothing = smart == null && !askOffered && askView == null && singleQuick == null && actionContacts.isEmpty() && settingsHits.isEmpty() && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()
             val typed = query.isNotBlank()
             val webOffered = suggestions.any { it.kind == HandoffKind.WEB }
             LazyColumn(listModifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -718,6 +773,18 @@ internal fun Spotlight(
                             color = ink.copy(alpha = .5f), style = UnoType.caption2)
                     }
                 }
+                if (askOffered || askView != null) askItems(askView, query, assistantState, ink, capCorner, askCopied,
+                    onAsk = { askedFor = query },
+                    onRun = { action -> actions.run(action, focusOn(), onToggleFocus); onDismiss() },
+                    onLaunch = { app -> launch(app) },
+                    onContact = { kind, number -> actions.openContact(kind, number); onDismiss() },
+                    onWeb = { q -> if (handoff.searchWeb(q)) onDismiss() },
+                    onCopy = { text ->
+                        context.getSystemService(android.content.ClipboardManager::class.java)
+                            ?.setPrimaryClip(android.content.ClipData.newPlainText("Uno Lab answer", text))
+                        askCopied = true
+                    },
+                    onContinue = { assistant?.continueInLab(context, query); onDismiss() })
                 if (singleQuick != null) item("quick-header") {
                     SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_actions), ink)
                 }
@@ -936,6 +1003,72 @@ internal fun HandoffRow(target: HandoffTarget, ink: Color, modifier: Modifier = 
     }
 }
 
+/** The Ask Qwen part of the results: the row to ask, then what came back (an action row, or the answer card). */
+private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskView?, query: String, state: AssistantState, ink: Color,
+    capCorner: androidx.compose.ui.unit.Dp, copied: Boolean, onAsk: () -> Unit, onRun: (QuickAction) -> Unit, onLaunch: (AppEntry) -> Unit,
+    onContact: (ContactActionKind, String) -> Unit, onWeb: (String) -> Unit, onCopy: (String) -> Unit, onContinue: () -> Unit) {
+    val mark: @Composable (ImageVector) -> Unit = { icon ->
+        Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
+            Icon(icon, null, Modifier.size(22.dp))
+        }
+    }
+    when (view) {
+        null -> item("ask") {
+            SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask), stringResource(if (state == AssistantState.LOADING) com.jake.duolauncher.R.string.spotlight_ask_loading else com.jake.duolauncher.R.string.spotlight_ask_detail),
+                "spotlight-ask", false, ink, onAsk) { mark(Icons.Rounded.AutoAwesome) }
+        }
+        is AskView.Thinking -> item("ask") {
+            SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_asking), stringResource(if (state == AssistantState.LOADING) com.jake.duolauncher.R.string.spotlight_ask_loading else com.jake.duolauncher.R.string.spotlight_ask_on_phone),
+                "spotlight-ask-thinking", false, ink, {}) { mark(Icons.Rounded.AutoAwesome) }
+        }
+        is AskView.Act -> {
+            item("ask-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask_suggested), ink) }
+            val action = view.action
+            when {
+                view.app != null -> item("ask-action") {
+                    SpotlightRow(rowMotion(), action.label, action.detail, "spotlight-ask-action", true, ink, { onLaunch(view.app) }) {
+                        Image(view.app.image, null, Modifier.size(40.dp).glassIcon(lift = false).clip(Corner.icon))
+                    }
+                }
+                view.contacts.isNotEmpty() -> {
+                    val kind = if (action is QuickAction.Text) ContactActionKind.TEXT else ContactActionKind.DIAL
+                    items(view.contacts.take(3), key = { "ask-contact-${it.name}-${it.number}" }) { contact ->
+                        SpotlightRow(rowMotion(), stringResource(if (kind == ContactActionKind.DIAL) com.jake.duolauncher.R.string.spotlight_ask_call else com.jake.duolauncher.R.string.spotlight_ask_text, contact.name), contact.number,
+                            "spotlight-ask-action", true, ink, { onContact(kind, contact.number) }) { mark(actionIcon(action)) }
+                    }
+                }
+                action is QuickAction.WebSearch -> item("ask-action") {
+                    SpotlightRow(rowMotion(), action.label, action.detail, "spotlight-ask-action", true, ink, { onWeb(action.query) }) { mark(actionIcon(action)) }
+                }
+                else -> item("ask-action") {
+                    SpotlightRow(rowMotion(), action.label, action.detail, "spotlight-ask-action", true, ink, { onRun(action) }) { mark(actionIcon(action)) }
+                }
+            }
+        }
+        is AskView.Answer -> item("ask-answer") {
+            // Styled like the smart answer above it: a faint plate, tap to copy.
+            Column(rowMotion().fillMaxWidth().emergingHere().clip(Corner.inside(capCorner, 16.dp)).background(ink.copy(alpha = .10f))
+                .clickable(enabled = view.done && view.text.isNotBlank()) { onCopy(view.text) }
+                .padding(horizontal = 16.dp, vertical = 12.dp).testTag("spotlight-ask-answer")) {
+                Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_answer_by), color = ink.copy(alpha = .7f), style = UnoType.caption1)
+                when {
+                    view.text.isNotBlank() -> Text(view.text, color = ink, style = UnoType.body, modifier = Modifier.testTag("spotlight-ask-text"))
+                    view.error == null -> Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_thinking), color = ink.copy(alpha = .6f), style = UnoType.body)
+                }
+                if (view.error != null) Text(view.error, color = ink.copy(alpha = .7f), style = UnoType.footnote)
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (view.done && view.text.isNotBlank()) Text(stringResource(if (copied) com.jake.duolauncher.R.string.spotlight_copied else com.jake.duolauncher.R.string.spotlight_tap_to_copy), Modifier.weight(1f),
+                        color = ink.copy(alpha = .5f), style = UnoType.caption2)
+                    else Spacer(Modifier.weight(1f))
+                    Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_continue), Modifier.clip(Corner.small).clickable(onClick = onContinue)
+                        .padding(horizontal = 8.dp, vertical = 6.dp).testTag("spotlight-ask-continue"),
+                        color = ink.copy(alpha = .8f), style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
+                }
+            }
+        }
+    }
+}
+
 /** How a row of the results list arrives, goes and moves (see SpotlightBar). */
 private fun androidx.compose.foundation.lazy.LazyItemScope.rowMotion(): Modifier =
     Modifier.animateItem(fadeInSpec = SpotlightBar.rowFadeIn, placementSpec = SpotlightBar.rowMove, fadeOutSpec = SpotlightBar.rowFadeOut)
@@ -958,6 +1091,8 @@ private fun actionIcon(action: QuickAction): ImageVector = when (action) {
     is QuickAction.Text -> Icons.Rounded.Sms
     is QuickAction.Dial -> Icons.Rounded.Call
     is QuickAction.OpenLink -> Icons.AutoMirrored.Rounded.OpenInNew
+    is QuickAction.OpenApp -> Icons.AutoMirrored.Rounded.OpenInNew
+    is QuickAction.WebSearch -> Icons.Rounded.Search
 }
 
 /** One result: a 40 dp leading mark, a title, an optional second line; the top hit sits on a faint plate. */

@@ -1539,6 +1539,12 @@ internal fun LauncherScreen(
             val landing = !spotlightOpen && grow > .25f
             SideEffect { spotlightLanding = landing }
             DisposableEffect(Unit) { onDispose { spotlightLanding = false } }
+            // Uno Lab's assistant, only with the setting on and Lab (signed with its own key) installed; Spotlight binds it while open.
+            val assistantOn = extras?.store?.state?.localAssistant == true
+            val assistant = remember(assistantOn) {
+                if (assistantOn && com.jake.duolauncher.search.LocalAssistant.isAvailable(launcherActivity))
+                    com.jake.duolauncher.search.LocalAssistant(launcherActivity) else null
+            }
             Spotlight(controlGlass, state.apps, state.hiddenApps, feed.shownEntries, extras?.store?.state?.contactSearch == true, handoffResolver,
                 onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },
                 onLaunchFrom = { app, bounds -> spotlightOpen = false; onLaunchFrom(app, bounds) },
@@ -1547,7 +1553,8 @@ internal fun LauncherScreen(
                 onDismiss = { spotlightOpen = false }, progress = { grow }, visible = spotlightOpen, pill = spotlightPill, from = spotlightFrom,
                 noteSlot = state.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
                 focusOn = { extras?.store?.state?.focusOn == true },
-                onToggleFocus = { extras?.toggleFocus?.invoke() })
+                onToggleFocus = { extras?.toggleFocus?.invoke() },
+                assistant = assistant)
         }
         androidx.compose.animation.AnimatedVisibility(controlPanelOpen,
             enter = androidx.compose.animation.slideInVertically(UnoMotion.glide()) { -it / 2 } + androidx.compose.animation.fadeIn(UnoMotion.glide()),

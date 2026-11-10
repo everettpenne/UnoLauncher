@@ -100,6 +100,8 @@ internal data class ExtrasState(
     val islandEverywhere: Boolean = false,
     val notificationPeek: Boolean = false,
     val contactSearch: Boolean = false,
+    /** Spotlight's "Ask Qwen" row, answered by Uno Lab on the phone (see search.LocalAssistant). Off until switched on. */
+    val localAssistant: Boolean = false,
     val kbAutocorrect: Boolean = true,
     val kbSuggestions: Boolean = true,
     val kbNumberRow: Boolean = false,
@@ -199,6 +201,7 @@ internal class ExtrasStore(context: Context) {
         islandEverywhere = prefs.getBoolean("islandEverywhere", false),
         notificationPeek = prefs.getBoolean("notificationPeek", false),
         contactSearch = prefs.getBoolean("contactSearch", false),
+        localAssistant = prefs.getBoolean("localAssistant", false),
         kbAutocorrect = prefs.getBoolean("kbAutocorrect", true),
         kbSuggestions = prefs.getBoolean("kbSuggestions", true),
         kbNumberRow = prefs.getBoolean("kbNumberRow", false),
@@ -273,6 +276,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("islandEverywhere", next.islandEverywhere)
             .putBoolean("notificationPeek", next.notificationPeek)
             .putBoolean("contactSearch", next.contactSearch)
+            .putBoolean("localAssistant", next.localAssistant)
             .putBoolean("kbAutocorrect", next.kbAutocorrect)
             .putBoolean("kbSuggestions", next.kbSuggestions)
             .putBoolean("kbNumberRow", next.kbNumberRow)
@@ -350,6 +354,7 @@ internal class ExtrasStore(context: Context) {
     fun setIslandEverywhere(value: Boolean) = save(state.copy(islandEverywhere = value))
     fun setNotificationPeek(value: Boolean) = save(state.copy(notificationPeek = value))
     fun setContactSearch(value: Boolean) = save(state.copy(contactSearch = value))
+    fun setLocalAssistant(value: Boolean) = save(state.copy(localAssistant = value))
     fun setKbAutocorrect(value: Boolean) = save(state.copy(kbAutocorrect = value))
     fun setKbSuggestions(value: Boolean) = save(state.copy(kbSuggestions = value))
     fun setKbNumberRow(value: Boolean) = save(state.copy(kbNumberRow = value))

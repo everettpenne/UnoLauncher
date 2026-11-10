@@ -83,6 +83,7 @@ internal object SettingsSearch {
         SettingEntry("Search Button Opens Google", CustomizationPage.SEARCH, "web google"),
         SettingEntry("App & Web Suggestions", CustomizationPage.SEARCH, "spotlight suggestions stores browser"),
         SettingEntry("Contacts", CustomizationPage.SEARCH, "people phone all apps app library"),
+        SettingEntry("Local assistant (Uno Lab)", CustomizationPage.SEARCH, "ask qwen ai model on device offline uno lab question answer"),
         // News feed
         SettingEntry("News Feed", CustomizationPage.FEED, "rss headlines my feed articles opml"),
         // Keyboard

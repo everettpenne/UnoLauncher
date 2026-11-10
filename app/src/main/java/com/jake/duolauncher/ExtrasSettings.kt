@@ -117,6 +117,12 @@ private fun SearchGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasSt
             else store.setContactSearch(false)
         }, "contact-search-switch") }
     }
+    // Only when Uno Lab (signed with its own key) is installed: without it there is nothing to switch on.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val labPresent = remember { com.jake.duolauncher.search.LocalAssistant.isAvailable(context) }
+    if (labPresent) SettingsGroup(footer = "Adds an Ask Qwen row to search for questions nothing else answers. Only when you tap it, the words you typed go to Uno Lab, which answers on this phone with no network. A suggested action runs only when you tap it.") {
+        row { SettingsSwitch("Local assistant (Uno Lab)", s.localAssistant, store::setLocalAssistant, "local-assistant-switch") }
+    }
 }
 
 @Composable

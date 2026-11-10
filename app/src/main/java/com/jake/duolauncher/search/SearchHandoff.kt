@@ -27,8 +27,9 @@ internal data class HandoffTarget(val kind: HandoffKind, val packageName: String
 /** An Android intent described without Android types, so what we send is unit-tested. */
 internal data class HandoffIntent(val action: String, val dataUri: String?, val searchQuery: String?)
 
-/** Hands a search to another app. Uno never contacts anything itself: it only asks an app the user already has (a
- * browser, F-Droid, Aurora Store) to run the search, and which app is the user's choice. The web search carries only
+/** Hands a search to another app. Uno never contacts any server itself: it only asks an app the user already has (a
+ * browser, F-Droid, Aurora Store) to run the search, and which app is the user's choice. (Spotlight's opt-in "Ask Qwen" row is
+ * the other hand-off: on a tap it gives the query to Uno Lab, on the phone, with no network; see [LocalAssistant].) The web search carries only
  * the words, so the browser's own search engine decides where it goes: no engine address is built into Uno.
  */
 internal object HandoffLogic {

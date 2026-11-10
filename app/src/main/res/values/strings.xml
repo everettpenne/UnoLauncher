@@ -288,6 +288,17 @@
     <string name="spotlight_top_hit">Top hit · Enter opens it</string>
     <string name="spotlight_tap_to_copy">Tap to copy</string>
     <string name="spotlight_copied">Copied</string>
+    <string name="spotlight_ask">Ask Qwen</string>
+    <string name="spotlight_asking">Asking Qwen…</string>
+    <string name="spotlight_ask_detail">Answered on this phone by Uno Lab</string>
+    <string name="spotlight_ask_loading">Uno Lab is loading its model</string>
+    <string name="spotlight_ask_on_phone">On this phone</string>
+    <string name="spotlight_ask_suggested">Suggested by Qwen</string>
+    <string name="spotlight_ask_answer_by">Qwen · on this phone</string>
+    <string name="spotlight_ask_thinking">Thinking…</string>
+    <string name="spotlight_ask_continue">Continue in Uno Lab</string>
+    <string name="spotlight_ask_call">Call %1$s</string>
+    <string name="spotlight_ask_text">Text %1$s</string>
     <string name="spotlight_actions">Action</string>
     <string name="spotlight_try">Try “timer 10”, “note buy milk”, or “12+3”.</string>
     <string name="spotlight_search_web">Search the web for “%1$s”</string>

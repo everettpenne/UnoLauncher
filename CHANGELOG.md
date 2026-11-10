@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.129.0-uno01
+
+- **The open island ends in liquid glass.** On Home its bottom edge turns from black into the same clear glass as search's bar, with search's own ramp: black round the camera and behind the clock and cards, glass in a band behind the Search row. It is still black while it opens, so the camera stays hidden, and over other apps, where there is nothing to bend.
+- **Music in the glass.** While a track plays, its cover's colour tints that band. The small pill keeps its flame, which hands over to the tint as the island opens; the tint is still, so nothing redraws for it.
+- **The date sits opposite the time.** It was in the band beside the camera, where the panel's rounded corner curved in under it; that band is now left to the camera and the privacy dots. A running timer, the time to full or what the panel is showing goes on one line under the date.
+- **Uno widgets read as one family.** One size for a small widget's big number (40 sp, in the ink, where they ranged from 22 to 46 sp and the countdown's was orange), big times with their AM or PM small, a unit on the number's baseline ("23 days"), and one caption style. The counter's minus button no longer pushes its header down, and its glow is gone.
+- Screen time's small widget lists two apps, where a third was cut in half at the bottom; Glance's alarm chip now fits "Tomorrow".
+- **Tested:** 1,171 unit tests, passing (1 skipped). On an emulator: 52 island and search device tests and 6 widget device tests; screenshots of the open island over a colourful and a near-white wallpaper, with music, while opening, and beside search's bar; and every Uno widget side by side in light and dark. **Not seen:** any of it on a phone.
+
 ## 0.128.2-uno01
 
 - **The battery is off the open island.** The level, its icon and the "Charging" label are left to the status bar; the time to full stays, since the status bar does not show it.

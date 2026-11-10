@@ -297,6 +297,7 @@
     <string name="spotlight_ask_answer_by">Qwen · on this phone</string>
     <string name="spotlight_ask_thinking">Thinking…</string>
     <string name="spotlight_ask_continue">Continue in Uno Lab</string>
+    <string name="spotlight_open_search_settings">Opens search settings</string>
     <string name="spotlight_ask_call">Call %1$s</string>
     <string name="spotlight_ask_text">Text %1$s</string>
     <string name="spotlight_actions">Action</string>

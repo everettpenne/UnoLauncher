@@ -12,8 +12,63 @@ internal object AssistantIntent {
     private const val MAX_NAME = 80
     private val clock = Regex("""^(\d{1,2}):(\d{2})$""")
 
-    fun parse(json: String): QuickAction? {
-        val obj = runCatching { JSONObject(extract(json) ?: return null) }.getOrNull() ?: return null
+    /** What a reply in ACTION mode comes to: an action to offer, a reason Uno can't do what was asked (said instead of asking for an
+     *  answer, which the model can only guess at), or nothing (a question: ask for an answer). */
+    sealed interface Outcome {
+        data class Act(val action: QuickAction) : Outcome
+        data class Cannot(val why: String) : Outcome
+        data object None : Outcome
+    }
+
+    const val TIMER_LIMIT = "Timers run for up to 24 hours. For longer, set an alarm or a countdown widget."
+    const val ALARM_LIMIT = "Alarms can be set up to 24 hours ahead."
+    const val NOT_A_TIME = "That isn't a time on the clock."
+
+    /** The action in [json] alone, or null (see [read]). */
+    fun parse(json: String): QuickAction? = (read(json, "") as? Outcome.Act)?.action
+
+    /**
+     * Reads [json] against the [query] it answered. Where the words are clear and the model is known to slip, the words win: "in 10
+     * minutes" is a delay even if the model wrote 10:00, a timer of 0 seconds ("time how long this takes") is the stopwatch, and a label
+     * that only repeats the length ("3 hours") is dropped.
+     */
+    fun read(json: String, query: String): Outcome {
+        val obj = runCatching { JSONObject(extract(json) ?: return Outcome.None) }.getOrNull() ?: return Outcome.None
+        val action = obj.optString("action")
+        if (action == "timer") {
+            val seconds = whole(obj, "seconds") ?: return Outcome.None
+            if (seconds == 0L) return Outcome.Act(QuickAction.Stopwatch())
+            if (seconds > SpotlightSources.MAX_TIMER_SECONDS) return Outcome.Cannot(TIMER_LIMIT)
+        }
+        if (action == "alarm") {
+            val asked = relativeMinutes(query)
+            if (asked != null) {
+                return if (asked > SpotlightSources.MAX_ALARM_MINUTES) Outcome.Cannot(ALARM_LIMIT)
+                else Outcome.Act(QuickAction.Alarm(AlarmTarget.In(asked), SpotlightSources.alarmInLabel(asked)))
+            }
+            if (obj.has("in_minutes")) whole(obj, "in_minutes")?.let { if (it > SpotlightSources.MAX_ALARM_MINUTES) return Outcome.Cannot(ALARM_LIMIT) }
+            else if (alarm(obj) == null && obj.opt("at") is String) return Outcome.Cannot(NOT_A_TIME)
+        }
+        return pick(obj)?.let { Outcome.Act(it) } ?: Outcome.None
+    }
+
+    private val relative = Regex("""\bin\s+(an?|one|half an?|\d+(?:\.\d+)?)\s*(hours?|hrs?|h|minutes?|mins?|m)\b""", RegexOption.IGNORE_CASE)
+
+    /** "in 10 minutes", "in an hour", "in half an hour", "in 1.5 h": the delay asked for, in minutes; null when the words give none. */
+    fun relativeMinutes(query: String): Int? {
+        val m = relative.find(query) ?: return null
+        val amount = when (val n = m.groupValues[1].lowercase()) {
+            "a", "an", "one" -> 1.0
+            "half a", "half an" -> .5
+            else -> n.toDoubleOrNull() ?: return null
+        }
+        val minutes = amount * (if (m.groupValues[2].lowercase().startsWith("h")) 60 else 1)
+        return minutes.toInt().takeIf { it >= 1 }
+    }
+
+    private val lengthLabel = Regex("""^(\d+(\.\d+)?\s*(s|secs?|seconds?|m|mins?|minutes?|h|hrs?|hours?|days?)|timer|alarm|countdown|reminder)$""", RegexOption.IGNORE_CASE)
+
+    private fun pick(obj: JSONObject): QuickAction? {
         return when (obj.optString("action")) {
             "timer" -> timer(obj)
             "alarm" -> alarm(obj)
@@ -58,7 +113,7 @@ internal object AssistantIntent {
         val seconds = whole(obj, "seconds") ?: return null
         if (seconds < 1 || seconds > SpotlightSources.MAX_TIMER_SECONDS) return null
         val base = SpotlightSources.timerLabel(seconds)
-        val name = text(obj, "label", MAX_NAME)
+        val name = text(obj, "label", MAX_NAME)?.takeUnless { lengthLabel.matches(it) }
         return QuickAction.Timer(seconds, if (name != null) "$base · $name" else base)
     }
 
@@ -73,6 +128,21 @@ internal object AssistantIntent {
         if (hour !in 0..23 || minute !in 0..59) return null
         return QuickAction.Alarm(AlarmTarget.At(hour, minute), SpotlightSources.alarmClockLabel(hour, minute))
     }
+}
+
+/** What Spotlight shows of an answer: plain text. Markdown marks are taken out, and text that is the model talking to itself (its
+ *  instructions, a bracketed placeholder) is not shown as an answer. Pure, so it is unit-tested. */
+internal object AnswerText {
+    private val meta = Regex("""^(\[|you are (an?|the) (expert|helpful|ai|assistant|precise)|think through|analy[sz]e the request|understand what)""", RegexOption.IGNORE_CASE)
+
+    /** The answer to show, or null when [raw] is not one. */
+    fun clean(raw: String): String? {
+        val t = raw.replace("**", "").replace("__", "").replace(Regex("""(?m)^#+\s*"""), "").trim()
+        if (t.isEmpty() || meta.containsMatchIn(t)) return null
+        return t
+    }
+
+    const val UNCLEAR = "Qwen couldn't answer that clearly. Try asking another way, or continue in Uno Lab."
 }
 
 /** When Spotlight offers to ask Uno Lab's assistant. Pure, so it is unit-tested. */

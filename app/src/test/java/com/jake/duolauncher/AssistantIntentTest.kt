@@ -22,7 +22,8 @@ class AssistantIntentTest {
     }
 
     @Test fun aTimerOutOfRangeOrNotAWholeNumberIsRefused() {
-        assertNull(AssistantIntent.parse("""{"action":"timer","seconds":0}"""))
+        // A timer of no length is how the model reads "time how long this takes": that is the stopwatch.
+        parsed<QuickAction.Stopwatch>("""{"action":"timer","seconds":0}""")
         assertNull(AssistantIntent.parse("""{"action":"timer","seconds":-5}"""))
         assertNull(AssistantIntent.parse("""{"action":"timer","seconds":${SpotlightSources.MAX_TIMER_SECONDS + 1}}"""))
         assertNull(AssistantIntent.parse("""{"action":"timer","seconds":"600"}"""))
@@ -78,6 +79,55 @@ class AssistantIntentTest {
     }
 }
 
+class AssistantReadTest {
+    private fun read(json: String, query: String = "") = AssistantIntent.read(json, query)
+
+    @Test fun inMinutesInTheWordsBeatsAClockTimeFromTheModel() {
+        // The real model wrote "10:00" for "in 10 minutes" and "01:00" for "in an hour".
+        assertEquals(AlarmTarget.In(10), ((read("""{"action":"alarm","at":"10:00"}""", "remind me in 10 minutes to check the oven") as AssistantIntent.Outcome.Act).action as QuickAction.Alarm).target)
+        assertEquals(AlarmTarget.In(60), ((read("""{"action":"alarm","at":"01:00"}""", "wake me in an hour") as AssistantIntent.Outcome.Act).action as QuickAction.Alarm).target)
+        assertEquals(AlarmTarget.In(30), ((read("""{"action":"alarm","at":"00:30"}""", "alarm in half an hour") as AssistantIntent.Outcome.Act).action as QuickAction.Alarm).target)
+        // A clock time in the words is left to the model.
+        assertEquals(AlarmTarget.At(17, 0), ((read("""{"action":"alarm","at":"17:00"}""", "remind me to call mom at 5pm") as AssistantIntent.Outcome.Act).action as QuickAction.Alarm).target)
+    }
+
+    @Test fun relativeMinutes() {
+        assertEquals(10, AssistantIntent.relativeMinutes("remind me in 10 minutes"))
+        assertEquals(90, AssistantIntent.relativeMinutes("alarm in 1.5 hours"))
+        assertEquals(60, AssistantIntent.relativeMinutes("wake me in an hour"))
+        assertNull(AssistantIntent.relativeMinutes("wake me at 7"))
+        assertNull(AssistantIntent.relativeMinutes("meeting in the morning"))
+    }
+
+    @Test fun whatCantBeDoneSaysWhyInsteadOfAskingForAGuess() {
+        assertEquals(AssistantIntent.Outcome.Cannot(AssistantIntent.TIMER_LIMIT), read("""{"action":"timer","seconds":172800,"label":"2 days"}""", "set a timer for 2 days"))
+        assertEquals(AssistantIntent.Outcome.Cannot(AssistantIntent.NOT_A_TIME), read("""{"action":"alarm","at":"25:00"}""", "set an alarm for 25:00"))
+        assertEquals(AssistantIntent.Outcome.Cannot(AssistantIntent.ALARM_LIMIT), read("""{"action":"alarm","in_minutes":5000}""", "alarm later"))
+        assertEquals(AssistantIntent.Outcome.None, read("""{"action":"none"}""", "why is the sky blue"))
+        assertEquals(AssistantIntent.Outcome.None, read("garbage", "x"))
+    }
+
+    @Test fun aLabelThatOnlyRepeatsTheLengthIsDropped() {
+        assertEquals("3 h timer", ((read("""{"action":"timer","seconds":10800,"label":"3 hours"}""") as AssistantIntent.Outcome.Act).action).label)
+        assertEquals("3 h timer", ((read("""{"action":"timer","seconds":10800,"label":"timer"}""") as AssistantIntent.Outcome.Act).action).label)
+        assertEquals("12 min timer · pasta", ((read("""{"action":"timer","seconds":720,"label":"pasta"}""") as AssistantIntent.Outcome.Act).action).label)
+    }
+}
+
+class AnswerTextTest {
+    @Test fun markdownMarksAreTakenOut() {
+        assertEquals("Sam messaged you.", AnswerText.clean("**Sam** messaged you."))
+        assertEquals("Lisbon", AnswerText.clean("# Lisbon"))
+    }
+
+    @Test fun theModelTalkingToItselfIsNotAnAnswer() {
+        assertNull(AnswerText.clean("[Your complete, well-structured response following all given constraints]"))
+        assertNull(AnswerText.clean("You are an expert logical reasoner. Think through the problem carefully."))
+        assertNull(AnswerText.clean("   "))
+        assertEquals("You are at 87% battery.", AnswerText.clean("You are at 87% battery."))
+    }
+}
+
 class AskPolicyTest {
     private val ready = AssistantState.READY
 
@@ -106,6 +156,16 @@ class AskPolicyTest {
 }
 
 class LabTrustTest {
+    @Test fun noModelRightAfterWarmIsNotFinal() {
+        // warm() starts loading in the background, so Lab's first answer can still be "no model".
+        assertTrue(LabTrust.keepWatching(AssistantState.NO_MODEL, 0))
+        assertFalse(LabTrust.keepWatching(AssistantState.NO_MODEL, LabTrust.NO_MODEL_GRACE_MS))
+        assertTrue(LabTrust.keepWatching(AssistantState.LOADING, 30_000))
+        assertFalse(LabTrust.keepWatching(AssistantState.LOADING, LabTrust.WATCH_MS))
+        assertFalse(LabTrust.keepWatching(AssistantState.READY, 0))
+        assertFalse(LabTrust.keepWatching(AssistantState.FAILED, 0))
+    }
+
     @Test fun onlyLabsOwnCertificate() {
         assertTrue(LabTrust.trusted(setOf(LabTrust.CERT_SHA256)))
         assertTrue(LabTrust.trusted(setOf(LabTrust.CERT_SHA256.uppercase())))

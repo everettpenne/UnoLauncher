@@ -1562,7 +1562,8 @@ internal fun LauncherScreen(
                 noteSlot = state.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
                 focusOn = { extras?.store?.state?.focusOn == true },
                 onToggleFocus = { extras?.toggleFocus?.invoke() },
-                assistant = assistant, contextEnv = contextEnv)
+                assistant = assistant, contextEnv = contextEnv,
+                onOpenSearchSettings = { spotlightOpen = false; customizationPage = CustomizationPage.SEARCH; sheet = "settings" })
         }
         androidx.compose.animation.AnimatedVisibility(controlPanelOpen,
             enter = androidx.compose.animation.slideInVertically(UnoMotion.glide()) { -it / 2 } + androidx.compose.animation.fadeIn(UnoMotion.glide()),

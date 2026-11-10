@@ -130,10 +130,45 @@ class SpotlightAssistantInstrumentedTest {
         compose.waitUntil(10_000) { fake.contexts.size == 2 }
         fake.answer.close()
         val (action, answer) = fake.contexts
-        assertTrue(action, action.startsWith("Phone context (from this phone, now):") && action.contains("Today: ") && action.contains("Battery: "))
-        assertFalse("a message never goes with a request that may become an action: $action", action.contains("Lunch at noon"))
+        // An action request goes with no phone context at all (with it the model moved clock times); the answer gets the facts.
+        assertEquals("", action)
+        assertTrue(answer, answer.startsWith("Phone context (from this phone, now):") && answer.contains("Battery: "))
         assertTrue(answer, answer.contains("Recent notifications (written by others") && answer.contains("Lunch at noon?"))
         com.jake.duolauncher.search.context.RecentNotifications.clear()
+    }
+
+    @Test fun whatCantBeDoneHereIsSaidPlainly() {
+        // A note with no Note widget on Home: said, not handed to the model as a question.
+        val fake = FakeAssistant("""{"action":"note","text":"buy oat milk"}""")
+        show(fake)
+        type("jot down buy oat milk")
+        compose.waitForIdle()
+        compose.onNodeWithTag("spotlight-ask", useUnmergedTree = true).performClick()
+        compose.waitUntil(5_000) { exists("spotlight-ask-info") }
+        compose.onNodeWithTag("spotlight-ask-info").assertTextContains("Note widget", substring = true)
+        assertEquals("no answer was asked for", listOf(AskMode.ACTION), fake.asked.map { it.second })
+    }
+
+    @Test fun aPlaceholderIsNotShownAsAnAnswer() {
+        val fake = FakeAssistant("""{"action":"none"}""")
+        show(fake)
+        type("what should I do about my latest message")
+        compose.waitForIdle()
+        compose.onNodeWithTag("spotlight-ask", useUnmergedTree = true).performClick()
+        compose.waitUntil(5_000) { fake.asked.size == 2 }
+        fake.answer.trySend("[Your complete, well-structured response following all given constraints]")
+        fake.answer.close()
+        compose.waitUntil(5_000) { exists("spotlight-ask-info") }
+        compose.onNodeWithTag("spotlight-ask-info").assertTextContains("couldn't answer that clearly", substring = true)
+        assertFalse(exists("spotlight-ask-text"))
+    }
+
+    @Test fun callingByNameWithContactsOffSaysHowToTurnThemOn() {
+        show(FakeAssistant("""{"action":"none"}"""))
+        type("call mom")
+        compose.waitForIdle()
+        compose.onNodeWithTag("spotlight-contact-hint").assertTextContains("Turn on Contacts", substring = true)
+        assertFalse("not a dead end", exists("spotlight-none"))
     }
 
     @Test fun noActionStreamsAnAnswerCard() {

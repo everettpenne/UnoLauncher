@@ -59,6 +59,18 @@ internal object LabTrust {
     /** Exactly Lab's certificate: a package of that name signed with anything else (or with an extra signer) is not Uno Lab. */
     fun trusted(signers: Set<String>): Boolean = signers.map { it.lowercase() }.toSet() == setOf(CERT_SHA256)
 
+    /** How long "no model" is not taken as final after warm(): Lab starts loading in the background, so the first state() can still
+     *  say no model. Taking that at its word hid Ask Qwen for the whole search on the Pixel. */
+    const val NO_MODEL_GRACE_MS = 10_000L
+    const val WATCH_MS = 60_000L
+
+    /** Whether to keep asking Lab for its state, [waitedMs] after warm(): while it loads, and through [NO_MODEL_GRACE_MS] of "no model". */
+    fun keepWatching(state: AssistantState, waitedMs: Long): Boolean = when (state) {
+        AssistantState.LOADING -> waitedMs < WATCH_MS
+        AssistantState.NO_MODEL -> waitedMs < NO_MODEL_GRACE_MS
+        else -> false
+    }
+
     fun fromWire(state: Int): AssistantState = when (state) {
         0 -> AssistantState.NO_MODEL
         1 -> AssistantState.LOADING
@@ -108,7 +120,7 @@ internal class LocalAssistant(context: Context) : AssistantClient {
         _state.value = now
         // Loading takes a few seconds; watch it until it settles (or stop after a minute and leave it as loading).
         var waited = 0L
-        while (now == AssistantState.LOADING && waited < 60_000 && service.value === svc) {
+        while (LabTrust.keepWatching(now, waited) && service.value === svc) {
             delay(400); waited += 400
             now = runCatching { LabTrust.fromWire(svc.state()) }.getOrDefault(AssistantState.FAILED)
             _state.value = now

@@ -68,6 +68,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.AnnotatedString
@@ -400,11 +401,19 @@ internal object SpotlightEnter {
     }
 }
 
+/** What to say when "call"/"text" can't find anyone. */
+internal object ContactHint {
+    const val OFF = "Turn on Contacts in search to call or text by name"
+    fun none(name: String) = "No contact matches “$name”."
+}
+
 /** Where an Ask Qwen request is: thinking, an action to offer as a row (with what it resolved to), or an answer streaming in. */
 private sealed interface AskView {
     data object Thinking : AskView
     class Act(val action: QuickAction, val app: AppEntry? = null, val contacts: List<ContactPhone> = emptyList()) : AskView
     data class Answer(val text: String, val done: Boolean, val error: String? = null) : AskView
+    /** What was asked is understood but can't be done here ([why]); [settings]: turning something on in search settings would fix it. */
+    data class Info(val why: String, val settings: Boolean = false) : AskView
 }
 
 /** Search from anywhere on Home: a panel that grows out of the island over whatever page you are on. One box finds apps, contacts (if you
@@ -444,6 +453,8 @@ internal fun Spotlight(
     onToggleFocus: () -> Unit = {},
     /** Uno Lab's assistant, when the person switched it on and Lab is installed; null hides Ask Qwen and binds nothing. */
     assistant: AssistantClient? = null,
+    /** Opens Launcher settings at Search (to turn contacts on for "call"/"text"). */
+    onOpenSearchSettings: () -> Unit = {},
     /** What the phone's facts are read from, for the assistant (null: questions go without them). */
     contextEnv: com.jake.duolauncher.search.context.ContextEnv? = null,
 ) {
@@ -510,35 +521,41 @@ internal fun Spotlight(
         askView = AskView.Thinking
         // An action first: a few dozen tokens, so it is quick. It becomes a row that runs only when tapped.
         // A failed action ask still gets an answer ask (which says why, if Lab is the problem); a cancel (the query changed) stops here.
-        // The phone's facts for this question: for an action only trusted ones (a message or a headline must not steer a suggested action).
-        val actionContext = contextEnv?.let { com.jake.duolauncher.search.context.PhoneContext.build(q, action = true, it) }.orEmpty()
-        val json = try { buildString { client.ask(q, AskMode.ACTION, actionContext).collect { append(it) } } } catch (e: AssistantError) { null }
-        val act = json?.let(AssistantIntent::parse)?.let { action ->
-            when (action) {
+        // No phone context goes with an action request: reading one needs only the words, and with the context the model moved clock times
+        // ("7:30" became 19:30). It goes with the answer below.
+        val json = try { buildString { client.ask(q, AskMode.ACTION).collect { append(it) } } } catch (e: AssistantError) { null }
+        val outcome = json?.let { AssistantIntent.read(it, q) } ?: AssistantIntent.Outcome.None
+        // Something understood but not possible here is said plainly rather than handed to the model to guess at.
+        val shown: AskView? = when (outcome) {
+            is AssistantIntent.Outcome.Cannot -> AskView.Info(outcome.why)
+            is AssistantIntent.Outcome.None -> null
+            is AssistantIntent.Outcome.Act -> when (val action = outcome.action) {
                 is QuickAction.OpenApp -> SpotlightRank.apps(searchable, action.name, { it.label }, { scores[it.id] ?: 0.0 }, { it.description })
                     .firstOrNull()?.let { AskView.Act(QuickAction.OpenApp(it.label, "Open ${it.label}"), app = it) }
+                    ?: AskView.Info("No app called “${action.name}” is installed.")
                 is QuickAction.Call, is QuickAction.Text -> {
                     val name = if (action is QuickAction.Call) action.name else (action as QuickAction.Text).name
-                    val found = if (contactsEnabled) withContext(Dispatchers.IO) { ContactActions.search(context, name) } else emptyList()
-                    found.takeIf { it.isNotEmpty() }?.let { AskView.Act(action, contacts = it) }
+                    if (!contactsEnabled) AskView.Info(ContactHint.OFF, settings = true)
+                    else withContext(Dispatchers.IO) { ContactActions.search(context, name) }.takeIf { it.isNotEmpty() }
+                        ?.let { AskView.Act(action, contacts = it) } ?: AskView.Info(ContactHint.none(name))
                 }
-                is QuickAction.Note -> action.takeIf { noteSlot != null }?.let { AskView.Act(it) }
+                is QuickAction.Note -> if (noteSlot != null) AskView.Act(action) else AskView.Info("Add a Note widget to Home to save notes from search.")
                 else -> AskView.Act(action)
             }
         }
-        if (act != null) { askView = act; return@LaunchedEffect }
+        if (shown != null) { askView = shown; return@LaunchedEffect }
         // Not an action (or not one this phone can do): a short answer, streamed in as it is written.
         var text = ""
         askView = AskView.Answer("", done = false)
         try {
             val answerContext = contextEnv?.let { com.jake.duolauncher.search.context.PhoneContext.build(q, action = false, it) }.orEmpty()
-            client.ask(q, AskMode.ANSWER, answerContext).collect { piece -> text += piece; askView = AskView.Answer(text, done = false) }
-            askView = AskView.Answer(text.trim(), done = true)
+            client.ask(q, AskMode.ANSWER, answerContext).collect { piece -> text += piece; askView = AskView.Answer(AnswerText.clean(text) ?: "", done = false) }
+            askView = AnswerText.clean(text)?.let { AskView.Answer(it, done = true) } ?: AskView.Info(AnswerText.UNCLEAR)
         } catch (e: AssistantError) {
             askView = AskView.Answer(text.trim(), done = true, error = e.message)
         }
     }
-    val askAnswered = askView is AskView.Act || (askView as? AskView.Answer)?.let { it.text.isNotBlank() } == true
+    val askAnswered = askView is AskView.Act || askView is AskView.Info || (askView as? AskView.Answer)?.let { it.text.isNotBlank() } == true
     // A recognised quick action is itself an answer, so it also keeps the "search elsewhere" rows away; so does an assistant answer.
     val suggestions = remember(query, appResults.size, smart, quick, handoff, askAnswered) {
         handoff.targets(query, appResults.size, smart != null || quick != null || askAnswered)
@@ -760,7 +777,8 @@ internal fun Spotlight(
         }
     }
     val resultsList: @Composable (Modifier) -> Unit = { listModifier ->
-            val nothing = smart == null && !askOffered && askView == null && singleQuick == null && actionContacts.isEmpty() && settingsHits.isEmpty() && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()
+            val contactHint = contactKind != null && actionContacts.isEmpty() && !contactsEnabled
+            val nothing = smart == null && !contactHint && !askOffered && askView == null && singleQuick == null && actionContacts.isEmpty() && settingsHits.isEmpty() && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()
             val typed = query.isNotBlank()
             val webOffered = suggestions.any { it.kind == HandoffKind.WEB }
             LazyColumn(listModifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -789,7 +807,8 @@ internal fun Spotlight(
                             ?.setPrimaryClip(android.content.ClipData.newPlainText("Uno Lab answer", text))
                         askCopied = true
                     },
-                    onContinue = { assistant?.continueInLab(context, query); onDismiss() })
+                    onContinue = { assistant?.continueInLab(context, query); onDismiss() },
+                    onSettings = { onOpenSearchSettings(); onDismiss() })
                 if (singleQuick != null) item("quick-header") {
                     SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_actions), ink)
                 }
@@ -800,6 +819,15 @@ internal fun Spotlight(
                     }) {
                         Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
                             Icon(actionIcon(singleQuick), null, Modifier.size(22.dp))
+                        }
+                    }
+                }
+                // "call mom" / "text alex" with contact search off has nothing to find: say what would make it work.
+                if (contactKind != null && actionContacts.isEmpty() && !contactsEnabled && typed) item("contact-hint") {
+                    SpotlightRow(rowMotion(), ContactHint.OFF, stringResource(com.jake.duolauncher.R.string.spotlight_open_search_settings),
+                        "spotlight-contact-hint", false, ink, { onOpenSearchSettings(); onDismiss() }) {
+                        Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
+                            Icon(if (contactKind == ContactActionKind.DIAL) Icons.Rounded.Call else Icons.Rounded.Sms, null, Modifier.size(22.dp))
                         }
                     }
                 }
@@ -1011,7 +1039,8 @@ internal fun HandoffRow(target: HandoffTarget, ink: Color, modifier: Modifier = 
 /** The Ask Qwen part of the results: the row to ask, then what came back (an action row, or the answer card). */
 private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskView?, query: String, state: AssistantState, ink: Color,
     capCorner: androidx.compose.ui.unit.Dp, copied: Boolean, onAsk: () -> Unit, onRun: (QuickAction) -> Unit, onLaunch: (AppEntry) -> Unit,
-    onContact: (ContactActionKind, String) -> Unit, onWeb: (String) -> Unit, onCopy: (String) -> Unit, onContinue: () -> Unit) {
+    onContact: (ContactActionKind, String) -> Unit, onWeb: (String) -> Unit, onCopy: (String) -> Unit, onContinue: () -> Unit,
+    onSettings: () -> Unit) {
     val mark: @Composable (ImageVector) -> Unit = { icon ->
         Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
             Icon(icon, null, Modifier.size(22.dp))
@@ -1048,6 +1077,15 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
                 else -> item("ask-action") {
                     SpotlightRow(rowMotion(), action.label, action.detail, "spotlight-ask-action", true, ink, { onRun(action) }) { mark(actionIcon(action)) }
                 }
+            }
+        }
+        is AskView.Info -> item("ask-info") {
+            Column(rowMotion().fillMaxWidth().emergingHere().clip(Corner.inside(capCorner, 16.dp)).background(ink.copy(alpha = .10f))
+                .then(if (view.settings) Modifier.clickable(onClick = onSettings) else Modifier)
+                .padding(horizontal = 16.dp, vertical = 12.dp).semantics(mergeDescendants = true) {}.testTag("spotlight-ask-info")) {
+                Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_answer_by), color = ink.copy(alpha = .7f), style = UnoType.caption1)
+                Text(view.why, color = ink, style = UnoType.body)
+                if (view.settings) Text(stringResource(com.jake.duolauncher.R.string.spotlight_open_search_settings), color = ink.copy(alpha = .5f), style = UnoType.caption2)
             }
         }
         is AskView.Answer -> item("ask-answer") {

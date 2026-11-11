@@ -85,11 +85,15 @@ class SystemShadeAccessibilityService : AccessibilityService() {
         runCatching { prefs.unregisterOnSharedPreferenceChangeListener(prefListener); appearancePrefs.unregisterOnSharedPreferenceChangeListener(prefListener) }
         IslandRuntime.foregroundPackage = null
         islandHost?.stop(); islandHost = null
+        // Search over an app lives in this service's window: when the service goes, so does the window, and search must know it is closed.
+        com.jake.duolauncher.search.AssistOverlay.hide()
         if (instance.get() === this) instance.clear()
         return super.onUnbind(intent)
     }
     override fun onDestroy() {
         islandHost?.stop(); islandHost = null
+        // Search over an app lives in this service's window: when the service goes, so does the window, and search must know it is closed.
+        com.jake.duolauncher.search.AssistOverlay.hide()
         if (instance.get() === this) instance.clear()
         super.onDestroy()
     }

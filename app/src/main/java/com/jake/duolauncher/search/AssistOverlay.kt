@@ -97,6 +97,8 @@ object AssistOverlay {
      */
     fun show(context: Context, screenText: String?) {
         val app = context.applicationContext as? Application ?: return
+        // A window the system took away (its service was stopped) is closed, whatever was last recorded.
+        if (view?.isAttachedToWindow == false) hide()
         if (view != null || opening) return
         val service = com.jake.duolauncher.SystemShadeAccessibilityService.connected()
         if (service == null) { open(app, null, screenText, null); return }

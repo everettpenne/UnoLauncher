@@ -184,26 +184,37 @@ class LabTrustTest {
 }
 
 class QuestionShapeTest {
-    @Test fun aQuestionSkipsTheActionAsk() {
-        assertTrue(AssistantIntent.looksLikeQuestion("what is the capital of France"))
-        assertTrue(AssistantIntent.looksLikeQuestion("where am I"))
-        assertTrue(AssistantIntent.looksLikeQuestion("how many minutes are in two and a half hours"))
-        assertTrue(AssistantIntent.looksLikeQuestion("is it going to rain"))
-        assertTrue(AssistantIntent.looksLikeQuestion("why is the sky blue?"))
-        assertTrue(AssistantIntent.looksLikeQuestion("  What's my battery level  "))
-        assertTrue(AssistantIntent.looksLikeQuestion("give me three tips for sleeping better"))
-        assertTrue(AssistantIntent.looksLikeQuestion("explain compound interest"))
+    @Test fun aQuestionNeverCostsTheActionAsk() {
+        assertFalse(AssistantIntent.mightBeAction("what is the capital of France"))
+        assertFalse(AssistantIntent.mightBeAction("where am I"))
+        assertFalse(AssistantIntent.mightBeAction("how many minutes are in two and a half hours"))
+        assertFalse(AssistantIntent.mightBeAction("is it going to rain"))
+        assertFalse(AssistantIntent.mightBeAction("why is the sky blue?"))
+        assertFalse(AssistantIntent.mightBeAction("  What's my battery level  "))
+        assertFalse(AssistantIntent.mightBeAction("give me three tips for sleeping better"))
+        assertFalse(AssistantIntent.mightBeAction("explain compound interest"))
+        // Naming an action does not make a question a request: these read the phone, they do not change it.
+        assertFalse(AssistantIntent.mightBeAction("what's my next alarm"))
+        assertFalse(AssistantIntent.mightBeAction("is my torch on"))
+        // Small talk, the case this costs the most: it used to pay a whole action round trip before the answer.
+        assertFalse(AssistantIntent.mightBeAction("hello qwen"))
+        assertFalse(AssistantIntent.mightBeAction("thanks"))
+        assertFalse(AssistantIntent.mightBeAction(""))
     }
 
-    @Test fun aCommandNeverDoes() {
-        assertFalse(AssistantIntent.looksLikeQuestion("set a timer for 20 minutes"))
+    @Test fun aRequestAlwaysDoes() {
+        assertTrue(AssistantIntent.mightBeAction("set a timer for 20 minutes"))
         // A question mark does not make a request a question.
-        assertFalse(AssistantIntent.looksLikeQuestion("set a timer for 20 minutes?"))
-        assertFalse(AssistantIntent.looksLikeQuestion("can you open the camera"))
-        assertFalse(AssistantIntent.looksLikeQuestion("could you set an alarm for 7"))
-        assertFalse(AssistantIntent.looksLikeQuestion("turn on the flashlight"))
-        assertFalse(AssistantIntent.looksLikeQuestion("remind me in twenty minutes"))
-        assertFalse(AssistantIntent.looksLikeQuestion("text Sam that I'm on my way"))
-        assertFalse(AssistantIntent.looksLikeQuestion(""))
+        assertTrue(AssistantIntent.mightBeAction("set a timer for 20 minutes?"))
+        assertTrue(AssistantIntent.mightBeAction("can you open the camera"))
+        assertTrue(AssistantIntent.mightBeAction("could you set an alarm for 7"))
+        assertTrue(AssistantIntent.mightBeAction("turn on the flashlight"))
+        assertTrue(AssistantIntent.mightBeAction("remind me in twenty minutes"))
+        assertTrue(AssistantIntent.mightBeAction("text Sam that I'm on my way"))
+        // No verb the list knows, but the phone's own action is named.
+        assertTrue(AssistantIntent.mightBeAction("I need a 20 minute timer"))
+        assertTrue(AssistantIntent.mightBeAction("wake me at 7"))
+        assertTrue(AssistantIntent.mightBeAction("start the stopwatch"))
+        assertTrue(AssistantIntent.mightBeAction("turn the torch on"))
     }
 }

@@ -23,21 +23,27 @@ class PhoneContextTest {
     private val sources = PhoneContext.sources
     private fun ids(q: String, action: Boolean = false, off: Set<String> = emptySet()) = ContextPolicy.select(sources, q, action, off).map { it.id }
 
-    @Test fun theCoreGoesWithEveryQuestionAndTheRestOnlyWhenTheQuestionPointsAtThem() {
+    @Test fun onlyTheDateAndTimeGoWithEveryQuestion() {
         val plain = ids("why is the sky blue")
-        assertTrue(plain.containsAll(listOf("time", "battery", "alarm", "quiet")))
+        assertTrue("time" in plain)
+        // Battery, alarm and focus are read only when the question points at them: they were most of the prefill for every answer.
+        assertFalse("battery" in plain); assertFalse("alarm" in plain); assertFalse("quiet" in plain)
         assertFalse("calendar" in plain); assertFalse("storage" in plain)
+        // Each still comes when it is what the question is about.
+        assertTrue("battery" in ids("how much charge do I have left"))
+        assertTrue("alarm" in ids("is my alarm set"))
+        assertTrue("quiet" in ids("is do not disturb on"))
         assertTrue("calendar" in ids("what's on my calendar tomorrow"))
         assertTrue("storage" in ids("how much storage do I have left"))
         assertTrue("audio" in ids("are my earbuds connected"))
         assertTrue("holidays" in ids("when is the next bank holiday"))
     }
 
-    @Test fun liveSourcesComeWhenTheyHaveSomethingToSayAndTheCoreLeads() {
-        // A timer or a song is read with every question (it says nothing when none is running); the always-on ones go first.
+    @Test fun liveSourcesComeWhenTheyHaveSomethingToSayAndTheDateLeads() {
+        // A timer or a song is read with every question (it says nothing when none is running); the date and time lead, as always.
         val all = ids("hello there")
         assertTrue("timer" in all && "playing" in all)
-        assertEquals(listOf("time", "battery", "alarm", "quiet"), all.take(4))
+        assertEquals("time", all.first())
     }
 
     @Test fun whatOthersWroteNeverGoesWithARequestThatMayBecomeAnAction() {

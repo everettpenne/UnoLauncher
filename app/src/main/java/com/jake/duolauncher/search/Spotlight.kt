@@ -521,6 +521,8 @@ internal fun Spotlight(
     // facts an answer would need (read up front: they cost ~25 ms, and a possible action never sees them).
     LaunchedEffect(askedFor) {
         val q = askedFor ?: return@LaunchedEffect
+        // A greeting or a thank-you is answered from a table: no action round trip, no facts read, no model, no session.
+        SmallTalk.replyTo(q)?.let { reply -> askView = AskView.Answer(reply, done = true); return@LaunchedEffect }
         if (assistant == null) return@LaunchedEffect
         askView = AskView.Thinking
         val facts = contextEnv?.let { env ->

@@ -57,8 +57,8 @@ internal object AssistantSession {
             val t0 = System.currentTimeMillis()
             try {
                 var json: String? = null
-                // A question will not become an action: one model round trip instead of two.
-                if (!AssistantIntent.looksLikeQuestion(query)) {
+                // Only a possible action costs the extra round trip; a question goes straight to the answer.
+                if (AssistantIntent.mightBeAction(query)) {
                     json = buildString { c.ask(query, AskMode.ACTION).collect { append(it) } }
                 }
                 val outcome = json?.let { AssistantIntent.read(it, query) }

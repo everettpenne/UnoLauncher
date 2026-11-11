@@ -130,23 +130,28 @@ internal object AssistantIntent {
     }
 
     /**
-     * Whether [query] is asking something rather than asking the phone to do something. A question will not turn into an action, so
-     * Spotlight skips the action ask for it: one model round trip instead of two, which is the largest part of a warm answer.
+     * Whether the phone might actually have to do something: a leading command verb, "can you…", or one of the phone's actions named
+     * anywhere in the question. Only then is the action round trip worth a model call — anything else is answered directly.
      *
-     * Deliberately conservative — a command that this misses only costs the old action ask first, while a question it wrongly calls a
-     * command would be answered as "I can't do that". So a leading command verb or "can you…" wins over a question mark.
+     * This used to run the other way round ("a command unless it looks like a question"), which cost a full extra round trip for every
+     * greeting, thank-you and piece of chit-chat: the model was asked for an action, said none, and was then asked the real question.
+     *
+     * [actionWords] is the action grammar's own vocabulary (see Assistant.ACTION_SYSTEM) and has to grow with it: a command it misses is
+     * answered in words instead of being performed.
      */
-    fun looksLikeQuestion(query: String): Boolean {
+    fun mightBeAction(query: String): Boolean {
         val q = query.trim()
         if (q.isEmpty()) return false
-        if (commandStart.containsMatchIn(q) || requestStart.containsMatchIn(q)) return false
-        // "give me three tips", "explain compound interest": an ask for words, never one of the phone's actions.
-        if (answerStart.containsMatchIn(q)) return true
-        return q.endsWith("?") || questionStart.containsMatchIn(q)
+        // A request to do something wins over its wording: "set a timer?" is still a timer.
+        if (commandStart.containsMatchIn(q) || requestStart.containsMatchIn(q)) return true
+        // A question is never performed, whatever it names: "what's my next alarm" reads the alarm, it does not set one.
+        if (q.endsWith("?") || questionStart.containsMatchIn(q)) return false
+        // "wake me at 7", "I need a 20 minute timer": no verb the list knows, but the action is named.
+        return actionWords.containsMatchIn(q)
     }
 
-    private val answerStart = Regex(
-        """^(give|explain|describe|define|summari[sz]e|translate|suggest|recommend|list|name|show)\b""",
+    private val actionWords = Regex(
+        """\b(timers?|alarms?|stopwatches?|torch|flash ?light|focus|do not disturb|dnd|ringer|silent|vibrat\w*|volume|brightness|wi-?fi|bluetooth|airplane|notes?|reminders?|remind|call|text|message|open|launch|play|pause|skip|snooze|dismiss|calendar|events?|wake me|wake up)\b""",
         RegexOption.IGNORE_CASE)
 
     private val commandStart = Regex(

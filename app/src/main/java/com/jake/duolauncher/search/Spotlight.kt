@@ -459,6 +459,9 @@ internal fun Spotlight(
     onOpenSearchSettings: () -> Unit = {},
     /** What the phone's facts are read from, for the assistant (null: questions go without them). */
     contextEnv: com.jake.duolauncher.search.context.ContextEnv? = null,
+    /** Whether opening the panel takes the keyboard. A floating host that focuses its field before Compose has placed the panel makes the
+     *  field's scroll-to-caret throw, so it leaves the field for a tap instead. */
+    autoFocus: Boolean = true,
 ) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
@@ -468,8 +471,8 @@ internal fun Spotlight(
     // completes). On open the field is focused and the IME shown on the same frame the island
     // begins to grow; on close the IME is hidden the moment the dismiss begins, rather than when
     // the field is disposed at the end of the exit transition.
-    LaunchedEffect(visible) {
-        if (visible) { focus.requestFocus(); keyboard?.show() } else keyboard?.hide()
+    LaunchedEffect(visible, autoFocus) {
+        if (visible && autoFocus) { focus.requestFocus(); keyboard?.show() } else keyboard?.hide()
     }
     val history = remember { SpotlightHistory(context) }
     val scores = remember { history.scores() }

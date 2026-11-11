@@ -13,9 +13,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.jake.duolauncher.AppEntry
@@ -60,11 +60,6 @@ class AssistActivity : ComponentActivity() {
                     ContextEnv(applicationContext, { state }, { extrasState }, { null }, { feedState.shownEntries }, { screenText })
                 }
             }
-            // Open on the second frame, never the first: Spotlight focuses its field as soon as it is visible, and asking for focus
-            // before the panel has been placed makes Compose's scroll-to-caret throw ("Expected BringIntoViewRequester to not be used
-            // before parents are placed"). Home's panel never hits this because it starts closed and opens after layout.
-            var open by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) { withFrameNanos { }; open = true }
             DuoTheme(DuoAppearanceRuntime.dark) {
                 Box(Modifier.fillMaxSize()) {
                     Spotlight(
@@ -78,8 +73,11 @@ class AssistActivity : ComponentActivity() {
                         onOpenFeedLink = { link -> openLink(link); finish() },
                         onOpenContact = { contact -> ContactsSearch.open(this@AssistActivity, contact); finish() },
                         onDismiss = { finish() },
-                        // Drawn open at once (there is no island to grow out of); only the focus waits for the first layout.
-                        visible = open,
+                        // Drawn open at once (there is no island to grow out of). The field is focused by a tap rather than at open:
+                        // in a freshly created translucent window, focusing it programmatically makes the panel's scroll responder
+                        // answer a bring-into-view before it is placed, which throws and kills the launcher.
+                        visible = true,
+                        autoFocus = false,
                         progress = { 1f },
                         noteSlot = state.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
                         focusOn = { extras.state.focusOn },

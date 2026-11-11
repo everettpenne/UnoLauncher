@@ -68,6 +68,8 @@ internal class ContextEnv(
     val extras: () -> ExtrasState?,
     val appearance: () -> AppearanceState?,
     val feed: () -> List<FeedEntry>,
+    /** What was on the screen when the assistant was opened from the system's gesture, if it was; null otherwise. */
+    val screen: () -> String? = { null },
 )
 
 /**
@@ -109,6 +111,9 @@ internal object PhoneContext {
         Source("settings", "Uno's settings", Group.UNO, Core.NO, listOf("setting*", "turn on", "turn off", "enable", "disable", "how do i", "change", "uno", "island", "widget*", "glass")),
         Source("feed", "Feed headlines", Group.UNO, Core.NO, listOf("news", "feed", "headline*", "article*"), untrusted = true, priority = 70),
         Source("clipboard", "Clipboard", Group.UNO, Core.NO, listOf("clipboard", "copied", "pasted", "this text", "summari*", "translate"), untrusted = true, priority = 80),
+        Source("screen", "What's on your screen", Group.UNO, Core.NO,
+            listOf("this page", "this screen", "this text", "on my screen", "what does this say", "summarise this", "summarize this", "translate this"),
+            untrusted = true, priority = 90),
     )
 
     /** The context for [question], or "" when nothing is switched on or says anything. [action]: the reply may become an action. */
@@ -130,6 +135,7 @@ internal object PhoneContext {
         val now = ZonedDateTime.now()
         val today = now.toLocalDate()
         return when (id) {
+            "screen" -> env.screen()?.trim()?.takeIf { it.isNotEmpty() }
             "time" -> ContextText.dateTime(now, Locale.getDefault(), is24(c), WeekFields.of(Locale.getDefault()).firstDayOfWeek)
             "holidays" -> Holidays.line(Locale.getDefault().country, today)
             "place" -> env.appearance()?.let { a ->

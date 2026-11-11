@@ -54,6 +54,8 @@ class MainActivity : ComponentActivity() {
     private val searchRequests = mutableIntStateOf(0)
     /** Opens Spotlight itself (not just Home with a search field focused): the island's assistant card uses it. */
     private val spotlightRequests = mutableIntStateOf(0)
+    /** What was on the screen when Uno Lab, as the system assistant, handed a question over. Only good for that one search. */
+    private val assistText = mutableStateOf<String?>(null)
     /** The island's feed button over other apps (and anything else) asked for My feed. */
     private val feedRequests = mutableIntStateOf(0)
     private val feedSetupRequests = mutableIntStateOf(0)
@@ -198,8 +200,9 @@ class MainActivity : ComponentActivity() {
             }
         }
         updateDefaultHome()
+        if (savedInstanceState == null) assistText.value = intent.getStringExtra("uno_assist_text")
         if (savedInstanceState == null) openDestination(intent.getStringExtra("duo_destination"))
-        intent.removeExtra("duo_destination")
+        intent.removeExtra("duo_destination"); intent.removeExtra("uno_assist_text")
         setContent {
             SideEffect { UnoFeedback.configure(this@MainActivity, extrasStore.state.haptics, extrasStore.state.sounds) }
             TiltHighlight(enabled = appearance.state.tiltHighlight && appearance.state.edgeHighlight && appearance.state.liquidGlass,
@@ -220,6 +223,7 @@ class MainActivity : ComponentActivity() {
                     onLaunch = { launchApp(it) }, onMakeDefault = ::makeDefault, onAppInfo = ::appInfo,
                     isDefaultHome = defaultHome.value, deviceStatus = deviceStatus, onStatusMode = ::setStatusMode, onWallpaperPreview = ::previewWallpaper,
                     feedRequests = feedRequests.intValue, searchRequests = searchRequests.intValue, spotlightRequests = spotlightRequests.intValue,
+                    assistText = assistText.value, onAssistTextTaken = { assistText.value = null },
                     onLaunchFrom = ::launchApp, onGoogleSearch = ::openGoogleSearch,
                     appearance = appearance.state,
                     onAppearanceMode = { cancelAppearanceLocation(); appearance.setMode(it, systemDark()) },
@@ -393,9 +397,10 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         FoldRenderExperiment.onNewIntent(this, intent)
+        intent.getStringExtra("uno_assist_text")?.let { assistText.value = it }
         if (intent.getStringExtra("duo_destination") in setOf("search", "spotlight", "feed", "customize", "keyboard")) openDestination(intent.getStringExtra("duo_destination"))
         else if (intent.hasCategory(Intent.CATEGORY_HOME) || intent.getStringExtra("duo_destination") == "home") homeRequests.intValue++
-        intent.removeExtra("duo_destination")
+        intent.removeExtra("duo_destination"); intent.removeExtra("uno_assist_text")
     }
 
     @Deprecated("Widget configuration uses the platform host request-code API")

@@ -117,6 +117,7 @@ internal fun LauncherScreen(
     onLaunch: (AppEntry) -> Unit, onMakeDefault: () -> Unit, onAppInfo: (AppEntry) -> Unit,
     isDefaultHome: Boolean, deviceStatus: DeviceStatus, onStatusMode: (Boolean) -> Unit, onWallpaperPreview: () -> Unit,
     feedRequests: Int = 0, searchRequests: Int = 0, customizeRequests: Int = 0, keyboardSettingsRequests: Int = 0, spotlightRequests: Int = 0,
+    assistText: String? = null, onAssistTextTaken: () -> Unit = {},
     onLaunchFrom: (AppEntry, android.graphics.Rect?) -> Unit = { app, _ -> onLaunch(app) },
     onGoogleSearch: (android.graphics.Rect?) -> Boolean = { false },
     appearance: AppearanceState = AppearanceState(),
@@ -331,6 +332,8 @@ internal fun LauncherScreen(
     var spotlightLanding by remember { mutableStateOf(false) }
     /** The island's assistant card opens search itself, not just Home. */
     LaunchedEffect(spotlightRequests) { if (spotlightRequests > 0) spotlightOpen = true }
+    // What the screen said is only good for the search it opened: once that closes, it is dropped rather than reused.
+    LaunchedEffect(spotlightOpen) { if (!spotlightOpen && assistText != null) onAssistTextTaken() }
     // Once the answer has been read (search was open and is now closed), the island's card for it goes away. Only after it was open,
     // so an answer that arrives while search is closed is not thrown away before it has been seen.
     var assistantWasOpen by remember { mutableStateOf(false) }
@@ -1563,9 +1566,10 @@ internal fun LauncherScreen(
             val latestState by androidx.compose.runtime.rememberUpdatedState(state)
             val latestAppearance by androidx.compose.runtime.rememberUpdatedState(appearance)
             val latestFeed by androidx.compose.runtime.rememberUpdatedState(feed)
+            val latestScreen by androidx.compose.runtime.rememberUpdatedState(assistText)
             val contextEnv = remember(assistant) {
                 assistant?.let { com.jake.duolauncher.search.context.ContextEnv(launcherActivity.applicationContext, { latestState },
-                    { extras?.store?.state }, { latestAppearance }, { latestFeed.shownEntries }) }
+                    { extras?.store?.state }, { latestAppearance }, { latestFeed.shownEntries }, { latestScreen }) }
             }
             Spotlight(controlGlass, state.apps, state.hiddenApps, feed.shownEntries, extras?.store?.state?.contactSearch == true, handoffResolver,
                 onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },

@@ -53,6 +53,14 @@ class PhoneContextTest {
         assertFalse("feed" in ids("any news", action = true))
     }
 
+    @Test fun theScreenIsAFactOnlyWhenTheQuestionIsAboutIt() {
+        assertTrue("screen" in ids("summarise this page"))
+        assertTrue("screen" in ids("what does this say on my screen"))
+        assertFalse("screen" in ids("why is the sky blue"))
+        // What another app wrote can say anything, including something addressed to the model: never with a request that may act.
+        assertFalse("screen" in ids("summarise this page", action = true))
+    }
+
     @Test fun aSwitchedOffSourceIsNeverRead() {
         assertFalse("battery" in ids("will my battery last", off = setOf("battery")))
         assertFalse("calendar" in ids("am I free tomorrow", off = setOf("calendar")))

@@ -137,7 +137,8 @@ private fun AssistantContextGroups(actions: ExtrasActions, store: ExtrasStore, s
     val sources = com.jake.duolauncher.search.context.PhoneContext.sources
     SettingsGroup(footer = "With each question, Uno sends Qwen the facts it points at, read from this phone at that moment: the date and time " +
         "always, and, for example, your battery or calendar only for a question about them. They go to Uno Lab, on this phone, for that question only, and are " +
-        "never stored or sent over the network. Messages, headlines and the clipboard are written by others, so they are marked as quotes, and no facts go with a request Qwen may turn into an action.") {
+        "never stored or sent over the network. Messages, headlines, the clipboard and — when Uno Lab is the system assistant — what was on your screen " +
+        "when it opened are written by others, so they are marked as quotes, and no facts go with a request Qwen may turn into an action.") {
         row { ActionRow(if (expanded) "Hide What Qwen Can See" else "What Qwen Can See (${sources.count { it.id !in s.contextOff }} of ${sources.size} on)",
             "assistant-context-toggle") { expanded = !expanded } }
     }

@@ -128,6 +128,33 @@ internal object AssistantIntent {
         if (hour !in 0..23 || minute !in 0..59) return null
         return QuickAction.Alarm(AlarmTarget.At(hour, minute), SpotlightSources.alarmClockLabel(hour, minute))
     }
+
+    /**
+     * Whether [query] is asking something rather than asking the phone to do something. A question will not turn into an action, so
+     * Spotlight skips the action ask for it: one model round trip instead of two, which is the largest part of a warm answer.
+     *
+     * Deliberately conservative — a command that this misses only costs the old action ask first, while a question it wrongly calls a
+     * command would be answered as "I can't do that". So a leading command verb or "can you…" wins over a question mark.
+     */
+    fun looksLikeQuestion(query: String): Boolean {
+        val q = query.trim()
+        if (q.isEmpty()) return false
+        if (commandStart.containsMatchIn(q) || requestStart.containsMatchIn(q)) return false
+        // "give me three tips", "explain compound interest": an ask for words, never one of the phone's actions.
+        if (answerStart.containsMatchIn(q)) return true
+        return q.endsWith("?") || questionStart.containsMatchIn(q)
+    }
+
+    private val answerStart = Regex(
+        """^(give|explain|describe|define|summari[sz]e|translate|suggest|recommend|list|name|show)\b""",
+        RegexOption.IGNORE_CASE)
+
+    private val commandStart = Regex(
+        """^(set|start|stop|cancel|turn|open|launch|call|text|message|remind|add|make|play|pause|snooze|dismiss|note|remember|create)\b""",
+        RegexOption.IGNORE_CASE)
+    private val requestStart = Regex("""^(can|could|would|will)\s+you\b""", RegexOption.IGNORE_CASE)
+    private val questionStart = Regex("""^(who|what|when|where|why|how|which|whose|is|are|was|were|do|does|did)\b""",
+        RegexOption.IGNORE_CASE)
 }
 
 /** What Spotlight shows of an answer: plain text. Markdown marks are taken out, and text that is the model talking to itself (its

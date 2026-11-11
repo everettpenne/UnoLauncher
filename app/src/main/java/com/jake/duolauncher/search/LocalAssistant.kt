@@ -92,6 +92,8 @@ internal class LocalAssistant(context: Context) : AssistantClient {
     private val service = MutableStateFlow<IAssistant?>(null)
     private var scope: CoroutineScope? = null
     private var bound = false
+    /** True while this client has a question in flight: only then may closing it cancel the answer. */
+    private val asking = java.util.concurrent.atomic.AtomicBoolean(false)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val binderThread = Dispatchers.IO.limitedParallelism(1)
@@ -143,7 +145,9 @@ internal class LocalAssistant(context: Context) : AssistantClient {
         bound = false
         val svc = service.value
         service.value = null
-        scope?.let { s -> if (svc != null) CoroutineScope(binderThread).launch { runCatching { svc.cancel() } }; s.cancel() }
+        // Only an answer this client asked for is cancelled: closing the panel's own client used to cancel the session's turn,
+        // which left it Running for ever (the service skips onDone once its job is cancelled).
+        scope?.let { s -> if (svc != null && asking.get()) CoroutineScope(binderThread).launch { runCatching { svc.cancel() } }; s.cancel() }
         scope = null
         runCatching { app.unbindService(connection) }
         _state.value = AssistantState.OFF
@@ -155,10 +159,11 @@ internal class LocalAssistant(context: Context) : AssistantClient {
     override fun ask(query: String, mode: AskMode, context: String): Flow<String> = callbackFlow {
         val svc = withTimeoutOrNull(15_000) { service.filterNotNull().first() } ?: throw AssistantError("Uno Lab isn't connected.")
         val finished = AtomicBoolean(false)
+        asking.set(true)
         val sink = object : IAnswerSink.Stub() {
             override fun onPiece(piece: String?) { if (piece != null) trySend(piece) }
-            override fun onDone(ms: Long, tokens: Int) { finished.set(true); channel.close() }
-            override fun onError(why: String?) { finished.set(true); channel.close(AssistantError(why ?: "Uno Lab couldn't answer.")) }
+            override fun onDone(ms: Long, tokens: Int) { asking.set(false); finished.set(true); channel.close() }
+            override fun onError(why: String?) { asking.set(false); finished.set(true); channel.close(AssistantError(why ?: "Uno Lab couldn't answer.")) }
         }
         try {
             withContext(binderThread) {
@@ -172,6 +177,7 @@ internal class LocalAssistant(context: Context) : AssistantClient {
         awaitClose {
             // The collector went away mid-answer (the query changed, Spotlight closed): stop the model rather than let it run on.
             if (!finished.get()) CoroutineScope(binderThread).launch { runCatching { svc.cancel() } }
+            asking.set(false)
         }
     }.flowOn(Dispatchers.Default)
 

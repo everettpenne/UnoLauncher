@@ -73,6 +73,15 @@ internal object NotificationFeed {
     var ongoingCall by mutableStateOf<OngoingCall?>(null)
     /** Android 16 Live Updates currently posted, newest first. */
     var liveUpdates by mutableStateOf<List<LiveUpdate>>(emptyList())
+    /** The assistant's turn, kept in front of the phone's own live updates (see AssistantLive). */
+    var assistantUpdate by mutableStateOf<LiveUpdate?>(null)
+    /** Refreshes the assistant's island activity from the session's state: "Thinking…", then "Ready". */
+    fun publishAssistant(context: Context, nowMs: Long) {
+        val next = com.jake.duolauncher.search.AssistantLive.of(context, nowMs)
+        assistantUpdate = next
+        val kept = liveUpdates.filterNot { it.key == com.jake.duolauncher.search.AssistantLive.KEY }
+        liveUpdates = listOfNotNull(next) + kept
+    }
     var connected by mutableStateOf(false)
     /** Set by the activity; called with an app's name when a new notification should peek in the island. */
     @Volatile var onPeek: ((PeekNotification) -> Unit)? = null
@@ -259,7 +268,7 @@ class UnoNotificationListener : NotificationListenerService() {
                     largeIcon = if (source == ActivitySource.NAVIGATION) runCatching { n.getLargeIcon()?.loadDrawable(this)?.toBitmap(NavigationText.ARROW_PX, NavigationText.ARROW_PX) }.getOrNull() else null,
                 )
             }.getOrNull() }
-        NotificationFeed.liveUpdates = LiveUpdateLogic.present(found, presentKeys)
+        NotificationFeed.liveUpdates = listOfNotNull(NotificationFeed.assistantUpdate) + LiveUpdateLogic.present(found, presentKeys)
         checkNavigationCue(found)
     }
 

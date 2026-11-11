@@ -52,6 +52,8 @@ class MainActivity : ComponentActivity() {
         private set
     private val homeRequests = mutableIntStateOf(0)
     private val searchRequests = mutableIntStateOf(0)
+    /** Opens Spotlight itself (not just Home with a search field focused): the island's assistant card uses it. */
+    private val spotlightRequests = mutableIntStateOf(0)
     /** The island's feed button over other apps (and anything else) asked for My feed. */
     private val feedRequests = mutableIntStateOf(0)
     private val feedSetupRequests = mutableIntStateOf(0)
@@ -217,7 +219,7 @@ class MainActivity : ComponentActivity() {
                 LauncherScreen(state, model, widgets, homeRequests.intValue,
                     onLaunch = { launchApp(it) }, onMakeDefault = ::makeDefault, onAppInfo = ::appInfo,
                     isDefaultHome = defaultHome.value, deviceStatus = deviceStatus, onStatusMode = ::setStatusMode, onWallpaperPreview = ::previewWallpaper,
-                    feedRequests = feedRequests.intValue, searchRequests = searchRequests.intValue,
+                    feedRequests = feedRequests.intValue, searchRequests = searchRequests.intValue, spotlightRequests = spotlightRequests.intValue,
                     onLaunchFrom = ::launchApp, onGoogleSearch = ::openGoogleSearch,
                     appearance = appearance.state,
                     onAppearanceMode = { cancelAppearanceLocation(); appearance.setMode(it, systemDark()) },
@@ -380,6 +382,7 @@ class MainActivity : ComponentActivity() {
     private fun openDestination(destination: String?) {
         when (destination) {
             "search" -> searchRequests.intValue++
+            "spotlight" -> spotlightRequests.intValue++
             "customize" -> customizeRequests.intValue++
             "keyboard" -> keyboardSettingsRequests.intValue++
             "feed" -> feedRequests.intValue++
@@ -390,7 +393,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         FoldRenderExperiment.onNewIntent(this, intent)
-        if (intent.getStringExtra("duo_destination") in setOf("search", "feed", "customize", "keyboard")) openDestination(intent.getStringExtra("duo_destination"))
+        if (intent.getStringExtra("duo_destination") in setOf("search", "spotlight", "feed", "customize", "keyboard")) openDestination(intent.getStringExtra("duo_destination"))
         else if (intent.hasCategory(Intent.CATEGORY_HOME) || intent.getStringExtra("duo_destination") == "home") homeRequests.intValue++
         intent.removeExtra("duo_destination")
     }

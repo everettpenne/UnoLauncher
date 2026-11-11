@@ -1,5 +1,6 @@
 package com.jake.duolauncher.search
 
+import android.util.Log
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
@@ -83,6 +84,7 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import androidx.compose.ui.util.lerp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
@@ -515,44 +517,54 @@ internal fun Spotlight(
     var askedFor by remember(query) { mutableStateOf<String?>(null) }
     var askView by remember(query) { mutableStateOf<AskView?>(null) }
     var askCopied by remember(query) { mutableStateOf(false) }
+    // The turn itself lives in AssistantSession, so search can be closed while the model works. This hands it the question and the
+    // facts an answer would need (read up front: they cost ~25 ms, and a possible action never sees them).
     LaunchedEffect(askedFor) {
         val q = askedFor ?: return@LaunchedEffect
-        val client = assistant ?: return@LaunchedEffect
+        if (assistant == null) return@LaunchedEffect
         askView = AskView.Thinking
-        // An action first: a few dozen tokens, so it is quick. It becomes a row that runs only when tapped.
-        // A failed action ask still gets an answer ask (which says why, if Lab is the problem); a cancel (the query changed) stops here.
-        // No phone context goes with an action request: reading one needs only the words, and with the context the model moved clock times
-        // ("7:30" became 19:30). It goes with the answer below.
-        val json = try { buildString { client.ask(q, AskMode.ACTION).collect { append(it) } } } catch (e: AssistantError) { null }
-        val outcome = json?.let { AssistantIntent.read(it, q) } ?: AssistantIntent.Outcome.None
-        // Something understood but not possible here is said plainly rather than handed to the model to guess at.
-        val shown: AskView? = when (outcome) {
-            is AssistantIntent.Outcome.Cannot -> AskView.Info(outcome.why)
-            is AssistantIntent.Outcome.None -> null
-            is AssistantIntent.Outcome.Act -> when (val action = outcome.action) {
-                is QuickAction.OpenApp -> SpotlightRank.apps(searchable, action.name, { it.label }, { scores[it.id] ?: 0.0 }, { it.description })
-                    .firstOrNull()?.let { AskView.Act(QuickAction.OpenApp(it.label, "Open ${it.label}"), app = it) }
-                    ?: AskView.Info("No app called “${action.name}” is installed.")
-                is QuickAction.Call, is QuickAction.Text -> {
-                    val name = if (action is QuickAction.Call) action.name else (action as QuickAction.Text).name
-                    if (!contactsEnabled) AskView.Info(ContactHint.OFF, settings = true)
-                    else withContext(Dispatchers.IO) { ContactActions.search(context, name) }.takeIf { it.isNotEmpty() }
-                        ?.let { AskView.Act(action, contacts = it) } ?: AskView.Info(ContactHint.none(name))
-                }
-                is QuickAction.Note -> if (noteSlot != null) AskView.Act(action) else AskView.Info("Add a Note widget to Home to save notes from search.")
-                else -> AskView.Act(action)
+        val facts = contextEnv?.let { env ->
+            withContext(Dispatchers.IO) {
+                runCatching { com.jake.duolauncher.search.context.PhoneContext.build(q, action = false, env) }.getOrDefault("")
             }
+        }.orEmpty()
+        AssistantSession.start(context, q, facts)
+    }
+    // Whatever the session has for this question: running, an answer that arrived while search was closed, or an action to offer.
+    // Shown for the question on screen, or for any of them while the field is empty (the panel has just been reopened).
+    val sessionNow = AssistantSession.state
+    LaunchedEffect(sessionNow, query) {
+        val s = sessionNow
+        val mine = when (s) {
+            is AssistantSession.State.Running -> query.isBlank() || s.query == query
+            is AssistantSession.State.Ready -> query.isBlank() || s.query == query
+            is AssistantSession.State.Failed -> query.isBlank() || s.query == query
+            AssistantSession.State.Idle -> false
         }
-        if (shown != null) { askView = shown; return@LaunchedEffect }
-        // Not an action (or not one this phone can do): a short answer, streamed in as it is written.
-        var text = ""
-        askView = AskView.Answer("", done = false)
-        try {
-            val answerContext = contextEnv?.let { com.jake.duolauncher.search.context.PhoneContext.build(q, action = false, it) }.orEmpty()
-            client.ask(q, AskMode.ANSWER, answerContext).collect { piece -> text += piece; askView = AskView.Answer(AnswerText.clean(text) ?: "", done = false) }
-            askView = AnswerText.clean(text)?.let { AskView.Answer(it, done = true) } ?: AskView.Info(AnswerText.UNCLEAR)
-        } catch (e: AssistantError) {
-            askView = AskView.Answer(text.trim(), done = true, error = e.message)
+        if (!mine) return@LaunchedEffect
+        when (s) {
+            is AssistantSession.State.Running -> askView = AskView.Thinking
+            is AssistantSession.State.Failed -> askView = AskView.Answer("", done = true, error = s.why)
+            is AssistantSession.State.Ready -> askView = if (s.actionJson == null) {
+                AnswerText.clean(s.answer.orEmpty())?.let { AskView.Answer(it, done = true) } ?: AskView.Info(AnswerText.UNCLEAR)
+            } else when (val outcome = AssistantIntent.read(s.actionJson, s.query)) {
+                is AssistantIntent.Outcome.Cannot -> AskView.Info(outcome.why)
+                is AssistantIntent.Outcome.None -> null
+                is AssistantIntent.Outcome.Act -> when (val action = outcome.action) {
+                    is QuickAction.OpenApp -> SpotlightRank.apps(searchable, action.name, { it.label }, { scores[it.id] ?: 0.0 }, { it.description })
+                        .firstOrNull()?.let { AskView.Act(QuickAction.OpenApp(it.label, "Open ${it.label}"), app = it) }
+                        ?: AskView.Info("No app called “${action.name}” is installed.")
+                    is QuickAction.Call, is QuickAction.Text -> {
+                        val name = if (action is QuickAction.Call) action.name else (action as QuickAction.Text).name
+                        if (!contactsEnabled) AskView.Info(ContactHint.OFF, settings = true)
+                        else withContext(Dispatchers.IO) { ContactActions.search(context, name) }.takeIf { it.isNotEmpty() }
+                            ?.let { AskView.Act(action, contacts = it) } ?: AskView.Info(ContactHint.none(name))
+                    }
+                    is QuickAction.Note -> if (noteSlot != null) AskView.Act(action) else AskView.Info("Add a Note widget to Home to save notes from search.")
+                    else -> AskView.Act(action)
+                }
+            }
+            AssistantSession.State.Idle -> Unit
         }
     }
     val askAnswered = askView is AskView.Act || askView is AskView.Info || (askView as? AskView.Answer)?.let { it.text.isNotBlank() } == true

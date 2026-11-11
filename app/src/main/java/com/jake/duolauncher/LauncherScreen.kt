@@ -7,6 +7,7 @@ import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.island.*
 import com.jake.duolauncher.feed.*
 import com.jake.duolauncher.search.*
+import com.jake.duolauncher.search.AssistantSession
 import com.jake.duolauncher.panel.*
 import com.jake.duolauncher.appearance.*
 import com.jake.duolauncher.folders.*
@@ -115,7 +116,7 @@ internal fun LauncherScreen(
     state: LauncherState, model: LauncherModel, widgets: WidgetController, homeRequests: Int,
     onLaunch: (AppEntry) -> Unit, onMakeDefault: () -> Unit, onAppInfo: (AppEntry) -> Unit,
     isDefaultHome: Boolean, deviceStatus: DeviceStatus, onStatusMode: (Boolean) -> Unit, onWallpaperPreview: () -> Unit,
-    feedRequests: Int = 0, searchRequests: Int = 0, customizeRequests: Int = 0, keyboardSettingsRequests: Int = 0,
+    feedRequests: Int = 0, searchRequests: Int = 0, customizeRequests: Int = 0, keyboardSettingsRequests: Int = 0, spotlightRequests: Int = 0,
     onLaunchFrom: (AppEntry, android.graphics.Rect?) -> Unit = { app, _ -> onLaunch(app) },
     onGoogleSearch: (android.graphics.Rect?) -> Boolean = { false },
     appearance: AppearanceState = AppearanceState(),
@@ -328,6 +329,19 @@ internal fun LauncherScreen(
     var spotlightOpen by remember { mutableStateOf(false) }
     // Search is still on screen, closing into the island, after spotlightOpen goes false (see where Spotlight is drawn below).
     var spotlightLanding by remember { mutableStateOf(false) }
+    /** The island's assistant card opens search itself, not just Home. */
+    LaunchedEffect(spotlightRequests) { if (spotlightRequests > 0) spotlightOpen = true }
+    // Once the answer has been read (search was open and is now closed), the island's card for it goes away. Only after it was open,
+    // so an answer that arrives while search is closed is not thrown away before it has been seen.
+    var assistantWasOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(spotlightOpen) {
+        if (spotlightOpen) assistantWasOpen = true
+        else if (assistantWasOpen) {
+            assistantWasOpen = false
+            val s = AssistantSession.state
+            if (s is AssistantSession.State.Ready || s is AssistantSession.State.Failed) AssistantSession.clear()
+        }
+    }
     // Jiggle mode on the iOS layout hides the status bar too: its Edit and Done capsules take that row, as on an iPhone.
     //
     // So does anything grown out of the island on the iOS layout (the island open, peeking or being pulled down, and search growing out of

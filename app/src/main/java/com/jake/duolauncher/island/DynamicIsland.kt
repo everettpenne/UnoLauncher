@@ -1296,6 +1296,14 @@ internal fun DynamicIsland(
                     // A tap anywhere on a notification's flash opens that notification (the icon alone is a small target for a
                     // thumb, and a tap that just missed it used to open the panel and lose the flash instead).
                     else if (state.flashOpensSomething()) openFlash()
+                    // Uno's own live update is the assistant's card: one tap goes straight to the answer in search (the same thing
+                    // the card's Open does), instead of only opening the island and needing a second tap.
+                    else if (plan.leading == LiveKind.UPDATE && updates.firstOrNull()?.packageName == context.packageName &&
+                        updates.firstOrNull()?.openIntent != null) {
+                        UnoFeedback.play(Cue.OPEN, haptic)
+                        sendTapAction(context, updates.firstOrNull()?.openIntent)
+                        state.collapse()
+                    }
                     else { UnoFeedback.play(Cue.OPEN, haptic); state.toggle() }
                 })
             .semantics {

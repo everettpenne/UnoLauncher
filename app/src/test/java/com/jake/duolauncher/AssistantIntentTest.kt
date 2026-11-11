@@ -182,3 +182,28 @@ class LabTrustTest {
         assertEquals(AssistantState.FAILED, LabTrust.fromWire(9))
     }
 }
+
+class QuestionShapeTest {
+    @Test fun aQuestionSkipsTheActionAsk() {
+        assertTrue(AssistantIntent.looksLikeQuestion("what is the capital of France"))
+        assertTrue(AssistantIntent.looksLikeQuestion("where am I"))
+        assertTrue(AssistantIntent.looksLikeQuestion("how many minutes are in two and a half hours"))
+        assertTrue(AssistantIntent.looksLikeQuestion("is it going to rain"))
+        assertTrue(AssistantIntent.looksLikeQuestion("why is the sky blue?"))
+        assertTrue(AssistantIntent.looksLikeQuestion("  What's my battery level  "))
+        assertTrue(AssistantIntent.looksLikeQuestion("give me three tips for sleeping better"))
+        assertTrue(AssistantIntent.looksLikeQuestion("explain compound interest"))
+    }
+
+    @Test fun aCommandNeverDoes() {
+        assertFalse(AssistantIntent.looksLikeQuestion("set a timer for 20 minutes"))
+        // A question mark does not make a request a question.
+        assertFalse(AssistantIntent.looksLikeQuestion("set a timer for 20 minutes?"))
+        assertFalse(AssistantIntent.looksLikeQuestion("can you open the camera"))
+        assertFalse(AssistantIntent.looksLikeQuestion("could you set an alarm for 7"))
+        assertFalse(AssistantIntent.looksLikeQuestion("turn on the flashlight"))
+        assertFalse(AssistantIntent.looksLikeQuestion("remind me in twenty minutes"))
+        assertFalse(AssistantIntent.looksLikeQuestion("text Sam that I'm on my way"))
+        assertFalse(AssistantIntent.looksLikeQuestion(""))
+    }
+}

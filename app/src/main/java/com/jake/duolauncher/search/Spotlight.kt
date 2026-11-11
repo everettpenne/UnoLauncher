@@ -287,6 +287,13 @@ internal object SpotlightBar {
         if (!hasGlass) androidx.compose.ui.graphics.SolidColor(Color.Black)
         else androidx.compose.ui.graphics.Brush.verticalGradient(*barStops(solidTo))
 
+    /** [barFill] with no glass under it (search over another app): it thins less, since nothing frosts the page behind the white text. */
+    fun seeThroughFill(solidTo: Float): androidx.compose.ui.graphics.Brush {
+        val s = solidTo.coerceIn(0f, .98f)
+        return androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Black, s to Color.Black,
+            (s + (1f - s) * .55f).coerceAtMost(.99f) to Color.Black.copy(alpha = .86f), 1f to Color.Black.copy(alpha = .72f))
+    }
+
     /** The ramp of [barFill], which the open island's body shares so the two are the same glass: [fill] solid to [solidTo], then thinning. */
     fun barStops(solidTo: Float, fill: Color = Color.Black): Array<Pair<Float, Color>> {
         val s = solidTo.coerceIn(0f, .98f)
@@ -462,6 +469,9 @@ internal fun Spotlight(
     /** Whether opening the panel takes the keyboard. A floating host that focuses its field before Compose has placed the panel makes the
      *  field's scroll-to-caret throw, so it leaves the field for a tap instead. */
     autoFocus: Boolean = true,
+    /** No glass to draw (search over another app, whose pixels can't be sampled): the bar still thins from black into what is behind it,
+     *  and the card is a translucent dark sheet, so the page shows through as Home does through its glass. */
+    seeThrough: Boolean = false,
 ) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
@@ -643,6 +653,7 @@ internal fun Spotlight(
     // leaving a lighter strip there. The scrim and panel are laid out in window coordinates instead: a full-window box shifted back by
     // wherever this parent really is.
     val view = androidx.compose.ui.platform.LocalView.current
+    val windowSize = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
     var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     // Search as iOS 27 does it: the island itself becomes the search bar, with the results on a card of their own floating under it and Home left in view.
     // With no island to grow out of, it is still one panel over a dimmed screen. What is searched, and the morph out of the island, are shared.
@@ -964,7 +975,12 @@ internal fun Spotlight(
     Box(modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() }) {
     Box(Modifier.layout { measurable, constraints ->
             // Exactly the window's size, placed so its top-left corner is the window's (a size modifier would centre it instead).
-            val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(view.rootView.width, view.rootView.height))
+            // The window's size, from Compose's own (observed) window info: a window added straight to the WindowManager, as the assistant's
+            // overlay is, has a root view that is still 0 x 0 on the first measure, and reading it is not observed, so the panel was measured
+            // at nothing and never again (it painted nothing). Home's root is its decor view, already sized, so it never showed there.
+            val w = windowSize.width.takeIf { it > 0 } ?: view.rootView.width
+            val h = windowSize.height.takeIf { it > 0 } ?: view.rootView.height
+            val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(w.coerceAtLeast(0), h.coerceAtLeast(0)))
             layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(-origin.x.roundToInt(), -origin.y.roundToInt()) }
         }
         .drawBehind { drawRect(Color.Black.copy(alpha = (if (floating) .12f else .38f) * effectiveProgress().coerceIn(0f, 1f))) }
@@ -986,7 +1002,8 @@ internal fun Spotlight(
                 }
                 val solidPx = pillBottom - pillTop
                 Box(Modifier.matchParentSize().drawWithCache {
-                    val fill = SpotlightBar.barFill((solidPx / size.height).coerceIn(0f, 1f), hasGlass = glass != null)
+                    val fill = (if (glass == null && seeThrough) SpotlightBar.seeThroughFill((solidPx / size.height).coerceIn(0f, 1f))
+                        else SpotlightBar.barFill((solidPx / size.height).coerceIn(0f, 1f), hasGlass = glass != null))
                     onDrawBehind {
                         drawRect(fill)
                         val p = effectiveProgress().coerceIn(0f, 1f)
@@ -1007,7 +1024,7 @@ internal fun Spotlight(
                     alpha = p; scaleX = .94f + .06f * p; scaleY = .94f + .06f * p
                     translationY = -(1f - p) * 28.dp.toPx(); transformOrigin = TransformOrigin(.5f, 0f)
                 }
-                .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, cardShape, Color.Black, GlassKind.REGULAR, glass.settings) else Modifier.clip(cardShape).background(Color(0xFF1C1C1E)))
+                .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, cardShape, Color.Black, GlassKind.REGULAR, glass.settings) else Modifier.clip(cardShape).background(Color(0xFF1C1C1E).copy(alpha = if (seeThrough) .94f else 1f)))
                 .background(Color.Black.copy(alpha = .52f), cardShape)
                 .clickable(interactionSource = quiet, indication = null) {}.then(swipeToClose).testTag("spotlight-results")
                 // Inside the glass, so the glass itself is the size that is moving. A letter typed mid-way carries on from the card's current speed.

@@ -20,7 +20,7 @@
     <string name="status_tidy_note">Android can hide some status bar icons, but only from a computer. Pick the icons to hide, copy the command and run it with adb (USB debugging on). Uno cannot change this itself.</string>
     <string name="status_tidy_copy">Copy command</string>
     <string name="status_tidy_reset">To show them all again: %1$s</string>
-    <string name="shade_service_description">Allows Uno Launcher’s Home screen gestures to open the system notifications and Quick Settings panels. It also draws the island above other apps so it can be tapped. It does not read screen content or observe activity in other apps.</string>
+    <string name="shade_service_description">Allows Uno Launcher’s Home screen gestures to open the system notifications and Quick Settings panels. It also draws the island above other apps so it can be tapped, and the assistant’s search over the app you are in. When you open that search it takes one picture of the screen for the search panel’s glass to show, kept in memory only until search closes; it never reads text from the screen or observes activity in other apps.</string>
 
 
     <!-- CustomizationSheet.kt -->

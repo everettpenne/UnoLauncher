@@ -97,6 +97,9 @@ class SystemShadeAccessibilityService : AccessibilityService() {
     companion object {
         private var instance = WeakReference<SystemShadeAccessibilityService>(null)
         internal fun isConnected() = instance.get() != null
+        /** The connected service, for search over other apps: its window type sits above the status bar, as the island's does, and it can
+         *  take the one screenshot search's glass bends (see search.AssistOverlay). */
+        internal fun connected(): SystemShadeAccessibilityService? = instance.get()
         /** True while this service is connected, in which case it, not [IslandOverlayService], draws the island. */
         internal fun hostsIsland() = instance.get() != null
 

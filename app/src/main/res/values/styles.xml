@@ -7,4 +7,13 @@
         <item name="android:windowBackground">#567587</item>
         <item name="android:colorAccent">#30596D</item>
     </style>
+
+    <!-- The assistant's own window: no background of its own, so the app behind stays visible, and no dimming of it. -->
+    <style name="Theme.UnoAssist" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
 </resources>

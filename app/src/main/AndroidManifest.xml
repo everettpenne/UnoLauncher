@@ -164,5 +164,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+
+        <!-- Search over another app, for the system assistant gesture: its own task, translucent, and not in recents. -->
+        <activity android:name=".search.AssistActivity" android:exported="true"
+            android:theme="@style/Theme.UnoAssist"
+            android:launchMode="singleInstance" android:taskAffinity=""
+            android:excludeFromRecents="true" android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

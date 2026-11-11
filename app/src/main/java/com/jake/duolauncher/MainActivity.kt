@@ -44,7 +44,7 @@ import android.content.Context
 import android.content.IntentFilter
 
 class MainActivity : ComponentActivity() {
-    private val model: LauncherModel by viewModels()
+    private val model: LauncherModel by lazy { LauncherModels.of(application) }
     private lateinit var widgets: WidgetController
     internal lateinit var backups: BackupController
         private set

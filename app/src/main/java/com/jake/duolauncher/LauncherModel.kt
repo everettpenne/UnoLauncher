@@ -82,6 +82,17 @@ data class LauncherState(
     val visibleApps: List<AppEntry> get() = if (hiddenApps.isEmpty()) apps else apps.filter { it.id !in hiddenApps }
 }
 
+/**
+ * The launcher's one model. Home owns it, and the assistant's own activity reads it, so it is created once per process rather than once per
+ * activity: [LauncherModel]'s init scans every app and its icons, which is not work to do twice while a person waits for search to appear.
+ */
+internal object LauncherModels {
+    @Volatile private var model: LauncherModel? = null
+
+    fun of(app: Application): LauncherModel =
+        model ?: synchronized(this) { model ?: LauncherModel(app).also { model = it } }
+}
+
 class LauncherModel(application: Application) : AndroidViewModel(application) {
     private data class RefreshedApps(val entries: List<AppEntry>, val profiles: List<AppProfile>,
         val authoritativeProfiles: Set<Long>, val removedProfiles: Set<Long>)

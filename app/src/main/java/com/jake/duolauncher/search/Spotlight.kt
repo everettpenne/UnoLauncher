@@ -1152,8 +1152,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
 @Composable
 private fun AnswerCard(modifier: Modifier, text: String, done: Boolean, error: String?, ink: Color, capCorner: androidx.compose.ui.unit.Dp,
     copied: Boolean, onCopy: (String) -> Unit, onContinue: () -> Unit) {
-            // Styled like the smart answer above it: a faint plate, tap to copy. While the answer is written, its words fade in from a soft
-            // rainbow and a faint rainbow edge turns round the card (AnswerReveal); with Android's animations off, it simply appears.
+            // Styled like the smart answer above it: a faint plate, tap to copy. While the answer is written, each word falls softly into place
+            // and a faint glow turns round the card's edge (AnswerReveal); with Android's animations off, it simply appears.
             val context = LocalContext.current
             val animate = remember { android.provider.Settings.Global.getFloat(context.contentResolver,
                 android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f }
@@ -1164,7 +1164,7 @@ private fun AnswerCard(modifier: Modifier, text: String, done: Boolean, error: S
                 .padding(horizontal = 16.dp, vertical = 12.dp).testTag("spotlight-ask-answer")) {
                 Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_answer_by), color = ink.copy(alpha = .7f), style = UnoType.caption1)
                 when {
-                    text.isNotBlank() -> RevealText(text, ink, UnoType.body, animate, Modifier.testTag("spotlight-ask-text"))
+                    text.isNotBlank() -> RevealText(text, streaming = !done, ink = ink, style = UnoType.body, animate = animate, modifier = Modifier.testTag("spotlight-ask-text"))
                     error == null -> Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_thinking), color = ink.copy(alpha = .6f), style = UnoType.body)
                 }
                 if (error != null) Text(error, color = ink.copy(alpha = .7f), style = UnoType.footnote)

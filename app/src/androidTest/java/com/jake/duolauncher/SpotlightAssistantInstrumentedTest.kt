@@ -187,7 +187,8 @@ class SpotlightAssistantInstrumentedTest {
         // Until the first words arrive it is the asking row; then the card appears and grows as the answer is written.
         compose.waitUntil(5_000) { exists("spotlight-ask-thinking") }
         assertFalse(exists("spotlight-ask-answer"))
-        fake.answer.trySend("The capital")
+        // Whole words only while it is written: "capital" shows once the space after it has arrived.
+        fake.answer.trySend("The capital ")
         compose.waitUntil(5_000) { exists("spotlight-ask-text") }
         assertFalse("still being written: nothing to copy yet", exists("spotlight-ask-thinking"))
         compose.onNodeWithTag("spotlight-ask-text", useUnmergedTree = true).assertTextContains("The capital")

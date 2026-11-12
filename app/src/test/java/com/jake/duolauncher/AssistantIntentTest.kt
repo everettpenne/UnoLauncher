@@ -220,16 +220,34 @@ class QuestionShapeTest {
 }
 
 class AnswerRevealTest {
-    @Test fun aStretchFadesInOverTheFadeAndLands() {
-        assertEquals(0f, com.jake.duolauncher.search.AnswerReveal.progress(0), 0f)
-        assertEquals(1f, com.jake.duolauncher.search.AnswerReveal.progress(com.jake.duolauncher.search.AnswerReveal.FADE_MS), 0f)
-        assertTrue(com.jake.duolauncher.search.AnswerReveal.progress(com.jake.duolauncher.search.AnswerReveal.FADE_MS / 2) > .5f) // eased out
+    private val R = com.jake.duolauncher.search.AnswerReveal
+
+    @Test fun aWordEasesIntoPlaceOverTheFade() {
+        assertEquals(0f, R.progress(0), 0f)
+        assertEquals(1f, R.progress(R.FADE_MS), 0f)
+        assertTrue("decelerates: most of the way there by half time", R.progress(R.FADE_MS / 2) > .8f)
     }
 
-    @Test fun freshTextStartsInTheRainbowAndSettlesIntoTheInk() {
+    @Test fun aWordKeepsOneTintByPlaceAndSettlesIntoTheInk() {
         val ink = androidx.compose.ui.graphics.Color.White
-        assertEquals(0f, com.jake.duolauncher.search.AnswerReveal.color(0, 0f, ink).alpha, 0f)
-        assertEquals(ink, com.jake.duolauncher.search.AnswerReveal.color(5, 1f, ink))
-        assertTrue(com.jake.duolauncher.search.AnswerReveal.color(0, .5f, ink) != ink)
+        // The same place gives the same colour, however often it is asked: no flicker.
+        assertEquals(R.tint(.4f, 2), R.tint(.4f, 2))
+        // Neighbouring words get neighbouring hues, not a jump.
+        val a = R.tint(.40f, 0); val b = R.tint(.42f, 0)
+        assertTrue(kotlin.math.abs(a.red - b.red) < .05f && kotlin.math.abs(a.green - b.green) < .05f && kotlin.math.abs(a.blue - b.blue) < .05f)
+        assertEquals(ink, R.color(a, 1f, ink))
+        assertEquals(a, R.color(a, 0f, ink))
+    }
+
+    @Test fun whileWritingOnlyWholeWordsShow() {
+        assertEquals("The sky", R.wholeWords("The sky looks bl", streaming = true))
+        assertEquals("", R.wholeWords("The", streaming = true))
+        assertEquals("The sky looks bl", R.wholeWords("The sky looks bl", streaming = false))
+    }
+
+    @Test fun newWordsAreFoundFromWhereTheLastLeftOff() {
+        assertEquals(listOf(0 to 3, 4 to 7), R.words("The sky", 0))
+        assertEquals(listOf(8 to 13), R.words("The sky looks", 7))
+        assertEquals(emptyList<Pair<Int, Int>>(), R.words("The sky", 7))
     }
 }

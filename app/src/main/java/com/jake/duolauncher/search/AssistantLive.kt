@@ -3,7 +3,6 @@ package com.jake.duolauncher.search
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import com.jake.duolauncher.MainActivity
 import com.jake.duolauncher.island.ActivitySource
 import com.jake.duolauncher.island.LiveUpdate
 

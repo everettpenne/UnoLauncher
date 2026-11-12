@@ -15,6 +15,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.graphics.asAndroidBitmap
+import com.jake.duolauncher.island.IslandFrame
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.channels.Channel
@@ -196,5 +199,37 @@ class SpotlightAssistantInstrumentedTest {
         compose.onNodeWithTag("spotlight-ask-continue", useUnmergedTree = true).assertIsDisplayed()
         // A question goes straight to an answer: no action request first.
         assertEquals(listOf(AskMode.ANSWER), fake.asked.map { it.second })
+    }
+
+    /** Search over an app grows from the island with its progress starting at 0, as the overlay drives it. Its contents must still show once
+     *  it has grown: a lambda that held a number once froze them at 0 (the panel showed, empty). */
+    @Test fun grownFromTheIslandItsContentsShow() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val icon = Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888)
+        val pill = IslandFrame(left = 400f, top = 30f, width = 280f, height = 90f, hole = null)
+        val grow = androidx.compose.animation.core.Animatable(0f)
+        compose.setContent {
+            DuoTheme(true) {
+                Box(Modifier.fillMaxSize()) {
+                    val g = grow.value
+                    Spotlight(null, listOf(AppEntry("com.example.maps/.Main", "Maps", icon)), emptySet(), emptyList(), false,
+                        HandoffResolver(context, ExtrasState()), onLaunch = {}, onOpenFeedLink = {}, onOpenContact = {}, onDismiss = {},
+                        progress = { grow.value }, pill = pill)
+                    androidx.compose.runtime.LaunchedEffect(Unit) { grow.animateTo(1f) }
+                    if (g < 0f) Unit
+                }
+            }
+        }
+        compose.waitForIdle()
+        type("maps")
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(2_000)
+        val image = compose.onNodeWithTag("spotlight-field", useUnmergedTree = true).captureToImage().asAndroidBitmap()
+        var bright = 0
+        for (x in 0 until image.width step 2) for (y in 0 until image.height step 2) {
+            val c = image.getPixel(x, y)
+            if (android.graphics.Color.red(c) > 200 && android.graphics.Color.green(c) > 200 && android.graphics.Color.blue(c) > 200) bright++
+        }
+        assertTrue("the typed text is drawn (bright pixels: $bright)", bright > 20)
     }
 }

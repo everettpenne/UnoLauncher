@@ -218,3 +218,18 @@ class QuestionShapeTest {
         assertTrue(AssistantIntent.mightBeAction("turn the torch on"))
     }
 }
+
+class AnswerRevealTest {
+    @Test fun aStretchFadesInOverTheFadeAndLands() {
+        assertEquals(0f, com.jake.duolauncher.search.AnswerReveal.progress(0), 0f)
+        assertEquals(1f, com.jake.duolauncher.search.AnswerReveal.progress(com.jake.duolauncher.search.AnswerReveal.FADE_MS), 0f)
+        assertTrue(com.jake.duolauncher.search.AnswerReveal.progress(com.jake.duolauncher.search.AnswerReveal.FADE_MS / 2) > .5f) // eased out
+    }
+
+    @Test fun freshTextStartsInTheRainbowAndSettlesIntoTheInk() {
+        val ink = androidx.compose.ui.graphics.Color.White
+        assertEquals(0f, com.jake.duolauncher.search.AnswerReveal.color(0, 0f, ink).alpha, 0f)
+        assertEquals(ink, com.jake.duolauncher.search.AnswerReveal.color(5, 1f, ink))
+        assertTrue(com.jake.duolauncher.search.AnswerReveal.color(0, .5f, ink) != ink)
+    }
+}

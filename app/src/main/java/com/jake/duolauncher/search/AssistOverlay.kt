@@ -175,11 +175,18 @@ object AssistOverlay {
             }
             val grow = remember { androidx.compose.animation.core.Animatable(0f) }
             val open = shown.value
+            val growNow = grow.value
             androidx.compose.runtime.LaunchedEffect(open) {
                 if (open) grow.animateTo(1f, androidx.compose.animation.core.spring(UnoMotion.OPEN_DAMPING, SpotlightEmerge.outlineOpenStiffness()))
                 else {
                     // Back into the pill on the close spring, from wherever the opening had got to; then the window goes.
-                    grow.animateTo(0f, SpotlightEmerge.closeSpring(.001f))
+                    // The live blur behind (no screenshot) eases off with the panel in a few steps, rather than switching off at the end.
+                    var step = 4
+                    grow.animateTo(0f, SpotlightEmerge.closeSpring(.001f)) {
+                        // Clear by the time the panel is 15 % open, so no blur is left once it is back in the pill.
+                        val want = kotlin.math.ceil((value - .15f) / .85f * 4f).toInt().coerceIn(0, 4)
+                        if (want < step) { step = want; setBlur(app, want / 4f) }
+                    }
                     // Not from inside the composition being disposed: on the next message.
                     android.os.Handler(android.os.Looper.getMainLooper()).post { remove() }
                 }
@@ -215,7 +222,9 @@ object AssistOverlay {
                         },
                         // No glass can sample the app below, so the bar thins from black into the page instead, as Home's does into its glass.
                         seeThrough = glass == null,
-                        progress = { grow.value },
+                        // Read here, in composition, as Home reads its own: a value read only inside the panel's draw did not redraw
+                        // it, so search jumped open and vanished on close instead of growing and shrinking.
+                        progress = growNow.let { g -> { g } },
                         noteSlot = state.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
                         focusOn = { extras.state.focusOn },
                         onToggleFocus = {
@@ -291,6 +300,16 @@ object AssistOverlay {
             }
         }
         shown.value = false
+    }
+
+    /** Sets the live blur behind the window to [fraction] of its full strength (only when there is no screenshot, which has no blur). */
+    private fun setBlur(context: Context, fraction: Float) {
+        val v = view ?: return
+        if (shot != null) return
+        val params = v.layoutParams as? WindowManager.LayoutParams ?: return
+        params.blurBehindRadius = (context.resources.displayMetrics.density * 24 * fraction).toInt()
+        if (fraction <= 0f) params.flags = params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND.inv()
+        runCatching { manager?.updateViewLayout(v, params) }
     }
 
     /** Takes the window away and lets the app behind carry on exactly as it was. */

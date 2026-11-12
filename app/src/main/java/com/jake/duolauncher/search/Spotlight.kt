@@ -102,7 +102,9 @@ private val SPOTLIGHT_SWIPE_CLOSE_ZONE = 48.dp
 /** What the swipe-up-close is heading for: the panel's emerge progress (1 = fully open, 0 = collapsed into the pill), and
  * whether the finger is driving it (dragging snaps 1:1; releasing springs back to 1 = open, or is held where the finger left it
  * when the swipe closes). One value so the gesture can change both without an intermediate state. */
-private data class SpotlightSwipe(val progress: Float, val dragging: Boolean)
+private data class SpotlightSwipe(val progress: Float, val dragging: Boolean,
+    /** For a release that closes: the panel's speed at the release, in progress per second (negative, toward the pill). */
+    val velocity: Float = 0f)
 
 /** Ranking for Spotlight's app results. Pure, so it is unit-tested. */
 internal object SpotlightRank {
@@ -355,6 +357,15 @@ internal object SpotlightEmerge {
     const val CLOSE_CONTENT_MS = 310
     const val OUTLINE_CLOSE_DELAY_MS = 155
     const val OUTLINE_CLOSE_MS = 390
+
+    /**
+     * Closing is a spring rather than a timed curve: it starts from wherever the panel is, at whatever speed it is moving (a flick up keeps its
+     * pace into the collapse), and settles into the pill. Critically damped, so it never shrinks past the pill and back. The stiffness gives
+     * about the old close's length (~400 ms) from fully open at rest. Used by Home's search and by search over an app.
+     */
+    const val CLOSE_STIFFNESS = 300f
+    fun <T> closeSpring(visibilityThreshold: T? = null) =
+        androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = CLOSE_STIFFNESS, visibilityThreshold = visibilityThreshold)
 
     /** How far above its place an element is while it comes out ([settle]), in dp: it drops out of the island, the lower ones from further. */
     fun dropDp(settle: Float, depth: Float): Float = -(1f - settle) * (10f + 16f * depth.coerceIn(0f, 1f))
@@ -622,6 +633,8 @@ internal fun Spotlight(
     LaunchedEffect(animationsOn) {
         snapshotFlow { swipeTarget }.collectLatest { target ->
             if (target.dragging || !animationsOn) swipeProgress.snapTo(target.progress)
+            // A release that closes carries on at the finger's speed into the pill, on the close spring.
+            else if (target.progress == 0f) swipeProgress.animateTo(0f, SpotlightEmerge.closeSpring(.001f), initialVelocity = target.velocity)
             else swipeProgress.animateTo(target.progress, UnoMotion.settle())
         }
     }
@@ -739,9 +752,9 @@ internal fun Spotlight(
                             val upPx = down.position.y - last.y
                             val velocityY = tracker.calculateVelocity().y
                             if (IslandDrag.closeDecide(upPx / density.density, -velocityY, slop / density.density) == IslandDrag.CloseOutcome.CLOSE) {
-                                // Hold the panel where the finger left it, so the parent's exit tween (progress 1 → 0) finishes the
-                                // collapse from there rather than snapping back open first.
-                                swipeTarget = SpotlightSwipe(swipeProgress.value, dragging = false)
+                                // Carry on from where the finger left it, at its speed: the panel's own progress springs into the pill
+                                // (the parent's close runs too, and the smaller of the two is drawn), so a flick never pauses before closing.
+                                swipeTarget = SpotlightSwipe(0f, dragging = false, velocity = (velocityY / travelPx).coerceIn(-12f, 0f))
                                 onDismiss()
                             } else {
                                 // Spring back to fully open.

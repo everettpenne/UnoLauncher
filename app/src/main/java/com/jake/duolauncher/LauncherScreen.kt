@@ -1547,9 +1547,8 @@ internal fun LauncherScreen(
                 // Slower than the island (SpotlightEmerge.OPEN_TEMPO on top of IslandMotion.TEMPO): search grows much further than the island does.
                 if (targetState == androidx.compose.animation.EnterExitState.Visible) androidx.compose.animation.core.spring(UnoMotion.OPEN_DAMPING,
                     com.jake.duolauncher.search.SpotlightEmerge.outlineOpenStiffness())
-                else androidx.compose.animation.core.tween(com.jake.duolauncher.search.SpotlightEmerge.OUTLINE_CLOSE_MS,
-                    delayMillis = com.jake.duolauncher.search.SpotlightEmerge.OUTLINE_CLOSE_DELAY_MS,
-                    easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                // Closing: a critically damped spring from wherever it is (see SpotlightEmerge.closeSpring), not a timed curve.
+                else com.jake.duolauncher.search.SpotlightEmerge.closeSpring(.001f)
             }, label = "search grows from the island") { if (it == androidx.compose.animation.EnterExitState.Visible) 1f else 0f }
             // Closing, the island is let back once search is a quarter of the way out of the pill: its fade-in (60 ms wait, 200 ms) then overlaps
             // search's last stretch into the very place it sits, so the two meet as one shape.

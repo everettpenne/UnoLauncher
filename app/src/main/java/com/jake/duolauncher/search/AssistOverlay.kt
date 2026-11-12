@@ -100,7 +100,9 @@ object AssistOverlay {
     fun show(context: Context, screenText: String?) {
         val app = context.applicationContext as? Application ?: return
         // A window the system took away (its service was stopped) is closed, whatever was last recorded.
-        if (view?.isAttachedToWindow == false) hide()
+        if (view?.isAttachedToWindow == false) remove()
+        // Opened again while the last one is still closing: finish that close at once.
+        if (closing) remove()
         if (view != null || opening) return
         // Never over the lock screen (AssistActivity asks for the unlock first; this is the backstop): the service's window would draw above it.
         if (app.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true) return
@@ -140,6 +142,7 @@ object AssistOverlay {
         manager = host.getSystemService(WindowManager::class.java)
         shot = picture
         val windowOwner = Owner().also { it.start(); owner = it }
+        shown.value = true
         val screen = ComposeView(host).apply {
             setViewTreeLifecycleOwner(windowOwner)
             setViewTreeSavedStateRegistryOwner(windowOwner)
@@ -171,8 +174,15 @@ object AssistOverlay {
                 }
             }
             val grow = remember { androidx.compose.animation.core.Animatable(0f) }
-            androidx.compose.runtime.LaunchedEffect(Unit) {
-                grow.animateTo(1f, androidx.compose.animation.core.spring(UnoMotion.OPEN_DAMPING, SpotlightEmerge.outlineOpenStiffness()))
+            val open = shown.value
+            androidx.compose.runtime.LaunchedEffect(open) {
+                if (open) grow.animateTo(1f, androidx.compose.animation.core.spring(UnoMotion.OPEN_DAMPING, SpotlightEmerge.outlineOpenStiffness()))
+                else {
+                    // Back into the pill on the close spring, from wherever the opening had got to; then the window goes.
+                    grow.animateTo(0f, SpotlightEmerge.closeSpring(.001f))
+                    // Not from inside the composition being disposed: on the next message.
+                    android.os.Handler(android.os.Looper.getMainLooper()).post { remove() }
+                }
             }
             val contextEnv = remember(assistant, screenText) {
                 assistant?.let {
@@ -197,7 +207,7 @@ object AssistOverlay {
                         onOpenFeedLink = { link -> openLink(app, link); hide() },
                         onOpenContact = { contact -> ContactsSearch.open(app, contact); hide() },
                         onDismiss = { hide() },
-                        visible = true,
+                        visible = shown.value,
                         // Grows out of the island when there is one, as on Home (the island's frame is the process's, so it is there when
                         // Home has drawn it); otherwise the panel hangs from the top.
                         pill = remember(appearance.state.island) {
@@ -251,15 +261,41 @@ object AssistOverlay {
         composeView = screen
         // The screen going off locks the phone: search closes with it, so it is never left open above the lock screen.
         screenOff = object : android.content.BroadcastReceiver() {
-            override fun onReceive(c: Context?, i: android.content.Intent?) = hide()
+            override fun onReceive(c: Context?, i: android.content.Intent?) = hide(animated = false)
         }.also { runCatching { app.registerReceiver(it, android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_OFF)) } }
         receiverContext = app
         // As on Home, the status bar steps aside while search is open, so the bar's camera band is the island's own black.
         runCatching { root.windowInsetsController?.hide(android.view.WindowInsets.Type.statusBars()) }
     }
 
+    /** False once search is closing: the panel springs back into the island pill, then the window goes (see [hide]). */
+    private val shown = androidx.compose.runtime.mutableStateOf(true)
+    private var closing = false
+
+    /**
+     * Closes search: the panel springs back into the island pill as Home's does, taking no more touches meanwhile (a tap already reaches the
+     * app below), and the window goes once it is there. [animated] false takes it away at once (the screen went off, the service stopped).
+     */
+    fun hide(animated: Boolean = true) {
+        if (view == null) return
+        val animate = animated && android.provider.Settings.Global.getFloat(
+            (receiverContext ?: return remove()).contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
+        if (!animate) { remove(); return }
+        if (closing) return
+        closing = true
+        view?.let { v ->
+            val params = v.layoutParams as? WindowManager.LayoutParams
+            if (params != null) runCatching {
+                params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                manager?.updateViewLayout(v, params)
+            }
+        }
+        shown.value = false
+    }
+
     /** Takes the window away and lets the app behind carry on exactly as it was. */
-    fun hide() {
+    private fun remove() {
+        closing = false
         val screen = view ?: return
         view = null
         runCatching { manager?.removeView(screen) }

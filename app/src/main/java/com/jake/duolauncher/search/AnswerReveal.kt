@@ -13,7 +13,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -25,8 +24,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -34,167 +35,180 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 
 /**
- * How Ask Qwen's answer arrives, after Google's on-device assistant: whole words only (a half-written word would wrap, then jump back).
- * The newest word fades in over [IN_MS] as it drops a few dp into place and grows from 97 %, painted with a rainbow gradient and a soft
- * glow; when the next word arrives it cross-fades from the rainbow into the ink over [SETTLE_MS]. So the colour rides the leading edge of
- * the answer, one word at a time, and everything behind it is ordinary text. Each word's gradient is fixed (its phase comes from its
- * place in the answer), so nothing flickers. While the answer is written a faint glow slowly turns round the card's edge. The sums are
- * pure, so they are unit-tested.
+ * How Ask Qwen's answer arrives: a cascade that runs through it letter by letter at a reading pace. Each letter fades in over [IN_MS] as it
+ * drops [FALL_DP] into place, arriving in the rainbow, and then takes [SETTLE_MS] to settle into the ink, so the colour trails behind the
+ * cascade across a few dozen letters, fading as it goes, rather than sitting on one word. The cascade keeps up with the model: it runs at
+ * [BASE_CPS] letters a second and speeds up when it falls behind ([speed]), which also reveals an answer that arrived whole (reopened from
+ * the island) as a short, graceful run rather than all at once. While the answer is still being written only whole words are released to
+ * it, so a half-written word never wraps and jumps back. Each letter's colour depends only on its place in the text and its age, never on
+ * other letters, so nothing flickers. The sums are pure, so they are unit-tested.
  */
 internal object AnswerReveal {
-    const val IN_MS = 240L
-    const val SETTLE_MS = 380L
-    /** Words that arrive together follow one another by this much. */
-    const val STAGGER_MS = 45L
-    /** How far above its place a new word starts, in dp. */
+    const val IN_MS = 300L
+    const val SETTLE_MS = 1400L
+    /** How far above its place a letter starts, in dp. */
     const val FALL_DP = 3f
-    /** The glow's blur, in dp. */
-    const val GLOW_DP = 9f
+    /** The glow's blur at the cascade's leading edge, in dp. */
+    const val GLOW_DP = 8f
+    /** The cascade's reading pace, and how much faster it runs for each letter it is behind. */
+    const val BASE_CPS = 60f
+    const val CATCH_UP_PER_LETTER = 2.5f
+    const val MAX_CPS = 600f
     /** One slow trip round the card for the edge glow. */
     const val GLOW_TURN_MS = 6000
 
-    /** The leading word's rainbow. */
+    /** The rainbow the leading letters arrive in. */
     val rainbow = listOf(Color(0xFFFF5E62), Color(0xFFFF9966), Color(0xFF38EF7D), Color(0xFF00F2FE), Color(0xFFA855F7), Color(0xFFEC4899))
     /** The card edge's softer colours. */
     val edge = listOf(Color(0xFF8AB4FF), Color(0xFFB98CFF), Color(0xFFFF8AC8), Color(0xFFFFB86B), Color(0xFF7DE3C8), Color(0xFF8AB4FF))
 
-    /** A word coming in, [ageMs] after it arrived: 0 to 1, decelerating so it lands softly. */
+    /** The cascade's speed, letters a second, when [behind] letters are waiting for it. */
+    fun speed(behind: Int): Float = (BASE_CPS + behind.coerceAtLeast(0) * CATCH_UP_PER_LETTER).coerceAtMost(MAX_CPS)
+
+    /** A letter coming in, [ageMs] after the cascade reached it: 0 to 1, decelerating so it lands softly. */
     fun fadeIn(ageMs: Long): Float = ease((ageMs.toFloat() / IN_MS).coerceIn(0f, 1f))
 
-    /** A word leaving the rainbow, [ageMs] after the next word arrived (or the answer finished): 0 (rainbow) to 1 (ink). */
-    fun settle(ageMs: Long): Float = ease((ageMs.toFloat() / SETTLE_MS).coerceIn(0f, 1f))
+    /** A letter leaving the rainbow, [ageMs] after the cascade reached it: 0 (rainbow) to 1 (ink), slow and soft, so the colour trails. */
+    fun settle(ageMs: Long): Float {
+        val t = (ageMs.toFloat() / SETTLE_MS).coerceIn(0f, 1f)
+        return t * t * (3f - 2f * t)
+    }
 
-    /** A fast-out, slow-in curve (as cubic-bezier(.22, 1, .36, 1)): most of the change early, a long soft finish. */
+    /** A fast-out, slow-in curve: most of the change early, a long soft finish. */
     private fun ease(t: Float): Float { val u = 1f - t; return 1f - u * u * u * u }
 
-    /** Where a word's rainbow starts, 0 to 1 of the gradient: shifted on for each word, so neighbours differ but each keeps its own. */
-    fun phase(wordIndex: Int): Float = ((wordIndex * 23) % 100) / 100f
+    /** The rainbow at letter [index]: a slow sweep along the text, so neighbouring letters are neighbouring colours. */
+    fun hue(index: Int): Color {
+        val stops = rainbow.size - 1
+        val t = ((index % 48) / 48f) * stops
+        val i = t.toInt().coerceIn(0, stops - 1)
+        return androidx.compose.ui.graphics.lerp(rainbow[i], rainbow[i + 1], t - i)
+    }
 
-    /** What is shown while the answer is still being written: only up to the last complete word, so nothing reflows mid-word. */
+    /** Letter [index]'s colour, [ageMs] after the cascade reached it: its rainbow settling into [ink], fading in as it arrives. */
+    fun color(index: Int, ageMs: Long, ink: Color): Color {
+        val c = androidx.compose.ui.graphics.lerp(hue(index), ink, settle(ageMs))
+        return c.copy(alpha = c.alpha * fadeIn(ageMs))
+    }
+
+    /** What is released to the cascade while the answer is still being written: only up to the last complete word, so nothing reflows. */
     fun wholeWords(text: String, streaming: Boolean): String {
         if (!streaming) return text
         val end = text.indexOfLast { it.isWhitespace() }
         return if (end < 0) "" else text.substring(0, end).trimEnd()
     }
-
-    /** The words in [text] from [from] on, as (start, end) ranges. */
-    fun words(text: String, from: Int): List<Pair<Int, Int>> {
-        val out = ArrayList<Pair<Int, Int>>()
-        var i = from.coerceIn(0, text.length)
-        while (i < text.length) {
-            while (i < text.length && text[i].isWhitespace()) i++
-            val s = i
-            while (i < text.length && !text[i].isWhitespace()) i++
-            if (i > s) out += s to i
-        }
-        return out
-    }
 }
 
-/** A word still arriving or settling: its range, its place among the words, when it arrived, and when it began to settle. */
-private class Landing(val start: Int, val end: Int, val index: Int, val arrived: Long) {
-    var settleFrom: Long? = null
-}
+/** How often the plain text catches up with the settled letters: each time re-lays out the text, so not every frame. */
+private const val SETTLED_STEP = 16
 
 /**
- * [text] as it is written ([streaming]), its leading word in a rainbow that settles into [ink] as the next arrives (see [AnswerReveal]).
- * The settled text is ordinary text; the words still arriving or settling are drawn on their own, in the draw phase, from their own small
- * layouts placed exactly where the full text puts them, so the animation recomposes nothing per frame, the glow touches no other word,
- * and the clock stops once every word has settled.
+ * [text] revealed by the letter cascade (see [AnswerReveal]). Behind it is ordinary text, kept [SETTLED_STEP] letters at a time; the letters
+ * still arriving or settling are drawn on top from the same layout, in the draw phase: the freshest few one by one (they drop into place),
+ * the rest as one stretch per line whose gradient gives each letter its own colour. So a frame recomposes nothing, the text re-lays out
+ * only a few times a second, and the clock stops when every letter has settled.
  */
 @Composable
 internal fun RevealText(text: String, streaming: Boolean, ink: Color, style: TextStyle, animate: Boolean, modifier: Modifier = Modifier) {
     val shown = AnswerReveal.wholeWords(text, streaming)
     if (!animate) { Text(shown, modifier, color = ink, style = style); return }
-    val landing = remember { mutableStateListOf<Landing>() }
-    var known by remember { mutableIntStateOf(0) }
-    var count by remember { mutableIntStateOf(0) }
+    // When the cascade reached each letter (ms); the cascade's position (fractional letters); and the plain text's settled end.
+    val reached = remember { LongArray(4096) }
+    val head = remember { FloatArray(1) }
+    var settledEnd by remember { mutableIntStateOf(0) }
     var clock by remember { mutableLongStateOf(0L) }
-    if (shown.length < known) { landing.clear(); known = 0; count = 0 }
-    LaunchedEffect(shown, streaming) {
-        val now = withFrameNanos { it } / 1_000_000
-        clock = now
-        if (shown.length > known) {
-            val fresh = AnswerReveal.words(shown, known)
-            if (known == 0 && !streaming) {
-                // A finished answer shown whole (one from earlier, or a reply from the table): it simply appears, settled.
-                count = fresh.size
-            } else fresh.forEach { (s, e) ->
-                val last = landing.lastOrNull()
-                val at = maxOf(now, (last?.arrived ?: Long.MIN_VALUE / 2) + AnswerReveal.STAGGER_MS)
-                // The word before it starts leaving the rainbow as this one arrives.
-                last?.let { if (it.settleFrom == null) it.settleFrom = at }
-                landing += Landing(s, e, count++, at)
+    if (head[0] > shown.length) { head[0] = 0f; settledEnd = 0 }
+    LaunchedEffect(shown) {
+        var last = withFrameNanos { it } / 1_000_000
+        clock = last
+        while (true) {
+            val now = withFrameNanos { it } / 1_000_000
+            val dt = (now - last).coerceIn(0L, 64L) / 1000f
+            last = now
+            val before = head[0]
+            val target = minOf(shown.length, reached.size).toFloat()
+            if (before < target) {
+                val cps = AnswerReveal.speed((target - before).toInt())
+                head[0] = minOf(target, before + cps * dt)
+                // Each letter passed this frame gets the moment the cascade really passed it, so a fast run still cascades smoothly.
+                for (i in before.toInt() until head[0].toInt()) reached[i] = now - (((head[0] - (i + 1)) / cps) * 1000f).toLong().coerceAtLeast(0L)
             }
-            known = shown.length
-        }
-        // Done: the last word settles too, once it has finished coming in.
-        if (!streaming) landing.lastOrNull()?.let { if (it.settleFrom == null) it.settleFrom = maxOf(now, it.arrived + AnswerReveal.IN_MS) }
-        // Only while something moves: a word coming in, or one settling. The newest word, once in, waits in its rainbow without a clock
-        // (nothing redraws) until the next word arrives or the answer finishes, which starts this again.
-        while (landing.any { clock - it.arrived < AnswerReveal.IN_MS || it.settleFrom != null }) {
-            clock = withFrameNanos { it } / 1_000_000
-            // A settled word becomes ordinary text (a change to the list, so a recomposition only as each one settles, not every frame).
-            val gone = landing.filter { w -> w.settleFrom?.let { clock - it >= AnswerReveal.SETTLE_MS } == true }
-            if (gone.isNotEmpty()) landing.removeAll(gone)
+            clock = now
+            // The plain text catches up in steps, once letters have settled.
+            var settled = settledEnd
+            while (settled < head[0].toInt() && now - reached[settled] >= AnswerReveal.SETTLE_MS) settled++
+            if (settled >= settledEnd + SETTLED_STEP || (settled == head[0].toInt() && settled > settledEnd)) settledEnd = settled
+            // Done once the cascade has caught up and everything it passed has settled; the next text starts it again.
+            if (head[0] >= target && settledEnd >= target.toInt()) break
         }
     }
-    // The words this frame's text leaves out (transparent, so the lines are laid out exactly as they will be), and the same words are the
-    // ones drawn on top. One list for both: a word that finished settling must stay drawn on top until the text that leaves it out is
-    // rebuilt (the next composition), or it vanished for a frame, which read as a flicker.
-    val drawn = landing.toList()
-    val ranges = drawn.map { it.start to it.end }
-    // Text not yet taken in by the animation (it arrived this frame; the effect above picks it up next) is left out too, or a new word
-    // showed in plain ink for a frame before fading in from the rainbow: a flash.
-    val pending = known.coerceAtMost(shown.length)
-    val annotated = remember(shown, ranges, pending) {
-        buildAnnotatedString {
-            append(shown)
-            ranges.forEach { (s, e) -> if (e <= shown.length) addStyle(SpanStyle(color = Color.Transparent), s, e) }
-            if (pending < shown.length) addStyle(SpanStyle(color = Color.Transparent), pending, shown.length)
-        }
+    val end = settledEnd.coerceAtMost(shown.length)
+    // Ordinary text up to the settled end; the rest left out (transparent, so every line is laid out exactly as it will be).
+    val annotated = remember(shown, end) {
+        buildAnnotatedString { append(shown); if (end < shown.length) addStyle(SpanStyle(color = Color.Transparent), end, shown.length) }
     }
     val measurer = rememberTextMeasurer()
     val laidOut = remember { arrayOfNulls<TextLayoutResult>(1) }
-    val words = remember { HashMap<String, TextLayoutResult>() }
+    val plain = remember { arrayOfNulls<Pair<Pair<String, Int>, TextLayoutResult>>(1) }
     BasicText(annotated, modifier.drawWithContent {
         drawContent()
         val layout = laidOut[0] ?: return@drawWithContent
-        if (drawn.isEmpty()) return@drawWithContent
-        val fall = AnswerReveal.FALL_DP.dp.toPx()
-        val glow = AnswerReveal.GLOW_DP.dp.toPx()
-        for (word in drawn) {
-            if (word.end > shown.length || word.end > layout.layoutInput.text.length) continue
-            val p = AnswerReveal.fadeIn(clock - word.arrived)
-            if (p <= 0f) continue
-            val s = word.settleFrom?.let { AnswerReveal.settle(clock - it) } ?: 0f
-            val piece = shown.substring(word.start, word.end)
-            val own = words.getOrPut(piece) { measurer.measure(piece, style.copy(color = ink)) }
-            val line = layout.getLineForOffset(word.start)
-            val x = layout.getHorizontalPosition(word.start, true)
-            val y = layout.getLineBaseline(line) - own.firstBaseline
-            val w = own.size.width.toFloat(); val h = own.size.height.toFloat()
-            withTransform({
-                translate(x, y - (1f - p) * fall)
-                val k = .97f + .03f * p
-                scale(k, k, Offset(w / 2f, h / 2f))
-            }) {
-                if (s < 1f) {
-                    // The rainbow: one gradient across the word, its start shifted per word; and its glow, a blur of the same colours.
-                    val span = maxOf(w, 64.dp.toPx()) * 2.2f
-                    val shift = AnswerReveal.phase(word.index) * span * .5f
-                    val brush = Brush.linearGradient(AnswerReveal.rainbow, Offset(-shift, 0f), Offset(-shift + span, span * .36f))
-                    val tint = AnswerReveal.rainbow[word.index % AnswerReveal.rainbow.size]
-                    drawText(own, brush = brush, alpha = p * (1f - s),
-                        shadow = Shadow(tint.copy(alpha = .75f * p * (1f - s)), Offset.Zero, glow))
-                }
-                if (s > 0f) drawText(own, color = ink, alpha = p * s)
+        val upTo = minOf(head[0].toInt(), shown.length)
+        if (upTo <= end) return@drawWithContent
+        val key = shown to layout.size.width
+        val full = plain[0]?.takeIf { it.first == key }?.second
+            ?: measurer.measure(shown, style.copy(color = ink), constraints = Constraints.fixedWidth(layout.size.width)).also { plain[0] = key to it }
+        drawCascade(full, shown, end, upTo, reached, clock, ink)
+    }, style = style.copy(color = ink), onTextLayout = { laidOut[0] = it })
+}
+
+/** Draws letters [from] to [to] of [full] as the cascade has them at [now]. */
+private fun DrawScope.drawCascade(full: TextLayoutResult, text: String, from: Int, to: Int, reached: LongArray, now: Long, ink: Color) {
+    val fall = AnswerReveal.FALL_DP.dp.toPx()
+    val pad = 1.dp.toPx()
+    // The freshest letters, still coming in, one by one so each can drop into place; the glow sits on the very newest.
+    var fresh = to
+    while (fresh > from && now - reached[fresh - 1] < AnswerReveal.IN_MS) fresh--
+    var line = -1; var top = 0f; var bottom = 0f
+    for (i in from until to) {
+        val ln = full.getLineForOffset(i)
+        if (ln != line) { line = ln; top = full.getLineTop(ln); bottom = full.getLineBottom(ln) }
+        if (i < fresh) continue
+        if (text[i].isWhitespace()) continue
+        val box = full.getBoundingBox(i)
+        val age = now - reached[i]
+        val p = AnswerReveal.fadeIn(age)
+        val c = AnswerReveal.color(i, age, ink)
+        clipRect(box.left - pad, top - fall - pad, box.right + pad, bottom + pad) {
+            translate(top = -(1f - p) * fall) {
+                drawText(full, color = c.copy(alpha = 1f), alpha = c.alpha,
+                    shadow = if (age < AnswerReveal.IN_MS) Shadow(AnswerReveal.hue(i).copy(alpha = .55f * (1f - p)), Offset.Zero, AnswerReveal.GLOW_DP.dp.toPx()) else null)
             }
         }
-    }, style = style.copy(color = ink), onTextLayout = { laidOut[0] = it })
+    }
+    // The letters settling: one stretch per line, its gradient giving each letter its colour and opacity.
+    var i = from
+    while (i < fresh) {
+        val ln = full.getLineForOffset(i)
+        val lineEnd = minOf(fresh, full.getLineEnd(ln, visibleEnd = true).coerceAtLeast(i + 1))
+        val left = full.getHorizontalPosition(i, true); val right = full.getHorizontalPosition(lineEnd, true)
+        if (right > left + 1f) {
+            val stops = ArrayList<Pair<Float, Color>>()
+            for (k in i until lineEnd) {
+                val b = full.getBoundingBox(k)
+                val mid = ((b.left + b.right) / 2f - left) / (right - left)
+                stops += mid.coerceIn(0f, 1f) to AnswerReveal.color(k, now - reached[k], ink)
+            }
+            if (stops.size == 1) stops += 1f to stops[0].second
+            val brush = Brush.horizontalGradient(*stops.sortedBy { it.first }.toTypedArray(), startX = left, endX = right)
+            clipRect(left - pad, full.getLineTop(ln), right + pad, full.getLineBottom(ln)) { drawText(full, brush = brush) }
+        }
+        i = maxOf(lineEnd, i + 1)
+    }
 }
 
 /**

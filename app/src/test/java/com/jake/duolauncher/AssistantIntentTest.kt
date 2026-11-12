@@ -221,34 +221,38 @@ class QuestionShapeTest {
 
 class AnswerRevealTest {
     private val R = com.jake.duolauncher.search.AnswerReveal
+    private val ink = androidx.compose.ui.graphics.Color.White
 
-    @Test fun aNewWordComesInQuicklyAndLandsSoftly() {
+    @Test fun aLetterFadesInQuicklyAndSettlesSlowly() {
         assertEquals(0f, R.fadeIn(0), 0f)
         assertEquals(1f, R.fadeIn(R.IN_MS), 0f)
-        assertTrue("most of the way in by half time", R.fadeIn(R.IN_MS / 2) > .85f)
-    }
-
-    @Test fun theWordBeforeSettlesFromRainbowIntoInk() {
         assertEquals(0f, R.settle(0), 0f)
         assertEquals(1f, R.settle(R.SETTLE_MS), 0f)
-        assertTrue(R.settle(R.SETTLE_MS / 3) in .3f..1f)
+        assertTrue("the colour lasts well beyond the fade", R.SETTLE_MS > 3 * R.IN_MS)
+        assertTrue("still mostly colour by the time it has faded in", R.settle(R.IN_MS) < .2f)
     }
 
-    @Test fun eachWordKeepsItsOwnRainbowPhase() {
-        assertEquals(R.phase(7), R.phase(7))
-        assertTrue(R.phase(1) != R.phase(2))
-        assertTrue((0 until 50).all { R.phase(it) in 0f..1f })
+    @Test fun aLetterArrivesInItsRainbowAndEndsInTheInk() {
+        assertEquals(0f, R.color(10, 0, ink).alpha, 0f)
+        assertEquals(ink, R.color(10, R.SETTLE_MS, ink))
+        assertTrue(R.color(10, R.IN_MS, ink) != ink)
     }
 
-    @Test fun whileWritingOnlyWholeWordsShow() {
+    @Test fun neighbouringLettersAreNeighbouringColours() {
+        val a = R.hue(20); val b = R.hue(21)
+        assertTrue(kotlin.math.abs(a.red - b.red) < .2f && kotlin.math.abs(a.green - b.green) < .2f && kotlin.math.abs(a.blue - b.blue) < .2f)
+        assertEquals(R.hue(5), R.hue(5))
+    }
+
+    @Test fun theCascadeKeepsUpWhenBehind() {
+        assertEquals(R.BASE_CPS, R.speed(0), 0f)
+        assertTrue(R.speed(100) > R.speed(10))
+        assertEquals(R.MAX_CPS, R.speed(100_000), 0f)
+    }
+
+    @Test fun whileWritingOnlyWholeWordsAreReleased() {
         assertEquals("The sky looks", R.wholeWords("The sky looks bl", streaming = true))
         assertEquals("", R.wholeWords("The", streaming = true))
         assertEquals("The sky looks bl", R.wholeWords("The sky looks bl", streaming = false))
-    }
-
-    @Test fun newWordsAreFoundFromWhereTheLastLeftOff() {
-        assertEquals(listOf(0 to 3, 4 to 7), R.words("The sky", 0))
-        assertEquals(listOf(8 to 13), R.words("The sky looks", 7))
-        assertEquals(emptyList<Pair<Int, Int>>(), R.words("The sky", 7))
     }
 }

@@ -57,11 +57,14 @@ internal object AssistantLive {
         )
     }
 
-    /** Tapping the island opens search, where the session's answer is shown. */
+    /**
+     * Tapping the island opens search where the session's answer is shown: over whatever is on screen, as the assist gesture does
+     * ([AssistActivity] puts search over the app in front, asks for the unlock first if the phone is locked, and falls back to Home's search
+     * without the permission it needs). It used to open Home, taking the person away from what they were doing.
+     */
     private fun open(context: Context): PendingIntent = PendingIntent.getActivity(
         context, 7,
-        Intent(context, MainActivity::class.java).putExtra("duo_destination", "spotlight")
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        Intent(context, AssistActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 }

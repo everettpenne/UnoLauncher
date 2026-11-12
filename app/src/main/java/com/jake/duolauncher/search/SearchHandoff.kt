@@ -81,18 +81,36 @@ internal class HandoffResolver(private val context: Context, private val extras:
         label ?: runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(fallbackLabel),
         runCatching { pm.getApplicationIcon(pkg).toBitmap(96, 96) }.getOrNull())
 
+    /**
+     * What [targets] offers, worked out once: the stores and browser installed, with their labels and icons. Search used to ask the package
+     * manager, query every browser and re-rasterise each app's icon on every keystroke that matched no app (most of a typed question),
+     * on the main thread: measured on a Pixel 10a, keystroke frames with 18 ms of recomposition. [prepare] fills this off the main thread
+     * as search opens; until then [targets] fills it on first use.
+     */
+    private class Offer(val stores: List<HandoffTarget>, val web: HandoffTarget?)
+    @Volatile private var offer: Offer? = null
+
+    private fun build(): Offer {
+        val stores = HandoffLogic.pickStores(extras.handoffStores, HandoffLogic.KNOWN_STORES.map { it.packageName }.filter(::installed).toSet())
+            .map { target(HandoffKind.STORE, it.packageName, it.label, it.label) }
+        val web = HandoffLogic.pickBrowser(extras.webPackage, browsers())?.let { target(HandoffKind.WEB, it, null, "your browser") }
+        return Offer(stores, web)
+    }
+
+    /** Works out the offer again, off the main thread (call when search opens, so an app installed since is seen). */
+    suspend fun prepare() {
+        if (!extras.handoff) return
+        offer = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { build() }
+    }
+
     /** The rows to show for [query], given how many installed apps matched and whether an answer already appeared. */
     fun targets(query: String, appMatches: Int, hasAnswer: Boolean): List<HandoffTarget> {
         if (!extras.handoff) return emptyList()
-        val out = mutableListOf<HandoffTarget>()
-        if (HandoffLogic.offerStores(query, appMatches, hasAnswer)) {
-            HandoffLogic.pickStores(extras.handoffStores, HandoffLogic.KNOWN_STORES.map { it.packageName }.filter(::installed).toSet())
-                .forEach { out += target(HandoffKind.STORE, it.packageName, it.label, it.label) }
-        }
-        if (HandoffLogic.offerWeb(query, appMatches, hasAnswer)) {
-            HandoffLogic.pickBrowser(extras.webPackage, browsers())?.let { out += target(HandoffKind.WEB, it, null, "your browser") }
-        }
-        return out
+        val stores = HandoffLogic.offerStores(query, appMatches, hasAnswer)
+        val web = HandoffLogic.offerWeb(query, appMatches, hasAnswer)
+        if (!stores && !web) return emptyList()
+        val o = offer ?: build().also { offer = it }
+        return (if (stores) o.stores else emptyList()) + listOfNotNull(o.web.takeIf { web })
     }
 
     fun open(target: HandoffTarget, query: String) {

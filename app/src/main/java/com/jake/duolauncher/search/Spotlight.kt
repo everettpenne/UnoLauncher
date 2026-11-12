@@ -519,6 +519,8 @@ internal fun Spotlight(
         actionContacts = withContext(Dispatchers.IO) { ContactActions.search(context, actionName) }
     }
     val settingsHits = remember(query) { SpotlightSources.settings(query) }
+    // The stores and browser search can hand off to, with their icons: worked out off the main thread as search opens, not per keystroke.
+    LaunchedEffect(handoff, visible) { if (visible) handoff.prepare() }
     // Uno Lab's assistant: bound (and the model warmed) only while search is open with the setting on, unbound as it closes.
     DisposableEffect(assistant, visible) {
         if (assistant != null && visible) assistant.open()
@@ -1086,8 +1088,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
                 "spotlight-ask", false, ink, onAsk) { mark(Icons.Rounded.AutoAwesome) }
         }
         is AskView.Thinking -> item("ask") {
-            SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_asking), stringResource(if (state == AssistantState.LOADING) com.jake.duolauncher.R.string.spotlight_ask_loading else com.jake.duolauncher.R.string.spotlight_ask_on_phone),
+            // The answer as it is written, once the first words arrive; until then, the asking row. Only this item reads the stream, so the
+            // text arriving a frame at a time redraws this card and nothing else in search.
+            val live = AssistantSession.streamed.takeIf { it.isNotBlank() }?.let(AnswerText::clean)
+            if (live == null) SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_asking), stringResource(if (state == AssistantState.LOADING) com.jake.duolauncher.R.string.spotlight_ask_loading else com.jake.duolauncher.R.string.spotlight_ask_on_phone),
                 "spotlight-ask-thinking", false, ink, {}) { mark(Icons.Rounded.AutoAwesome) }
+            else AnswerCard(rowMotion(), live, done = false, error = null, ink = ink, capCorner = capCorner, copied = false, onCopy = onCopy, onContinue = onContinue)
         }
         is AskView.Act -> {
             item("ask-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask_suggested), ink) }
@@ -1122,19 +1128,29 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
                 if (view.settings) Text(stringResource(com.jake.duolauncher.R.string.spotlight_open_search_settings), color = ink.copy(alpha = .5f), style = UnoType.caption2)
             }
         }
-        is AskView.Answer -> item("ask-answer") {
+        is AskView.Answer -> item("ask") {
+            AnswerCard(rowMotion(), view.text, view.done, view.error, ink, capCorner, copied, onCopy, onContinue)
+        }
+    }
+}
+
+/** The answer card, styled like the smart answer: a faint plate, tap to copy once the answer is done. Shared by the finished answer and the
+ *  one still being written, under the same list key, so the card carries on growing rather than being replaced when the answer completes. */
+@Composable
+private fun AnswerCard(modifier: Modifier, text: String, done: Boolean, error: String?, ink: Color, capCorner: androidx.compose.ui.unit.Dp,
+    copied: Boolean, onCopy: (String) -> Unit, onContinue: () -> Unit) {
             // Styled like the smart answer above it: a faint plate, tap to copy.
-            Column(rowMotion().fillMaxWidth().emergingHere().clip(Corner.inside(capCorner, 16.dp)).background(ink.copy(alpha = .10f))
-                .clickable(enabled = view.done && view.text.isNotBlank()) { onCopy(view.text) }
+            Column(modifier.fillMaxWidth().emergingHere().clip(Corner.inside(capCorner, 16.dp)).background(ink.copy(alpha = .10f))
+                .clickable(enabled = done && text.isNotBlank()) { onCopy(text) }
                 .padding(horizontal = 16.dp, vertical = 12.dp).testTag("spotlight-ask-answer")) {
                 Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_answer_by), color = ink.copy(alpha = .7f), style = UnoType.caption1)
                 when {
-                    view.text.isNotBlank() -> Text(view.text, color = ink, style = UnoType.body, modifier = Modifier.testTag("spotlight-ask-text"))
-                    view.error == null -> Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_thinking), color = ink.copy(alpha = .6f), style = UnoType.body)
+                    text.isNotBlank() -> Text(text, color = ink, style = UnoType.body, modifier = Modifier.testTag("spotlight-ask-text"))
+                    error == null -> Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_thinking), color = ink.copy(alpha = .6f), style = UnoType.body)
                 }
-                if (view.error != null) Text(view.error, color = ink.copy(alpha = .7f), style = UnoType.footnote)
+                if (error != null) Text(error, color = ink.copy(alpha = .7f), style = UnoType.footnote)
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (view.done && view.text.isNotBlank()) Text(stringResource(if (copied) com.jake.duolauncher.R.string.spotlight_copied else com.jake.duolauncher.R.string.spotlight_tap_to_copy), Modifier.weight(1f),
+                    if (done && text.isNotBlank()) Text(stringResource(if (copied) com.jake.duolauncher.R.string.spotlight_copied else com.jake.duolauncher.R.string.spotlight_tap_to_copy), Modifier.weight(1f),
                         color = ink.copy(alpha = .5f), style = UnoType.caption2)
                     else Spacer(Modifier.weight(1f))
                     Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_continue), Modifier.clip(Corner.small).clickable(onClick = onContinue)
@@ -1142,8 +1158,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
                         color = ink.copy(alpha = .8f), style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
                 }
             }
-        }
-    }
 }
 
 /** How a row of the results list arrives, goes and moves (see SpotlightBar). */

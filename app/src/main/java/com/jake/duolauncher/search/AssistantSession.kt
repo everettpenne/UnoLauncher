@@ -32,10 +32,32 @@ internal object AssistantSession {
     var state by mutableStateOf<State>(State.Idle)
         private set
 
+    /**
+     * The answer so far, while it is being written: the model writes it a few words at a time over several seconds, and showing nothing
+     * until the end made the card sit at "Asking Qwen…" and then jump to a full paragraph. Published at most once a display frame
+     * ([flushPosted]), however fast the pieces come, and read only by the answer card, so it redraws that card and nothing else.
+     */
+    var streamed by mutableStateOf("")
+        private set
+    private val streamBuffer = StringBuilder()
+    private var flushPosted = false
+
+    /** Adds [piece] to the answer so far. On the main thread (the turn's scope is Main). */
+    private fun appendPiece(piece: String) {
+        streamBuffer.append(piece)
+        if (flushPosted) return
+        flushPosted = true
+        android.view.Choreographer.getInstance().postFrameCallback { flushPosted = false; streamed = streamBuffer.toString() }
+    }
+
+    private fun resetStream() { streamBuffer.setLength(0); streamed = "" }
+
     /** Which question the panel last asked, so a result for an older question is not shown under a newer one. */
     var asked by mutableStateOf<String?>(null)
 
     private var client: AssistantClient? = null
+    /** Device tests put a stand-in assistant here; the app never sets it. */
+    @androidx.annotation.VisibleForTesting internal var clientForTests: AssistantClient? = null
     /** Kept so clearing the result can take its card off the island. */
     private var appContext: Context? = null
     private var job: Job? = null
@@ -45,12 +67,13 @@ internal object AssistantSession {
     fun start(context: Context, query: String, phoneContext: String) {
         val app = context.applicationContext
         appContext = app
-        val c = client ?: LocalAssistant(app).also { client = it }
+        val c = clientForTests ?: client ?: LocalAssistant(app).also { client = it }
         c.open()
         job?.cancel()
         scope?.coroutineContext?.get(Job)?.cancel()
         val s = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).also { scope = it }
         asked = query
+        resetStream()
         state = State.Running(query)
         publish(app)
         job = s.launch {
@@ -67,7 +90,7 @@ internal object AssistantSession {
                     publish(app)
                     return@launch
                 }
-                val answer = buildString { c.ask(query, AskMode.ANSWER, phoneContext).collect { append(it) } }
+                val answer = buildString { c.ask(query, AskMode.ANSWER, phoneContext).collect { append(it); appendPiece(it) } }
                 state = State.Ready(query, answer, null, System.currentTimeMillis() - t0)
                 publish(app)
             } catch (e: Exception) {
@@ -86,6 +109,7 @@ internal object AssistantSession {
     fun clear() {
         job?.cancel(); job = null
         asked = null
+        resetStream()
         state = State.Idle
         appContext?.let { publish(it) }   // takes the card off the island
         client?.close()

@@ -73,16 +73,26 @@ internal object SharedWallpaperRuntime {
  * own and so cannot sample Home's. It places the wallpaper by where the surface is on the screen, Home's window filling the screen. It shows the wallpaper only,
  * not the icons and widgets on it; the open island's glass is a band at its bottom edge, over the top of the page.
  */
-internal class SharedWallpaperBackdrop(private val shared: SharedWallpaper) : Backdrop {
+internal class SharedWallpaperBackdrop(
+    private val shared: SharedWallpaper,
+    /**
+     * Whether to follow the wallpaper's drift as Home's pages move. Reading the drift while drawing makes the surface redraw on every frame
+     * of a page swipe; the closed island's glass is a thin rim whose shift no one can see, and redrawing it cost the island's window ~12 ms
+     * of the main thread per frame (measured on a Pixel 10a), which made Home's own swipe frames late. While this says no, the last drift
+     * drawn is kept and nothing is read, so the swipe leaves this surface alone.
+     */
+    private val followDrift: () -> Boolean = { true },
+) : Backdrop {
     override val isCoordinatesDependent: Boolean = true
     private var made: Pair<Bitmap, androidx.compose.ui.graphics.ImageBitmap>? = null
+    private var heldDrift: WallpaperDepth.Drift? = null
 
     override fun DrawScope.drawBackdrop(density: Density, coordinates: LayoutCoordinates?, layerBlock: (GraphicsLayerScope.() -> Unit)?) {
         val image = shared.image ?: return
         val at = coordinates?.positionOnScreen() ?: return
         if (shared.artWidth <= 0) return
         val bitmap = made?.takeIf { it.first === image }?.second ?: image.asImageBitmap().also { made = image to it }
-        val drift = shared.drift(shared.artWidth.toFloat())
+        val drift = if (followDrift()) shared.drift(shared.artWidth.toFloat()).also { heldDrift = it } else heldDrift
         val place = SharedWallpaperMap.place(image.width, shared.artWidth, shared.artHeight, drift?.scale ?: 1f, drift?.translationX ?: 0f, at.x, at.y)
         withTransform({ translate(place.translateX, place.translateY); scale(place.scale, place.scale, androidx.compose.ui.geometry.Offset.Zero) }) {
             drawImage(bitmap, filterQuality = androidx.compose.ui.graphics.FilterQuality.Low)

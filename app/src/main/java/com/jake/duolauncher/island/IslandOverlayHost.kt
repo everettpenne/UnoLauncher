@@ -259,7 +259,7 @@ internal class IslandOverlayHost(
                 // Only once the picture is ready: a glass body with nothing behind it would be see-through.
                 val shared = SharedWallpaperRuntime.current
                 val overlayGlass = if (IslandRuntime.launcherInFront && shared?.image != null)
-                    remember(shared, SharedWallpaperRuntime.settings) { PageGlass(SharedWallpaperBackdrop(shared), androidx.compose.ui.graphics.Color.Black, SharedWallpaperRuntime.settings) } else null
+                    remember(shared, SharedWallpaperRuntime.settings) { PageGlass(SharedWallpaperBackdrop(shared, followDrift = { IslandRuntime.state.expanded || IslandRuntime.state.peeked }), androidx.compose.ui.graphics.Color.Black, SharedWallpaperRuntime.settings) } else null
                 DynamicIsland(
                     state = IslandRuntime.state,
                     glass = overlayGlass,

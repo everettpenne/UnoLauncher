@@ -78,6 +78,8 @@ object AssistOverlay {
     private var view: android.view.View? = null
     private var owner: Owner? = null
     private var composeView: ComposeView? = null
+    private var screenOff: android.content.BroadcastReceiver? = null
+    private var receiverContext: Context? = null
     private var manager: WindowManager? = null
 
     val isShowing: Boolean get() = view != null
@@ -100,6 +102,8 @@ object AssistOverlay {
         // A window the system took away (its service was stopped) is closed, whatever was last recorded.
         if (view?.isAttachedToWindow == false) hide()
         if (view != null || opening) return
+        // Never over the lock screen (AssistActivity asks for the unlock first; this is the backstop): the service's window would draw above it.
+        if (app.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true) return
         val service = com.jake.duolauncher.SystemShadeAccessibilityService.connected()
         if (service == null) { open(app, null, screenText, null); return }
         opening = true
@@ -245,6 +249,11 @@ object AssistOverlay {
         runCatching { manager?.addView(root, params) ?: return }.onFailure { windowOwner.stop(); owner = null; return }
         view = root
         composeView = screen
+        // The screen going off locks the phone: search closes with it, so it is never left open above the lock screen.
+        screenOff = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context?, i: android.content.Intent?) = hide()
+        }.also { runCatching { app.registerReceiver(it, android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_OFF)) } }
+        receiverContext = app
         // As on Home, the status bar steps aside while search is open, so the bar's camera band is the island's own black.
         runCatching { root.windowInsetsController?.hide(android.view.WindowInsets.Type.statusBars()) }
     }
@@ -257,6 +266,8 @@ object AssistOverlay {
         runCatching { composeView?.disposeComposition() }
         composeView = null
         owner?.stop(); owner = null
+        screenOff?.let { r -> runCatching { receiverContext?.unregisterReceiver(r) } }
+        screenOff = null; receiverContext = null
         shot?.recycle(); shot = null
     }
 

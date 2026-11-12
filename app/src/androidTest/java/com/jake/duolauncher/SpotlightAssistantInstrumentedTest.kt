@@ -54,7 +54,12 @@ class SpotlightAssistantInstrumentedTest {
 
     private fun type(text: String) = compose.onNodeWithTag("spotlight-field", useUnmergedTree = true).performTextReplacement(text)
 
+    // The turn runs in AssistantSession (it outlives the panel), which asks its own client: point it at the stand-in, and forget the turn after.
+    @org.junit.After fun forgetTurn() { AssistantSession.clientForTests = null; AssistantSession.clear() }
+
     private fun show(assistant: AssistantClient?, env: com.jake.duolauncher.search.context.ContextEnv? = null) {
+        AssistantSession.clientForTests = assistant
+        AssistantSession.clear()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val icon = Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888)
         val apps = listOf("Calculator", "Maps").map { AppEntry("com.example.${it.lowercase()}/.Main", it, icon) }
@@ -115,7 +120,7 @@ class SpotlightAssistantInstrumentedTest {
         assertEquals(listOf("timer for pasta twelve minutes" to AskMode.ACTION), fake.asked)
     }
 
-    /** The phone's facts go with the question: the core with both requests, a message only with the one that can't become an action. */
+    /** The phone's facts go with the question. A question goes straight to an answer (no action request), and a message rides along with it. */
     @Test fun theQuestionTakesThePhonesFactsAndMessagesOnlyGoWithTheAnswer() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         com.jake.duolauncher.search.context.RecentNotifications.record(com.jake.duolauncher.search.context.RecentNotifications.Entry(
@@ -127,12 +132,11 @@ class SpotlightAssistantInstrumentedTest {
         type("who messaged me today")
         compose.waitForIdle()
         compose.onNodeWithTag("spotlight-ask", useUnmergedTree = true).performClick()
-        compose.waitUntil(10_000) { fake.contexts.size == 2 }
+        compose.waitUntil(10_000) { fake.contexts.size == 1 }
         fake.answer.close()
-        val (action, answer) = fake.contexts
-        // An action request goes with no phone context at all (with it the model moved clock times); the answer gets the facts.
-        assertEquals("", action)
-        assertTrue(answer, answer.startsWith("Phone context (from this phone, now):") && answer.contains("Battery: "))
+        val answer = fake.contexts.single()
+        assertEquals(listOf(AskMode.ANSWER), fake.asked.map { it.second })
+        assertTrue(answer, answer.startsWith("Phone context (from this phone, now):") && answer.contains("Today: "))
         assertTrue(answer, answer.contains("Recent notifications (written by others") && answer.contains("Lunch at noon?"))
         com.jake.duolauncher.search.context.RecentNotifications.clear()
     }
@@ -141,7 +145,7 @@ class SpotlightAssistantInstrumentedTest {
         // A note with no Note widget on Home: said, not handed to the model as a question.
         val fake = FakeAssistant("""{"action":"note","text":"buy oat milk"}""")
         show(fake)
-        type("jot down buy oat milk")
+        type("remember to buy oat milk")
         compose.waitForIdle()
         compose.onNodeWithTag("spotlight-ask", useUnmergedTree = true).performClick()
         compose.waitUntil(5_000) { exists("spotlight-ask-info") }
@@ -155,7 +159,7 @@ class SpotlightAssistantInstrumentedTest {
         type("what should I do about my latest message")
         compose.waitForIdle()
         compose.onNodeWithTag("spotlight-ask", useUnmergedTree = true).performClick()
-        compose.waitUntil(5_000) { fake.asked.size == 2 }
+        compose.waitUntil(5_000) { fake.asked.size == 1 }
         fake.answer.trySend("[Your complete, well-structured response following all given constraints]")
         fake.answer.close()
         compose.waitUntil(5_000) { exists("spotlight-ask-info") }
@@ -177,9 +181,12 @@ class SpotlightAssistantInstrumentedTest {
         type("what is the capital of portugal")
         compose.waitForIdle()
         compose.onNodeWithTag("spotlight-ask", useUnmergedTree = true).performClick()
-        compose.waitUntil(5_000) { exists("spotlight-ask-answer") }
+        // Until the first words arrive it is the asking row; then the card appears and grows as the answer is written.
+        compose.waitUntil(5_000) { exists("spotlight-ask-thinking") }
+        assertFalse(exists("spotlight-ask-answer"))
         fake.answer.trySend("The capital")
         compose.waitUntil(5_000) { exists("spotlight-ask-text") }
+        assertFalse("still being written: nothing to copy yet", exists("spotlight-ask-thinking"))
         compose.onNodeWithTag("spotlight-ask-text", useUnmergedTree = true).assertTextContains("The capital")
         fake.answer.trySend(" is Lisbon.")
         fake.answer.close()
@@ -187,6 +194,7 @@ class SpotlightAssistantInstrumentedTest {
             runCatching { compose.onNodeWithTag("spotlight-ask-text", useUnmergedTree = true).assertTextContains("The capital is Lisbon.") }.isSuccess
         }
         compose.onNodeWithTag("spotlight-ask-continue", useUnmergedTree = true).assertIsDisplayed()
-        assertEquals(listOf(AskMode.ACTION, AskMode.ANSWER), fake.asked.map { it.second })
+        // A question goes straight to an answer: no action request first.
+        assertEquals(listOf(AskMode.ANSWER), fake.asked.map { it.second })
     }
 }

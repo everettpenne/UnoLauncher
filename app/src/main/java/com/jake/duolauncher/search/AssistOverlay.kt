@@ -175,7 +175,7 @@ object AssistOverlay {
             }
             val grow = remember { androidx.compose.animation.core.Animatable(0f) }
             val open = shown.value
-            val growNow = grow.value
+            @Suppress("UNUSED_VARIABLE") val growNow = grow.value
             androidx.compose.runtime.LaunchedEffect(open) {
                 if (open) grow.animateTo(1f, androidx.compose.animation.core.spring(UnoMotion.OPEN_DAMPING, SpotlightEmerge.outlineOpenStiffness()))
                 else {
@@ -222,9 +222,10 @@ object AssistOverlay {
                         },
                         // No glass can sample the app below, so the bar thins from black into the page instead, as Home's does into its glass.
                         seeThrough = glass == null,
-                        // Read here, in composition, as Home reads its own: a value read only inside the panel's draw did not redraw
-                        // it, so search jumped open and vanished on close instead of growing and shrinking.
-                        progress = growNow.let { g -> { g } },
+                        // A lambda that reads the live value (Spotlight keeps the first one it is given for its contents' reveal, so a
+                        // lambda holding a number froze them at 0 and they never showed), and the value is also read in composition
+                        // (growNow, above), as Home does, so the panel redraws as it grows and shrinks.
+                        progress = { grow.value },
                         noteSlot = state.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
                         focusOn = { extras.state.focusOn },
                         onToggleFocus = {

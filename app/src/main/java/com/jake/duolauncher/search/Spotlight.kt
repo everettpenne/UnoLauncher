@@ -1100,13 +1100,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
             SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask), stringResource(if (state == AssistantState.LOADING) com.jake.duolauncher.R.string.spotlight_ask_loading else com.jake.duolauncher.R.string.spotlight_ask_detail),
                 "spotlight-ask", false, ink, onAsk) { mark(Icons.Rounded.AutoAwesome) }
         }
-        is AskView.Thinking -> item("ask") {
-            // The answer as it is written, once the first words arrive; until then, the asking row. Only this item reads the stream, so the
-            // text arriving a frame at a time redraws this card and nothing else in search.
-            val live = AssistantSession.streamed.takeIf { it.isNotBlank() }?.let(AnswerText::clean)
-            if (live == null) SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_asking), stringResource(if (state == AssistantState.LOADING) com.jake.duolauncher.R.string.spotlight_ask_loading else com.jake.duolauncher.R.string.spotlight_ask_on_phone),
+        // The asking row, the answer being written and the finished answer are one item, with the card at one place in it, so the text's
+        // reveal carries on across the answer finishing (its last word settles rather than snapping). Only this item reads the stream, so
+        // the text arriving a frame at a time redraws this card and nothing else in search.
+        is AskView.Thinking, is AskView.Answer -> item("ask") {
+            val finished = view as? AskView.Answer
+            // Cleaning trims the end; keep a trailing space, which tells the reveal the last word is complete.
+            val live = if (finished != null) null else AssistantSession.streamed.takeIf { it.isNotBlank() }?.let { raw ->
+                AnswerText.clean(raw)?.let { if (raw.last().isWhitespace()) "$it " else it } }
+            if (finished == null && live == null) SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_asking), stringResource(if (state == AssistantState.LOADING) com.jake.duolauncher.R.string.spotlight_ask_loading else com.jake.duolauncher.R.string.spotlight_ask_on_phone),
                 "spotlight-ask-thinking", false, ink, {}) { mark(Icons.Rounded.AutoAwesome) }
-            else AnswerCard(rowMotion(), live, done = false, error = null, ink = ink, capCorner = capCorner, copied = false, onCopy = onCopy, onContinue = onContinue)
+            else AnswerCard(rowMotion(), finished?.text ?: live.orEmpty(), done = finished?.done ?: false, error = finished?.error, ink = ink,
+                capCorner = capCorner, copied = copied, onCopy = onCopy, onContinue = onContinue)
         }
         is AskView.Act -> {
             item("ask-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask_suggested), ink) }
@@ -1140,9 +1145,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
                 Text(view.why, color = ink, style = UnoType.body)
                 if (view.settings) Text(stringResource(com.jake.duolauncher.R.string.spotlight_open_search_settings), color = ink.copy(alpha = .5f), style = UnoType.caption2)
             }
-        }
-        is AskView.Answer -> item("ask") {
-            AnswerCard(rowMotion(), view.text, view.done, view.error, ink, capCorner, copied, onCopy, onContinue)
         }
     }
 }

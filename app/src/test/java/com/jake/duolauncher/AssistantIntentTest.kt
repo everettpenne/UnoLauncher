@@ -222,25 +222,26 @@ class QuestionShapeTest {
 class AnswerRevealTest {
     private val R = com.jake.duolauncher.search.AnswerReveal
 
-    @Test fun aWordEasesIntoPlaceOverTheFade() {
-        assertEquals(0f, R.progress(0), 0f)
-        assertEquals(1f, R.progress(R.FADE_MS), 0f)
-        assertTrue("decelerates: most of the way there by half time", R.progress(R.FADE_MS / 2) > .8f)
+    @Test fun aNewWordComesInQuicklyAndLandsSoftly() {
+        assertEquals(0f, R.fadeIn(0), 0f)
+        assertEquals(1f, R.fadeIn(R.IN_MS), 0f)
+        assertTrue("most of the way in by half time", R.fadeIn(R.IN_MS / 2) > .85f)
     }
 
-    @Test fun aWordKeepsOneTintByPlaceAndSettlesIntoTheInk() {
-        val ink = androidx.compose.ui.graphics.Color.White
-        // The same place gives the same colour, however often it is asked: no flicker.
-        assertEquals(R.tint(.4f, 2), R.tint(.4f, 2))
-        // Neighbouring words get neighbouring hues, not a jump.
-        val a = R.tint(.40f, 0); val b = R.tint(.42f, 0)
-        assertTrue(kotlin.math.abs(a.red - b.red) < .05f && kotlin.math.abs(a.green - b.green) < .05f && kotlin.math.abs(a.blue - b.blue) < .05f)
-        assertEquals(ink, R.color(a, 1f, ink))
-        assertEquals(a, R.color(a, 0f, ink))
+    @Test fun theWordBeforeSettlesFromRainbowIntoInk() {
+        assertEquals(0f, R.settle(0), 0f)
+        assertEquals(1f, R.settle(R.SETTLE_MS), 0f)
+        assertTrue(R.settle(R.SETTLE_MS / 3) in .3f..1f)
+    }
+
+    @Test fun eachWordKeepsItsOwnRainbowPhase() {
+        assertEquals(R.phase(7), R.phase(7))
+        assertTrue(R.phase(1) != R.phase(2))
+        assertTrue((0 until 50).all { R.phase(it) in 0f..1f })
     }
 
     @Test fun whileWritingOnlyWholeWordsShow() {
-        assertEquals("The sky", R.wholeWords("The sky looks bl", streaming = true))
+        assertEquals("The sky looks", R.wholeWords("The sky looks bl", streaming = true))
         assertEquals("", R.wholeWords("The", streaming = true))
         assertEquals("The sky looks bl", R.wholeWords("The sky looks bl", streaming = false))
     }

@@ -192,7 +192,7 @@ class SpotlightAssistantInstrumentedTest {
         compose.waitUntil(5_000) { exists("spotlight-ask-text") }
         assertFalse("still being written: nothing to copy yet", exists("spotlight-ask-thinking"))
         compose.onNodeWithTag("spotlight-ask-text", useUnmergedTree = true).assertTextContains("The capital")
-        fake.answer.trySend(" is Lisbon.")
+        fake.answer.trySend("is Lisbon.")
         fake.answer.close()
         compose.waitUntil(5_000) {
             runCatching { compose.onNodeWithTag("spotlight-ask-text", useUnmergedTree = true).assertTextContains("The capital is Lisbon.") }.isSuccess

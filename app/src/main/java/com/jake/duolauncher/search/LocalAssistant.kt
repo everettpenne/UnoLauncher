@@ -139,10 +139,10 @@ internal class LocalAssistant(context: Context) : AssistantClient {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         _state.value = AssistantState.LOADING
         bound = runCatching {
-            // BIND_IMPORTANT: Uno Lab's process is scheduled as this one is while search holds it. With Home in front that lets the model
-            // onto every core, the fastest included; without it Android kept Lab to the background's cores, which cost answer speed.
-            app.bindService(Intent().setComponent(ComponentName(LabTrust.PACKAGE, LabTrust.SERVICE)), connection,
-                Context.BIND_AUTO_CREATE or Context.BIND_IMPORTANT)
+            // Not BIND_IMPORTANT. It was tried: Uno Lab is then scheduled as the app in front, on all eight cores, and wrote answers at
+            // 4 to 5 tokens a second on a Pixel 10a, against 8 to 10 as a plain bound service on the three fast cores a background app
+            // gets, with one thread for each. The launcher's own drawing wants the same cores while an answer streams.
+            app.bindService(Intent().setComponent(ComponentName(LabTrust.PACKAGE, LabTrust.SERVICE)), connection, Context.BIND_AUTO_CREATE)
         }.getOrDefault(false)
         if (!bound) { runCatching { app.unbindService(connection) }; scope?.cancel(); scope = null; _state.value = AssistantState.NOT_INSTALLED }
     }

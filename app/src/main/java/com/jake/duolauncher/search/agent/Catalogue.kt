@@ -74,7 +74,8 @@ internal object Catalogue {
             when (param.kind) {
                 Kind.Int -> append("digits")
                 Kind.Bool -> append("bool")
-                Kind.Enum -> append(param.choices.joinToString(" | ") { lit("\"" + it + "\"") })
+                // Parenthesised: a bare alternation would split the whole step rule, so a step could be just one choice.
+                Kind.Enum -> append("( " + param.choices.joinToString(" | ") { lit("\"" + it + "\"") } + " )")
                 Kind.Text -> append(lit("\"") + " text " + lit("\""))
             }
         }

@@ -33,6 +33,13 @@ class CatalogueTest {
         assertTrue(grammar.contains("text ::="))
     }
 
+    @Test fun anEnumsChoicesAreParenthesisedSoTheStepRuleStaysWhole() {
+        // A bare alternation (… | "display") makes the step rule accept a step that is only one choice; the model did exactly that.
+        val line = Catalogue.grammar(tools).lines().first { it.contains("settings-panel-step ::=") }
+        assertTrue("the enum group is not parenthesised: $line", line.contains("( "))
+        assertTrue("the step does not close its group: $line", line.trimEnd().endsWith(") \"}}\""))
+    }
+
     @Test fun theHashChangesOnlyWithTheCatalogue() {
         val first = Catalogue.hash(tools)
         assertEquals(16, first.length)

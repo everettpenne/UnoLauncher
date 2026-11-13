@@ -147,6 +147,10 @@ internal fun RevealText(text: String, streaming: Boolean, ink: Color, style: Tex
         }
     }
     val end = settledEnd.coerceAtMost(shown.length)
+    // Read in composition as well as in draw: in search's own window over an app, a value read only in draw did not redraw the text, so
+    // a reopened answer stayed blank until its letters settled and then appeared at once. Reading it here redraws every frame of the run
+    // (and only while it runs: the clock stops once every letter has settled).
+    val now = clock
     // Ordinary text up to the settled end; the rest left out (transparent, so every line is laid out exactly as it will be).
     val annotated = remember(shown, end) {
         buildAnnotatedString { append(shown); if (end < shown.length) addStyle(SpanStyle(color = Color.Transparent), end, shown.length) }
@@ -162,7 +166,7 @@ internal fun RevealText(text: String, streaming: Boolean, ink: Color, style: Tex
         val key = shown to layout.size.width
         val full = plain[0]?.takeIf { it.first == key }?.second
             ?: measurer.measure(shown, style.copy(color = ink), constraints = Constraints.fixedWidth(layout.size.width)).also { plain[0] = key to it }
-        drawCascade(full, shown, end, upTo, reached, clock, ink)
+        drawCascade(full, shown, end, upTo, reached, now, ink)
     }, style = style.copy(color = ink), onTextLayout = { laidOut[0] = it })
 }
 

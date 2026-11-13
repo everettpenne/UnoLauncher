@@ -123,7 +123,7 @@ private fun SearchGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasSt
     if (labPresent) SettingsGroup(footer = "Adds an Ask Qwen row to search for questions nothing else answers. Only when you tap it, the words you typed go to Uno Lab, which answers on this phone with no network. A suggested action runs only when you tap it.") {
         row { SettingsSwitch("Local assistant (Uno Lab)", s.localAssistant, store::setLocalAssistant, "local-assistant-switch") }
     }
-    if (labPresent && s.localAssistant) SettingsGroup(footer = "When you ask for something to be done (a timer, a note, opening an app), Qwen does it and says what it did, with Undo where it can be taken back. Anything that leaves the phone, such as a reply to a message, shows exactly what will be sent and waits for your tap.") {
+    if (labPresent && s.localAssistant) SettingsGroup(footer = "When you ask for something to be done (a timer, a note, opening an app), Qwen does it and says what it did, with Undo where it can be taken back. Anything that leaves the phone, such as a reply to a message, shows exactly what will be sent and waits for your tap. Needs Uno Lab 0.3.9 or later.") {
         row { SettingsSwitch("Let Qwen do tasks", s.agentTasks, store::setAgentTasks, "agent-tasks-switch") }
         if (s.agentTasks) row { SettingsSwitch("Ask before every action", s.agentAskFirst, store::setAgentAskFirst, "agent-ask-first-switch") }
     }

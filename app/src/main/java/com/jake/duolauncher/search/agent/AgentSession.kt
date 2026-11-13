@@ -111,8 +111,16 @@ internal class AgentSession(
         publish()
     }
 
-    /** Logs the turn for a device run; silent where Android's log is not there (unit tests). */
-    private fun log(message: String) { runCatching { android.util.Log.i("UnoAgent", message) } }
+    /**
+     * Logs the turn for a device run, and only when asked for: the lines carry what was asked and what was done (a reply's words), which
+     * do not belong in the phone's log by default. A test turns them on with `adb shell setprop log.tag.UnoAgent DEBUG`.
+     * Silent where Android's log is not there (unit tests).
+     */
+    private fun log(message: String) {
+        runCatching { if (android.util.Log.isLoggable(LOG_TAG, android.util.Log.DEBUG)) android.util.Log.d(LOG_TAG, message) }
+    }
+
+    private companion object { const val LOG_TAG = "UnoAgent" }
 
     /** For tests: waits for the running turn to finish. */
     internal suspend fun awaitTurn() = job?.join()

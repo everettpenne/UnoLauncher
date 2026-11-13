@@ -26,7 +26,7 @@ def run(query):
     t0 = time.time(); log = ""
     while time.time() - t0 < 120:
         time.sleep(1)
-        log = adb("logcat", "-d", "-s", "UnoAgent", "UnoLabTiming")
+        log = adb("logcat", "-d", "-s", "UnoAgent", "UnoLabTiming", "UnoLabPlan")
         if "UnoAgent: outcome" in log or "UnoLabTiming: turn " in log: break
     reply = next((l.split("plan reply: ", 1)[1].strip() for l in log.splitlines() if "plan reply: " in l), None)
     ms = next((int(l.split("UnoLabTiming: plan ", 1)[1].split(" ms")[0]) for l in log.splitlines() if "UnoLabTiming: plan " in l and " ms" in l and "reply" not in l), None)
@@ -67,6 +67,8 @@ def score(row, reply, outcome, answered):
     if kind in plan: return "pass", ""
     return "wrong_kind", f"expected {kind}, got {list(plan)[:1]}"
 
+# Both apps log a turn only when asked to (the lines carry what was asked): ask.
+for tag in ("UnoAgent", "UnoLabPlan"): adb("shell", f"setprop log.tag.{tag} DEBUG")
 rows = json.load(open(sys.argv[1]))
 start = int(sys.argv[3]) if len(sys.argv) > 3 else 0
 count = int(sys.argv[4]) if len(sys.argv) > 4 else len(rows)

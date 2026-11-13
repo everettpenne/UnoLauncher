@@ -58,7 +58,8 @@ internal interface ToolEnv {
     /** True when the torch is now on. */
     fun toggleTorch(): Boolean
     fun openAlarm(hour: Int?, minute: Int?, inMinutes: Int?)
-    fun openApp(entry: AppEntry)
+    /** Opens the app; false when Android would not start it (the entry is stale, the profile is gone, or it is not allowed). */
+    fun openApp(entry: AppEntry): Boolean
     fun openDialer(number: String)
     fun openMessages(number: String)
     fun openUrl(url: String)

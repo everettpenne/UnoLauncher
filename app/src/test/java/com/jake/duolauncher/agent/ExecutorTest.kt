@@ -20,7 +20,7 @@ class ExecutorTest {
         override fun toggleStopwatch() = true
         override fun toggleTorch() = true
         override fun openAlarm(hour: Int?, minute: Int?, inMinutes: Int?) = Unit
-        override fun openApp(entry: AppEntry) = Unit
+        override fun openApp(entry: AppEntry) = true
         override fun openDialer(number: String) = Unit
         override fun openMessages(number: String) = Unit
         override fun openUrl(url: String) = Unit

@@ -11,11 +11,12 @@ internal object OpenAppTool : Tool(
     override suspend fun execute(params: Params, env: ToolEnv): ToolResult {
         val wanted = params.text("app") ?: return ToolResult(false, "I didn't catch which app to open.")
         val byName = env.apps
+        if (byName.isEmpty()) return ToolResult(false, "I can't see your apps from here. Open search once, then ask me again.")
         val match = byName.firstOrNull { it.label.equals(wanted, ignoreCase = true) }
             ?: byName.firstOrNull { it.label.startsWith(wanted, ignoreCase = true) }
             ?: byName.firstOrNull { it.label.contains(wanted, ignoreCase = true) }
             ?: return ToolResult(false, "I couldn't find an app called \"$wanted\".")
-        env.openApp(match)
+        if (!env.openApp(match)) return ToolResult(false, "Android wouldn't open ${match.label}.")
         return ToolResult(true, "Opened ${match.label}")
     }
 }

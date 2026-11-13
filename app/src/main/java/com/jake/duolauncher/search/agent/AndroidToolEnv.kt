@@ -3,6 +3,7 @@ package com.jake.duolauncher.search.agent
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.os.UserManager
+import android.util.Log
 import com.jake.duolauncher.AppEntry
 import com.jake.duolauncher.island.IslandTools
 import com.jake.duolauncher.search.ActionLogic
@@ -17,6 +18,8 @@ import java.time.LocalTime
  * torch, Focus, the Note widget) or a standard Android intent handed to another app. The fake one in the tests is the same interface, which is
  * why every tool is testable without a phone.
  */
+private const val TAG = "UnoAgent"
+
 internal class AndroidToolEnv(
     private val context: Context,
     override val noteSlot: Int?,
@@ -56,11 +59,13 @@ internal class AndroidToolEnv(
         resolver.open(ActionLogic.alarmIntent(target.first, target.second))
     }
 
-    override fun openApp(entry: AppEntry) {
-        runCatching {
-            val user = context.getSystemService(UserManager::class.java).getUserForSerialNumber(entry.userSerial) ?: return
-            context.getSystemService(LauncherApps::class.java).startMainActivity(entry.component, user, null, null)
-        }
+    override fun openApp(entry: AppEntry): Boolean = runCatching {
+        val user = context.getSystemService(UserManager::class.java).getUserForSerialNumber(entry.userSerial) ?: return@runCatching false
+        context.getSystemService(LauncherApps::class.java).startMainActivity(entry.component, user, null, null)
+        true
+    }.getOrElse {
+        Log.i(TAG, "openApp ${entry.component} failed: $it")
+        false
     }
 
     override fun openDialer(number: String) = resolver.openContact(ContactActionKind.DIAL, number)

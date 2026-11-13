@@ -62,7 +62,7 @@ internal class AgentSession(
                 gate = waiting
                 waiting.await()
             },
-            onState = { state = it; publish() },
+            onState = { state = it; log("state ${it::class.simpleName}: $it"); publish() },
         )
         job = scope.launch {
             val outcome = loop.run(query, facts, GroundingLogic.block(query, grounding.people, grounding.apps))
@@ -73,6 +73,7 @@ internal class AgentSession(
                 is AgentOutcome.Failed -> outcome.why
                 AgentOutcome.Cancelled -> "Nothing was done."
             }
+            log("outcome $outcome")
             canUndo = outcome is AgentOutcome.Done && outcome.canUndo
             lastExecutor = executor
             publish()
@@ -104,6 +105,9 @@ internal class AgentSession(
         lastExecutor = null
         publish()
     }
+
+    /** Logs the turn for a device run; silent where Android's log is not there (unit tests). */
+    private fun log(message: String) { runCatching { android.util.Log.i("UnoAgent", message) } }
 
     /** For tests: waits for the running turn to finish. */
     internal suspend fun awaitTurn() = job?.join()

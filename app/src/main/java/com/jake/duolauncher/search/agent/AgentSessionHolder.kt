@@ -17,7 +17,13 @@ internal object AgentSessionHolder {
         this.planner = planner
         this.env = env
         this.publish = publish
-        return session ?: AgentSession(planner = this.planner, env = this.env, publish = { this.publish() }).also { session = it }
+        // The session must read the fields per run, not the values they had when it was made: a panel that opens before the app list
+        // has loaded binds an empty environment, and a later bind has to be the one a turn uses.
+        return session ?: AgentSession(
+            planner = { this.planner() },
+            env = { this.env() },
+            publish = { this.publish() },
+        ).also { session = it }
     }
 
     fun current(): AgentSession? = session

@@ -374,7 +374,6 @@ internal fun LauncherScreen(
     // Home's island is fed while the launcher is in front, whether or not a sheet or search is covering the island.
     val lifecycleState by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     HoldIslandEvents("home", appearance.island && lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED))
-    BackHandler(enabled = spotlightOpen) { spotlightOpen = false }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) {
         spotlightOpen = false
         // Leaving for an app from My feed or the App Library (opening one, or picking one in Recents): Home is put back on its own page now,
@@ -404,6 +403,9 @@ internal fun LauncherScreen(
     // In jiggle mode an app's badge takes it off Home, and a widget's removes the widget, as on iOS.
     val editActions = remember(model, widgets) { HomeEditActions({ app -> model.setPinned(app.id, false) }, { slot -> widgets.remove(slot) }) }
     BackHandler(enabled = homeEditing && sheet.isEmpty() && !drag.active && selectedId == null && resizeSlot == null) { homeEditing = false }
+    // Search is on top of all of the above, so its Back comes last: the handler registered last is asked first. Where it used to be, before
+    // Home's own catch-all, that one took Back while search was open and search stayed.
+    BackHandler(enabled = spotlightOpen) { spotlightOpen = false }
     val openFeed = { scope.launch { pager.animateScrollToPage(-1) }; Unit }
     val openLibrary = { scope.launch { pager.animateScrollToPage(homePages) }; Unit }
 

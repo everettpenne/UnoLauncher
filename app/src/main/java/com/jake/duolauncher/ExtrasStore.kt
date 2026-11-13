@@ -102,6 +102,10 @@ internal data class ExtrasState(
     val contactSearch: Boolean = false,
     /** Spotlight's "Ask Qwen" row, answered by Uno Lab on the phone (see search.LocalAssistant). Off until switched on. */
     val localAssistant: Boolean = false,
+    /** Lets Qwen carry out a task it is asked for, not only answer (search.agent). Off until switched on; needs [localAssistant]. */
+    val agentTasks: Boolean = false,
+    /** Every action waits for a tap first, not only those that leave the phone (search.agent.ToolPolicy). */
+    val agentAskFirst: Boolean = false,
     /** What Qwen can see: the phone-context sources switched off (search.context.PhoneContext). Empty, so all of them, by default. */
     val contextOff: Set<String> = emptySet(),
     val kbAutocorrect: Boolean = true,
@@ -204,6 +208,8 @@ internal class ExtrasStore(context: Context) {
         notificationPeek = prefs.getBoolean("notificationPeek", false),
         contactSearch = prefs.getBoolean("contactSearch", false),
         localAssistant = prefs.getBoolean("localAssistant", false),
+        agentTasks = prefs.getBoolean(com.jake.duolauncher.search.agent.AgentRouting.PREF_TASKS, false),
+        agentAskFirst = prefs.getBoolean(com.jake.duolauncher.search.agent.AgentRouting.PREF_ASK_FIRST, false),
         contextOff = prefs.getString("contextOff", null)?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty(),
         kbAutocorrect = prefs.getBoolean("kbAutocorrect", true),
         kbSuggestions = prefs.getBoolean("kbSuggestions", true),
@@ -280,6 +286,8 @@ internal class ExtrasStore(context: Context) {
             .putBoolean("notificationPeek", next.notificationPeek)
             .putBoolean("contactSearch", next.contactSearch)
             .putBoolean("localAssistant", next.localAssistant)
+            .putBoolean(com.jake.duolauncher.search.agent.AgentRouting.PREF_TASKS, next.agentTasks)
+            .putBoolean(com.jake.duolauncher.search.agent.AgentRouting.PREF_ASK_FIRST, next.agentAskFirst)
             .putString("contextOff", next.contextOff.joinToString(","))
             .putBoolean("kbAutocorrect", next.kbAutocorrect)
             .putBoolean("kbSuggestions", next.kbSuggestions)
@@ -359,6 +367,8 @@ internal class ExtrasStore(context: Context) {
     fun setNotificationPeek(value: Boolean) = save(state.copy(notificationPeek = value))
     fun setContactSearch(value: Boolean) = save(state.copy(contactSearch = value))
     fun setLocalAssistant(value: Boolean) = save(state.copy(localAssistant = value))
+    fun setAgentTasks(value: Boolean) = save(state.copy(agentTasks = value))
+    fun setAgentAskFirst(value: Boolean) = save(state.copy(agentAskFirst = value))
     fun setContextSource(id: String, on: Boolean) = save(state.copy(contextOff = if (on) state.contextOff - id else state.contextOff + id))
     fun setKbAutocorrect(value: Boolean) = save(state.copy(kbAutocorrect = value))
     fun setKbSuggestions(value: Boolean) = save(state.copy(kbSuggestions = value))

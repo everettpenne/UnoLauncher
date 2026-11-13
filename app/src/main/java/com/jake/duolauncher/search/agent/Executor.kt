@@ -45,11 +45,20 @@ internal class Executor(
         return runCatching { undo() }.getOrElse { ToolResult(false, "I couldn't undo that.") }
     }
 
-    /** What the plan would run, without running it: the dry run the tests and the "what would you do?" mode use. */
+    /** What the plan would run, without running it: the dry run the tests and the "what would you do?" mode use. A tool's own
+     *  wording where it has one; otherwise the tool and the values the plan gave it (not what [bind] settled, which is not the plan's). */
     fun describe(plan: Plan.Steps): List<String> = plan.steps.take(MAX_STEPS).map { step ->
-        val params = step.params.values.filterValues { it.isNotBlank() }.entries.joinToString(", ") { "${it.key}=${it.value}" }
-        step.tool.name + if (params.isEmpty()) "" else " ($params)"
+        step.tool.describe(step.params, env) ?: run {
+            val params = step.params.values.filter { (k, v) -> v.isNotBlank() && !k.startsWith("_") }.entries.joinToString(", ") { "${it.key}=${it.value}" }
+            step.tool.name + if (params.isEmpty()) "" else " ($params)"
+        }
     }
+
+    /** The plan with each step's target settled (Tool.bind), once: what is then described, confirmed and run is the same thing. */
+    fun bind(plan: Plan.Steps): Plan.Steps = Plan.Steps(plan.steps.map { Step(it.tool, it.tool.bind(it.params, env)) })
+
+    /** The first reason a step cannot be done as asked (Tool.problem), or null. */
+    fun problem(plan: Plan.Steps): String? = plan.steps.take(MAX_STEPS).firstNotNullOfOrNull { it.tool.problem(it.params, env) }
 
     companion object {
         const val MAX_STEPS = 3

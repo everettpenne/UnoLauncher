@@ -27,6 +27,7 @@ class CatalogueDocsTest {
             | `calendar_event` | Local | title:text, in_minutes:int, duration_minutes:int | Opens a calendar event, prefilled: a title, how long from now it starts, and how long it lasts. |
             | `web_search` | Local | query:text | Hands a query to the browser's own search. |
             | `settings_panel` | Local | panel:enum | Opens an Android settings page: wifi, bluetooth, nfc, airplane, display, sound, battery. |
+            | `reply` | LeavesPhone | to:text, text:text | Replies to a message that is waiting as a notification. to: the sender's name or the app, or "that" for the newest message. text: the exact words to send. |
         """.trimIndent()
         assertEquals(expected, Catalogue.markdown(ToolRegistry.builtIn).trimEnd())
     }

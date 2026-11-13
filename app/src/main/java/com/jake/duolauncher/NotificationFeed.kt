@@ -83,6 +83,11 @@ internal object NotificationFeed {
         liveUpdates = listOfNotNull(next) + kept
     }
     var connected by mutableStateOf(false)
+    /** The notifications a reply can be sent from, for the assistant's reply tool (search.agent.tools.ReplyTool): who each is from, the
+     *  app, and its own reply action. Kept by the listener only while the assistant may do tasks, in memory only, and never a
+     *  message's words. */
+    @Volatile var replyable: List<Replyable> = emptyList()
+    class Replyable(val target: com.jake.duolauncher.search.agent.ReplyTarget, val action: PeekAction)
     /** Set by the activity; called with an app's name when a new notification should peek in the island. */
     @Volatile var onPeek: ((PeekNotification) -> Unit)? = null
 }
@@ -135,7 +140,7 @@ class UnoNotificationListener : NotificationListenerService() {
     }.getOrNull()
     private val prefs by lazy { getSharedPreferences("extras", Context.MODE_PRIVATE) }
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-        handler?.post { recount(); syncMedia(); syncLiveUpdates() }
+        handler?.post { recount(); syncMedia(); syncLiveUpdates(); syncReplies() }
     }
     private val sessionsListener = MediaSessionManager.OnActiveSessionsChangedListener { syncMedia(it) }
 
@@ -148,7 +153,7 @@ class UnoNotificationListener : NotificationListenerService() {
         NotificationFeed.connected = true
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
         handler?.post {
-            recount(); syncLiveUpdates()
+            recount(); syncLiveUpdates(); syncReplies()
             runCatching { sessions?.addOnActiveSessionsChangedListener(sessionsListener, component, handler) }
             syncMedia()
             scheduleSweep()
@@ -165,6 +170,7 @@ class UnoNotificationListener : NotificationListenerService() {
         NotificationFeed.nowPlaying = null
         NotificationFeed.ongoingCall = null
         NotificationFeed.liveUpdates = emptyList()
+        NotificationFeed.replyable = emptyList()
         runCatching { prefs.unregisterOnSharedPreferenceChangeListener(prefListener) }
         runCatching { sessions?.removeOnActiveSessionsChangedListener(sessionsListener) }
         unwatchAll()
@@ -173,7 +179,32 @@ class UnoNotificationListener : NotificationListenerService() {
 
     // A download posts a fresh notification every second and a busy phone posts bursts: each one used to recount badges and re-read every
     // active notification. The reads now wait a moment and run once for the whole burst; the peek and the call check stay immediate.
-    private val syncAll = Runnable { recount(); syncLiveUpdates() }
+    private val syncAll = Runnable { recount(); syncLiveUpdates(); syncReplies() }
+
+    /**
+     * The messages that can be answered from their notification, for the assistant's reply tool: the sender (the conversation's or the
+     * notification's title), the app, and the notification's own free-text reply action. Read only while the assistant may do tasks.
+     * A message's text is not read. Ongoing notifications, group summaries and Uno's own are skipped.
+     */
+    private fun syncReplies() {
+        if (!prefs.getBoolean("localAssistant", false) || !com.jake.duolauncher.search.agent.AgentRouting.enabled(this)) {
+            NotificationFeed.replyable = emptyList(); return
+        }
+        val active = runCatching { activeNotifications }.getOrNull() ?: return
+        NotificationFeed.replyable = active.mapNotNull { sbn -> runCatching {
+            if (sbn.packageName == packageName) return@runCatching null
+            val n = sbn.notification
+            if (n.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE or Notification.FLAG_GROUP_SUMMARY) != 0) return@runCatching null
+            val action = n.actions.orEmpty().firstOrNull { a -> a.actionIntent != null && a.remoteInputs.orEmpty().any { it.allowFreeFormInput } }
+                ?: return@runCatching null
+            val who = com.jake.duolauncher.search.agent.ReplyLogic.clean(
+                (n.extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE) ?: n.extras.getCharSequence(Notification.EXTRA_TITLE))?.toString().orEmpty())
+            val app = com.jake.duolauncher.search.agent.ReplyLogic.clean(appLabelOf(sbn).orEmpty())
+            if (who.isEmpty() || app.isEmpty()) return@runCatching null
+            NotificationFeed.Replyable(com.jake.duolauncher.search.agent.ReplyTarget(sbn.key, who, app, sbn.postTime),
+                PeekAction("Reply", action.actionIntent, action.remoteInputs.orEmpty().first { it.allowFreeFormInput }))
+        }.getOrNull() }.sortedByDescending { it.target.postedAt }
+    }
     private fun scheduleSync() { handler?.let { it.removeCallbacks(syncAll); it.postDelayed(syncAll, SYNC_DELAY_MS) } }
 
     // A safety net for Live Updates: an app can end its activity (or die) without a removal event reaching this

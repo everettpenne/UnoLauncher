@@ -446,5 +446,41 @@
   {
     "q": "order me a pizza",
     "refuse": true
+  },
+  {
+    "q": "reply to Sam saying I'm on my way",
+    "steps": [
+      {
+        "tool": "reply",
+        "params": {
+          "to": "Sam",
+          "text": "I'm on my way"
+        }
+      }
+    ]
+  },
+  {
+    "q": "reply to that with sounds good",
+    "steps": [
+      {
+        "tool": "reply",
+        "params": {
+          "to": "that",
+          "text": "sounds good"
+        }
+      }
+    ]
+  },
+  {
+    "q": "tell Priya in Messages I'll call her tonight",
+    "steps": [
+      {
+        "tool": "reply",
+        "params": {
+          "to": "Priya",
+          "text": "I'll call you tonight"
+        }
+      }
+    ]
   }
 ]

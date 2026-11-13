@@ -50,7 +50,8 @@ internal class AgentLoop(
     private val confirm: suspend (steps: List<String>) -> Boolean = { true },
     private val onState: (AgentState) -> Unit = {},
 ) {
-    suspend fun run(query: String, context: String = "", grounding: String = ""): AgentOutcome {
+    /** [planOnly]: stop once there is a plan and say what it would do; nothing is confirmed or run. */
+    suspend fun run(query: String, context: String = "", grounding: String = "", planOnly: Boolean = false): AgentOutcome {
         onState(AgentState.Planning(query))
         val parsed = runCatching { planner.plan(PlanRequest(query, context, tools, grounding)) }
             .getOrElse { ParseResult.Failed("I couldn't reach the planner: ${it.message ?: "unknown error"}") }
@@ -59,7 +60,7 @@ internal class AgentLoop(
             is ParseResult.Ok -> when (val plan = parsed.plan) {
                 is Plan.Clarify -> { onState(AgentState.Asking(plan.question)); AgentOutcome.Asks(plan.question) }
                 is Plan.Refuse -> { onState(AgentState.Failed(plan.reason)); AgentOutcome.Refused(plan.reason) }
-                is Plan.Steps -> runSteps(plan)
+                is Plan.Steps -> if (planOnly) planned(plan) else runSteps(executor.bind(plan))
             }
         }
     }
@@ -67,7 +68,16 @@ internal class AgentLoop(
     /** Undoes the most recent undoable step of the last turn. */
     suspend fun undo(): ToolResult? = executor.undoLast()
 
+    private fun planned(plan: Plan.Steps): AgentOutcome {
+        val summary = "Would: " + executor.describe(plan).joinToString(" · ")
+        onState(AgentState.Done(summary, false))
+        return AgentOutcome.Done(summary, emptyList(), false)
+    }
+
     private suspend fun runSteps(plan: Plan.Steps): AgentOutcome {
+        // A step that cannot be done as asked (nobody to reply to, two people it could mean) is a question, before anything runs
+        // and before anyone is asked to approve it.
+        executor.problem(plan)?.let { question -> onState(AgentState.Asking(question)); return AgentOutcome.Asks(question) }
         val describe = executor.describe(plan)
         val leaving = plan.steps.filter { ToolPolicy.needsConfirmation(it.tool, settings) }
         if (leaving.isNotEmpty()) {

@@ -21,6 +21,7 @@ internal object ToolRegistry {
         CalendarTool,
         WebSearchTool,
         SettingsPanelTool,
+        ReplyTool,
     )
 
     /** The tools whose capabilities are present right now: a tool that needs contacts is not offered without them. */

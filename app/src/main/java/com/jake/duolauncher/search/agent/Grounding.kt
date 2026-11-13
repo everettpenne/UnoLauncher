@@ -10,8 +10,10 @@ internal data class KnownPerson(val name: String, val number: String)
 internal class Grounding(
     val people: List<KnownPerson> = emptyList(),
     val apps: List<String> = emptyList(),
+    /** The messages waiting as notifications that a reply could go to, newest first (who, and in which app). */
+    val replies: List<ReplyTarget> = emptyList(),
 ) {
-    val isEmpty: Boolean get() = people.isEmpty() && apps.isEmpty()
+    val isEmpty: Boolean get() = people.isEmpty() && apps.isEmpty() && replies.isEmpty()
 }
 
 /**
@@ -23,8 +25,23 @@ internal object GroundingLogic {
     private const val MAX_APPS = 6
     private val word = Regex("""[\p{L}\p{N}']+""")
 
+    private const val MAX_REPLIES = 4
+    private val replyWords = setOf("reply", "respond", "answer", "tell", "say", "write", "text", "message")
+
+    /** Whether a request reads as wanting to answer a message. */
+    fun aboutReplying(query: String): Boolean = word.findAll(query.lowercase()).any { it.value in replyWords }
+
     /** The block for the planner's `<known>` section, or "" when the request names nothing known. */
-    fun block(query: String, people: List<KnownPerson>, apps: List<String>): String = buildString {
+    fun block(query: String, people: List<KnownPerson>, apps: List<String>, replies: List<ReplyTarget> = emptyList()): String = buildString {
+        // Senders' names are written by other people: they are given as names only, cleaned and capped, and only for a request
+        // about replying or one that names the sender.
+        val waiting = replies.sortedByDescending { it.postedAt }.distinctBy { it.who.lowercase() to it.app.lowercase() }
+            .filter { aboutReplying(query) || mentions(query, it.who) }.take(MAX_REPLIES)
+        if (waiting.isNotEmpty()) {
+            append("Messages waiting for a reply (newest first): ")
+            append(waiting.joinToString("; ") { "${ReplyLogic.clean(it.who)} in ${ReplyLogic.clean(it.app)}" })
+            append('\n')
+        }
         val chosenPeople = people.filter { mentions(query, it.name) }.take(MAX_PEOPLE)
         if (chosenPeople.isNotEmpty()) {
             append("People: ")

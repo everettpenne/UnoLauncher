@@ -22,7 +22,8 @@ internal class AgentSession(
     /** The environment for this turn: re-read per run, because the panel that supplies it can be rebuilt between turns. */
     private val env: () -> ToolEnv,
     private val tools: List<Tool> = ToolRegistry.builtIn,
-    private val settings: AgentSettings = AgentSettings(),
+    /** Read for each turn, so a switch flipped in settings holds from the next question. */
+    private val settings: () -> AgentSettings = { AgentSettings() },
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     /** Called after every state change, so the island's card can follow the turn. */
     private val publish: () -> Unit = {},
@@ -43,14 +44,18 @@ internal class AgentSession(
     private var lastExecutor: Executor? = null
 
     /** Plans and runs [query]. A previous turn is abandoned. */
-    fun run(query: String, facts: String = "", grounding: Grounding = Grounding()) {
+    fun run(query: String, facts: String = "", grounding: Grounding = Grounding(), planOnly: Boolean = false) {
         job?.cancel()
         gate?.complete(false)
         gate = null
         // A new question starts clean: the old turn's sentence and undo do not belong to it.
         summary = null
         canUndo = false
-        val executor = Executor(env(), settings)
+        val settings = settings()
+        val env = env()
+        // Only what the phone can do right now is offered: a tool whose capability is missing is not in the catalogue at all.
+        val tools = ToolRegistry.available(env.capabilities(), tools)
+        val executor = Executor(env, settings)
         val loop = AgentLoop(
             planner = planner(),
             executor = executor,
@@ -65,7 +70,7 @@ internal class AgentSession(
             onState = { state = it; log("state ${it::class.simpleName}: $it"); publish() },
         )
         job = scope.launch {
-            val outcome = loop.run(query, facts, GroundingLogic.block(query, grounding.people, grounding.apps))
+            val outcome = loop.run(query, facts, GroundingLogic.block(query, grounding.people, grounding.apps, grounding.replies), planOnly)
             summary = when (outcome) {
                 is AgentOutcome.Done -> outcome.summary
                 is AgentOutcome.Asks -> outcome.question

@@ -204,10 +204,7 @@ class MainActivity : ComponentActivity() {
         }
         updateDefaultHome()
         if (savedInstanceState == null) assistText.value = intent.getStringExtra("uno_assist_text")
-        if (savedInstanceState == null) {
-            testQuery.value = intent.getStringExtra("uno_query")
-            testAsk.value = intent.getBooleanExtra("uno_ask", false)
-        }
+        if (savedInstanceState == null) takeTestHook(intent)
         if (savedInstanceState == null) openDestination(intent.getStringExtra("duo_destination"))
         intent.removeExtra("duo_destination"); intent.removeExtra("uno_assist_text")
         setContent {
@@ -230,7 +227,7 @@ class MainActivity : ComponentActivity() {
                     onLaunch = { launchApp(it) }, onMakeDefault = ::makeDefault, onAppInfo = ::appInfo,
                     isDefaultHome = defaultHome.value, deviceStatus = deviceStatus, onStatusMode = ::setStatusMode, onWallpaperPreview = ::previewWallpaper,
                     feedRequests = feedRequests.intValue, searchRequests = searchRequests.intValue, spotlightRequests = spotlightRequests.intValue,
-                    assistText = assistText.value, onAssistTextTaken = { assistText.value = null },
+                    assistText = assistText.value, onAssistTextTaken = { assistText.value = null; testQuery.value = null; testAsk.value = false },
                     spotlightQuery = testQuery.value, spotlightAsk = testAsk.value,
                     onLaunchFrom = ::launchApp, onGoogleSearch = ::openGoogleSearch,
                     appearance = appearance.state,
@@ -401,11 +398,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * The scripted device-test hook: `--es uno_query "…" --ez uno_ask true [--ez uno_plan_only true]` opens search with a question and
+     * asks it. Only in a test build (Uno Dev, or a debuggable build): this activity is exported, so in a release build any app could
+     * otherwise make the assistant ask, and act on, a question of its choosing. Read on a fresh start and on a new intent, so a test
+     * needs no force-stop between runs.
+     */
+    private fun takeTestHook(intent: Intent) {
+        val testBuild = packageName.endsWith(".dev") || (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        val query = intent.getStringExtra("uno_query")
+        if (testBuild && query != null) {
+            testQuery.value = query
+            testAsk.value = intent.getBooleanExtra("uno_ask", false)
+            com.jake.duolauncher.search.agent.AgentRouting.planOnly = intent.getBooleanExtra("uno_plan_only", false)
+        }
+        intent.removeExtra("uno_query"); intent.removeExtra("uno_ask"); intent.removeExtra("uno_plan_only")
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         FoldRenderExperiment.onNewIntent(this, intent)
         intent.getStringExtra("uno_assist_text")?.let { assistText.value = it }
+        takeTestHook(intent)
         if (intent.getStringExtra("duo_destination") in setOf("search", "spotlight", "feed", "customize", "keyboard")) openDestination(intent.getStringExtra("duo_destination"))
         else if (intent.hasCategory(Intent.CATEGORY_HOME) || intent.getStringExtra("duo_destination") == "home") homeRequests.intValue++
         intent.removeExtra("duo_destination"); intent.removeExtra("uno_assist_text")

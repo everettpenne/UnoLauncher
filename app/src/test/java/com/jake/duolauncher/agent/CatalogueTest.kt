@@ -55,8 +55,8 @@ class CatalogueTest {
 
     @Test fun everyToolDeclaresAnEffectAndHasAUniqueName() {
         assertEquals(tools.size, tools.map { it.name }.toSet().size)
-        // Every tool shipping today is local, so none of them should ask; a leaving-the-phone tool is what the policy exists for.
-        for (tool in tools) assertEquals(Effect.Local, tool.effect)
+        // Only a reply leaves the phone, so only it asks first; anything else added as LeavesPhone has to be added here on purpose.
+        assertEquals(listOf("reply"), tools.filter { it.effect == Effect.LeavesPhone }.map { it.name })
     }
 
     private fun rule(name: String) = name.replace(Regex("[^a-zA-Z0-9-]"), "-") + "-step"

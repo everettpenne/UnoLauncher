@@ -56,6 +56,17 @@ class AgentLoopTest {
         assertTrue(done.canUndo)
     }
 
+    @Test fun aPlanOnlyTurnSaysWhatItWouldDoAndRunsNothing() = runBlocking {
+        var started = 0
+        val counting = object : ToolEnv by env { override fun startTimer(seconds: Long) { started++ } }
+        val loop = AgentLoop(plannerFor(timerPlan()), Executor(counting))
+        val outcome = loop.run("timer for 20 minutes", planOnly = true) as AgentOutcome.Done
+        assertEquals(0, started)
+        assertTrue(outcome.summary.startsWith("Would: "))
+        assertFalse(outcome.canUndo)
+        assertTrue(outcome.outcomes.isEmpty())
+    }
+
     @Test fun aMultiStepLocalPlanReadsAsOneSentence() = runBlocking {
         val plan = Plan.Steps(listOf(
             Step(TimerTool, Params(mapOf("seconds" to "1200"))),

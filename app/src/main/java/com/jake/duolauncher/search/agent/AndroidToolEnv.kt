@@ -32,6 +32,17 @@ internal class AndroidToolEnv(
     /** Best effort: the camera's torch callback reports only when it is already on, so the tool keeps its own idea. */
     private var torchOn = false
 
+    /** Replies need the notification listener (the person's opt-in notification access) to be connected. */
+    override fun capabilities(): Set<Capability> =
+        if (com.jake.duolauncher.NotificationFeed.connected) setOf(Capability.Notifications) else emptySet()
+
+    override fun replyTargets(): List<ReplyTarget> = com.jake.duolauncher.NotificationFeed.replyable.map { it.target }
+
+    override fun sendReply(key: String, text: String): Boolean {
+        val found = com.jake.duolauncher.NotificationFeed.replyable.firstOrNull { it.target.key == key } ?: return false
+        return com.jake.duolauncher.island.sendReply(context, found.action, text)
+    }
+
     override fun focusOn(): Boolean = focusState()
     override fun toggleFocus() = onToggleFocus()
 

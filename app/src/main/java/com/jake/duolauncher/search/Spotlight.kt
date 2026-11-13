@@ -568,6 +568,7 @@ internal fun Spotlight(
                 planner = { com.jake.duolauncher.search.agent.LabPlanner { assistant } },
                 env = { env },
                 publish = { NotificationFeed.publishAssistant(context, System.currentTimeMillis()) },
+                settings = { com.jake.duolauncher.search.agent.AgentRouting.settings(context) },
             )
         }
     }
@@ -597,7 +598,8 @@ internal fun Spotlight(
         }.orEmpty()
         val agent = agentSession
         if (agent != null && com.jake.duolauncher.search.agent.AgentRouting.plans(context, q)) {
-            agent.run(q, facts, com.jake.duolauncher.search.agent.Grounding(apps = apps.map { it.label }))
+            agent.run(q, facts, com.jake.duolauncher.search.agent.Grounding(apps = apps.map { it.label }, replies = agentEnv?.replyTargets().orEmpty()),
+                planOnly = com.jake.duolauncher.search.agent.AgentRouting.planOnly)
             return@LaunchedEffect
         }
         AssistantSession.start(context, q, facts)

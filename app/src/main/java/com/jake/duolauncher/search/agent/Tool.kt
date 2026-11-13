@@ -70,6 +70,57 @@ internal interface ToolEnv {
     fun openSettingsPanel(panel: String)
     /** Writes the note, returning what it held before (for undo); null when there is no Note widget on Home. */
     fun writeNote(text: String): String?
+    /** What the phone can offer right now; a tool that needs something not in here is not offered (ToolRegistry.available). */
+    fun capabilities(): Set<Capability> = emptySet()
+    /** The messages that can be answered from their notification, newest first: who sent each and in which app. Never their words. */
+    fun replyTargets(): List<ReplyTarget> = emptyList()
+    /** Sends [text] as the reply to the notification [key] names; false when it is gone or the app refused it. */
+    fun sendReply(key: String, text: String): Boolean = false
+}
+
+/** A message that can be answered from its notification: the notification's key, who it is from, the app, and when it came. */
+internal data class ReplyTarget(val key: String, val who: String, val app: String, val postedAt: Long)
+
+/** Which waiting message a reply is for. Pure, so every case is unit-tested. */
+internal object ReplyLogic {
+    const val MAX_TEXT = 500
+    private val newest = setOf("", "that", "it", "this", "them", "him", "her", "last", "latest", "the last message", "the latest message",
+        "the message", "that message", "the last one", "the notification")
+
+    sealed interface Found {
+        data class One(val target: ReplyTarget) : Found
+        data object None : Found
+        data class Many(val targets: List<ReplyTarget>) : Found
+    }
+
+    /**
+     * [to] is a sender's name, an app's, or a word for "the newest one". A name that fits two different people is not guessed between:
+     * the person is asked. Several messages from one person in one app are one conversation, and the newest of them is answered.
+     */
+    fun resolve(to: String, targets: List<ReplyTarget>): Found {
+        val byTime = targets.sortedByDescending { it.postedAt }
+        if (byTime.isEmpty()) return Found.None
+        val asked = to.trim().lowercase()
+        if (asked in newest) return Found.One(byTime.first())
+        val byName = byTime.filter { GroundingLogic.mentions(asked, it.who) }
+        val matches = byName.ifEmpty { byTime.filter { GroundingLogic.mentions(asked, it.app) } }
+        val conversations = matches.distinctBy { it.who.lowercase() to it.app.lowercase() }
+        return when (conversations.size) {
+            0 -> Found.None
+            1 -> Found.One(conversations.first())
+            else -> Found.Many(conversations)
+        }
+    }
+
+    fun nobody(to: String): String =
+        if (to.isBlank() || to.trim().lowercase() in newest) "I don't see a message to reply to."
+        else "I don't see a message from ${to.trim()} to reply to."
+
+    fun which(targets: List<ReplyTarget>): String =
+        "Which one: " + targets.take(4).joinToString(", ") { "${it.who} in ${it.app}" } + "?"
+
+    /** A sender's or app's name as it may be shown and given to the planner: one line, no markup, not long. Others wrote it. */
+    fun clean(name: String): String = name.filter { !it.isISOControl() && it !in "<>[]{}|`\"" }.trim().take(40)
 }
 
 /**
@@ -108,4 +159,15 @@ internal abstract class Tool(
     }
 
     abstract suspend fun execute(params: Params, env: ToolEnv): ToolResult
+
+    /** Settles, once and before anything is shown or run, what the step will act on (which message a reply is for). The loop shows
+     *  and runs the returned values, so what was confirmed is what is done. Most tools have nothing to settle. */
+    open fun bind(params: Params, env: ToolEnv): Params = params
+
+    /** Why the step cannot be done as asked, as a sentence for the person (nobody to reply to, two people it could mean); null when
+     *  it can. Asked before a confirmation, so nobody is asked to approve something that would fail. */
+    open fun problem(params: Params, env: ToolEnv): String? = null
+
+    /** The step in words for the confirmation ("Reply to Sam in Messages: …"); null for the plain form (the tool and its values). */
+    open fun describe(params: Params, env: ToolEnv): String? = null
 }

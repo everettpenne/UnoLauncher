@@ -86,7 +86,7 @@ internal object PermissionLedger {
                 LedgerAction.ACCESSIBILITY_SETTINGS),
             LedgerRow("notifications", "Notification access",
                 if (i.notificationAccess) "Allowed" else "Not allowed", i.notificationAccess,
-                "Badges on app icons, the track title and artwork, the call card, Live Updates in the island, and the island's notification peeks, each only if you switch it on.",
+                "Badges on app icons, the track title and artwork, the call card, Live Updates in the island, and the island's notification peeks, each only if you switch it on. With Let Qwen do tasks on, also who each waiting message is from (never its words), so a reply can be sent from its notification after you approve the exact text.",
                 "App names, the current track's title, artist and artwork, the caller's name while a call is active, and a Live Update's title, text, short status, progress and icon; a download's title and progress; a navigation notification's instruction; and, only if you choose it, the title (and text) of a new notification for the island's card. Chat and message text is read only at that last, opt-in level. Nothing is stored or sent.",
                 LedgerAction.NOTIFICATION_ACCESS),
             LedgerRow("contacts", "Contacts",

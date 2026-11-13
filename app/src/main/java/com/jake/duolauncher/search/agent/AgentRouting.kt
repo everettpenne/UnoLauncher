@@ -15,10 +15,23 @@ import com.jake.duolauncher.search.AssistantIntent
  */
 internal object AgentRouting {
     const val SETTING = "unolab_agent"
+    /** The switches in Launcher settings (ExtrasStore keeps them in the "extras" preferences). */
+    const val PREF_TASKS = "agentTasks"
+    const val PREF_ASK_FIRST = "agentAskFirst"
 
-    fun enabled(context: Context): Boolean = runCatching {
+    /** Set by the device-test hook (test builds only): the turn stops once it has a plan and says what it would do, so an evaluation
+     *  run over many requests does not set forty timers on the phone. */
+    @Volatile var planOnly = false
+
+    /** On with "Let Qwen do tasks" in Launcher settings, or with the global setting a device test flips. */
+    fun enabled(context: Context): Boolean = prefs(context)?.getBoolean(PREF_TASKS, false) == true || runCatching {
         android.provider.Settings.Global.getInt(context.contentResolver, SETTING, 0) == 1
     }.getOrDefault(false)
+
+    /** How the person has set the agent to behave, read for each turn. */
+    fun settings(context: Context): AgentSettings = AgentSettings(askAll = prefs(context)?.getBoolean(PREF_ASK_FIRST, false) == true)
+
+    private fun prefs(context: Context) = runCatching { context.getSharedPreferences("extras", Context.MODE_PRIVATE) }.getOrNull()
 
     fun plans(context: Context, query: String): Boolean = plans(query, enabled(context))
 

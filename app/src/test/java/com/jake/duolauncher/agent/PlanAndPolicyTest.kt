@@ -50,5 +50,7 @@ class PlanAndPolicyTest {
         assertTrue(ToolPolicy.needsConfirmation(send))
         // An opt-in tap for a local tool, for anyone who wants it.
         assertTrue(ToolPolicy.needsConfirmation(timer, AgentSettings(alwaysAsk = setOf("timer"))))
+        // "Ask before every action": one switch, every tool.
+        assertTrue(ToolPolicy.needsConfirmation(timer, AgentSettings(askAll = true)))
     }
 }

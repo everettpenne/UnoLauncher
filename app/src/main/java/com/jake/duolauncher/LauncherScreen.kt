@@ -336,7 +336,7 @@ internal fun LauncherScreen(
     /** The island's assistant card opens search itself, not just Home. */
     LaunchedEffect(spotlightRequests) { if (spotlightRequests > 0) spotlightOpen = true }
     // What the screen said is only good for the search it opened: once that closes, it is dropped rather than reused.
-    LaunchedEffect(spotlightOpen) { if (!spotlightOpen && assistText != null) onAssistTextTaken() }
+    LaunchedEffect(spotlightOpen) { if (!spotlightOpen && (assistText != null || spotlightQuery != null)) onAssistTextTaken() }
     // Once the answer has been read (search was open and is now closed), the island's card for it goes away. Only after it was open,
     // so an answer that arrives while search is closed is not thrown away before it has been seen.
     var assistantWasOpen by remember { mutableStateOf(false) }

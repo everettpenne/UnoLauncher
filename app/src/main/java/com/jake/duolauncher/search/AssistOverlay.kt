@@ -113,7 +113,11 @@ object AssistOverlay {
         val main = android.os.Handler(android.os.Looper.getMainLooper())
         // Opened from the island while it is out (its Search, "Ready" on its card, a pull on into search): the island steps aside first,
         // and the picture waits for that, so the glass does not bend a picture of the island it grew out of.
-        val islandOut = IslandRuntime.state.expanded || IslandRuntime.state.peeked || IslandRuntime.state.pullFraction != null
+        // Judged by where the island is drawn, not its state: the island's own Search has already told it to close by now, and it is still
+        // open on screen.
+        val live = IslandRuntime.state.liveFrame; val rest = IslandRuntime.state.restPill
+        val islandOut = IslandRuntime.state.expanded || IslandRuntime.state.peeked || IslandRuntime.state.pullFraction != null ||
+            (live != null && rest != null && live.height > rest.height * 1.2f)
         if (islandOut) { IslandRuntime.state.collapse(); IslandRuntime.searchOverApp = true }
         var settled = false
         fun settle(picture: android.graphics.Bitmap?) {

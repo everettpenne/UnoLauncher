@@ -7,6 +7,7 @@ internal object NoteTool : Tool(
     summary = "Saves a note to the Note widget on Home.",
     params = listOf(Param("text", Kind.Text, maxLength = 400)),
     effect = Effect.Local,
+    examples = listOf("remember that the door code is 4411", "note to self call the vet", "write down milk and eggs"),
 ) {
     override suspend fun execute(params: Params, env: ToolEnv): ToolResult {
         val text = params.text("text") ?: return ToolResult(false, "There was nothing to write down.")

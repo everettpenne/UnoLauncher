@@ -7,6 +7,7 @@ internal object TimerTool : Tool(
     summary = "Starts a countdown timer that the island shows.",
     params = listOf(Param("seconds", Kind.Int, min = 1, max = 86_400), Param("label", Kind.Text, required = false, maxLength = 60)),
     effect = Effect.Local,
+    examples = listOf("count down 15 minutes", "egg timer 7 minutes", "set a timer for an hour and a half"),
 ) {
     override suspend fun execute(params: Params, env: ToolEnv): ToolResult {
         val seconds = params.int("seconds") ?: return ToolResult(false, "I didn't catch how long the timer should be.")

@@ -10,6 +10,7 @@ internal object AlarmTool : Tool(
         Param("in_minutes", Kind.Int, required = false, min = 1, max = 1440),
     ),
     effect = Effect.Local,
+    examples = listOf("alarm for 7:15", "wake me up in 45 minutes"),
 ) {
     private val clockTime = Regex("""^([01]?\d|2[0-3]):[0-5]\d$""")
 

@@ -60,7 +60,15 @@ internal class AgentLoop(
             is ParseResult.Ok -> when (val plan = parsed.plan) {
                 is Plan.Clarify -> { onState(AgentState.Asking(plan.question)); AgentOutcome.Asks(plan.question) }
                 is Plan.Refuse -> { onState(AgentState.Failed(plan.reason)); AgentOutcome.Refused(plan.reason) }
-                is Plan.Steps -> if (planOnly) planned(plan) else runSteps(executor.bind(plan))
+                is Plan.Steps -> {
+                    // Nothing the person did not give (an address, a number) is acted on: the plan becomes a question instead.
+                    val madeUp = executor.invented(plan, query + "\n" + grounding)
+                    when {
+                        madeUp != null -> { onState(AgentState.Asking(madeUp)); AgentOutcome.Asks(madeUp) }
+                        planOnly -> planned(plan)
+                        else -> runSteps(executor.bind(plan))
+                    }
+                }
             }
         }
     }

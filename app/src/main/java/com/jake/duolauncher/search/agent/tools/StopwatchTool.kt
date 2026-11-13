@@ -6,6 +6,7 @@ internal object StopwatchTool : Tool(
     name = "stopwatch",
     summary = "Starts or stops the island's stopwatch.",
     effect = Effect.Local,
+    examples = listOf("time my run", "stopwatch", "how long does this lap take"),
 ) {
     override suspend fun execute(params: Params, env: ToolEnv): ToolResult {
         val running = env.toggleStopwatch()

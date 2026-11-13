@@ -87,4 +87,11 @@ class ToolValidationTest {
         assertTrue(rejected(OpenAppTool))
         assertTrue(rejected(OpenAppTool, "app" to ""))
     }
+
+    @Test fun anOptionalValueTheModelOnlyFilledInIsTreatedAsLeftOut() {
+        // Seen on the phone: "alarm in 30 minutes" planned as at:"none", and "alarm for 17:00" with in_minutes:0.
+        assertTrue(com.jake.duolauncher.search.agent.tools.AlarmTool.validate(mapOf("at" to "none", "in_minutes" to "30")) is Validation.Ok)
+        assertTrue(com.jake.duolauncher.search.agent.tools.AlarmTool.validate(mapOf("at" to "17:00", "in_minutes" to "0")) is Validation.Ok)
+        assertTrue(com.jake.duolauncher.search.agent.tools.AlarmTool.validate(mapOf("at" to "", "in_minutes" to "")) is Validation.Rejected)
+    }
 }

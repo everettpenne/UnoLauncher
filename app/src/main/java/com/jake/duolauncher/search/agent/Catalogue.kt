@@ -14,10 +14,15 @@ internal object Catalogue {
         appendLine("Every parameter must be present; give an unused optional one as an empty string.")
         appendLine("If you must ask the person something first: {\"clarify\":\"<question>\"}")
         appendLine("If it cannot be done: {\"refuse\":\"<one sentence saying what is missing>\"}")
+        appendLine("Rules:")
+        appendLine("- Use only the steps the request asks for, three at most. Most requests are one step.")
+        appendLine("- Never invent a detail. If a time, a length, a number or a name is missing, ask with clarify.")
+        appendLine("- Never make up a web address. If no tool does what is asked (ordering, booking, paying), refuse.")
         appendLine()
         appendLine("Tools:")
         for (tool in tools) {
             append("- ").append(tool.name).append(": ").append(tool.summary).append('\n')
+            if (tool.examples.isNotEmpty()) append("  for: ").append(tool.examples.joinToString("; ") { "\"$it\"" }).append('\n')
             if (tool.params.isNotEmpty()) {
                 append("  params: ")
                 append(tool.params.joinToString(", ") { p ->
@@ -37,7 +42,7 @@ internal object Catalogue {
     /** A grammar for the same shape: tool names and parameter names are fixed, values are validated afterwards. */
     fun grammar(tools: List<Tool>): String = buildString {
         appendLine("root ::= plan | clarify | refuse")
-        appendLine("plan ::= " + lit("{\"steps\":[") + " step (" + lit(",") + " step)* " + lit("]}"))
+        appendLine("plan ::= " + lit("{\"steps\":[") + " step (" + lit(",") + " step)? (" + lit(",") + " step)? " + lit("]}"))
         appendLine("step ::= " + tools.joinToString(" | ") { rule(it.name) })
         for (tool in tools) appendLine(rule(tool.name) + " ::= " + body(tool))
         appendLine("clarify ::= " + lit("{\"clarify\":") + " " + lit("\"") + " text " + lit("\"") + " " + lit("}"))
@@ -72,7 +77,8 @@ internal object Catalogue {
             append(" ").append(lit("\"" + param.name + "\":"))
             append(' ')
             when (param.kind) {
-                Kind.Int -> append("digits")
+                // An optional number may be left out, as the empty string the prompt asks for.
+                Kind.Int -> append(if (param.required) "digits" else "( digits | " + lit("\"\"") + " )")
                 Kind.Bool -> append("bool")
                 // Parenthesised: a bare alternation would split the whole step rule, so a step could be just one choice.
                 Kind.Enum -> append("( " + param.choices.joinToString(" | ") { lit("\"" + it + "\"") } + " )")

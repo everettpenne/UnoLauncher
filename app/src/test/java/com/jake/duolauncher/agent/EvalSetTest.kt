@@ -40,6 +40,13 @@ class EvalSetTest {
         assertTrue(rows.count { it.expected is EvalRow.Expected.Refuse } >= 3)
     }
 
+    @Test fun noPhrasingIsAlsoAnExampleInThePrompt() {
+        // The planner is shown each tool's examples. A phrasing it was shown is not a test of it, so the two sets stay apart.
+        val shown = ToolRegistry.builtIn.flatMap { it.examples }.map { it.lowercase() }.toSet()
+        val both = rows.map { it.query.lowercase() }.filter { it in shown }
+        assertTrue("these are both eval rows and prompt examples: $both", both.isEmpty())
+    }
+
     @Test fun queriesAreDistinct() {
         assertEquals(rows.size, rows.map { it.query }.toSet().size)
         assertTrue("expected a set of at least 30 phrasings, got ${rows.size}", rows.size >= 30)

@@ -11,6 +11,7 @@ internal object CalendarTool : Tool(
         Param("duration_minutes", Kind.Int, min = 5, max = 1_440),
     ),
     effect = Effect.Local,
+    examples = listOf("haircut in 2 hours for 45 minutes", "meeting with Sam in 20 minutes", "add lunch to my calendar in an hour"),
 ) {
     override suspend fun execute(params: Params, env: ToolEnv): ToolResult {
         val title = params.text("title") ?: return ToolResult(false, "I didn't catch what the event is called.")

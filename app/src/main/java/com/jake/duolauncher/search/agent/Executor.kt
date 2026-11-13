@@ -57,6 +57,9 @@ internal class Executor(
     /** The plan with each step's target settled (Tool.bind), once: what is then described, confirmed and run is the same thing. */
     fun bind(plan: Plan.Steps): Plan.Steps = Plan.Steps(plan.steps.map { Step(it.tool, it.tool.bind(it.params, env)) })
 
+    /** The first thing a step made up that only the person can supply (Tool.invented), as a question; or null. */
+    fun invented(plan: Plan.Steps, said: String): String? = plan.steps.take(MAX_STEPS).firstNotNullOfOrNull { it.tool.invented(it.params, said) }
+
     /** The first reason a step cannot be done as asked (Tool.problem), or null. */
     fun problem(plan: Plan.Steps): String? = plan.steps.take(MAX_STEPS).firstNotNullOfOrNull { it.tool.problem(it.params, env) }
 

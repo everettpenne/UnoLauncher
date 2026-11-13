@@ -579,9 +579,12 @@ internal fun Spotlight(
     var askCopied by remember(query) { mutableStateOf(false) }
     // A scripted test's query is asked once, after the panel has offered it: no taps, no timing.
     var scripted by remember { mutableStateOf(if (autoAsk && !initialQuery.isNullOrBlank()) initialQuery.trim() else null) }
+    val scriptedAsk = autoAsk && !initialQuery.isNullOrBlank()
     LaunchedEffect(scripted, askOffered) {
         val q = scripted ?: return@LaunchedEffect
-        if (askOffered) { askedFor = q; scripted = null }
+        // A plan-only run (test builds only) scores the planner on every phrasing, so it asks even where search's own instant action
+        // would have answered and no Ask row is offered.
+        if (askOffered || (com.jake.duolauncher.search.agent.AgentRouting.planOnly && assistant != null)) { askedFor = q; scripted = null }
     }
     // The turn itself lives in AssistantSession, so search can be closed while the model works. This hands it the question and the
     // facts an answer would need (read up front: they cost ~25 ms, and a possible action never sees them).
@@ -597,7 +600,8 @@ internal fun Spotlight(
             }
         }.orEmpty()
         val agent = agentSession
-        if (agent != null && com.jake.duolauncher.search.agent.AgentRouting.plans(context, q)) {
+        if (agent != null && (com.jake.duolauncher.search.agent.AgentRouting.plans(context, q) ||
+                (com.jake.duolauncher.search.agent.AgentRouting.planOnly && scriptedAsk))) {
             agent.run(q, facts, com.jake.duolauncher.search.agent.Grounding(apps = apps.map { it.label }, replies = agentEnv?.replyTargets().orEmpty()),
                 planOnly = com.jake.duolauncher.search.agent.AgentRouting.planOnly)
             return@LaunchedEffect

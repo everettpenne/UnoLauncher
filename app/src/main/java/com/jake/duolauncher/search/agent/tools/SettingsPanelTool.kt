@@ -11,6 +11,7 @@ internal object SettingsPanelTool : Tool(
     summary = "Opens an Android settings page: wifi, bluetooth, nfc, airplane, display, sound, battery.",
     params = listOf(Param("panel", Kind.Enum, choices = listOf("wifi", "bluetooth", "nfc", "airplane", "display", "sound", "battery"))),
     effect = Effect.Local,
+    examples = listOf("wifi settings", "turn bluetooth off", "show battery settings"),
 ) {
     override suspend fun execute(params: Params, env: ToolEnv): ToolResult {
         val panel = params.text("panel") ?: return ToolResult(false, "I didn't catch which setting.")

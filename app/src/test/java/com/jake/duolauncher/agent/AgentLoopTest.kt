@@ -67,6 +67,27 @@ class AgentLoopTest {
         assertTrue(outcome.outcomes.isEmpty())
     }
 
+    @Test fun anAddressOrNumberThePersonDidNotGiveIsAskedForNotActedOn() = runBlocking {
+        var opened = 0; var dialled = 0
+        val counting = object : ToolEnv by env {
+            override fun openUrl(url: String) { opened++ }
+            override fun openDialer(number: String) { dialled++ }
+        }
+        fun url(u: String) = Plan.Steps(listOf(Step(OpenUrlTool, Params(mapOf("url" to u)))))
+        fun dial(n: String) = Plan.Steps(listOf(Step(DialTool, Params(mapOf("number" to n)))))
+        // Seen on the phone: "order me a pizza" planned as opening a pizza site the model made up.
+        assertEquals(AgentOutcome.Asks("Which web address should I open?"),
+            AgentLoop(plannerFor(url("https://www.pizzerias.com/")), Executor(counting)).run("order me a pizza"))
+        assertEquals(AgentOutcome.Asks("What number should I call?"),
+            AgentLoop(plannerFor(dial("5550199")), Executor(counting)).run("call my dentist"))
+        assertEquals(0, opened); assertEquals(0, dialled)
+        // What the person gave, or what Uno resolved for a name they gave, is used.
+        assertTrue(AgentLoop(plannerFor(url("https://www.example.com/news")), Executor(counting)).run("open example.com") is AgentOutcome.Done)
+        assertTrue(AgentLoop(plannerFor(dial("+1 555 0100")), Executor(counting)).run("dial +1 555 0100") is AgentOutcome.Done)
+        assertTrue(AgentLoop(plannerFor(dial("5550142")), Executor(counting)).run("call Sam", grounding = "People: Sam (555 0142)") is AgentOutcome.Done)
+        assertEquals(1, opened); assertEquals(2, dialled)
+    }
+
     @Test fun aMultiStepLocalPlanReadsAsOneSentence() = runBlocking {
         val plan = Plan.Steps(listOf(
             Step(TimerTool, Params(mapOf("seconds" to "1200"))),

@@ -7,6 +7,7 @@ internal object OpenAppTool : Tool(
     summary = "Opens an installed app by its name.",
     params = listOf(Param("app", Kind.Text, maxLength = 60)),
     effect = Effect.Local,
+    examples = listOf("launch maps", "open the calculator"),
 ) {
     override suspend fun execute(params: Params, env: ToolEnv): ToolResult {
         val wanted = params.text("app") ?: return ToolResult(false, "I didn't catch which app to open.")

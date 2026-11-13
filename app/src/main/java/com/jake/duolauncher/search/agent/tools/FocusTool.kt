@@ -7,6 +7,7 @@ internal object FocusTool : Tool(
     summary = "Turns Focus (Do Not Disturb) on or off; it hides the apps the person picked.",
     params = listOf(Param("on", Kind.Bool)),
     effect = Effect.Local,
+    examples = listOf("turn on do not disturb", "focus mode off", "silence my phone"),
 ) {
     override suspend fun execute(params: Params, env: ToolEnv): ToolResult {
         val want = params.bool("on") ?: return ToolResult(false, "I didn't catch whether Focus should be on or off.")

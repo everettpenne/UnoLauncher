@@ -133,13 +133,23 @@ internal abstract class Tool(
     val params: List<Param> = emptyList(),
     val effect: Effect,
     val needs: Set<Capability> = emptySet(),
+    /** A few requests this tool is the answer to, in the person's words. The planner reads them beside the summary: on the phone a
+     *  2B model picked the wrong tool for "remember to buy bread" and "time my swim" until it was shown what each is for. */
+    val examples: List<String> = emptyList(),
 ) {
     /** Checks requiredness, type, range and enum membership. A tool overrides this only for a rule of its own. */
     open fun validate(raw: Map<String, String>): Validation<Params> {
         val known = params.mapTo(mutableSetOf()) { it.name }
         val filtered = raw.filterKeys { it in known }
+        // An optional value the model filled in only because it had to write something ("none", or a 0 below the smallest allowed)
+        // is the same as leaving it out. Seen on the phone: "alarm in 30 minutes" came back with at:"none".
+        val given = filtered.filter { (key, raw) ->
+            val p = params.first { it.name == key }
+            val value = raw.trim()
+            p.required || !(value.lowercase() in PLACEHOLDERS || (p.kind == Kind.Int && value.toIntOrNull()?.let { it < p.min } == true))
+        }
         for (p in params) {
-            val value = filtered[p.name]?.trim().orEmpty()
+            val value = given[p.name]?.trim().orEmpty()
             if (value.isEmpty()) {
                 if (p.required) return Validation.Rejected("$name needs ${p.name}")
                 continue
@@ -155,10 +165,19 @@ internal abstract class Tool(
                 Kind.Text -> if (value.length > p.maxLength) return Validation.Rejected("${p.name} is too long")
             }
         }
-        return Validation.Ok(Params(filtered))
+        return Validation.Ok(Params(given))
     }
 
     abstract suspend fun execute(params: Params, env: ToolEnv): ToolResult
+
+    private companion object { val PLACEHOLDERS = setOf("none", "null", "n/a", "na", "unused", "-") }
+
+    /**
+     * Whether the plan made up something only the person can supply (a web address, a phone number): null when the value is in what
+     * they [said] (their request and the names and numbers Uno resolved for it), otherwise a sentence asking for it. On the phone the
+     * model answered "order me a pizza" with a pizza site's address it had invented; nothing the person did not give is opened or dialled.
+     */
+    open fun invented(params: Params, said: String): String? = null
 
     /** Settles, once and before anything is shown or run, what the step will act on (which message a reply is for). The loop shows
      *  and runs the returned values, so what was confirmed is what is done. Most tools have nothing to settle. */

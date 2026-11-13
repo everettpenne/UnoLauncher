@@ -20,6 +20,7 @@ internal object ReplyTool : Tool(
     params = listOf(Param("to", Kind.Text, maxLength = 60), Param("text", Kind.Text, maxLength = ReplyLogic.MAX_TEXT)),
     effect = Effect.LeavesPhone,
     needs = setOf(Capability.Notifications),
+    examples = listOf("reply to Dana saying running late", "answer that with thanks", "tell Jo back that I got it"),
 ) {
     private const val KEY = "_key"
     private const val WHO = "_who"

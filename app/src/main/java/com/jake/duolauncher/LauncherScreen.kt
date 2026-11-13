@@ -118,6 +118,7 @@ internal fun LauncherScreen(
     isDefaultHome: Boolean, deviceStatus: DeviceStatus, onStatusMode: (Boolean) -> Unit, onWallpaperPreview: () -> Unit,
     feedRequests: Int = 0, searchRequests: Int = 0, customizeRequests: Int = 0, keyboardSettingsRequests: Int = 0, spotlightRequests: Int = 0,
     assistText: String? = null, onAssistTextTaken: () -> Unit = {},
+    spotlightQuery: String? = null, spotlightAsk: Boolean = false,
     onLaunchFrom: (AppEntry, android.graphics.Rect?) -> Unit = { app, _ -> onLaunch(app) },
     onGoogleSearch: (android.graphics.Rect?) -> Boolean = { false },
     appearance: AppearanceState = AppearanceState(),
@@ -1567,7 +1568,8 @@ internal fun LauncherScreen(
                 openSearchSettings = { customizationPage = CustomizationPage.SEARCH; sheet = "settings" }) }
             com.jake.duolauncher.search.SearchPanel(island.surface, searchHost, launcherActivity, controlGlass, state, extras?.store?.state,
                 appearance, feed.shownEntries, handoffResolver, screenText = assistText,
-                visible = spotlightOpen, progress = { grow }, pill = spotlightPill, from = spotlightFrom)
+                visible = spotlightOpen, progress = { grow }, pill = spotlightPill, from = spotlightFrom,
+                initialQuery = spotlightQuery, autoAsk = spotlightAsk)
         }
         androidx.compose.animation.AnimatedVisibility(controlPanelOpen,
             enter = androidx.compose.animation.slideInVertically(UnoMotion.glide()) { -it / 2 } + androidx.compose.animation.fadeIn(UnoMotion.glide()),

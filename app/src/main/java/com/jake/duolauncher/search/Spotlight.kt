@@ -488,6 +488,9 @@ internal fun Spotlight(
     /** Whether opening the panel takes the keyboard. A floating host that focuses its field before Compose has placed the panel makes the
      *  field's scroll-to-caret throw, so it leaves the field for a tap instead. */
     autoFocus: Boolean = true,
+    /** A query to start with, and whether to press Ask Qwen on it: how the device tests drive the panel without taps. */
+    initialQuery: String? = null,
+    autoAsk: Boolean = false,
     /** No glass to draw (search over another app, whose pixels can't be sampled): the bar still thins from black into what is behind it,
      *  and the card is a translucent dark sheet, so the page shows through as Home does through its glass. */
     seeThrough: Boolean = false,
@@ -495,7 +498,7 @@ internal fun Spotlight(
     onBackStep: ((() -> Boolean)?) -> Unit = {},
 ) {
     val context = LocalContext.current
-    var query by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf(initialQuery.orEmpty()) }
     androidx.compose.runtime.DisposableEffect(Unit) {
         onBackStep { if (query.isNotEmpty()) { query = ""; true } else false }
         onDispose { onBackStep(null) }
@@ -573,6 +576,12 @@ internal fun Spotlight(
     var askedFor by remember(query) { mutableStateOf<String?>(null) }
     var askView by remember(query) { mutableStateOf<AskView?>(null) }
     var askCopied by remember(query) { mutableStateOf(false) }
+    // A scripted test's query is asked once, after the panel has offered it: no taps, no timing.
+    var scripted by remember { mutableStateOf(if (autoAsk && !initialQuery.isNullOrBlank()) initialQuery.trim() else null) }
+    LaunchedEffect(scripted, askOffered) {
+        val q = scripted ?: return@LaunchedEffect
+        if (askOffered) { askedFor = q; scripted = null }
+    }
     // The turn itself lives in AssistantSession, so search can be closed while the model works. This hands it the question and the
     // facts an answer would need (read up front: they cost ~25 ms, and a possible action never sees them).
     LaunchedEffect(askedFor) {

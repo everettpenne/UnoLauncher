@@ -51,6 +51,9 @@ internal fun SearchPanel(
     /** What was on screen when the assist gesture opened search, as a fact for the assistant. */
     screenText: String?,
     visible: Boolean,
+    /** A query to open with and whether to ask it: for device tests (see Spotlight). */
+    initialQuery: String? = null,
+    autoAsk: Boolean = false,
     progress: () -> Float,
     pill: IslandFrame?,
     from: IslandFrame? = null,
@@ -77,6 +80,7 @@ internal fun SearchPanel(
         onLaunchFrom = { app, bounds -> close(); host.launch(app, bounds) },
         onOpenFeedLink = { link -> close(); host.openFeedLink(link) },
         onOpenContact = { contact -> close(); host.openContact(contact) },
+        initialQuery = initialQuery, autoAsk = autoAsk,
         onDismiss = close, progress = progress, visible = visible, pill = pill, from = from,
         noteSlot = launcher.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
         focusOn = { latestExtras?.focusOn == true },

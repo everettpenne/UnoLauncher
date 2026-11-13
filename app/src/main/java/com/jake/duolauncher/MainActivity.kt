@@ -56,6 +56,9 @@ class MainActivity : ComponentActivity() {
     private val spotlightRequests = mutableIntStateOf(0)
     /** What was on the screen when Uno Lab, as the system assistant, handed a question over. Only good for that one search. */
     private val assistText = mutableStateOf<String?>(null)
+    /** Device tests: a query to open search with, and whether to press Ask Qwen on it. */
+    private val testQuery = mutableStateOf<String?>(null)
+    private val testAsk = mutableStateOf(false)
     /** The island's feed button over other apps (and anything else) asked for My feed. */
     private val feedRequests = mutableIntStateOf(0)
     private val feedSetupRequests = mutableIntStateOf(0)
@@ -201,6 +204,10 @@ class MainActivity : ComponentActivity() {
         }
         updateDefaultHome()
         if (savedInstanceState == null) assistText.value = intent.getStringExtra("uno_assist_text")
+        if (savedInstanceState == null) {
+            testQuery.value = intent.getStringExtra("uno_query")
+            testAsk.value = intent.getBooleanExtra("uno_ask", false)
+        }
         if (savedInstanceState == null) openDestination(intent.getStringExtra("duo_destination"))
         intent.removeExtra("duo_destination"); intent.removeExtra("uno_assist_text")
         setContent {
@@ -224,6 +231,7 @@ class MainActivity : ComponentActivity() {
                     isDefaultHome = defaultHome.value, deviceStatus = deviceStatus, onStatusMode = ::setStatusMode, onWallpaperPreview = ::previewWallpaper,
                     feedRequests = feedRequests.intValue, searchRequests = searchRequests.intValue, spotlightRequests = spotlightRequests.intValue,
                     assistText = assistText.value, onAssistTextTaken = { assistText.value = null },
+                    spotlightQuery = testQuery.value, spotlightAsk = testAsk.value,
                     onLaunchFrom = ::launchApp, onGoogleSearch = ::openGoogleSearch,
                     appearance = appearance.state,
                     onAppearanceMode = { cancelAppearanceLocation(); appearance.setMode(it, systemDark()) },

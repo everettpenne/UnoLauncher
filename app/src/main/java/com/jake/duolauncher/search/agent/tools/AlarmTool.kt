@@ -29,15 +29,18 @@ internal object AlarmTool : Tool(
         return base
     }
 
+    override fun describe(params: Params, env: ToolEnv): String? =
+        params.text("at")?.let { "Open Clock to set an alarm for $it" } ?: params.int("in_minutes")?.let { "Open Clock to set an alarm in $it minutes" }
+
     override suspend fun execute(params: Params, env: ToolEnv): ToolResult {
         val at = params.text("at")
         val inMinutes = params.int("in_minutes")
         if (at != null) {
             val (hour, minute) = at.substringBefore(':').toInt() to at.substringAfter(':').toInt()
             env.openAlarm(hour, minute, null)
-            return ToolResult(true, "Clock open with ${Speak.clock(hour, minute)} filled in — tap Save to finish")
+            return ToolResult(true, "Clock is open at ${Speak.clock(hour, minute)}, tap Save")
         }
         env.openAlarm(null, null, inMinutes)
-        return ToolResult(true, "Clock open with an alarm ${inMinutes} minutes from now — tap Save to finish")
+        return ToolResult(true, "Clock is open for an alarm in $inMinutes minutes, tap Save")
     }
 }

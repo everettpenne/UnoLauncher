@@ -66,7 +66,7 @@ internal class AgentLoop(
                     when {
                         madeUp != null -> { onState(AgentState.Asking(madeUp)); AgentOutcome.Asks(madeUp) }
                         planOnly -> planned(plan)
-                        else -> runSteps(executor.bind(plan))
+                        else -> runSteps(executor.bind(plan), unsure = RequestKinds.mismatch(query, plan))
                     }
                 }
             }
@@ -82,13 +82,15 @@ internal class AgentLoop(
         return AgentOutcome.Done(summary, emptyList(), false)
     }
 
-    private suspend fun runSteps(plan: Plan.Steps): AgentOutcome {
+    /** [unsure]: the plan is not the kind of thing the request named, so it is shown and asked about even though nothing in it
+     *  leaves the phone. */
+    private suspend fun runSteps(plan: Plan.Steps, unsure: Boolean = false): AgentOutcome {
         // A step that cannot be done as asked (nobody to reply to, two people it could mean) is a question, before anything runs
         // and before anyone is asked to approve it.
         executor.problem(plan)?.let { question -> onState(AgentState.Asking(question)); return AgentOutcome.Asks(question) }
         val describe = executor.describe(plan)
         val leaving = plan.steps.filter { ToolPolicy.needsConfirmation(it.tool, settings) }
-        if (leaving.isNotEmpty()) {
+        if (leaving.isNotEmpty() || unsure) {
             onState(AgentState.Confirming(describe))
             val go = runCatching { confirm(describe) }.getOrDefault(false)
             if (!go) { onState(AgentState.Done("Nothing was done.", false)); return AgentOutcome.Cancelled }

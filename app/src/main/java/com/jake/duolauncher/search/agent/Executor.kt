@@ -41,8 +41,11 @@ internal class Executor(
 
     /** Undoes the most recent undoable step. Returns what it did, or null when there is nothing to undo. */
     suspend fun undoLast(): ToolResult? {
-        val undo = undoStack.removeLastOrNull() ?: return null
-        return runCatching { undo() }.getOrElse { ToolResult(false, "I couldn't undo that.") }
+        val undo = undoStack.lastOrNull() ?: return null
+        val result = runCatching { undo() }.getOrElse { ToolResult(false, "I couldn't undo that.") }
+        // Only an undo that worked is used up: one that failed can be tried again.
+        if (result.ok) undoStack.removeLast()
+        return result
     }
 
     /** What the plan would run, without running it: the dry run the tests and the "what would you do?" mode use. A tool's own

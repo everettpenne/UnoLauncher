@@ -331,7 +331,7 @@ object AssistOverlay {
         closing = false
         IslandRuntime.searchOverApp = false
         // As Home's search does on closing: the answer it showed has been seen, so the island's "Ready" goes.
-        if (view != null) AssistantSession.seen()
+        if (view != null) { AssistantSession.seen(); com.jake.duolauncher.search.agent.AgentSessionHolder.current()?.seen() }
         if (surface.state.searchOverApp) surface.on(com.jake.duolauncher.island.SurfaceGesture.CloseSearch)
         val screen = view ?: return
         view = null

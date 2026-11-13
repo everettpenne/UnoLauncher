@@ -23,4 +23,12 @@ class AgentRoutingTest {
         // The device pass flips it with `adb shell settings put global unolab_agent 1`.
         assertTrue(AgentRouting.SETTING == "unolab_agent")
     }
+
+    @Test fun aPoliteRequestIsStillARequest() {
+        // Seen on a phone: "please start a two minute countdown" was answered in words, not done.
+        assertTrue(AgentRouting.plans("please start a two minute countdown for my tea", enabled = true))
+        assertTrue(AgentRouting.plans("hey, can you set a timer", enabled = true))
+        assertTrue(AgentRouting.plans("wake me when the kettle boils", enabled = true))
+        assertFalse(AgentRouting.plans("please explain compound interest", enabled = true))
+    }
 }

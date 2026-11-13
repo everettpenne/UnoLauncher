@@ -97,4 +97,37 @@ class SpotlightSourcesTest {
         assertTrue(idle.any { it is QuickAction.Torch })
         assertTrue(idle.any { it is QuickAction.Focus })
     }
+
+    // ---- as it is asked, not typed as a command (these used to go to the model, which took seconds and once set a timer instead) ----
+
+    @Test fun anAlarmAskedForInWordsIsAnsweredOnTheSpot() {
+        fun at(q: String) = (SpotlightSources.alarm(q)?.target as? AlarmTarget.At)?.let { it.hour to it.minute }
+        assertEquals(6 to 0, at("set an alarm for 6am tomorrow"))
+        assertEquals(6 to 30, at("wake me up at 6:30"))
+        assertEquals(6 to 30, at("wake me at 6:30 tomorrow morning"))
+        assertEquals(19 to 0, at("alarm for 7 pm"))
+        assertEquals(19 to 0, at("alarm at 19:00"))
+        assertEquals(19 to 0, at("set an alarm for 7 tonight"))
+        assertEquals(7 to 0, at("please set my alarm for 7 in the morning"))
+        assertEquals(AlarmTarget.In(45), SpotlightSources.alarm("wake me up in 45 minutes")?.target)
+        assertEquals(AlarmTarget.In(90), SpotlightSources.alarm("set an alarm in an hour and a half")?.target)
+    }
+
+    @Test fun whatOnlyMentionsAnAlarmIsNotOne() {
+        for (q in listOf("what's my alarm", "alarm clock app", "when is my next alarm", "set an alarm", "wake me up", "alarm for 25:00",
+            "set an alarm for 6am and text Sam")) assertNull(q, SpotlightSources.alarm(q))
+    }
+
+    @Test fun aTimerAskedForInWordsIsAnsweredOnTheSpot() {
+        fun secs(q: String) = SpotlightSources.timer(q)?.seconds
+        assertEquals(1200L, secs("set a timer for 20 minutes"))
+        assertEquals(1200L, secs("20 minute timer"))
+        assertEquals(5400L, secs("timer for an hour and a half"))
+        assertEquals(5400L, secs("set a timer for 1 hour 30 minutes"))
+        assertEquals(1800L, secs("half an hour timer"))
+        assertEquals(9000L, secs("timer for 2 and a half hours"))
+        assertEquals(90L, secs("count down 90 seconds"))
+        assertNull(secs("timer for the pasta"))
+        assertNull(secs("how long is my timer"))
+    }
 }

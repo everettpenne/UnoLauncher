@@ -569,6 +569,7 @@ internal fun Spotlight(
                 env = { env },
                 publish = { NotificationFeed.publishAssistant(context, System.currentTimeMillis()) },
                 settings = { com.jake.duolauncher.search.agent.AgentRouting.settings(context) },
+                searchOpen = { com.jake.duolauncher.island.IslandRuntime.state.surface.state.mode == com.jake.duolauncher.island.SurfaceMode.SEARCH },
             )
         }
     }
@@ -611,8 +612,23 @@ internal fun Spotlight(
     // Whatever the session has for this question: running, an answer that arrived while search was closed, or an action to offer.
     // Shown for the question on screen, or for any of them while the field is empty (the panel has just been reopened).
     val agentNow = agentSession?.state
+    // A task's turn is for the question that started it. Typing another question leaves it: a finished one goes (from here and from the
+    // island), a running one is abandoned. Not on the first pass, which is the panel opening on whatever the turn already is.
+    var queryTouched by remember { mutableStateOf(false) }
+    LaunchedEffect(query) {
+        if (queryTouched) agentSession?.leftFor(query)
+        queryTouched = true
+    }
     LaunchedEffect(agentNow, query) {
         val s = agentNow ?: return@LaunchedEffect
+        // Shown beside its own question, or while the field is empty (the panel has just been reopened), as an answer is.
+        val mine = query.isBlank() || agentSession?.asked == query.trim()
+        // A turn that has ended (dismissed, or expired) belongs to no question any more: its card goes whatever is typed.
+        if (s is com.jake.duolauncher.search.agent.AgentState.Idle) {
+            if (askView is AskView.Done || askView is AskView.Steps) askView = null
+            return@LaunchedEffect
+        }
+        if (!mine) return@LaunchedEffect
         when (s) {
             is com.jake.duolauncher.search.agent.AgentState.Planning -> askView = AskView.Thinking
             is com.jake.duolauncher.search.agent.AgentState.Confirming -> askView = AskView.Steps(s.steps)
@@ -904,6 +920,7 @@ internal fun Spotlight(
                 }
                 if (askOffered || askView != null) askItems(askView, query, assistantState, ink, capCorner, askCopied,
                     agent = agentSession, onUndo = { agentScope.launch { agentSession?.undo() } },
+                    onDismissTask = { agentSession?.clear() },
                     onAsk = { askedFor = query },
                     onRun = { action -> actions.run(action, focusOn(), onToggleFocus); onDismiss() },
                     onLaunch = { app -> launch(app) },
@@ -1155,7 +1172,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
     onContact: (ContactActionKind, String) -> Unit, onWeb: (String) -> Unit, onCopy: (String) -> Unit, onContinue: () -> Unit,
     onSettings: () -> Unit,
     agent: com.jake.duolauncher.search.agent.AgentSession? = null,
-    onUndo: () -> Unit = {}) {
+    onUndo: () -> Unit = {}, onDismissTask: () -> Unit = {}) {
     val mark: @Composable (ImageVector) -> Unit = { icon ->
         Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
             Icon(icon, null, Modifier.size(22.dp))
@@ -1193,13 +1210,26 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
                     { agent?.confirm(false) }) { mark(Icons.Rounded.Close) }
             }
         }
-        is AskView.Done -> {
-            item("ask") {
-                SpotlightRow(rowMotion(), view.summary, "", "spotlight-ask-done", false, ink, {}) { mark(Icons.Rounded.Check) }
-            }
-            if (view.canUndo) item("ask-undo") {
-                SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask_undo), "", "spotlight-ask-undo", true, ink,
-                    onUndo) { mark(Icons.Rounded.Undo) }
+        // What a task did, as one card: a result to read, not a row to tap. Undo is beside it when the action can be taken back, and
+        // the cross (or typing another question) puts it away. It was two full-width rows, which read as two buttons.
+        is AskView.Done -> item("ask") {
+            Row(rowMotion().fillMaxWidth().emergingHere().clip(Corner.inside(capCorner, 16.dp)).background(ink.copy(alpha = .10f))
+                .padding(start = 16.dp, top = 10.dp, bottom = 10.dp, end = 4.dp).testTag("spotlight-ask-done"),
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}) {
+                    Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_answer_by), color = ink.copy(alpha = .7f), style = UnoType.caption1)
+                    Text(view.summary, color = ink, style = UnoType.body, modifier = Modifier.testTag("spotlight-ask-done-text"))
+                }
+                if (view.canUndo) {
+                    val busy = agent?.undoing == true
+                    Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_undo), color = ink.copy(alpha = if (busy) .4f else 1f),
+                        style = UnoType.subheadline.copy(fontWeight = FontWeight.SemiBold),
+                        modifier = Modifier.clip(Corner.medium).clickable(enabled = !busy, role = androidx.compose.ui.semantics.Role.Button, onClick = onUndo)
+                            .padding(horizontal = 12.dp, vertical = 10.dp).testTag("spotlight-ask-undo"))
+                }
+                Icon(Icons.Rounded.Close, stringResource(com.jake.duolauncher.R.string.spotlight_ask_dismiss), tint = ink.copy(alpha = .7f),
+                    modifier = Modifier.clip(Corner.medium).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onDismissTask).padding(10.dp).size(20.dp)
+                        .testTag("spotlight-ask-dismiss"))
             }
         }
         is AskView.Act -> {

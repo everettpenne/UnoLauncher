@@ -96,17 +96,47 @@ internal object SpotlightSources {
     private val timerFirst = Regex("""^(?:(?:set|start|begin)\s+)?(?:a\s+)?(?:timer|countdown)(?:\s+(?:for|of))?\s+$number\s*$unit?$""", RegexOption.IGNORE_CASE)
     private val timerLast = Regex("""^(?:(?:set|start|begin)\s+)?(?:a\s+)?$number\s*$unit\s+(?:timer|countdown)$""", RegexOption.IGNORE_CASE)
 
-    /** "timer 5", "set a timer for 90 s", "10 min timer": minutes unless a unit is given. Null for anything else, or a length that makes no sense. */
+    // The same, in the words people use when they ask rather than type a command: "set a timer for an hour and a half", "20 minute timer",
+    // "count down 90 seconds". What is left after the frame is read as a length ([spokenSeconds]).
+    private val timerFrameFirst = Regex("""^(?:please\s+)?(?:(?:set|start|begin|make)\s+)?(?:an?\s+)?(?:timer|countdown|count\s+down)(?:\s+(?:for|of))?\s+(.+)$""", RegexOption.IGNORE_CASE)
+    private val timerFrameLast = Regex("""^(?:please\s+)?(?:(?:set|start|begin|make)\s+)?(?:an?\s+)?(.+?)\s+(?:timer|countdown)$""", RegexOption.IGNORE_CASE)
+    private val lengthTwo = Regex("""^(\d+(?:\.\d+)?)\s*$unit(?:\s*,?\s*(?:and\s+)?(\d+)\s*$unit)?$""", RegexOption.IGNORE_CASE)
+    private val lengthOne = Regex("""^(?:an?|one)\s+(hour|minute)(\s+and\s+a\s+half)?$""", RegexOption.IGNORE_CASE)
+    private val lengthHalf = Regex("""^half\s+an?\s+(hour|minute)$""", RegexOption.IGNORE_CASE)
+    private val lengthAndHalf = Regex("""^(\d+)\s+and\s+a\s+half\s+(hours?|minutes?)$""", RegexOption.IGNORE_CASE)
+
+    private fun unitSeconds(unitText: String): Double = when {
+        unitText.lowercase().startsWith("h") -> 3600.0
+        unitText.lowercase().startsWith("s") -> 1.0
+        else -> 60.0
+    }
+
+    /** A length as it is said: "20 minutes", "1 hour 30 minutes", "an hour and a half", "half an hour", "2 and a half hours". Null for anything else. */
+    fun spokenSeconds(text: String): Long? {
+        val t = text.trim()
+        lengthTwo.matchEntire(t)?.let { m ->
+            val first = (m.groupValues[1].toDoubleOrNull() ?: return null) * unitSeconds(m.groupValues[2])
+            val second = m.groupValues[3].toDoubleOrNull()?.let { it * unitSeconds(m.groupValues[4]) } ?: 0.0
+            return (first + second).toLong()
+        }
+        lengthOne.matchEntire(t)?.let { m -> return (unitSeconds(m.groupValues[1]) * (if (m.groupValues[2].isNotEmpty()) 1.5 else 1.0)).toLong() }
+        lengthHalf.matchEntire(t)?.let { m -> return (unitSeconds(m.groupValues[1]) / 2).toLong() }
+        lengthAndHalf.matchEntire(t)?.let { m -> return (((m.groupValues[1].toDoubleOrNull() ?: return null) + .5) * unitSeconds(m.groupValues[2])).toLong() }
+        return null
+    }
+
+    /** "timer 5", "set a timer for 90 s", "10 min timer", "set a timer for an hour and a half": minutes unless a unit is given. Null for
+     *  anything else, or a length that makes no sense. */
     fun timer(query: String): QuickAction.Timer? {
         val q = query.trim()
-        val m = timerFirst.find(q) ?: timerLast.find(q) ?: return null
-        val amount = m.groupValues[1].toDoubleOrNull() ?: return null
-        val unitText = m.groupValues.getOrNull(2).orEmpty().lowercase()
-        val seconds = (amount * when {
-            unitText.startsWith("h") -> 3600.0
-            unitText.startsWith("s") -> 1.0
-            else -> 60.0
-        }).toLong()
+        val m = timerFirst.find(q) ?: timerLast.find(q)
+        val seconds = if (m != null) {
+            val amount = m.groupValues[1].toDoubleOrNull() ?: return null
+            (amount * unitSeconds(m.groupValues.getOrNull(2).orEmpty().ifEmpty { "m" })).toLong()
+        } else {
+            val said = timerFrameFirst.matchEntire(q)?.groupValues?.get(1) ?: timerFrameLast.matchEntire(q)?.groupValues?.get(1) ?: return null
+            spokenSeconds(said) ?: return null
+        }
         if (seconds < 1 || seconds > MAX_TIMER_SECONDS) return null
         return QuickAction.Timer(seconds, timerLabel(seconds))
     }
@@ -141,8 +171,31 @@ internal object SpotlightSources {
             if (minutes !in 1..MAX_ALARM_MINUTES) return null
             return QuickAction.Alarm(AlarmTarget.In(minutes), alarmInLabel(minutes))
         }
-        return alarmAtPattern.matchEntire(q)?.let(::alarmAt)
+        alarmAtPattern.matchEntire(q)?.let { return alarmAt(it) }
+        // As it is asked rather than typed: "set an alarm for 6am tomorrow", "wake me up at 6:30", "alarm at 7 tonight".
+        alarmSpokenIn.matchEntire(q)?.let { m ->
+            val seconds = spokenSeconds(m.groupValues[1]) ?: return null
+            val minutes = (seconds / 60).toInt()
+            if (seconds % 60 != 0L || minutes !in 1..MAX_ALARM_MINUTES) return null
+            return QuickAction.Alarm(AlarmTarget.In(minutes), alarmInLabel(minutes))
+        }
+        val m = alarmSpokenAt.matchEntire(q) ?: wakeAt.matchEntire(q) ?: return null
+        val alarm = alarmAt(m) ?: return null
+        val target = alarm.target as? AlarmTarget.At ?: return alarm
+        // "7 tonight" with no am or pm is the evening's 7. The day itself ("tomorrow") is left to the clock app, which sets the next
+        // time that hour comes round.
+        val later = Regex("""\b(tonight|evening|afternoon|night)\b""", RegexOption.IGNORE_CASE).containsMatchIn(m.groupValues[4])
+        return if (later && m.groupValues[3].isEmpty() && target.hour in 1..11)
+            QuickAction.Alarm(AlarmTarget.At(target.hour + 12, target.minute), alarmClockLabel(target.hour + 12, target.minute))
+        else alarm
     }
+
+    private const val clockTime = """(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?"""
+    private const val dayWords = """((?:\s+(?:today|tomorrow|tonight|this\s+(?:morning|afternoon|evening)|in\s+the\s+(?:morning|afternoon|evening)|at\s+night|morning|evening|night))*)"""
+    private const val alarmVerb = """(?:please\s+)?(?:(?:set|create|make|add)\s+)?(?:an?\s+|the\s+|my\s+)?alarm"""
+    private val alarmSpokenAt = Regex("""^$alarmVerb\s+(?:for\s+|at\s+)?$clockTime$dayWords$""", RegexOption.IGNORE_CASE)
+    private val wakeAt = Regex("""^(?:please\s+)?wake\s+me(?:\s+up)?\s+(?:at\s+)?$clockTime$dayWords$""", RegexOption.IGNORE_CASE)
+    private val alarmSpokenIn = Regex("""^(?:$alarmVerb|(?:please\s+)?wake\s+me(?:\s+up)?)\s+in\s+(.+)$""", RegexOption.IGNORE_CASE)
 
     private fun alarmAt(m: MatchResult): QuickAction.Alarm? {
         val hourRaw = m.groupValues[1].toIntOrNull() ?: return null

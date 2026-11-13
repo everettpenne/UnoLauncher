@@ -161,4 +161,24 @@ class AgentLoopTest {
         assertEquals("undone", loop.undo()?.say)
         assertEquals(listOf("undone"), undone)
     }
+
+    @Test fun aPlanThatIsNotWhatWasAskedForIsShownAndAskedAboutNotRun() = runBlocking {
+        var started = 0
+        val counting = object : ToolEnv by env { override fun startTimer(seconds: Long) { started++ } }
+        val asked = ArrayList<List<String>>()
+        // The model's own mistake, as seen on a phone: an alarm request planned as a timer.
+        val wrong = Plan.Steps(listOf(Step(TimerTool, Params(mapOf("seconds" to "3600", "label" to "6am tomorrow")))))
+        val declined = AgentLoop(plannerFor(wrong), Executor(counting), confirm = { asked += it; false }).run("set an alarm for 6am tomorrow")
+        assertEquals(AgentOutcome.Cancelled, declined)
+        assertEquals(listOf(listOf("Start a timer for 1 hour")), asked)
+        assertEquals(0, started)
+        // Said yes to, it runs; and a label that only repeats a time is not shown as the timer's name.
+        val done = AgentLoop(plannerFor(wrong), Executor(counting), confirm = { true }).run("set an alarm for 6am tomorrow") as AgentOutcome.Done
+        assertEquals("Timer set for 1 hour", done.summary)
+        assertEquals(1, started)
+        // The same plan for a request that is a timer runs with no question.
+        asked.clear()
+        assertTrue(AgentLoop(plannerFor(wrong), Executor(counting), confirm = { asked += it; false }).run("timer for an hour") is AgentOutcome.Done)
+        assertTrue(asked.isEmpty())
+    }
 }

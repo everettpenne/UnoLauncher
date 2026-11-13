@@ -140,7 +140,8 @@ internal object AssistantIntent {
      * answered in words instead of being performed.
      */
     fun mightBeAction(query: String): Boolean {
-        val q = query.trim()
+        // "please set…", "hey, can you…": the courtesy is not part of the request.
+        val q = politeStart.replace(query.trim(), "").trim()
         if (q.isEmpty()) return false
         // A request to do something wins over its wording: "set a timer?" is still a timer.
         if (commandStart.containsMatchIn(q) || requestStart.containsMatchIn(q)) return true
@@ -155,8 +156,9 @@ internal object AssistantIntent {
         RegexOption.IGNORE_CASE)
 
     private val commandStart = Regex(
-        """^(set|start|stop|cancel|turn|open|launch|call|text|message|remind|add|make|play|pause|snooze|dismiss|note|remember|create)\b""",
+        """^(set|start|stop|cancel|turn|open|launch|call|text|message|remind|add|make|play|pause|snooze|dismiss|note|remember|create|wake|count|time|reply|dial)\b""",
         RegexOption.IGNORE_CASE)
+    private val politeStart = Regex("""^(?:(?:please|pls|hey|ok|okay|hi|qwen|uno)[\s,]+)+""", RegexOption.IGNORE_CASE)
     private val requestStart = Regex("""^(can|could|would|will)\s+you\b""", RegexOption.IGNORE_CASE)
     private val questionStart = Regex("""^(who|what|when|where|why|how|which|whose|is|are|was|were|do|does|did)\b""",
         RegexOption.IGNORE_CASE)

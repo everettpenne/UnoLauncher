@@ -26,4 +26,14 @@ class AgentLiveTest {
     @Test fun anIdleSessionHasNoLine() {
         assertNull(AssistantLive.agentLine(AgentState.Idle))
     }
+
+    @Test fun aFinishedTaskBeingReadInSearchHasNoLineOnTheIslandToo() {
+        val done = AgentState.Done("Timer set for 20 minutes", true)
+        assertNull(AssistantLive.agentLine(done, searchOpen = true))
+        assertNull(AssistantLive.agentLine(AgentState.Failed("no"), searchOpen = true))
+        assertEquals("Done" to "Timer set for 20 minutes", AssistantLive.agentLine(done, searchOpen = false))
+        // Work in progress, and anything waiting for the person, shows either way.
+        assertEquals("Thinking…", AssistantLive.agentLine(AgentState.Planning("q"), searchOpen = true)?.first)
+        assertEquals("Waiting", AssistantLive.agentLine(AgentState.Asking("Which one?"), searchOpen = true)?.first)
+    }
 }

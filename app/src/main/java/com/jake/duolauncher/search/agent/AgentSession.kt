@@ -27,6 +27,10 @@ internal class AgentSession(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     /** Called after every state change, so the island's card can follow the turn. */
     private val publish: () -> Unit = {},
+    /** Whether search is on screen. A finished turn the person is looking at needs no line on the island, and does not expire under them. */
+    private val searchOpen: () -> Boolean = { false },
+    /** How long a finished turn's line stays on the island when search is closed, before the turn clears itself. */
+    private val expiryMs: Long = EXPIRY_MS,
 ) {
     var state by mutableStateOf<AgentState>(AgentState.Idle)
         private set
@@ -39,18 +43,32 @@ internal class AgentSession(
     var canUndo by mutableStateOf(false)
         private set
 
+    /** The question this turn is for. The panel shows the turn only beside that question, so a result never sits under a new one. */
+    var asked by mutableStateOf<String?>(null)
+        private set
+
+    /** An undo is running: the panel's Undo waits for it, so a second tap cannot fire a second undo. */
+    var undoing by mutableStateOf(false)
+        private set
+
+    /** The turn is over (done, failed, or a question back to the person) and only waiting to be seen. */
+    val settled: Boolean get() = state is AgentState.Done || state is AgentState.Failed || state is AgentState.Asking
+
     private var job: Job? = null
+    private var expiry: Job? = null
     private var gate: CompletableDeferred<Boolean>? = null
     private var lastExecutor: Executor? = null
 
     /** Plans and runs [query]. A previous turn is abandoned. */
     fun run(query: String, facts: String = "", grounding: Grounding = Grounding(), planOnly: Boolean = false) {
         job?.cancel()
+        expiry?.cancel()
         gate?.complete(false)
         gate = null
         // A new question starts clean: the old turn's sentence and undo do not belong to it.
         summary = null
         canUndo = false
+        asked = query.trim()
         val settings = settings()
         val env = env()
         // Only what the phone can do right now is offered: a tool whose capability is missing is not in the catalogue at all.
@@ -82,8 +100,30 @@ internal class AgentSession(
             canUndo = outcome is AgentOutcome.Done && outcome.canUndo
             lastExecutor = executor
             publish()
+            expireUnseen()
         }
     }
+
+    /**
+     * A finished turn nobody is looking at says so on the island for a few seconds and then ends: what it did is already visible in
+     * its own right (the timer is on the island), and a line that never leaves is noise. One the person is looking at in search stays
+     * until they move on ([seen], or a new question). A question back to the person waits for them.
+     */
+    private fun expireUnseen() {
+        expiry?.cancel()
+        if (state !is AgentState.Done && state !is AgentState.Failed) return
+        expiry = scope.launch {
+            kotlinx.coroutines.delay(expiryMs)
+            if ((state is AgentState.Done || state is AgentState.Failed) && !searchOpen()) clear()
+        }
+    }
+
+    /** Search showing the turn has closed, or the person has moved on to another question: a turn that is over is cleared. One still
+     *  planning, acting or waiting for a yes is left alone. */
+    fun seen() { if (settled) clear() }
+
+    /** The person typed a different question: this turn is not for it. A finished one goes; a running one is abandoned. */
+    fun leftFor(query: String) { if (asked != null && query.trim() != asked) clear() }
 
     /** Answers a [AgentState.Confirming] turn. Ignored when nothing is waiting. */
     fun confirm(accepted: Boolean) {
@@ -93,17 +133,28 @@ internal class AgentSession(
 
     /** Takes back the last turn's most recent undoable step. */
     suspend fun undo(): ToolResult? {
-        val result = lastExecutor?.undoLast() ?: return null
-        canUndo = lastExecutor?.canUndo == true
+        if (undoing) return null
+        val executor = lastExecutor ?: return null
+        undoing = true
+        val result = try { executor.undoLast() } finally { undoing = false }
+        result ?: return null
+        canUndo = executor.canUndo
         summary = result.say
+        // The turn's state is what the panel and the island draw: it now says what the undo did (or that it could not).
+        state = AgentState.Done(result.say, canUndo)
+        log("undo ${result.ok}: ${result.say}")
+        publish()
+        expireUnseen()
         return result
     }
 
     /** Ends the turn's state without discarding what it did: the island keeps the summary. */
     fun clear() {
         job?.cancel()
+        expiry?.cancel()
         gate?.complete(false)
         gate = null
+        asked = null
         state = AgentState.Idle
         summary = null
         canUndo = false
@@ -120,7 +171,10 @@ internal class AgentSession(
         runCatching { if (android.util.Log.isLoggable(LOG_TAG, android.util.Log.DEBUG)) android.util.Log.d(LOG_TAG, message) }
     }
 
-    private companion object { const val LOG_TAG = "UnoAgent" }
+    companion object {
+        private const val LOG_TAG = "UnoAgent"
+        const val EXPIRY_MS = 6_000L
+    }
 
     /** For tests: waits for the running turn to finish. */
     internal suspend fun awaitTurn() = job?.join()

@@ -345,6 +345,8 @@ internal fun LauncherScreen(
         else if (assistantWasOpen) {
             assistantWasOpen = false
             AssistantSession.seen()
+            // A task's result too: it has been seen, so its card and the island's line for it go.
+            com.jake.duolauncher.search.agent.AgentSessionHolder.current()?.seen()
         }
     }
     // Jiggle mode on the iOS layout hides the status bar too: its Edit and Done capsules take that row, as on an iPhone.

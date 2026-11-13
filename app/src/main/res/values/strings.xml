@@ -520,5 +520,6 @@
     <string name="spotlight_ask_steps">This leaves your phone</string>
     <string name="spotlight_ask_do">Do it</string>
     <string name="spotlight_ask_cancel">Cancel</string>
-    <string name="spotlight_ask_undo">Undo that</string>
+    <string name="spotlight_ask_undo">Undo</string>
+    <string name="spotlight_ask_dismiss">Dismiss</string>
 </resources>

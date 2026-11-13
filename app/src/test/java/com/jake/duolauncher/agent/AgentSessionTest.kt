@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -119,10 +120,87 @@ class AgentSessionTest {
             }
         }
         val s = session(planner)
-        s.run("text Sam", facts = "Today: Friday", grounding = Grounding(listOf(KnownPerson("Sam Patel", "+15550100")), listOf("Messages")))
+        // A timer request, so the timer plan is what was asked for and runs without a question.
+        s.run("timer for Sam", facts = "Today: Friday", grounding = Grounding(listOf(KnownPerson("Sam Patel", "+15550100")), listOf("Messages")))
         s.awaitTurn()
-        assertEquals("text Sam", seen!!.query)
+        assertEquals("timer for Sam", seen!!.query)
         assertEquals("Today: Friday", seen!!.context)
         assertTrue(seen!!.grounding.contains("Sam Patel (+15550100)"))
+    }
+
+    // ---- a turn ends, and its undo shows ----
+
+    private class UndoEnv(val base: ToolEnv, var cancels: Int = 0, var fail: Boolean = false) : ToolEnv by base {
+        override fun cancelTimer() { if (fail) error("no timer"); cancels++ }
+    }
+
+    private fun sessionOn(env: ToolEnv, planner: Planner, published: MutableList<AgentState>? = null, open: () -> Boolean = { true },
+        expiryMs: Long = 60_000): AgentSession {
+        lateinit var s: AgentSession
+        s = AgentSession(planner = { planner }, env = { env }, scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+            publish = { published?.add(s.state) }, searchOpen = open, expiryMs = expiryMs)
+        return s
+    }
+
+    @Test fun undoChangesWhatThePanelAndTheIslandShow() = runBlocking {
+        val undoEnv = UndoEnv(env)
+        val published = ArrayList<AgentState>()
+        val s = sessionOn(undoEnv, plannerFor(timerPlan()), published)
+        s.run("timer for 20 minutes"); s.awaitTurn()
+        published.clear()
+        val result = s.undo()
+        assertTrue(result!!.ok)
+        assertEquals(1, undoEnv.cancels)
+        // It used to change only the summary, which nothing draws: the rows stayed exactly as they were.
+        assertEquals(AgentState.Done("Timer cancelled", false), s.state)
+        assertFalse(s.canUndo)
+        assertEquals(listOf<AgentState>(AgentState.Done("Timer cancelled", false)), published)
+    }
+
+    @Test fun anUndoThatFailsSaysSoAndCanBeTriedAgain() = runBlocking {
+        val undoEnv = UndoEnv(env, fail = true)
+        val s = sessionOn(undoEnv, plannerFor(timerPlan()))
+        s.run("timer for 20 minutes"); s.awaitTurn()
+        assertFalse(s.undo()!!.ok)
+        assertEquals(AgentState.Done("I couldn't undo that.", true), s.state)
+        undoEnv.fail = false
+        assertTrue(s.undo()!!.ok)
+        assertEquals(AgentState.Done("Timer cancelled", false), s.state)
+    }
+
+    @Test fun aFinishedTurnIsClearedOnceItHasBeenSeenAndARunningOneIsLeft() = runBlocking {
+        val s = sessionOn(env, plannerFor(timerPlan()))
+        s.run("timer for 20 minutes"); s.awaitTurn()
+        assertEquals("timer for 20 minutes", s.asked)
+        s.seen()
+        assertEquals(AgentState.Idle, s.state)
+        assertNull(s.asked)
+        // Waiting for a yes is not over: closing search leaves it for the island.
+        val waiting = session(plannerFor(Plan.Steps(listOf(Step(sendTool, Params(emptyMap()))))))
+        waiting.run("text Sam")
+        waiting.seen()
+        assertTrue(waiting.state is AgentState.Confirming)
+        waiting.confirm(false)
+    }
+
+    @Test fun typingAnotherQuestionLeavesTheTurnAndTheSameQuestionDoesNot() = runBlocking {
+        val s = sessionOn(env, plannerFor(timerPlan()))
+        s.run("timer for 20 minutes"); s.awaitTurn()
+        s.leftFor("timer for 20 minutes ")
+        assertTrue(s.state is AgentState.Done)
+        s.leftFor("what is the weather")
+        assertEquals(AgentState.Idle, s.state)
+    }
+
+    @Test fun aResultNobodyIsLookingAtLeavesTheIslandByItselfAndOneBeingReadStays() = runBlocking {
+        val closed = sessionOn(env, plannerFor(timerPlan()), open = { false }, expiryMs = 30)
+        closed.run("timer for 20 minutes"); closed.awaitTurn()
+        assertTrue(closed.state is AgentState.Done)
+        kotlinx.coroutines.delay(200)
+        assertEquals(AgentState.Idle, closed.state)
+        val open = sessionOn(env, plannerFor(timerPlan()), open = { true }, expiryMs = 30)
+        open.run("timer for 20 minutes"); open.awaitTurn()
+        kotlinx.coroutines.delay(200)
+        assertTrue(open.state is AgentState.Done)
     }
 }

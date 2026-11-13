@@ -17,7 +17,19 @@ internal object AssistantLive {
     const val KEY = "unolab.assistant"
 
     /** One line for the island from an agent turn, or null when there is nothing to show. Pure, so it is unit-tested. */
-    fun agentLine(state: AgentState): Pair<String, String>? = when (state) {
+    fun agentLine(state: AgentState, searchOpen: Boolean = false): Pair<String, String>? = when (state) {
+        // A finished turn the person is looking at in search needs no line on the island as well.
+        is AgentState.Done, is AgentState.Failed -> if (searchOpen) null else finished(state)
+        else -> working(state)
+    }
+
+    private fun finished(state: AgentState): Pair<String, String>? = when (state) {
+        is AgentState.Done -> "Done" to state.summary
+        is AgentState.Failed -> "Couldn't do that" to state.why
+        else -> null
+    }
+
+    private fun working(state: AgentState): Pair<String, String>? = when (state) {
         is AgentState.Planning -> "Thinking…" to "Planning what to do"
         is AgentState.Confirming -> "Waiting" to (state.steps.firstOrNull() ?: "Needs a yes")
         is AgentState.Acting -> "Acting…" to "Doing: ${state.step.tool.name.replace('_', ' ')}"
@@ -31,7 +43,8 @@ internal object AssistantLive {
     fun of(context: Context, nowMs: Long): LiveUpdate? {
         // A task's turn first: while it runs, it is the assistant's state.
         val agent = AgentSessionHolder.current()?.state
-        val line = agent?.let { agentLine(it) }
+        val searching = com.jake.duolauncher.island.IslandRuntime.state.surface.state.mode == com.jake.duolauncher.island.SurfaceMode.SEARCH
+        val line = agent?.let { agentLine(it, searching) }
         if (line != null && agent != null) {
             val working = agent is AgentState.Planning || agent is AgentState.Acting
             return entry(context, nowMs, line.second, line.first, working)

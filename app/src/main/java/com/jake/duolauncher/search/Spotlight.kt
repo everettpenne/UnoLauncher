@@ -587,7 +587,7 @@ internal fun Spotlight(
             }
         }.orEmpty()
         val agent = agentSession
-        if (agent != null && com.jake.duolauncher.search.agent.AgentRouting.plans(q)) {
+        if (agent != null && com.jake.duolauncher.search.agent.AgentRouting.plans(context, q)) {
             agent.run(q, facts, com.jake.duolauncher.search.agent.Grounding(apps = apps.map { it.label }))
             return@LaunchedEffect
         }

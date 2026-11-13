@@ -483,9 +483,15 @@ internal fun Spotlight(
     /** No glass to draw (search over another app, whose pixels can't be sampled): the bar still thins from black into what is behind it,
      *  and the card is a translucent dark sheet, so the page shows through as Home does through its glass. */
     seeThrough: Boolean = false,
+    /** Given Back's first step while search is on screen (clear what is typed; true if there was anything), and null when it goes. */
+    onBackStep: ((() -> Boolean)?) -> Unit = {},
 ) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onBackStep { if (query.isNotEmpty()) { query = ""; true } else false }
+        onDispose { onBackStep(null) }
+    }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     // Request/hide the keyboard in lock-step with the open/close decision (not after the emerge

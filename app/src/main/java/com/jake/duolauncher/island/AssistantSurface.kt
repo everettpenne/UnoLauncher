@@ -78,6 +78,14 @@ internal object SurfaceGestures {
 
     /** Whether Back did something from [now] (otherwise it belongs to whatever is below). */
     fun backHandled(now: SurfaceState): Boolean = now.mode != SurfaceMode.REST
+
+    /** What one Back does. In search with something typed it clears the field, as a text field's Back does; otherwise it steps to rest. */
+    enum class BackStep { NONE, CLEAR_QUERY, REST }
+    fun backStep(now: SurfaceState, queryTyped: Boolean): BackStep = when {
+        now.mode == SurfaceMode.REST -> BackStep.NONE
+        now.mode == SurfaceMode.SEARCH && queryTyped -> BackStep.CLEAR_QUERY
+        else -> BackStep.REST
+    }
 }
 
 /**
@@ -97,8 +105,14 @@ internal class AssistantSurface {
         return true
     }
 
-    /** One step back; false when there was nothing to step back from. */
-    fun back(): Boolean = SurfaceGestures.backHandled(state).also { if (it) on(SurfaceGesture.Back) }
+    /** Set by search while it is on screen: clears what is typed and says whether there was anything to clear. */
+    var searchBackStep: (() -> Boolean)? = null
+
+    /** One step back ([SurfaceGestures.backStep]); false when there was nothing to step back from. */
+    fun back(): Boolean {
+        if (state.mode == SurfaceMode.SEARCH && searchBackStep?.invoke() == true) return true
+        return SurfaceGestures.backHandled(state).also { if (it) on(SurfaceGesture.Back) }
+    }
 
     /** Home's search as a Boolean, for the code that reads and writes it as one (`var spotlightOpen by surface.homeSearch`). */
     val homeSearch = HomeSearch(this)

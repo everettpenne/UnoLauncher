@@ -32,6 +32,16 @@ internal object IslandDrag {
     /** What letting go of a pull does. */
     enum class PeekOutcome { COLLAPSE, PEEK, OPEN }
 
+    /** How much further than fully open a pull goes before letting go opens search. */
+    const val PULL_TO_SEARCH_DP = 72f
+
+    /**
+     * Whether a pull goes on into search when let go: the finger has travelled [pastOpenDp] further down than where the island was fully
+     * open (from the open island, all of its travel; in a pull from the pill or a peek, what is left after the island has opened all the
+     * way). The island is where search grows from, so pulling it further is how people already reach for search.
+     */
+    fun pullsIntoSearch(pastOpenDp: Float): Boolean = pastOpenDp >= PULL_TO_SEARCH_DP
+
     /** What letting go of a swipe-up does. */
     enum class CloseOutcome { STAY, CLOSE }
 

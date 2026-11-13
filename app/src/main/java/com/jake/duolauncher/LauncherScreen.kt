@@ -405,7 +405,7 @@ internal fun LauncherScreen(
     BackHandler(enabled = homeEditing && sheet.isEmpty() && !drag.active && selectedId == null && resizeSlot == null) { homeEditing = false }
     // Search is on top of all of the above, so its Back comes last: the handler registered last is asked first. Where it used to be, before
     // Home's own catch-all, that one took Back while search was open and search stayed.
-    BackHandler(enabled = spotlightOpen) { spotlightOpen = false }
+    BackHandler(enabled = spotlightOpen) { island.surface.back() }
     val openFeed = { scope.launch { pager.animateScrollToPage(-1) }; Unit }
     val openLibrary = { scope.launch { pager.animateScrollToPage(homePages) }; Unit }
 
@@ -1558,32 +1558,16 @@ internal fun LauncherScreen(
             val landing = !spotlightOpen && grow > .25f
             SideEffect { spotlightLanding = landing }
             DisposableEffect(Unit) { onDispose { spotlightLanding = false } }
-            // Uno Lab's assistant, only with the setting on and Lab (signed with its own key) installed; Spotlight binds it while open.
-            val assistantOn = extras?.store?.state?.localAssistant == true
-            val assistant = remember(assistantOn) {
-                if (assistantOn && com.jake.duolauncher.search.LocalAssistant.isAvailable(launcherActivity))
-                    com.jake.duolauncher.search.LocalAssistant(launcherActivity) else null
-            }
-            // The phone's facts for the assistant, read from the latest state whenever a question is asked.
-            val latestState by androidx.compose.runtime.rememberUpdatedState(state)
-            val latestAppearance by androidx.compose.runtime.rememberUpdatedState(appearance)
-            val latestFeed by androidx.compose.runtime.rememberUpdatedState(feed)
-            val latestScreen by androidx.compose.runtime.rememberUpdatedState(assistText)
-            val contextEnv = remember(assistant) {
-                assistant?.let { com.jake.duolauncher.search.context.ContextEnv(launcherActivity.applicationContext, { latestState },
-                    { extras?.store?.state }, { latestAppearance }, { latestFeed.shownEntries }, { latestScreen }) }
-            }
-            Spotlight(controlGlass, state.apps, state.hiddenApps, feed.shownEntries, extras?.store?.state?.contactSearch == true, handoffResolver,
-                onLaunch = { app -> spotlightOpen = false; onLaunchFrom(app, null) },
-                onLaunchFrom = { app, bounds -> spotlightOpen = false; onLaunchFrom(app, bounds) },
-                onOpenFeedLink = { link -> spotlightOpen = false; onFeedOpenEntry(link) },
-                onOpenContact = { contact -> spotlightOpen = false; ContactsSearch.open(launcherActivity, contact) },
-                onDismiss = { spotlightOpen = false }, progress = { grow }, visible = spotlightOpen, pill = spotlightPill, from = spotlightFrom,
-                noteSlot = state.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
-                focusOn = { extras?.store?.state?.focusOn == true },
-                onToggleFocus = { extras?.toggleFocus?.invoke() },
-                assistant = assistant, contextEnv = contextEnv,
-                onOpenSearchSettings = { spotlightOpen = false; customizationPage = CustomizationPage.SEARCH; sheet = "settings" })
+            // The panel itself is the surface's, the same one search over an app shows (search.SearchPanel); Home gives it how Home opens things.
+            val searchHost = remember(extras) { com.jake.duolauncher.search.SearchHost(
+                launch = { app, bounds -> onLaunchFrom(app, bounds) },
+                openFeedLink = { link -> onFeedOpenEntry(link) },
+                openContact = { contact -> ContactsSearch.open(launcherActivity, contact) },
+                toggleFocus = { extras?.toggleFocus?.invoke() },
+                openSearchSettings = { customizationPage = CustomizationPage.SEARCH; sheet = "settings" }) }
+            com.jake.duolauncher.search.SearchPanel(island.surface, searchHost, launcherActivity, controlGlass, state, extras?.store?.state,
+                appearance, feed.shownEntries, handoffResolver, screenText = assistText,
+                visible = spotlightOpen, progress = { grow }, pill = spotlightPill, from = spotlightFrom)
         }
         androidx.compose.animation.AnimatedVisibility(controlPanelOpen,
             enter = androidx.compose.animation.slideInVertically(UnoMotion.glide()) { -it / 2 } + androidx.compose.animation.fadeIn(UnoMotion.glide()),

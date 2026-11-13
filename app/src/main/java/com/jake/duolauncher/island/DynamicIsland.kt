@@ -1183,6 +1183,12 @@ internal fun DynamicIsland(
                     var pulling = false
                     var closing = false
                     var holding = false
+                    // A pull down that began on the open island, and whether the pull (this one, or one from the pill carried on past
+                    // fully open) has gone far enough that letting go opens search (IslandDrag.pullsIntoSearch).
+                    var searchPull = false
+                    var searchArmed = false
+                    // Where the finger was when a pull from the pill (or a peek) had the island fully open; null until it has.
+                    var fullAtY: Float? = null
                     var last = down.position
                     var lastEventTime = down.uptimeMillis
                     // The finger's pull position, low-passed so sub-frame touch jitter never twitches the island's bottom edge.
@@ -1223,9 +1229,23 @@ internal fun DynamicIsland(
                                 closeFrom = progress.value
                                 if (animationsOn) fingerFilter = IslandDrag.Filter()
                             }
+                            if (state.expanded && state.peekCard == null && !flashActive && moved && !pulling && !closing && !searchPull &&
+                                delta.y > pullSlop && delta.y > abs(delta.x)) searchPull = true
                             if (pulling) {
                                 val dy = fingerFilter?.step(dt, delta.y) ?: delta.y
-                                state.pullFraction = IslandDrag.peekFraction(dy, d, peekState.floatValue, from = pullFrom)
+                                val fraction = IslandDrag.peekFraction(dy, d, peekState.floatValue, from = pullFrom)
+                                state.pullFraction = fraction
+                                if (fraction < 1f) fullAtY = null else if (fullAtY == null) fullAtY = delta.y
+                                change.consume()
+                            }
+                            if (pulling || searchPull) {
+                                // One tick as the pull crosses into search (and back out), so the finger knows what letting go will do.
+                                val pastOpen = if (searchPull) delta.y else fullAtY?.let { delta.y - it } ?: -1f
+                                val armed = state.peekCard == null && IslandDrag.pullsIntoSearch(pastOpen / d)
+                                if (armed != searchArmed) { searchArmed = armed; UnoFeedback.play(Cue.TICK, haptic) }
+                            }
+                            if (pulling) {
+                            } else if (searchPull) {
                                 change.consume()
                             } else if (closing) {
                                 // The finger's upward travel is low-passed, as the pull-down is, so the bottom edge follows without
@@ -1245,11 +1265,15 @@ internal fun DynamicIsland(
                             // The filtered pull's speed seeds the spring that lands the island, so letting go mid-pull carries on
                             // smoothly instead of starting cold (or carrying the raw finger's jitter).
                             state.settleVelocity = fingerFilter?.velocity() ?: tracker.calculateVelocity().y
-                            when (IslandDrag.peekOutcome(fraction, peekState.floatValue)) {
+                            // Pulled on past fully open: search, which grows out of the island where it is now.
+                            if (searchArmed) { UnoFeedback.play(Cue.OPEN, haptic); onSearch() }
+                            else when (IslandDrag.peekOutcome(fraction, peekState.floatValue)) {
                                 IslandDrag.PeekOutcome.COLLAPSE -> { state.surface.on(SurfaceGesture.PullCollapse); state.collapse() }
                                 IslandDrag.PeekOutcome.PEEK -> { UnoFeedback.play(Cue.TICK, haptic); state.surface.on(SurfaceGesture.PullPeek) }
                                 IslandDrag.PeekOutcome.OPEN -> { UnoFeedback.play(Cue.OPEN, haptic); state.surface.on(SurfaceGesture.PullOpen) }
                             }
+                        } else if (searchPull) {
+                            if (searchArmed) { UnoFeedback.play(Cue.OPEN, haptic); onSearch() }
                         } else if (closing) {
                             // The upward travel since touch-down and the raw release speed (positive = up) decide the release: a slow
                             // drag past the distance closes, and so does a short flick with speed; anything short and slow springs back.

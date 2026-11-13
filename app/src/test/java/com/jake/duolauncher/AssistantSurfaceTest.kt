@@ -121,6 +121,39 @@ class AssistantSurfaceTest {
         assertTrue(surface.state.searchInHome); assertFalse(surface.state.searchOverApp)
     }
 
+    @Test fun backClearsWhatIsTypedBeforeItClosesSearch() {
+        assertEquals(SurfaceGestures.BackStep.NONE, SurfaceGestures.backStep(rest, queryTyped = false))
+        assertEquals(SurfaceGestures.BackStep.REST, SurfaceGestures.backStep(island, queryTyped = true))
+        assertEquals(SurfaceGestures.BackStep.REST, SurfaceGestures.backStep(peek, queryTyped = false))
+        for (search in listOf(homeSearch, appSearch)) {
+            assertEquals(SurfaceGestures.BackStep.CLEAR_QUERY, SurfaceGestures.backStep(search, queryTyped = true))
+            assertEquals(SurfaceGestures.BackStep.REST, SurfaceGestures.backStep(search, queryTyped = false))
+        }
+    }
+
+    @Test fun theSurfaceAsksSearchToClearItsFieldFirst() {
+        val surface = AssistantSurface()
+        var typed = "moon"
+        surface.searchBackStep = { if (typed.isNotEmpty()) { typed = ""; true } else false }
+        surface.on(SurfaceGesture.OpenSearch)
+        assertTrue(surface.back())
+        assertEquals("", typed); assertTrue(surface.state.searchInHome)
+        assertTrue(surface.back())
+        assertEquals(SurfaceMode.REST, surface.state.mode)
+        // The island's Back never asks search.
+        typed = "moon"
+        surface.on(SurfaceGesture.TapPill)
+        assertTrue(surface.back())
+        assertEquals("moon", typed); assertEquals(SurfaceMode.REST, surface.state.mode)
+    }
+
+    @Test fun aPullGoesOnIntoSearchOnlyPastTheOpenIsland() {
+        val drag = com.jake.duolauncher.island.IslandDrag
+        assertFalse(drag.pullsIntoSearch(-1f))
+        assertFalse(drag.pullsIntoSearch(drag.PULL_TO_SEARCH_DP - 1f))
+        assertTrue(drag.pullsIntoSearch(drag.PULL_TO_SEARCH_DP))
+    }
+
     @Test fun backReportsWhetherItDidAnything() {
         val surface = AssistantSurface()
         assertFalse(surface.back())

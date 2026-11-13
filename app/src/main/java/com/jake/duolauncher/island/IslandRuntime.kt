@@ -45,8 +45,11 @@ internal object IslandRuntime {
     var homeTakeover by mutableStateOf(false)
     /** The overlay is showing the island above the status bar (it is the accessibility service's window), so Home need not hide the bar for it. */
     var overlayAboveStatusBar by mutableStateOf(false)
-    /** Home is in front and taken over (see [homeTakeover]): the island yields, and a notification does not drop a card under it. */
-    val homeCovered: Boolean get() = launcherInFront && homeTakeover
+    /** Search over another app has the island's place (search.AssistOverlay): from its opening until it is nearly back in the pill. */
+    var searchOverApp by mutableStateOf(false)
+    /** Home is in front and taken over (see [homeTakeover]), or search is open over an app: the island yields, so the two are never on
+     *  screen together, and a notification does not drop a card under it. */
+    val homeCovered: Boolean get() = (launcherInFront && homeTakeover) || searchOverApp
 
     fun updateOverlay(active: Boolean) {
         overlayActive = active

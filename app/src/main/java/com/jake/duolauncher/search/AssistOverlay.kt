@@ -111,15 +111,22 @@ object AssistOverlay {
         if (service == null) { open(app, null, screenText, null, seed); return }
         opening = true
         val main = android.os.Handler(android.os.Looper.getMainLooper())
+        // Opened from the island while it is out (its Search, "Ready" on its card, a pull on into search): the island steps aside first,
+        // and the picture waits for that, so the glass does not bend a picture of the island it grew out of.
+        val islandOut = IslandRuntime.state.expanded || IslandRuntime.state.peeked || IslandRuntime.state.pullFraction != null
+        if (islandOut) { IslandRuntime.state.collapse(); IslandRuntime.searchOverApp = true }
         var settled = false
         fun settle(picture: android.graphics.Bitmap?) {
             if (settled) { picture?.recycle(); return }
             settled = true; opening = false
             open(app, service, screenText, picture, seed)
+            // Search did not open after all: the island is not left stepped aside for it.
+            if (view == null) IslandRuntime.searchOverApp = false
         }
         // Never hold search up for a slow screenshot: after this long it opens with the live blur instead.
-        main.postDelayed({ settle(null) }, SHOT_TIMEOUT_MS)
-        runCatching {
+        val wait = if (islandOut) ISLAND_ASIDE_MS else 0L
+        main.postDelayed({ settle(null) }, SHOT_TIMEOUT_MS + wait)
+        main.postDelayed({ if (!settled) runCatching {
             service.takeScreenshot(android.view.Display.DEFAULT_DISPLAY, service.mainExecutor,
                 object : android.accessibilityservice.AccessibilityService.TakeScreenshotCallback {
                     override fun onSuccess(result: android.accessibilityservice.AccessibilityService.ScreenshotResult) {
@@ -130,10 +137,12 @@ object AssistOverlay {
                     }
                     override fun onFailure(errorCode: Int) = settle(null)
                 })
-        }.onFailure { settle(null) }
+        }.onFailure { settle(null) } }, wait)
     }
 
     private const val SHOT_TIMEOUT_MS = 400L
+    /** How long the island takes to fade out of the way before the screenshot (IslandOverlayHost's yield fade, and a frame or two). */
+    private const val ISLAND_ASIDE_MS = 200L
 
     private fun open(app: Application, service: android.accessibilityservice.AccessibilityService?, screenText: String?, picture: android.graphics.Bitmap?,
         seed: com.jake.duolauncher.island.SurfaceSeed) {
@@ -160,10 +169,6 @@ object AssistOverlay {
             val state = model.state.collectAsState().value
             val extrasState = extras.state
             val feedState = feeds.state.collectAsState().value
-            val assistantOn = extrasState.localAssistant
-            val assistant = remember(assistantOn) {
-                if (assistantOn && LocalAssistant.isAvailable(app)) LocalAssistant(app) else null
-            }
             // The glass: the screenshot when there is one; over Home without one, Home's own wallpaper picture, as the island uses; otherwise
             // none, and the window's live blur frosts the app instead.
             val glass = remember(picture) {
@@ -181,6 +186,8 @@ object AssistOverlay {
             @Suppress("UNUSED_VARIABLE") val growNow = grow.value
             androidx.compose.runtime.LaunchedEffect(open) {
                 if (!open) beginClosing()
+                // The island steps aside while search has its place, as it does for Home's search.
+                if (open) IslandRuntime.searchOverApp = true
                 if (open) grow.animateTo(1f, androidx.compose.animation.core.spring(UnoMotion.OPEN_DAMPING, SpotlightEmerge.outlineOpenStiffness()))
                 else {
                     // Back into the pill on the close spring, from wherever the opening had got to; then the window goes.
@@ -190,14 +197,11 @@ object AssistOverlay {
                         // Clear by the time the panel is 15 % open, so no blur is left once it is back in the pill.
                         val want = kotlin.math.ceil((value - .15f) / .85f * 4f).toInt().coerceIn(0, 4)
                         if (want < step) { step = want; setBlur(app, want / 4f) }
+                        // The island is let back once search is a quarter of the way out of the pill, as on Home, so the two meet as one shape.
+                        if (value <= .25f) IslandRuntime.searchOverApp = false
                     }
                     // Not from inside the composition being disposed: on the next message.
                     android.os.Handler(android.os.Looper.getMainLooper()).post { remove() }
-                }
-            }
-            val contextEnv = remember(assistant, screenText) {
-                assistant?.let {
-                    ContextEnv(app, { state }, { extrasState }, { appearance.state }, { feedState.shownEntries }, { screenText })
                 }
             }
             CompositionLocalProvider(
@@ -207,39 +211,30 @@ object AssistOverlay {
             ) {
                 DuoTheme(DuoAppearanceRuntime.dark) {
                     androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
-                    Spotlight(
-                        glass = glass,
-                        apps = state.apps,
-                        hiddenApps = state.hiddenApps,
-                        feedEntries = feedState.shownEntries,
-                        contactsEnabled = extrasState.contactSearch,
-                        handoff = rememberHandoffResolver(extrasState),
-                        onLaunch = { entry: AppEntry -> openApp(app, entry); hide() },
-                        onOpenFeedLink = { link -> openLink(app, link); hide() },
-                        onOpenContact = { contact -> ContactsSearch.open(app, contact); hide() },
-                        onDismiss = { hide() },
+                    // The panel is the surface's, the same one Home shows (SearchPanel); this window gives it how to open things from here.
+                    val searchHost = remember { SearchHost(
+                        launch = { entry, _ -> openApp(app, entry) },
+                        openFeedLink = { link -> openLink(app, link) },
+                        openContact = { contact -> ContactsSearch.open(app, contact) },
+                        toggleFocus = {
+                            val next = !extras.state.focusOn
+                            extras.setFocusOn(next)
+                            FocusMode.applyRinger(app, next, extras.state.focusVibrate)
+                        }) }
+                    SearchPanel(surface, searchHost, app, glass, state, extrasState, appearance.state, feedState.shownEntries,
+                        rememberHandoffResolver(extrasState), screenText,
                         visible = open,
+                        // A lambda that reads the live value (Spotlight keeps the first one it is given for its contents' reveal, so a
+                        // lambda holding a number froze them at 0 and they never showed), and the value is also read in composition
+                        // (growNow, above), as Home does, so the panel redraws as it grows and shrinks.
+                        progress = { grow.value },
                         // Grows out of the island when there is one, as on Home (the island's frame is the process's, so it is there when
                         // Home has drawn it); otherwise the panel hangs from the top.
                         pill = remember(appearance.state.island) {
                             if (!appearance.state.island) null else IslandRuntime.state.restPill ?: restPill(app, appearance.state.islandScale)
                         },
                         // No glass can sample the app below, so the bar thins from black into the page instead, as Home's does into its glass.
-                        seeThrough = glass == null,
-                        // A lambda that reads the live value (Spotlight keeps the first one it is given for its contents' reveal, so a
-                        // lambda holding a number froze them at 0 and they never showed), and the value is also read in composition
-                        // (growNow, above), as Home does, so the panel redraws as it grows and shrinks.
-                        progress = { grow.value },
-                        noteSlot = state.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
-                        focusOn = { extras.state.focusOn },
-                        onToggleFocus = {
-                            val next = !extras.state.focusOn
-                            extras.setFocusOn(next)
-                            FocusMode.applyRinger(app, next, extras.state.focusVibrate)
-                        },
-                        assistant = assistant,
-                        contextEnv = contextEnv,
-                    )
+                        seeThrough = glass == null)
                     }
                 }
             }
@@ -266,7 +261,8 @@ object AssistOverlay {
             }
             title = "Uno search"
         }
-        val root = Root(host) { hide() }.apply {
+        // Back is the surface's: it clears what is typed first, then closes search (and this window follows the surface).
+        val root = Root(host) { if (!surface.back()) hide() }.apply {
             setViewTreeLifecycleOwner(windowOwner); setViewTreeSavedStateRegistryOwner(windowOwner); setViewTreeViewModelStoreOwner(windowOwner)
             addView(screen, android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.MATCH_PARENT))
         }
@@ -329,6 +325,7 @@ object AssistOverlay {
     /** Takes the window away and lets the app behind carry on exactly as it was. */
     private fun remove() {
         closing = false
+        IslandRuntime.searchOverApp = false
         // As Home's search does on closing: the answer it showed has been seen, so the island's "Ready" goes.
         if (view != null) AssistantSession.seen()
         if (surface.state.searchOverApp) surface.on(com.jake.duolauncher.island.SurfaceGesture.CloseSearch)

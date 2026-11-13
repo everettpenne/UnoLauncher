@@ -47,6 +47,10 @@ internal interface AssistantClient {
     fun ask(query: String, mode: AskMode, context: String = ""): Flow<String>
     /** Opens Uno Lab's own screen with [query], to carry on there. */
     fun continueInLab(context: Context, query: String)
+
+    /** The planner: [request] is the JSON the agent builds (question, facts, catalogue, grammar); the reply is its JSON plan, or null when
+     *  Uno Lab cannot be reached. Blocking, so callers run it off the main thread. */
+    suspend fun plan(request: String): String?
 }
 
 /** Which Uno Lab Uno trusts: its package, and the SHA-256 of the one certificate it is signed with. Pure, so it is tested. */
@@ -185,6 +189,15 @@ internal class LocalAssistant(context: Context) : AssistantClient {
     }.flowOn(Dispatchers.Default)
 
     override fun continueInLab(context: Context, query: String) = openLab(context, query)
+
+    override suspend fun plan(request: String): String? {
+        val svc = withTimeoutOrNull(15_000) { service.filterNotNull().first() } ?: return null
+        // A Lab from before the planner has no plan(): version() reads 0 there, and the call is unknown.
+        val version = labVersion?.takeIf { it.first === svc }?.second
+            ?: runCatching { svc.version() }.getOrDefault(0).also { labVersion = svc to it }
+        if (version < 2) return null
+        return withContext(binderThread) { runCatching { svc.plan(request) }.getOrNull() }
+    }
 
     companion object {
         /** Lab is installed, signed with its own pinned key, and new enough to have the assistant service. */

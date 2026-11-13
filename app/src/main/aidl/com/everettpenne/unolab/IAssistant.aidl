@@ -18,4 +18,11 @@ interface IAssistant {
     void cancel();
     int version();
     void askWithContext(String query, String context, int mode, IAnswerSink sink);
+
+    /**
+     * The agent planner: request is JSON (question, phone facts, grounding, the generated tool catalogue and GBNF grammar); the reply is
+     * JSON — steps, a clarifying question, or a refusal. Returns null when Uno Lab cannot serve it.
+     * version() 2 means this method exists.
+     */
+    String plan(String request);
 }

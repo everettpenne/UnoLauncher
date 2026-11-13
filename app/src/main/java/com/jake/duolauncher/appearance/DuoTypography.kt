@@ -95,8 +95,12 @@ internal object UnoType {
  * | labelLarge     | subheadline (600)         | emphasised label / status |
  * | labelMedium    | caption1 (500)            | eyebrow (uppercase), meta |
  * | labelSmall     | caption2 (500)            | tiny meta |
+ *
+ * Lazy, not built when this file is first touched: [UnoType] uses this file's [InterFamily], so when UnoType was the first thing used (the
+ * island drawing before any theme), building it loaded this file, which read UnoType's styles while they were still null and crashed the
+ * process at start.
  */
-internal val DuoTypography = Typography(
+internal val DuoTypography by lazy { Typography(
     displayLarge   = UnoType.largeTitle,
     displayMedium  = UnoType.title1,
     displaySmall   = UnoType.title2,
@@ -112,4 +116,4 @@ internal val DuoTypography = Typography(
     labelLarge     = UnoType.subheadline.copy(fontWeight = FontWeight.SemiBold),
     labelMedium    = UnoType.caption1.copy(fontWeight = FontWeight.Medium),
     labelSmall     = UnoType.caption2.copy(fontWeight = FontWeight.Medium),
-)
+) }

@@ -560,7 +560,13 @@ internal fun Spotlight(
         else com.jake.duolauncher.search.agent.AndroidToolEnv(context, noteSlot, apps, { focusOn() }, onToggleFocus)
     }
     val agentSession = remember(agentEnv) {
-        agentEnv?.let { env -> com.jake.duolauncher.search.agent.AgentSession(planner = { com.jake.duolauncher.search.agent.LabPlanner { assistant } }, env = env) }
+        agentEnv?.let { env ->
+            com.jake.duolauncher.search.agent.AgentSessionHolder.bind(
+                planner = { com.jake.duolauncher.search.agent.LabPlanner { assistant } },
+                env = { env },
+                publish = { NotificationFeed.publishAssistant(context, System.currentTimeMillis()) },
+            )
+        }
     }
     val agentScope = androidx.compose.runtime.rememberCoroutineScope()
     // What was asked, and where the answer is: reset whenever the query changes, which also cancels a running answer.

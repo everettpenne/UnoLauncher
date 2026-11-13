@@ -43,7 +43,7 @@ class AgentSessionTest {
 
     private fun session(planner: Planner) = AgentSession(
         planner = { planner },
-        env = env,
+        env = { env },
         tools = ToolRegistry.builtIn + sendTool,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
     )

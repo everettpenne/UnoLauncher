@@ -4,6 +4,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import com.jake.duolauncher.island.ActivitySource
+import com.jake.duolauncher.search.agent.AgentSessionHolder
+import com.jake.duolauncher.search.agent.AgentState
 import com.jake.duolauncher.island.LiveUpdate
 
 /**
@@ -14,8 +16,26 @@ import com.jake.duolauncher.island.LiveUpdate
 internal object AssistantLive {
     const val KEY = "unolab.assistant"
 
+    /** One line for the island from an agent turn, or null when there is nothing to show. Pure, so it is unit-tested. */
+    fun agentLine(state: AgentState): Pair<String, String>? = when (state) {
+        is AgentState.Planning -> "Thinking…" to "Planning what to do"
+        is AgentState.Confirming -> "Waiting" to (state.steps.firstOrNull() ?: "Needs a yes")
+        is AgentState.Acting -> "Acting…" to "Doing: ${state.step.tool.name.replace('_', ' ')}"
+        is AgentState.Done -> "Done" to state.summary
+        is AgentState.Asking -> "Waiting" to state.question
+        is AgentState.Failed -> "Couldn't do that" to state.why
+        AgentState.Idle -> null
+    }
+
     /** The entry for the session's state, or null when there is nothing to show. */
     fun of(context: Context, nowMs: Long): LiveUpdate? {
+        // A task's turn first: while it runs, it is the assistant's state.
+        val agent = AgentSessionHolder.current()?.state
+        val line = agent?.let { agentLine(it) }
+        if (line != null && agent != null) {
+            val working = agent is AgentState.Planning || agent is AgentState.Acting
+            return entry(context, nowMs, line.second, line.first, working)
+        }
         val s = AssistantSession.state
         if (s is AssistantSession.State.Idle) return null
         val query = when (s) {
@@ -36,24 +56,7 @@ internal object AssistantLive {
             is AssistantSession.State.Failed -> "Couldn't answer"
             else -> null
         }
-        return LiveUpdate(
-            key = KEY,
-            packageName = context.packageName,
-            appLabel = "Uno",
-            title = "Ask Qwen",
-            text = text,
-            shortText = short,
-            progress = 0,
-            progressMax = 0,
-            indeterminate = s is AssistantSession.State.Running,
-            chronometerBase = null,
-            countDown = false,
-            icon = null,
-            color = 0,
-            postTime = nowMs,
-            openIntent = open(context),
-            source = ActivitySource.PROGRESS,
-        )
+        return entry(context, nowMs, text, short, s is AssistantSession.State.Running)
     }
 
     /**
@@ -64,6 +67,25 @@ internal object AssistantLive {
         if (AssistOverlay.canShow(context)) AssistOverlay.show(context, null, com.jake.duolauncher.island.SurfaceSeed.Answer)
         else com.jake.duolauncher.island.sendTapAction(context, fallback)
     }
+
+    private fun entry(context: Context, nowMs: Long, text: String?, short: String?, indeterminate: Boolean) = LiveUpdate(
+        key = KEY,
+        packageName = context.packageName,
+        appLabel = "Uno",
+        title = "Ask Qwen",
+        text = text,
+        shortText = short,
+        progress = 0,
+        progressMax = 0,
+        indeterminate = indeterminate,
+        chronometerBase = null,
+        countDown = false,
+        icon = null,
+        color = 0,
+        postTime = nowMs,
+        openIntent = open(context),
+        source = ActivitySource.PROGRESS,
+    )
 
     /**
      * Tapping the island opens search where the session's answer is shown: over whatever is on screen, as the assist gesture does

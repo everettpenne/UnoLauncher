@@ -19,10 +19,13 @@ import kotlinx.coroutines.launch
  */
 internal class AgentSession(
     private val planner: () -> Planner,
-    private val env: ToolEnv,
+    /** The environment for this turn: re-read per run, because the panel that supplies it can be rebuilt between turns. */
+    private val env: () -> ToolEnv,
     private val tools: List<Tool> = ToolRegistry.builtIn,
     private val settings: AgentSettings = AgentSettings(),
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    /** Called after every state change, so the island's card can follow the turn. */
+    private val publish: () -> Unit = {},
 ) {
     var state by mutableStateOf<AgentState>(AgentState.Idle)
         private set
@@ -47,7 +50,7 @@ internal class AgentSession(
         // A new question starts clean: the old turn's sentence and undo do not belong to it.
         summary = null
         canUndo = false
-        val executor = Executor(env, settings)
+        val executor = Executor(env(), settings)
         val loop = AgentLoop(
             planner = planner(),
             executor = executor,
@@ -59,7 +62,7 @@ internal class AgentSession(
                 gate = waiting
                 waiting.await()
             },
-            onState = { state = it },
+            onState = { state = it; publish() },
         )
         job = scope.launch {
             val outcome = loop.run(query, facts, GroundingLogic.block(query, grounding.people, grounding.apps))
@@ -72,6 +75,7 @@ internal class AgentSession(
             }
             canUndo = outcome is AgentOutcome.Done && outcome.canUndo
             lastExecutor = executor
+            publish()
         }
     }
 
@@ -98,6 +102,7 @@ internal class AgentSession(
         summary = null
         canUndo = false
         lastExecutor = null
+        publish()
     }
 
     /** For tests: waits for the running turn to finish. */

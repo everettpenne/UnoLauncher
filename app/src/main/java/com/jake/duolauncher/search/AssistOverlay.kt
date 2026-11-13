@@ -97,7 +97,8 @@ object AssistOverlay {
      * it first takes one screenshot for the glass to bend (a window can't sample another app's pixels), then opens in the service's window,
      * above the status bar as the expanded island is. Without one, it opens as a plain overlay with the system's live blur behind it.
      */
-    fun show(context: Context, screenText: String?) {
+    internal fun show(context: Context, screenText: String?,
+        seed: com.jake.duolauncher.island.SurfaceSeed = com.jake.duolauncher.island.SurfaceSeed.Assist(screenText)) {
         val app = context.applicationContext as? Application ?: return
         // A window the system took away (its service was stopped) is closed, whatever was last recorded.
         if (view?.isAttachedToWindow == false) remove()
@@ -107,14 +108,14 @@ object AssistOverlay {
         // Never over the lock screen (AssistActivity asks for the unlock first; this is the backstop): the service's window would draw above it.
         if (app.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true) return
         val service = com.jake.duolauncher.SystemShadeAccessibilityService.connected()
-        if (service == null) { open(app, null, screenText, null); return }
+        if (service == null) { open(app, null, screenText, null, seed); return }
         opening = true
         val main = android.os.Handler(android.os.Looper.getMainLooper())
         var settled = false
         fun settle(picture: android.graphics.Bitmap?) {
             if (settled) { picture?.recycle(); return }
             settled = true; opening = false
-            open(app, service, screenText, picture)
+            open(app, service, screenText, picture, seed)
         }
         // Never hold search up for a slow screenshot: after this long it opens with the live blur instead.
         main.postDelayed({ settle(null) }, SHOT_TIMEOUT_MS)
@@ -134,7 +135,8 @@ object AssistOverlay {
 
     private const val SHOT_TIMEOUT_MS = 400L
 
-    private fun open(app: Application, service: android.accessibilityservice.AccessibilityService?, screenText: String?, picture: android.graphics.Bitmap?) {
+    private fun open(app: Application, service: android.accessibilityservice.AccessibilityService?, screenText: String?, picture: android.graphics.Bitmap?,
+        seed: com.jake.duolauncher.island.SurfaceSeed) {
         if (view != null) { picture?.recycle(); return }
         if (service == null && !android.provider.Settings.canDrawOverlays(app)) { picture?.recycle(); return }
         // The service's own window manager: an accessibility overlay can only be added through it.
@@ -142,7 +144,8 @@ object AssistOverlay {
         manager = host.getSystemService(WindowManager::class.java)
         shot = picture
         val windowOwner = Owner().also { it.start(); owner = it }
-        shown.value = true
+        // Search over the app is the surface's mode from here on; the window is its view, and closes when the surface leaves it.
+        surface.on(com.jake.duolauncher.island.SurfaceGesture.SearchOverApp(seed))
         val screen = ComposeView(host).apply {
             setViewTreeLifecycleOwner(windowOwner)
             setViewTreeSavedStateRegistryOwner(windowOwner)
@@ -174,9 +177,10 @@ object AssistOverlay {
                 }
             }
             val grow = remember { androidx.compose.animation.core.Animatable(0f) }
-            val open = shown.value
+            val open = surface.state.searchOverApp
             @Suppress("UNUSED_VARIABLE") val growNow = grow.value
             androidx.compose.runtime.LaunchedEffect(open) {
+                if (!open) beginClosing()
                 if (open) grow.animateTo(1f, androidx.compose.animation.core.spring(UnoMotion.OPEN_DAMPING, SpotlightEmerge.outlineOpenStiffness()))
                 else {
                     // Back into the pill on the close spring, from wherever the opening had got to; then the window goes.
@@ -214,7 +218,7 @@ object AssistOverlay {
                         onOpenFeedLink = { link -> openLink(app, link); hide() },
                         onOpenContact = { contact -> ContactsSearch.open(app, contact); hide() },
                         onDismiss = { hide() },
-                        visible = shown.value,
+                        visible = open,
                         // Grows out of the island when there is one, as on Home (the island's frame is the process's, so it is there when
                         // Home has drawn it); otherwise the panel hangs from the top.
                         pill = remember(appearance.state.island) {
@@ -266,7 +270,11 @@ object AssistOverlay {
             setViewTreeLifecycleOwner(windowOwner); setViewTreeSavedStateRegistryOwner(windowOwner); setViewTreeViewModelStoreOwner(windowOwner)
             addView(screen, android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.MATCH_PARENT))
         }
-        runCatching { manager?.addView(root, params) ?: return }.onFailure { windowOwner.stop(); owner = null; return }
+        runCatching { manager?.addView(root, params) ?: error("no window manager") }.onFailure {
+            windowOwner.stop(); owner = null
+            surface.on(com.jake.duolauncher.island.SurfaceGesture.CloseSearch)
+            return
+        }
         view = root
         composeView = screen
         // The screen going off locks the phone: search closes with it, so it is never left open above the lock screen.
@@ -278,8 +286,8 @@ object AssistOverlay {
         runCatching { root.windowInsetsController?.hide(android.view.WindowInsets.Type.statusBars()) }
     }
 
-    /** False once search is closing: the panel springs back into the island pill, then the window goes (see [hide]). */
-    private val shown = androidx.compose.runtime.mutableStateOf(true)
+    /** The one owner of what the assistant surface shows: this window is open while it is in search over the app (see [hide]). */
+    private val surface get() = IslandRuntime.state.surface
     private var closing = false
 
     /**
@@ -291,6 +299,12 @@ object AssistOverlay {
         val animate = animated && android.provider.Settings.Global.getFloat(
             (receiverContext ?: return remove()).contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
         if (!animate) { remove(); return }
+        // The window sees the surface leave search and springs back into the pill (beginClosing), then goes.
+        if (surface.state.searchOverApp) surface.on(com.jake.duolauncher.island.SurfaceGesture.CloseSearch)
+    }
+
+    /** The close has begun (by [hide], or by the surface moving on): take no more touches, so a tap already reaches the app below. */
+    private fun beginClosing() {
         if (closing) return
         closing = true
         view?.let { v ->
@@ -300,7 +314,6 @@ object AssistOverlay {
                 manager?.updateViewLayout(v, params)
             }
         }
-        shown.value = false
     }
 
     /** Sets the live blur behind the window to [fraction] of its full strength (only when there is no screenshot, which has no blur). */
@@ -316,6 +329,9 @@ object AssistOverlay {
     /** Takes the window away and lets the app behind carry on exactly as it was. */
     private fun remove() {
         closing = false
+        // As Home's search does on closing: the answer it showed has been seen, so the island's "Ready" goes.
+        if (view != null) AssistantSession.seen()
+        if (surface.state.searchOverApp) surface.on(com.jake.duolauncher.island.SurfaceGesture.CloseSearch)
         val screen = view ?: return
         view = null
         runCatching { manager?.removeView(screen) }

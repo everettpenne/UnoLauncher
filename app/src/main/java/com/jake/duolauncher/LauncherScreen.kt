@@ -327,7 +327,9 @@ internal fun LauncherScreen(
         }
     }
     var controlPanelOpen by remember { mutableStateOf(false) }
-    var spotlightOpen by remember { mutableStateOf(false) }
+    // Home's search is one mode of the assistant surface (island.surface), not a flag of its own: opening it shuts the island, and search
+    // over an app (AssistOverlay) and Home's can never both be open.
+    var spotlightOpen by island.surface.homeSearch
     // Search is still on screen, closing into the island, after spotlightOpen goes false (see where Spotlight is drawn below).
     var spotlightLanding by remember { mutableStateOf(false) }
     /** The island's assistant card opens search itself, not just Home. */
@@ -341,8 +343,7 @@ internal fun LauncherScreen(
         if (spotlightOpen) assistantWasOpen = true
         else if (assistantWasOpen) {
             assistantWasOpen = false
-            val s = AssistantSession.state
-            if (s is AssistantSession.State.Ready || s is AssistantSession.State.Failed) AssistantSession.clear()
+            AssistantSession.seen()
         }
     }
     // Jiggle mode on the iOS layout hides the status bar too: its Edit and Done capsules take that row, as on an iPhone.

@@ -776,7 +776,7 @@ internal fun DynamicIsland(
         when (val step = IslandPolicy.idleStep(state.expanded, state.peeked, state.holdingOpen, pulling, state.peekCard?.seconds,
             state.peekEditing, isPlaying)) {
             IslandPolicy.IdleStep.Stay -> Unit
-            is IslandPolicy.IdleStep.EndPeek -> { delay(step.afterMs); state.peeked = false }
+            is IslandPolicy.IdleStep.EndPeek -> { delay(step.afterMs); state.surface.on(SurfaceGesture.PeekTimeout) }
             is IslandPolicy.IdleStep.Collapse -> { delay(step.afterMs); state.collapse() }
         }
     }
@@ -1080,7 +1080,7 @@ internal fun DynamicIsland(
         val openLeading: (() -> Unit)? = if (state.expanded || state.peeked || flashActive || IslandTools.ringing) null else when (plan.leading) {
             LiveKind.CALL -> NotificationFeed.ongoingCall?.openIntent?.let { intent -> { sendTapAction(context, intent); Unit } }
             LiveKind.MEDIA -> NotificationFeed.nowPlaying?.controller?.let { controller -> { openPlayer(context, controller) } }
-            LiveKind.UPDATE -> updates.firstOrNull()?.openIntent?.let { intent -> { sendTapAction(context, intent); Unit } }
+            LiveKind.UPDATE -> updates.firstOrNull()?.let { u -> u.openIntent?.let { intent -> { openUpdate(context, u.key, intent); Unit } } }
             else -> null
         }
         val chargingIdle = plan.leading == null && deviceStatus.charging
@@ -1246,9 +1246,9 @@ internal fun DynamicIsland(
                             // smoothly instead of starting cold (or carrying the raw finger's jitter).
                             state.settleVelocity = fingerFilter?.velocity() ?: tracker.calculateVelocity().y
                             when (IslandDrag.peekOutcome(fraction, peekState.floatValue)) {
-                                IslandDrag.PeekOutcome.COLLAPSE -> state.collapse()
-                                IslandDrag.PeekOutcome.PEEK -> { UnoFeedback.play(Cue.TICK, haptic); state.peeked = true }
-                                IslandDrag.PeekOutcome.OPEN -> { UnoFeedback.play(Cue.OPEN, haptic); state.peeked = false; state.expanded = true }
+                                IslandDrag.PeekOutcome.COLLAPSE -> { state.surface.on(SurfaceGesture.PullCollapse); state.collapse() }
+                                IslandDrag.PeekOutcome.PEEK -> { UnoFeedback.play(Cue.TICK, haptic); state.surface.on(SurfaceGesture.PullPeek) }
+                                IslandDrag.PeekOutcome.OPEN -> { UnoFeedback.play(Cue.OPEN, haptic); state.surface.on(SurfaceGesture.PullOpen) }
                             }
                         } else if (closing) {
                             // The upward travel since touch-down and the raw release speed (positive = up) decide the release: a slow
@@ -1301,7 +1301,7 @@ internal fun DynamicIsland(
                     else if (plan.leading == LiveKind.UPDATE && updates.firstOrNull()?.packageName == context.packageName &&
                         updates.firstOrNull()?.openIntent != null) {
                         UnoFeedback.play(Cue.OPEN, haptic)
-                        sendTapAction(context, updates.firstOrNull()?.openIntent)
+                        updates.firstOrNull()?.let { u -> openUpdate(context, u.key, u.openIntent) }
                         state.collapse()
                     }
                     else { UnoFeedback.play(Cue.OPEN, haptic); state.toggle() }
@@ -1527,7 +1527,7 @@ internal fun DynamicIsland(
                 }
                 updates.firstOrNull()?.let { u ->
                     Spacer(Modifier.height(6.dp))
-                    UpdateCard(u, clockMs, onOpen = { sendTapAction(context, u.openIntent); state.collapse() })
+                    UpdateCard(u, clockMs, onOpen = { openUpdate(context, u.key, u.openIntent); state.collapse() })
                 }
                 if (IslandWidgetState.id >= 0) {
                     Spacer(Modifier.height(6.dp))

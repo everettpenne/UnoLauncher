@@ -122,8 +122,18 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-internal class IslandState {
-    var expanded by mutableStateOf(false)
+internal class IslandState(
+    /** What the assistant surface is showing: the island open, held part-way, or search (see [AssistantSurface]). [expanded] and
+     *  [peeked] are views of it, so the island and search can never both be open. */
+    val surface: AssistantSurface = AssistantSurface(),
+) {
+    /** The island is open. Setting it is a request to the [surface], which keeps it shut while search is open. */
+    var expanded: Boolean
+        get() = surface.state.mode == SurfaceMode.ISLAND
+        set(open) {
+            if (open) surface.on(SurfaceGesture.PullOpen)
+            else if (surface.state.mode == SurfaceMode.ISLAND) surface.on(SurfaceGesture.Dismiss)
+        }
     var flashTitle by mutableStateOf<String?>(null)
     var flashIcon by mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
         private set
@@ -170,7 +180,12 @@ internal class IslandState {
      * consumed once by the animation collector, so the island keeps the flick's momentum instead of starting each spring cold. */
     var settleVelocity by mutableFloatStateOf(0f)
     /** Held part-way open after a pull (the peek): enough of the panel to glance at, tucked away again by itself after a few seconds. */
-    var peeked by mutableStateOf(false)
+    var peeked: Boolean
+        get() = surface.state.mode == SurfaceMode.PEEK
+        set(held) {
+            if (held) surface.on(SurfaceGesture.PullPeek)
+            else surface.on(SurfaceGesture.PeekTimeout)
+        }
     /** A finger is resting on the bottom of the open island, which keeps it open for as long as it stays there. */
     var holdingOpen by mutableStateOf(false)
     /** The last notification card, and when it arrived: for [RecentNotice.WINDOW_MS] it stays one tap away on the open island. */
@@ -314,10 +329,13 @@ internal class IslandState {
         if (IslandTools.ringing) return
         // The person's finger is on the island, pulling it: the gesture is theirs, and a card opening it under them would take it away.
         if (pullFraction != null) return
+        // Search is open: the card waits as the recent notification rather than taking the surface from it.
+        if (surface.state.mode == SurfaceMode.SEARCH) return
         dismissFlash()
-        peekCard = peek; peekKey++; expanded = true; peeked = false
+        peekCard = peek; peekKey++; surface.on(SurfaceGesture.NotificationCard)
     }
 
-    fun toggle() { expanded = if (peeked) true else !expanded; peeked = false; peekCard = null; peekEditing = false; dismissFlash() }
-    fun collapse() { expanded = false; peeked = false; peekCard = null; peekEditing = false }
+    fun toggle() { surface.on(SurfaceGesture.TapPill); peekCard = null; peekEditing = false; dismissFlash() }
+    /** Shuts the island (open or held part-way). Leaves search alone: that is search's to close. */
+    fun collapse() { surface.on(SurfaceGesture.Dismiss); peekCard = null; peekEditing = false }
 }

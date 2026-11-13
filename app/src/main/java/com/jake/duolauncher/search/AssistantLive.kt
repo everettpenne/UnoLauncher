@@ -57,6 +57,15 @@ internal object AssistantLive {
     }
 
     /**
+     * The island's "Ready" tapped: the answer in search over whatever is on screen. Straight to the surface, in this process, when search can
+     * be put over the app; otherwise through [AssistActivity] (the same as [LiveUpdate.openIntent]), which falls back to Home's search.
+     */
+    fun openAnswer(context: Context, fallback: PendingIntent?) {
+        if (AssistOverlay.canShow(context)) AssistOverlay.show(context, null, com.jake.duolauncher.island.SurfaceSeed.Answer)
+        else com.jake.duolauncher.island.sendTapAction(context, fallback)
+    }
+
+    /**
      * Tapping the island opens search where the session's answer is shown: over whatever is on screen, as the assist gesture does
      * ([AssistActivity] puts search over the app in front, asks for the unlock first if the phone is locked, and falls back to Home's search
      * without the permission it needs). It used to open Home, taking the person away from what they were doing.

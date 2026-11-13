@@ -106,6 +106,13 @@ internal object AssistantSession {
     private fun publish(context: Context) = NotificationFeed.publishAssistant(context, System.currentTimeMillis())
 
     /** Forgets the result (a new search, or the person dismissed it). */
+    /** Search showing the turn has closed: a finished answer (or failure) has been seen, so the island's card for it goes. One still being
+     *  written is kept. Both search hosts call it (Home's, and search over an app). */
+    fun seen() {
+        val s = state
+        if (s is State.Ready || s is State.Failed) clear()
+    }
+
     fun clear() {
         job?.cancel(); job = null
         asked = null

@@ -203,6 +203,13 @@ internal object IslandPlayback {
  * the island over other apps, where the sender is not the app on screen, and reports success all the same). This is the only place the
  * allowance is attached, and every caller is a tap handler on the island (a notification, the music card, a call, a Live Update): the
  * user's own action. Nothing else in the app sends a PendingIntent with it, and nothing sends one without a tap. */
+/** Opens a live update tapped on the island: the assistant's own goes straight to its answer (search over the app), anything else sends its
+ *  tap action. */
+internal fun openUpdate(context: Context, key: String, action: android.app.PendingIntent?) {
+    if (key == com.jake.duolauncher.search.AssistantLive.KEY) com.jake.duolauncher.search.AssistantLive.openAnswer(context, action)
+    else sendTapAction(context, action)
+}
+
 internal fun sendTapAction(context: Context, action: android.app.PendingIntent?): Boolean {
     if (action == null) return false
     // Opened from the island: that app's notifications are wanted, so its drop-downs are not quieted (PeekSmarts).

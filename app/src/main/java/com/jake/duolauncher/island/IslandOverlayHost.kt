@@ -101,6 +101,19 @@ internal class IslandOverlayHost(
         }
     }
 
+    /**
+     * The island's Search: search itself, as Home's island opens it. Over Home it is Home's search (a request to the surface, no activity in
+     * between); over an app, search over that app. It used to open Home's App Library search from here, unlike Home's own island.
+     */
+    private fun openSearch() {
+        IslandRuntime.state.collapse()
+        when {
+            IslandRuntime.launcherInFront -> IslandRuntime.state.surface.on(SurfaceGesture.OpenSearch)
+            com.jake.duolauncher.search.AssistOverlay.canShow(context) -> com.jake.duolauncher.search.AssistOverlay.show(context, null)
+            else -> openUno("spotlight")
+        }
+    }
+
     private fun collapseIfOpen() { if (IslandRuntime.state.expanded) IslandRuntime.state.collapse() }
 
     private fun addWindow() {
@@ -287,7 +300,7 @@ internal class IslandOverlayHost(
                         applyLayout()
                     },
                     // The island here cannot take typing (it is never focused), so its buttons open Uno on the right screen instead.
-                    onSearch = { openUno("search") },
+                    onSearch = ::openSearch,
                     onOpenFeed = { openUno("feed") },
                     onCustomize = { openUno("customize") },
                 )

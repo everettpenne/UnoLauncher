@@ -24,6 +24,9 @@ class AgentLoopTest {
         override fun openDialer(number: String) = Unit
         override fun openMessages(number: String) = Unit
         override fun openUrl(url: String) = Unit
+        override fun openCalendar(title: String, inMinutes: Int, durationMinutes: Int) = Unit
+        override fun openWebSearch(query: String) = Unit
+        override fun openSettingsPanel(panel: String) = Unit
         override fun writeNote(text: String): String? = ""
     }
 

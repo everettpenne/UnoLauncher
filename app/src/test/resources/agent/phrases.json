@@ -1,49 +1,450 @@
 [
-  {"q": "timer for 20 minutes", "steps": [{"tool": "timer", "params": {"seconds": "1200"}}]},
-  {"q": "set a 5 minute timer", "steps": [{"tool": "timer", "params": {"seconds": "300"}}]},
-  {"q": "pasta timer 12 minutes", "steps": [{"tool": "timer", "params": {"seconds": "720", "label": "pasta"}}]},
-
-  {"q": "start the stopwatch", "steps": [{"tool": "stopwatch", "params": {}}]},
-  {"q": "time my swim", "steps": [{"tool": "stopwatch", "params": {}}]},
-  {"q": "stop the stopwatch", "steps": [{"tool": "stopwatch", "params": {}}]},
-
-  {"q": "turn on the flashlight", "steps": [{"tool": "torch", "params": {}}]},
-  {"q": "turn off the torch", "steps": [{"tool": "torch", "params": {}}]},
-  {"q": "flashlight on", "steps": [{"tool": "torch", "params": {}}]},
-
-  {"q": "turn on focus", "steps": [{"tool": "focus", "params": {"on": "true"}}]},
-  {"q": "do not disturb on", "steps": [{"tool": "focus", "params": {"on": "true"}}]},
-  {"q": "turn focus off", "steps": [{"tool": "focus", "params": {"on": "false"}}]},
-
-  {"q": "remember to buy bread", "steps": [{"tool": "note", "params": {"text": "buy bread"}}]},
-  {"q": "note down that the spare key is with Ana", "steps": [{"tool": "note", "params": {"text": "the spare key is with Ana"}}]},
-  {"q": "save a note: call the dentist", "steps": [{"tool": "note", "params": {"text": "call the dentist"}}]},
-
-  {"q": "wake me at 6:45", "steps": [{"tool": "alarm", "params": {"at": "06:45"}}]},
-  {"q": "alarm in 30 minutes", "steps": [{"tool": "alarm", "params": {"in_minutes": "30"}}]},
-  {"q": "set an alarm for 17:00", "steps": [{"tool": "alarm", "params": {"at": "17:00"}}]},
-
-  {"q": "open the camera", "steps": [{"tool": "open_app", "params": {"app": "Camera"}}]},
-  {"q": "launch settings", "steps": [{"tool": "open_app", "params": {"app": "Settings"}}]},
-  {"q": "open Clock", "steps": [{"tool": "open_app", "params": {"app": "Clock"}}]},
-
-  {"q": "dial +1 555 0100", "steps": [{"tool": "dial", "params": {"number": "+1 555 0100"}}]},
-  {"q": "call 555 0100", "steps": [{"tool": "dial", "params": {"number": "555 0100"}}]},
-  {"q": "show me the dialer for 5550199", "steps": [{"tool": "dial", "params": {"number": "5550199"}}]},
-
-  {"q": "text 555 0100", "steps": [{"tool": "message", "params": {"number": "555 0100"}}]},
-  {"q": "open messages for 5550199", "steps": [{"tool": "message", "params": {"number": "5550199"}}]},
-  {"q": "message 555 0123", "steps": [{"tool": "message", "params": {"number": "555 0123"}}]},
-
-  {"q": "open https://example.com", "steps": [{"tool": "open_url", "params": {"url": "https://example.com"}}]},
-  {"q": "go to https://uno.example/a?b=c", "steps": [{"tool": "open_url", "params": {"url": "https://uno.example/a?b=c"}}]},
-  {"q": "open this page https://news.example.com", "steps": [{"tool": "open_url", "params": {"url": "https://news.example.com"}}]},
-
-  {"q": "text Sam", "clarify": true},
-  {"q": "remind me later", "clarify": true},
-  {"q": "set an alarm", "clarify": true},
-
-  {"q": "book me a flight to Tokyo", "refuse": true},
-  {"q": "turn off wifi", "refuse": true},
-  {"q": "read my bank balance", "refuse": true}
+  {
+    "q": "timer for 20 minutes",
+    "steps": [
+      {
+        "tool": "timer",
+        "params": {
+          "seconds": "1200"
+        }
+      }
+    ]
+  },
+  {
+    "q": "set a 5 minute timer",
+    "steps": [
+      {
+        "tool": "timer",
+        "params": {
+          "seconds": "300"
+        }
+      }
+    ]
+  },
+  {
+    "q": "pasta timer 12 minutes",
+    "steps": [
+      {
+        "tool": "timer",
+        "params": {
+          "seconds": "720",
+          "label": "pasta"
+        }
+      }
+    ]
+  },
+  {
+    "q": "start the stopwatch",
+    "steps": [
+      {
+        "tool": "stopwatch",
+        "params": {}
+      }
+    ]
+  },
+  {
+    "q": "time my swim",
+    "steps": [
+      {
+        "tool": "stopwatch",
+        "params": {}
+      }
+    ]
+  },
+  {
+    "q": "stop the stopwatch",
+    "steps": [
+      {
+        "tool": "stopwatch",
+        "params": {}
+      }
+    ]
+  },
+  {
+    "q": "turn on the flashlight",
+    "steps": [
+      {
+        "tool": "torch",
+        "params": {}
+      }
+    ]
+  },
+  {
+    "q": "turn off the torch",
+    "steps": [
+      {
+        "tool": "torch",
+        "params": {}
+      }
+    ]
+  },
+  {
+    "q": "flashlight on",
+    "steps": [
+      {
+        "tool": "torch",
+        "params": {}
+      }
+    ]
+  },
+  {
+    "q": "turn on focus",
+    "steps": [
+      {
+        "tool": "focus",
+        "params": {
+          "on": "true"
+        }
+      }
+    ]
+  },
+  {
+    "q": "do not disturb on",
+    "steps": [
+      {
+        "tool": "focus",
+        "params": {
+          "on": "true"
+        }
+      }
+    ]
+  },
+  {
+    "q": "turn focus off",
+    "steps": [
+      {
+        "tool": "focus",
+        "params": {
+          "on": "false"
+        }
+      }
+    ]
+  },
+  {
+    "q": "remember to buy bread",
+    "steps": [
+      {
+        "tool": "note",
+        "params": {
+          "text": "buy bread"
+        }
+      }
+    ]
+  },
+  {
+    "q": "note down that the spare key is with Ana",
+    "steps": [
+      {
+        "tool": "note",
+        "params": {
+          "text": "the spare key is with Ana"
+        }
+      }
+    ]
+  },
+  {
+    "q": "save a note: call the dentist",
+    "steps": [
+      {
+        "tool": "note",
+        "params": {
+          "text": "call the dentist"
+        }
+      }
+    ]
+  },
+  {
+    "q": "wake me at 6:45",
+    "steps": [
+      {
+        "tool": "alarm",
+        "params": {
+          "at": "06:45"
+        }
+      }
+    ]
+  },
+  {
+    "q": "alarm in 30 minutes",
+    "steps": [
+      {
+        "tool": "alarm",
+        "params": {
+          "in_minutes": "30"
+        }
+      }
+    ]
+  },
+  {
+    "q": "set an alarm for 17:00",
+    "steps": [
+      {
+        "tool": "alarm",
+        "params": {
+          "at": "17:00"
+        }
+      }
+    ]
+  },
+  {
+    "q": "open the camera",
+    "steps": [
+      {
+        "tool": "open_app",
+        "params": {
+          "app": "Camera"
+        }
+      }
+    ]
+  },
+  {
+    "q": "launch settings",
+    "steps": [
+      {
+        "tool": "open_app",
+        "params": {
+          "app": "Settings"
+        }
+      }
+    ]
+  },
+  {
+    "q": "open Clock",
+    "steps": [
+      {
+        "tool": "open_app",
+        "params": {
+          "app": "Clock"
+        }
+      }
+    ]
+  },
+  {
+    "q": "dial +1 555 0100",
+    "steps": [
+      {
+        "tool": "dial",
+        "params": {
+          "number": "+1 555 0100"
+        }
+      }
+    ]
+  },
+  {
+    "q": "call 555 0100",
+    "steps": [
+      {
+        "tool": "dial",
+        "params": {
+          "number": "555 0100"
+        }
+      }
+    ]
+  },
+  {
+    "q": "show me the dialer for 5550199",
+    "steps": [
+      {
+        "tool": "dial",
+        "params": {
+          "number": "5550199"
+        }
+      }
+    ]
+  },
+  {
+    "q": "text 555 0100",
+    "steps": [
+      {
+        "tool": "message",
+        "params": {
+          "number": "555 0100"
+        }
+      }
+    ]
+  },
+  {
+    "q": "open messages for 5550199",
+    "steps": [
+      {
+        "tool": "message",
+        "params": {
+          "number": "5550199"
+        }
+      }
+    ]
+  },
+  {
+    "q": "message 555 0123",
+    "steps": [
+      {
+        "tool": "message",
+        "params": {
+          "number": "555 0123"
+        }
+      }
+    ]
+  },
+  {
+    "q": "open https://example.com",
+    "steps": [
+      {
+        "tool": "open_url",
+        "params": {
+          "url": "https://example.com"
+        }
+      }
+    ]
+  },
+  {
+    "q": "go to https://uno.example/a?b=c",
+    "steps": [
+      {
+        "tool": "open_url",
+        "params": {
+          "url": "https://uno.example/a?b=c"
+        }
+      }
+    ]
+  },
+  {
+    "q": "open this page https://news.example.com",
+    "steps": [
+      {
+        "tool": "open_url",
+        "params": {
+          "url": "https://news.example.com"
+        }
+      }
+    ]
+  },
+  {
+    "q": "text Sam",
+    "clarify": true
+  },
+  {
+    "q": "remind me later",
+    "clarify": true
+  },
+  {
+    "q": "set an alarm",
+    "clarify": true
+  },
+  {
+    "q": "book me a flight to Tokyo",
+    "refuse": true
+  },
+  {
+    "q": "turn off wifi",
+    "steps": [
+      {
+        "tool": "settings_panel",
+        "params": {
+          "panel": "wifi"
+        }
+      }
+    ]
+  },
+  {
+    "q": "read my bank balance",
+    "refuse": true
+  },
+  {
+    "q": "dentist in 30 minutes for an hour",
+    "steps": [
+      {
+        "tool": "calendar_event",
+        "params": {
+          "title": "Dentist",
+          "in_minutes": "30",
+          "duration_minutes": "60"
+        }
+      }
+    ]
+  },
+  {
+    "q": "add a meeting in 15 minutes for 30 minutes",
+    "steps": [
+      {
+        "tool": "calendar_event",
+        "params": {
+          "title": "Meeting",
+          "in_minutes": "15",
+          "duration_minutes": "30"
+        }
+      }
+    ]
+  },
+  {
+    "q": "schedule lunch in an hour for 45 minutes",
+    "steps": [
+      {
+        "tool": "calendar_event",
+        "params": {
+          "title": "Lunch",
+          "in_minutes": "60",
+          "duration_minutes": "45"
+        }
+      }
+    ]
+  },
+  {
+    "q": "search the web for rain tomorrow",
+    "steps": [
+      {
+        "tool": "web_search",
+        "params": {
+          "query": "rain tomorrow"
+        }
+      }
+    ]
+  },
+  {
+    "q": "look up the capital of peru",
+    "steps": [
+      {
+        "tool": "web_search",
+        "params": {
+          "query": "the capital of peru"
+        }
+      }
+    ]
+  },
+  {
+    "q": "google pizza near me",
+    "steps": [
+      {
+        "tool": "web_search",
+        "params": {
+          "query": "pizza near me"
+        }
+      }
+    ]
+  },
+  {
+    "q": "open bluetooth settings",
+    "steps": [
+      {
+        "tool": "settings_panel",
+        "params": {
+          "panel": "bluetooth"
+        }
+      }
+    ]
+  },
+  {
+    "q": "airplane mode",
+    "steps": [
+      {
+        "tool": "settings_panel",
+        "params": {
+          "panel": "airplane"
+        }
+      }
+    ]
+  },
+  {
+    "q": "order me a pizza",
+    "refuse": true
+  }
 ]

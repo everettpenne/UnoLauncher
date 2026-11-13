@@ -67,6 +67,27 @@ internal class AndroidToolEnv(
     override fun openMessages(number: String) = resolver.openContact(ContactActionKind.TEXT, number)
     override fun openUrl(url: String) = resolver.open(ActionLogic.viewIntent(url))
 
+    override fun openCalendar(title: String, inMinutes: Int, durationMinutes: Int) {
+        val (begin, end) = ActionLogic.calendarSpan(System.currentTimeMillis(), inMinutes, durationMinutes)
+        resolver.open(ActionLogic.calendarIntent(title, begin, end))
+    }
+
+    override fun openWebSearch(query: String) = resolver.open(ActionLogic.webSearchIntent(query))
+
+    override fun openSettingsPanel(panel: String) {
+        val action = when (panel) {
+            "wifi" -> android.provider.Settings.ACTION_WIFI_SETTINGS
+            "bluetooth" -> android.provider.Settings.ACTION_BLUETOOTH_SETTINGS
+            "nfc" -> android.provider.Settings.ACTION_NFC_SETTINGS
+            "airplane" -> android.provider.Settings.ACTION_AIRPLANE_MODE_SETTINGS
+            "display" -> android.provider.Settings.ACTION_DISPLAY_SETTINGS
+            "sound" -> android.provider.Settings.ACTION_SOUND_SETTINGS
+            "battery" -> android.provider.Settings.ACTION_BATTERY_SAVER_SETTINGS
+            else -> return
+        }
+        resolver.open(ActionLogic.settingsIntent(action))
+    }
+
     override fun writeNote(text: String): String? {
         val slot = noteSlot ?: return null
         val previous = WidgetData.get(slot, "note")

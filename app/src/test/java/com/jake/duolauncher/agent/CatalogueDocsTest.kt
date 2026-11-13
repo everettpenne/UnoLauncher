@@ -24,6 +24,9 @@ class CatalogueDocsTest {
             | `dial` | Local | number:text | Opens the dialer with a number typed in. It does not place the call. |
             | `message` | Local | number:text | Opens the messages app with a number typed in. It does not send anything. |
             | `open_url` | Local | url:text | Opens a web address in the browser. |
+            | `calendar_event` | Local | title:text, in_minutes:int, duration_minutes:int | Opens a calendar event, prefilled: a title, how long from now it starts, and how long it lasts. |
+            | `web_search` | Local | query:text | Hands a query to the browser's own search. |
+            | `settings_panel` | Local | panel:enum | Opens an Android settings page: wifi, bluetooth, nfc, airplane, display, sound, battery. |
         """.trimIndent()
         assertEquals(expected, Catalogue.markdown(ToolRegistry.builtIn).trimEnd())
     }

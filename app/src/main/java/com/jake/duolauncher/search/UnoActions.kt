@@ -26,6 +26,8 @@ internal data class ActionIntent(
     val dataUri: String? = null,
     val hour: Int? = null,
     val minute: Int? = null,
+    val longExtras: List<Pair<String, Long>> = emptyList(),
+    val stringExtras: List<Pair<String, String>> = emptyList(),
 )
 
 /** The pure parts of running a typed action: the intents to build and the alarm arithmetic. */
@@ -35,6 +37,15 @@ internal object ActionLogic {
     const val ACTION_SENDTO = "android.intent.action.SENDTO"
     const val ACTION_SET_ALARM = "android.intent.action.SET_ALARM"
     const val ACTION_VIEW = "android.intent.action.VIEW"
+    const val ACTION_INSERT = "android.intent.action.INSERT"
+    const val ACTION_WEB_SEARCH = "android.intent.action.WEB_SEARCH"
+
+    // Android's own names, written out so this file stays testable without Android.
+    const val CALENDAR_EVENTS_URI = "content://com.android.calendar/events"
+    const val EXTRA_BEGIN_TIME = "beginTime"   // CalendarContract.EXTRA_EVENT_BEGIN_TIME
+    const val EXTRA_END_TIME = "endTime"       // CalendarContract.EXTRA_EVENT_END_TIME
+    const val EXTRA_TITLE = "title"            // CalendarContract.Events.TITLE
+    const val EXTRA_QUERY = "query"            // SearchManager.QUERY
 
     /** Only the characters a tel: or smsto: URI understands, so a number stored with spaces or dashes still dials. */
     fun phoneNumber(raw: String): String = raw.filter { it.isDigit() || it == '+' || it == '*' || it == '#' }
@@ -43,6 +54,24 @@ internal object ActionLogic {
     fun smsIntent(number: String) = ActionIntent(ACTION_SENDTO, "smsto:" + phoneNumber(number))
     fun alarmIntent(hour: Int, minute: Int) = ActionIntent(ACTION_SET_ALARM, null, hour, minute)
     fun viewIntent(url: String) = ActionIntent(ACTION_VIEW, url)
+
+    /** A prefilled calendar event; the app's own editor is the confirmation, so nothing is written here. */
+    fun calendarIntent(title: String, beginMs: Long, endMs: Long) = ActionIntent(
+        ACTION_INSERT, CALENDAR_EVENTS_URI,
+        longExtras = listOf(EXTRA_BEGIN_TIME to beginMs, EXTRA_END_TIME to endMs),
+        stringExtras = listOf(EXTRA_TITLE to title))
+
+    /** Hands the query to the browser's own search, as pressing Enter in it does. */
+    fun webSearchIntent(query: String) = ActionIntent(ACTION_WEB_SEARCH, null, stringExtras = listOf(EXTRA_QUERY to query))
+
+    /** A page of Android's settings, for the switches an app cannot flip itself (Wi-Fi, Bluetooth, airplane mode). */
+    fun settingsIntent(action: String) = ActionIntent(action)
+
+    /** When a calendar event starting [inMinutes] from [nowMs] and lasting [durationMinutes] begins and ends. */
+    fun calendarSpan(nowMs: Long, inMinutes: Int, durationMinutes: Int): Pair<Long, Long> {
+        val start = nowMs + inMinutes.coerceAtLeast(0) * 60_000L
+        return start to start + durationMinutes.coerceAtLeast(1) * 60_000L
+    }
 
     /** The alarm clock time for "in [minutes] minutes" from [nowHour]:[nowMinute], wrapped past midnight. */
     fun alarmAt(minutes: Int, nowHour: Int, nowMinute: Int): Pair<Int, Int> {
@@ -124,6 +153,8 @@ internal class ActionResolver(
         spec.dataUri?.let { intent.data = Uri.parse(it) }
         spec.hour?.let { intent.putExtra(AlarmClock.EXTRA_HOUR, it) }
         spec.minute?.let { intent.putExtra(AlarmClock.EXTRA_MINUTES, it) }
+        spec.longExtras.forEach { (key, value) -> intent.putExtra(key, value) }
+        spec.stringExtras.forEach { (key, value) -> intent.putExtra(key, value) }
         if (intent.resolveActivity(context.packageManager) == null) {
             android.widget.Toast.makeText(context, "No app on this device can do this.",
                 android.widget.Toast.LENGTH_SHORT).show()

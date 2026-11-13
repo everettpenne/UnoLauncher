@@ -62,6 +62,11 @@ internal interface ToolEnv {
     fun openDialer(number: String)
     fun openMessages(number: String)
     fun openUrl(url: String)
+    /** Opens the calendar's editor with the event prefilled; nothing is written until the person saves there. */
+    fun openCalendar(title: String, inMinutes: Int, durationMinutes: Int)
+    fun openWebSearch(query: String)
+    /** Opens one of Android's own settings pages: "wifi", "bluetooth", "nfc", "airplane", "display", "sound", "battery". */
+    fun openSettingsPanel(panel: String)
     /** Writes the note, returning what it held before (for undo); null when there is no Note widget on Home. */
     fun writeNote(text: String): String?
 }

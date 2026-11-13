@@ -18,6 +18,9 @@ internal object ToolRegistry {
         DialTool,
         MessageTool,
         OpenUrlTool,
+        CalendarTool,
+        WebSearchTool,
+        SettingsPanelTool,
     )
 
     /** The tools whose capabilities are present right now: a tool that needs contacts is not offered without them. */

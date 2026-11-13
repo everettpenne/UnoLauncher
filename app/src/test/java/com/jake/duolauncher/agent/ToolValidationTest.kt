@@ -60,6 +60,28 @@ class ToolValidationTest {
         assertTrue(rejected(OpenUrlTool, "url" to "file:///etc/passwd"))
     }
 
+    @Test fun aCalendarEventNeedsATitleAndTwoSensibleSpans() {
+        assertTrue(ok(CalendarTool, "title" to "Dentist", "in_minutes" to "30", "duration_minutes" to "60"))
+        assertTrue(ok(CalendarTool, "title" to "Now", "in_minutes" to "0", "duration_minutes" to "5"))
+        assertTrue(rejected(CalendarTool, "title" to "Dentist", "in_minutes" to "30"))
+        assertTrue(rejected(CalendarTool, "title" to "Dentist", "in_minutes" to "30", "duration_minutes" to "1"))
+        assertTrue(rejected(CalendarTool, "title" to "", "in_minutes" to "30", "duration_minutes" to "60"))
+    }
+
+    @Test fun aWebSearchNeedsAQuery() {
+        assertTrue(ok(WebSearchTool, "query" to "rain tomorrow"))
+        assertTrue(rejected(WebSearchTool))
+        assertTrue(rejected(WebSearchTool, "query" to "  "))
+    }
+
+    @Test fun aSettingsPanelIsOneOfTheOnesWeCanOpen() {
+        for (panel in listOf("wifi", "bluetooth", "nfc", "airplane", "display", "sound", "battery")) {
+            assertTrue("$panel should be allowed", ok(SettingsPanelTool, "panel" to panel))
+        }
+        assertTrue(rejected(SettingsPanelTool, "panel" to "developer options"))
+        assertTrue(rejected(SettingsPanelTool))
+    }
+
     @Test fun anAppNameIsRequired() {
         assertTrue(ok(OpenAppTool, "app" to "Clock"))
         assertTrue(rejected(OpenAppTool))

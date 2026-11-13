@@ -1,0 +1,105 @@
+package com.jake.duolauncher.search.agent
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
+/**
+ * One agent turn, owned by the app rather than by the panel — the same shape as [com.jake.duolauncher.search.AssistantSession], so search can
+ * close while a plan runs and the island keeps saying what is happening.
+ *
+ * It owns the confirmation handshake: a plan that leaves the phone parks in [AgentState.Confirming] until the UI calls [confirm]. Everything
+ * else it decides (grounding, the loop, the summary) is already unit-tested elsewhere; this class is the wiring and is tested with fakes.
+ */
+internal class AgentSession(
+    private val planner: () -> Planner,
+    private val env: ToolEnv,
+    private val tools: List<Tool> = ToolRegistry.builtIn,
+    private val settings: AgentSettings = AgentSettings(),
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+) {
+    var state by mutableStateOf<AgentState>(AgentState.Idle)
+        private set
+
+    /** The sentence the person sees when the turn ends: what was done, the question, or why not. */
+    var summary by mutableStateOf<String?>(null)
+        private set
+
+    /** Whether the last turn left something that can be taken back. */
+    var canUndo by mutableStateOf(false)
+        private set
+
+    private var job: Job? = null
+    private var gate: CompletableDeferred<Boolean>? = null
+    private var lastExecutor: Executor? = null
+
+    /** Plans and runs [query]. A previous turn is abandoned. */
+    fun run(query: String, facts: String = "", grounding: Grounding = Grounding()) {
+        job?.cancel()
+        gate?.complete(false)
+        gate = null
+        // A new question starts clean: the old turn's sentence and undo do not belong to it.
+        summary = null
+        canUndo = false
+        val executor = Executor(env, settings)
+        val loop = AgentLoop(
+            planner = planner(),
+            executor = executor,
+            tools = tools,
+            settings = settings,
+            confirm = {
+                // The loop has already published Confirming(steps); wait for the person.
+                val waiting = CompletableDeferred<Boolean>()
+                gate = waiting
+                waiting.await()
+            },
+            onState = { state = it },
+        )
+        job = scope.launch {
+            val outcome = loop.run(query, facts, GroundingLogic.block(query, grounding.people, grounding.apps))
+            summary = when (outcome) {
+                is AgentOutcome.Done -> outcome.summary
+                is AgentOutcome.Asks -> outcome.question
+                is AgentOutcome.Refused -> outcome.reason
+                is AgentOutcome.Failed -> outcome.why
+                AgentOutcome.Cancelled -> "Nothing was done."
+            }
+            canUndo = outcome is AgentOutcome.Done && outcome.canUndo
+            lastExecutor = executor
+        }
+    }
+
+    /** Answers a [AgentState.Confirming] turn. Ignored when nothing is waiting. */
+    fun confirm(accepted: Boolean) {
+        gate?.complete(accepted)
+        gate = null
+    }
+
+    /** Takes back the last turn's most recent undoable step. */
+    suspend fun undo(): ToolResult? {
+        val result = lastExecutor?.undoLast() ?: return null
+        canUndo = lastExecutor?.canUndo == true
+        summary = result.say
+        return result
+    }
+
+    /** Ends the turn's state without discarding what it did: the island keeps the summary. */
+    fun clear() {
+        job?.cancel()
+        gate?.complete(false)
+        gate = null
+        state = AgentState.Idle
+        summary = null
+        canUndo = false
+        lastExecutor = null
+    }
+
+    /** For tests: waits for the running turn to finish. */
+    internal suspend fun awaitTurn() = job?.join()
+}

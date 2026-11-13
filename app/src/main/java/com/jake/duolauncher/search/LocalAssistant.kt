@@ -135,7 +135,10 @@ internal class LocalAssistant(context: Context) : AssistantClient {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         _state.value = AssistantState.LOADING
         bound = runCatching {
-            app.bindService(Intent().setComponent(ComponentName(LabTrust.PACKAGE, LabTrust.SERVICE)), connection, Context.BIND_AUTO_CREATE)
+            // BIND_IMPORTANT: Uno Lab's process is scheduled as this one is while search holds it. With Home in front that lets the model
+            // onto every core, the fastest included; without it Android kept Lab to the background's cores, which cost answer speed.
+            app.bindService(Intent().setComponent(ComponentName(LabTrust.PACKAGE, LabTrust.SERVICE)), connection,
+                Context.BIND_AUTO_CREATE or Context.BIND_IMPORTANT)
         }.getOrDefault(false)
         if (!bound) { runCatching { app.unbindService(connection) }; scope?.cancel(); scope = null; _state.value = AssistantState.NOT_INSTALLED }
     }

@@ -37,6 +37,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Undo
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
@@ -86,6 +89,7 @@ import androidx.compose.ui.util.lerp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.draw.drawWithContent
@@ -434,6 +438,10 @@ private sealed interface AskView {
     data class Answer(val text: String, val done: Boolean, val error: String? = null) : AskView
     /** What was asked is understood but can't be done here ([why]); [settings]: turning something on in search settings would fix it. */
     data class Info(val why: String, val settings: Boolean = false) : AskView
+    /** A plan that leaves the phone: the exact steps, waiting for a yes. */
+    class Steps(val steps: List<String>) : AskView
+    /** What the agent did, in one sentence, and whether it can be taken back. */
+    data class Done(val summary: String, val canUndo: Boolean) : AskView
 }
 
 /** Search from anywhere on Home: a panel that grows out of the island over whatever page you are on. One box finds apps, contacts (if you
@@ -545,6 +553,16 @@ internal fun Spotlight(
     }
     val assistantState by (assistant?.state ?: remember { kotlinx.coroutines.flow.MutableStateFlow(AssistantState.OFF) }).collectAsState()
     val askOffered = assistant != null && AskPolicy.offer(query, smart, quick, assistantState)
+    // The agent: plans a task and runs it. Debug-only until the eval set is green against an Uno Lab with the planner API, so the shipped
+    // answer path cannot change underneath anyone.
+    val agentEnv = remember(assistant, noteSlot, apps) {
+        if (assistant == null) null
+        else com.jake.duolauncher.search.agent.AndroidToolEnv(context, noteSlot, apps, { focusOn() }, onToggleFocus)
+    }
+    val agentSession = remember(agentEnv) {
+        agentEnv?.let { env -> com.jake.duolauncher.search.agent.AgentSession(planner = { com.jake.duolauncher.search.agent.LabPlanner { assistant } }, env = env) }
+    }
+    val agentScope = androidx.compose.runtime.rememberCoroutineScope()
     // What was asked, and where the answer is: reset whenever the query changes, which also cancels a running answer.
     var askedFor by remember(query) { mutableStateOf<String?>(null) }
     var askView by remember(query) { mutableStateOf<AskView?>(null) }
@@ -562,10 +580,28 @@ internal fun Spotlight(
                 runCatching { com.jake.duolauncher.search.context.PhoneContext.build(q, action = false, env) }.getOrDefault("")
             }
         }.orEmpty()
+        val agent = agentSession
+        if (agent != null && com.jake.duolauncher.search.agent.AgentRouting.plans(q)) {
+            agent.run(q, facts, com.jake.duolauncher.search.agent.Grounding(apps = apps.map { it.label }))
+            return@LaunchedEffect
+        }
         AssistantSession.start(context, q, facts)
     }
     // Whatever the session has for this question: running, an answer that arrived while search was closed, or an action to offer.
     // Shown for the question on screen, or for any of them while the field is empty (the panel has just been reopened).
+    val agentNow = agentSession?.state
+    LaunchedEffect(agentNow, query) {
+        val s = agentNow ?: return@LaunchedEffect
+        when (s) {
+            is com.jake.duolauncher.search.agent.AgentState.Planning -> askView = AskView.Thinking
+            is com.jake.duolauncher.search.agent.AgentState.Confirming -> askView = AskView.Steps(s.steps)
+            is com.jake.duolauncher.search.agent.AgentState.Acting -> askView = AskView.Thinking
+            is com.jake.duolauncher.search.agent.AgentState.Done -> askView = AskView.Done(s.summary, s.canUndo)
+            is com.jake.duolauncher.search.agent.AgentState.Asking -> askView = AskView.Answer(s.question, done = true)
+            is com.jake.duolauncher.search.agent.AgentState.Failed -> askView = AskView.Answer("", done = true, error = s.why)
+            com.jake.duolauncher.search.agent.AgentState.Idle -> Unit
+        }
+    }
     val sessionNow = AssistantSession.state
     LaunchedEffect(sessionNow, query) {
         val s = sessionNow
@@ -846,6 +882,7 @@ internal fun Spotlight(
                     }
                 }
                 if (askOffered || askView != null) askItems(askView, query, assistantState, ink, capCorner, askCopied,
+                    agent = agentSession, onUndo = { agentScope.launch { agentSession?.undo() } },
                     onAsk = { askedFor = query },
                     onRun = { action -> actions.run(action, focusOn(), onToggleFocus); onDismiss() },
                     onLaunch = { app -> launch(app) },
@@ -1095,7 +1132,9 @@ internal fun HandoffRow(target: HandoffTarget, ink: Color, modifier: Modifier = 
 private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskView?, query: String, state: AssistantState, ink: Color,
     capCorner: androidx.compose.ui.unit.Dp, copied: Boolean, onAsk: () -> Unit, onRun: (QuickAction) -> Unit, onLaunch: (AppEntry) -> Unit,
     onContact: (ContactActionKind, String) -> Unit, onWeb: (String) -> Unit, onCopy: (String) -> Unit, onContinue: () -> Unit,
-    onSettings: () -> Unit) {
+    onSettings: () -> Unit,
+    agent: com.jake.duolauncher.search.agent.AgentSession? = null,
+    onUndo: () -> Unit = {}) {
     val mark: @Composable (ImageVector) -> Unit = { icon ->
         Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
             Icon(icon, null, Modifier.size(22.dp))
@@ -1118,6 +1157,29 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
                 "spotlight-ask-thinking", false, ink, {}) { mark(Icons.Rounded.AutoAwesome) }
             else AnswerCard(rowMotion(), finished?.text ?: live.orEmpty(), done = finished?.done ?: false, error = finished?.error, ink = ink,
                 capCorner = capCorner, copied = copied, onCopy = onCopy, onContinue = onContinue)
+        }
+        is AskView.Steps -> {
+            item("ask-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask_steps), ink) }
+            items(view.steps, key = { "ask-step-$it" }) { step ->
+                SpotlightRow(rowMotion(), step, "", "spotlight-ask-step", false, ink, {}) { mark(Icons.Rounded.AutoAwesome) }
+            }
+            item("ask-do") {
+                SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask_do), "", "spotlight-ask-do", true, ink,
+                    { agent?.confirm(true) }) { mark(Icons.Rounded.Check) }
+            }
+            item("ask-cancel") {
+                SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask_cancel), "", "spotlight-ask-cancel", true, ink,
+                    { agent?.confirm(false) }) { mark(Icons.Rounded.Close) }
+            }
+        }
+        is AskView.Done -> {
+            item("ask") {
+                SpotlightRow(rowMotion(), view.summary, "", "spotlight-ask-done", false, ink, {}) { mark(Icons.Rounded.Check) }
+            }
+            if (view.canUndo) item("ask-undo") {
+                SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask_undo), "", "spotlight-ask-undo", true, ink,
+                    onUndo) { mark(Icons.Rounded.Undo) }
+            }
         }
         is AskView.Act -> {
             item("ask-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask_suggested), ink) }

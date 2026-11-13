@@ -517,4 +517,8 @@
     <string name="access_lost_message">An update can switch it off. Without it the island cannot show a track\'s title and artwork, a call or a Live Update. Turn it back on in Android\'s settings; nothing is read until you do.</string>
     <string name="access_lost_fix">Open Settings</string>
     <string name="access_lost_later">Not now</string>
+    <string name="spotlight_ask_steps">This leaves your phone</string>
+    <string name="spotlight_ask_do">Do it</string>
+    <string name="spotlight_ask_cancel">Cancel</string>
+    <string name="spotlight_ask_undo">Undo that</string>
 </resources>

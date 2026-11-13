@@ -1,5 +1,6 @@
 package com.jake.duolauncher.agent.training
 
+import com.jake.duolauncher.search.agent.EvalRow
 import com.jake.duolauncher.search.agent.EvalSet
 import com.jake.duolauncher.search.agent.ParseResult
 import com.jake.duolauncher.search.agent.Plan
@@ -57,8 +58,8 @@ class TrainingCorpusTest {
         val counts = corpus.mapNotNull { example ->
             (PlanParser.parse(example.reply, tools) as? ParseResult.Ok)?.plan?.let { it as? Plan.Steps }
         }.flatMap { plan -> plan.steps.map { it.tool.name } }.groupingBy { it }.eachCount()
-        val thin = tools.map { it.name }.filter { (counts[it] ?: 0) < 15 }
-        assertTrue("tools with fewer than fifteen examples: $thin (counts $counts)", thin.isEmpty())
+        val thin = tools.map { it.name }.filter { (counts[it] ?: 0) < 40 }
+        assertTrue("tools with fewer than forty examples: $thin (counts $counts)", thin.isEmpty())
     }
 
     @Test fun multiStepPlansRespectTheLoopsCaps() {
@@ -72,11 +73,12 @@ class TrainingCorpusTest {
     }
 
     @Test fun askingAndRefusingAreBothCovered() {
-        assertTrue("clarify rows: ${corpus.count { it.family == "clarify" }}", corpus.count { it.family == "clarify" } >= 30)
-        assertTrue("refuse rows: ${corpus.count { it.family == "refuse" }}", corpus.count { it.family == "refuse" } >= 30)
-        assertTrue(corpus.count { it.family == "multi" } >= 20)
-        assertTrue(corpus.count { it.family == "grounding" } >= 15)
-        assertTrue("corpus is ${corpus.size}", corpus.size >= 900)
+        assertTrue("clarify rows: ${corpus.count { it.family == "clarify" }}", corpus.count { it.family == "clarify" } >= 250)
+        assertTrue("refuse rows: ${corpus.count { it.family == "refuse" }}", corpus.count { it.family == "refuse" } >= 200)
+        assertTrue("multi rows: ${corpus.count { it.family == "multi" }}", corpus.count { it.family == "multi" } >= 400)
+        assertTrue("grounding rows: ${corpus.count { it.family == "grounding" }}", corpus.count { it.family == "grounding" } >= 300)
+        assertTrue("hard rows: ${corpus.count { it.family == "hard" }}", corpus.count { it.family == "hard" } >= 120)
+        assertTrue("corpus is ${corpus.size}", corpus.size >= 3000)
     }
 
     @Test fun theEvalSetIsNotInTheTrainingData() {
@@ -115,6 +117,25 @@ class TrainingCorpusTest {
         assertTrue(evalRows.size >= 40)
         val leaked = corpus.filter { example -> evalRows.any { it.query.lowercase().trim() == example.query.lowercase().trim() } }
         assertTrue("the generator did not exclude: ${leaked.take(3).map { it.query }}", leaked.isEmpty())
+    }
+
+    @Test fun anUnusedOptionalNumberIsTheEmptyStringThePromptAsksFor() {
+        val alarm = corpus.first { it.query.startsWith("wake me at") }
+        assertTrue(alarm.reply, alarm.reply.contains("\"in_minutes\":\"\""))
+        assertTrue(TrainingFormat.steps(listOf(ToolRegistry.byName("alarm")!! to mapOf("at" to "06:30", "in_minutes" to ""))).contains("\"in_minutes\":\"\""))
+    }
+
+    @Test fun theFreshHeldOutSetParsesAndIsAlsoExcluded() {
+        val fresh = EvalSet.parse(TrainingCorpusTest::class.java.getResourceAsStream("/agent/phrases-fresh.json")!!.bufferedReader().readText())
+        assertEquals(57, fresh.size)
+        assertTrue(fresh.any { it.expected is EvalRow.Expected.Clarify })
+        assertTrue(fresh.any { it.expected is EvalRow.Expected.Refuse })
+        assertTrue(fresh.any { (it.expected as? EvalRow.Expected.Steps)?.steps?.size == 2 })
+        val leaked = corpus.filter { example -> fresh.any { it.query.lowercase().trim() == example.query.lowercase().trim() } }
+        assertTrue("fresh rows in training data: ${leaked.map { it.query }}", leaked.isEmpty())
+        // Every fresh row scores exactly against its own reply.
+        val report = PlanScorer.score(fresh, fresh.associate { it.query to EvalSet.reply(it) }, tools)
+        assertEquals(report.total, report.exact)
     }
 
     @Test fun theManifestNamesTheCatalogueItWasBuiltFor() {

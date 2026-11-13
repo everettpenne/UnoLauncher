@@ -19,7 +19,9 @@ class ScorePlans {
         val path = System.getenv("SCORE_PLANS")
         assumeTrue("set SCORE_PLANS=<dir> to score replies", !path.isNullOrBlank())
         val dir = File(path!!)
-        val rows = EvalSet.parse(File(dir, "rows.json").readText())
+        // The frozen set by default; ROWS_FILE=rows-fresh.json scores the held-out paraphrase set.
+        val rowsFile = System.getenv("ROWS_FILE") ?: "rows.json"
+        val rows = EvalSet.parse(File(dir, rowsFile).readText())
         val replies = File(dir, "replies.jsonl").readLines().filter { it.isNotBlank() }.associate { line ->
             val obj = JSONObject(line)
             obj.getString("query") to obj.optString("reply")
@@ -34,6 +36,7 @@ class ScorePlans {
             .put("clarifyRate", report.clarifyRate())
             .put("refuseRate", report.refuseRate())
             .put("missedActions", report.missedActions)
+            .put("rowsFile", rowsFile)
             .put("failures", JSONArray(report.failures(50)))
         File(dir, "score.json").writeText(out.toString(2))
         println(report.summary())

@@ -54,8 +54,9 @@ internal object TrainingFormat {
                 append('"').append(param.name).append("\":")
                 val value = values[param.name].orEmpty()
                 when (param.kind) {
-                    // The grammar's shapes: numbers and booleans bare, everything else a JSON string.
-                    Kind.Int -> append(value.ifEmpty { "0" })
+                    // The grammar's shapes: numbers and booleans bare, everything else a JSON string. An unused optional number is the empty
+                    // string the prompt asks for (the grammar's `( digits | "" )`), not a zero.
+                    Kind.Int -> if (value.isEmpty() && !param.required) append("\"\"") else append(value)
                     Kind.Bool -> append(value.ifEmpty { "false" })
                     Kind.Enum, Kind.Text -> append('"').append(value).append('"')
                 }

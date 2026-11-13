@@ -30,9 +30,11 @@ internal object TrainingCorpus {
      * measurement is never taken on something the model was shown. The generated queries are new phrasings of the same capabilities.
      */
     private val evalQueries: Set<String> by lazy {
-        val stream = TrainingCorpus::class.java.getResourceAsStream("/agent/phrases.json") ?: return@lazy emptySet()
-        com.jake.duolauncher.search.agent.EvalSet.parse(stream.bufferedReader().readText())
-            .map { it.query.lowercase().trim() }.toSet()
+        listOf("/agent/phrases.json", "/agent/phrases-fresh.json").flatMap { resource ->
+            TrainingCorpus::class.java.getResourceAsStream(resource)?.bufferedReader()?.readText()?.let {
+                com.jake.duolauncher.search.agent.EvalSet.parse(it).map { row -> row.query.lowercase().trim() }
+            }.orEmpty()
+        }.toSet()
     }
 
     fun generate(tools: List<Tool> = ToolRegistry.builtIn, seed: Long = SEED): List<Example> {
@@ -40,14 +42,19 @@ internal object TrainingCorpus {
         val out = LinkedHashMap<String, Example>()
         fun keep(examples: List<Example>) = examples.forEach { out.putIfAbsent(it.query, it) }
 
-        val singles = tools.filter { it.name != "reply" }.flatMap { single(it, rnd) }
-        keep(singles)
-        keep(replies(tools, rnd))
-        keep(multiStep(tools))
         keep(clarifyExamples())
+        keep(ambiguousNames())
+        keep(missingDetails())
         keep(refuseExamples())
-        keep(grounded(tools))
+        keep(moreRefusals())
         keep(hardNegatives(tools))
+        keep(moreHard(tools))
+        keep(grounded(tools))
+        keep(moreGrounded(tools))
+        keep(multiStep(tools))
+        keep(composed(tools, rnd))
+        keep(replies(tools, rnd))
+        keep(tools.filter { it.name != "reply" }.flatMap { single(it, rnd) })
 
         return out.values.filter { it.query.lowercase().trim() !in evalQueries }
     }
@@ -69,10 +76,60 @@ internal object TrainingCorpus {
             if (phrasing.isEmpty()) { i++; continue }
             val query = phrasing[i / combos.size % phrasing.size]
             i++
-            if (out.any { it.query == query }) continue
-            out += Example(query, TrainingFormat.step(tool, values), "single")
+            for (variant in registers(query)) {
+                if (out.size >= count) break
+                if (out.any { it.query == variant }) continue
+                out += Example(variant, TrainingFormat.step(tool, values), "single")
+            }
         }
         return out
+    }
+
+    /**
+     * The same request as people say it: bare, with "can you", with "please", with "for me". A 2B is sensitive to register, and the wrapper
+     * carries no meaning, so the plan must not change.
+     */
+    private fun registers(query: String): List<String> = listOf(
+        query,
+        "can you $query",
+        "please $query",
+        "$query please",
+    )
+
+    /** One imperative sentence per tool, from its own value pools, for building two-step requests. */
+    private class Clause(val tool: Tool, val query: String, val values: Map<String, String>)
+
+    private fun clauses(tools: List<Tool>, rnd: Random, limit: Int = 40): Map<String, List<Clause>> =
+        tools.filter { it.name != "reply" }.associate { tool ->
+            val combos = if (tool.name == "alarm") alarmCombos(tool) else cartesian(tool, 60)
+            tool.name to combos.take(limit).mapNotNull { values ->
+                phrases(tool, values).firstOrNull()?.let { Clause(tool, it, values) }
+            }
+        }
+
+    /** Two requests joined by "and", the way people ask for two things at once, with the register variants. */
+    private fun composed(tools: List<Tool>, rnd: Random): List<Example> {
+        val byName = clauses(tools, rnd)
+        val pairs = listOf(
+            "timer" to "focus", "timer" to "torch", "timer" to "note", "timer" to "open_app",
+            "torch" to "open_app", "note" to "timer", "web_search" to "alarm", "calendar_event" to "focus",
+            "reply" to "focus", "stopwatch" to "torch", "alarm" to "focus", "message" to "timer",
+            "open_url" to "timer", "open_app" to "open_url", "dial" to "note", "calendar_event" to "note",
+            "timer" to "message", "note" to "open_app", "web_search" to "timer", "focus" to "stopwatch",
+        )
+        val out = ArrayList<Example>()
+        for ((leftName, rightName) in pairs) {
+            val left = byName[leftName] ?: continue
+            val right = byName[rightName] ?: continue
+            for (i in 0 until 12) {
+                val l = left[i % left.size]
+                val r = right[(i * 3) % right.size]
+                val base = "${l.query} and ${r.query}"
+                for (variant in registers(base)) out += Example(variant, TrainingFormat.steps(listOf(l.tool to l.values, r.tool to r.values)), "multi")
+                if (out.size >= 700) return out.take(600)
+            }
+        }
+        return out.take(600)
     }
 
     private fun timerCombos(tool: Tool): List<Map<String, String>> {
@@ -159,9 +216,15 @@ internal object TrainingCorpus {
                 "battery" -> listOf("open battery settings", "battery settings", "show battery settings")
                 else -> listOf("open ${text("panel")} settings")
             }
-            "reply" -> listOf("reply to ${text("to")} saying ${text("text")}", "tell ${text("to")} ${text("text")}",
-                "answer ${text("to")} with ${text("text")}", "reply to ${text("to")}: ${text("text")}",
-                "message back ${text("to")} that ${text("text")}")
+            "reply" -> {
+                val to = text("to")
+                val body = text("text")
+                // "that" and "the last message" point at a notification: they fit "reply to that saying", not "tell that …".
+                if (to in setOf("that", "the last message", "the latest message", "it")) listOf(
+                    "reply to $to saying $body", "answer $to with $body", "reply to $to: $body", "send a reply to $to: $body")
+                else listOf("reply to $to saying $body", "tell $to $body", "answer $to with $body", "reply to $to: $body",
+                    "message back $to that $body")
+            }
             else -> emptyList()
         }
     }
@@ -394,6 +457,183 @@ internal object TrainingCorpus {
         return rows.map { (query, reply) -> Example(query, reply, "hard") }
     }
 
+    // ---------------------------------------------------------------- programmatic families
+
+    private val NAMES = listOf("Sam", "Ana", "Dana", "Jo", "Alex", "Mum", "Dad", "Chris", "Taylor", "Morgan")
+
+    /** "text Sam" with no contact resolved: the planner must ask which number, not invent one. */
+    private fun ambiguousNames(): List<Example> = NAMES.flatMap { name ->
+        listOf("text $name", "call $name", "message $name", "dial $name").flatMap { query ->
+            registers(query).map { Example(it, TrainingFormat.clarify("Which number for $name should I use?"), "clarify") }
+        }
+    }
+
+    private val MISSING = listOf(
+        "set a timer for" to "How long should the timer be?",
+        "start a timer" to "How long should the timer be?",
+        "set an alarm for" to "What time should the alarm be for?",
+        "wake me" to "What time should the alarm be for?",
+        "add an event" to "What should the event be called, and when is it?",
+        "put a meeting in my calendar" to "What time should the meeting start, and how long is it?",
+        "note" to "What should the note say?",
+        "write a note" to "What should the note say?",
+        "search for" to "What should I search for?",
+        "look up" to "What should I look up?",
+        "open the app" to "Which app should I open?",
+        "dial" to "Which number should I dial?",
+        "text" to "Which number should I text?",
+        "message" to "Which number should I message?",
+        "reply" to "Who should I reply to?",
+        "answer that" to "Who should I reply to?",
+        "open the website" to "Which web address should I open?",
+        "turn on focus for" to "How long should focus stay on?",
+        "set a timer for the oven" to "How long should the oven timer be?",
+        "remind me about the meeting" to "When should I remind you about the meeting?",
+        "put the doctor in my calendar" to "When is the doctor appointment?",
+        "wake me for the flight" to "What time should the alarm be for?",
+        "text the group" to "Which number for the group should I use?",
+        "call the office" to "Which number for the office should I call?",
+        "message my sister" to "Which number for your sister should I use?",
+        "open the browser" to "Which web address should I open?",
+    )
+
+    /** A required detail is missing: ask for exactly that detail. */
+    private fun missingDetails(): List<Example> = MISSING.flatMap { (query, question) ->
+        registers(query).map { Example(it, TrainingFormat.clarify(question), "clarify") }
+    }
+
+    private fun moreRefusals(): List<Example> {
+        val rows = listOf(
+            "start a video call" to "I cannot start calls from here.",
+            "take a screenshot" to "I cannot take screenshots from here.",
+            "record a voice memo" to "I cannot record audio from here.",
+            "turn on the hotspot" to "I have no tool for the hotspot.",
+            "connect to the office wifi" to "I cannot join networks from here.",
+            "pair my headphones" to "I cannot pair devices from here.",
+            "set a recurring alarm" to "I can open a single alarm, not a recurring one.",
+            "move the meeting to Thursday" to "I cannot reschedule events from here.",
+            "cancel my alarm" to "I cannot change alarms from here.",
+            "silence the notification" to "I cannot dismiss notifications from here.",
+            "reply to the email" to "I cannot write email from here.",
+            "post to the group chat" to "I cannot post in apps from here.",
+            "check the traffic" to "I cannot look up traffic from here.",
+            "find my keys" to "I cannot track items from here.",
+            "scan a qr code" to "I cannot scan codes from here.",
+            "update my calendar from my inbox" to "I cannot read email from here.",
+            "open my photos from last year" to "I cannot search your photos from here.",
+            "unsubscribe from the newsletter" to "I cannot send email from here.",
+            "order more milk" to "I cannot order shopping from here.",
+            "top up my phone credit" to "I cannot make payments from here.",
+            "book the gym class" to "I cannot book classes from here.",
+            "renew my driving licence" to "I cannot use government services from here.",
+            "pay for parking" to "I cannot make payments from here.",
+            "check my flight status" to "I cannot look up flights from here.",
+            "cast to the tv" to "I cannot cast to other screens from here.",
+            "enter the wifi password" to "I cannot type in system dialogs from here.",
+            "switch to my work profile" to "I cannot switch profiles from here.",
+            "change my keyboard" to "I cannot change input settings from here.",
+            "stop the music" to "I have no tool for music playback.",
+            "clear all my notes" to "I can save notes, not clear them.",
+            "add a reminder to my fitness app" to "I cannot add anything in other apps from here.",
+            "share my location" to "I cannot share location from here.",
+            "turn on the flash while recording" to "I cannot use the camera controls from here.",
+            "set a wallpaper from this photo" to "I cannot change the wallpaper from here.",
+            "check who called" to "I cannot see the call log from here.",
+            "forward this message" to "I cannot forward messages from here.",
+            "mute the group" to "I cannot change chat settings from here.",
+            "add a label to this email" to "I cannot edit email from here.",
+            "start a screen recording" to "I cannot record the screen from here.",
+            "look up a word" to "I cannot look up words from here.",
+            "convert the temperature" to "I cannot convert units from here.",
+            "order an uber" to "I cannot order rides from here.",
+            "renew the subscription" to "I cannot make payments from here.",
+            "block the spam caller" to "I cannot block calls from here.",
+            "change the alarm sound" to "I cannot change alarm settings from here.",
+            "add to my favourites" to "I cannot change app favourites from here.",
+            "open the last document" to "I cannot open documents from here.",
+            "reorder my widgets" to "I cannot edit the home screen from here.",
+            "check my data usage" to "I cannot read usage stats from here.",
+            "switch to silent and vibrate" to "I can turn focus on, but not choose vibration modes.",
+        )
+        return rows.flatMap { (query, reason) -> registers(query).map { Example(it, TrainingFormat.refuse(reason), "refuse") } }
+    }
+
+    private fun moreHard(tools: List<Tool>): List<Example> {
+        val t = { name: String -> tools.first { it.name == name } }
+        fun step(name: String, values: Map<String, String>) = TrainingFormat.step(t(name), values)
+        val rows = listOf(
+            "put the phone on silent" to step("focus", mapOf("on" to "true")),
+            "do not disturb me" to step("focus", mapOf("on" to "true")),
+            "let my notifications through" to step("focus", mapOf("on" to "false")),
+            "set the torch going" to step("torch", emptyMap()),
+            "kill the flashlight" to step("torch", emptyMap()),
+            "start the stopwatch for my run" to step("stopwatch", emptyMap()),
+            "how long has it been" to step("stopwatch", emptyMap()),
+            "wake me at seven in the morning" to step("alarm", mapOf("at" to "07:00", "in_minutes" to "")),
+            "set a quarter of an hour timer" to step("timer", mapOf("seconds" to "900", "label" to "")),
+            "put a 10 minute timer on" to step("timer", mapOf("seconds" to "600", "label" to "")),
+            "throw a timer on for 25 minutes" to step("timer", mapOf("seconds" to "1500", "label" to "")),
+            "jot down the meeting notes" to step("note", mapOf("text" to "the meeting notes")),
+            "write this down for me: call the plumber" to step("note", mapOf("text" to "call the plumber")),
+            "grab the camera app" to step("open_app", mapOf("app" to "Camera")),
+            "take me to the gallery" to step("open_app", mapOf("app" to "Gallery")),
+            "ring the number 555 0177" to step("dial", mapOf("number" to "555 0177")),
+            "send 555 0199 a text" to step("message", mapOf("number" to "555 0199")),
+            "look up train times to York" to step("web_search", mapOf("query" to "train times to York")),
+            "open the news site news.example.com" to step("open_url", mapOf("url" to "https://news.example.com")),
+            "put the eye test in for next week" to step("calendar_event", mapOf("title" to "Eye test", "in_minutes" to "1440", "duration_minutes" to "30")),
+            "wifi settings please" to step("settings_panel", mapOf("panel" to "wifi")),
+            "put on the flashlight" to step("torch", emptyMap()),
+            "time my lap" to step("stopwatch", emptyMap()),
+            "alarm for 06:15" to step("alarm", mapOf("at" to "06:15", "in_minutes" to "")),
+            "set a timer for 20 mins" to step("timer", mapOf("seconds" to "1200", "label" to "")),
+            "turn the light off" to step("torch", emptyMap()),
+            "start the watch" to step("stopwatch", emptyMap()),
+            "put focus on" to step("focus", mapOf("on" to "true")),
+            "end focus" to step("focus", mapOf("on" to "false")),
+            "wake me up tomorrow at 08:00" to step("alarm", mapOf("at" to "08:00", "in_minutes" to "")),
+            "alarm for 45 minutes from now" to step("alarm", mapOf("at" to "", "in_minutes" to "45")),
+            "put the dentist in my calendar in 120 minutes for 60 minutes" to step("calendar_event",
+                mapOf("title" to "Dentist", "in_minutes" to "120", "duration_minutes" to "60")),
+            "add standup in 10 minutes for 15 minutes" to step("calendar_event",
+                mapOf("title" to "Standup", "in_minutes" to "10", "duration_minutes" to "15")),
+            "text Sam on 555 0100" to step("message", mapOf("number" to "555 0100")),
+            "call the number on the screen" to step("dial", mapOf("number" to "555 0100")),
+            "search for the weather in York" to step("web_search", mapOf("query" to "the weather in York")),
+            "go to wikipedia" to step("open_url", mapOf("url" to "https://wikipedia.org")),
+        )
+        return rows.flatMap { (query, reply) -> registers(query).map { Example(it, reply, "hard") } }
+    }
+
+    /** Grounded requests generated from people and apps, so the block is learned as a mapping rather than a memorised sentence. */
+    private fun moreGrounded(tools: List<Tool>): List<Example> {
+        val people = listOf(
+            "Sam Patel" to "+1 555 0100", "Ana Ruiz" to "+1 555 0123", "Dana Kim" to "+1 555 0177",
+            "Jo Ruiz" to "+1 555 0188", "Mum" to "+1 555 0200", "Alex Chen" to "+1 555 0211",
+            "Chris Doyle" to "+1 555 0222", "Taylor Reed" to "+1 555 0233", "Morgan Lee" to "+1 555 0244",
+            "Priya Shah" to "+1 555 0255",
+        )
+        val apps = listOf("Camera", "Messages", "Clock", "Gallery", "Phone", "Maps", "Photos", "Calendar",
+            "Settings", "YouTube", "Calculator", "Contacts", "Files", "Notes", "Play Store", "F-Droid")
+        val block = "People: " + people.joinToString("; ") { "${it.first} (${it.second})" } + " Apps: " + apps.joinToString(", ")
+        val byName = tools.associateBy { it.name }
+        val rows = ArrayList<Pair<String, String>>()
+        for ((name, number) in people) {
+            for (form in listOf("text %s", "call %s", "message %s", "dial %s", "show me the dialer for %s")) {
+                val tool = if (form.startsWith("text") || form.startsWith("message")) "message" else "dial"
+                rows += form.format(name) to TrainingFormat.step(byName.getValue(tool), mapOf("number" to number))
+            }
+        }
+        for (app in apps) {
+            for (form in listOf("open %s", "launch %s", "start %s")) {
+                rows += form.format(app) to TrainingFormat.step(byName.getValue("open_app"), mapOf("app" to app))
+            }
+        }
+        return rows.flatMap { (query, reply) ->
+            registers(query).map { Example(it, reply, "grounding", context = "Local time: 12:25", grounding = block) }
+        }.take(420)
+    }
+
     // ---------------------------------------------------------------- value pools
 
     private fun pool(key: String): List<String> = POOLS[key].orEmpty()
@@ -404,24 +644,28 @@ internal object TrainingCorpus {
         "timer.seconds" to listOf("60", "120", "180", "300", "420", "600", "720", "900", "1200", "1500", "1800", "2400", "2700", "3600"),
         "timer.label" to listOf("", "", "", "pasta", "tea", "eggs", "laundry", "bread", "coffee"),
         "note.text" to listOf("buy milk and eggs", "call the vet", "door code is 4411", "wifi password is on the fridge",
-            "pick up the dry cleaning", "book club moved to Thursday", "water the plants", "renew the car insurance"),
+            "pick up the dry cleaning", "book club moved to Thursday", "water the plants", "renew the car insurance",
+            "the spare key is with Ana", "park on level 3", "take the bins out", "the boiler is serviced in May",
+            "ask the landlord about the radiator", "order more coffee", "the car needs petrol", "call the dentist on Monday"),
         "alarm.at" to listOf("06:15", "06:30", "07:00", "07:15", "07:45", "08:00", "09:30", "12:30", "17:00", "18:45", "21:00", "22:30"),
         "alarm.in_minutes" to listOf("5", "10", "15", "20", "25", "30", "45", "60", "90", "120"),
         "open_app.app" to listOf("Camera", "Clock", "Settings", "Messages", "Contacts", "Calendar", "Photos", "Calculator", "Maps",
-            "Phone", "Gallery", "YouTube", "Play Store", "F-Droid"),
+            "Phone", "Gallery", "YouTube", "Play Store", "F-Droid", "Files", "Clock", "Notes", "Camera", "Maps"),
         "dial.number" to listOf("+1 555 0100", "555 0142", "020 7946 0000", "+44 20 7946 0000", "555 0177", "555 0123"),
         "message.number" to listOf("+1 555 0100", "555 0142", "020 7946 0000", "555 0177", "555 0123", "555 0199"),
         "open_url.url" to listOf("https://example.com", "https://wikipedia.org", "https://news.example.com/a?b=c",
             "https://en.wikipedia.org/wiki/Timer", "https://192.168.1.1", "https://weather.example.org", "https://example.org",
             "https://docs.example.net/guide?page=2"),
         "calendar_event.title" to listOf("Dentist", "Lunch", "Standup", "Gym", "Call with Ana", "Pick up kids", "Doctor", "Haircut",
-            "Car service", "Piano lesson"),
+            "Car service", "Piano lesson", "Book club", "Games night", "Team review", "Eye test"),
         "calendar_event.in_minutes" to listOf("0", "5", "10", "15", "30", "45", "60", "90", "120", "240"),
         "calendar_event.duration_minutes" to listOf("15", "30", "45", "60", "90", "120", "180"),
         "web_search.query" to listOf("train times to York", "banana bread recipe", "weather tomorrow", "capital of Peru",
-            "best pizza near me", "how to renew a passport", "cheapest flights to Lisbon", "sourdough starter tips"),
+            "best pizza near me", "how to renew a passport", "cheapest flights to Lisbon", "sourdough starter tips",
+            "how tall is Ben Nevis", "the offside rule", "opening hours of the post office", "who won the snooker",
+            "symptoms of a cold", "how to descale a kettle"),
         "reply.to" to listOf("Dana", "Jo", "Sam", "Ana", "the last message", "that", "Alex"),
         "reply.text" to listOf("running late", "thanks", "on my way", "got it", "see you at 6", "cannot talk now", "will call later",
-            "sounds good"),
+            "sounds good", "on my way now", "be there in ten", "no problem", "will do"),
     )
 }

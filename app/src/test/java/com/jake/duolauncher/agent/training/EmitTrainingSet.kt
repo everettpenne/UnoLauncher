@@ -28,9 +28,11 @@ class EmitTrainingSet {
         File(dir, "train.jsonl").writeText(train.joinToString("\n") { line(it) } + "\n")
         File(dir, "val.jsonl").writeText(validation.joinToString("\n") { line(it) } + "\n")
 
-        val rows = javaClass.getResourceAsStream("/agent/phrases.json")?.bufferedReader()?.readText()
-            ?: error("the eval set is missing from the test resources")
-        File(dir, "rows.json").writeText(rows)
+        for ((name, resource) in listOf("rows.json" to "/agent/phrases.json", "rows-fresh.json" to "/agent/phrases-fresh.json")) {
+            val text = javaClass.getResourceAsStream(resource)?.bufferedReader()?.readText()
+                ?: error("$resource is missing from the test resources")
+            File(dir, name).writeText(text)
+        }
 
         val byFamily = all.groupingBy { it.family }.eachCount()
         val manifest = JSONObject()
@@ -42,7 +44,7 @@ class EmitTrainingSet {
             .put("train", train.size)
             .put("val", validation.size)
             .put("byFamily", JSONObject(byFamily))
-            .put("evalRows", JSONArray(rows))
+            .put("evalRows", JSONArray(File(dir, "rows.json").readText()))
             .put("replyShape", "compact JSON, numbers and booleans bare, text and enums quoted, every parameter present")
             .put("deferred", "answer-mode examples: Lab owns that prompt; generated with the answer set in Phase 2")
         File(dir, "manifest.json").writeText(manifest.toString(2))

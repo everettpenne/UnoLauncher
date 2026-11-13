@@ -53,6 +53,8 @@ class SpotlightAssistantInstrumentedTest {
             return if (mode == AskMode.ACTION) flowOf(action) else answer.consumeAsFlow()
         }
         override fun continueInLab(context: Context, query: String) = Unit
+        // The stand-in has no planner: these tests are of the answer path, and tasks are off unless switched on.
+        override suspend fun plan(request: String): String? = null
     }
 
     private fun type(text: String) = compose.onNodeWithTag("spotlight-field", useUnmergedTree = true).performTextReplacement(text)

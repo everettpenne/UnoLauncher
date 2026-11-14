@@ -32,9 +32,35 @@ class EmitTrainingSet {
             val text = javaClass.getResourceAsStream(resource)?.bufferedReader()?.readText()
                 ?: error("$resource is missing from the test resources")
             File(dir, name).writeText(text)
+            // The same rows as the planner would be sent them: with the phone's facts and, for a reply, the messages waiting. A score
+            // taken on a bare "Request: …" is a score on a prompt the phone never sends.
+            val rnd = kotlin.random.Random(TrainingCorpus.SEED + name.length)
+            val rows = JSONArray(text)
+            val turns = JSONArray()
+            for (i in 0 until rows.length()) {
+                val row = rows.getJSONObject(i)
+                val reply = row.optJSONArray("steps")?.let { JSONObject().put("steps", it).toString() }.orEmpty()
+                val dressed = TrainingCorpus.dressed(Example(row.getString("q"), reply, "eval"), rnd)
+                turns.put(JSONObject().put("q", dressed.query).put("user", TrainingFormat.turn(dressed.query, dressed.context, dressed.grounding)))
+            }
+            File(dir, name.removeSuffix(".json") + "-turns.json").writeText(turns.toString(1))
         }
 
         val byFamily = all.groupingBy { it.family }.eachCount()
+        val perTool = java.util.TreeMap<String, Int>()
+        val perPanel = java.util.TreeMap<String, Int>()
+        for (example in all) {
+            val steps = runCatching { JSONObject(example.reply).optJSONArray("steps") }.getOrNull() ?: continue
+            for (i in 0 until steps.length()) {
+                val step = steps.optJSONObject(i) ?: continue
+                val tool = step.optString("tool")
+                perTool[tool] = (perTool[tool] ?: 0) + 1
+                if (tool == "settings_panel") {
+                    val panel = step.optJSONObject("params")?.optString("panel").orEmpty()
+                    perPanel[panel] = (perPanel[panel] ?: 0) + 1
+                }
+            }
+        }
         val manifest = JSONObject()
             .put("formatVersion", TrainingFormat.VERSION)
             .put("catalogueHash", TrainingFormat.catalogueHash(tools))
@@ -44,6 +70,8 @@ class EmitTrainingSet {
             .put("train", train.size)
             .put("val", validation.size)
             .put("byFamily", JSONObject(byFamily))
+            .put("perTool", JSONObject(perTool as Map<*, *>))
+            .put("perPanel", JSONObject(perPanel as Map<*, *>))
             .put("evalRows", JSONArray(File(dir, "rows.json").readText()))
             .put("replyShape", "compact JSON, numbers and booleans bare, text and enums quoted, every parameter present")
             .put("deferred", "answer-mode examples: Lab owns that prompt; generated with the answer set in Phase 2")

@@ -85,7 +85,10 @@ class AgentLoopTest {
         assertTrue(AgentLoop(plannerFor(url("https://www.example.com/news")), Executor(counting)).run("open example.com") is AgentOutcome.Done)
         assertTrue(AgentLoop(plannerFor(dial("+1 555 0100")), Executor(counting)).run("dial +1 555 0100") is AgentOutcome.Done)
         assertTrue(AgentLoop(plannerFor(dial("5550142")), Executor(counting)).run("call Sam", grounding = "People: Sam (555 0142)") is AgentOutcome.Done)
-        assertEquals(1, opened); assertEquals(2, dialled)
+        // A site named in words is the person's too; one the model thought of from the subject is not.
+        assertTrue(AgentLoop(plannerFor(url("https://en.wikipedia.org")), Executor(counting)).run("go to wikipedia") is AgentOutcome.Done)
+        assertTrue(AgentLoop(plannerFor(url("https://www.pizzahut.com/")), Executor(counting)).run("order me a pizza") is AgentOutcome.Asks)
+        assertEquals(2, opened); assertEquals(2, dialled)
     }
 
     @Test fun aMultiStepLocalPlanReadsAsOneSentence() = runBlocking {

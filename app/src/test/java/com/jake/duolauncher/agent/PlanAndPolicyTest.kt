@@ -78,6 +78,12 @@ class PlanAndPolicyTest {
     @Test fun aRequestThatNamesNoKindIsNeverAMismatch() {
         assertFalse(RequestKinds.mismatch("open the camera", steps("open_app")))
         assertFalse(RequestKinds.mismatch("dentist at three", steps("timer")))
+        // A word the plan carries as its own text is not naming an action, and nor is what something is for.
+        assertFalse(RequestKinds.mismatch("write this down: call the plumber",
+            Plan.Steps(listOf(Step(ToolRegistry.byName("note")!!, Params(mapOf("text" to "call the plumber")))))))
+        assertFalse(RequestKinds.mismatch("open Calendar", Plan.Steps(listOf(Step(ToolRegistry.byName("open_app")!!, Params(mapOf("app" to "Calendar")))))))
+        assertFalse(RequestKinds.mismatch("start the stopwatch for the meeting", steps("stopwatch")))
+        assertFalse(RequestKinds.mismatch("start the lap timer", steps("stopwatch")))
         assertTrue(RequestKinds.named("what a day").isEmpty())
     }
 }

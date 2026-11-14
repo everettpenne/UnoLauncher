@@ -595,14 +595,17 @@ internal fun Spotlight(
         SmallTalk.replyTo(q)?.let { reply -> askView = AskView.Answer(reply, done = true); return@LaunchedEffect }
         if (assistant == null) return@LaunchedEffect
         askView = AskView.Thinking
+        val agent = agentSession
+        val planned = agent != null && (com.jake.duolauncher.search.agent.AgentRouting.plans(context, q) ||
+            (com.jake.duolauncher.search.agent.AgentRouting.planOnly && scriptedAsk))
+        // A request that will be planned and acted on gets the phone's own facts only. What others wrote (a message, a headline, the
+        // clipboard, the screen) goes with a question to be answered, never with one that may act: it was being sent to the planner too.
         val facts = contextEnv?.let { env ->
             withContext(Dispatchers.IO) {
-                runCatching { com.jake.duolauncher.search.context.PhoneContext.build(q, action = false, env) }.getOrDefault("")
+                runCatching { com.jake.duolauncher.search.context.PhoneContext.build(q, action = planned, env) }.getOrDefault("")
             }
         }.orEmpty()
-        val agent = agentSession
-        if (agent != null && (com.jake.duolauncher.search.agent.AgentRouting.plans(context, q) ||
-                (com.jake.duolauncher.search.agent.AgentRouting.planOnly && scriptedAsk))) {
+        if (agent != null && planned) {
             agent.run(q, facts, com.jake.duolauncher.search.agent.Grounding(apps = apps.map { it.label }, replies = agentEnv?.replyTargets().orEmpty()),
                 planOnly = com.jake.duolauncher.search.agent.AgentRouting.planOnly)
             return@LaunchedEffect

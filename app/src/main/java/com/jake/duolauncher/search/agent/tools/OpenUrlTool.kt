@@ -24,7 +24,12 @@ internal object OpenUrlTool : Tool(
     override fun invented(params: Params, said: String): String? {
         val host = params.text("url").orEmpty().substringAfter("://").substringBefore('/').substringBefore('?').substringBefore(':')
             .lowercase().removePrefix("www.")
-        return if (host.isNotEmpty() && said.lowercase().contains(host)) null else "Which web address should I open?"
+        if (host.isEmpty()) return "Which web address should I open?"
+        val heard = said.lowercase()
+        // The whole site as typed ("example.com"), or its name as said ("go to wikipedia" for wikipedia.org).
+        val names = host.split('.').dropLast(1).filter { it.length >= 4 }
+        val words = Regex("""[\p{L}\p{N}]+""").findAll(heard).map { it.value }.toSet()
+        return if (heard.contains(host) || names.any { it in words }) null else "Which web address should I open?"
     }
 
     override suspend fun execute(params: Params, env: ToolEnv): ToolResult {

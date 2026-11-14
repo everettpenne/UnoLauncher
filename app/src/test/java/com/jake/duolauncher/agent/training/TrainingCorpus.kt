@@ -23,7 +23,7 @@ internal class Example(
  */
 internal object TrainingCorpus {
     const val SEED = 20261113L
-    private const val PER_TOOL = 180
+    private const val PER_TOOL = 400
 
     /**
      * The frozen eval set, read from the test resources. Every example it already holds is left out of the corpus by construction, so a
@@ -56,7 +56,43 @@ internal object TrainingCorpus {
         keep(replies(tools, rnd))
         keep(tools.filter { it.name != "reply" }.flatMap { single(it, rnd) })
 
-        return out.values.filter { it.query.lowercase().trim() !in evalQueries }
+        keep(triples(tools, rnd))
+
+        // Each example goes out the way the launcher sends it: with the phone's facts for those words, and a reply with the messages
+        // that are waiting (see TrainingContext). The rows written with a context of their own keep their grounding and get real facts.
+        val facts = Random(seed + 1)
+        return out.values.filter { it.query.lowercase().trim() !in evalQueries }.map { example -> dressed(example, facts) }
+    }
+
+    /** [example] with the context and grounding the launcher would send beside that request. */
+    fun dressed(example: Example, rnd: Random): Example {
+        val context = TrainingContext.forQuery(example.query, rnd)
+        val to = Regex(""""tool":"reply","params":\{"to":"([^"]*)"""").find(example.reply)?.groupValues?.get(1)
+        val grounding = if (to != null && example.grounding.isBlank()) TrainingContext.waitingFor(example.query, to, rnd) else example.grounding
+        return Example(example.query, example.reply, example.family, context, grounding)
+    }
+
+    /** Three things asked for at once: the step cap is three, and the first corpus had three such rows in all. */
+    private fun triples(tools: List<Tool>, rnd: Random): List<Example> {
+        val byName = clauses(tools, rnd)
+        val sets = listOf(
+            listOf("timer", "focus", "note"), listOf("torch", "open_app", "timer"), listOf("note", "alarm", "focus"),
+            listOf("open_app", "timer", "focus"), listOf("calendar_event", "note", "focus"), listOf("web_search", "note", "timer"),
+            listOf("stopwatch", "torch", "note"), listOf("settings_panel", "note", "timer"), listOf("alarm", "note", "open_app"),
+            listOf("focus", "timer", "open_app"), listOf("note", "timer", "torch"), listOf("open_url", "note", "focus"),
+        )
+        val out = ArrayList<Example>()
+        for (names in sets) {
+            val lists = names.map { byName[it] ?: return@map emptyList() }
+            if (lists.any { it.isEmpty() }) continue
+            for (i in 0 until 6) {
+                val picked = lists.mapIndexed { j, list -> list[(i * (j + 2) + j) % list.size] }
+                val base = picked[0].query + ", " + picked[1].query + " and " + picked[2].query
+                val reply = TrainingFormat.steps(picked.map { it.tool to it.values })
+                for (variant in registers(base).take(2)) out += Example(variant, reply, "multi")
+            }
+        }
+        return out
     }
 
     // ---------------------------------------------------------------- singles
@@ -70,7 +106,7 @@ internal object TrainingCorpus {
         val out = ArrayList<Example>()
         var i = 0
         // Enough passes for a tool whose parameters are few: a toggle has one combination and many phrasings.
-        while (out.size < count && i < combos.size * 20) {
+        while (out.size < count && i < combos.size * 200) {
             val values = combos[i % combos.size]
             val phrasing = phrases(tool, values)
             if (phrasing.isEmpty()) { i++; continue }
@@ -116,6 +152,10 @@ internal object TrainingCorpus {
             "reply" to "focus", "stopwatch" to "torch", "alarm" to "focus", "message" to "timer",
             "open_url" to "timer", "open_app" to "open_url", "dial" to "note", "calendar_event" to "note",
             "timer" to "message", "note" to "open_app", "web_search" to "timer", "focus" to "stopwatch",
+            "reply" to "timer", "settings_panel" to "timer", "note" to "focus", "web_search" to "note",
+            "open_app" to "calendar_event", "open_url" to "note", "dial" to "timer", "message" to "focus",
+            "calendar_event" to "timer", "torch" to "note", "stopwatch" to "note", "alarm" to "note",
+            "reply" to "open_app", "web_search" to "reply", "settings_panel" to "note", "open_url" to "open_app",
         )
         val out = ArrayList<Example>()
         for ((leftName, rightName) in pairs) {
@@ -126,10 +166,10 @@ internal object TrainingCorpus {
                 val r = right[(i * 3) % right.size]
                 val base = "${l.query} and ${r.query}"
                 for (variant in registers(base)) out += Example(variant, TrainingFormat.steps(listOf(l.tool to l.values, r.tool to r.values)), "multi")
-                if (out.size >= 700) return out.take(600)
+                if (out.size >= 1000) return out.take(900)
             }
         }
-        return out.take(600)
+        return out.take(900)
     }
 
     private fun timerCombos(tool: Tool): List<Map<String, String>> {
@@ -180,11 +220,19 @@ internal object TrainingCorpus {
                 "turn off silent mode", "end focus mode", "disable do not disturb", "unsilence my phone")
             "stopwatch" -> listOf("start the stopwatch", "time my swim", "start timing my run", "stopwatch on", "begin the stopwatch",
                 "stop the stopwatch", "end the stopwatch", "stop timing", "start the lap timer", "time this", "start a stopwatch",
-                "take a split", "begin timing this", "stop the lap timer", "stop timing now")
+                "take a split", "begin timing this", "stop the lap timer", "stop timing now",
+                "start the clock", "time the potatoes", "clock my run", "start my stopwatch", "begin the lap",
+                "time this for me", "start the timer that counts up", "start a timer going up", "time the pasta",
+                "stop the clock", "end timing", "time my lap", "start the lap clock", "time this run",
+                "clock the potatoes", "time the kettle", "time the eggs", "start the stopwatch now",
+                "stop the stopwatch now", "lap time please", "time my cooking", "start timing the sauce",
+                "stop the clock please", "stopwatch please", "time my run please", "begin the clock",
+                "end the clock", "time this workout", "start the stopwatch for the meeting", "begin timing now")
             "torch" -> listOf("turn on the flashlight", "flashlight on", "switch the torch on", "turn the torch on",
                 "turn off the flashlight", "flashlight off", "switch the torch off", "turn the torch off", "torch please",
                 "turn the light on", "light up the room", "turn the flashlight on please", "put the torch on")
-            "note" -> listOf("remember to ${text("text")}", "note that ${text("text")}", "write down ${text("text")}",
+            "note" -> listOf((if (Regex("""\b(is|are|was|code|password)\b""").containsMatchIn(text("text"))) "remember that " else "remember to ") + text("text"),
+                "note that ${text("text")}", "write down ${text("text")}",
                 "save a note: ${text("text")}", "note to self: ${text("text")}", "make a note that ${text("text")}")
             "open_app" -> listOf("open ${text("app")}", "launch ${text("app")}", "start ${text("app")}",
                 "open the ${text("app")} app", "show me ${text("app")}", "go to ${text("app")}")
@@ -198,7 +246,12 @@ internal object TrainingCorpus {
                 val inMinutes = text("in_minutes").toIntOrNull() ?: 0
                 val title = text("title")
                 val duration = text("duration_minutes")
-                val whenText = if (inMinutes == 0) "now" else "in $inMinutes minutes"
+                val whenText = when {
+                    inMinutes == 0 -> "now"
+                    inMinutes == 30 -> "in half an hour"
+                    inMinutes % 60 == 0 -> if (inMinutes == 60) "in an hour" else "in ${inMinutes / 60} hours"
+                    else -> "in $inMinutes minutes"
+                }
                 listOf("put $title in my calendar $whenText for $duration minutes",
                     "add $title to my calendar $whenText for $duration minutes",
                     "schedule $title $whenText for $duration minutes",
@@ -207,13 +260,19 @@ internal object TrainingCorpus {
             "web_search" -> listOf("search the web for ${text("query")}", "search for ${text("query")}", "look up ${text("query")}",
                 "google ${text("query")}", "look online for ${text("query")}")
             "settings_panel" -> when (text("panel")) {
-                "wifi" -> listOf("open wifi settings", "turn off wifi", "turn on wifi", "wifi settings", "show me wifi settings")
-                "bluetooth" -> listOf("open bluetooth settings", "turn bluetooth off", "turn on bluetooth", "bluetooth settings")
-                "nfc" -> listOf("turn on nfc", "open nfc settings", "nfc settings")
-                "airplane" -> listOf("turn on airplane mode", "airplane mode", "turn off airplane mode", "open airplane mode settings")
-                "display" -> listOf("open display settings", "show display settings", "display settings")
-                "sound" -> listOf("open sound settings", "sound settings", "show me sound settings")
-                "battery" -> listOf("open battery settings", "battery settings", "show battery settings")
+                "wifi" -> listOf("open wifi settings", "turn off wifi", "turn on wifi", "wifi settings", "show me wifi settings",
+                    "the wifi page", "go to wifi", "open network settings")
+                "bluetooth" -> listOf("open bluetooth settings", "turn bluetooth off", "turn on bluetooth", "bluetooth settings",
+                    "the bluetooth page", "go to bluetooth")
+                "nfc" -> listOf("turn on nfc", "open nfc settings", "nfc settings", "the nfc page", "go to nfc settings")
+                "airplane" -> listOf("turn on airplane mode", "airplane mode", "turn off airplane mode", "open airplane mode settings",
+                    "the airplane mode page", "go to airplane mode settings")
+                "display" -> listOf("open display settings", "show display settings", "display settings", "the display page",
+                    "go to display settings")
+                "sound" -> listOf("open sound settings", "sound settings", "show me sound settings", "the sound page",
+                    "go to sound settings")
+                "battery" -> listOf("open battery settings", "battery settings", "show battery settings", "the battery page",
+                    "go to battery settings")
                 else -> listOf("open ${text("panel")} settings")
             }
             "reply" -> {
@@ -223,7 +282,8 @@ internal object TrainingCorpus {
                 if (to in setOf("that", "the last message", "the latest message", "it")) listOf(
                     "reply to $to saying $body", "answer $to with $body", "reply to $to: $body", "send a reply to $to: $body")
                 else listOf("reply to $to saying $body", "tell $to $body", "answer $to with $body", "reply to $to: $body",
-                    "message back $to that $body")
+                    "message back $to that $body", "get back to $to saying $body", "say $body to $to", "tell $to that $body",
+                    "reply to $to in messages with $body", "answer $to: $body")
             }
             else -> emptyList()
         }
@@ -232,7 +292,7 @@ internal object TrainingCorpus {
     /** Replies are their own family: the tool needs a waiting message, and the parameters are a person and a sentence. */
     private fun replies(tools: List<Tool>, rnd: Random): List<Example> {
         val tool = tools.firstOrNull { it.name == "reply" } ?: return emptyList()
-        val combos = cartesian(tool, 60)
+        val combos = cartesian(tool, 400)
         return combos.mapNotNull { values ->
             val phrasing = phrases(tool, values)
             if (phrasing.isEmpty()) null else Example(phrasing[rnd.nextInt(phrasing.size)], TrainingFormat.step(tool, values), "single")
@@ -263,8 +323,7 @@ internal object TrainingCorpus {
                 step("calendar_event", mapOf("title" to "Lunch", "in_minutes" to "60", "duration_minutes" to "60")), focus(true)),
             "stop the stopwatch and remember to stretch" to plan(stopwatch, note("stretch")),
             "text 555 0142 and set a timer for 10 minutes" to plan(step("message", mapOf("number" to "555 0142")), timer("600", "")),
-            "open the mail website and start a 15 minute timer" to plan(
-                step("open_url", mapOf("url" to "https://example.com")), timer("900", "")),
+            "open the mail website and start a 15 minute timer" to TrainingFormat.clarify("Which web address should I open?"),
             "turn on the flashlight, start a 10 minute timer and note that I am outside" to plan(
                 torch, timer("600", ""), note("I am outside")),
             "set a 5 minute timer, turn on focus and open the camera" to plan(timer("300", ""), focus(true),
@@ -274,8 +333,7 @@ internal object TrainingCorpus {
             "open the settings and turn on the flashlight" to plan(step("open_app", mapOf("app" to "Settings")), torch),
             "put standup in my calendar in 15 minutes for 30 minutes and set a 30 minute timer" to plan(
                 step("calendar_event", mapOf("title" to "Standup", "in_minutes" to "15", "duration_minutes" to "30")), timer("1800", "")),
-            "start a 30 minute timer and open the mail website" to plan(
-                timer("1800", ""), step("open_url", mapOf("url" to "https://example.com"))),
+            "start a 30 minute timer and open the mail website" to TrainingFormat.clarify("Which web address should I open?"),
             "turn on focus and start timing" to plan(focus(true), stopwatch),
             "note that the parcel arrived and set an alarm in 20 minutes" to plan(
                 note("the parcel arrived"), step("alarm", mapOf("at" to "", "in_minutes" to "20"))),
@@ -495,6 +553,16 @@ internal object TrainingCorpus {
         "call the office" to "Which number for the office should I call?",
         "message my sister" to "Which number for your sister should I use?",
         "open the browser" to "Which web address should I open?",
+        "search for the recipe" to "What should I search for?",
+        "add a haircut to my calendar" to "What time should the haircut be, and how long?",
+        "set a timer for the cake" to "How long should the cake timer be?",
+        "note the code" to "What is the code?",
+        "open the app I used yesterday" to "Which app do you mean?",
+        "text the team" to "Which number for the team should I use?",
+        "call the surgery" to "Which number for the surgery should I call?",
+        "remind me about the cake" to "When should I remind you about the cake?",
+        "put it in my diary" to "What should I put in the diary, and when?",
+        "search for the thing" to "What should I search for?",
     )
 
     /** A required detail is missing: ask for exactly that detail. */
@@ -583,6 +651,15 @@ internal object TrainingCorpus {
             "open the news site news.example.com" to step("open_url", mapOf("url" to "https://news.example.com")),
             "put the eye test in for next week" to step("calendar_event", mapOf("title" to "Eye test", "in_minutes" to "1440", "duration_minutes" to "30")),
             "wifi settings please" to step("settings_panel", mapOf("panel" to "wifi")),
+            "launch Settings" to step("open_app", mapOf("app" to "Settings")),
+            "open the settings app" to step("open_app", mapOf("app" to "Settings")),
+            "start the settings app" to step("open_app", mapOf("app" to "Settings")),
+            "open the Settings app on my phone" to step("open_app", mapOf("app" to "Settings")),
+            "show me the wifi settings" to step("settings_panel", mapOf("panel" to "wifi")),
+            "open the display settings" to step("settings_panel", mapOf("panel" to "display")),
+            "open files" to step("open_app", mapOf("app" to "Files")),
+            "open notes" to step("open_app", mapOf("app" to "Notes")),
+            "open maps" to step("open_app", mapOf("app" to "Maps")),
             "put on the flashlight" to step("torch", emptyMap()),
             "time my lap" to step("stopwatch", emptyMap()),
             "alarm for 06:15" to step("alarm", mapOf("at" to "06:15", "in_minutes" to "")),
@@ -598,7 +675,8 @@ internal object TrainingCorpus {
             "add standup in 10 minutes for 15 minutes" to step("calendar_event",
                 mapOf("title" to "Standup", "in_minutes" to "10", "duration_minutes" to "15")),
             "text Sam on 555 0100" to step("message", mapOf("number" to "555 0100")),
-            "call the number on the screen" to step("dial", mapOf("number" to "555 0100")),
+            // The planner is never shown the screen (others wrote it), so there is no number to call: it asks.
+            "call the number on the screen" to TrainingFormat.clarify("What number should I call?"),
             "search for the weather in York" to step("web_search", mapOf("query" to "the weather in York")),
             "go to wikipedia" to step("open_url", mapOf("url" to "https://wikipedia.org")),
         )
@@ -664,8 +742,9 @@ internal object TrainingCorpus {
             "best pizza near me", "how to renew a passport", "cheapest flights to Lisbon", "sourdough starter tips",
             "how tall is Ben Nevis", "the offside rule", "opening hours of the post office", "who won the snooker",
             "symptoms of a cold", "how to descale a kettle"),
-        "reply.to" to listOf("Dana", "Jo", "Sam", "Ana", "the last message", "that", "Alex"),
+        "reply.to" to listOf("Dana", "Jo", "Sam", "Ana", "the last message", "that", "Alex", "Priya", "Kim", "Mum", "Lee"),
         "reply.text" to listOf("running late", "thanks", "on my way", "got it", "see you at 6", "cannot talk now", "will call later",
-            "sounds good", "on my way now", "be there in ten", "no problem", "will do"),
+            "sounds good", "on my way now", "be there in ten", "no problem", "will do", "sorry busy", "yes please",
+            "running five minutes behind", "see you soon"),
     )
 }

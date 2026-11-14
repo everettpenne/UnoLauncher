@@ -17,15 +17,16 @@ internal object RequestKinds {
     /** A word (or two) of a request, and the tools that would be doing what it names. */
     private val table: List<Pair<Set<String>, Set<String>>> = listOf(
         setOf("alarm", "alarms", "wake") to setOf("alarm"),
-        setOf("timer", "timers", "countdown") to setOf("timer"),
+        setOf("timer", "timers", "countdown") to setOf("timer", "stopwatch"),
         setOf("stopwatch") to setOf("stopwatch"),
         setOf("torch", "flashlight") to setOf("torch"),
         setOf("note", "notes", "remember") to setOf("note"),
         setOf("focus", "dnd") to setOf("focus"),
-        setOf("call", "dial", "phone", "ring") to setOf("dial"),
+        setOf("call", "dial", "ring") to setOf("dial"),
         setOf("text", "sms", "message") to setOf("message", "reply"),
         setOf("reply", "respond") to setOf("reply"),
-        setOf("calendar", "appointment", "meeting", "event") to setOf("calendar_event"),
+        // Not "meeting" or "event": they are as often what something else is for ("start the stopwatch for the meeting").
+        setOf("calendar", "appointment") to setOf("calendar_event"),
         setOf("wifi", "wi-fi", "bluetooth", "airplane", "nfc") to setOf("settings_panel"),
         setOf("remind", "reminder") to setOf("alarm", "timer", "calendar_event", "note"),
     )
@@ -36,10 +37,18 @@ internal object RequestKinds {
         return table.filter { (words, _) -> words.any { it in said } }.map { it.second }
     }
 
-    /** True when the request names a kind of action that no step of the plan is. */
+    /**
+     * True when the request names a kind of action that no step of the plan is. A word that a step carries as its own text is not naming
+     * an action: "write this down: call the plumber" is a note about a call, and "open Calendar" opens an app of that name.
+     */
     fun mismatch(query: String, plan: Plan.Steps): Boolean {
         val used = plan.steps.map { it.tool.name }.toSet()
-        return named(query).any { tools -> tools.none { it in used } }
+        val carried = plan.steps.flatMap { step -> step.params.values.values.flatMap { v -> word.findAll(v.lowercase()).map { it.value }.toList() } }.toSet()
+        val said = word.findAll(query.lowercase()).map { it.value }.toSet()
+        return table.any { (words, tools) ->
+            val naming = words.filter { it in said && it !in carried }
+            naming.isNotEmpty() && tools.none { it in used }
+        }
     }
 }
 

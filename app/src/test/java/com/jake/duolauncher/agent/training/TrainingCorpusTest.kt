@@ -58,8 +58,21 @@ class TrainingCorpusTest {
         val counts = corpus.mapNotNull { example ->
             (PlanParser.parse(example.reply, tools) as? ParseResult.Ok)?.plan?.let { it as? Plan.Steps }
         }.flatMap { plan -> plan.steps.map { it.tool.name } }.groupingBy { it }.eachCount()
-        val thin = tools.map { it.name }.filter { (counts[it] ?: 0) < 40 }
-        assertTrue("tools with fewer than forty examples: $thin (counts $counts)", thin.isEmpty())
+        val thin = tools.map { it.name }.filter { (counts[it] ?: 0) < 100 }
+        assertTrue("tools with fewer than a hundred examples: $thin (counts $counts)", thin.isEmpty())
+    }
+
+    @Test fun everyParameterAndPanelIsExercised() {
+        val steps = corpus.mapNotNull { ((PlanParser.parse(it.reply, tools) as? ParseResult.Ok)?.plan as? Plan.Steps)?.steps }.flatten()
+        val panels = steps.filter { it.tool.name == "settings_panel" }.map { it.params.values["panel"] }
+        for (panel in listOf("wifi", "bluetooth", "nfc", "airplane", "display", "sound", "battery")) {
+            assertTrue("settings panel $panel appears ${panels.count { it == panel }} times", panels.count { it == panel } >= 10)
+        }
+        val replies = steps.filter { it.tool.name == "reply" }
+        assertTrue("reply tool used ${replies.size} times", replies.size >= 120)
+        val alarmTimes = steps.filter { it.tool.name == "alarm" }
+        assertTrue("alarm never uses in_minutes", alarmTimes.any { it.params.values["in_minutes"].orEmpty().isNotEmpty() })
+        assertTrue("alarm never uses at", alarmTimes.any { it.params.values["at"].orEmpty().isNotEmpty() })
     }
 
     @Test fun multiStepPlansRespectTheLoopsCaps() {
@@ -141,5 +154,48 @@ class TrainingCorpusTest {
     @Test fun theManifestNamesTheCatalogueItWasBuiltFor() {
         assertNotNull(TrainingFormat.catalogueHash(tools))
         assertEquals(16, TrainingFormat.catalogueHash(tools).length)
+    }
+
+    // ---- the corpus against what the launcher sends and what the launcher will accept ----
+
+    @Test fun rowsCarryThePhonesFactsAsTheLauncherSendsThemAndNothingWrittenByOthers() {
+        val withFacts = corpus.count { it.context.startsWith("Phone context (from this phone, now):\n- Today: ") }
+        assertTrue("only $withFacts of ${corpus.size} rows have the production context", withFacts > corpus.size * 8 / 10)
+        assertTrue("some rows must go with no facts, as when every source is off", corpus.any { it.context.isEmpty() })
+        // A request that may act never carries a message, a headline, the clipboard or the screen.
+        assertTrue(corpus.none { it.context.contains("written by others") })
+        assertTrue(corpus.none { it.context.contains("Local time:") })
+    }
+
+    @Test fun aReplyIsShownWhoIsWaitingAndThePersonMeantIsAmongThem() {
+        val replies = corpus.filter { it.reply.contains("\"tool\":\"reply\"") }
+        assertTrue(replies.size > 100)
+        val bad = replies.filter { example ->
+            val to = Regex("\"to\":\"([^\"]*)\"").find(example.reply)!!.groupValues[1]
+            val named = to.lowercase() !in setOf("that", "it", "this", "them", "the last message")
+            !example.grounding.startsWith("Messages waiting for a reply (newest first): ") || (named && !example.grounding.contains(to, ignoreCase = true))
+        }
+        assertTrue("replies without their waiting messages: ${bad.take(5).map { it.query + " | " + it.grounding }}", bad.isEmpty())
+    }
+
+    private fun stepsOf(example: Example): Plan.Steps? = ((PlanParser.parse(example.reply, tools) as? ParseResult.Ok)?.plan as? Plan.Steps)
+
+    @Test fun noRowIsAPlanTheLauncherWouldSecondGuess() {
+        // The launcher asks before running a plan that is not the kind of thing the request named. A training row like that would
+        // teach the model plans that always meet a question.
+        val flagged = corpus.filter { e -> stepsOf(e)?.let { com.jake.duolauncher.search.agent.RequestKinds.mismatch(e.query, it) } == true }
+        assertTrue("${flagged.size} rows the kind check would question: ${flagged.take(8).map { it.query + " => " + it.reply }}", flagged.isEmpty())
+    }
+
+    @Test fun noRowActsOnAnAddressOrNumberThePersonDidNotGive() {
+        val flagged = corpus.mapNotNull { e ->
+            stepsOf(e)?.steps?.firstNotNullOfOrNull { it.tool.invented(it.params, e.query + "\n" + e.grounding) }?.let { e.query + " => " + e.reply }
+        }
+        assertTrue("${flagged.size} rows with a made-up address or number: ${flagged.take(8)}", flagged.isEmpty())
+    }
+
+    @Test fun threeThingsAtOnceAreWellRepresented() {
+        val three = corpus.count { stepsOf(it)?.steps?.size == 3 }
+        assertTrue("only $three three-step rows", three >= 100)
     }
 }

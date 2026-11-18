@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.collect
@@ -143,8 +144,8 @@ private fun FeedPageBody(
                 if (feed.unreadCount > 0) {
                     Surface(shape = Corner.pill, color = accent,
                         modifier = Modifier.testTag("feed-new-count")) {
-                        Text("${feed.unreadCount} new", Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                            color = accentInk, style = MaterialTheme.typography.labelSmall)
+                        Text("${feed.unreadCount} new", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                            color = accentInk, style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
                     }
                     Spacer(Modifier.width(8.dp))
                 }
@@ -296,7 +297,8 @@ private fun FeedFilters(
     savedCount: Int,
     onSavedOnly: (Boolean) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    // 16 dp below the page title, the section spacing, so the field does not sit on "Updated just now".
+    Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         GlassField(query, onQuery, Modifier.fillMaxWidth().testTag("feed-search"),
             singleLine = true, leadingIcon = { Icon(Icons.Rounded.Search, null) },
             placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_feed)) })
@@ -330,17 +332,19 @@ private fun FeedEntryCard(entry: FeedEntry, read: Boolean, saved: Boolean, modif
         .combinedClickable(onClick = onClick, onLongClickLabel = saveLabel, onLongClick = onToggleSave)
         // A long press is not reachable with a screen reader or a switch, so saving is also offered as an action.
         .semantics { customActions = listOf(CustomAccessibilityAction(saveLabel) { onToggleSave(); true }) },
-        color = ink.copy(alpha = .08f),
+        // Frosted in the tone opposite the ink, as iOS's cards on glass are: lifted off the panel (a light card under dark ink, a
+        // dark one under light) rather than an ink-tinted slab that dulls the panel, with a hairline just strong enough to find the edge.
+        color = com.jake.duolauncher.GlassVeil.behind(ink),
         shape = Corner.medium,
-        border = BorderStroke(1.dp, ink.copy(alpha = .14f))) {
+        border = BorderStroke(.5.dp, ink.copy(alpha = .10f))) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Text(entry.title, style = UnoType.headline.copy(color = ink.copy(alpha = if (read) .62f else 1f)),
+            Text(entry.title, style = UnoType.headline.copy(color = ink.copy(alpha = if (read) .72f else 1f)),
                 maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (entry.summary.isNotBlank()) {
                 Spacer(Modifier.height(4.dp))
                 // Muted, not faint: unread body and meta hold ≥ 4.5:1 against the card, and read text dims enough to
                 // stay obviously read without becoming illegible.
-                Text(entry.summary, style = UnoType.subheadline.copy(color = ink.copy(alpha = if (read) .48f else .74f)),
+                Text(entry.summary, style = UnoType.subheadline.copy(color = ink.copy(alpha = if (read) .60f else .78f)),
                     maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.height(8.dp))
@@ -355,7 +359,7 @@ private fun FeedEntryCard(entry: FeedEntry, read: Boolean, saved: Boolean, modif
                     Spacer(Modifier.width(4.dp))
                 }
                 Text(describeEntryMeta(entry.sourceLabel, System.currentTimeMillis(), entry.publishedAt),
-                    style = UnoType.caption1.copy(color = ink.copy(alpha = if (read) .48f else .74f)),
+                    style = UnoType.caption1.copy(color = ink.copy(alpha = if (read) .60f else .78f)),
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }

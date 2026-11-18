@@ -88,6 +88,28 @@ internal data class GlassSettings(
     companion object { val Default = GlassSettings() }
 }
 
+/**
+ * The lens a surface of a given size gets. The band and the bend are the knobs' values on a surface big enough to hold them, but on a
+ * small one the knobs' 24 dp band met in the middle of a 40 dp pill, so the whole pill was edge: bent wallpaper and a colour fringe
+ * from end to end, which read as a rainbow smear, not glass. iOS keeps the edge an edge at every size, so the band is held to
+ * [BAND_SHARE] of the surface's short side and the bend shrinks with it (the same lens, smaller), and the colour split, which needs
+ * room to read as the faint fringe it is on the dock, is kept for surfaces at least [CHROMATIC_MIN_DP] across.
+ */
+internal data class GlassLensSize(val heightDp: Float, val amountDp: Float, val chromatic: Boolean) {
+    companion object {
+        const val BAND_SHARE = .3f
+        const val CHROMATIC_MIN_DP = 64f
+
+        fun of(settings: GlassSettings, shortSideDp: Float): GlassLensSize {
+            val band = lerp(8f, 44f, settings.height).coerceAtMost(72f)
+            val amount = lerp(16f, 132f, settings.amount)
+            val held = if (shortSideDp > 0f) band.coerceAtMost(shortSideDp * BAND_SHARE) else band
+            return GlassLensSize(held, amount * (held / band),
+                chromatic = settings.chromatic > 0.05f && shortSideDp >= CHROMATIC_MIN_DP)
+        }
+    }
+}
+
 /** Glass settings for surfaces drawn inside the Home pager (widgets, the feed).
  * Those surfaces must sample the wallpaper-only backdrop: the pager itself records into
  * the pages backdrop, so sampling that from inside it would draw the layer into itself.
@@ -313,10 +335,11 @@ internal fun Modifier.liquidGlass(
             onDrawBehind = {
                 val radii = corners.of(shape, size, this, layoutDirection)
                 if (radii != null) with(shared) {
+                    val lens = GlassLensSize.of(settings, size.minDimension / density)
                     drawLens(sharedImage, origin.x, origin.y, radii,
-                        refractionHeight = lerp(8f, 44f, settings.height).coerceAtMost(72f).dp.toPx(),
-                        refractionAmount = lerp(16f, 132f, settings.amount).dp.toPx(),
-                        chromatic = settings.chromatic > 0.05f, colorFilter = colorFilter)
+                        refractionHeight = lens.heightDp.dp.toPx(),
+                        refractionAmount = lens.amountDp.dp.toPx(),
+                        chromatic = lens.chromatic, colorFilter = colorFilter)
                 }
             },
             onDrawSurface = {
@@ -331,11 +354,12 @@ internal fun Modifier.liquidGlass(
     effects = {
         glassColor(tone)
         blur(kind.blurDp.dp.toPx())
+        val lens = GlassLensSize.of(settings, size.minDimension / density)
         lens(
-            refractionHeight = lerp(8f, 44f, settings.height).coerceAtMost(72f).dp.toPx(),
-            refractionAmount = lerp(16f, 132f, settings.amount).dp.toPx(),
+            refractionHeight = lens.heightDp.dp.toPx(),
+            refractionAmount = lens.amountDp.dp.toPx(),
             depthEffect = true,
-            chromaticAberration = settings.chromatic > 0.05f,
+            chromaticAberration = lens.chromatic,
         )
     },
     highlight = { if (clear && GlassFinish.clear) GlassFinish.Edge else GlassRim.Light },

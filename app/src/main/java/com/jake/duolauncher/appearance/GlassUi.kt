@@ -280,6 +280,11 @@ internal fun GlassButton(onClick: () -> Unit, modifier: Modifier = Modifier, ena
     }
 }
 
+/** A chip's drawn capsule, inside its 48 dp touch target (iOS's segmented capsules are 32-36 pt). */
+internal val ChipHeight = 36.dp
+/** The narrowest a chip's capsule is drawn, so a one- to three-letter label still reads as a capsule. */
+internal val ChipMinWidth = 64.dp
+
 /** One choice among several. The selected one is a lit glass capsule in the wallpaper accent; the others are flat and quiet,
  *  and every one swells and glows under the finger. (A lens on every chip would be costly where a row has many.) */
 @Composable
@@ -293,13 +298,16 @@ internal fun GlassChip(selected: Boolean, onClick: () -> Unit, label: @Composabl
         else Modifier.clip(shape).background(if (selected) accent.copy(alpha = .9f) else ink.copy(alpha = .10f))
             .border(BorderStroke(1.dp, if (selected) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
             .graphicsLayer { with(press) { swell() } }.then(press.light).then(press.watcher)
-    Box(modifier.heightIn(min = 48.dp).then(look)
+    // The finger gets the 48 dp target; the eye gets a 36 dp capsule inset 6 dp top and bottom inside it, at least [ChipMinWidth] wide.
+    // Drawn at the target's full height, a short label ("All", "A–Z") came out as a circle beside its neighbours' capsules. One box, so a
+    // caller's width (a weight in a segmented row) still sizes the capsule.
+    Box(modifier.heightIn(min = 48.dp)
         .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, interactionSource = null, indication = null, onClick = onClick)
-        .padding(horizontal = 12.dp),
+        .padding(vertical = (48.dp - ChipHeight) / 2).widthIn(min = ChipMinWidth).then(look).padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center) {
         CompositionLocalProvider(LocalContentColor provides (if (selected) accentInk else ink)) {
             androidx.compose.material3.ProvideTextStyle(UnoType.footnote.copy(
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)) { label() }
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)) { label() }
         }
     }
 }

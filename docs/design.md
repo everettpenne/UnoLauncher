@@ -146,6 +146,9 @@ contrast against its glass tint.
 - Island springs: damping 0.5, stiffness 300; auto-collapse after 5 s. The island
   themes its own press feel from `island/IslandTheme.kt`, a separate motion system.
 
+- Chips (`GlassChip`): the 48 dp target holds a drawn capsule `ChipHeight` 36 dp tall and at least `ChipMinWidth` 64 dp wide,
+  16 dp of padding either side of the label, so a short label ("All", "A–Z") is a capsule like its neighbours, not a circle.
+
 ## Bottom strip (`PageIndicatorLayout.kt`)
 
 The page dots (and, until Uno is the Home app, the "Set as home app" button above them) occupy
@@ -180,6 +183,11 @@ All surfaces share one lens (`liquidGlass`), tuned toward iOS 26's Liquid Glass 
   follows the light, and the tilt when that is on.
 - Tint follows the wallpaper: the photo's muted palette blended 50% into the theme
   glass; the drawn dunes keep the theme glass.
+- The lens is sized to the surface (`GlassLensSize`): the band is held to 30% of the surface's short side and the bend shrinks with it,
+  and the colour split needs a surface at least 64 dp across. A 40 dp pill under the full 24 dp band was edge from end to end, a rainbow
+  smear rather than glass.
+- Text on a glass widget sits on a veil (`GlassVeil`): white at 0.30 under dark ink, black at 0.24 under white. Over a saturated,
+  mid-bright wallpaper neither ink reaches 4.5:1 on clear glass alone. Feed cards use the same veil as their fill.
 
 Two materials, after iOS 26's (`GlassKind`):
 

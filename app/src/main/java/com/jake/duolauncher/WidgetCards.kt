@@ -8,6 +8,7 @@ import com.jake.duolauncher.panel.*
 import com.jake.duolauncher.appearance.*
 import com.jake.duolauncher.folders.*
 import com.jake.duolauncher.widgets.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -46,7 +47,8 @@ internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.
                 .then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)).padding(padding),
                 verticalArrangement = Arrangement.SpaceBetween, content = content)
         } else if (glass != null) {
-            Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.widget, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings).clip(Corner.widget).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick))
+            Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.widget, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings).clip(Corner.widget)
+                .background(GlassVeil.behind(ink.color)).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick))
                 .padding(padding), verticalArrangement = Arrangement.SpaceBetween, content = content)
         } else {
             Surface(modifier.fillMaxSize().then(ink.track).clip(Corner.widget).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)),
@@ -123,5 +125,22 @@ internal fun ExpandedCard(onClick: () -> Unit) {
             Spacer(Modifier.height(20.dp))
             GlassButton(onClick = onClick) { Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(com.jake.duolauncher.R.string.add_widget)) }
         }
+    }
+}
+
+/**
+ * The faint wash a glass widget lays behind its text, in the tone opposite its ink: light under dark ink, dark under white. Clear glass
+ * shows the wallpaper almost as it is, and over a saturated, mid-bright one (green leaves, red apples) neither white nor dark ink
+ * reaches the 4.5:1 the design asks of text, because both sit near the crossover. iOS settles this the same way, by dimming or
+ * lightening clear glass a little under its content; the wallpaper still shows, it just stops competing with the words.
+ */
+internal object GlassVeil {
+    const val UNDER_DARK_INK = .30f
+    const val UNDER_LIGHT_INK = .24f
+
+    /** Follows the ink as it fades between dark and white (it animates), so the veil crosses over with it rather than in one frame. */
+    fun behind(ink: Color): Color {
+        val light = com.jake.duolauncher.appearance.AdaptiveInkMath.luminance(ink).coerceIn(0f, 1f)
+        return androidx.compose.ui.graphics.lerp(Color.White.copy(alpha = UNDER_DARK_INK), Color.Black.copy(alpha = UNDER_LIGHT_INK), light)
     }
 }

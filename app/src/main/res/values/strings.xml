@@ -331,8 +331,8 @@
 
     <!-- widgets/MediaPlayerWidget.kt -->
     <string name="nothing_playing">Nothing playing</string>
-    <string name="media_widget_needs_access">Turn on notification access (Launcher settings, Notifications &amp; privacy) to see what is playing.</string>
-    <string name="media_widget_needs_setting">Turn on "Track title and artwork in media" (Launcher settings, Notifications &amp; privacy).</string>
+    <string name="media_widget_needs_access">Needs notification access. Turn it on in Settings, Notifications &amp; Privacy.</string>
+    <string name="media_widget_needs_setting">Turn on Media Details in Settings, Notifications &amp; Privacy.</string>
     <string name="media_widget_idle">Play something and it will show here.</string>
 
     <!-- widgets/NextAlarmWidget.kt -->
@@ -426,10 +426,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Pull down on the open island to go on into search, over Home or the app you\'re in. Back now steps: it clears what you typed, then closes search.</string>
-    <string name="whats_new_2">Qwen can do tasks, not only answer: switch on Let Qwen do tasks in Search settings (with Uno Lab 0.3.9). Anything that leaves the phone, like a reply to a message, shows the exact words and waits for your tap.</string>
-    <string name="whats_new_3">Ask Qwen\'s answers fall into place letter by letter, and tapping the island\'s Ready opens the answer over the app you\'re in.</string>
-    <string name="whats_new_4">Smoother Home swipes, and search that closes on a spring, from 0.132.6.</string>
+    <string name="whats_new_1">One Style setting, in Appearance: Calm is the plain iOS look, Balanced adds bold titles and Material shapes, Expressive adds big display numbers in widgets and controls that change shape. Glass stays glass.</string>
+    <string name="whats_new_2">Widgets in shapes: long-press one of Uno\'s own square widgets, Edit Widget, then Shape. Set to Glass, a Cookie or Sunny widget bends the wallpaper along its own edge.</string>
+    <string name="whats_new_3">The open island\'s headline is yours: the time, a greeting, the day or the date, in a font you choose (Island, Style). Appearance also has Font: Inter or your phone\'s own.</string>
+    <string name="whats_new_4">Conversations with Qwen you can carry on: pull down under an answer in search. Settings use menus for choices, and open from Android\'s App info too.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

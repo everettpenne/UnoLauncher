@@ -174,7 +174,7 @@ internal fun AppLibrary(
                 val accent = libraryAccent
                 groups.entries.forEachIndexed { groupIndex, (letter, entries) ->
                     val tone = com.jake.duolauncher.appearance.TonalRamp.tone(accent, dark = false, index = groupIndex)
-                    stickyHeader(key = "heading-$letter") {
+                    val heading: @Composable () -> Unit = {
                         Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (!glass || !expression.shapedBadges) Box(Modifier.widthIn(min = 32.dp).height(28.dp).background(
                                 if (!glass) MaterialTheme.colorScheme.secondaryContainer else if (calmDark) Color(0xFF314852) else Color(0xFFB7CBD3), Corner.small),
@@ -196,7 +196,11 @@ internal fun AppLibrary(
                             }
                             if (glass) HorizontalDivider(Modifier.weight(1f).padding(start = 12.dp), color = Color.White.copy(alpha = .18f))
                         }
+                    
                     }
+                    // On glass the header scrolls with its rows: only its badge is opaque, so pinned to the top the rows passing under it showed
+                    // round the badge (an icon's top edge above "Productivity"). Off glass the panel is solid and the header stays pinned.
+                    if (glass) item(key = "heading-$letter") { heading() } else stickyHeader(key = "heading-$letter") { heading() }
                     items(entries, key = { it.id }) { app ->
                         val isPinned = app.id in pinned
                         val launchBounds = remember { android.graphics.Rect() }

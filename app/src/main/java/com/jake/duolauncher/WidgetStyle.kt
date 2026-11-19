@@ -29,6 +29,9 @@ internal object WidgetStyleRules {
     const val PREFIX = "widgetStyle_"
     fun key(slot: Int) = "$PREFIX$slot"
     fun parse(value: String?): WidgetStyle? = WidgetStyle.entries.firstOrNull { it.name == value }
+
+    /** A widget drawn straight on the wallpaper, with no card or glass behind it: the Lock Screen clock, whose white type a card would hide. */
+    fun bare(id: Int): Boolean = id == com.jake.duolauncher.widgets.UnoWidgets.LOCK_CLOCK
 }
 
 /**
@@ -92,8 +95,13 @@ internal object WidgetShapeRules {
     fun key(slot: Int) = "$PREFIX$slot"
     fun parse(value: String?): WidgetShape? = WidgetShape.entries.firstOrNull { it.name == value }
 
-    /** Uno's own widgets only (an app's widget draws its own background), and not the folder or a widget waiting to be restored. */
-    fun eligible(id: Int): Boolean = id <= CLOCK_WIDGET && id != NEEDS_BINDING_WIDGET && id != FOLDER_WIDGET
+    /** Widgets that paint to their very edge (the liquid battery's liquid, a photo) or sit bare on the wallpaper: drawn smaller inside a shape
+     *  they would be a rectangle floating in it, so they keep their rounded square. */
+    private val edgeToEdge = setOf(com.jake.duolauncher.widgets.UnoWidgets.LIQUID_BATTERY, com.jake.duolauncher.widgets.UnoWidgets.PHOTOS,
+        com.jake.duolauncher.widgets.UnoWidgets.LOCK_CLOCK)
+
+    /** Uno's own widgets only (an app's widget draws its own background), and not the folder, a widget waiting to be restored, or one that paints to its edge. */
+    fun eligible(id: Int): Boolean = id <= CLOCK_WIDGET && id != NEEDS_BINDING_WIDGET && id != FOLDER_WIDGET && id !in edgeToEdge
 
     /** The shape a widget is drawn in: its own choice, when the style allows shapes, it is eligible, and it is not a stack. */
     fun resolve(own: WidgetShape?, id: Int, stacked: Boolean, shapesAllowed: Boolean): WidgetShape =

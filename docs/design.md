@@ -422,6 +422,17 @@ the level itself, so what a level means is decided (and unit-tested) in one plac
   what is behind it moves, so it is for a badge or a widget, never a long list (the App Library's letter badges stay tonal fills).
 - These settings, the text font, the island's headline and widget shapes live in the "appearance" preferences, so a settings backup carries them.
 
+## Readable accent, and one plate for settings (0.135.1)
+
+- **The accent as words is not the accent as a fill.** A switch or a selected chip can be any bright colour; words and check marks in it must be
+  read. `SettingsAccentText` (`AccentText.readable`) deepens the accent in the light theme and lifts it in the dark one until it holds 4.5:1 on
+  the settings plate. Use it for any accent-coloured text or small mark on a sheet; `SettingsAccent` stays for fills.
+- **Settings rows sit on `SettingsPlate`**, a calm, mostly opaque card, so a vivid wallpaper showing through the sheet never decides whether a row
+  can be read.
+- **Glass is not put on a card.** Inside a card-style widget `LocalPageGlass` is null, so a button there is the flat kind.
+- **A recording that nothing draws is let go.** Anything that magnifies a recorded layer (the page strip's lens) must redraw what it records
+  whenever the thing that draws it comes or goes.
+
 ## Settings rows and Android's Settings
 
 - **Choices:** a choice of three or more is a `DropdownRow` (its name, the current value and an up-and-down mark, opening a glass menu of the

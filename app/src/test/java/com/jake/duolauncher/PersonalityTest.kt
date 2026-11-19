@@ -78,7 +78,7 @@ class PersonalityTest {
     }
 
     @Test fun onlyUnosOwnSingleWidgetsTakeAShapeAndOnlyWhenTheStyleAllows() {
-        assertTrue(WidgetShapeRules.eligible(CLOCK_WIDGET)); assertTrue(WidgetShapeRules.eligible(DATE_WIDGET)); assertTrue(WidgetShapeRules.eligible(-40))
+        assertTrue(WidgetShapeRules.eligible(CLOCK_WIDGET)); assertTrue(WidgetShapeRules.eligible(DATE_WIDGET)); assertTrue(WidgetShapeRules.eligible(com.jake.duolauncher.widgets.UnoWidgets.COUNTER))
         assertFalse(WidgetShapeRules.eligible(7)); assertFalse(WidgetShapeRules.eligible(EMPTY_WIDGET))
         assertFalse(WidgetShapeRules.eligible(FOLDER_WIDGET)); assertFalse(WidgetShapeRules.eligible(NEEDS_BINDING_WIDGET))
         assertEquals(WidgetShape.COOKIE, WidgetShapeRules.resolve(WidgetShape.COOKIE, CLOCK_WIDGET, stacked = false, shapesAllowed = true))
@@ -87,6 +87,11 @@ class PersonalityTest {
         assertEquals(WidgetShape.DEFAULT, WidgetShapeRules.resolve(WidgetShape.SUNNY, 12, stacked = false, shapesAllowed = true))
         assertEquals(WidgetShape.DEFAULT, WidgetShapeRules.resolve(null, CLOCK_WIDGET, stacked = false, shapesAllowed = true))
         assertEquals(WidgetShape.SUNNY, WidgetShapeRules.parse("SUNNY")); assertNull(WidgetShapeRules.parse("HEXAGON"))
+        // A widget that paints to its edge would be a rectangle floating in the shape; the Lock Screen clock has no card at all.
+        assertFalse(WidgetShapeRules.eligible(com.jake.duolauncher.widgets.UnoWidgets.LIQUID_BATTERY))
+        assertFalse(WidgetShapeRules.eligible(com.jake.duolauncher.widgets.UnoWidgets.PHOTOS))
+        assertFalse(WidgetShapeRules.eligible(com.jake.duolauncher.widgets.UnoWidgets.LOCK_CLOCK))
+        assertTrue(WidgetStyleRules.bare(com.jake.duolauncher.widgets.UnoWidgets.LOCK_CLOCK)); assertFalse(WidgetStyleRules.bare(CLOCK_WIDGET))
     }
 
     @Test fun aShapedWidgetsContentIsDrawnSmallEnoughToStayInsideTheDips() {
@@ -110,5 +115,34 @@ class PersonalityTest {
         val sunny = com.jake.duolauncher.appearance.LobedShapes.sunny
         assertEquals(.5f, sunny.centerX, .01f); assertEquals(.5f, sunny.centerY, .01f)
         assertTrue("sunny inner ${sunny.inner} outer ${sunny.outer}", sunny.inner in .75f..0.9f)
+    }
+
+    @Test fun accentWordsAreReadableOnTheSettingsPlateInBothThemes() {
+        // Uno orange as it is fails on a pale plate; as text it is deepened just enough, and lifted on the dark plate.
+        val orange = Color(0xFFFF9F0A)
+        assertTrue(AccentText.contrast(orange, AccentText.LIGHT_PLATE) < AccentText.MIN_CONTRAST)
+        for (accent in listOf(orange, Color(0xFF0A84FF), Color(0xFF34C759), Color(0xFFFFD60A), Color(0xFFFF3B30), Color(0xFF808080), Color.White, Color.Black)) {
+            assertTrue("$accent light", AccentText.contrast(AccentText.readable(accent, dark = false), AccentText.LIGHT_PLATE) >= AccentText.MIN_CONTRAST)
+            assertTrue("$accent dark", AccentText.contrast(AccentText.readable(accent, dark = true), AccentText.DARK_PLATE) >= AccentText.MIN_CONTRAST)
+        }
+        // A colour that already reads is left alone.
+        val deep = Color(0xFF7A3E00)
+        assertEquals(deep, AccentText.readable(deep, dark = false))
+    }
+
+    @Test fun atCalmTheIslandsHeadlineIsTheLaunchersOwnFont() {
+        assertEquals(com.jake.duolauncher.appearance.DisplayFace.CLASSIC,
+            com.jake.duolauncher.island.IslandHero.face(com.jake.duolauncher.appearance.DisplayFace.SCRIPT, displayType = false))
+        assertEquals(com.jake.duolauncher.appearance.DisplayFace.SCRIPT,
+            com.jake.duolauncher.island.IslandHero.face(com.jake.duolauncher.appearance.DisplayFace.SCRIPT, displayType = true))
+        assertEquals(calm.displayTitles, false)
+    }
+
+    @Test fun unosOwnWidgetsHaveNamesForTheSettingsList() {
+        assertEquals("Clock", WidgetNames.builtIn(CLOCK_WIDGET)); assertEquals("Date", WidgetNames.builtIn(DATE_WIDGET))
+        assertEquals("Battery", WidgetNames.builtIn(com.jake.duolauncher.widgets.UnoWidgets.BATTERY))
+        assertEquals("Lock Screen clock", WidgetNames.builtIn(com.jake.duolauncher.widgets.UnoWidgets.LOCK_CLOCK))
+        // An app's widget is named by its provider, not here.
+        assertNull(WidgetNames.builtIn(42))
     }
 }

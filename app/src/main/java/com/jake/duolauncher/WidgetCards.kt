@@ -42,7 +42,9 @@ internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.
     // Built-in widget text follows the wallpaper behind it: white on dark, dark ink on pale. On a card it follows light or dark only.
     val ink = if (cardStyle) cardInk() else rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .14f else .24f)
     val lobed = LocalWidgetShape.current
-    CompositionLocalProvider(LocalGlassInk provides ink.glassInk) {
+    // On a card there is no glass: a button inside it is the flat kind. As glass it took the wallpaper's colour through an opaque card, and on
+    // a dark wallpaper came out dark under the card's dark ink ("Allow" on the Screen time widget).
+    CompositionLocalProvider(LocalGlassInk provides ink.glassInk, LocalPageGlass provides (if (cardStyle) null else glass)) {
         if (lobed != null && slotPaints) {
             // In a Material shape: the slot has painted and clipped it (card or glass). The content is kept inside the shape's dips and centred,
             // since a corner of the usual layout would fall outside a scalloped outline.

@@ -65,7 +65,7 @@ internal fun SettingsGroup(modifier: Modifier = Modifier, header: String? = null
     Column(modifier.fillMaxWidth().padding(top = Space.S.dp).then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
         if (header != null) Text(header.uppercase(), Modifier.padding(start = Space.L.dp, end = Space.L.dp, bottom = 6.dp),
             style = UnoType.caption1.copy(fontWeight = FontWeight.Normal), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (rows.isNotEmpty()) Column(Modifier.fillMaxWidth().clip(SettingsCardShape).background(ink.copy(alpha = .06f))) {
+        if (rows.isNotEmpty()) Column(Modifier.fillMaxWidth().clip(SettingsCardShape).background(SettingsPlate)) {
             rows.forEachIndexed { i, content ->
                 if (i > 0) Box(Modifier.padding(start = Space.L.dp).fillMaxWidth().height(.5.dp).background(ink.copy(alpha = .14f)))
                 Box(Modifier.fillMaxWidth().padding(horizontal = Space.L.dp), contentAlignment = Alignment.CenterStart) { content() }
@@ -76,8 +76,41 @@ internal fun SettingsGroup(modifier: Modifier = Modifier, header: String? = null
     }
 }
 
-/** The launcher's one accent: Uno orange, or the wallpaper's colour when Appearance › Accent says so. */
+/** The launcher's one accent: Uno orange, or the wallpaper's colour when Appearance › Accent says so. For fills (a switch, a slider, a selected chip). */
 internal val SettingsAccent: Color @Composable get() = LocalWallpaperAccent.current?.accent ?: IosOrange
+
+/**
+ * The accent as words or a small mark on a settings sheet. A fill can be any bright colour, but words in it must be read: Uno orange on a
+ * pale plate is about 2:1, and over a yellow or orange wallpaper showing through the sheet it vanished ("Add Widget", "Choose Apps", the check
+ * marks). So for text the accent is deepened in the light theme and lifted in the dark one until it holds 4.5:1 against the settings plate.
+ */
+internal object AccentText {
+    /** What a settings row sits on, as far as contrast goes: the near-white plate of the light theme, the graphite one of the dark. */
+    val LIGHT_PLATE = Color(0xFFF2F2F4)
+    val DARK_PLATE = Color(0xFF242426)
+    const val MIN_CONTRAST = 4.5f
+
+    private fun channel(v: Float) = if (v <= .03928f) v / 12.92f else Math.pow(((v + .055f) / 1.055f).toDouble(), 2.4).toFloat()
+    fun luminance(c: Color): Float = .2126f * channel(c.red) + .7152f * channel(c.green) + .0722f * channel(c.blue)
+    fun contrast(a: Color, b: Color): Float { val x = luminance(a); val y = luminance(b); return (maxOf(x, y) + .05f) / (minOf(x, y) + .05f) }
+
+    /** [colour], moved toward black (light theme) or white (dark theme) only as far as it takes to read on the plate. */
+    fun readable(colour: Color, dark: Boolean): Color {
+        val plate = if (dark) DARK_PLATE else LIGHT_PLATE
+        val toward = if (dark) Color.White else Color.Black
+        var c = colour.copy(alpha = 1f)
+        var step = 0
+        while (contrast(c, plate) < MIN_CONTRAST && step < 20) { step++; c = androidx.compose.ui.graphics.lerp(colour.copy(alpha = 1f), toward, step * .05f) }
+        return c
+    }
+}
+
+/** [SettingsAccent] for words and small marks: readable on the settings plate in either theme (see [AccentText]). */
+internal val SettingsAccentText: Color @Composable get() = AccentText.readable(SettingsAccent, DuoAppearanceRuntime.dark)
+
+/** The plate behind a group of settings rows: a calm, mostly opaque card, so rows read the same whatever wallpaper shows through the sheet. */
+internal val SettingsPlate: Color @Composable get() =
+    if (DuoAppearanceRuntime.dark) AccentText.DARK_PLATE.copy(alpha = .62f) else Color.White.copy(alpha = .62f)
 
 /** One of several choices, iOS's way: the name, and a check mark at the end of the chosen one. */
 @Composable
@@ -87,7 +120,7 @@ internal fun CheckRow(title: String, selected: Boolean, tag: String, enabled: Bo
         verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else .45f))
-        if (selected) Icon(Icons.Rounded.Check, null, Modifier.size(20.dp), tint = SettingsAccent)
+        if (selected) Icon(Icons.Rounded.Check, null, Modifier.size(20.dp), tint = SettingsAccentText)
     }
 }
 
@@ -104,7 +137,7 @@ internal fun ToggleCheckRow(title: String, checked: Boolean, tag: String, enable
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else .45f))
             if (detail != null) Text(detail, style = UnoType.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
-        if (checked) Icon(Icons.Rounded.Check, null, Modifier.size(20.dp), tint = SettingsAccent)
+        if (checked) Icon(Icons.Rounded.Check, null, Modifier.size(20.dp), tint = SettingsAccentText)
     }
 }
 
@@ -124,7 +157,7 @@ internal fun NavRow(title: String, tag: String, value: String? = null, icon: Ima
 /** A button as a row, iOS's way: the action's name in the accent (or in red, for one that removes something). */
 @Composable
 internal fun ActionRow(title: String, tag: String, enabled: Boolean = true, destructive: Boolean = false, onClick: () -> Unit) {
-    val colour = if (destructive) Color(0xFFFF3B30) else SettingsAccent
+    val colour = if (destructive) AccentText.readable(Color(0xFFFF3B30), DuoAppearanceRuntime.dark) else SettingsAccentText
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(enabled = enabled, role = Role.Button, onClick = onClick).testTag(tag),
         verticalAlignment = Alignment.CenterVertically) {
         Text(title, color = colour.copy(alpha = if (enabled) 1f else .4f), maxLines = 1)

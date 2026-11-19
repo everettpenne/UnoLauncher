@@ -103,7 +103,9 @@ private fun WidgetSlotBody(id: Int, slot: Int, controller: WidgetController, mod
     val lobed = LocalWidgetShape.current
     BoxWithConstraints(modifier.then(
         // In a Material shape: the card's own fill in that outline, or glass bent along it (the lobed lens), in place of the rounded square.
-        if (lobed != null && style == WidgetStyle.CARD) Modifier.widgetCard(lobed.shape)
+        // The Lock Screen clock sits bare on the wallpaper: a card behind its white type made it unreadable.
+        if (WidgetStyleRules.bare(id) && members.isEmpty()) Modifier
+        else if (lobed != null && style == WidgetStyle.CARD) Modifier.widgetCard(lobed.shape)
         else if (lobed != null && glass != null) Modifier.shapedGlass(glass, lobed.shape, lobed,
             surface = GlassFinish.tint(glass.tint.copy(alpha = GlassKind.CLEAR.tintAlpha)))
         else if (style == WidgetStyle.CARD) Modifier.widgetCard(Corner.widget)
@@ -310,6 +312,23 @@ internal fun stackable(placement: WidgetPlacement, controller: WidgetController)
         placement.id == CLOCK_WIDGET || placement.id == DATE_WIDGET || UnoWidgets.byId(placement.id) != null
 
 /** The name of a stack member: an Uno widget's own name, or the Android widget's label. */
+/** A widget's name for a list of widgets (Home Screen settings): Uno's own by id, an app's widget by the label its provider gives. */
+internal object WidgetNames {
+    /** The name of one of Uno's own widgets, or null for an app's widget. Pure, so it is unit-tested. */
+    fun builtIn(id: Int): String? = when (id) {
+        CLOCK_WIDGET -> "Clock"
+        DATE_WIDGET -> "Date"
+        INFO_WIDGET -> "Widget panel"
+        FOLDER_WIDGET -> "Large folder"
+        NEEDS_BINDING_WIDGET -> "Saved widget"
+        else -> if (id < 0) com.jake.duolauncher.widgets.UnoWidgets.byId(id)?.label else null
+    }
+
+    fun of(context: android.content.Context, id: Int): String = builtIn(id)
+        ?: runCatching { android.appwidget.AppWidgetManager.getInstance(context).getAppWidgetInfo(id)?.loadLabel(context.packageManager) }.getOrNull()
+        ?: "Widget"
+}
+
 internal fun stackMemberLabel(code: Int, controller: WidgetController) =
     if (StackRules.isUno(code)) widgetLabel(StackRules.unoWidgetId(code), controller) else widgetLabel(code, controller)
 

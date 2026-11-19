@@ -94,7 +94,11 @@ internal object IslandHero {
     fun clean(raw: String?): String? = raw?.replace(Regex("\\s+"), " ")?.filterNot { it.isISOControl() }?.trim()?.take(MAX_GREETING)?.takeIf { it.isNotEmpty() }
 
     /** Whether the headline is the plain Inter time it always was, so the island draws exactly what it drew before headlines could change. */
-    fun isClassicTime(theme: IslandTheme): Boolean = content == HeroContent.TIME && theme.face == DisplayFace.CLASSIC && theme.heroTint == HeroTint.INK
+    fun isClassicTime(theme: IslandTheme): Boolean = content == HeroContent.TIME && face(theme) == DisplayFace.CLASSIC && theme.heroTint == HeroTint.INK
+
+    /** The face the headline is drawn in: the theme's, unless Appearance › Style is Calm, where the launcher's text is one font throughout. */
+    fun face(theme: IslandTheme): DisplayFace = face(theme.face, com.jake.duolauncher.appearance.Expression.now.displayTitles)
+    fun face(themeFace: DisplayFace, displayType: Boolean): DisplayFace = if (displayType) themeFace else DisplayFace.CLASSIC
 
     /** The headline's words, for anything but the time. */
     fun words(content: HeroContent, greeting: String, now: LocalDateTime): String = when (content) {
@@ -122,7 +126,7 @@ internal object IslandHero {
 @Composable
 internal fun IslandHeadline(theme: IslandTheme, content: HeroContent, words: String, digits: String, meridiem: String, sizeSp: Int,
     animationsOn: Boolean, modifier: Modifier = Modifier) {
-    val face = DisplayFonts.resolve(theme.face)
+    val face = DisplayFonts.resolve(IslandHero.face(theme))
     val base = Expressive.display(face, sizeSp, lineHeight = (sizeSp * 1.22f).toInt())
     val style = base.copy(
         lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
@@ -183,7 +187,10 @@ internal fun IslandHeadlineGroup(theme: IslandTheme, onTheme: (IslandTheme) -> U
             }
         }
         // Each font is drawn in itself in the menu, so the choice is seen, not imagined. Only the fonts this phone can draw are offered.
+        // With Appearance › Style at Calm the launcher's text is one font throughout, so the headline is too; the choice is kept for later.
+        val calm = !com.jake.duolauncher.appearance.Expression.now.displayTitles
         row { com.jake.duolauncher.DropdownRow("Font", DisplayFonts.available(), face, { it.label }, "island-face",
+            value = if (calm) "Classic (Style is Calm)" else null, enabled = !calm,
             optionTag = { "island-face-${it.name}" },
             item = { f -> Text(f.label, style = Expressive.display(f, 17, lineHeight = 22), maxLines = 1) }) { onTheme(theme.copy(face = it)) } }
         row { com.jake.duolauncher.DropdownRow("Colour", HeroTint.values().toList(), theme.heroTint, { it.label }, "island-herotint",

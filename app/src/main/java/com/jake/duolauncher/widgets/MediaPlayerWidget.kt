@@ -166,7 +166,8 @@ private fun EmptyPlayer(context: Context, ink: Color, soft: Color) {
             Icon(Icons.Rounded.MusicNote, null, tint = soft, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.height(10.dp))
-        Text(stringResource(com.jake.duolauncher.R.string.nothing_playing), color = ink, style = UnoType.callout.copy(fontWeight = FontWeight.Medium))
+        // One line, so the hint under it has room to be read: on two lines it left the hint a single line, cut off mid-word.
+        Text(stringResource(com.jake.duolauncher.R.string.nothing_playing), color = ink, style = UnoType.subheadline.copy(fontWeight = FontWeight.Medium), maxLines = 1)
         Text(stringResource(when (MediaWidget.emptyHint(NotificationFeed.connected, detailsOn)) {
             MediaWidget.EmptyHint.NEEDS_ACCESS -> com.jake.duolauncher.R.string.media_widget_needs_access
             MediaWidget.EmptyHint.NEEDS_SETTING -> com.jake.duolauncher.R.string.media_widget_needs_setting

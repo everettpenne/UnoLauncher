@@ -1005,12 +1005,13 @@ internal fun LauncherScreen(
             }
             // The floating bottom glass tracks the keyboard's top edge frame-by-frame. The inset is
             // read inside each offset lambda (re-evaluated every frame as the IME slides), instead
-            // of imePadding(), which only updates at the discrete start/end of the animation.
+            // of imePadding(), which only updates at the discrete start/end of the animation. Not while search is open over Home: search has
+            // its own field at the top, and the strip lifted above its keyboard sat on top of the widgets' text.
             val imeInset = WindowInsets.ime
             val navBarInset = WindowInsets.navigationBars
             if (!iosHome) {
                 Column(Modifier.align(Alignment.BottomStart).width(pagerWidth).offset {
-                    IntOffset(0, imeLiftPx(imeInset.getBottom(this), navBarInset.getBottom(this)))
+                    IntOffset(0, if (spotlightOpen) 0 else imeLiftPx(imeInset.getBottom(this), navBarInset.getBottom(this)))
                 }.padding(start = 16.dp, bottom = PageIndicatorLayout.BOTTOM_MARGIN_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     if (!isDefaultHome) GlassButton(onClick = { sheet = ""; onMakeDefault() }, Modifier.heightIn(min = 48.dp).testTag("home-setup")) {
                         Icon(Icons.Rounded.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(com.jake.duolauncher.R.string.set_as_home_app))
@@ -1021,7 +1022,7 @@ internal fun LauncherScreen(
                         onFeed = openFeed, onLibrary = openLibrary, onBounds = { pageStripBounds = it })
                 }
                 if (!inLibrary && !drag.active) Column(Modifier.align(Alignment.BottomEnd).offset {
-                    IntOffset(0, imeLiftPx(imeInset.getBottom(this), navBarInset.getBottom(this)))
+                    IntOffset(0, if (spotlightOpen) 0 else imeLiftPx(imeInset.getBottom(this), navBarInset.getBottom(this)))
                 }.padding(end = 16.dp, bottom = 8.dp)
                     .width(preset.dockWidth.dp), horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {

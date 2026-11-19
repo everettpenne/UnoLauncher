@@ -33,7 +33,7 @@ internal fun AppearanceSettings(state: AppearanceState, onMode: (AppearanceMode)
         state.mode == AppearanceMode.SUNRISE_SUNSET -> "Dark from sunset to sunrise where you are. The place is kept only on this phone."
         else -> null
     }) {
-        row { com.jake.duolauncher.DropdownRow("Appearance", AppearanceMode.entries, state.mode, { mode -> when (mode) {
+        row { com.jake.duolauncher.DropdownRow("Mode", AppearanceMode.entries, state.mode, { mode -> when (mode) {
                 AppearanceMode.LIGHT -> "Light"; AppearanceMode.DARK -> "Dark"; AppearanceMode.SYSTEM -> "Automatic"
                 AppearanceMode.SUNRISE_SUNSET -> "Sunset to Sunrise"
             } }, "appearance-mode", optionTag = { "appearance-${it.name.lowercase()}" }, onSelect = onMode) }

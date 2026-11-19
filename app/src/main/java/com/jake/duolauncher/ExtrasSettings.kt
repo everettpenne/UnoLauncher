@@ -84,7 +84,7 @@ private fun GesturesGroups(store: ExtrasStore, s: ExtrasState, apps: List<AppEnt
 @Composable
 private fun IconGroups(store: ExtrasStore, s: ExtrasState) {
     SettingsGroup(header = "App Icons", footer = "Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Dark puts each app's colours on a near-black tile, and Auto does that while Uno is dark. Icon Lighting gives original icons a soft lit edge, like iOS.") {
-        row { DropdownRow("Style", IconStyle.entries, s.iconStyle, { when (it) { IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark"; IconStyle.AUTOMATIC -> "Auto" } },
+        row { DropdownRow("Icon Style", IconStyle.entries, s.iconStyle, { when (it) { IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark"; IconStyle.AUTOMATIC -> "Auto" } },
             "icons-style", optionTag = { when (it) { IconStyle.ORIGINAL -> "icons-original"; IconStyle.THEMED -> "icons-themed"; IconStyle.TINTED -> "icons-tinted"; IconStyle.DARK -> "icons-dark"; IconStyle.AUTOMATIC -> "icons-auto" } },
             onSelect = store::setIconStyle) }
         row { SettingsSwitch("Icon Lighting", s.iconLighting, store::setIconLighting, "icons-lit") }
@@ -322,7 +322,7 @@ private fun SettingsRows.appChecklist(open: MutableState<Boolean>, apps: List<Ap
     row {
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = androidx.compose.ui.semantics.Role.Button) { open.value = !open.value }
             .testTag("$tag-choose"), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (open.value) "Done" else "Choose Apps", Modifier.weight(1f), color = SettingsAccent)
+            Text(if (open.value) "Done" else "Choose Apps", Modifier.weight(1f), color = SettingsAccentText)
             Text("$count", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Icon(if (open.value) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -379,7 +379,7 @@ private fun IslandLinksSetting(actions: ExtrasActions, apps: List<AppEntry>) {
         appChecklist(open, apps, emptySet(), "island-link", count = apps.count { IslandLinks.allowed(it.packageName, s.islandMuted) },
             isOn = { IslandLinks.allowed(it.packageName, s.islandMuted) },
             trailing = { app -> Text(PeekTimeouts.label(timeouts, app.packageName), Modifier.clip(Corner.small)
-                .clickable { actions.store.cyclePeekTimeout(app.packageName) }.padding(8.dp).testTag("island-timeout-${app.id}"), color = SettingsAccent) }) {
+                .clickable { actions.store.cyclePeekTimeout(app.packageName) }.padding(8.dp).testTag("island-timeout-${app.id}"), color = SettingsAccentText) }) {
             actions.store.toggleIslandLink(it.packageName)
         }
     }
@@ -537,7 +537,7 @@ private fun TextReplacement() {
                     val ready = key.isNotEmpty() && phrase.isNotBlank()
                     Text(stringResource(R.string.kb_add), Modifier.clip(Corner.small).clickable(enabled = ready) {
                         save(LinkedHashMap(shortcuts).also { it[key] = phrase.trim() }); shortcut = ""; phrase = ""
-                    }.padding(Space.S.dp).testTag("kb-shortcut-add"), color = if (ready) SettingsAccent else muted)
+                    }.padding(Space.S.dp).testTag("kb-shortcut-add"), color = if (ready) SettingsAccentText else muted)
                 }
             }
         }
@@ -583,7 +583,7 @@ private fun PersonalWords(store: ExtrasStore, learning: Boolean) {
                     Text(stringResource(R.string.kb_add), Modifier.clip(Corner.small).clickable {
                         com.jake.duolauncher.keyboard.PersonalStore.model.add(draft, (System.currentTimeMillis() / 86_400_000L).toInt())
                         com.jake.duolauncher.keyboard.PersonalStore.saveSoon(); draft = ""; version++
-                    }.padding(Space.S.dp).testTag("kb-add-word-button"), color = SettingsAccent)
+                    }.padding(Space.S.dp).testTag("kb-add-word-button"), color = SettingsAccentText)
                 }
             }
         }
@@ -596,7 +596,7 @@ private fun PersonalWords(store: ExtrasStore, learning: Boolean) {
                     Text(summary, style = UnoType.footnote, color = muted)
                 }
                 if (!habits.isEmpty()) Text(stringResource(R.string.kb_habits_reset), Modifier.clip(Corner.small).clickable { habits.clear(); com.jake.duolauncher.keyboard.PersonalStore.saveSoon(); version++ }
-                    .padding(Space.S.dp).testTag("kb-habits-reset"), color = SettingsAccent)
+                    .padding(Space.S.dp).testTag("kb-habits-reset"), color = SettingsAccentText)
             }
         }
         row { ActionRow("Forget Everything Learned", "kb-forget-everything", destructive = true) {

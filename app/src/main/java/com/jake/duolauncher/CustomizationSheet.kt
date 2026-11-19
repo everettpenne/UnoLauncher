@@ -102,15 +102,15 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                 .clickable(role = androidx.compose.ui.semantics.Role.Button) { onPage(page.parent()) }
                 .padding(end = 8.dp, top = 8.dp, bottom = 8.dp).testTag("customization-back")
                 .semantics(mergeDescendants = true) { contentDescription = "Back" }, verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, null, Modifier.size(30.dp), tint = SettingsAccent)
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, null, Modifier.size(30.dp), tint = SettingsAccentText)
                 Text(SettingsSearch.pageName(page.parent()).let { if (page.parent() == CustomizationPage.OVERVIEW) "Settings" else it },
-                    color = SettingsAccent, maxLines = 1)
+                    color = SettingsAccentText, maxLines = 1)
             }
             // The first page takes iOS's large title below the bar; the pages inside it keep the small one in the middle.
             if (page != CustomizationPage.OVERVIEW) Text(title, Modifier.align(Alignment.Center).padding(horizontal = 96.dp), style = UnoType.headline, maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             Text(stringResource(com.jake.duolauncher.R.string.wallpaper_done), Modifier.align(Alignment.CenterEnd).clip(Corner.pill).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClose)
-                .padding(8.dp).semantics { contentDescription = "Close settings" }, color = SettingsAccent,
+                .padding(8.dp).semantics { contentDescription = "Close settings" }, color = SettingsAccentText,
                 style = UnoType.body.copy(fontWeight = FontWeight.SemiBold))
         }
         if (page == CustomizationPage.OVERVIEW) Text(title, Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 10.dp).semantics { heading() },
@@ -245,7 +245,7 @@ private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> U
             { "widget-style-${it.name.lowercase()}" }, onWidgetStyle) }
     }
     val fontContext = androidx.compose.ui.platform.LocalContext.current
-    SettingsGroup(header = "Style", footer = "How far Uno leans from iOS toward Pixel. Calm is the plain iOS look. Balanced adds bold titles, Material shapes and tonal colour where something is selected or on. Expressive adds big display numbers in widgets and controls that change shape. Glass stays glass at every level.") {
+    SettingsGroup(header = "Style", footer = "How far Uno leans from iOS toward Pixel. Calm is the plain iOS look. Balanced adds bold titles, Material shapes and tonal colour where something is selected or on. Expressive adds big display numbers in widgets and controls that change shape. Glass stays glass at every level. The island keeps its own switch for its playful touches, in Island › Style.") {
         row { DropdownRow("Style", com.jake.duolauncher.appearance.Personality.values().toList(), com.jake.duolauncher.appearance.UnoPersonality.level, { it.label },
             "personality", optionTag = { "personality-${it.name.lowercase()}" }) { com.jake.duolauncher.appearance.UnoPersonality.set(fontContext, it) } }
     }
@@ -506,6 +506,7 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     model: LauncherModel, homePage: Int, onEditPins: () -> Unit, onWidget: (Int) -> Unit,
     onAddWidget: (Int) -> Unit, onRemoveWidget: (Int) -> Unit, homeStyle: HomeStyle = HomeStyle.SIDE, onHomeStyle: (HomeStyle) -> Unit = {}) {
     val p = if (wide) state.expanded else state.compact
+    val listContext = androidx.compose.ui.platform.LocalContext.current
     SettingsGroup(header = "Screen", footer = "A foldable has a layout for each screen. The inner screen always uses the side dock.") {
         row { SegmentRow(listOf(false, true), wide, { if (it) "Inner" else "Cover" }, { if (it) "home-screen-inner" else "home-screen-cover" }, onWide) }
     }
@@ -534,9 +535,15 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     SettingsGroup(header = "Widgets · Page ${homePage + 1}") {
         placements.forEach { placement -> row {
             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (placement.page == -1) "Wide-screen page" else "${placement.spanX} × ${placement.spanY} · Row ${placement.row + 1}", Modifier.weight(1f))
+                // The widget's own name first: two widgets on a row were both "2 × 2 · Row 1", with nothing to tell them apart.
+                val widgetName = remember(placement.id) { WidgetNames.of(listContext, placement.id) }
+                Column(Modifier.weight(1f)) {
+                    Text(widgetName, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text(if (placement.page == -1) "Wide-screen page" else "${placement.spanX} × ${placement.spanY} · Row ${placement.row + 1}",
+                        style = UnoType.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                }
                 Text(stringResource(com.jake.duolauncher.R.string.replace), Modifier.clip(Corner.small).clickable { onWidget(placement.slot) }.padding(8.dp),
-                    color = SettingsAccent)
+                    color = SettingsAccentText)
                 IconButton(onClick = { onRemoveWidget(placement.slot) }, modifier = Modifier.semantics { contentDescription = if (placement.page == -1) "Remove widget from Wide-screen page" else "Remove widget" }) {
                     Icon(Icons.Rounded.RemoveCircle, null, tint = Color(0xFFFF3B30)) }
             }

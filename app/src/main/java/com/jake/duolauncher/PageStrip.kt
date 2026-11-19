@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -79,6 +80,7 @@ internal fun PageStrip(
     val content = rememberLayerBackdrop()
     val lensBackdrop = if (glass != null) rememberCombinedBackdrop(glass.backdrop, content) else null
     val pagesMoving = pager.state.isScrollInProgress
+    val movingForRecord = androidx.compose.runtime.rememberUpdatedState(pagesMoving)
     var scrubbing by remember { mutableStateOf(false) }
     var scrubJob by remember { mutableStateOf<Job?>(null) }
     val lift by animateFloatAsState(if (scrubbing) 1f else 0f,
@@ -90,6 +92,11 @@ internal fun PageStrip(
             .padding(horizontal = 6.dp),
         contentAlignment = Alignment.CenterStart) {
         Row(Modifier
+                // The lens magnifies a recording of this row. While the pages move the lens is swapped for a plain capsule and nothing draws
+                // that recording, so Android lets it go; a vertical swipe on My feed or the App Library counts as the pages moving without
+                // changing the page, so the row was never drawn (and recorded) again and the lens came back empty: no compass, no list glyph.
+                // Reading the state here redraws the row, and so re-records it, whenever the lens comes or goes.
+                .drawWithContent { movingForRecord.value; drawContent() }
                 .then(if (lensBackdrop != null) Modifier.layerBackdrop(content) else Modifier)
                 .then(if (dotsMode) Modifier.pointerInput(widths, showCompass) {
                     var last = -1

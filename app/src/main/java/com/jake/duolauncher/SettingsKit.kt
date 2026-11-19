@@ -5,6 +5,10 @@ import com.jake.duolauncher.panel.IosOrange
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -23,6 +27,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -150,5 +156,47 @@ internal fun <T> SegmentRow(options: List<T>, selected: T, label: (T) -> String,
 internal fun IconTile(icon: ImageVector, colour: Color) {
     Box(Modifier.size(30.dp).clip(Corner.icon).background(colour), contentAlignment = Alignment.Center) {
         Icon(icon, null, Modifier.size(19.dp), tint = Color.White)
+    }
+}
+
+/**
+ * One choice of several, as a menu: the setting's name, the current choice and an up-and-down mark; a tap opens the choices in a menu beside
+ * it, the chosen one checked. For three or more choices (two are a [SegmentRow], on and off a switch). [value] is what the row says when the
+ * current setting is none of [options] (a theme changed by hand reads "Custom"). [item] draws a choice in the menu, when its name alone
+ * cannot show it (a font, drawn in itself). Each choice keeps [optionTag], so tests and settings search still find it once the menu is open.
+ */
+@Composable
+internal fun <T> DropdownRow(title: String, options: List<T>, selected: T?, label: (T) -> String, tag: String,
+    optionTag: (T) -> String = { "$tag-${label(it)}" }, value: String? = null, enabled: Boolean = true,
+    item: (@Composable (T) -> Unit)? = null, onSelect: (T) -> Unit) {
+    var open by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    val current = value ?: selected?.let(label).orEmpty()
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        .clickable(enabled = enabled, role = Role.DropdownList) { open = true }
+        .semantics { stateDescription = current }
+        .testTag(tag), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else .45f))
+        // The menu hangs from the current value, at the row's end, as iOS's and Android's settings menus do.
+        Box {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(current, Modifier.padding(start = Space.S.dp).widthIn(max = 180.dp), color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Icon(androidx.compose.material.icons.Icons.Rounded.UnfoldMore, null, Modifier.padding(start = 2.dp).size(18.dp), tint = muted.copy(alpha = .7f))
+            }
+            GlassDropdownMenu(open, { open = false }) {
+                // A long list (icon packs, browsers) scrolls inside the menu rather than running off the screen.
+                Column(Modifier.heightIn(max = 380.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                    options.forEach { option ->
+                        val chosen = option == selected
+                        GlassMenuItem(text = { if (item != null) item(option) else Text(label(option), maxLines = 1) },
+                            onClick = { open = false; onSelect(option) },
+                            modifier = Modifier.testTag(optionTag(option)).semantics { this.selected = chosen },
+                            leadingIcon = { Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
+                                if (option == selected) Icon(Icons.Rounded.Check, null, Modifier.size(18.dp), tint = SettingsAccent) } })
+                    }
+                }
+            }
+        }
     }
 }

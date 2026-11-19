@@ -142,10 +142,9 @@ internal fun IslandSymbol.icon(): ImageVector = when (this) {
     IslandSymbol.LOW_BATTERY -> Icons.Rounded.BatteryAlert
 }
 
-/** The island's body: the lens-refracted glass rim the island is known for, around an interior of
- * true black. An OLED pixel at pure black is simply off, so the camera hole disappears into the
- * pill; any translucency would let the wallpaper through and show the hole's edge. Only a thin
- * outer ring keeps a see-through tint, so the refraction and highlight still read.
+/** The island's body. The small and wide pill is solid [themeFill] to its very edge, with no glass rim or edge light: an OLED pixel at
+ * pure black is simply off, so the camera hole disappears into the pill, and a bright rim round a status-bar-sized shape read as a
+ * distraction. As the body opens it becomes glass: the ramp of search's bar ([interior]), or, with that off, black with a thin lens rim.
  */
 @Composable
 internal fun Modifier.islandBody(
@@ -178,18 +177,30 @@ internal fun Modifier.islandBody(
         },
         // On search's bar the black is laid over the glass's edge light and dims it; here the light is drawn last, so open it is dimmed to match.
         highlight = {
-            if (interior != null && openness() > .5f) (if (GlassFinish.clear) GlassFinish.Edge else GlassRim.Light)?.let { it.copy(alpha = it.alpha * .45f) }
-            else GlassRim.Light
+            when {
+                openness() <= .5f -> null
+                interior != null -> (if (GlassFinish.clear) GlassFinish.Edge else GlassRim.Light)?.let { it.copy(alpha = it.alpha * .45f) }
+                else -> GlassRim.Light
+            }
         },
         onDrawSurface = {
+            val body = IslandBodyEdge.rimFraction(openness())
             val open = if (interior == null) 0f else openness().coerceIn(0f, 1f)
-            drawRect(androidx.compose.ui.graphics.lerp(fill.copy(alpha = .55f), GlassFinish.tint(Color.Black.copy(alpha = GlassKind.CLEAR.tintAlpha)), open))
+            // Opaque on the pill, so no glass shows through at its antialiased edge; only an opening body without the glass ramp thins to its rim's tint.
+            val under = fill.copy(alpha = if (interior == null) androidx.compose.ui.util.lerp(1f, .55f, body) else 1f)
+            drawRect(androidx.compose.ui.graphics.lerp(under, GlassFinish.tint(Color.Black.copy(alpha = GlassKind.CLEAR.tintAlpha)), open))
             if (open > 0f && GlassFinish.clear) drawRect(GlassFinish.Sheen, alpha = open)
-            val rim = rimWidth.toPx() * (1f - open)
+            val rim = if (interior == null) rimWidth.toPx() * body else 0f
             val inside = IslandMorph.outlinePath(rim, rim, size.width - 2 * rim, size.height - 2 * rim, (cornerPx() - rim).coerceAtLeast(0f), density)
             if (interior != null) drawPath(inside, interior) else drawPath(inside, fill)
         },
     )
+}
+
+/** How much of the glass rim the island body shows for how open it is (0 the pill, 1 open): none on the small or wide pill, coming in only
+ * once the body is well on its way open. */
+internal object IslandBodyEdge {
+    fun rimFraction(openness: Float): Float = ((openness - .5f) / .5f).coerceIn(0f, 1f)
 }
 
 /** What the island is heading for: a finger's pull, the open panel, the peek (and how far it rests). The animation follows changes in this. */

@@ -70,11 +70,16 @@ class GlassMenusInstrumentedTest {
         compose.waitUntil(10_000) { present("island-style") }
         compose.onNodeWithTag("island-style").performScrollTo()
         IslandThemes.reset()
-        compose.onNodeWithTag("island-preset-Neon", useUnmergedTree = true).performScrollTo().performClick()
+        // Each choice of several is a menu now: open it from its row, then pick.
+        compose.onNodeWithTag("island-preset").performScrollTo().performClick()
+        compose.waitUntil(5_000) { present("island-preset-Neon") }
+        compose.onNodeWithTag("island-preset-Neon", useUnmergedTree = true).performClick()
         compose.waitForIdle()
         assertEquals("Neon", IslandThemes.active.name)
         shot("island-style")
-        compose.onNodeWithTag("island-panel-SQUARE", useUnmergedTree = true).performScrollTo().performClick()
+        compose.onNodeWithTag("island-panel").performScrollTo().performClick()
+        compose.waitUntil(5_000) { present("island-panel-SQUARE") }
+        compose.onNodeWithTag("island-panel-SQUARE", useUnmergedTree = true).performClick()
         compose.waitForIdle()
         assertEquals("Custom", IslandThemes.active.name)
         assertEquals(PanelShape.SQUARE, IslandThemes.active.panel)

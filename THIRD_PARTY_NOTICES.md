@@ -5,6 +5,7 @@ Uno Launcher source uses the MIT license in LICENSE. Dependencies retain their o
 | Component family | Source | License |
 | --- | --- | --- |
 | AndroidX, Jetpack Compose, Material components and icons, Window | https://android.googlesource.com/platform/frameworks/support/ | Apache 2.0 |
+| AndroidX Graphics Shapes, and the shape recipes of Material 3's MaterialShapes (ported into `appearance/ExpressiveShapes.kt`, copyright 2024 The Android Open Source Project) | https://android.googlesource.com/platform/frameworks/support/ | Apache 2.0 |
 | Kotlin standard library | https://github.com/JetBrains/kotlin | Apache 2.0 |
 | Kotlin coroutines | https://github.com/Kotlin/kotlinx.coroutines | Apache 2.0 |
 | Kotlin serialization | https://github.com/Kotlin/kotlinx.serialization | Apache 2.0 |
@@ -12,6 +13,7 @@ Uno Launcher source uses the MIT license in LICENSE. Dependencies retain their o
 | Guava ListenableFuture | https://github.com/google/guava | Apache 2.0 |
 | JSpecify annotations | https://github.com/jspecify/jspecify | Apache 2.0 |
 | Inter typeface (bundled as `res/font/inter_variable.ttf`, v4.001; copyright (c) 2016 The Inter Project Authors) | https://github.com/rsms/inter | SIL Open Font License 1.1; full text in `app/src/main/assets/licenses/Inter-OFL.txt` and shipped in the app |
+| Bagel Fat One typeface (bundled as `res/font/bagel_fat_one.ttf`, subset to Latin; copyright 2022 The Bagel Fat Project Authors) | https://github.com/JAMO-TYPEFACE/BagelFat | SIL Open Font License 1.1; full text in `app/src/main/assets/licenses/BagelFatOne-OFL.txt` and shipped in the app |
 | English word and next-word lists for keyboard suggestions (`assets/keyboard/en_words.txt`, `en_next.txt`; from the SymSpell project, copyright (c) 2018 Wolf Garbe, with frequencies from Google Books Ngram data) | https://github.com/wolfgarbe/SymSpell | MIT License; full text in `app/src/main/assets/licenses/SymSpell-MIT.txt` and shipped in the app |
 | Backdrop, from AndroidLiquidGlass (copyright 2025 Kyant), modified for Uno; the changes are listed in `third_party/backdrop/README.md` | https://github.com/Kyant0/AndroidLiquidGlass | Apache 2.0 |
 | Gradle wrapper and build tooling | https://github.com/gradle/gradle | Apache 2.0; build-tool distributions include their additional notices |

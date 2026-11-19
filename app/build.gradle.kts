@@ -91,7 +91,7 @@ android {
     kotlinOptions { jvmTarget = "17" }
 }
 dependencies {
-    implementation(platform("androidx.compose:compose-bom:2025.06.01"))
+    implementation(platform("androidx.compose:compose-bom:2025.11.00"))
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.1")
@@ -99,6 +99,8 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    // Rounded polygons and the morphs between them: the outlines of Material 3 Expressive's shapes (see appearance/ExpressiveShapes.kt).
+    implementation("androidx.graphics:graphics-shapes:1.1.0")
     implementation("androidx.palette:palette-ktx:1.0.0")
     // Uno Keyboard's autofill chips: the style the platform asks inline suggestions to be drawn in.
     implementation("androidx.autofill:autofill:1.1.0")
@@ -107,7 +109,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
     testImplementation("net.sf.kxml:kxml2:2.3.0")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2025.06.01"))
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.11.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

@@ -181,8 +181,13 @@ All surfaces share one lens (`liquidGlass`), tuned toward iOS 26's Liquid Glass 
   backdrop library's own iOS-style glass (24 dp / 32 dp), so the dock and widgets warped the wallpaper far more than an iPhone does.
 - Vibrancy (1.5 saturation) and a wallpaper-adaptive tone (`BackdropTone`) on every surface; the directional rim (`GlassRim`)
   follows the light, and the tilt when that is on.
-- Tint follows the wallpaper: the photo's muted palette blended 50% into the theme
-  glass; the drawn dunes keep the theme glass.
+- Tint is neutral (the theme glass) on every wallpaper, as iOS's glass is. Only with the accent taken from the wallpaper (Customize ›
+  Accent › From Wallpaper) is the photo's muted palette blended 50% into it. It used to be blended in always, which made the dock, folders
+  and pills a different colour on every wallpaper. How light or dark glass reads over the photo is still adapted by `BackdropTone`.
+- Folder tiles on Home are the clear material too (`GlassKind.CLEAR` tint through `GlassFinish.tint`, `GlassFinish.Sheen`, a 0.75 dp edge),
+  drawn on the cheap frosted path rather than a live lens.
+- The pages either side of Home (My feed, the App Library) are one panel: `Corner.xlarge`, a page title (`headlineMedium`) with its status
+  line under it in `caption1` at 74 %, and `GlassFinish.PanelSheen` along the top.
 - The lens is sized to the surface (`GlassLensSize`): the band is held to 30% of the surface's short side and the bend shrinks with it,
   and the colour split needs a surface at least 64 dp across. A 40 dp pill under the full 24 dp band was edge from end to end, a rainbow
   smear rather than glass.
@@ -394,6 +399,36 @@ They play the long-press cue when they open and a tick for each row.
 On those pages the wallpaper behind the cards is blurred (`blurredPagesAmount` fades the blurred picture in as the pages come into view); the cards
 are translucent glass over it (`frostedGlass`), which costs almost nothing while the pages move.
 
+## Settings rows and Android's Settings
+
+- **Choices:** a choice of three or more is a `DropdownRow` (its name, the current value and an up-and-down mark, opening a glass menu of the
+  choices with the current one checked). Two named choices are a `SegmentRow`, on and off is a switch, and colours stay swatches. Each choice keeps
+  its own test tag inside the menu. Explanations go in the group's footer, not in notes between rows.
+- **Android's Settings:** Android's App info page links to Uno's settings ("Additional settings in the app", through
+  `SettingsLinkActivity` and `APPLICATION_PREFERENCES`). The link opens the same settings sheet over Home; there is no second settings screen.
+- **Text font:** Appearance › Font sets every `UnoType` step in Inter (the default) or the phone's own font (`UnoFonts`; the system font keeps
+  Android's own letter spacing). The island headline's Classic face follows it, and System is also offered as a headline face.
+
+## Expressive layer (`appearance/Expressive.kt`)
+
+The launcher is calm by default (Inter, neutral glass, continuous corners). On top of that sits one small expressive layer, in the Pixel manner, used
+for a page's one focal point and nowhere else:
+
+- **One display face** per use. `DisplayFace` lists them: Classic (Inter), Script, Chunky and Tall (Roboto Flex at its extremes), Editorial, Marker
+  (all read from the phone's `/system/fonts`), and Bagel (Bagel Fat One, the one face bundled with Uno, subset to Latin). A face the phone does not
+  have is never offered and resolves to Classic. Display faces are for big text only (a page title, the island's headline, a lead story, a badge
+  numeral); body text, buttons and fields stay on `UnoType`.
+- **One shape family**: Material 3 Expressive's own shapes (`ExpressiveShapes.kt`: the cookies, Sunny, Soft burst, Flower, Clover, Pill and
+  Pentagon), built on `androidx.graphics.shapes` with the vertices and roundings of Material 3's `MaterialShapes`, which is only in the 1.5
+  pre-releases. Badges and decoration only; panels keep `Corner` tokens, since the glass lens cannot bend round other outlines. `ShapeLoader` is
+  Material's loading indicator (a shape that turns as it morphs into the next), used where a refresh is waiting.
+- **One tonal ramp**: `TonalRamp` turns the accent a fixed way round the hue wheel at one lightness, so a page can give each feed or each group its own
+  colour without a rainbow. Every tone carries its own ink, held to 4.5:1 by a unit test. Tonal containers are opaque.
+
+Where it is used: My feed's and the App Library's titles (Chunky), the feed's new-story count (a numeral in a cookie), its lead story (the newest
+story, while no filter or search is on, on a tonal card), each feed's monogram, the Library's group headers (a letter in a cookie, or a category in a
+tonal pill with its count), and the open island's headline (face and colour from the island theme, words from the person's own setting).
+
 ## App icons (`IconLighting.kt`)
 
 iOS 26's icons are nearly flat: a faint sheen, a thin edge of light, a hairline of shade at the edge. The older domed look (a strong top glow, a darker
@@ -406,7 +441,7 @@ pages of a pager with an Add widget button, and a held preview can still be drag
 
 ## Island themes
 
-The island's look is data (`island/IslandTheme.kt`): colours, a panel shape, a control shape and a motion feel, applied by one object, `IslandThemes.active`. Island code reads its colours, shapes and springs from the active theme and never hard-codes them, with three exceptions that are deliberate: the privacy marks (camera, microphone, recording, VPN, USB), the call controls, and anything that is not the island's own surface. Rules for themes, and the file format, are in [Island themes](island-themes.md). When adding something to the island, ask which theme slot it uses; if none fits, add a slot (and a field to the file format, keeping old files valid) instead of a literal.
+The island's look is data (`island/IslandTheme.kt`): colours, a panel shape, a control shape and a motion feel, applied by one object, `IslandThemes.active`. Island code reads its colours, shapes and springs from the active theme and never hard-codes them, with three exceptions that are deliberate: the privacy marks (camera, microphone, recording, VPN, USB), the call controls, and anything that is not the island's own surface. Rules for themes, and the file format, are in [Island themes](island-themes.md). The headline's face and colour are theme slots (`face`, `heroTint`); what it says (the time, a greeting, the day, the date) is personal and lives in `IslandHero`, never in a theme file. The small and wide pill is solid fill to its edge, with no glass rim or edge light; the rim only comes in as the body opens. When adding something to the island, ask which theme slot it uses; if none fits, add a slot (and a field to the file format, keeping old files valid) instead of a literal.
 
 ## Non-goals for now
 

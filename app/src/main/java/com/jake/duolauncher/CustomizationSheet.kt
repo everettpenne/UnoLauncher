@@ -150,7 +150,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                     if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.SEARCH)
                 }
                 CustomizationPage.ISLAND -> IslandPage(appearance, extras, apps, islandEverywhere, onIsland, onIslandEverywhere, onIslandHeight, onPage)
-                CustomizationPage.ISLAND_STYLE -> SettingsGroup { row { IslandStyleSection(IslandThemeController.current) } }
+                CustomizationPage.ISLAND_STYLE -> IslandStyleSection(IslandThemeController.current)
                 CustomizationPage.KEYBOARD -> if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.KEYBOARD)
                 CustomizationPage.PRIVACY -> {
                     if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.PRIVACY)
@@ -235,8 +235,8 @@ private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> U
             samples == 0 -> append(" No motion readings yet.")
         }
     }) {
-        row { SegmentRow(GlassChoice.entries, appearance.glassKind, { when (it) { GlassChoice.CLEAR -> "Clear"; GlassChoice.FROSTED -> "Frosted"; GlassChoice.OFF -> "Off" } },
-            { "glass-${it.name.lowercase()}" }, onGlass) }
+        row { DropdownRow("Glass", GlassChoice.entries, appearance.glassKind, { when (it) { GlassChoice.CLEAR -> "Clear"; GlassChoice.FROSTED -> "Frosted"; GlassChoice.OFF -> "Off" } },
+            "glass-style", optionTag = { "glass-${it.name.lowercase()}" }, onSelect = onGlass) }
         if (appearance.liquidGlass) row { SettingsSwitch("Edge Highlight", appearance.edgeHighlight, onEdgeHighlight, "edge-highlight-switch") }
         if (appearance.liquidGlass && appearance.edgeHighlight) row { SettingsSwitch("Tilt Highlight", appearance.tiltHighlight, onTiltHighlight, "tilt-highlight-switch") }
     }
@@ -244,9 +244,14 @@ private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> U
         row { SegmentRow(WidgetStyle.entries, appearance.widgetStyle, { when (it) { WidgetStyle.CARD -> "Card"; WidgetStyle.GLASS -> "Glass" } },
             { "widget-style-${it.name.lowercase()}" }, onWidgetStyle) }
     }
+    val fontContext = androidx.compose.ui.platform.LocalContext.current
+    SettingsGroup(header = "Font", footer = "System sets Uno's text in your phone's own font (Roboto on GrapheneOS) instead of Inter. Big display type, like the island's headline font, is chosen on its own.") {
+        row { SegmentRow(listOf(false, true), com.jake.duolauncher.appearance.UnoFonts.system, { if (it) "System" else "Inter" },
+            { if (it) "font-system" else "font-inter" }) { com.jake.duolauncher.appearance.UnoFonts.setSystem(fontContext, it) } }
+    }
     SettingsGroup(header = "Accent", footer = "The colour of switches, sliders, check marks and highlights. From Wallpaper picks one colour from your background and keeps text readable.") {
-        row { CheckRow("Uno Orange", !appearance.wallpaperColor, "accent-orange") { onWallpaperColor(false) } }
-        row { CheckRow("From Wallpaper", appearance.wallpaperColor, "accent-wallpaper") { onWallpaperColor(true) } }
+        row { SegmentRow(listOf(false, true), appearance.wallpaperColor, { if (it) "From Wallpaper" else "Uno Orange" },
+            { if (it) "accent-wallpaper" else "accent-orange" }, onWallpaperColor) }
     }
     SettingsGroup(footer = "The wallpaper drifts a little against the pages as you swipe. It stays still when Android's animations are off.") {
         row { SettingsSwitch("Wallpaper Depth", appearance.wallpaperDepth, onWallpaperDepth, "wallpaper-depth-switch") }
@@ -504,8 +509,8 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
     if (!wide) SettingsGroup(header = "Layout", footer = if (homeStyle == HomeStyle.IOS)
             "iPhone: a strict iOS grid with Small, Medium and Large widgets, and the dock along the bottom with Search above it. The status bar shows instead of the status rail."
             else "Side Dock: four apps in a column on the right, under the status rail. Good on foldables and wide screens.") {
-        row { CheckRow("Side Dock", homeStyle == HomeStyle.SIDE, "home-layout-side") { onHomeStyle(HomeStyle.SIDE) } }
-        row { CheckRow("iPhone", homeStyle == HomeStyle.IOS, "home-layout-ios") { onHomeStyle(HomeStyle.IOS) } }
+        row { SegmentRow(listOf(HomeStyle.SIDE, HomeStyle.IOS), homeStyle, { if (it == HomeStyle.IOS) "iPhone" else "Side Dock" },
+            { if (it == HomeStyle.IOS) "home-layout-ios" else "home-layout-side" }, onHomeStyle) }
     }
     SettingsGroup {
         row { NavRow("Pinned Apps", "home-pinned-apps", onClick = onEditPins) }

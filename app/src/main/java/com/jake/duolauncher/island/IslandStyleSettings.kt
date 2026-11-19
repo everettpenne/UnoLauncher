@@ -2,6 +2,8 @@ package com.jake.duolauncher.island
 
 import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.*
+import com.jake.duolauncher.SettingsGroup
+import com.jake.duolauncher.DropdownRow
 import com.jake.duolauncher.appearance.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -25,7 +27,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** The island's look, in the Dynamic island settings page: presets, shapes, motion, colours, and theme files. */
+/**
+ * The island's look, in the Dynamic island settings page, laid out as the rest of Settings: grouped rows, a menu for each choice of several,
+ * a switch for each on and off, and the explanations in the groups' footers. A change replays the live preview at the top of the page, on the
+ * open island when it is something only the open island shows.
+ */
 @Composable
 internal fun IslandStyleSection(controller: IslandThemeController?) {
     val theme = IslandThemes.active
@@ -33,71 +39,71 @@ internal fun IslandStyleSection(controller: IslandThemeController?) {
     val message = notice ?: controller?.message
     val ink = MaterialTheme.colorScheme.onSurface
 
-    // The live preview at the top of the island page replays its scene with the new look, so a colour or a motion is seen, not imagined.
     val preview = LocalIslandPreview.current
     fun change(candidate: IslandTheme) {
         val renamed = if (candidate.name == theme.name && IslandThemes.presets.any { it.name == theme.name }) candidate.copy(name = "Custom", author = "") else candidate
         val problem = IslandThemeMath.problem(renamed)
         if (problem != null) notice = problem else {
             notice = null; controller?.clearMessage(); IslandThemes.apply(renamed)
-            // a new panel or button shape is only seen on the open island; everything else shows in whatever is playing
-            if (renamed.panel != theme.panel || renamed.controls != theme.controls) preview?.show(PreviewScene.OPEN) else preview?.replay()
+            // a new panel or button shape, or a headline change, is only seen on the open island; everything else shows in whatever is playing
+            if (renamed.panel != theme.panel || renamed.controls != theme.controls || renamed.face != theme.face || renamed.heroTint != theme.heroTint)
+                preview?.show(PreviewScene.OPEN) else preview?.replay()
         }
     }
 
-    Column(Modifier.fillMaxWidth().testTag("island-style"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        GlassDivider()
-        GlassHeading("ISLAND STYLE")
+    Column(Modifier.fillMaxWidth().testTag("island-style"), verticalArrangement = Arrangement.spacedBy(Space.S.dp)) {
         IslandThemePreview(theme)
-        GlassChips(IslandThemes.presets, IslandThemes.presets.firstOrNull { it.name == theme.name } ?: IslandThemes.presets[0],
-            { it.name }, { IslandThemes.apply(it); notice = null; controller?.clearMessage(); preview?.replay() }, tagPrefix = "island-preset")
-        if (IslandThemes.presets.none { it.name == theme.name }) GlassNote("Using ${theme.name}${if (theme.author.isNotEmpty()) " by ${theme.author}" else ""}.")
+        // The theme in use: one of the built-in ones, or "Custom" (or an imported theme's own name) once anything is changed by hand.
+        val preset = IslandThemes.presets.firstOrNull { it.name == theme.name }
+        SettingsGroup(footer = if (preset == null && theme.author.isNotEmpty()) "${theme.name} by ${theme.author}." else null) {
+            row { DropdownRow("Theme", IslandThemes.presets, preset, { it.name }, "island-preset", value = preset?.name ?: theme.name,
+                optionTag = { "island-preset-${it.name}" }) { IslandThemes.apply(it); notice = null; controller?.clearMessage(); preview?.replay() } }
+        }
 
-        GlassHeading("PANEL SHAPE")
-        GlassChips(PanelShape.values().toList(), theme.panel, { it.label }, { change(theme.copy(panel = it)) }, tagPrefix = "island-panel", key = { it.name })
-        GlassHeading("BUTTONS")
-        GlassChips(ControlShape.values().toList(), theme.controls, { it.label }, { change(theme.copy(controls = it)) }, tagPrefix = "island-controls", key = { it.name })
-        GlassHeading("MOTION")
-        GlassChips(IslandMotion.values().toList(), theme.motion, { it.label }, { change(theme.copy(motion = it)) }, tagPrefix = "island-motion", key = { it.name })
-        GlassNote("Shapes are rounded rectangles because the glass lens cannot bend around other outlines.")
+        IslandHeadlineGroup(theme, { change(it) }, onChanged = { preview?.show(PreviewScene.OPEN) })
 
-        GlassHeading("PLAYFUL")
-        GlassChips(listOf(true, false), theme.playful, { if (it) "Playful" else "Calm" }, { change(theme.copy(playful = it)) },
-            tagPrefix = "island-playful", key = { it.toString() })
-        GlassNote("Playful adds shapes that morph, digits that roll, wavy progress and little bursts. Calm keeps the cards still.")
-        GlassHeading("COLOURS")
-        SwatchRow("Body", theme.fill, FILLS, "fill") { change(theme.copy(fill = it)) }
-        SwatchRow("Text", theme.ink, INKS, "ink") { change(theme.copy(ink = it)) }
-        SwatchRow("Playback", theme.playback, ACCENTS, "playback") { change(theme.copy(playback = it)) }
-        SwatchRow("Charging", theme.charging, ACCENTS, "charging") { change(theme.copy(charging = it)) }
-        SwatchRow("Timer and silent", theme.timer, ACCENTS, "timer") { change(theme.copy(timer = it)) }
-        SwatchRow("Focus", theme.focus, ACCENTS, "focus") { change(theme.copy(focus = it)) }
-        SwatchRow("Highlight (apps with no colour)", theme.highlight, ACCENTS, "highlight") { change(theme.copy(highlight = it)) }
-        GlassHeading("APP COLOURS")
-        GlassChips(listOf(true, false), theme.appColors, { if (it) "Each app's own" else "One highlight" }, { change(theme.copy(appColors = it)) },
-            tagPrefix = "island-appcolors", key = { it.toString() })
-        GlassNote(if (theme.appOverrides.isEmpty()) "Colours for single apps can be set in a theme file (see the island themes guide)."
-            else "${theme.appOverrides.size} app colour${if (theme.appOverrides.size == 1) "" else "s"} set by this theme.")
-        GlassHeading("APP ICON SHAPE")
-        GlassChips(IconShape.values().toList(), theme.iconShape, { it.label }, { change(theme.copy(iconShape = it)) }, tagPrefix = "island-iconshape", key = { it.name })
-        GlassHeading("PROGRESS")
-        SwatchRow("While filling", theme.progressActive ?: theme.highlight, ACCENTS, "progress") { change(theme.copy(progressActive = it)) }
-        SwatchRow("When full", theme.progressFinished ?: theme.highlight, ACCENTS, "finished") { change(theme.copy(progressFinished = it)) }
-        GlassChips(listOf(false, true), theme.showPercentage, { if (it) "Show percentage" else "Bar only" }, { change(theme.copy(showPercentage = it)) },
-            tagPrefix = "island-percent", key = { it.toString() })
-        GlassHeading("NAVIGATION")
-        GlassChips(listOf(false, true), theme.swapNavigation, { if (it) "Arrow on the right" else "Arrow on the left" }, { change(theme.copy(swapNavigation = it)) },
-            tagPrefix = "island-navswap", key = { it.toString() })
-        GlassNote("The body stays dark so the camera hole is hidden, and every colour must stay readable on it. Camera, microphone, recording, VPN and USB marks and the call buttons keep their own colours so they are always recognisable.")
+        SettingsGroup(header = "Shape & Motion", footer = "Shapes are rounded rectangles because the glass lens cannot bend around other outlines.") {
+            row { DropdownRow("Panel", PanelShape.values().toList(), theme.panel, { it.label }, "island-panel", optionTag = { "island-panel-${it.name}" }) { change(theme.copy(panel = it)) } }
+            row { DropdownRow("Buttons", ControlShape.values().toList(), theme.controls, { it.label }, "island-controls", optionTag = { "island-controls-${it.name}" }) { change(theme.copy(controls = it)) } }
+            row { DropdownRow("App Icons", IconShape.values().toList(), theme.iconShape, { it.label }, "island-iconshape", optionTag = { "island-iconshape-${it.name}" }) { change(theme.copy(iconShape = it)) } }
+            row { DropdownRow("Motion", IslandMotion.values().toList(), theme.motion, { it.label }, "island-motion", optionTag = { "island-motion-${it.name}" }) { change(theme.copy(motion = it)) } }
+        }
+        SettingsGroup(footer = "Playful adds shapes that morph, digits that roll, wavy progress and little bursts. Off keeps the cards still.") {
+            row { com.jake.duolauncher.SettingsSwitch("Playful", theme.playful, { change(theme.copy(playful = it)) }, "island-playful") }
+        }
 
-        GlassHeading("SHARE")
-        GlassButton("Import a theme", { controller?.importTheme() }, Modifier.fillMaxWidth(), enabled = controller != null, tag = "island-theme-import")
-        GlassButton("Export this theme", { controller?.exportTheme() }, Modifier.fillMaxWidth(), enabled = controller != null, tag = "island-theme-export")
-        GlassButton(stringResource(com.jake.duolauncher.R.string.island_theme_copy), { controller?.copyTheme() }, Modifier.fillMaxWidth(), enabled = controller != null, tag = "island-theme-copy")
-        GlassButton(stringResource(com.jake.duolauncher.R.string.island_theme_paste), { controller?.pasteTheme() }, Modifier.fillMaxWidth(), enabled = controller != null, tag = "island-theme-paste")
-        GlassButton("Reset to Classic", { IslandThemes.reset(); notice = null; controller?.clearMessage() }, Modifier.fillMaxWidth(), tag = "island-theme-reset")
-        GlassNote("Themes are small text files. Only install ones from people you trust; a theme can change how the island looks and moves, never what it does or what it can see.")
-        if (message != null) Text(message, color = ink, style = UnoType.footnote.tight, modifier = Modifier.testTag("island-theme-message"))
+        SettingsGroup(header = "Colours", footer = "The body stays dark so the camera hole is hidden, and every colour must stay readable on it. Camera, microphone, recording, VPN and USB marks and the call buttons keep their own colours so they are always recognisable.") {
+            row { SwatchRow("Body", theme.fill, FILLS, "fill") { change(theme.copy(fill = it)) } }
+            row { SwatchRow("Text", theme.ink, INKS, "ink") { change(theme.copy(ink = it)) } }
+            row { SwatchRow("Playback", theme.playback, ACCENTS, "playback") { change(theme.copy(playback = it)) } }
+            row { SwatchRow("Charging", theme.charging, ACCENTS, "charging") { change(theme.copy(charging = it)) } }
+            row { SwatchRow("Timer and Silent", theme.timer, ACCENTS, "timer") { change(theme.copy(timer = it)) } }
+            row { SwatchRow("Focus", theme.focus, ACCENTS, "focus") { change(theme.copy(focus = it)) } }
+            row { SwatchRow("Highlight", theme.highlight, ACCENTS, "highlight") { change(theme.copy(highlight = it)) } }
+        }
+        SettingsGroup(footer = when {
+            theme.appOverrides.isNotEmpty() -> "${theme.appOverrides.size} app colour${if (theme.appOverrides.size == 1) "" else "s"} set by this theme."
+            else -> "Off, every app wears the highlight. Colours for single apps can be set in a theme file (see the island themes guide)."
+        }) {
+            row { com.jake.duolauncher.SettingsSwitch("Each App's Own Colour", theme.appColors, { change(theme.copy(appColors = it)) }, "island-appcolors") }
+        }
+        SettingsGroup(header = "Progress") {
+            row { SwatchRow("While Filling", theme.progressActive ?: theme.highlight, ACCENTS, "progress") { change(theme.copy(progressActive = it)) } }
+            row { SwatchRow("When Full", theme.progressFinished ?: theme.highlight, ACCENTS, "finished") { change(theme.copy(progressFinished = it)) } }
+            row { com.jake.duolauncher.SettingsSwitch("Show Percentage", theme.showPercentage, { change(theme.copy(showPercentage = it)) }, "island-percent") }
+        }
+        SettingsGroup(header = "Navigation Arrow") {
+            row { com.jake.duolauncher.SegmentRow(listOf(false, true), theme.swapNavigation, { if (it) "Right" else "Left" }, { "island-navswap-$it" }) { change(theme.copy(swapNavigation = it)) } }
+        }
+
+        SettingsGroup(header = "Share", footer = "Themes are small text files. Only install ones from people you trust; a theme can change how the island looks and moves, never what it does or what it can see.") {
+            row { com.jake.duolauncher.ActionRow("Import a Theme", "island-theme-import", enabled = controller != null) { controller?.importTheme() } }
+            row { com.jake.duolauncher.ActionRow("Export This Theme", "island-theme-export", enabled = controller != null) { controller?.exportTheme() } }
+            row { com.jake.duolauncher.ActionRow(stringResource(com.jake.duolauncher.R.string.island_theme_copy), "island-theme-copy", enabled = controller != null) { controller?.copyTheme() } }
+            row { com.jake.duolauncher.ActionRow(stringResource(com.jake.duolauncher.R.string.island_theme_paste), "island-theme-paste", enabled = controller != null) { controller?.pasteTheme() } }
+            row { com.jake.duolauncher.ActionRow("Reset to Classic", "island-theme-reset", destructive = true) { IslandThemes.reset(); notice = null; controller?.clearMessage() } }
+        }
+        if (message != null) Text(message, Modifier.padding(horizontal = Space.L.dp).testTag("island-theme-message"), color = ink, style = UnoType.footnote.tight)
     }
 
     val pending = controller?.preview
@@ -134,8 +140,8 @@ private fun IslandThemePreview(theme: IslandTheme) {
 @Composable
 private fun SwatchRow(label: String, selected: Color, palette: List<Color>, key: String, onPick: (Color) -> Unit) {
     val ink = MaterialTheme.colorScheme.onSurface
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, color = ink, style = UnoType.subheadline.tight)
+    Column(Modifier.padding(vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, color = ink)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             palette.forEach { c ->
                 val on = c == selected

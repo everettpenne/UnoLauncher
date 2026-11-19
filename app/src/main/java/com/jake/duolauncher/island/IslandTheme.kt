@@ -99,6 +99,9 @@ internal enum class IslandMotion(
     }
 }
 
+/** The colour of the open island's headline. */
+internal enum class HeroTint(val label: String) { INK("Text colour"), HIGHLIGHT("Highlight"), SWEEP("Colour sweep") }
+
 internal data class IslandTheme(
     val name: String,
     val author: String = "",
@@ -131,6 +134,10 @@ internal data class IslandTheme(
     val navigationColor: Color? = null,
     /** The playful touches (shapes that morph, digits that roll, wavy progress, bursts). On by default; off leaves the calmer cards. */
     val playful: Boolean = true,
+    /** The face of the open island's headline (the time, or a greeting). Classic is Inter, as before; the rest are display faces. */
+    val face: com.jake.duolauncher.appearance.DisplayFace = com.jake.duolauncher.appearance.DisplayFace.CLASSIC,
+    /** The headline's colour: the text colour, the highlight, or a sweep from the highlight into the playback colour. */
+    val heroTint: HeroTint = HeroTint.INK,
 ) {
     /**
      * The one place an app's accent is decided. [requested] is the colour the app's notification asked for (null when it asked for none
@@ -280,8 +287,13 @@ internal object IslandThemeFile {
         val swap = if (!navigation.has("swapSides")) false else (navigation.opt("swapSides") as? Boolean) ?: return Result.Rejected("navigation.swapSides must be true or false.")
         val navColour = if (navigation.has("color")) parseColour(navigation.opt("color")) ?: return Result.Rejected("navigation.color must be written like \"#RRGGBB\".") else null
         val playful = if (!root.has("playful")) true else (root.opt("playful") as? Boolean) ?: return Result.Rejected("playful must be true or false.")
+        // A face this version does not know, or one this phone does not have, is Classic: a theme written for a newer Uno or another phone still loads.
+        val type = root.optJSONObject("type") ?: JSONObject()
+        val face = com.jake.duolauncher.appearance.DisplayFace.values().firstOrNull { it.name.equals(type.optString("face"), ignoreCase = true) }
+            ?: com.jake.duolauncher.appearance.DisplayFace.CLASSIC
+        val heroTint = HeroTint.values().firstOrNull { it.name.equals(type.optString("tint"), ignoreCase = true) } ?: HeroTint.INK
         val base = IslandTheme.Classic
-        val theme = IslandTheme(name = name, author = author,
+        val theme = IslandTheme(face = face, heroTint = heroTint,name = name, author = author,
             fill = parsed["fill"] ?: base.fill, ink = parsed["ink"] ?: base.ink, playback = parsed["playback"] ?: base.playback,
             charging = parsed["charging"] ?: base.charging, timer = parsed["timer"] ?: base.timer, focus = parsed["focus"] ?: base.focus,
             panel = panel, controls = controls, motion = motion,
@@ -308,6 +320,9 @@ internal object IslandThemeFile {
             theme.progressActive?.let { put("active", hex(it)) }; theme.progressFinished?.let { put("finished", hex(it)) }
             if (theme.showPercentage) put("showPercentage", true) })
         if (!theme.playful) put("playful", false)
+        if (theme.face != com.jake.duolauncher.appearance.DisplayFace.CLASSIC || theme.heroTint != HeroTint.INK) put("type", JSONObject().apply {
+            if (theme.face != com.jake.duolauncher.appearance.DisplayFace.CLASSIC) put("face", theme.face.name.lowercase())
+            if (theme.heroTint != HeroTint.INK) put("tint", theme.heroTint.name.lowercase()) })
         if (theme.swapNavigation || theme.navigationColor != null) put("navigation", JSONObject().apply {
             if (theme.swapNavigation) put("swapSides", true); theme.navigationColor?.let { put("color", hex(it)) } })
     }.toString(2)
@@ -363,6 +378,13 @@ internal object IslandThemes {
             timer = Color(0xFFFF8A3D), focus = Color(0xFF8FB8FF), panel = PanelShape.SOFT, controls = ControlShape.ROUNDED, motion = IslandMotion.DROPLET),
         IslandTheme("Forest", fill = Color(0xFF040A06), ink = Color(0xFFEAFBEF), playback = Color(0xFF5BE37D), charging = Color(0xFFA6F7B4),
             timer = Color(0xFFF2C35B), focus = Color(0xFF8FD3FF), panel = PanelShape.SOFT, controls = ControlShape.ROUNDED, motion = IslandMotion.SNAPPY),
+        // Display faces: a big, loud headline in the Pixel manner, and a hand-written one.
+        IslandTheme("Pop", fill = Color(0xFF07040F), ink = Color(0xFFFFF7EC), playback = Color(0xFFFF5D8F), charging = Color(0xFF7CF29A),
+            timer = Color(0xFFFFB13D), focus = Color(0xFF9D8CFF), highlight = Color(0xFFFFB13D), panel = PanelShape.ROUND, controls = ControlShape.PILL,
+            motion = IslandMotion.BOUNCY, face = com.jake.duolauncher.appearance.DisplayFace.CHUNKY, heroTint = HeroTint.SWEEP),
+        IslandTheme("Hello", fill = Color(0xFF050505), ink = Color(0xFFFFFFFF), playback = Color(0xFFFF7AB6), charging = Color(0xFF7CF2D2),
+            timer = Color(0xFFFFC857), focus = Color(0xFFB79CFF), highlight = Color(0xFF5EC8FF), panel = PanelShape.ROUND, controls = ControlShape.PILL,
+            motion = IslandMotion.STANDARD, face = com.jake.duolauncher.appearance.DisplayFace.SCRIPT, heroTint = HeroTint.SWEEP),
     )
 
     fun init(context: Context) {

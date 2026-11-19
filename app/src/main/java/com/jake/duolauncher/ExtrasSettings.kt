@@ -44,14 +44,14 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
 private fun GesturesGroups(store: ExtrasStore, s: ExtrasState, apps: List<AppEntry>) {
     SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.pulling_down_on_home),
         footer = "Like iOS: from the top edge, notifications on the left and the control panel on the right; from lower down, search.") {
-        row { CheckRow("Like iOS", s.pullDown == PullDown.SMART, "pull-smart") { store.setPullDown(PullDown.SMART) } }
-        row { CheckRow("Notifications on the Left", s.pullDown == PullDown.NOTIFICATIONS, "pull-notifications") { store.setPullDown(PullDown.NOTIFICATIONS) } }
-        row { CheckRow("Search on the Left", s.pullDown == PullDown.SEARCH, "pull-search") { store.setPullDown(PullDown.SEARCH) } }
+        row { DropdownRow("Pull Down", listOf(PullDown.SMART, PullDown.NOTIFICATIONS, PullDown.SEARCH), s.pullDown,
+            { when (it) { PullDown.SMART -> "Like iOS"; PullDown.NOTIFICATIONS -> "Notifications on the Left"; else -> "Search on the Left" } }, "pull-down",
+            optionTag = { when (it) { PullDown.SMART -> "pull-smart"; PullDown.NOTIFICATIONS -> "pull-notifications"; else -> "pull-search" } }, onSelect = store::setPullDown) }
     }
     SettingsGroup(header = "Right Side",
         footer = "Android Mode opens Android's own Quick Settings in place of Uno's control panel. It needs the optional shade accessibility service.") {
-        row { CheckRow("Control Panel", s.rightSwipe == RightSwipe.PANEL, "swipe-panel") { store.setRightSwipe(RightSwipe.PANEL) } }
-        row { CheckRow("Android Mode", s.rightSwipe == RightSwipe.SYSTEM, "swipe-system") { store.setRightSwipe(RightSwipe.SYSTEM) } }
+        row { SegmentRow(listOf(RightSwipe.PANEL, RightSwipe.SYSTEM), s.rightSwipe, { if (it == RightSwipe.SYSTEM) "Android Mode" else "Control Panel" },
+            { if (it == RightSwipe.SYSTEM) "swipe-system" else "swipe-panel" }, store::setRightSwipe) }
     }
     SettingsGroup(footer = "Double-tap an empty spot on Home to lock the screen. Android allows this only through Uno's accessibility service, which you turn on yourself.") {
         row { SettingsSwitch("Double-Tap to Lock", s.doubleTapLock, store::setDoubleTapLock, "double-tap-lock-switch") }
@@ -84,9 +84,9 @@ private fun GesturesGroups(store: ExtrasStore, s: ExtrasState, apps: List<AppEnt
 @Composable
 private fun IconGroups(store: ExtrasStore, s: ExtrasState) {
     SettingsGroup(header = "App Icons", footer = "Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Dark puts each app's colours on a near-black tile, and Auto does that while Uno is dark. Icon Lighting gives original icons a soft lit edge, like iOS.") {
-        row { SegmentRow(IconStyle.entries, s.iconStyle, { when (it) { IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark"; IconStyle.AUTOMATIC -> "Auto" } },
-            { when (it) { IconStyle.ORIGINAL -> "icons-original"; IconStyle.THEMED -> "icons-themed"; IconStyle.TINTED -> "icons-tinted"; IconStyle.DARK -> "icons-dark"; IconStyle.AUTOMATIC -> "icons-auto" } },
-            store::setIconStyle) }
+        row { DropdownRow("Style", IconStyle.entries, s.iconStyle, { when (it) { IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark"; IconStyle.AUTOMATIC -> "Auto" } },
+            "icons-style", optionTag = { when (it) { IconStyle.ORIGINAL -> "icons-original"; IconStyle.THEMED -> "icons-themed"; IconStyle.TINTED -> "icons-tinted"; IconStyle.DARK -> "icons-dark"; IconStyle.AUTOMATIC -> "icons-auto" } },
+            onSelect = store::setIconStyle) }
         row { SettingsSwitch("Icon Lighting", s.iconLighting, store::setIconLighting, "icons-lit") }
     }
     IconPackSettings(s.iconPack, store::setIconPack)
@@ -107,8 +107,9 @@ private fun SearchGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasSt
             } }
         }
         SettingsGroup(header = "Web Search", footer = "Automatic uses Vanadium if it is installed, otherwise any browser.") {
-            row { CheckRow("Automatic", s.webPackage == null, "web-auto") { store.setWebPackage(null) } }
-            resolver.installedBrowsers().forEach { (pkg, label) -> row { CheckRow(label, s.webPackage == pkg, "web-$pkg") { store.setWebPackage(pkg) } } }
+            val browsers = listOf<Pair<String?, String>>(null to "Automatic") + resolver.installedBrowsers().map { (pkg, label) -> pkg to label }
+            row { DropdownRow("Browser", browsers, browsers.firstOrNull { it.first == s.webPackage }, { it.second }, "web-browser",
+                optionTag = { it.first?.let { pkg -> "web-$pkg" } ?: "web-auto" }) { store.setWebPackage(it.first) } }
         }
     }
     SettingsGroup(footer = "The App Library also finds people. Asks for Android's contacts permission; names stay on the phone.") {
@@ -126,6 +127,14 @@ private fun SearchGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasSt
     if (labPresent && s.localAssistant) SettingsGroup(footer = "When you ask for something to be done (a timer, a note, opening an app), Qwen does it and says what it did, with Undo where it can be taken back. Anything that leaves the phone, such as a reply to a message, shows exactly what will be sent and waits for your tap. Needs Uno Lab 0.3.9 or later.") {
         row { SettingsSwitch("Let Qwen do tasks", s.agentTasks, store::setAgentTasks, "agent-tasks-switch") }
         if (s.agentTasks) row { SettingsSwitch("Ask before every action", s.agentAskFirst, store::setAgentAskFirst, "agent-ask-first-switch") }
+    }
+    if (labPresent && s.localAssistant) {
+        com.jake.duolauncher.search.ChatStore.load(context)
+        val kept = com.jake.duolauncher.search.ChatLog.listed(com.jake.duolauncher.search.ChatStore.chats).size
+        SettingsGroup(footer = "What you ask and what Qwen answers or does is kept on this phone, so a conversation can be read back and carried on: pull down under an answer in search. It is never backed up or sent anywhere. Delete one conversation there, or all of them here.") {
+            row { ValueRow("Conversations kept", kept.toString(), "chat-count") }
+            row { ActionRow("Delete all conversations", "chat-delete-all", enabled = kept > 0, destructive = true) { com.jake.duolauncher.search.ChatStore.deleteAll(context) } }
+        }
     }
     if (labPresent && s.localAssistant) AssistantContextGroups(actions, store, s)
 }
@@ -188,8 +197,7 @@ private fun PrivacyGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasS
         row { ActionRow(if (accessOn) "Notification Access Settings" else "Turn On Notification Access", "notification-access", onClick = actions.openNotificationAccess) }
         row { SettingsSwitch("Badges", s.badges, store::setBadges, "badges-switch") }
         if (s.badges) {
-            row { CheckRow("Count", !s.badgeDots, "badge-style-count") { store.setBadgeDots(false) } }
-            row { CheckRow("Dot", s.badgeDots, "badge-style-dot") { store.setBadgeDots(true) } }
+            row { SegmentRow(listOf(false, true), s.badgeDots, { if (it) "Dot" else "Count" }, { if (it) "badge-style-dot" else "badge-style-count" }, store::setBadgeDots) }
         }
         row { SettingsSwitch("Media Details", s.mediaDetails, store::setMediaDetails, "media-details-switch") }
     }
@@ -236,9 +244,8 @@ internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) 
         row { SettingsSwitch("Show Notifications", s.notificationPeek, { store.setNotificationPeek(it); demo(PreviewScene.NOTIFICATION) }, "peek-switch") }
         if (s.notificationPeek) {
             row { SettingsSwitch("People Only", s.peekPeopleOnly, store::setPeekPeopleOnly, "peek-people-switch") }
-            row { CheckRow("App Name", s.peekLevel == 0, "peek-level-name") { store.setPeekLevel(0); demo(PreviewScene.NOTIFICATION) } }
-            row { CheckRow("Name & Title", s.peekLevel == 1, "peek-level-title") { store.setPeekLevel(1); demo(PreviewScene.NOTIFICATION) } }
-            row { CheckRow("Name, Title & Text", s.peekLevel == 2, "peek-level-text") { store.setPeekLevel(2); demo(PreviewScene.NOTIFICATION) } }
+            row { DropdownRow("Shows", listOf(0, 1, 2), s.peekLevel, { listOf("App Name", "Name & Title", "Name, Title & Text")[it] }, "peek-level",
+                optionTag = { listOf("peek-level-name", "peek-level-title", "peek-level-text")[it] }) { store.setPeekLevel(it); demo(PreviewScene.NOTIFICATION) } }
             row { SettingsSwitch("Action Buttons", s.peekActions, { store.setPeekActions(it); demo(PreviewScene.NOTIFICATION) }, "peek-actions-switch") }
         }
     }
@@ -260,9 +267,8 @@ internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) 
         } }
     }
     SettingsGroup(header = "Paused Media", footer = "How long paused music or a podcast stays in the island.") {
-        IslandPlayback.RESUME_CHOICES_MIN.forEach { minutes -> row {
-            CheckRow(if (minutes == 1) "1 Minute" else "$minutes Minutes", s.mediaResumeMinutes == minutes, "media-resume-$minutes") { store.setMediaResumeMinutes(minutes) }
-        } }
+        row { DropdownRow("Keep For", IslandPlayback.RESUME_CHOICES_MIN.toList(), s.mediaResumeMinutes, { if (it == 1) "1 Minute" else "$it Minutes" }, "media-resume",
+            optionTag = { "media-resume-$it" }) { store.setMediaResumeMinutes(it) } }
     }
     IslandWidgetSetting(actions.islandWidget)
     IslandLinksSetting(actions, apps)
@@ -392,9 +398,8 @@ private fun IconPackSettings(selected: String, onSelect: (String) -> Unit) {
     }
     val options = listOf(IconPackInfo("", stringResource(com.jake.duolauncher.R.string.icon_pack_none))) + packs
     SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.icon_pack), footer = stringResource(com.jake.duolauncher.R.string.icon_pack_note)) {
-        options.forEach { pack -> row {
-            CheckRow(pack.label, pack.packageName == selected, "icon-pack-${pack.packageName.ifEmpty { "none" }}") { onSelect(pack.packageName) }
-        } }
+        row { DropdownRow("Icon Pack", options, options.firstOrNull { it.packageName == selected } ?: options.first(), { it.label }, "icon-pack",
+            optionTag = { "icon-pack-${it.packageName.ifEmpty { "none" }}" }) { onSelect(it.packageName) } }
     }
 }
 
@@ -455,9 +460,9 @@ private fun KeyboardSettingsBody(store: ExtrasStore, s: ExtrasState, keyboardCon
     PersonalWords(store, s.kbLearn)
     TextReplacement()
 
+    val glassName = stringResource(R.string.kb_style_glass)
     SettingsGroup(header = "Look", footer = "Classic is the flat look of Uno 0.97; everything new still works with it.") {
-        row { CheckRow(stringResource(R.string.kb_style_glass), s.kbStyle == 0, "kb-style-glass") { store.setKbStyle(0) } }
-        row { CheckRow("Classic", s.kbStyle == 1, "kb-style-classic") { store.setKbStyle(1) } }
+        row { SegmentRow(listOf(0, 1), s.kbStyle, { if (it == 0) glassName else "Classic" }, { if (it == 0) "kb-style-glass" else "kb-style-classic" }, store::setKbStyle) }
         row { SettingsSwitch("Number Row", s.kbNumberRow, store::setKbNumberRow, "kb-number-row-switch") }
         row { CustomizationSlider("Height", "${(s.kbHeight * 100).toInt()}%", s.kbHeight, .8f..1.3f, tag = "kb-height-slider") { store.setKbHeight(it) } }
     }
@@ -467,8 +472,8 @@ private fun KeyboardSettingsBody(store: ExtrasStore, s: ExtrasState, keyboardCon
     val feelNames = listOf("Off", stringResource(R.string.kb_feel_soft), stringResource(R.string.kb_feel_crisp), stringResource(R.string.kb_feel_firm))
     SettingsGroup(header = "Feedback", footer = "A light tick as each key goes down, firmer for space and Return. It follows Android's touch feedback setting and Gestures › Haptics.") {
         row { SettingsSwitch("Key Sounds", s.kbSound, store::setKbSound, "kb-sound-switch") }
-        row { SegmentRow(listOf(-1, 0, 1, 2), feel, { feelNames[it + 1] },
-            { "kb-feel-$it" }) { choice ->
+        row { DropdownRow("Key Feel", listOf(-1, 0, 1, 2), feel, { feelNames[it + 1] }, "kb-feel",
+            optionTag = { "kb-feel-$it" }) { choice ->
             if (choice < 0) { store.setKbHapticStrength(0f); haptics(strength = 0f) }
             else {
                 val strength = com.jake.duolauncher.keyboard.HapticProfile.DEFAULT_STRENGTH
@@ -480,10 +485,9 @@ private fun KeyboardSettingsBody(store: ExtrasStore, s: ExtrasState, keyboardCon
         } }
     }
 
-    SettingsGroup(header = "One-Handed") {
-        row { CheckRow("Off", s.kbOneHanded == 0, "kb-one-handed-off") { store.setKbOneHanded(0) } }
-        row { CheckRow("Left", s.kbOneHanded == 1, "kb-one-handed-left") { store.setKbOneHanded(1) } }
-        row { CheckRow("Right", s.kbOneHanded == 2, "kb-one-handed-right") { store.setKbOneHanded(2) } }
+    SettingsGroup {
+        row { DropdownRow("One-Handed", listOf(0, 1, 2), s.kbOneHanded, { listOf("Off", "Left", "Right")[it] }, "kb-one-handed",
+            optionTag = { listOf("kb-one-handed-off", "kb-one-handed-left", "kb-one-handed-right")[it] }, onSelect = store::setKbOneHanded) }
     }
 
     val on = com.jake.duolauncher.keyboard.KeyLayouts.parse(s.kbLayouts).map { it.id }

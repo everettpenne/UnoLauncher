@@ -33,12 +33,10 @@ internal fun AppearanceSettings(state: AppearanceState, onMode: (AppearanceMode)
         state.mode == AppearanceMode.SUNRISE_SUNSET -> "Dark from sunset to sunrise where you are. The place is kept only on this phone."
         else -> null
     }) {
-        AppearanceMode.entries.forEach { mode -> row {
-            CheckRow(when (mode) {
+        row { com.jake.duolauncher.DropdownRow("Appearance", AppearanceMode.entries, state.mode, { mode -> when (mode) {
                 AppearanceMode.LIGHT -> "Light"; AppearanceMode.DARK -> "Dark"; AppearanceMode.SYSTEM -> "Automatic"
                 AppearanceMode.SUNRISE_SUNSET -> "Sunset to Sunrise"
-            }, state.mode == mode, "appearance-${mode.name.lowercase()}") { onMode(mode) }
-        } }
+            } }, "appearance-mode", optionTag = { "appearance-${it.name.lowercase()}" }, onSelect = onMode) }
         if (state.mode == AppearanceMode.SUNRISE_SUNSET) row { Column(Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             GlassField(place, { place = it }, Modifier.testTag("appearance-place"), label = { Text(stringResource(com.jake.duolauncher.R.string.place_name)) }, singleLine = true)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

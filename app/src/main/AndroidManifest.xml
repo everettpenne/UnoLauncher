@@ -166,6 +166,16 @@
         </activity>
 
 
+        <!-- Android's own Settings links here (App info > Uno, the settings link): it opens Uno's settings over Home and closes itself. -->
+        <activity android:name=".SettingsLinkActivity" android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay" android:excludeFromRecents="true" android:noHistory="true"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <!-- Search over another app, for the system assistant gesture: its own task, translucent, and not in recents. -->
         <activity android:name=".search.AssistActivity" android:exported="true"
             android:theme="@style/Theme.UnoAssist"

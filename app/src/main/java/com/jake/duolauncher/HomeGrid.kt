@@ -626,11 +626,14 @@ internal fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: 
         val dark = DuoAppearanceRuntime.dark
         Box(Modifier.size(size.dp)
             .frostedGlass(Corner.icon, if (dark) Color.Black.copy(alpha = .22f) else Color.White.copy(alpha = .26f), elevated = false) {
+                // The clear material the dock, the search pill and glass widgets are drawn in: the same tint, the same sheen, and an edge
+                // as fine as theirs. It had a recipe of its own (a heavier tint, a white wash and a 1.2 dp rim at 85 %), so a folder read
+                // as a milky tile beside the clear dock.
                 this.then(if (folderGlass != null) Modifier.clip(Corner.icon)
-                    .background(folderGlass.tint.copy(alpha = if (GlassFinish.clear) .16f else .34f))
-                    .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.White.copy(alpha = .26f), Color.White.copy(alpha = .05f))))
-                    .border(1.2.dp, androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(alpha = .85f), Color.White.copy(alpha = .14f),
-                        Color.White.copy(alpha = .5f))), Corner.icon)
+                    .background(GlassFinish.tint(folderGlass.tint.copy(alpha = GlassKind.CLEAR.tintAlpha)))
+                    .background(GlassFinish.Sheen)
+                    .border(.75.dp, androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(alpha = .6f), Color.White.copy(alpha = .08f),
+                        Color.White.copy(alpha = .28f))), Corner.icon)
                 else Modifier.clip(Corner.icon).background(Glass.copy(alpha = .72f)).border(1.dp, Color.White.copy(alpha = .55f), Corner.icon))
             }
             .graphicsLayer { scaleX = 1f - .05f * progress; scaleY = 1f - .05f * progress; alpha = 1f - tileGone }

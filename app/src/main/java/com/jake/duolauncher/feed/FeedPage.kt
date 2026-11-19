@@ -7,6 +7,9 @@ import com.jake.duolauncher.appearance.*
 import com.jake.duolauncher.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -74,7 +77,7 @@ internal fun FeedPage(
             // Glass over the wallpaper is dark in both themes, so text on it uses the light ink the
             // other glass panels use; Material's default content color is dark in the light theme.
             CompositionLocalProvider(LocalContentColor provides Ink) {
-                FeedPageBody(feed, onRefresh, onOpenEntry, onAddFeed, onToggleSave, Modifier.fillMaxSize())
+                FeedPageBody(feed, onRefresh, onOpenEntry, onAddFeed, onToggleSave, Modifier.fillMaxSize().background(GlassFinish.PanelSheen))
             }
         }
         return
@@ -131,7 +134,7 @@ private fun FeedPageBody(
     Column(modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(com.jake.duolauncher.R.string.my_feed), style = MaterialTheme.typography.headlineMedium)
+                    Text(stringResource(com.jake.duolauncher.R.string.my_feed), style = Expressive.pageTitle, maxLines = 1)
                     Spacer(Modifier.height(4.dp))
                     val muted = LocalContentColor.current.copy(alpha = .74f)
                     val now = System.currentTimeMillis()
@@ -142,16 +145,18 @@ private fun FeedPageBody(
                     Text(updated, style = UnoType.caption1.copy(color = if (isFeedStale(now, feed.lastRefreshAt)) accent else muted))
                 }
                 if (feed.unreadCount > 0) {
-                    Surface(shape = Corner.pill, color = accent,
-                        modifier = Modifier.testTag("feed-new-count")) {
-                        Text("${feed.unreadCount} new", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-                            color = accentInk, style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
+                    // The count of new stories as a big numeral in a scalloped badge: the one loud thing in the header.
+                    Box(Modifier.size(48.dp).clip(SoftShapes.Cookie9).background(accent)
+                        .semantics { contentDescription = "${feed.unreadCount} new" }.testTag("feed-new-count"), contentAlignment = Alignment.Center) {
+                        Text(if (feed.unreadCount > 99) "99+" else "${feed.unreadCount}", color = accentInk,
+                            style = Expressive.badge.copy(fontSize = if (feed.unreadCount > 99) 13.sp else if (feed.unreadCount > 9) 17.sp else 20.sp), maxLines = 1)
                     }
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(4.dp))
                 }
                 IconButton(onClick = onRefresh, enabled = !feed.refreshing && feed.anyEnabled,
                     modifier = Modifier.testTag("feed-refresh")) {
-                    if (feed.refreshing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = accent)
+                    // Material 3 Expressive's loader: a shape that turns as it morphs, in place of a spinning arc.
+                    if (feed.refreshing) ShapeLoader(accent, Modifier.size(24.dp).testTag("feed-refreshing"))
                     else Icon(Icons.Rounded.Refresh, "Refresh feed")
                 }
             }
@@ -200,6 +205,8 @@ private fun FeedPageBody(
                         val on = feed.sources.filter { it.enabled }.mapTo(mutableSetOf()) { it.id }
                         feed.entries.filter { it.sourceId in on }
                     }
+                    // Each feed keeps one colour of the accent's ramp, by its place in the list of feeds, so a source is known at a glance.
+                    val sourceTones = remember(feed.sources) { feed.sources.mapIndexed { i, src -> src.id to i }.toMap() }
                     val savedSet = remember(feed.savedLinks, savedOnly) { if (savedOnly) feed.savedLinks.toSet() else null }
                     val filtered = remember(shown, activeSource, query, savedSet) {
                         filterFeedEntries(shown, activeSource, query, savedSet)
@@ -220,9 +227,15 @@ private fun FeedPageBody(
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                                 contentPadding = PaddingValues(end = 8.dp, bottom = 8.dp)) {
                                 // Keyed by feed and link: two feeds can carry the same story, and a repeated key crashes a LazyColumn.
+                                // The newest story leads, set big on a tonal card, while the whole feed is shown (not a filter or a search).
+                                val leads = activeSource == null && query.isBlank() && !savedOnly
                                 itemsIndexed(filtered, key = { _, entry -> "${entry.sourceId}|${entry.link}" }) { index, entry ->
-                                    FeedEntryCard(entry, read = feed.isRead(entry.link), saved = feed.isSaved(entry.link),
-                                        Modifier.testTag("feed-entry-$index"), onClick = { onOpenEntry(entry.link) },
+                                    val tone = sourceTones[entry.sourceId] ?: 0
+                                    if (leads && index == 0) LeadStoryCard(entry, read = feed.isRead(entry.link), saved = feed.isSaved(entry.link),
+                                        TonalRamp.tone(accent, dark = false, index = tone), Modifier.testTag("feed-entry-$index"),
+                                        onClick = { onOpenEntry(entry.link) }, onToggleSave = { onToggleSave(entry.link) })
+                                    else FeedEntryCard(entry, read = feed.isRead(entry.link), saved = feed.isSaved(entry.link),
+                                        TonalRamp.tone(accent, dark = false, index = tone), Modifier.testTag("feed-entry-$index"), onClick = { onOpenEntry(entry.link) },
                                         onToggleSave = { onToggleSave(entry.link) })
                                 }
                             }
@@ -321,7 +334,7 @@ private fun FeedFilters(
 }
 
 @Composable
-private fun FeedEntryCard(entry: FeedEntry, read: Boolean, saved: Boolean, modifier: Modifier = Modifier,
+private fun FeedEntryCard(entry: FeedEntry, read: Boolean, saved: Boolean, tone: TonalRamp.Tone, modifier: Modifier = Modifier,
     onClick: () -> Unit, onToggleSave: () -> Unit) {
     val saveLabel = stringResource(if (saved) com.jake.duolauncher.R.string.feed_unsave else com.jake.duolauncher.R.string.feed_save)
     val ink = LocalContentColor.current
@@ -349,11 +362,9 @@ private fun FeedEntryCard(entry: FeedEntry, read: Boolean, saved: Boolean, modif
             }
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (!read) {
-                    // The one accent marks a story as unread; opened stories dim instead.
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
-                    Spacer(Modifier.width(8.dp))
-                }
+                // The feed's monogram in its own colour: filled while the story is unread, a faint outline once it has been opened.
+                SourceMark(entry.sourceLabel, tone, read)
+                Spacer(Modifier.width(8.dp))
                 if (saved) {
                     Icon(Icons.Rounded.Bookmark, "Saved", tint = accent, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
@@ -362,6 +373,55 @@ private fun FeedEntryCard(entry: FeedEntry, read: Boolean, saved: Boolean, modif
                     style = UnoType.caption1.copy(color = ink.copy(alpha = if (read) .60f else .78f)),
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+        }
+    }
+}
+
+/** A feed's first letter in a small scalloped badge of its colour; dim and hollow once the story has been read. */
+@Composable
+private fun SourceMark(label: String, tone: TonalRamp.Tone, read: Boolean) {
+    val ink = LocalContentColor.current
+    val shape = SoftShapes.Cookie7
+    Box(Modifier.size(22.dp).clip(shape).then(if (read) Modifier.border(1.dp, ink.copy(alpha = .30f), shape) else Modifier.background(tone.container)),
+        contentAlignment = Alignment.Center) {
+        Text(label.trim().firstOrNull()?.uppercase() ?: "•", color = if (read) ink.copy(alpha = .55f) else tone.onContainer,
+            style = Expressive.badge.copy(fontSize = 11.sp, lineHeight = 12.sp), maxLines = 1)
+    }
+}
+
+/**
+ * The lead story: the newest, set large on a card of its feed's colour, with a big soft flower shape tucked into its corner. Pixel's expressive
+ * cards, without a picture (feeds give none): the type and the colour carry it.
+ */
+@Composable
+private fun LeadStoryCard(entry: FeedEntry, read: Boolean, saved: Boolean, tone: TonalRamp.Tone, modifier: Modifier = Modifier,
+    onClick: () -> Unit, onToggleSave: () -> Unit) {
+    val saveLabel = stringResource(if (saved) com.jake.duolauncher.R.string.feed_unsave else com.jake.duolauncher.R.string.feed_save)
+    val on = tone.onContainer
+    Box(modifier.fillMaxWidth().clip(Corner.large).background(tone.container)
+        .combinedClickable(onClick = onClick, onLongClickLabel = saveLabel, onLongClick = onToggleSave)
+        .semantics { customActions = listOf(CustomAccessibilityAction(saveLabel) { onToggleSave(); true }) }) {
+        Box(Modifier.align(Alignment.TopEnd).offset(x = 48.dp, y = (-56).dp).size(170.dp).clip(SoftShapes.Flower).background(on.copy(alpha = .08f)))
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.clip(Corner.pill).background(on).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                    Text(entry.sourceLabel, color = tone.container, style = UnoType.caption1.copy(fontWeight = FontWeight.Bold), maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(if (read) "Read" else "Latest", color = on.copy(alpha = .7f), style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
+                Spacer(Modifier.weight(1f))
+                if (saved) Icon(Icons.Rounded.Bookmark, "Saved", tint = on, modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(entry.title, color = on, style = Expressive.leadTitle, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            if (entry.summary.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(entry.summary, color = on.copy(alpha = .80f), style = UnoType.subheadline, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(describeEntryMeta(entry.sourceLabel, System.currentTimeMillis(), entry.publishedAt), color = on.copy(alpha = .72f),
+                style = UnoType.caption1, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

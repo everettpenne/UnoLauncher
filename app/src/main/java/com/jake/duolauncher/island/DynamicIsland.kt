@@ -1,5 +1,6 @@
 package com.jake.duolauncher.island
 
+import com.jake.duolauncher.search.islandAssistantLight
 import androidx.compose.ui.res.stringResource
 import com.jake.duolauncher.panel.*
 import com.jake.duolauncher.appearance.*
@@ -1129,6 +1130,8 @@ internal fun DynamicIsland(
             }
             .islandSized { frameState.value }
             // Before the body, so the ring is drawn under it and peeks out round its edge.
+            // The assistant's light, under the ring and the body: colour moving round the pill while the model works.
+            .islandAssistantLight(com.jake.duolauncher.search.rememberAssistantMood(), { cornerPx.value }) { IslandRingLogic.shown(progressState.value) }
             .islandRing(ring, { cornerPx.value }, 2f * d) { IslandRingLogic.shown(progressState.value) }
             .islandBody(glass?.backdrop, { cornerPx.value }, settings = glass?.settings ?: GlassSettings.Default, interior = openGlassFill, openness = glassOpenness)
             .graphicsLayer { shape = IslandOutlineShape(cornerPx.value, d); clip = true }
@@ -1471,7 +1474,8 @@ internal fun DynamicIsland(
             // Expanded face: live panel, starting below the camera hole.
             if (showOpenFace && peekShown == null) Column(Modifier.openSizedFace(openFrame) { frameState.value }.morphFace(expandedAlpha, animationsOn, bodyFade, fit = faceFit)
                 .padding(start = faceStart, end = faceEnd, bottom = 12.dp, top = faceTop).testTag("island-main-face")) {
-                val dateText = now.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
+                remember { IslandHero.load(context) }
+                val dateText = IslandHero.sideLine(IslandHero.content, now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), now.format(timeFormatter), now)
                 val alarmLine: @Composable () -> Unit = {
                     nextAlarm?.let { alarm ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1491,7 +1495,9 @@ internal fun DynamicIsland(
                     Column(Modifier.weight(1f)) {
                         // The one big thing on the panel, with the AM or PM set small beside it. It has the height the date under it used to take.
                         val (digits, meridiem) = OpenIslandLayout.splitMeridiem(now.format(timeFormatter))
-                        Text(androidx.compose.ui.text.buildAnnotatedString {
+                        if (!IslandHero.isClassicTime(IslandThemes.active)) IslandHeadline(IslandThemes.active, IslandHero.content,
+                            IslandHero.words(IslandHero.content, IslandHero.greeting, now), digits, meridiem, if (cameraAbove) 32 else 24, animationsOn)
+                        else Text(androidx.compose.ui.text.buildAnnotatedString {
                             append(digits)
                             if (meridiem.isNotEmpty()) withStyle(androidx.compose.ui.text.SpanStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp,
                                 color = themeInk.copy(alpha = .6f))) { append(meridiem) }

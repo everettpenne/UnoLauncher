@@ -2,6 +2,8 @@ package com.jake.duolauncher.appearance
 
 import com.jake.duolauncher.*
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -51,13 +53,36 @@ internal val InterFamily = FontFamily(
  * text (see DynamicIsland's LocalTextStyle), so it keeps the scale's size, weight and tracking without its extra line height. */
 internal val TextStyle.tight: TextStyle get() = copy(lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified)
 
-internal object UnoType {
+/**
+ * Which font the launcher's text is set in: Inter (bundled, the default), or the phone's own (Roboto on GrapheneOS and Pixels). Snapshot
+ * state, so the whole launcher re-sets its text when it changes. Read once at start ([load], from the application) and saved on change.
+ */
+internal object UnoFonts {
+    private const val PREFS = "uno_fonts"
+    var system by androidx.compose.runtime.mutableStateOf(false)
+        private set
+
+    fun load(context: android.content.Context) {
+        system = runCatching { context.applicationContext.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getBoolean("system", false) }.getOrDefault(false)
+    }
+
+    fun setSystem(context: android.content.Context, value: Boolean) {
+        system = value
+        context.applicationContext.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putBoolean("system", value).apply()
+    }
+
+    /** The family body text is set in now. */
+    val body: FontFamily get() = if (system) FontFamily.Default else InterFamily
+}
+
+/** The eleven steps of the scale in one family. Inter keeps iOS's tracking; the system font keeps its own spacing (none added), as Android sets it. */
+internal class TypeScale(private val family: FontFamily, private val tracking: Boolean) {
     private fun style(size: Int, lineHeight: Int, trackingEm: Double, weight: Int = 400) = TextStyle(
-        fontFamily = InterFamily,
+        fontFamily = family,
         fontWeight = FontWeight(weight),
         fontSize = size.sp,
         lineHeight = lineHeight.sp,
-        letterSpacing = trackingEm.em,
+        letterSpacing = if (tracking) trackingEm.em else 0.em,
     )
 
     val largeTitle  = style(34, 41,  0.011)
@@ -71,6 +96,25 @@ internal object UnoType {
     val footnote    = style(13, 18, -0.006)
     val caption1    = style(12, 16,  0.0)
     val caption2    = style(11, 13,  0.007)
+}
+
+/** The scale in the font chosen in [UnoFonts]. Both sets are built once; reading a step allocates nothing. */
+internal object UnoType {
+    private val inter by lazy { TypeScale(InterFamily, tracking = true) }
+    private val system by lazy { TypeScale(FontFamily.Default, tracking = false) }
+    private val scale: TypeScale get() = if (UnoFonts.system) system else inter
+
+    val largeTitle  get() = scale.largeTitle
+    val title1      get() = scale.title1
+    val title2      get() = scale.title2
+    val title3      get() = scale.title3
+    val headline    get() = scale.headline
+    val body        get() = scale.body
+    val callout     get() = scale.callout
+    val subheadline get() = scale.subheadline
+    val footnote    get() = scale.footnote
+    val caption1    get() = scale.caption1
+    val caption2    get() = scale.caption2
 }
 
 /**
@@ -100,20 +144,25 @@ internal object UnoType {
  * island drawing before any theme), building it loaded this file, which read UnoType's styles while they were still null and crashed the
  * process at start.
  */
-internal val DuoTypography by lazy { Typography(
-    displayLarge   = UnoType.largeTitle,
-    displayMedium  = UnoType.title1,
-    displaySmall   = UnoType.title2,
-    headlineLarge  = UnoType.title3,
-    headlineMedium = UnoType.title1,
-    headlineSmall  = UnoType.title2,
-    titleLarge     = UnoType.title3.copy(fontWeight = FontWeight.SemiBold),
-    titleMedium    = UnoType.headline,
-    titleSmall     = UnoType.subheadline.copy(fontWeight = FontWeight.Medium),
-    bodyLarge      = UnoType.body,
-    bodyMedium     = UnoType.callout,
-    bodySmall      = UnoType.footnote,
-    labelLarge     = UnoType.subheadline.copy(fontWeight = FontWeight.SemiBold),
-    labelMedium    = UnoType.caption1.copy(fontWeight = FontWeight.Medium),
-    labelSmall     = UnoType.caption2.copy(fontWeight = FontWeight.Medium),
-) }
+internal val DuoTypography: Typography get() = if (UnoFonts.system) systemTypography else interTypography
+
+private val interTypography by lazy { typographyOf(TypeScale(InterFamily, tracking = true)) }
+private val systemTypography by lazy { typographyOf(TypeScale(FontFamily.Default, tracking = false)) }
+
+private fun typographyOf(t: TypeScale) = Typography(
+    displayLarge   = t.largeTitle,
+    displayMedium  = t.title1,
+    displaySmall   = t.title2,
+    headlineLarge  = t.title3,
+    headlineMedium = t.title1,
+    headlineSmall  = t.title2,
+    titleLarge     = t.title3.copy(fontWeight = FontWeight.SemiBold),
+    titleMedium    = t.headline,
+    titleSmall     = t.subheadline.copy(fontWeight = FontWeight.Medium),
+    bodyLarge      = t.body,
+    bodyMedium     = t.callout,
+    bodySmall      = t.footnote,
+    labelLarge     = t.subheadline.copy(fontWeight = FontWeight.SemiBold),
+    labelMedium    = t.caption1.copy(fontWeight = FontWeight.Medium),
+    labelSmall     = t.caption2.copy(fontWeight = FontWeight.Medium),
+)

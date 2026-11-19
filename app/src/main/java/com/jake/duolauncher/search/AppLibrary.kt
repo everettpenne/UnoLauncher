@@ -51,7 +51,7 @@ internal fun AppLibrary(
     handoff: HandoffResolver? = null,
 ) {
     val glass = !editing
-    val palette = LocalDuoPalette.current
+    val libraryAccent = com.jake.duolauncher.appearance.LocalWallpaperAccent.current?.accent ?: com.jake.duolauncher.panel.IosOrange
     val ink = if (glass) Ink else MaterialTheme.colorScheme.onSurface
     val pinned = remember(state.homeSlots, state.leadingSlots) {
         (state.homeSlots.asSequence() + state.leadingSlots.asSequence()).filterNotNull().toSet()
@@ -107,19 +107,19 @@ internal fun AppLibrary(
     val liquid = LocalPageGlass.current?.takeIf { glass }
     CompositionLocalProvider(LocalKitInk provides ink) {
     // A big panel that moves with the page is frosted glass (the wallpaper blurred once, see FrostedGlass), not live glass redone every frame.
-    Surface(modifier.then(if (liquid != null) Modifier.frostedGlass(Corner.large, liquid.tint.copy(alpha = GlassKind.REGULAR.tintAlpha)) {
-            liquidGlass(liquid.backdrop, Corner.large, liquid.tint, kind = GlassKind.REGULAR, settings = liquid.settings) } else Modifier),
-        shape = Corner.large,
+    // The same panel as My feed on the other side of Home: a floating container (Corner.xlarge), a page title, and its count under the
+    // title as the feed's "Updated" line is. It was a 24 dp corner, a sheet title and a bare number at the right.
+    Surface(modifier.then(if (liquid != null) Modifier.frostedGlass(Corner.xlarge, liquid.tint.copy(alpha = GlassKind.REGULAR.tintAlpha)) {
+            liquidGlass(liquid.backdrop, Corner.xlarge, liquid.tint, kind = GlassKind.REGULAR, settings = liquid.settings) } else Modifier),
+        shape = Corner.xlarge,
         color = if (liquid != null) Color.Transparent else if (glass) Glass.copy(alpha = .48f) else MaterialTheme.colorScheme.surface,
         contentColor = ink,
         border = if (glass && liquid == null) BorderStroke(1.dp, Color.White.copy(alpha = .38f)) else null) {
-        Column(Modifier.background(Brush.verticalGradient(if (glass)
-            listOf(Color.White.copy(alpha = .09f), Color.Transparent) else listOf(Color.Transparent, Color.Transparent)))
+        Column(Modifier.then(if (glass) Modifier.background(GlassFinish.PanelSheen) else Modifier)
             .padding(horizontal = 16.dp).padding(top = 16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (editing) "Choose home apps" else "App Library", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-                Text(if (editing) "${pinned.size} pinned" else "${visibleApps.size}", color = ink, style = UnoType.caption1)
-            }
+            Text(if (editing) "Choose home apps" else "App Library", style = if (glass) com.jake.duolauncher.appearance.Expressive.pageTitle else MaterialTheme.typography.headlineMedium, maxLines = 1)
+            Spacer(Modifier.height(4.dp))
+            Text(if (editing) "${pinned.size} pinned" else "${visibleApps.size} apps", color = ink.copy(alpha = .74f), style = UnoType.caption1)
             if (hasWork) Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassChip(selected = !showWork, onClick = { showWork = false }, label = { Text(stringResource(com.jake.duolauncher.R.string.personal)) })
                 GlassChip(selected = showWork, onClick = { showWork = true }, label = { Text(stringResource(com.jake.duolauncher.R.string.work)) })
@@ -166,18 +166,32 @@ internal fun AppLibrary(
                     else StateMessage(androidx.compose.material.icons.Icons.Rounded.SearchOff, stringResource(com.jake.duolauncher.R.string.library_none_title),
                         stringResource(com.jake.duolauncher.R.string.library_none_message), tag = "library-none")
                 }
-                groups.forEach { (letter, entries) ->
+                // Each group's header is an opaque badge of one colour from the accent's ramp, turning through the ramp group by group: a big
+                // letter in a scalloped badge for A to Z, the category's name and count in a tonal pill for categories. Opaque, so the rows
+                // scrolling under the sticky header never show through it.
+                val accent = libraryAccent
+                groups.entries.forEachIndexed { groupIndex, (letter, entries) ->
+                    val tone = com.jake.duolauncher.appearance.TonalRamp.tone(accent, dark = false, index = groupIndex)
                     stickyHeader(key = "heading-$letter") {
-                        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            // An opaque small chip prevents text from showing through the sticky letter.
-                            Box(Modifier.widthIn(min = 32.dp).height(28.dp).background(
-                                if (glass) (if (palette.dark) Color(0xFF314852) else Color(0xFFB7CBD3))
-                                else MaterialTheme.colorScheme.secondaryContainer,
-                                Corner.small), contentAlignment = Alignment.Center) {
+                        Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (!glass) Box(Modifier.widthIn(min = 32.dp).height(28.dp).background(MaterialTheme.colorScheme.secondaryContainer, Corner.small),
+                                contentAlignment = Alignment.Center) {
                                 Text(letter, Modifier.padding(horizontal = if (letter.length > 1) 10.dp else 0.dp), color = ink,
                                     style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold), maxLines = 1)
                             }
-                            if (glass) HorizontalDivider(Modifier.weight(1f).padding(start = 12.dp), color = Color.White.copy(alpha = .24f))
+                            else if (letter.length == 1) Box(Modifier.size(40.dp).clip(com.jake.duolauncher.appearance.SoftShapes.Cookie9).background(tone.container),
+                                contentAlignment = Alignment.Center) {
+                                Text(letter, color = tone.onContainer, style = com.jake.duolauncher.appearance.Expressive.badge, maxLines = 1)
+                            }
+                            else Row(Modifier.height(34.dp).clip(Corner.pill).background(tone.container).padding(start = 14.dp, end = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Text(letter, color = tone.onContainer, style = UnoType.subheadline.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                                Spacer(Modifier.width(8.dp))
+                                Box(Modifier.size(24.dp).clip(androidx.compose.foundation.shape.CircleShape).background(tone.onContainer), contentAlignment = Alignment.Center) {
+                                    Text("${entries.size}", color = tone.container, style = UnoType.caption2.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                                }
+                            }
+                            if (glass) HorizontalDivider(Modifier.weight(1f).padding(start = 12.dp), color = Color.White.copy(alpha = .18f))
                         }
                     }
                     items(entries, key = { it.id }) { app ->
@@ -237,5 +251,5 @@ internal fun AppLibrary(
     }
 }
 
-/** Rows and cards in the library nest in its panel: the panel's 24 dp corner less the 16 dp they sit in from its edge. */
-private val LibraryRowShape = Corner.inside(24.dp, 16.dp)
+/** Rows and cards in the library nest in its panel: the panel's 32 dp corner less the 16 dp they sit in from its edge. */
+private val LibraryRowShape = Corner.inside(32.dp, 16.dp)

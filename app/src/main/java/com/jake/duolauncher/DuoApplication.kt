@@ -5,6 +5,7 @@ import android.app.Application
 class DuoApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        com.jake.duolauncher.appearance.UnoFonts.load(this)
         com.jake.duolauncher.appearance.SystemWallpaperSync.start(this)
     }
 

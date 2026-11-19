@@ -322,8 +322,17 @@ private fun SceneFace(scene: PreviewScene, s: PreviewSettings, theme: IslandThem
         PreviewScene.OPEN -> Column(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = bodyTop, bottom = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.island_preview_time), Modifier.weight(1f), color = ink, style = UnoType.title2.tight, fontWeight = FontWeight.SemiBold)
-                Text(stringResource(R.string.island_preview_date), color = ink.copy(alpha = .65f), style = UnoType.caption2.tight)
+                val heroContext = androidx.compose.ui.platform.LocalContext.current
+                remember { IslandHero.load(heroContext) }
+                val sampleTime = stringResource(R.string.island_preview_time)
+                val sampleDate = stringResource(R.string.island_preview_date)
+                // The headline as it is set (its words, face and colour), so a choice is seen here before the island is opened.
+                if (IslandHero.isClassicTime(theme))
+                    Text(sampleTime, Modifier.weight(1f), color = ink, style = UnoType.title2.tight, fontWeight = FontWeight.SemiBold)
+                else IslandHeadline(theme, IslandHero.content, IslandHero.words(IslandHero.content, IslandHero.greeting, java.time.LocalDateTime.now()),
+                    sampleTime, "", 28, animationsOn = true, modifier = Modifier.weight(1f))
+                Text(if (IslandHero.content == HeroContent.TIME) sampleDate else IslandHero.sideLine(IslandHero.content, sampleDate, sampleTime, java.time.LocalDateTime.now()),
+                    color = ink.copy(alpha = .65f), style = UnoType.caption2.tight)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f).height(30.dp).clip(theme.controlShape()).background(theme.chip()).padding(horizontal = 12.dp), contentAlignment = Alignment.CenterStart) {

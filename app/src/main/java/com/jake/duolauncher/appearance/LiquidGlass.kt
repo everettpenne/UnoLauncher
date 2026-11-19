@@ -202,6 +202,10 @@ internal object GlassFinish {
                 style = com.kyant.backdrop.highlight.HighlightStyle.Default(intensity = .8f, angle = GlassRim.angle, falloff = 2.5f + 8f * b))
         }
 
+    /** The light along the top of a panel of regular glass (the feed, the App Library): fainter and longer than clear glass's sheen, the
+     *  same on every panel so the pages either side of Home read as one material. */
+    val PanelSheen = androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.White.copy(alpha = .09f), .25f to Color.Transparent)
+
     /** The sheen along the top of clear glass: white fading out over the top 40 % of the surface. */
     val Sheen = androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.White.copy(alpha = .10f), .35f to Color.Transparent)
 }
@@ -381,8 +385,17 @@ internal fun Modifier.liquidGlass(
 internal fun rememberGlassTint(base: Color): Color {
     val context = LocalContext.current
     val revision = LauncherBackgroundCache.revision.intValue
-    val photo = remember(revision) { cachedLauncherBackground(context) }
-    return remember(revision, base) {
+    // Glass is neutral, as iOS's is, unless the accent is taken from the wallpaper (Customize › Accent › From Wallpaper). Tinting every
+    // surface with the photo's own muted colour made the launcher a different colour on every wallpaper: a green dock, folders and search
+    // pill on a meadow, purple ones on a dusk sky, beside icons and widgets that kept their own colours. How light or dark the glass reads
+    // over the photo is still adapted, by the backdrop tone (BackdropTone), which needs no hue.
+    val fromWallpaper = remember(revision) {
+        context.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE).let {
+            it.getBoolean("wallpaperColor", false) || it.getBoolean("materialYou", false)
+        }
+    }
+    val photo = remember(revision, fromWallpaper) { if (fromWallpaper) cachedLauncherBackground(context) else null }
+    return remember(revision, base, fromWallpaper) {
         if (photo == null) base
         else runCatching {
             val scale = 64f / maxOf(photo.width, photo.height)

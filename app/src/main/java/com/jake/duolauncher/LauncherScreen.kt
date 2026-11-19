@@ -1235,7 +1235,7 @@ internal fun LauncherScreen(
                                     }?.takeIf { it >= 0 }
                                     widgetExactTarget = false; sheet = "widgets"
                                 },
-                                onRemove = { widgets.remove(widgetSlot); WidgetStyles.set(launcherActivity, widgetSlot, null); sheet = "" },
+                                onRemove = { widgets.remove(widgetSlot); WidgetStyles.set(launcherActivity, widgetSlot, null); WidgetShapes.set(launcherActivity, widgetSlot, null); sheet = "" },
                                 onClose = { sheet = "" },
                                 ownStyle = WidgetStyles.own(widgetSlot), defaultStyle = appearance.widgetStyle,
                                 onStyle = { WidgetStyles.set(launcherActivity, widgetSlot, it) },

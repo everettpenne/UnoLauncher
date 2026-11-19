@@ -45,7 +45,11 @@ internal enum class HeroContent(val label: String) { TIME("Time"), GREETING("Gre
 internal object IslandHero {
     const val MAX_GREETING = 24
     const val DEFAULT_GREETING = "hello"
-    private const val PREFS = "uno_island_hero"
+    // In the "appearance" preferences, so a settings backup carries them. 0.134.0 kept them in a file of their own, read once if these are unset.
+    private const val PREFS = "appearance"
+    private const val KEY_CONTENT = "islandHeadline"
+    private const val KEY_GREETING = "islandGreeting"
+    private const val OLD_PREFS = "uno_island_hero"
 
     var content by mutableStateOf(HeroContent.TIME)
         private set
@@ -56,21 +60,34 @@ internal object IslandHero {
     /** Reads the saved settings the first time; returns this, so a composable can `remember` it. */
     fun load(context: Context): IslandHero {
         if (loaded) return this
+        return reload(context)
+    }
+
+    /** Reads the saved settings again (after a settings backup is restored). */
+    fun reload(context: Context): IslandHero {
         loaded = true
-        val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        content = HeroContent.values().firstOrNull { it.name == p.getString("content", null) } ?: HeroContent.TIME
-        greeting = clean(p.getString("greeting", null)) ?: DEFAULT_GREETING
+        val app = context.applicationContext
+        val p = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!p.contains(KEY_CONTENT) && !p.contains(KEY_GREETING)) {
+            val old = app.getSharedPreferences(OLD_PREFS, Context.MODE_PRIVATE)
+            val edit = p.edit()
+            old.getString("content", null)?.let { edit.putString(KEY_CONTENT, it) }
+            old.getString("greeting", null)?.let { edit.putString(KEY_GREETING, it) }
+            edit.apply()
+        }
+        content = HeroContent.values().firstOrNull { it.name == p.getString(KEY_CONTENT, null) } ?: HeroContent.TIME
+        greeting = clean(p.getString(KEY_GREETING, null)) ?: DEFAULT_GREETING
         return this
     }
 
     fun setContent(context: Context, value: HeroContent) {
         content = value
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("content", value.name).apply()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_CONTENT, value.name).apply()
     }
 
     fun setGreeting(context: Context, value: String) {
         greeting = clean(value) ?: DEFAULT_GREETING
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("greeting", value.take(MAX_GREETING)).apply()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_GREETING, value.take(MAX_GREETING)).apply()
     }
 
     /** One line of plain text, at most [MAX_GREETING] characters; null when nothing is left. */

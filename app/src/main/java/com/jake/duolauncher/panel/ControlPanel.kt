@@ -173,6 +173,28 @@ internal fun ControlPanel(
 /** Tiles nest in the panel: its 32 dp corner less the 16 dp they sit in from its edge. */
 private val TileShape: Shape = Corner.inside(32.dp, 16.dp)
 
+/** The corner of a tile that can be on or off, for Appearance › Style. Calm and Balanced: the panel's own tile corner either way. Expressive:
+ *  a capsule while off and a tight rounded square while on, as Pixel's quick settings tiles are. */
+internal object TileMorph {
+    const val REST_DP = 16f
+    const val OFF_DP = 26f
+    const val ON_DP = 12f
+    fun cornerDp(on: Boolean, restsSquare: Boolean): Float = if (!restsSquare) REST_DP else if (on) ON_DP else OFF_DP
+    private val cache = HashMap<Int, Shape>()
+    /** One shape per half dp, so the morph allocates nothing after its first run. */
+    fun shape(dp: Float): Shape { val key = (dp * 2f + .5f).toInt(); return cache.getOrPut(key) { com.jake.duolauncher.appearance.ContinuousShape((key / 2f).dp) } }
+}
+
+/** The shape of an on/off tile now: it springs between its off and on corners when the tile is switched (see [TileMorph]). */
+@Composable
+private fun tileShape(on: Boolean): Shape {
+    val expression = com.jake.duolauncher.appearance.Expression.now
+    val target = TileMorph.cornerDp(on, expression.restsSquare)
+    val corner by androidx.compose.animation.core.animateFloatAsState(target,
+        androidx.compose.animation.core.spring(.5f * expression.bounce + .2f, 420f), label = "tile corner")
+    return if (corner == TileMorph.REST_DP) TileShape else TileMorph.shape(corner.coerceIn(4f, 26f))
+}
+
 @Composable
 private fun TileRow(ink: Color, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     Row(modifier.fillMaxWidth().heightIn(min = 52.dp).clip(TileShape).background(ink.copy(alpha = .08f))
@@ -234,18 +256,21 @@ private fun RingerTile(controls: SystemControls, ink: Color, modifier: Modifier,
         Triple(AudioManager.RINGER_MODE_NORMAL, Icons.Rounded.NotificationsActive, "Ring"),
         Triple(AudioManager.RINGER_MODE_VIBRATE, Icons.Rounded.Vibration, "Vibrate"),
         Triple(AudioManager.RINGER_MODE_SILENT, Icons.Rounded.NotificationsOff, "Silent"))
+    // Balanced and Expressive: the chosen mode takes the accent's pastel, not plain ink, so what is selected reads as the launcher's colour.
+    val selectedTone = if (com.jake.duolauncher.appearance.Expression.now.tonal >= 1)
+        com.jake.duolauncher.appearance.UnoTones.selected(com.jake.duolauncher.appearance.launcherAccent().first) else null
     Row(modifier.height(52.dp).clip(TileShape).background(ink.copy(alpha = .08f)).padding(4.dp)
         .testTag("cp-ringer"), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         segments.forEach { (mode, icon, label) ->
             val selected = controls.ringerMode == mode
             Box(Modifier.weight(1f).fillMaxHeight().clip(Corner.inside(16.dp, 4.dp))
-                .background(if (selected) ink.copy(alpha = .85f) else Color.Transparent)
+                .background(if (selected) (selectedTone?.container ?: ink.copy(alpha = .85f)) else Color.Transparent)
                 .clickable {
                     tick()
                     if (controls.requestRinger(mode) == RingerRequest.NEEDS_DND_ACCESS) onNeedAccess()
                 }.semantics { contentDescription = if (selected) "$label, selected" else label }
                 .testTag("cp-ringer-${label.lowercase()}"), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = if (selected) MaterialTheme.colorScheme.surface else ink, modifier = Modifier.size(22.dp))
+                Icon(icon, null, tint = if (selected) (selectedTone?.onContainer ?: MaterialTheme.colorScheme.surface) else ink, modifier = Modifier.size(22.dp))
             }
         }
     }
@@ -255,12 +280,15 @@ private fun RingerTile(controls: SystemControls, ink: Color, modifier: Modifier,
 private fun TorchTile(controls: SystemControls, ink: Color, modifier: Modifier, tick: () -> Unit) {
     val on = controls.torchOn
     val available = controls.torchAvailable
-    Box(modifier.height(52.dp).clip(TileShape)
-        .background(if (on) Color.White.copy(alpha = .92f) else ink.copy(alpha = .08f))
+    // On, the tile is white as iOS's is (Calm), or the accent (Balanced and Expressive); set to Expressive it also changes shape with its state.
+    val (accent, accentInk) = com.jake.duolauncher.appearance.launcherAccent()
+    val onTone = if (com.jake.duolauncher.appearance.Expression.now.tonal >= 1) com.jake.duolauncher.appearance.UnoTones.on(accent, accentInk) else null
+    Box(modifier.height(52.dp).clip(tileShape(on))
+        .background(if (on) (onTone?.container ?: Color.White.copy(alpha = .92f)) else ink.copy(alpha = .08f))
         .clickable(enabled = available) { tick(); controls.toggleTorch() }
         .semantics { contentDescription = if (on) "Flashlight, on" else if (available) "Flashlight, off" else "Flashlight, unavailable" }
         .testTag("cp-torch"), contentAlignment = Alignment.Center) {
         Icon(if (on) Icons.Rounded.FlashlightOn else Icons.Rounded.FlashlightOff, null,
-            tint = if (on) Color.Black else ink.copy(alpha = if (available) 1f else .35f), modifier = Modifier.size(24.dp))
+            tint = if (on) (onTone?.onContainer ?: Color.Black) else ink.copy(alpha = if (available) 1f else .35f), modifier = Modifier.size(24.dp))
     }
 }

@@ -58,17 +58,25 @@ internal val TextStyle.tight: TextStyle get() = copy(lineHeight = androidx.compo
  * state, so the whole launcher re-sets its text when it changes. Read once at start ([load], from the application) and saved on change.
  */
 internal object UnoFonts {
-    private const val PREFS = "uno_fonts"
+    // In the "appearance" preferences, so a settings backup carries it. 0.134.0 kept it in a file of its own, read once if this has no value yet.
+    private const val PREFS = "appearance"
+    private const val KEY = "fontSystem"
+    private const val OLD_PREFS = "uno_fonts"
     var system by androidx.compose.runtime.mutableStateOf(false)
         private set
 
     fun load(context: android.content.Context) {
-        system = runCatching { context.applicationContext.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getBoolean("system", false) }.getOrDefault(false)
+        system = runCatching {
+            val app = context.applicationContext
+            val prefs = app.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+            if (prefs.contains(KEY)) prefs.getBoolean(KEY, false)
+            else app.getSharedPreferences(OLD_PREFS, android.content.Context.MODE_PRIVATE).getBoolean("system", false).also { if (it) prefs.edit().putBoolean(KEY, true).apply() }
+        }.getOrDefault(false)
     }
 
     fun setSystem(context: android.content.Context, value: Boolean) {
         system = value
-        context.applicationContext.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putBoolean("system", value).apply()
+        context.applicationContext.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putBoolean(KEY, value).apply()
     }
 
     /** The family body text is set in now. */

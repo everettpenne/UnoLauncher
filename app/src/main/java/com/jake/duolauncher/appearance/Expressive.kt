@@ -68,6 +68,18 @@ internal object DisplayFonts {
 
     private val cache = HashMap<DisplayFace, DisplayStyle>()
 
+    /**
+     * The family for the big numbers in widgets when Appearance › Style is Expressive: Roboto Flex, heavy, at its normal width (the wide
+     * Chunky cut would not fit "12:41" in a small widget). Its figures are all one width. Inter's boldest when the phone has no Roboto Flex.
+     */
+    @OptIn(ExperimentalTextApi::class)
+    val numerals: DisplayStyle by lazy {
+        val path = fileFor(DisplayFace.CHUNKY)
+        if (path == null) DisplayStyle(InterFamily, FontWeight.Bold, -.03f, 1f)
+        else DisplayStyle(FontFamily(Font(File(path), FontWeight.ExtraBold, variationSettings = FontVariation.Settings(
+            FontVariation.weight(820), FontVariation.width(100f), FontVariation.Setting("opsz", 144f)))), FontWeight.ExtraBold, -.02f, 1f)
+    }
+
     @OptIn(ExperimentalTextApi::class)
     fun style(face: DisplayFace): DisplayStyle {
         // Classic follows the text font chosen in Appearance, so it is never cached.
@@ -167,4 +179,19 @@ internal object TonalRamp {
         }
         return Color(r + m, g + m, b + m)
     }
+}
+
+/**
+ * The launcher's tonal roles: which colour a thing takes for what it is, all from the one accent. Tonal colour fills containers that sit in
+ * or on the glass (a tile that is on, a selected segment, a widget's accent); the glass itself stays neutral.
+ */
+internal object UnoTones {
+    /** Something switched on (the torch tile): the accent itself, with the ink that reads on it. */
+    fun on(accent: Color, accentInk: Color): TonalRamp.Tone = TonalRamp.Tone(accent, accentInk)
+
+    /** The chosen one of a few (a ringer mode): the accent's own pastel, quieter than [on] so a panel can hold both. */
+    fun selected(accent: Color): TonalRamp.Tone = TonalRamp.tone(accent, dark = false, index = 0)
+
+    /** A widget's accent (a ring, a bar, a mark): the accent's neighbours round the ramp, by [index], so two widgets side by side differ. */
+    fun widgetAccent(accent: Color, index: Int): TonalRamp.Tone = TonalRamp.tone(accent, dark = false, index = 1 + index)
 }

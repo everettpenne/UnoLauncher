@@ -112,6 +112,8 @@ class AppearanceStore(private val context: Context) {
         val transientStatus = state.locationStatus
         state = load(systemDark).copy(locationStatus = transientStatus)
         WidgetStyles.load(context)
+        // The rest of the look that lives in this file: each widget's shape, the style dial, the text font and the island's headline.
+        WidgetShapes.reload(context); UnoPersonality.load(context); UnoFonts.load(context); com.jake.duolauncher.island.IslandHero.reload(context)
         DuoAppearanceRuntime.dark = state.dark
     }
     private fun save(value: AppearanceState, systemDark: Boolean) {

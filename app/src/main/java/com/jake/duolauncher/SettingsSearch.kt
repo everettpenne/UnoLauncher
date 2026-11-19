@@ -19,6 +19,7 @@ internal object SettingsSearch {
         SettingEntry("Text Replacement", CustomizationPage.KEYBOARD, "keyboard shortcut phrase expand abbreviation omw snippet"),
         SettingEntry("Edge Highlight", CustomizationPage.APPEARANCE, "glass rim edge light outline shine border"),
         SettingEntry("Tilt Highlight", CustomizationPage.APPEARANCE, "glass shine light gyroscope motion sensor"),
+        SettingEntry("Style: Calm, Balanced or Expressive", CustomizationPage.APPEARANCE, "personality pixel ios material expressive look shapes tonal"),
         SettingEntry("Font: Inter or System", CustomizationPage.APPEARANCE, "text typeface roboto system font inter"),
         SettingEntry("Accent: Uno Orange or From Wallpaper", CustomizationPage.APPEARANCE, "theme colour color material you dynamic orange"),
         SettingEntry("Wallpaper Depth", CustomizationPage.APPEARANCE, "parallax 3d"),

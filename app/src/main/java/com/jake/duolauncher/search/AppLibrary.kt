@@ -52,6 +52,8 @@ internal fun AppLibrary(
 ) {
     val glass = !editing
     val libraryAccent = com.jake.duolauncher.appearance.LocalWallpaperAccent.current?.accent ?: com.jake.duolauncher.panel.IosOrange
+    val expression = com.jake.duolauncher.appearance.Expression.now
+    val calmDark = LocalDuoPalette.current.dark
     val ink = if (glass) Ink else MaterialTheme.colorScheme.onSurface
     val pinned = remember(state.homeSlots, state.leadingSlots) {
         (state.homeSlots.asSequence() + state.leadingSlots.asSequence()).filterNotNull().toSet()
@@ -117,7 +119,7 @@ internal fun AppLibrary(
         border = if (glass && liquid == null) BorderStroke(1.dp, Color.White.copy(alpha = .38f)) else null) {
         Column(Modifier.then(if (glass) Modifier.background(GlassFinish.PanelSheen) else Modifier)
             .padding(horizontal = 16.dp).padding(top = 16.dp)) {
-            Text(if (editing) "Choose home apps" else "App Library", style = if (glass) com.jake.duolauncher.appearance.Expressive.pageTitle else MaterialTheme.typography.headlineMedium, maxLines = 1)
+            Text(if (editing) "Choose home apps" else "App Library", style = if (glass && expression.displayTitles) com.jake.duolauncher.appearance.Expressive.pageTitle else MaterialTheme.typography.headlineMedium, maxLines = 1)
             Spacer(Modifier.height(4.dp))
             Text(if (editing) "${pinned.size} pinned" else "${visibleApps.size} apps", color = ink.copy(alpha = .74f), style = UnoType.caption1)
             if (hasWork) Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -174,7 +176,8 @@ internal fun AppLibrary(
                     val tone = com.jake.duolauncher.appearance.TonalRamp.tone(accent, dark = false, index = groupIndex)
                     stickyHeader(key = "heading-$letter") {
                         Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (!glass) Box(Modifier.widthIn(min = 32.dp).height(28.dp).background(MaterialTheme.colorScheme.secondaryContainer, Corner.small),
+                            if (!glass || !expression.shapedBadges) Box(Modifier.widthIn(min = 32.dp).height(28.dp).background(
+                                if (!glass) MaterialTheme.colorScheme.secondaryContainer else if (calmDark) Color(0xFF314852) else Color(0xFFB7CBD3), Corner.small),
                                 contentAlignment = Alignment.Center) {
                                 Text(letter, Modifier.padding(horizontal = if (letter.length > 1) 10.dp else 0.dp), color = ink,
                                     style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold), maxLines = 1)

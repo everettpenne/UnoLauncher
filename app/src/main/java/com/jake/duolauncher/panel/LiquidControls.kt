@@ -161,7 +161,8 @@ internal fun LiquidSliderControl(
     val trackBackdrop = rememberLayerBackdrop()
     val thumbWidth = 40.dp
     val thumbHeight = 24.dp
-    val trackHeight = 6.dp
+    // Set to Expressive the track is thick enough to read as a bar of colour under the glass thumb, as Material's sliders are.
+    val trackHeight = if (com.jake.duolauncher.appearance.Expression.now.thickTracks) 14.dp else 6.dp
     val thumbPx = with(LocalDensity.current) { thumbWidth.toPx() }
     // Dragging past an end stretches the thumb a little and springs it back on release.
     var pull by remember { mutableFloatStateOf(0f) }

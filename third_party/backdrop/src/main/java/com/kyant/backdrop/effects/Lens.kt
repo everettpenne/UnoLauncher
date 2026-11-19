@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.util.fastCoerceAtLeast
 import androidx.compose.ui.util.fastCoerceAtMost
 import com.kyant.backdrop.BackdropEffectScope
+import com.kyant.backdrop.LobedRefractionShaderString
 import com.kyant.backdrop.RoundedRectRefractionShaderString
 import com.kyant.backdrop.RoundedRectRefractionWithDispersionShaderString
 
@@ -89,4 +90,48 @@ fun lensCornerRadii(shape: Shape, size: Size, density: Density, layoutDirection:
 
 private fun throwUnsupportedSDFException(): Nothing {
     throw UnsupportedOperationException("Only CornerBasedShape is supported in lens effects.")
+}
+
+/**
+ * Uno: the lens for a lobed outline, a circle whose radius swells and dips [lobes] times between [inner] (0..1, the dips' radius as a share of
+ * the tips') and the shorter half-side: Material's cookies and Sunny. [phase] is the angle, in radians, a tip points at (0 is right, -pi/2 is
+ * up); [sharp] takes the lobes from a cosine (0) toward a pointed triangle wave (1). [centerX] and [centerY] place the shape's centre in the
+ * surface (0..1) and [outer] is its tips' radius as a share of the shorter side, for a shape that does not sit dead centre in its box (an odd
+ * number of lobes). The surface is still clipped by the shape given to
+ * `drawBackdrop`; this only bends what is behind it along that outline. Does nothing below Android 13, as [lens].
+ */
+fun BackdropEffectScope.lobedLens(
+    @FloatRange(from = 0.0) refractionHeight: Float,
+    @FloatRange(from = 0.0) refractionAmount: Float,
+    lobes: Int,
+    @FloatRange(from = 0.0, to = 1.0) inner: Float,
+    phase: Float = 0f,
+    @FloatRange(from = 0.0, to = 1.0) sharp: Float = 0f,
+    centerX: Float = .5f,
+    centerY: Float = .5f,
+    outer: Float = .5f,
+    depthEffect: Boolean = false,
+) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+    if (refractionHeight <= 0f || refractionAmount <= 0f || lobes < 2) return
+
+    if (padding > 0f) {
+        padding = (padding - refractionHeight).fastCoerceAtLeast(0f)
+    }
+
+    val shader = obtainRuntimeShader("LobedRefraction", LobedRefractionShaderString).apply {
+        val s = renderScale
+        setFloatUniform("size", size.width * s, size.height * s)
+        setFloatUniform("offset", -padding * s, -padding * s)
+        setFloatUniform("center", centerX, centerY)
+        setFloatUniform("outer", outer)
+        setFloatUniform("lobes", lobes.toFloat())
+        setFloatUniform("inner", inner)
+        setFloatUniform("phase", phase)
+        setFloatUniform("sharp", sharp)
+        setFloatUniform("refractionHeight", refractionHeight * s)
+        setFloatUniform("refractionAmount", -refractionAmount * s)
+        setFloatUniform("depthEffect", if (depthEffect) 1f else 0f)
+    }
+    effect(RenderEffect.createRuntimeShaderEffect(shader, "content"))
 }

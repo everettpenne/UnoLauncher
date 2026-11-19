@@ -102,8 +102,10 @@ internal object ExpressivePolygons {
 /** A normalized polygon as a Compose [Shape], scaled to whatever box it clips or fills. */
 internal class PolygonShape(private val polygon: RoundedPolygon) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        // Fitted to the shorter side and centred, so the shape is never stretched in a box that is not square.
+        val side = minOf(size.width, size.height)
         val path = polygon.toPath()
-        path.transform(android.graphics.Matrix().apply { setScale(size.width, size.height) })
+        path.transform(android.graphics.Matrix().apply { setScale(side, side); postTranslate((size.width - side) / 2f, (size.height - side) / 2f) })
         return Outline.Generic(path.asComposePath())
     }
 }
@@ -146,4 +148,45 @@ internal object ExpressiveShapes {
     val Sunny by lazy { PolygonShape(ExpressivePolygons.sunny) }
     val Flower by lazy { PolygonShape(ExpressivePolygons.flower) }
     val SoftBurst by lazy { PolygonShape(ExpressivePolygons.softBurst) }
+}
+
+/**
+ * A lobed Material shape with what its glass lens needs (see the glass library's `lobedLens`): the exact polygon clips the surface, and the
+ * lens bends what is behind it along a curve fitted to that polygon, a circle whose radius swells [lobes] times. The centre and the two radii
+ * are measured from the polygon itself, so the fit follows Google's outline (an odd-lobed cookie does not sit dead centre in its box).
+ */
+internal class LobedShape(val polygon: RoundedPolygon, val lobes: Int, val phase: Float, val sharp: Float) {
+    val shape: Shape = PolygonShape(polygon)
+    val centerX: Float = polygon.centerX
+    val centerY: Float = polygon.centerY
+    /** The tips' radius, as a share of the unit box's side. */
+    val outer: Float
+    /** The dips' radius as a share of the tips'. */
+    val inner: Float
+
+    init {
+        // The outline's nearest and farthest points from the centre, sampled along every curve of it.
+        var far = 0f; var near = Float.MAX_VALUE
+        polygon.cubics.forEach { c ->
+            for (i in 0..8) {
+                val t = i / 8f; val u = 1f - t
+                val x = u * u * u * c.anchor0X + 3 * u * u * t * c.control0X + 3 * u * t * t * c.control1X + t * t * t * c.anchor1X
+                val y = u * u * u * c.anchor0Y + 3 * u * u * t * c.control0Y + 3 * u * t * t * c.control1Y + t * t * t * c.anchor1Y
+                val d = hypot(x - centerX, y - centerY)
+                if (d > far) far = d
+                if (d < near) near = d
+            }
+        }
+        outer = far
+        inner = if (far > 0f) (near / far).coerceIn(0f, 1f) else 1f
+    }
+}
+
+/** The lobed shapes that can be glass with a lens. A tip of each cookie points up; Sunny's rays are pointed, the cookies' lobes round. */
+internal object LobedShapes {
+    private const val UP = (-PI / 2).toFloat()
+    val cookie7 by lazy { LobedShape(ExpressivePolygons.cookie7, 7, UP, sharp = .15f) }
+    val cookie9 by lazy { LobedShape(ExpressivePolygons.cookie9, 9, UP, sharp = .15f) }
+    val cookie12 by lazy { LobedShape(ExpressivePolygons.cookie12, 12, UP, sharp = .15f) }
+    val sunny by lazy { LobedShape(ExpressivePolygons.sunny, 8, 0f, sharp = .7f) }
 }

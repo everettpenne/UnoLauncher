@@ -245,6 +245,10 @@ private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> U
             { "widget-style-${it.name.lowercase()}" }, onWidgetStyle) }
     }
     val fontContext = androidx.compose.ui.platform.LocalContext.current
+    SettingsGroup(header = "Style", footer = "How far Uno leans from iOS toward Pixel. Calm is the plain iOS look. Balanced adds bold titles, Material shapes and tonal colour where something is selected or on. Expressive adds big display numbers in widgets and controls that change shape. Glass stays glass at every level.") {
+        row { DropdownRow("Style", com.jake.duolauncher.appearance.Personality.values().toList(), com.jake.duolauncher.appearance.UnoPersonality.level, { it.label },
+            "personality", optionTag = { "personality-${it.name.lowercase()}" }) { com.jake.duolauncher.appearance.UnoPersonality.set(fontContext, it) } }
+    }
     SettingsGroup(header = "Font", footer = "System sets Uno's text in your phone's own font (Roboto on GrapheneOS) instead of Inter. Big display type, like the island's headline font, is chosen on its own.") {
         row { SegmentRow(listOf(false, true), com.jake.duolauncher.appearance.UnoFonts.system, { if (it) "System" else "Inter" },
             { if (it) "font-system" else "font-inter" }) { com.jake.duolauncher.appearance.UnoFonts.setSystem(fontContext, it) } }

@@ -135,6 +135,20 @@ internal fun WidgetActions(
                     modifier = Modifier.testTag("widget-style-glass-${placement.slot}"))
             }
         }
+        // A Material shape for a small square Uno widget (Appearance › Style at Balanced or Expressive). Kept here, with the widget's own
+        // style: the slot reads it and draws the widget in it.
+        if (com.jake.duolauncher.appearance.Expression.now.widgetShapes && WidgetShapeRules.eligible(placement.id) &&
+            placement.spanX == placement.spanY && stackMembers.isEmpty()) {
+            val shapeContext = androidx.compose.ui.platform.LocalContext.current
+            val ownShape = WidgetShapes.own(placement.slot) ?: WidgetShape.DEFAULT
+            Text(stringResource(com.jake.duolauncher.R.string.widget_shape), style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState()).testTag("widget-shape-${placement.slot}")) {
+                WidgetShape.entries.forEach { shape ->
+                    GlassChip(ownShape == shape, onClick = { WidgetShapes.set(shapeContext, placement.slot, shape) }, label = { Text(shape.label) },
+                        modifier = Modifier.testTag("widget-shape-${shape.name.lowercase()}-${placement.slot}"))
+                }
+            }
+        }
         if (canConfigure) ActionRow(Icons.Rounded.Settings, "Widget settings", onConfigure,
             Modifier.testTag("widget-settings-${placement.slot}"))
         Text(stringResource(com.jake.duolauncher.R.string.resize), style = MaterialTheme.typography.titleMedium)

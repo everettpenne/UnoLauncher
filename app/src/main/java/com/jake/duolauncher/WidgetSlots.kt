@@ -65,7 +65,15 @@ internal fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifi
     fallback: @Composable (faceId: Int, faceSlot: Int) -> Unit) {
     // The widget's own style, else the default (Appearance › Widgets); a card needs no glass behind it, a glass widget keeps today's.
     val style = WidgetStyleRules.resolve(WidgetStyles.own(slot), LocalPageGlass.current?.widgetStyle ?: WidgetStyle.CARD, LocalPageGlass.current != null)
-    CompositionLocalProvider(LocalWidgetStyle provides style, LocalSlotPaints provides true) {
+    // A small Uno widget can take one of Material's shapes (its options, with Appearance › Style at Balanced or Expressive).
+    val shapeContext = androidx.compose.ui.platform.LocalContext.current
+    remember { WidgetShapes.load(shapeContext); true }
+    val lobed = when (WidgetShapeRules.resolve(WidgetShapes.own(slot), id, WidgetStacks.stacks[slot].orEmpty().isNotEmpty(), Expression.now.widgetShapes)) {
+        WidgetShape.COOKIE -> LobedShapes.cookie12
+        WidgetShape.SUNNY -> LobedShapes.sunny
+        WidgetShape.DEFAULT -> null
+    }
+    CompositionLocalProvider(LocalWidgetStyle provides style, LocalSlotPaints provides true, LocalWidgetShape provides lobed) {
         WidgetSlotBody(id, slot, controller, modifier, onAdd, fallback, style)
     }
 }
@@ -92,10 +100,16 @@ private fun WidgetSlotBody(id: Int, slot: Int, controller: WidgetController, mod
     SideEffect { if (members.isEmpty()) StackBodyRegistry.bounds.remove(bodyKey) }
     // Glass sits behind the provider's RemoteViews; it shows through transparent widgets
     // and is covered by widgets that paint their own opaque background.
-    BoxWithConstraints(modifier.then(if (style == WidgetStyle.CARD) Modifier.widgetCard(Corner.widget)
+    val lobed = LocalWidgetShape.current
+    BoxWithConstraints(modifier.then(
+        // In a Material shape: the card's own fill in that outline, or glass bent along it (the lobed lens), in place of the rounded square.
+        if (lobed != null && style == WidgetStyle.CARD) Modifier.widgetCard(lobed.shape)
+        else if (lobed != null && glass != null) Modifier.shapedGlass(glass, lobed.shape, lobed,
+            surface = GlassFinish.tint(glass.tint.copy(alpha = GlassKind.CLEAR.tintAlpha)))
+        else if (style == WidgetStyle.CARD) Modifier.widgetCard(Corner.widget)
         else if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.widget,
             glass.tint, kind = GlassKind.CLEAR, settings = glass.settings) else Modifier)
-        .clip(Corner.widget)
+        .clip(lobed?.shape ?: Corner.widget)
         .onGloballyPositioned {
             windowTopLeft = it.boundsInWindow().topLeft
             if (members.isNotEmpty()) StackBodyRegistry.bounds[bodyKey] = it.boundsInRoot()

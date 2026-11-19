@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -40,8 +41,22 @@ internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.
     val slotPaints = LocalSlotPaints.current
     // Built-in widget text follows the wallpaper behind it: white on dark, dark ink on pale. On a card it follows light or dark only.
     val ink = if (cardStyle) cardInk() else rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .14f else .24f)
+    val lobed = LocalWidgetShape.current
     CompositionLocalProvider(LocalGlassInk provides ink.glassInk) {
-        if (cardStyle) {
+        if (lobed != null && slotPaints) {
+            // In a Material shape: the slot has painted and clipped it (card or glass). The content is kept inside the shape's dips and centred,
+            // since a corner of the usual layout would fall outside a scalloped outline.
+            BoxWithConstraints(modifier.fillMaxSize().then(if (cardStyle) Modifier else ink.track)
+                .then(if (cardStyle) Modifier else Modifier.background(GlassVeil.behind(ink.color)))
+                .then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                val side = minOf(maxWidth, maxHeight)
+                // The widget is laid out exactly as in its rounded square (same size, same margins) and drawn smaller, so every widget keeps its
+                // own layout and nothing is cut: only its scale changes.
+                val natural = side - padding * 2
+                val fit = WidgetShapeRules.contentScale(side.value, lobed.outer, lobed.inner, padding.value)
+                Column(Modifier.requiredSize(natural).graphicsLayer { scaleX = fit; scaleY = fit }, verticalArrangement = Arrangement.SpaceBetween, content = content)
+            }
+        } else if (cardStyle) {
             // A card: the widget's slot paints it (a preview, outside a slot, paints its own), with no glass to redo while the page moves.
             Column(modifier.fillMaxSize().then(if (slotPaints) Modifier else Modifier.widgetCard(Corner.widget)).clip(Corner.widget)
                 .then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)).padding(padding),

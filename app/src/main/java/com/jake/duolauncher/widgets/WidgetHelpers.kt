@@ -61,8 +61,17 @@ internal fun WidgetTime(time: String, color: Color, modifier: Modifier = Modifie
 /** iOS widget type: the large figure (a time, a count, a percentage) is semibold, tightly tracked and with figures of one width, where
  * these widgets used thin Light figures. Pure, so the accent rule is unit-tested. */
 internal object WidgetType {
-    fun number(size: androidx.compose.ui.unit.TextUnit) = androidx.compose.ui.text.TextStyle(fontSize = size, lineHeight = size * 1.06f,
-        fontWeight = FontWeight.SemiBold, letterSpacing = (-0.03f * size.value).sp, fontFeatureSettings = "tnum")
+    fun number(size: androidx.compose.ui.unit.TextUnit): androidx.compose.ui.text.TextStyle {
+        // Appearance › Style set to Expressive: the figure in the heavy display face, as Pixel's widgets set theirs. Same size and line, so no
+        // widget's layout moves; only the weight and the face change.
+        if (com.jake.duolauncher.appearance.Expression.now.displayNumerals) {
+            val face = com.jake.duolauncher.appearance.DisplayFonts.numerals
+            return androidx.compose.ui.text.TextStyle(fontFamily = face.family, fontWeight = face.weight, fontSize = size, lineHeight = size * 1.06f,
+                letterSpacing = (face.trackingEm * size.value).sp, fontFeatureSettings = "tnum")
+        }
+        return androidx.compose.ui.text.TextStyle(fontSize = size, lineHeight = size * 1.06f,
+            fontWeight = FontWeight.SemiBold, letterSpacing = (-0.03f * size.value).sp, fontFeatureSettings = "tnum")
+    }
 
     /** The family's type, so the widgets read as one set: one size for the big number a small widget is about (a count, days to go), one for a big
      *  time (its AM or PM set small beside it, see [WidgetTime]), and one style for the supporting line under them. They had grown five sizes of

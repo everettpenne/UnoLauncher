@@ -399,6 +399,29 @@ They play the long-press cue when they open and a tick for each row.
 On those pages the wallpaper behind the cards is blurred (`blurredPagesAmount` fades the blurred picture in as the pages come into view); the cards
 are translucent glass over it (`frostedGlass`), which costs almost nothing while the pages move.
 
+## The style dial (`appearance/Personality.kt`)
+
+Appearance › Style is one choice, **Calm / Balanced / Expressive**, for how far Uno leans from iOS toward Pixel. The rule that keeps it a blend:
+**glass is the material at every level; type, shape, colour and motion inside the glass are what move.** Screens read `Expression.now` and never
+the level itself, so what a level means is decided (and unit-tested) in one place.
+
+| | Calm | Balanced (default) | Expressive |
+|---|---|---|---|
+| Page titles, feed and library badges, lead story, loader | Inter, plain capsule count, spinner | display title, Material shapes, shape loader | as Balanced |
+| Colour (`UnoTones`) | the single accent | tonal fill on what is selected or on (torch tile, ringer mode) | as Balanced |
+| Controls (`ControlShapes`) | capsule, swells when pressed | corner tightens a little when pressed | selected controls rest squarer; a livelier spring |
+| Control panel (`TileMorph`) | as iOS | "on" tiles in the accent | off tiles are capsules, on tiles tight rounded squares; thick slider track |
+| Widgets | Inter numerals | Inter numerals; a Material shape can be chosen per widget | heavy display numerals (`DisplayFonts.numerals`) |
+
+- **A control's shape only ever changes its corner**, from the capsule toward a rounded square, so the lens still fits it.
+- **A widget's shape** (its options › Shape: Cookie or Sunny) is for Uno's own small widgets, not stacks or apps' widgets. Its slot paints and
+  clips it; the content keeps its own layout and is drawn smaller to sit inside the shape's dips (`WidgetShapeRules.contentScale`).
+- **Glass in a Material shape** (`shapedGlass`): blur, tint, sheen and rim light work in any outline. The lens is separate: the glass library's
+  `lobedLens` bends what is behind a *lobed* shape (the cookies and Sunny) along a curve fitted to Google's polygon (`LobedShape` measures the
+  centre and the two radii from it). Shapes that are not lobed (Pill, Pentagon, Flower, Clover) are glass without the bend. It is redrawn while
+  what is behind it moves, so it is for a badge or a widget, never a long list (the App Library's letter badges stay tonal fills).
+- These settings, the text font, the island's headline and widget shapes live in the "appearance" preferences, so a settings backup carries them.
+
 ## Settings rows and Android's Settings
 
 - **Choices:** a choice of three or more is a `DropdownRow` (its name, the current value and an up-and-down mark, opening a glass menu of the

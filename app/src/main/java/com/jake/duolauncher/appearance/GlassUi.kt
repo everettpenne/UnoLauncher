@@ -22,6 +22,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Shape
+import com.kyant.backdrop.effects.lobedLens
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.graphicsLayer
 import com.kyant.backdrop.drawBackdrop
@@ -144,11 +148,13 @@ internal fun GlassButton(text: String, onClick: () -> Unit, modifier: Modifier =
  * given, colours it (the wallpaper accent for a prominent button); [surface] is a plain wash for the resting look.
  */
 @Composable
-private fun Modifier.glassControlSurface(glass: PageGlass, press: GlassPressState, tint: Color?, surface: Color?, shadowed: Boolean): Modifier {
+private fun Modifier.glassControlSurface(glass: PageGlass, press: GlassPressState, tint: Color?, surface: Color?, shadowed: Boolean,
+    rest: () -> Float = { 0f }): Modifier {
     val tone = rememberGlassTone()
     return drawBackdrop(
         backdrop = glass.backdrop,
-        shape = { Corner.pill },
+        // A capsule that tightens toward a rounded square under the finger (and, set to Expressive, while selected): the corner only, so the lens still fits it.
+        shape = { ControlShapes.morphed(ControlShapes.amount(Expression.now.morph, press.progress, rest())) },
         effects = {
             glassColor(tone)
             blur(2f.dp.toPx())
@@ -163,6 +169,72 @@ private fun Modifier.glassControlSurface(glass: PageGlass, press: GlassPressStat
         }
     ).then(press.light).then(press.watcher)
 }
+
+/**
+ * Liquid glass in one of Material's shapes: the panel behind it, blurred a little and tinted, with the rim light following the shape's own
+ * outline. Given [lobed] (a cookie or Sunny), it is also bent along that outline by the lobed lens; any other shape is glass without the bend,
+ * since a lens needs to know how far each point is from the edge. [tint] colours it as a prominent button is coloured; without one it takes
+ * [surface], a plain wash. For a badge or a small widget: it is redrawn while what is behind it moves, so not for a long list of them.
+ */
+@Composable
+internal fun Modifier.shapedGlass(glass: PageGlass, shape: Shape, lobed: LobedShape? = null, tint: Color? = null, surface: Color? = null): Modifier {
+    val tone = rememberGlassTone()
+    return drawBackdrop(
+        backdrop = glass.backdrop,
+        shape = { shape },
+        effects = {
+            glassColor(tone)
+            blur(2f.dp.toPx())
+            if (lobed != null) {
+                // The band is sized as every other glass surface's is (see GlassLensSize): thin on a badge, the knobs' own on a widget.
+                val lens = GlassLensSize.of(glass.settings, size.minDimension / density)
+                lobedLens(lens.heightDp.dp.toPx(), lens.amountDp.dp.toPx(), lobed.lobes, lobed.inner, lobed.phase, lobed.sharp,
+                    lobed.centerX, lobed.centerY, lobed.outer, depthEffect = true)
+            }
+        },
+        highlight = { GlassRim.Light },
+        shadow = { null },
+        onDrawSurface = {
+            if (tint != null) { drawRect(tint, blendMode = BlendMode.Hue); drawRect(tint.copy(alpha = .75f)) }
+            if (surface != null) drawRect(surface)
+            if (GlassFinish.clear) drawRect(GlassFinish.Sheen)
+        }
+    )
+}
+
+/**
+ * The shapes a capsule control passes through as it morphs toward a rounded square (Material Expressive's pressed and selected shapes, on
+ * Uno's continuous corners). How far it goes is Appearance › Style's ([Expression.Values.morph]); Calm never leaves the capsule.
+ */
+internal object ControlShapes {
+    /** The corner, as a percentage of the shorter side, of the squarest a control gets. A capsule is 50. */
+    const val SQUARE_PERCENT = 30
+    private val cache = arrayOfNulls<androidx.compose.foundation.shape.CornerBasedShape>(51)
+
+    /** How far along the morph a control is: [morph] is the style's reach, [press] the finger (0..1, a spring that may overshoot), [rest] 1 for a control that rests square. */
+    fun amount(morph: Float, press: Float, rest: Float): Float = (morph * maxOf(press.coerceIn(0f, 1f), rest.coerceIn(0f, 1f))).coerceIn(0f, 1f)
+
+    fun percent(amount: Float): Int = (50f - (50 - SQUARE_PERCENT) * amount.coerceIn(0f, 1f) + .5f).toInt()
+
+    /** The shape at [amount] (0 the capsule, 1 the rounded square). One shape per whole percent is kept, so a morph allocates nothing after its first run. */
+    fun morphed(amount: Float): androidx.compose.foundation.shape.CornerBasedShape {
+        if (amount <= .01f) return Corner.pill
+        val p = percent(amount)
+        return cache[p] ?: ContinuousShape(androidx.compose.foundation.shape.CornerSize(p)).also { cache[p] = it }
+    }
+}
+
+/** A flat (unlensed) control's look: a fill and a hairline in the morphing capsule of [ControlShapes], swelling under the finger. */
+private fun Modifier.flatControlSurface(press: GlassPressState, fill: Color, edge: Color, rest: () -> Float = { 0f }): Modifier =
+    graphicsLayer {
+        with(press) { swell() }
+        shape = ControlShapes.morphed(ControlShapes.amount(Expression.now.morph, press.progress, rest())); clip = true
+    }.background(fill).drawWithContent {
+        drawContent()
+        // The hairline, inside the clip: a stroke twice as wide centred on the edge shows its inner half.
+        val outline = ControlShapes.morphed(ControlShapes.amount(Expression.now.morph, press.progress, rest())).createOutline(size, layoutDirection, this)
+        drawOutline(outline, edge, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+    }
 
 /** A row of mutually exclusive pill choices; the selected one is filled with the wallpaper accent. Scrolls sideways
  *  when the choices do not fit. [tagPrefix] gives each a test tag, `<prefix>-<key>`. */
@@ -268,9 +340,8 @@ internal fun GlassButton(onClick: () -> Unit, modifier: Modifier = Modifier, ena
     val look = if (glass != null) Modifier.glassControlSurface(glass, press,
             tint = if (prominent) accent.copy(alpha = if (enabled) 1f else .45f) else null,
             surface = if (prominent) null else ink.copy(alpha = if (enabled) .10f else .05f), shadowed = true)
-        else Modifier.clip(shape).background(if (prominent) accent.copy(alpha = if (enabled) .92f else .35f) else ink.copy(alpha = .10f))
-            .border(BorderStroke(1.dp, if (prominent) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
-            .graphicsLayer { with(press) { swell() } }.then(press.watcher)
+        else Modifier.flatControlSurface(press, if (prominent) accent.copy(alpha = if (enabled) .92f else .35f) else ink.copy(alpha = .10f),
+            if (prominent) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)).then(press.watcher)
     Row(modifier.heightIn(min = 48.dp).then(look)
         .clickable(interactionSource = null, indication = null, enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
@@ -294,10 +365,13 @@ internal fun GlassChip(selected: Boolean, onClick: () -> Unit, label: @Composabl
     val shape = Corner.pill
     val glass = LocalPageGlass.current
     val press = rememberGlassPress()
-    val look = if (selected && glass != null) Modifier.glassControlSurface(glass, press, tint = accent.copy(alpha = .95f), surface = null, shadowed = false)
-        else Modifier.clip(shape).background(if (selected) accent.copy(alpha = .9f) else ink.copy(alpha = .10f))
-            .border(BorderStroke(1.dp, if (selected) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f)), shape)
-            .graphicsLayer { with(press) { swell() } }.then(press.light).then(press.watcher)
+    // Set to Expressive, the selected chip rests squarer than its neighbours (Material's toggle), springing there as the choice moves.
+    val restTarget = if (selected && Expression.now.restsSquare) 1f else 0f
+    val rest = androidx.compose.animation.core.animateFloatAsState(restTarget,
+        androidx.compose.animation.core.spring(PressSpring.DAMPING_RATIO * Expression.now.bounce + .2f, PressSpring.STIFFNESS), label = "chip shape")
+    val look = if (selected && glass != null) Modifier.glassControlSurface(glass, press, tint = accent.copy(alpha = .95f), surface = null, shadowed = false, rest = { rest.value })
+        else Modifier.flatControlSurface(press, if (selected) accent.copy(alpha = .9f) else ink.copy(alpha = .10f),
+            if (selected) Color.White.copy(alpha = .25f) else ink.copy(alpha = .16f), rest = { rest.value }).then(press.light).then(press.watcher)
     // The finger gets the 48 dp target; the eye gets a 36 dp capsule inset 6 dp top and bottom inside it, at least [ChipMinWidth] wide.
     // Drawn at the target's full height, a short label ("All", "A–Z") came out as a circle beside its neighbours' capsules. One box, so a
     // caller's width (a weight in a segmented row) still sizes the capsule.

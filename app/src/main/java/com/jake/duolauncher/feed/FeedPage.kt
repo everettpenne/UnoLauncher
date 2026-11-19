@@ -115,6 +115,8 @@ private fun FeedPageBody(
     val wallpaperAccent = LocalWallpaperAccent.current
     val accent = wallpaperAccent?.accent ?: IosOrange
     val accentInk = wallpaperAccent?.ink ?: Color.Black
+    // How far this page leans toward Pixel (Appearance › Style): display title, shaped badges, a lead story.
+    val expression = Expression.now
     // Pull-to-refresh rides the existing rubber band: past a threshold the page arms, and releasing at the top
     // refreshes. It never fires while a refresh is already running or when nothing is switched on.
     val refreshThresholdPx = with(LocalDensity.current) { 64.dp.toPx() }
@@ -134,7 +136,7 @@ private fun FeedPageBody(
     Column(modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(com.jake.duolauncher.R.string.my_feed), style = Expressive.pageTitle, maxLines = 1)
+                    Text(stringResource(com.jake.duolauncher.R.string.my_feed), style = if (expression.displayTitles) Expressive.pageTitle else MaterialTheme.typography.headlineMedium, maxLines = 1)
                     Spacer(Modifier.height(4.dp))
                     val muted = LocalContentColor.current.copy(alpha = .74f)
                     val now = System.currentTimeMillis()
@@ -144,9 +146,20 @@ private fun FeedPageBody(
                     // "there may be more now" rather than as freshness.
                     Text(updated, style = UnoType.caption1.copy(color = if (isFeedStale(now, feed.lastRefreshAt)) accent else muted))
                 }
-                if (feed.unreadCount > 0) {
+                if (feed.unreadCount > 0 && !expression.shapedBadges) {
+                    // Calm: the count as a plain capsule, as iOS would.
+                    Surface(shape = Corner.pill, color = accent, modifier = Modifier.testTag("feed-new-count")) {
+                        Text("${feed.unreadCount} new", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                            color = accentInk, style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
+                    }
+                    Spacer(Modifier.width(8.dp))
+                } else if (feed.unreadCount > 0) {
                     // The count of new stories as a big numeral in a scalloped badge: the one loud thing in the header.
-                    Box(Modifier.size(48.dp).clip(SoftShapes.Cookie9).background(accent)
+                    // Glass where the page is glass: the cookie bends and tints the panel behind it, as the selected chip under it does.
+                    val badgeGlass = LocalPageGlass.current
+                    Box(Modifier.size(48.dp).then(
+                            if (badgeGlass != null) Modifier.shapedGlass(badgeGlass, SoftShapes.Cookie9, LobedShapes.cookie9, tint = accent.copy(alpha = .95f))
+                            else Modifier.clip(SoftShapes.Cookie9).background(accent))
                         .semantics { contentDescription = "${feed.unreadCount} new" }.testTag("feed-new-count"), contentAlignment = Alignment.Center) {
                         Text(if (feed.unreadCount > 99) "99+" else "${feed.unreadCount}", color = accentInk,
                             style = Expressive.badge.copy(fontSize = if (feed.unreadCount > 99) 13.sp else if (feed.unreadCount > 9) 17.sp else 20.sp), maxLines = 1)
@@ -156,7 +169,8 @@ private fun FeedPageBody(
                 IconButton(onClick = onRefresh, enabled = !feed.refreshing && feed.anyEnabled,
                     modifier = Modifier.testTag("feed-refresh")) {
                     // Material 3 Expressive's loader: a shape that turns as it morphs, in place of a spinning arc.
-                    if (feed.refreshing) ShapeLoader(accent, Modifier.size(24.dp).testTag("feed-refreshing"))
+                    if (feed.refreshing && !expression.shapedBadges) CircularProgressIndicator(Modifier.size(20.dp).testTag("feed-refreshing"), strokeWidth = 2.dp, color = accent)
+                    else if (feed.refreshing) ShapeLoader(accent, Modifier.size(24.dp).testTag("feed-refreshing"))
                     else Icon(Icons.Rounded.Refresh, "Refresh feed")
                 }
             }
@@ -228,7 +242,7 @@ private fun FeedPageBody(
                                 contentPadding = PaddingValues(end = 8.dp, bottom = 8.dp)) {
                                 // Keyed by feed and link: two feeds can carry the same story, and a repeated key crashes a LazyColumn.
                                 // The newest story leads, set big on a tonal card, while the whole feed is shown (not a filter or a search).
-                                val leads = activeSource == null && query.isBlank() && !savedOnly
+                                val leads = expression.shapedBadges && activeSource == null && query.isBlank() && !savedOnly
                                 itemsIndexed(filtered, key = { _, entry -> "${entry.sourceId}|${entry.link}" }) { index, entry ->
                                     val tone = sourceTones[entry.sourceId] ?: 0
                                     if (leads && index == 0) LeadStoryCard(entry, read = feed.isRead(entry.link), saved = feed.isSaved(entry.link),
@@ -363,8 +377,8 @@ private fun FeedEntryCard(entry: FeedEntry, read: Boolean, saved: Boolean, tone:
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // The feed's monogram in its own colour: filled while the story is unread, a faint outline once it has been opened.
-                SourceMark(entry.sourceLabel, tone, read)
-                Spacer(Modifier.width(8.dp))
+                if (Expression.now.shapedBadges) { SourceMark(entry.sourceLabel, tone, read); Spacer(Modifier.width(8.dp)) }
+                else if (!read) { Box(Modifier.size(8.dp).clip(CircleShape).background(accent)); Spacer(Modifier.width(8.dp)) }
                 if (saved) {
                     Icon(Icons.Rounded.Bookmark, "Saved", tint = accent, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))

@@ -26,6 +26,19 @@ class SettingsBackupTest {
         assertEquals(4, back.count)
     }
 
+    @Test fun theStyleDialFontHeadlineAndWidgetShapesTravelInABackup() {
+        // They live in the "appearance" preferences so that a backup carries them: the dial, the text font, the island's headline, a widget's shape.
+        val look = mapOf("personality" to "EXPRESSIVE", "fontSystem" to true, "islandHeadline" to "GREETING", "islandGreeting" to "hello", "widgetShape_3" to "COOKIE")
+        val kept = SettingsBackup.portable(SettingsBackup.APPEARANCE, look)
+        assertEquals(look.keys, kept.keys)
+        val back = SettingsBackup.decode(SettingsBackup.encode(SettingsSnapshot(emptyMap(), kept)))
+        assertEquals("EXPRESSIVE", back.appearance["personality"])
+        assertEquals(true, back.appearance["fontSystem"])
+        assertEquals("GREETING", back.appearance["islandHeadline"])
+        assertEquals("hello", back.appearance["islandGreeting"])
+        assertEquals(WidgetShape.COOKIE, WidgetShapeRules.parse(back.appearance["widgetShape_3"] as String))
+    }
+
     @Test fun floatSettingsAreRecognisedSoARestoredWholeNumberIsStillWrittenAsAFloat() {
         // Android's org.json writes 1.0 as 1, so a restored float can arrive as an Int; these keys are always written as floats.
         assertTrue(SettingsBackup.isFloatKey(SettingsBackup.EXTRAS, "kbHapticStrength"))

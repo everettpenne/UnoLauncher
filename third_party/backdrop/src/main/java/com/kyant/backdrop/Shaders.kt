@@ -216,3 +216,62 @@ half4 main(float2 coord) {
     color.b = pow(color.b, power);
     return color;
 }"""
+
+// Uno: the lens for a lobed shape (a circle whose radius swells and dips a whole number of times: Material's cookies and Sunny). The rounded
+// rectangle's shader above measures distance to a rounded rectangle; this one measures it to r = R(theta), to first order, which is what the
+// refraction band needs. `sharp` blends the lobes from a cosine (a cookie) toward a triangle wave (a pointed sun).
+@Language("AGSL")
+internal const val LobedRefractionShaderString = """
+uniform shader content;
+
+uniform float2 size;
+uniform float2 offset;
+uniform float2 center;
+uniform float outer;
+uniform float lobes;
+uniform float inner;
+uniform float phase;
+uniform float sharp;
+uniform float refractionHeight;
+uniform float refractionAmount;
+uniform float depthEffect;
+
+float circleMap(float x) {
+    return 1.0 - sqrt(1.0 - x * x);
+}
+
+float wave(float x) {
+    float t = abs(mod(x / 3.14159265, 2.0) - 1.0) * 2.0 - 1.0;
+    return mix(cos(x), t, sharp);
+}
+
+float dwave(float x) {
+    float t = (mod(x / 3.14159265, 2.0) < 1.0 ? -1.0 : 1.0) * (2.0 / 3.14159265);
+    return mix(-sin(x), t, sharp);
+}
+
+half4 main(float2 coord) {
+    float2 p = (coord + offset) - center * size;
+    float rOut = outer * min(size.x, size.y);
+    float r = max(length(p), 0.0001);
+    float x = lobes * (atan(p.y, p.x) - phase);
+    float mid = (1.0 + inner) * 0.5;
+    float amp = (1.0 - inner) * 0.5;
+    float R = rOut * (mid + amp * wave(x));
+    // The outline's slope, taken at the outline (not at this pixel's own radius): toward the centre the pixel's radius goes to nothing and
+    // the estimate would call the middle of the shape "near the edge".
+    float k = rOut * amp * lobes * dwave(x) / max(R, 0.0001);
+
+    float sd = (r - R) / sqrt(1.0 + k * k);
+    if (-sd >= refractionHeight) {
+        return content.eval(coord);
+    }
+    sd = min(sd, 0.0);
+
+    float d = circleMap(1.0 - -sd / refractionHeight) * refractionAmount;
+    float2 rhat = p / r;
+    float2 that = float2(-rhat.y, rhat.x);
+    float2 grad = normalize(normalize(rhat - k * that) + depthEffect * rhat);
+
+    return content.eval(coord + d * grad);
+}"""

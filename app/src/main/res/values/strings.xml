@@ -378,6 +378,7 @@
     <string name="delete_app">Delete App</string>
     <string name="remove_app_title">Remove “%1$s”?</string>
     <string name="widget_style">Style</string>
+    <string name="widget_shape">Shape</string>
     <string name="widget_style_default">Default (%1$s)</string>
     <string name="widget_style_card">Card</string>
     <string name="widget_style_glass">Glass</string>

@@ -82,3 +82,66 @@ internal fun Modifier.widgetCard(shape: Shape): Modifier {
 @Composable
 internal fun cardInk(): AdaptiveInk = AdaptiveInk(
     if (DuoAppearanceRuntime.dark) Color.White else Color(0xFF0B0B0D), Modifier)
+
+/** A Material shape a small Uno widget can take in place of its rounded square (Appearance › Style set to Balanced or Expressive). */
+enum class WidgetShape(val label: String) { DEFAULT("Default"), COOKIE("Cookie"), SUNNY("Sunny") }
+
+/** Which widgets may take a shape, and how far in their content must sit to stay inside it. Pure, so it is unit-tested. */
+internal object WidgetShapeRules {
+    const val PREFIX = "widgetShape_"
+    fun key(slot: Int) = "$PREFIX$slot"
+    fun parse(value: String?): WidgetShape? = WidgetShape.entries.firstOrNull { it.name == value }
+
+    /** Uno's own widgets only (an app's widget draws its own background), and not the folder or a widget waiting to be restored. */
+    fun eligible(id: Int): Boolean = id <= CLOCK_WIDGET && id != NEEDS_BINDING_WIDGET && id != FOLDER_WIDGET
+
+    /** The shape a widget is drawn in: its own choice, when the style allows shapes, it is eligible, and it is not a stack. */
+    fun resolve(own: WidgetShape?, id: Int, stacked: Boolean, shapesAllowed: Boolean): WidgetShape =
+        if (own == null || !shapesAllowed || stacked || !eligible(id)) WidgetShape.DEFAULT else own
+
+    /** The content's box is exactly the square inside the dips' circle. (At 1.1 a corner of it, where a widget's first and last lines start, crossed a dip.) */
+    const val ROOM = 1f
+
+    /**
+     * How much smaller a widget's content is drawn to sit inside a lobed shape in a [side]-wide box: its usual area is the box less [padding]
+     * on each side; the shape's is the square that fits the circle its dips touch ([outer] × [inner] of the side), times [ROOM]. Never enlarged.
+     */
+    fun contentScale(side: Float, outer: Float, inner: Float, padding: Float): Float {
+        val natural = side - 2f * padding
+        if (natural <= 0f) return 1f
+        val inside = side * outer * inner * 1.41421356f * ROOM
+        return (inside / natural).coerceIn(.4f, 1f)
+    }
+}
+
+/** Each widget's own shape, kept beside its style in the "appearance" preferences under `widgetShape_<slot>`. */
+internal object WidgetShapes {
+    private val shapes = mutableStateMapOf<Int, WidgetShape>()
+    private var loaded = false
+
+    fun load(context: Context) { if (!loaded) reload(context) }
+
+    /** Reads the saved shapes again (after a settings backup is restored). */
+    fun reload(context: Context) {
+        loaded = true
+        shapes.clear()
+        context.getSharedPreferences("appearance", Context.MODE_PRIVATE).all.forEach { (key, value) ->
+            if (!key.startsWith(WidgetShapeRules.PREFIX)) return@forEach
+            val slot = key.removePrefix(WidgetShapeRules.PREFIX).toIntOrNull() ?: return@forEach
+            WidgetShapeRules.parse(value as? String)?.takeIf { it != WidgetShape.DEFAULT }?.let { shapes[slot] = it }
+        }
+    }
+
+    fun own(slot: Int): WidgetShape? = shapes[slot]
+
+    /** Sets a widget's shape; Default (or null) clears it. */
+    fun set(context: Context, slot: Int, shape: WidgetShape?) {
+        val edit = context.getSharedPreferences("appearance", Context.MODE_PRIVATE).edit()
+        if (shape == null || shape == WidgetShape.DEFAULT) { edit.remove(WidgetShapeRules.key(slot)); shapes.remove(slot) }
+        else { edit.putString(WidgetShapeRules.key(slot), shape.name); shapes[slot] = shape }
+        edit.apply()
+    }
+}
+
+/** The lobed shape the widget being drawn has, or null for the usual rounded square. Its slot paints and clips it; the card inside only keeps its content in. */
+internal val LocalWidgetShape = compositionLocalOf<com.jake.duolauncher.appearance.LobedShape?> { null }

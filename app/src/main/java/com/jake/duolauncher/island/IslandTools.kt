@@ -148,6 +148,21 @@ internal object IslandTools {
 
     fun resetStopwatch(context: Context) { swBase = 0L; swRunning = false; swStartedAt = 0L; save(context); touch() }
 
+    /** Sets the flashlight on or off, whatever it was: "turn the torch off" must not turn it on. */
+    fun setTorch(context: Context, on: Boolean) {
+        val cameras = context.applicationContext.getSystemService(CameraManager::class.java)
+        Thread {
+            runCatching {
+                val id = ControlLogic.pickTorchCamera(cameras.cameraIdList.map { cam ->
+                    val c = cameras.getCameraCharacteristics(cam)
+                    TorchCamera(cam, c.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true,
+                        c.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK)
+                })
+                if (id != null) cameras.setTorchMode(id, on)
+            }
+        }.start()
+    }
+
     /** Turns the flashlight on or off once, for a one-shot request such as the "torch" search action, with no tools
      * face open. The camera's torch callback reports the current state only when it is already on, so a short fallback
      * turns it on when it was off. One private worker thread lives for the length of the toggle.

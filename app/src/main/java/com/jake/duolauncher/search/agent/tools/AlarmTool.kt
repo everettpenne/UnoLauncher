@@ -4,43 +4,42 @@ import com.jake.duolauncher.search.agent.*
 
 internal object AlarmTool : Tool(
     name = "alarm",
-    summary = "Sets an alarm: either at a clock time, or a number of minutes from now.",
-    params = listOf(
-        Param("at", Kind.Text, required = false, maxLength = 5),
-        Param("in_minutes", Kind.Int, required = false, min = 1, max = 1440),
-    ),
+    summary = "Sets an alarm. when: a clock time or how long from now, in the person's words.",
+    params = listOf(Param("when", Kind.Text, maxLength = 60)),
     effect = Effect.Local,
-    examples = listOf("alarm for 7:15", "wake me up in 45 minutes"),
+    examples = listOf("alarm for 7:15", "wake me up in 45 minutes", "set an alarm for half past six"),
 ) {
-    private val clockTime = Regex("""^([01]?\d|2[0-3]):[0-5]\d$""")
+    private const val ASK = "What time should the alarm be for?"
 
-    override fun validate(raw: Map<String, String>): Validation<Params> {
-        val base = super.validate(raw)
-        val params = when (base) {
-            is Validation.Rejected -> return base
-            is Validation.Ok -> base.value
-        }
-        val at = params.text("at")
-        val inMinutes = params.int("in_minutes")
-        if ((at == null) == (inMinutes == null)) {
-            return Validation.Rejected("alarm needs either at (a clock time) or in_minutes, and not both")
-        }
-        if (at != null && !clockTime.matches(at)) return Validation.Rejected("at must be a 24-hour time like 06:45")
-        return base
+    private fun target(params: Params): SpokenTime.Alarm? = params.text("when")?.let { SpokenTime.alarm(it) }
+
+    /** The time must be one the person gave. */
+    override fun missing(params: Params, said: String): Missing? {
+        val target = target(params) ?: return Missing(ASK, "when")
+        return if (SpokenTime.saidWhole(said, target) { SpokenTime.alarm(it) }) null else Missing(ASK, "when")
     }
 
-    override fun describe(params: Params, env: ToolEnv): String? =
-        params.text("at")?.let { "Open Clock to set an alarm for $it" } ?: params.int("in_minutes")?.let { "Open Clock to set an alarm in $it minutes" }
+    override fun mended(params: Params, said: String): Params {
+        if (missing(params, said) == null) return params
+        val time = SpokenTime.theOne(said) { SpokenTime.alarm(it) } ?: return params
+        return Params(params.values + ("when" to time))
+    }
 
-    override suspend fun execute(params: Params, env: ToolEnv): ToolResult {
-        val at = params.text("at")
-        val inMinutes = params.int("in_minutes")
-        if (at != null) {
-            val (hour, minute) = at.substringBefore(':').toInt() to at.substringAfter(':').toInt()
-            env.openAlarm(hour, minute, null)
-            return ToolResult(true, "Clock is open at ${Speak.clock(hour, minute)}, tap Save")
+    override fun describe(params: Params, env: ToolEnv): String? = when (val t = target(params)) {
+        is SpokenTime.Alarm.At -> "Open Clock to set an alarm for ${Speak.clock(t.hour, t.minute)}"
+        is SpokenTime.Alarm.In -> "Open Clock to set an alarm in ${Speak.duration(t.minutes * 60)}"
+        null -> null
+    }
+
+    override suspend fun execute(params: Params, env: ToolEnv): ToolResult = when (val t = target(params)) {
+        is SpokenTime.Alarm.At -> {
+            env.openAlarm(t.hour, t.minute, null)
+            ToolResult(true, "Clock is open at ${Speak.clock(t.hour, t.minute)}, tap Save")
         }
-        env.openAlarm(null, null, inMinutes)
-        return ToolResult(true, "Clock is open for an alarm in $inMinutes minutes, tap Save")
+        is SpokenTime.Alarm.In -> {
+            env.openAlarm(null, null, t.minutes)
+            ToolResult(true, "Clock is open for an alarm in ${Speak.duration(t.minutes * 60)}, tap Save")
+        }
+        null -> ToolResult(false, "I didn't catch what time the alarm is for.")
     }
 }

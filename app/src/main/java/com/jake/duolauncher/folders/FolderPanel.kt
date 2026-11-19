@@ -102,7 +102,16 @@ internal fun FolderPanel(
             }
         }
     }
-    BackHandler { commitAndClose() }
+    // The folder gives a little under a back gesture as it is made, then closes into its tile, or springs open again if the gesture is taken back.
+    androidx.activity.compose.PredictiveBackHandler { events ->
+        try {
+            events.collect { if (!closing) open.snapTo(1f - BACK_GIVE * it.progress) }
+            commitAndClose()
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            scope.launch { open.animateTo(1f, UnoMotion.settle()) }
+            throw cancelled
+        }
+    }
     DisposableEffect(drag, folder.id) {
         drag.activeSourceScope = folder.id
         onDispose { if (drag.activeSourceScope == folder.id) drag.activeSourceScope = null }
@@ -166,6 +175,8 @@ internal fun FolderPanel(
 
 private val FolderShape = Corner.xlarge
 private const val CLOSED_SCALE = .34f
+/** How much the open folder shrinks under a back gesture pulled all the way, before it is let go. */
+private const val BACK_GIVE = .1f
 
 /** The folder's name above its panel: bare white text, centred, with a soft shadow, editable in place (no outline, label or button), as iOS shows it. */
 @Composable

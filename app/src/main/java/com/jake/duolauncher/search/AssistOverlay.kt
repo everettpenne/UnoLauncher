@@ -215,6 +215,8 @@ object AssistOverlay {
             ) {
                 DuoTheme(DuoAppearanceRuntime.dark) {
                     androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                    // Light in from the screen's edges as the assistant arrives over the app; under the panel.
+                    AssistArrival(open)
                     // The panel is the surface's, the same one Home shows (SearchPanel); this window gives it how to open things from here.
                     val searchHost = remember { SearchHost(
                         launch = { entry, _ -> openApp(app, entry) },

@@ -161,4 +161,19 @@ class AssistantSurfaceTest {
         assertTrue(surface.back())
         assertEquals(SurfaceMode.REST, surface.state.mode)
     }
+
+    @Test fun aBackGestureEasesSearchTowardThePillAndTheNextSearchOpensWhole() {
+        assertEquals(1f, SurfaceGestures.backScale(0f))
+        assertEquals(1f - SurfaceGestures.BACK_GIVE, SurfaceGestures.backScale(1f))
+        assertEquals(SurfaceGestures.backScale(1f), SurfaceGestures.backScale(3f))
+        assertTrue(SurfaceGestures.backScale(.5f) in SurfaceGestures.backScale(1f)..1f)
+        val surface = AssistantSurface()
+        surface.on(SurfaceGesture.OpenSearch)
+        surface.backPull = .8f
+        // Let go: search closes from where the finger left it, and the pull is the old search's.
+        assertTrue(surface.back())
+        assertEquals(.8f, surface.backPull)
+        surface.on(SurfaceGesture.OpenSearch)
+        assertEquals(0f, surface.backPull)
+    }
 }

@@ -25,7 +25,7 @@ class CatalogueTest {
         for (tool in tools) assertTrue("no rule for ${tool.name}", grammar.contains(rule(tool.name)))
         // The tool's own JSON is fixed by the grammar, and its parameter names too (values are validated after).
         assertTrue(grammar.contains("timer-step"))
-        assertTrue(grammar.contains("\\\"seconds\\\":"))
+        assertTrue(grammar.contains("\\\"length\\\":"))
         assertTrue(grammar.contains("\\\"label\\\":"))
         // Values are validated afterwards, so the grammar leaves them as digits or text.
         assertTrue(grammar.contains("digits ::="))

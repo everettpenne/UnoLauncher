@@ -10,11 +10,15 @@ internal sealed interface Plan {
     data class Steps(val steps: List<Step>) : Plan
     data class Clarify(val question: String) : Plan
     data class Refuse(val reason: String) : Plan
+    /** "I can't do or don't know this, but a web search would help": offered to the person, never run on the planner's word. */
+    data class OfferSearch(val query: String) : Plan
 }
 
 internal sealed interface ParseResult {
     data class Ok(val plan: Plan) : ParseResult
-    data class Failed(val why: String) : ParseResult
+    /** [retry]: the planner answered, but with something that is not allowed (an unknown tool, a value out of range), so asking it once
+     *  more with the reason may help. A planner that could not be reached is not asked again. */
+    data class Failed(val why: String, val retry: Boolean = false) : ParseResult
 }
 
 /**
@@ -26,21 +30,22 @@ internal object PlanParser {
         val json = JSONObject(unfence(reply) ?: return ParseResult.Failed("The planner did not answer with JSON."))
         json.optString("clarify").takeIf { it.isNotBlank() }?.let { return ParseResult.Ok(Plan.Clarify(it.trim())) }
         json.optString("refuse").takeIf { it.isNotBlank() }?.let { return ParseResult.Ok(Plan.Refuse(it.trim())) }
+        json.optString("search").takeIf { it.isNotBlank() }?.let { return ParseResult.Ok(Plan.OfferSearch(it.trim())) }
         val array = json.optJSONArray("steps") ?: return ParseResult.Failed("The planner gave neither steps, a question nor a reason.")
-        if (array.length() == 0) return ParseResult.Failed("The plan had no steps.")
+        if (array.length() == 0) return ParseResult.Failed("The plan had no steps.", retry = true)
         val steps = ArrayList<Step>(array.length())
         for (i in 0 until array.length()) {
             val item = array.optJSONObject(i) ?: return ParseResult.Failed("Step ${i + 1} is not an object.")
             val name = item.optString("tool").trim()
             val tool = tools.firstOrNull { it.name == name }
-                ?: return ParseResult.Failed("There is no \"$name\" tool. I can: ${tools.joinToString(", ") { it.name }}.")
+                ?: return ParseResult.Failed("There is no \"$name\" tool. I can: ${tools.joinToString(", ") { it.name }}.", retry = true)
             val values = HashMap<String, String>()
             item.optJSONObject("params")?.let { params ->
                 params.keys().forEach { key -> values[key] = params.optString(key, "") }
             }
             when (val checked = tool.validate(values)) {
                 is Validation.Ok -> steps += Step(tool, checked.value)
-                is Validation.Rejected -> return ParseResult.Failed(checked.why)
+                is Validation.Rejected -> return ParseResult.Failed(checked.why, retry = true)
             }
         }
         return ParseResult.Ok(Plan.Steps(steps))

@@ -13,10 +13,13 @@ internal object AgentSessionHolder {
     private var publish: () -> Unit = {}
     private var settings: () -> AgentSettings = { AgentSettings() }
     private var searchOpen: () -> Boolean = { false }
+    private var record: (String, String, com.jake.duolauncher.search.ChatTurn.Kind) -> Unit = { _, _, _ -> }
     private var session: AgentSession? = null
 
     fun bind(planner: () -> Planner, env: () -> ToolEnv, publish: () -> Unit = {},
-        settings: () -> AgentSettings = { AgentSettings() }, searchOpen: () -> Boolean = { false }): AgentSession {
+        settings: () -> AgentSettings = { AgentSettings() }, searchOpen: () -> Boolean = { false },
+        record: (String, String, com.jake.duolauncher.search.ChatTurn.Kind) -> Unit = { _, _, _ -> }): AgentSession {
+        this.record = record
         this.planner = planner
         this.env = env
         this.publish = publish
@@ -30,6 +33,7 @@ internal object AgentSessionHolder {
             publish = { this.publish() },
             settings = { this.settings() },
             searchOpen = { this.searchOpen() },
+            record = { said, reply, kind -> this.record(said, reply, kind) },
         ).also { session = it }
     }
 

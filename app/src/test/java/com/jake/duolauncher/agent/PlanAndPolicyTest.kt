@@ -12,12 +12,12 @@ class PlanAndPolicyTest {
 
     @Test fun aPlanIsStepsInOrder() {
         val result = PlanParser.parse(
-            """{"steps":[{"tool":"timer","params":{"seconds":"1200","label":"pasta"}},{"tool":"focus","params":{"on":"true"}}]}""",
+            """{"steps":[{"tool":"timer","params":{"length":"20 minutes","label":"pasta"}},{"tool":"focus","params":{"on":"true"}}]}""",
             tools)
         val plan = (result as ParseResult.Ok).plan as Plan.Steps
         assertEquals(2, plan.steps.size)
         assertEquals("timer", plan.steps[0].tool.name)
-        assertEquals(1200, plan.steps[0].params.int("seconds"))
+        assertEquals("20 minutes", plan.steps[0].params.text("length"))
         assertEquals("pasta", plan.steps[0].params.text("label"))
         assertEquals(true, plan.steps[1].params.bool("on"))
     }
@@ -30,7 +30,7 @@ class PlanAndPolicyTest {
     }
 
     @Test fun aFencedReplyIsReadAnyway() {
-        val result = PlanParser.parse("```json\n{\"steps\":[{\"tool\":\"torch\",\"params\":{}}]}\n```", tools)
+        val result = PlanParser.parse("```json\n{\"steps\":[{\"tool\":\"torch\",\"params\":{\"on\":true}}]}\n```", tools)
         assertEquals(1, ((result as ParseResult.Ok).plan as Plan.Steps).steps.size)
     }
 
@@ -38,7 +38,7 @@ class PlanAndPolicyTest {
         assertTrue(PlanParser.parse("not json", tools) is ParseResult.Failed)
         assertTrue(PlanParser.parse("""{"steps":[]}""", tools) is ParseResult.Failed)
         assertTrue(PlanParser.parse("""{"steps":[{"tool":"launch_missiles","params":{}}]}""", tools) is ParseResult.Failed)
-        assertTrue(PlanParser.parse("""{"steps":[{"tool":"timer","params":{"seconds":"soon"}}]}""", tools) is ParseResult.Failed)
+        assertTrue(PlanParser.parse("""{"steps":[{"tool":"timer","params":{"length":"","label":""}}]}""", tools) is ParseResult.Failed)
         assertTrue(PlanParser.parse("""{"steps":[{"tool":"timer","params":{}}]}""", tools) is ParseResult.Failed)
     }
 

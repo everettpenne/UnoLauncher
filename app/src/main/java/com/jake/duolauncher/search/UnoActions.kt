@@ -52,6 +52,9 @@ internal object ActionLogic {
 
     fun dialIntent(number: String) = ActionIntent(ACTION_DIAL, "tel:" + phoneNumber(number))
     fun smsIntent(number: String) = ActionIntent(ACTION_SENDTO, "smsto:" + phoneNumber(number))
+    /** The same with [text] typed in, not sent: the messages app's own send button is the confirmation. */
+    fun smsIntent(number: String, text: String) =
+        if (text.isBlank()) smsIntent(number) else smsIntent(number).copy(stringExtras = listOf("sms_body" to text))
     fun alarmIntent(hour: Int, minute: Int) = ActionIntent(ACTION_SET_ALARM, null, hour, minute)
     fun viewIntent(url: String) = ActionIntent(ACTION_VIEW, url)
 

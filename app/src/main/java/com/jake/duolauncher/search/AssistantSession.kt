@@ -61,6 +61,23 @@ internal object AssistantSession {
     /** Kept so clearing the result can take its card off the island. */
     private var appContext: Context? = null
     private var job: Job? = null
+    /** The turn a new question has just replaced, while it stops: what it had written is kept (see [start]). */
+    private var replaced: Job? = null
+
+    /** A turn's own record of what it asked and has written, and whether that is already in the conversation. */
+    private class Turn(val query: String) { val written = StringBuilder(); var kept = false }
+    private var current: Turn? = null
+
+    /**
+     * Puts the answer still being written into the conversation as far as it has got, before a follow-up is asked: the follow-up is
+     * sent with the conversation so far, and the turn it follows must be in it. (Otherwise it is kept only as it is replaced, after
+     * the follow-up's context was read, and "where did he live?" went to the model with no "he".)
+     */
+    fun keepUnfinished(context: Context) {
+        val t = current ?: return
+        if (t.kept || state !is State.Running) return
+        AnswerText.clean(t.written.toString())?.let { ChatStore.record(context.applicationContext, t.query, "$it…", ChatTurn.Kind.ANSWER); t.kept = true }
+    }
     private var scope: CoroutineScope? = null
 
     /** Starts a turn. [phoneContext] is the facts for an answer (Uno Lab gets none for a possible action). */
@@ -69,14 +86,25 @@ internal object AssistantSession {
         appContext = app
         val c = clientForTests ?: client ?: LocalAssistant(app).also { client = it }
         c.open()
-        job?.cancel()
+        // The turn being replaced is let go of before it is cancelled: on Main.immediate its cancellation runs here, inside cancel(),
+        // and it must already see that it is no longer the current turn (or it unbinds the client this turn has just opened).
+        val previous = job
+        replaced = previous
+        job = null
+        previous?.cancel()
         scope?.coroutineContext?.get(Job)?.cancel()
         val s = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).also { scope = it }
         asked = query
         resetStream()
         state = State.Running(query)
         publish(app)
-        job = s.launch {
+        // What this turn has written so far, kept here and not only in the shared stream, so a turn replaced mid-answer can still be
+        // written into the conversation (the next question resets the stream before this one has stopped).
+        val turn = Turn(query).also { current = it }
+        val written = turn.written
+        // Started only once it is [job], so every check below of whether it is still the current turn sees itself.
+        lateinit var mine: Job
+        mine = s.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
             val t0 = System.currentTimeMillis()
             try {
                 var json: String? = null
@@ -90,16 +118,32 @@ internal object AssistantSession {
                     publish(app)
                     return@launch
                 }
-                val answer = buildString { c.ask(query, AskMode.ANSWER, phoneContext).collect { append(it); appendPiece(it) } }
+                c.ask(query, AskMode.ANSWER, phoneContext).collect { written.append(it); appendPiece(it) }
+                val answer = written.toString()
                 state = State.Ready(query, answer, null, System.currentTimeMillis() - t0)
+                // The exchange goes into the chat history, which stays on this phone and can be deleted from the chat view.
+                if (!turn.kept) AnswerText.clean(answer)?.let { ChatStore.record(app, query, it, ChatTurn.Kind.ANSWER) }
                 publish(app)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Replaced by the next question (a follow-up sent while this was still being written) or cleared. The state is the
+                // next turn's now, so it is left alone; what was written so far still goes into the conversation, so the follow-up has
+                // the turn it follows. A turn cleared away (search dismissed, "seen") is not one the person moved on from mid-sentence.
+                if (replaced === mine && !turn.kept) AnswerText.clean(written.toString())?.let { ChatStore.record(app, query, "$it…", ChatTurn.Kind.ANSWER) }
+                throw e
             } catch (e: Exception) {
-                state = State.Failed(query, e.message ?: "Uno Lab couldn't answer.")
-                publish(app)
+                if (job === mine) {
+                    state = State.Failed(query, e.message ?: "Uno Lab couldn't answer.")
+                    publish(app)
+                }
             } finally {
-                c.close()
+                // The client is shared by every turn. A turn replaced by the next one must not unbind it: the next one has already
+                // opened it (a no-op, since it was still bound) and would then wait for a service that is gone ("Uno Lab isn't
+                // connected"). Only the turn still current closes it.
+                if (job === mine) c.close()
             }
         }
+        job = mine
+        mine.start()
     }
 
     /** Tells the island what the turn is doing. */
@@ -114,6 +158,8 @@ internal object AssistantSession {
     }
 
     fun clear() {
+        replaced = null
+        current = null
         job?.cancel(); job = null
         asked = null
         resetStream()

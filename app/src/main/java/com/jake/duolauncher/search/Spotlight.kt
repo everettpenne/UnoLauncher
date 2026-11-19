@@ -1,5 +1,10 @@
 package com.jake.duolauncher.search
 
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.layout.offset
 import android.util.Log
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.res.stringResource
@@ -435,7 +440,9 @@ internal object ContactHint {
 private sealed interface AskView {
     data object Thinking : AskView
     class Act(val action: QuickAction, val app: AppEntry? = null, val contacts: List<ContactPhone> = emptyList()) : AskView
-    data class Answer(val text: String, val done: Boolean, val error: String? = null) : AskView
+    /** [search]: what a "Search the web" row under the card would look for, or null for no row. [awaiting]: the text is a question
+     *  from the agent that the next words typed can answer. */
+    data class Answer(val text: String, val done: Boolean, val error: String? = null, val search: String? = null, val awaiting: Boolean = false) : AskView
     /** What was asked is understood but can't be done here ([why]); [settings]: turning something on in search settings would fix it. */
     data class Info(val why: String, val settings: Boolean = false) : AskView
     /** A plan that leaves the phone: the exact steps, waiting for a yes. */
@@ -475,6 +482,7 @@ internal fun Spotlight(
     from: IslandFrame? = null,
     /** The slot of a Note widget on Home, if one is placed; the "note" action writes to it. */
     noteSlot: Int? = null,
+    checklistSlot: Int? = null,
     /** Whether Focus is on right now, for "focus on"/"focus off" to know if there is anything to do. */
     focusOn: () -> Boolean = { false },
     /** Flips Focus (and its ringer change), as the control panel does. */
@@ -496,12 +504,23 @@ internal fun Spotlight(
     seeThrough: Boolean = false,
     /** Given Back's first step while search is on screen (clear what is typed; true if there was anything), and null when it goes. */
     onBackStep: ((() -> Boolean)?) -> Unit = {},
+    /** Told whether anything is typed, for a back gesture to know whether it would close search or only clear the field. */
+    onTyped: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     var query by remember { mutableStateOf(initialQuery.orEmpty()) }
+    // The conversation: search's card grown to the whole panel, with what was said before above the turn in flight. [chatPull] is how far
+    // a finger has pulled the handle (dp) while it is held, so the card grows under it before it is let go.
+    var chatOpen by remember { mutableStateOf(false) }
+    var chatPull by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    var chatListing by remember { mutableStateOf(false) }
+    // Search opens as search: the conversation is a pull away each time, not where it was left.
+    LaunchedEffect(visible) { if (!visible) { chatOpen = false; chatPull = 0f; chatListing = false } }
+    androidx.compose.runtime.SideEffect { onTyped(query.isNotEmpty()) }
     androidx.compose.runtime.DisposableEffect(Unit) {
-        onBackStep { if (query.isNotEmpty()) { query = ""; true } else false }
-        onDispose { onBackStep(null) }
+        // Back steps out one thing at a time: what is typed, then the conversation, then search.
+        onBackStep { if (query.isNotEmpty()) { query = ""; true } else if (chatListing) { chatListing = false; true } else if (chatOpen) { chatOpen = false; true } else false }
+        onDispose { onBackStep(null); onTyped(false) }
     }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -551,6 +570,7 @@ internal fun Spotlight(
     LaunchedEffect(handoff, visible) { if (visible) handoff.prepare() }
     // Uno Lab's assistant: bound (and the model warmed) only while search is open with the setting on, unbound as it closes.
     DisposableEffect(assistant, visible) {
+        if (assistant != null && visible) ChatStore.load(context)
         if (assistant != null && visible) assistant.open()
         onDispose { assistant?.close() }
     }
@@ -558,9 +578,9 @@ internal fun Spotlight(
     val askOffered = assistant != null && AskPolicy.offer(query, smart, quick, assistantState)
     // The agent: plans a task and runs it. Debug-only until the eval set is green against an Uno Lab with the planner API, so the shipped
     // answer path cannot change underneath anyone.
-    val agentEnv = remember(assistant, noteSlot, apps) {
+    val agentEnv = remember(assistant, noteSlot, checklistSlot, apps) {
         if (assistant == null) null
-        else com.jake.duolauncher.search.agent.AndroidToolEnv(context, noteSlot, apps, { focusOn() }, onToggleFocus)
+        else com.jake.duolauncher.search.agent.AndroidToolEnv(context, noteSlot, apps, { focusOn() }, onToggleFocus, checklistSlot)
     }
     val agentSession = remember(agentEnv) {
         agentEnv?.let { env ->
@@ -570,10 +590,15 @@ internal fun Spotlight(
                 publish = { NotificationFeed.publishAssistant(context, System.currentTimeMillis()) },
                 settings = { com.jake.duolauncher.search.agent.AgentRouting.settings(context) },
                 searchOpen = { com.jake.duolauncher.island.IslandRuntime.state.surface.state.mode == com.jake.duolauncher.island.SurfaceMode.SEARCH },
+                record = { said, reply, kind -> ChatStore.record(context, said, reply, kind) },
             )
         }
     }
     val agentScope = androidx.compose.runtime.rememberCoroutineScope()
+    // Whether what is typed follows on from the task the assistant just did: then it is offered to it, however short ("again").
+    val followsNow = remember(query, agentSession) {
+        agentSession != null && com.jake.duolauncher.search.agent.AgentRouting.enabled(context) && agentSession.follows(query)
+    }
     // What was asked, and where the answer is: reset whenever the query changes, which also cancels a running answer.
     var askedFor by remember(query) { mutableStateOf<String?>(null) }
     var askView by remember(query) { mutableStateOf<AskView?>(null) }
@@ -581,19 +606,48 @@ internal fun Spotlight(
     // A scripted test's query is asked once, after the panel has offered it: no taps, no timing.
     var scripted by remember { mutableStateOf(if (autoAsk && !initialQuery.isNullOrBlank()) initialQuery.trim() else null) }
     val scriptedAsk = autoAsk && !initialQuery.isNullOrBlank()
-    LaunchedEffect(scripted, askOffered) {
+    LaunchedEffect(scripted, askOffered, followsNow) {
         val q = scripted ?: return@LaunchedEffect
         // A plan-only run (test builds only) scores the planner on every phrasing, so it asks even where search's own instant action
         // would have answered and no Ask row is offered.
-        if (askOffered || (com.jake.duolauncher.search.agent.AgentRouting.planOnly && assistant != null)) { askedFor = q; scripted = null }
+        if (askOffered || followsNow || (com.jake.duolauncher.search.agent.AgentRouting.planOnly && assistant != null)) { askedFor = q; scripted = null }
+    }
+    // What the agent may know about a request before it plans: the apps, the messages waiting, and (only with contact search on and
+    // Android's permission) the numbers of the people the request names. Nothing here is read until a request is asked.
+    val groundingFor: suspend (String) -> com.jake.duolauncher.search.agent.Grounding = { q ->
+        val people = if (!contactsEnabled) emptyList() else withContext(Dispatchers.IO) {
+            com.jake.duolauncher.search.agent.GroundingLogic.namesIn(q).flatMap { name -> ContactActions.search(context, name, limit = 3) }
+                .distinct().map { com.jake.duolauncher.search.agent.KnownPerson(it.name, it.number) }
+        }
+        com.jake.duolauncher.search.agent.Grounding(people, apps.map { it.label }, agentEnv?.replyTargets().orEmpty())
     }
     // The turn itself lives in AssistantSession, so search can be closed while the model works. This hands it the question and the
     // facts an answer would need (read up front: they cost ~25 ms, and a possible action never sees them).
-    LaunchedEffect(askedFor) {
-        val q = askedFor ?: return@LaunchedEffect
+    val ask: suspend (String) -> Unit = ask@{ q ->
+        // The agent asked something and these words are the answer: they go back to its turn, not to a new one.
+        // Its question is on screen whenever it is waiting (search shows it, open or reopened). A scripted test's request is always a new one.
+        agentSession?.takeIf { it.awaiting != null && it.state is com.jake.duolauncher.search.agent.AgentState.Asking && !scriptedAsk }?.let { agent ->
+            askView = AskView.Thinking
+            val facts = contextEnv?.let { env ->
+                withContext(Dispatchers.IO) { runCatching { com.jake.duolauncher.search.context.PhoneContext.build(q, action = true, env) }.getOrDefault("") }
+            }.orEmpty()
+            agent.answer(q, facts, groundingFor((agent.awaiting?.request.orEmpty() + " " + q).trim()),
+                planOnly = com.jake.duolauncher.search.agent.AgentRouting.planOnly)
+            return@ask
+        }
+        // Words about what the assistant just did ("undo that", "make it 15", "and also…") go on from it.
+        agentSession?.takeIf { com.jake.duolauncher.search.agent.AgentRouting.enabled(context) && it.follows(q) }?.let { agent ->
+            // Its result for these very words is already on the card: asking again would do it again ("again" twice is two timers).
+            if (agent.asked == q.trim() && agent.settled) return@ask
+            askView = AskView.Thinking
+            val facts = contextEnv?.let { env ->
+                withContext(Dispatchers.IO) { runCatching { com.jake.duolauncher.search.context.PhoneContext.build(q, action = true, env) }.getOrDefault("") }
+            }.orEmpty()
+            if (agent.followUp(q, facts, groundingFor(q), planOnly = com.jake.duolauncher.search.agent.AgentRouting.planOnly)) return@ask
+        }
         // A greeting or a thank-you is answered from a table: no action round trip, no facts read, no model, no session.
-        SmallTalk.replyTo(q)?.let { reply -> askView = AskView.Answer(reply, done = true); return@LaunchedEffect }
-        if (assistant == null) return@LaunchedEffect
+        SmallTalk.replyTo(q)?.let { reply -> askView = AskView.Answer(reply, done = true); return@ask }
+        if (assistant == null) return@ask
         askView = AskView.Thinking
         val agent = agentSession
         val planned = agent != null && (com.jake.duolauncher.search.agent.AgentRouting.plans(context, q) ||
@@ -606,12 +660,21 @@ internal fun Spotlight(
             }
         }.orEmpty()
         if (agent != null && planned) {
-            agent.run(q, facts, com.jake.duolauncher.search.agent.Grounding(apps = apps.map { it.label }, replies = agentEnv?.replyTargets().orEmpty()),
+            agent.run(q, facts, groundingFor(q),
                 planOnly = com.jake.duolauncher.search.agent.AgentRouting.planOnly)
-            return@LaunchedEffect
+            return@ask
         }
-        AssistantSession.start(context, q, facts)
+        // A question is asked with the conversation so far, so "why?" and "tell me more" mean something. Only an answer gets it: a
+        // request that will be planned and acted on follows up through the last task, never through what was said.
+        AssistantSession.keepUnfinished(context)
+        val earlier = ChatLog.earlier(ChatStore.active, System.currentTimeMillis())
+        AssistantSession.start(context, q, listOf(earlier, facts).filter { it.isNotBlank() }.joinToString("\n\n"))
     }
+    LaunchedEffect(askedFor) { askedFor?.let { ask(it) } }
+    // The conversation's own field sends and empties, as a chat does: what was sent is asked here, once per send.
+    var sendTick by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val sendText = remember { arrayOf("") }
+    LaunchedEffect(sendTick) { if (sendTick > 0) ask(sendText[0]) }
     // Whatever the session has for this question: running, an answer that arrived while search was closed, or an action to offer.
     // Shown for the question on screen, or for any of them while the field is empty (the panel has just been reopened).
     val agentNow = agentSession?.state
@@ -619,13 +682,15 @@ internal fun Spotlight(
     // island), a running one is abandoned. Not on the first pass, which is the panel opening on whatever the turn already is.
     var queryTouched by remember { mutableStateOf(false) }
     LaunchedEffect(query) {
-        if (queryTouched) agentSession?.leftFor(query)
+        // In the conversation the field empties when something is sent: that is not moving on from the turn it started.
+        if (queryTouched && !(chatOpen && query.isBlank())) agentSession?.leftFor(query)
         queryTouched = true
     }
     LaunchedEffect(agentNow, query) {
         val s = agentNow ?: return@LaunchedEffect
         // Shown beside its own question, or while the field is empty (the panel has just been reopened), as an answer is.
-        val mine = query.isBlank() || agentSession?.asked == query.trim()
+        val awaiting = s is com.jake.duolauncher.search.agent.AgentState.Asking && agentSession?.awaiting != null
+        val mine = query.isBlank() || agentSession?.asked == query.trim() || awaiting
         // A turn that has ended (dismissed, or expired) belongs to no question any more: its card goes whatever is typed.
         if (s is com.jake.duolauncher.search.agent.AgentState.Idle) {
             if (askView is AskView.Done || askView is AskView.Steps) askView = null
@@ -637,8 +702,8 @@ internal fun Spotlight(
             is com.jake.duolauncher.search.agent.AgentState.Confirming -> askView = AskView.Steps(s.steps)
             is com.jake.duolauncher.search.agent.AgentState.Acting -> askView = AskView.Thinking
             is com.jake.duolauncher.search.agent.AgentState.Done -> askView = AskView.Done(s.summary, s.canUndo)
-            is com.jake.duolauncher.search.agent.AgentState.Asking -> askView = AskView.Answer(s.question, done = true)
-            is com.jake.duolauncher.search.agent.AgentState.Failed -> askView = AskView.Answer("", done = true, error = s.why)
+            is com.jake.duolauncher.search.agent.AgentState.Asking -> askView = AskView.Answer(s.question, done = true, awaiting = awaiting)
+            is com.jake.duolauncher.search.agent.AgentState.Failed -> askView = AskView.Answer("", done = true, error = s.why, search = s.search)
             com.jake.duolauncher.search.agent.AgentState.Idle -> Unit
         }
     }
@@ -656,7 +721,7 @@ internal fun Spotlight(
             is AssistantSession.State.Running -> askView = AskView.Thinking
             is AssistantSession.State.Failed -> askView = AskView.Answer("", done = true, error = s.why)
             is AssistantSession.State.Ready -> askView = if (s.actionJson == null) {
-                AnswerText.clean(s.answer.orEmpty())?.let { AskView.Answer(it, done = true) } ?: AskView.Info(AnswerText.UNCLEAR)
+                AnswerText.clean(s.answer.orEmpty())?.let { AskView.Answer(it, done = true, search = AnswerText.searchFor(s.query, it)) } ?: AskView.Info(AnswerText.UNCLEAR)
             } else when (val outcome = AssistantIntent.read(s.actionJson, s.query)) {
                 is AssistantIntent.Outcome.Cannot -> AskView.Info(outcome.why)
                 is AssistantIntent.Outcome.None -> null
@@ -787,6 +852,9 @@ internal fun Spotlight(
                     rim, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
             }
             .clickable(interactionSource = quiet, indication = null) {}
+    // In the conversation the strip that closes is the field's whole row, so a swipe up from where the thumb rests closes everything.
+    var chatCloseZone by remember { mutableStateOf(SPOTLIGHT_SWIPE_CLOSE_ZONE) }
+    val closeZone = androidx.compose.runtime.rememberUpdatedState(if (chatOpen) chatCloseZone else SPOTLIGHT_SWIPE_CLOSE_ZONE)
     val swipeToClose = Modifier
             .pointerInput(Unit) {
                 // A swipe up from the bottom of the panel collapses it back into the island, like the island's swipe-up-close: the
@@ -794,8 +862,8 @@ internal fun Spotlight(
                 // travel is mapped to a reduced emerge progress (IslandDrag.closeFraction), and the release decision reuses the
                 // island's pure IslandDrag. A tap within the slop is left alone, so rows and the field still receive it.
                 val slop = viewConfiguration.touchSlop
-                val zonePx = SPOTLIGHT_SWIPE_CLOSE_ZONE.toPx()
                 awaitEachGesture {
+                    val zonePx = closeZone.value.toPx()
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val tracker = VelocityTracker().apply { addPointerInputChange(down) }
                     val fromBottom = down.position.y >= size.height - zonePx
@@ -861,6 +929,11 @@ internal fun Spotlight(
         EmergeSource(pill != null && animationsOn, { minOf(contentClock.value, effectiveProgress()) }, { cardPos.y }, { cardSize.height.toFloat() })
     }
     val onEnter: () -> Unit = {
+                    // Words typed under a question from the agent are its answer.
+                    if ((askView as? AskView.Answer)?.awaiting == true && query.isNotBlank() && query.trim() != agentSession?.asked) askedFor = query
+                    // So are words about what it just did ("again", "make it 15"), ahead of an app or an action of the same name.
+                    else if (followsNow && askView == null) askedFor = query
+                    else
                     when (SpotlightEnter.route(appResults.isNotEmpty(), singleQuick != null, actionContacts.isNotEmpty(), query.isBlank(), askOffered && askView == null)) {
                         SpotlightEnter.Route.APP -> launch(appResults.first())
                         SpotlightEnter.Route.QUICK -> singleQuick?.let { actions.run(it, focusOn(), onToggleFocus); onDismiss() }
@@ -875,7 +948,7 @@ internal fun Spotlight(
     val searchOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search)
     val searchActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { onEnter() })
     val panelField: @Composable () -> Unit = {
-            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().emergingHere(field = true).focusRequester(focus).testTag("spotlight-field"),
+            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().emergingHere(field = true).assistantLight(rememberAssistantMood(), Corner.pill).focusRequester(focus).testTag("spotlight-field"),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = ink, unfocusedTextColor = ink, cursorColor = ink,
                     focusedBorderColor = ink.copy(alpha = .55f), unfocusedBorderColor = ink.copy(alpha = .25f),
@@ -901,6 +974,25 @@ internal fun Spotlight(
             if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search", tint = ink.copy(alpha = .8f)) }
         }
     }
+    // The Ask Qwen part of the results, the same cards wherever they are shown: in search's results, and as the turn in flight at
+    // the bottom of the conversation.
+    val askSection: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
+        askItems(askView, query, assistantState, ink, capCorner, askCopied,
+                    agent = agentSession, onUndo = { agentScope.launch { agentSession?.undo() } },
+                    onDismissTask = { agentSession?.clear() },
+                    onAsk = { askedFor = query },
+                    onRun = { action -> actions.run(action, focusOn(), onToggleFocus); onDismiss() },
+                    onLaunch = { app -> launch(app) },
+                    onContact = { kind, number -> actions.openContact(kind, number); onDismiss() },
+                    onWeb = { q -> if (handoff.searchWeb(q)) onDismiss() },
+                    onCopy = { text ->
+                        context.getSystemService(android.content.ClipboardManager::class.java)
+                            ?.setPrimaryClip(android.content.ClipData.newPlainText("Uno Lab answer", text))
+                        askCopied = true
+                    },
+                    onContinue = { assistant?.continueInLab(context, query); onDismiss() },
+                    onSettings = { onOpenSearchSettings(); onDismiss() })
+    }
     val resultsList: @Composable (Modifier) -> Unit = { listModifier ->
             val contactHint = contactKind != null && actionContacts.isEmpty() && !contactsEnabled
             val nothing = smart == null && !contactHint && !askOffered && askView == null && singleQuick == null && actionContacts.isEmpty() && settingsHits.isEmpty() && appResults.isEmpty() && contacts.isEmpty() && feedResults.isEmpty() && suggestions.isEmpty()
@@ -921,21 +1013,7 @@ internal fun Spotlight(
                             color = ink.copy(alpha = .5f), style = UnoType.caption2)
                     }
                 }
-                if (askOffered || askView != null) askItems(askView, query, assistantState, ink, capCorner, askCopied,
-                    agent = agentSession, onUndo = { agentScope.launch { agentSession?.undo() } },
-                    onDismissTask = { agentSession?.clear() },
-                    onAsk = { askedFor = query },
-                    onRun = { action -> actions.run(action, focusOn(), onToggleFocus); onDismiss() },
-                    onLaunch = { app -> launch(app) },
-                    onContact = { kind, number -> actions.openContact(kind, number); onDismiss() },
-                    onWeb = { q -> if (handoff.searchWeb(q)) onDismiss() },
-                    onCopy = { text ->
-                        context.getSystemService(android.content.ClipboardManager::class.java)
-                            ?.setPrimaryClip(android.content.ClipData.newPlainText("Uno Lab answer", text))
-                        askCopied = true
-                    },
-                    onContinue = { assistant?.continueInLab(context, query); onDismiss() },
-                    onSettings = { onOpenSearchSettings(); onDismiss() })
+                if (askOffered || followsNow || askView != null) askSection()
                 if (singleQuick != null) item("quick-header") {
                     SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_actions), ink)
                 }
@@ -1089,12 +1167,61 @@ internal fun Spotlight(
         // system bars and cutout only; the IME is handled by the imePadding below, so the keyboard
         // is never double-counted. The bars are measured whether they show or not: Home hides the status bar while search is open, and
         // following it moved the panel and re-laid it out on every frame of the bar's animation, as search opened and again as it closed.
+        // The conversation is the island's body grown down the page. [chatGrow] is how far it has grown, 0 the bar to 1 the page.
+        val chatGrow by androidx.compose.animation.core.animateFloatAsState(if (chatOpen) 1f else 0f,
+            if (animationsOn) UnoMotion.glide() else androidx.compose.animation.core.snap(), label = "chat grow")
+        val chatShown = chatOpen || chatGrow > .001f
+        // The page it grows into ends clear of whatever is at the bottom of the screen: as far above the keyboard as the body is from
+        // the screen's sides (measured, so it is the same margin all round and the body's bottom corners show), and with the keyboard
+        // down, at least clear of the gesture bar.
+        val sideGap = with(density) { panelPos.x.coerceAtLeast(0f).toDp() }
+        val keysUp = WindowInsets.ime.asPaddingValues().calculateBottomPadding() > 0.dp
+        val pageBottom = if (!chatShown) 0.dp else if (keysUp) sideGap
+            else maxOf(sideGap, WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
         @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-        if (floating) Column(Modifier.padding(top = with(density) { pillTop.toDp() }).imePadding().padding(horizontal = 12.dp)
+        if (floating) Column(Modifier.padding(top = with(density) { pillTop.toDp() }).imePadding().padding(bottom = pageBottom).padding(horizontal = 12.dp)
             .widthIn(max = IslandGeometry.expandedWidthDp(LocalConfiguration.current.screenWidthDp.toFloat()).dp).fillMaxWidth()) {
             // The bar: the island's own body, grown wide (the morph follows this and not the card). The camera sits in its top, the field under it.
             // Its fill is black round the camera and fades into liquid glass toward the bottom edge; while it is still the pill it is all black.
-            Box(Modifier.fillMaxWidth().then(panelChrome).testTag("spotlight")) {
+            // The conversation is this same body grown down the screen: the island's bar, the chat and its field are one piece, which
+            // goes back into the island as one piece when it is closed. [chatGrow] is how far it has grown, 0 the bar to 1 the screen.
+            // What the turn on screen is for, so the conversation shows it once: live at the bottom, not also as history.
+            val answering = when (val now = AssistantSession.state) {
+                is AssistantSession.State.Running -> now.query; is AssistantSession.State.Ready -> now.query
+                is AssistantSession.State.Failed -> now.query; else -> null
+            }
+            val liveFor = (agentSession?.asked ?: answering ?: askedFor)?.takeIf { askView != null }
+            // The conversation's sizes, from this phone: the body's width, a line of text at the person's text size, the radius the
+            // body's corners settle at (the display's, through the island's own rule), and the system's smallest touch target.
+            val touchTarget = androidx.compose.ui.platform.LocalViewConfiguration.current.minimumTouchTargetSize
+            val chatMetrics = remember(panelSize.width, density, touchTarget, panelScale) {
+                val d = density.density
+                val widthPx = panelSize.width.coerceAtLeast(1).toFloat()
+                ChatLayout.metrics(
+                    widthDp = widthPx / d,
+                    lineDp = with(density) { UnoType.body.lineHeight.toDp().value },
+                    // The corner of the body once it is taller than it is wide, which is the shape the conversation is.
+                    cornerDp = IslandMorph.cornerPx(widthPx, widthPx * 2f, d, panelScale) / d,
+                    touchDp = touchTarget.height.value)
+            }
+            val barRest = remember { IntArray(1) }
+            // It grows from where the bar and the results card under it already reach, so the two fuse and carry on down, and going
+            // back it ends there, where they reappear.
+            val chatBase = barRest[0] + if (cardSize.height > 0) cardSize.height + with(density) { 8.dp.roundToPx() } else 0
+            Box(Modifier.fillMaxWidth().then(if (chatShown) Modifier.weight(1f, fill = false) else Modifier)
+                .layout { measurable, constraints ->
+                    if (!chatShown || !constraints.hasBoundedHeight) {
+                        val placeable = measurable.measure(constraints)
+                        barRest[0] = placeable.height
+                        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+                    } else {
+                        val base = chatBase.coerceAtMost(constraints.maxHeight)
+                        val h = (base + (constraints.maxHeight - base) * chatGrow.coerceIn(0f, 1f)).roundToInt().coerceIn(0, constraints.maxHeight)
+                        val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+                        layout(placeable.width, h) { placeable.place(0, 0) }
+                    }
+                }
+                .then(panelChrome).then(if (chatShown) swipeToClose else Modifier).testTag("spotlight")) {
                 if (glass != null && panelSize.width > 0) {
                     val barCorner = with(density) { IslandMorph.cornerPx(panelSize.width.toFloat(), panelSize.height.toFloat(), density.density, panelScale).toDp() }
                     Box(Modifier.matchParentSize().liquidGlass(glass.backdrop, ContinuousShape(barCorner), Color.Black, GlassKind.CLEAR, glass.settings, depth = false))
@@ -1109,11 +1236,40 @@ internal fun Spotlight(
                         if (p < 1f) drawRect(Color.Black.copy(alpha = 1f - p))
                     }
                 })
+                // Grown into the conversation, the body is darkened down its length: the bar's fill thins to clear glass at the bottom, which
+                // is right for one line of large text and too thin for a page of it.
+                if (chatShown) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .46f * chatGrow.coerceIn(0f, 1f))))
+                // The assistant's light round the bar while the model works: over the fill, under the field.
+                if (panelSize.width > 0) {
+                    val lightCorner = with(density) { IslandMorph.cornerPx(panelSize.width.toFloat(), panelSize.height.toFloat(), density.density, panelScale).toDp() }
+                    Box(Modifier.matchParentSize().assistantLight(rememberAssistantMood(), ContinuousShape(lightCorner)))
+                }
                 // As tall as the camera's band and a row of text, with the field centred in the whole bar.
-                Box(Modifier.fillMaxWidth().height(with(density) { (pillBottom - pillTop).toDp() }.coerceAtLeast(0.dp) + 50.dp).padding(horizontal = 22.dp), contentAlignment = Alignment.CenterStart) {
+                val headHeight = with(density) { (pillBottom - pillTop).toDp() }.coerceAtLeast(0.dp) + 50.dp
+                if (chatShown) Column(Modifier.fillMaxSize()) {
+                    CompositionLocalProvider(LocalEmerge provides emerge, LocalContentColor provides ink) {
+                        val m = chatMetrics
+                        // The header sits under the camera, not across it: where the field was is the list of chats, a new one and delete.
+                        Spacer(Modifier.height(with(density) { (pillBottom - pillTop).toDp() }.coerceAtLeast(0.dp)))
+                        Box(Modifier.fillMaxWidth().heightIn(min = m.touch.dp), contentAlignment = Alignment.CenterStart) {
+                            if (chatOpen) ChatHeader(ink, m, chatListing) { chatListing = it }
+                        }
+                        ChatBody(Modifier.weight(1f), ink, m, chatListing, { chatListing = it }, liveFor) { askSection() }
+                        // The field sits in from the sides and the bottom by the same amount, concentric with the body's corners. The page
+                        // already ends clear of the keyboard and the gesture bar.
+                        androidx.compose.runtime.SideEffect { chatCloseZone = m.closeZone.dp }
+                        Box(Modifier.padding(start = m.inset.dp, end = m.inset.dp, bottom = m.inset.dp)) {
+                            ChatComposer(query, { query = it }, ink, m) {
+                                val text = query.trim()
+                                if (text.isNotEmpty()) { sendText[0] = text; sendTick++; query = ""; chatListing = false }
+                            }
+                        }
+                    }
+                } else Box(Modifier.fillMaxWidth().height(headHeight).padding(horizontal = 22.dp), contentAlignment = Alignment.CenterStart) {
                     CompositionLocalProvider(LocalEmerge provides emerge, LocalContentColor provides ink) { barField() }
                 }
             }
+            if (!chatShown) {
             Spacer(Modifier.height(8.dp))
             // The results, a card floating under the bar that drops out of it as it opens, as tall as what is on it (never under the keyboard).
             val cardShape = Corner.floatingSheet(0.dp)
@@ -1129,7 +1285,21 @@ internal fun Spotlight(
                 // Inside the glass, so the glass itself is the size that is moving. A letter typed mid-way carries on from the card's current speed.
                 .then(if (animationsOn) Modifier.animateContentSize(SpotlightBar.cardResize) else Modifier)
                 .padding(horizontal = 10.dp, vertical = 8.dp)) {
-                CompositionLocalProvider(LocalEmerge provides cardEmerge, LocalContentColor provides ink) { resultsList(Modifier) }
+                CompositionLocalProvider(LocalEmerge provides cardEmerge, LocalContentColor provides ink) {
+                        resultsList(Modifier.weight(1f, fill = false))
+                        // The handle is there once the assistant is: with something to ask, a turn on the card, or a conversation kept.
+                        if (assistant != null && (askOffered || askView != null || ChatStore.chats.isNotEmpty())) {
+                            // The card grows under a finger pulling the handle down (the handle goes with the finger), then springs the
+                            // rest of the way when it is let go.
+                            if (chatPull > 0f) Spacer(Modifier.height(chatPull.dp))
+                            ChatHandle(ink, chatMetrics, onPull = { chatPull = it }, onOpen = {
+                                chatOpen = true
+                                // What was typed for the turn on the card has been sent: the conversation's field starts empty.
+                                if (askView != null) query = ""
+                            })
+                        }
+                }
+            }
             }
         } else
         Column(Modifier.then(if (pill == null) Modifier.windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.union(WindowInsets.displayCutout)).padding(top = 8.dp) else Modifier)
@@ -1198,6 +1368,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
                 "spotlight-ask-thinking", false, ink, {}) { mark(Icons.Rounded.AutoAwesome) }
             else AnswerCard(rowMotion(), finished?.text ?: live.orEmpty(), done = finished?.done ?: false, error = finished?.error, ink = ink,
                 capCorner = capCorner, copied = copied, onCopy = onCopy, onContinue = onContinue)
+        }.also {
+            val answer = view as? AskView.Answer
+            if (answer?.awaiting == true && query.isNotBlank() && query.trim() != agent?.asked) item("ask-reply") {
+                SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask_reply, query.trim()), "", "spotlight-ask-reply", true, ink, onAsk) { mark(Icons.Rounded.Check) }
+            }
+            // A refusal, or an answer about something the phone cannot know, is not a dead end: one tap searches for it.
+            answer?.search?.let { words ->
+                item("ask-search") {
+                    SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask_search), words, "spotlight-ask-search", true, ink, { onWeb(words) }) { mark(Icons.AutoMirrored.Rounded.OpenInNew) }
+                }
+            }
         }
         is AskView.Steps -> {
             item("ask-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_ask_steps), ink) }
@@ -1222,6 +1403,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
                 Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}) {
                     Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_answer_by), color = ink.copy(alpha = .7f), style = UnoType.caption1)
                     Text(view.summary, color = ink, style = UnoType.body, modifier = Modifier.testTag("spotlight-ask-done-text"))
+                    // What can be said next, so following up is found without being told.
+                    Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_follow), color = ink.copy(alpha = .5f), style = UnoType.caption2)
                 }
                 if (view.canUndo) {
                     val busy = agent?.undoing == true

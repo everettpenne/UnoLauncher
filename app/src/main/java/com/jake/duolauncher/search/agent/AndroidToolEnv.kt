@@ -26,6 +26,7 @@ internal class AndroidToolEnv(
     override val apps: List<AppEntry>,
     private val focusState: () -> Boolean,
     private val onToggleFocus: () -> Unit,
+    override val checklistSlot: Int? = null,
 ) : ToolEnv {
     private val resolver = ActionResolver(context, noteSlot)
 
@@ -54,6 +55,12 @@ internal class AndroidToolEnv(
         return IslandTools.swRunning
     }
 
+    override fun setTorch(on: Boolean) { IslandTools.setTorch(context, on); torchOn = on }
+    override fun stopwatchRunning(): Boolean = IslandTools.swRunning
+    override fun stopwatchStarted(): Boolean = IslandTools.stopwatchStarted
+    override fun resetStopwatch() = IslandTools.resetStopwatch(context)
+    override fun timerRunning(): Boolean = IslandTools.timerActive
+
     override fun toggleTorch(): Boolean {
         IslandTools.toggleTorch(context)
         torchOn = !torchOn
@@ -81,6 +88,46 @@ internal class AndroidToolEnv(
 
     override fun openDialer(number: String) = resolver.openContact(ContactActionKind.DIAL, number)
     override fun openMessages(number: String) = resolver.openContact(ContactActionKind.TEXT, number)
+    override fun openMessage(number: String, text: String) = resolver.open(ActionLogic.smsIntent(number, text))
+
+    override fun media(action: String): Boolean {
+        val controls = com.jake.duolauncher.NotificationFeed.nowPlaying?.controller?.transportControls ?: return false
+        return runCatching {
+            when (action) { "play" -> controls.play(); "pause" -> controls.pause(); "next" -> controls.skipToNext(); "previous" -> controls.skipToPrevious(); else -> return false }
+        }.isSuccess
+    }
+
+    private val audio get() = context.getSystemService(android.media.AudioManager::class.java)
+    private val stream = android.media.AudioManager.STREAM_MUSIC
+
+    override fun volume(): Int? = runCatching {
+        val max = audio.getStreamMaxVolume(stream).takeIf { it > 0 } ?: return null
+        Math.round(audio.getStreamVolume(stream) * 100f / max)
+    }.getOrNull()
+
+    override fun setVolume(percent: Int): Boolean = runCatching {
+        val max = audio.getStreamMaxVolume(stream)
+        audio.setStreamVolume(stream, Math.round(percent.coerceIn(0, 100) * max / 100f), android.media.AudioManager.FLAG_SHOW_UI)
+    }.isSuccess
+
+    override fun addChecklist(item: String): Boolean {
+        val slot = checklistSlot ?: return false
+        val items = com.jake.duolauncher.widgets.Checklist.parse(WidgetData.get(slot, "items"))
+        val next = com.jake.duolauncher.widgets.Checklist.add(items, item)
+        if (next == items) return false
+        WidgetData.set(slot, "items", com.jake.duolauncher.widgets.Checklist.serialize(next))
+        return true
+    }
+
+    override fun removeChecklist(item: String) {
+        val slot = checklistSlot ?: return
+        val items = com.jake.duolauncher.widgets.Checklist.parse(WidgetData.get(slot, "items"))
+        val at = items.indexOfLast { it.text.equals(item.trim(), ignoreCase = true) }
+        if (at >= 0) WidgetData.set(slot, "items", com.jake.duolauncher.widgets.Checklist.serialize(com.jake.duolauncher.widgets.Checklist.removeAt(items, at)))
+    }
+
+    override fun openDirections(place: String) = resolver.open(ActionLogic.viewIntent("geo:0,0?q=" + android.net.Uri.encode(place)))
+
     override fun openUrl(url: String) = resolver.open(ActionLogic.viewIntent(url))
 
     override fun openCalendar(title: String, inMinutes: Int, durationMinutes: Int) {

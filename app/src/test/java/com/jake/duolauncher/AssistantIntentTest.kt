@@ -118,6 +118,9 @@ class AnswerTextTest {
     @Test fun markdownMarksAreTakenOut() {
         assertEquals("Sam messaged you.", AnswerText.clean("**Sam** messaged you."))
         assertEquals("Lisbon", AnswerText.clean("# Lisbon"))
+        assertEquals("Van Gogh painted The Starry Night in 1889.", AnswerText.clean("Van Gogh painted *The Starry Night* in 1889."))
+        assertEquals("It is called Dune.", AnswerText.clean("It is called _Dune_."))
+        assertEquals("2 * 3 is 6, and my_file stays.", AnswerText.clean("2 * 3 is 6, and my_file stays."))
     }
 
     @Test fun theModelTalkingToItselfIsNotAnAnswer() {

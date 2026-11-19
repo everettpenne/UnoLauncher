@@ -31,6 +31,9 @@ internal class AgentSession(
     private val searchOpen: () -> Boolean = { false },
     /** How long a finished turn's line stays on the island when search is closed, before the turn clears itself. */
     private val expiryMs: Long = EXPIRY_MS,
+    private val clock: () -> Long = { System.currentTimeMillis() },
+    /** Told each finished exchange (what was said, what came back, and which kind), for the chat history. */
+    private val record: (said: String, reply: String, kind: com.jake.duolauncher.search.ChatTurn.Kind) -> Unit = { _, _, _ -> },
 ) {
     var state by mutableStateOf<AgentState>(AgentState.Idle)
         private set
@@ -54,6 +57,12 @@ internal class AgentSession(
     /** The turn is over (done, failed, or a question back to the person) and only waiting to be seen. */
     val settled: Boolean get() = state is AgentState.Done || state is AgentState.Failed || state is AgentState.Asking
 
+    /** A question back to the person that their next words can answer: the request it came from, the question, and (when one value
+     *  is all that was missing) where the answer goes. One per turn: a second question ends the turn. */
+    class Awaiting(val request: String, val question: String, val fix: Fix?)
+    var awaiting by mutableStateOf<Awaiting?>(null)
+        private set
+
     private var job: Job? = null
     private var expiry: Job? = null
     private var gate: CompletableDeferred<Boolean>? = null
@@ -61,6 +70,74 @@ internal class AgentSession(
 
     /** Plans and runs [query]. A previous turn is abandoned. */
     fun run(query: String, facts: String = "", grounding: Grounding = Grounding(), planOnly: Boolean = false) {
+        awaiting = null
+        groundingNow = grounding
+        turn(asked = query, request = query, mayAwait = true) { loop, block -> loop.run(query, facts, block(query), planOnly) }
+    }
+
+    /**
+     * The person's [answer] to the question this turn asked. Where one value was missing it is filled in and the turn carries on at
+     * once; otherwise the request is planned again with the question and the answer beside it. With nothing waiting, it is a new request.
+     */
+    fun answer(answer: String, facts: String = "", grounding: Grounding = Grounding(), planOnly: Boolean = false) {
+        val waiting = awaiting ?: return run(answer, facts, grounding, planOnly)
+        awaiting = null
+        groundingNow = grounding
+        val fix = waiting.fix
+        turn(asked = answer, request = waiting.request, mayAwait = false) { loop, block ->
+            if (fix != null) loop.resume(fix, waiting.request, answer, block(waiting.request + " " + answer), planOnly)
+            else {
+                val asked = "${waiting.request}\nYou asked: ${waiting.question}\nAnswer: ${answer.trim()}"
+                loop.run(asked, facts, block(waiting.request + " " + answer), planOnly)
+            }
+        }
+    }
+
+    private var groundingNow: Grounding = Grounding()
+
+    private var last: LastTurn? = null
+
+    /** The last task, while it can still be followed up ([FollowUp.WINDOW_MS]). It outlives its card: "undo that" works after search has
+     *  been closed and opened again. */
+    fun previous(): LastTurn? = last?.takeIf { clock() - it.atMs < FollowUp.WINDOW_MS }
+
+    /** Whether [query] follows on from the last task, so the panel should hand it to [followUp] and not treat it as a new request. */
+    fun follows(query: String): Boolean = previous()?.let { FollowUp.read(query, it.steps) != FollowUp.Kind.None } == true
+
+    /**
+     * Words about the last task: taking it back, doing it again, changing one of its values (none of which needs the planner), or
+     * anything else that leans on it, which is planned with the last task beside it. False when [query] is not a follow-up.
+     */
+    fun followUp(query: String, facts: String = "", grounding: Grounding = Grounding(), planOnly: Boolean = false): Boolean {
+        val prev = previous() ?: return false
+        val kind = FollowUp.read(query, prev.steps)
+        if (kind == FollowUp.Kind.None) return false
+        awaiting = null
+        groundingNow = grounding
+        // What the task is remembered by is everything said for it, so it can be done again or changed again.
+        val said = when (kind) {
+            is FollowUp.Kind.Amend -> prev.request + "\n" + kind.said
+            FollowUp.Kind.Refers -> query
+            else -> prev.request
+        }
+        turn(asked = query, request = said, mayAwait = kind == FollowUp.Kind.Refers) { loop, block ->
+            when (kind) {
+                FollowUp.Kind.Undo -> {
+                    val result = prev.executor.undoLast()
+                    val outcome = if (result == null) AgentOutcome.Done("There is nothing left to undo.", emptyList(), false)
+                        else if (result.ok) AgentOutcome.Done(result.say, emptyList(), prev.executor.canUndo) else AgentOutcome.Failed(result.say)
+                    state = if (outcome is AgentOutcome.Done) AgentState.Done(outcome.summary, outcome.canUndo) else AgentState.Failed((outcome as AgentOutcome.Failed).why)
+                    outcome
+                }
+                FollowUp.Kind.Again -> loop.rerun(Plan.Steps(prev.steps), prev.request, block(prev.request), planOnly)
+                is FollowUp.Kind.Amend -> loop.rerun(kind.plan, said, block(prev.request), planOnly)
+                else -> loop.run(query, facts, listOf(block(query), FollowUp.block(prev)).filter { it.isNotBlank() }.joinToString("\n"), planOnly)
+            }
+        }
+        return true
+    }
+
+    private fun turn(asked: String, request: String, mayAwait: Boolean, body: suspend (AgentLoop, (String) -> String) -> AgentOutcome) {
         job?.cancel()
         expiry?.cancel()
         gate?.complete(false)
@@ -68,7 +145,7 @@ internal class AgentSession(
         // A new question starts clean: the old turn's sentence and undo do not belong to it.
         summary = null
         canUndo = false
-        asked = query.trim()
+        this.asked = asked.trim()
         val settings = settings()
         val env = env()
         // Only what the phone can do right now is offered: a tool whose capability is missing is not in the catalogue at all.
@@ -87,8 +164,9 @@ internal class AgentSession(
             },
             onState = { state = it; log("state ${it::class.simpleName}: $it"); publish() },
         )
+        val grounding = groundingNow
         job = scope.launch {
-            val outcome = loop.run(query, facts, GroundingLogic.block(query, grounding.people, grounding.apps, grounding.replies), planOnly)
+            val outcome = body(loop) { words -> GroundingLogic.block(words, grounding.people, grounding.apps, grounding.replies) }
             summary = when (outcome) {
                 is AgentOutcome.Done -> outcome.summary
                 is AgentOutcome.Asks -> outcome.question
@@ -97,8 +175,19 @@ internal class AgentSession(
                 AgentOutcome.Cancelled -> "Nothing was done."
             }
             log("outcome $outcome")
+            val kind = when (outcome) {
+                is AgentOutcome.Done, AgentOutcome.Cancelled -> com.jake.duolauncher.search.ChatTurn.Kind.DONE
+                is AgentOutcome.Asks -> com.jake.duolauncher.search.ChatTurn.Kind.ASKED
+                is AgentOutcome.Refused -> com.jake.duolauncher.search.ChatTurn.Kind.REFUSED
+                is AgentOutcome.Failed -> null
+            }
+            if (kind != null) record(asked, summary.orEmpty(), kind)
+            if (outcome is AgentOutcome.Asks && mayAwait) awaiting = Awaiting(request, outcome.question, outcome.fix)
             canUndo = outcome is AgentOutcome.Done && outcome.canUndo
             lastExecutor = executor
+            // What was done is remembered for the next words to be about. Taking it back leaves the task it undid as the last one.
+            if (outcome is AgentOutcome.Done && outcome.outcomes.any { it.result.ok })
+                last = LastTurn(request, outcome.outcomes.filter { it.result.ok }.map { it.step }, outcome.summary, clock(), executor)
             publish()
             expireUnseen()
         }
@@ -120,10 +209,22 @@ internal class AgentSession(
 
     /** Search showing the turn has closed, or the person has moved on to another question: a turn that is over is cleared. One still
      *  planning, acting or waiting for a yes is left alone. */
-    fun seen() { if (settled) clear() }
+    fun seen() {
+        // A question the person has not answered yet waits for them a while: closing search to look something up does not lose it.
+        if (state is AgentState.Asking && awaiting != null) {
+            expiry?.cancel()
+            expiry = scope.launch { kotlinx.coroutines.delay(FollowUp.WINDOW_MS); if (state is AgentState.Asking) clear() }
+            return
+        }
+        if (settled) clear()
+    }
 
     /** The person typed a different question: this turn is not for it. A finished one goes; a running one is abandoned. */
-    fun leftFor(query: String) { if (asked != null && query.trim() != asked) clear() }
+    fun leftFor(query: String) {
+        // A question waiting for its answer stays while the answer is typed.
+        if (awaiting != null && state is AgentState.Asking) return
+        if (asked != null && query.trim() != asked) clear()
+    }
 
     /** Answers a [AgentState.Confirming] turn. Ignored when nothing is waiting. */
     fun confirm(accepted: Boolean) {
@@ -155,6 +256,7 @@ internal class AgentSession(
         gate?.complete(false)
         gate = null
         asked = null
+        awaiting = null
         state = AgentState.Idle
         summary = null
         canUndo = false

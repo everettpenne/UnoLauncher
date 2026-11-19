@@ -63,6 +63,13 @@ internal class Executor(
     /** The first thing a step made up that only the person can supply (Tool.invented), as a question; or null. */
     fun invented(plan: Plan.Steps, said: String): String? = plan.steps.take(MAX_STEPS).firstNotNullOfOrNull { it.tool.invented(it.params, said) }
 
+    /** The first step missing something only the person can give (Tool.missing), with where it is in the plan; or null. */
+    fun missing(plan: Plan.Steps, said: String): Pair<Int, Missing>? =
+        plan.steps.take(MAX_STEPS).withIndex().firstNotNullOfOrNull { (i, step) -> step.tool.missing(step.params, said)?.let { i to it } }
+
+    /** The messages that could be replied to right now. */
+    fun replyTargets(): List<ReplyTarget> = env.replyTargets()
+
     /** The first reason a step cannot be done as asked (Tool.problem), or null. */
     fun problem(plan: Plan.Steps): String? = plan.steps.take(MAX_STEPS).firstNotNullOfOrNull { it.tool.problem(it.params, env) }
 

@@ -49,7 +49,7 @@ class AgentSessionTest {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
     )
 
-    private fun timerPlan() = Plan.Steps(listOf(Step(TimerTool, Params(mapOf("seconds" to "1200")))))
+    private fun timerPlan() = Plan.Steps(listOf(Step(TimerTool, Params(mapOf("length" to "20 minutes")))))
 
     @Test fun aLocalPlanRunsAndEndsWithItsSummary() = runBlocking {
         val s = session(plannerFor(timerPlan()))
@@ -105,7 +105,7 @@ class AgentSessionTest {
 
     @Test fun undoReachesTheTurn() = runBlocking {
         val s = session(plannerFor(timerPlan()))
-        s.run("timer")
+        s.run("timer for 20 minutes")
         s.awaitTurn()
         assertEquals("Timer cancelled", s.undo()?.say)
         assertFalse(s.canUndo)
@@ -121,9 +121,9 @@ class AgentSessionTest {
         }
         val s = session(planner)
         // A timer request, so the timer plan is what was asked for and runs without a question.
-        s.run("timer for Sam", facts = "Today: Friday", grounding = Grounding(listOf(KnownPerson("Sam Patel", "+15550100")), listOf("Messages")))
+        s.run("timer for 20 minutes for Sam", facts = "Today: Friday", grounding = Grounding(listOf(KnownPerson("Sam Patel", "+15550100")), listOf("Messages")))
         s.awaitTurn()
-        assertEquals("timer for Sam", seen!!.query)
+        assertEquals("timer for 20 minutes for Sam", seen!!.query)
         assertEquals("Today: Friday", seen!!.context)
         assertTrue(seen!!.grounding.contains("Sam Patel (+15550100)"))
     }

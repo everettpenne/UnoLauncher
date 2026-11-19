@@ -57,6 +57,30 @@ internal interface ToolEnv {
     fun toggleStopwatch(): Boolean
     /** True when the torch is now on. */
     fun toggleTorch(): Boolean
+    /** Turns the torch on or off, whatever it was. */
+    fun setTorch(on: Boolean) { toggleTorch() }
+    fun stopwatchRunning(): Boolean = false
+    /** Whether the stopwatch has any time on it, running or stopped. */
+    fun stopwatchStarted(): Boolean = stopwatchRunning()
+    fun resetStopwatch() {}
+    fun timerRunning(): Boolean = false
+    /** The time now, for a tool that turns "tomorrow at 3" into a moment. */
+    fun now(): java.time.LocalDateTime = java.time.LocalDateTime.now()
+    /** Opens the messages app at [number] with [text] typed in and not sent. */
+    fun openMessage(number: String, text: String) = openMessages(number)
+    /** "play", "pause", "next" or "previous" on what is playing; false when nothing is. */
+    fun media(action: String): Boolean = false
+    /** Media volume as a percentage, or null when it cannot be read. */
+    fun volume(): Int? = null
+    /** Sets media volume to [percent]; false when Android refused. */
+    fun setVolume(percent: Int): Boolean = false
+    /** The Checklist widget's slot on Home, or null when there is none. */
+    val checklistSlot: Int? get() = null
+    /** Adds [item] to the checklist; false when it is already there or the list is full. */
+    fun addChecklist(item: String): Boolean = false
+    fun removeChecklist(item: String) {}
+    /** Hands [place] to the maps app as a search. */
+    fun openDirections(place: String) {}
     fun openAlarm(hour: Int?, minute: Int?, inMinutes: Int?)
     /** Opens the app; false when Android would not start it (the entry is stale, the profile is gone, or it is not allowed). */
     fun openApp(entry: AppEntry): Boolean
@@ -77,6 +101,10 @@ internal interface ToolEnv {
     /** Sends [text] as the reply to the notification [key] names; false when it is gone or the app refused it. */
     fun sendReply(key: String, text: String): Boolean = false
 }
+
+/** Something a step needs that only the person can give: the [question] to ask, and the [param] their answer fills, when one value
+ *  is all that is missing (the turn then carries on from the answer without planning again). */
+internal data class Missing(val question: String, val param: String? = null)
 
 /** A message that can be answered from its notification: the notification's key, who it is from, the app, and when it came. */
 internal data class ReplyTarget(val key: String, val who: String, val app: String, val postedAt: Long)
@@ -178,6 +206,15 @@ internal abstract class Tool(
      * model answered "order me a pizza" with a pizza site's address it had invented; nothing the person did not give is opened or dialled.
      */
     open fun invented(params: Params, said: String): String? = null
+
+    /** [invented], with the parameter the person's answer would fill. A tool with one value to ask for overrides this. */
+    open fun missing(params: Params, said: String): Missing? = invented(params, said)?.let { Missing(it) }
+
+    /**
+     * The step with a value the planner got wrong put right from the person's own words, where there is no doubt what they said: a
+     * model that turns "tomorrow at 3pm" into "03:00" is corrected, not obeyed and not questioned. Most tools have nothing to mend.
+     */
+    open fun mended(params: Params, said: String): Params = params
 
     /** Settles, once and before anything is shown or run, what the step will act on (which message a reply is for). The loop shows
      *  and runs the returned values, so what was confirmed is what is done. Most tools have nothing to settle. */

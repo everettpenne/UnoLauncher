@@ -79,6 +79,11 @@ internal object SurfaceGestures {
     /** Whether Back did something from [now] (otherwise it belongs to whatever is below). */
     fun backHandled(now: SurfaceState): Boolean = now.mode != SurfaceMode.REST
 
+    /** How much of its opening search keeps while a back gesture is pulled all the way ([pull] 1): it eases back toward the pill under the
+     *  finger, and either goes the rest of the way (let go) or springs out again (taken back). */
+    fun backScale(pull: Float): Float = 1f - BACK_GIVE * pull.coerceIn(0f, 1f)
+    const val BACK_GIVE = .18f
+
     /** What one Back does. In search with something typed it clears the field, as a text field's Back does; otherwise it steps to rest. */
     enum class BackStep { NONE, CLEAR_QUERY, REST }
     fun backStep(now: SurfaceState, queryTyped: Boolean): BackStep = when {
@@ -101,9 +106,17 @@ internal class AssistantSurface {
     fun on(gesture: SurfaceGesture): Boolean {
         val next = SurfaceGestures.resolve(state, gesture)
         if (next == state) return false
+        // A back gesture's pull belongs to the search it closed: the next one opens whole.
+        if (next.mode == SurfaceMode.SEARCH && state.mode != SurfaceMode.SEARCH) backPull = 0f
         state = next
         return true
     }
+
+    /** How far a back gesture in flight has been pulled, 0 to 1. Search reads it and eases back toward the pill ([SurfaceGestures.backScale]). */
+    var backPull by androidx.compose.runtime.mutableFloatStateOf(0f)
+
+    /** Whether search has something typed, so Back's next step only clears it and nothing should look as if it is closing. */
+    var searchTyped: Boolean = false
 
     /** Set by search while it is on screen: clears what is typed and says whether there was anything to clear. */
     var searchBackStep: (() -> Boolean)? = null

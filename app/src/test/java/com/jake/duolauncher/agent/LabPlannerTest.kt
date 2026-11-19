@@ -28,7 +28,7 @@ class LabPlannerTest {
     }
 
     @Test fun thePlannerSendsTheCatalogueAndTheGrammarWithTheQuestion() = runBlocking {
-        val client = FakeClient("""{"steps":[{"tool":"timer","params":{"seconds":"1200","label":""}}]}""")
+        val client = FakeClient("""{"steps":[{"tool":"timer","params":{"length":"20 minutes","label":""}}]}""")
         val planner = LabPlanner { client }
         val result = planner.plan(PlanRequest("timer for 20 minutes", "Today: Friday", ToolRegistry.builtIn, "Clock is installed"))
         val request = JSONObject(client.lastRequest!!)

@@ -22,6 +22,11 @@ internal object ToolRegistry {
         WebSearchTool,
         SettingsPanelTool,
         ReplyTool,
+        TimerCancelTool,
+        MediaTool,
+        VolumeTool,
+        ChecklistTool,
+        DirectionsTool,
     )
 
     /** The tools whose capabilities are present right now: a tool that needs contacts is not offered without them. */

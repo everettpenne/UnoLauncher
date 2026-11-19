@@ -21,7 +21,6 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -187,11 +186,15 @@ private fun DrawScope.drawCascade(full: TextLayoutResult, text: String, from: In
         val age = now - reached[i]
         val p = AnswerReveal.fadeIn(age)
         val c = AnswerReveal.color(i, age, ink)
+        // The glow under a letter as it lands: a soft round of its colour, drawn free. It used to be the text's own shadow inside the
+        // letter's clip, which cut the blur off square and left a tinted box round each new letter.
+        if (age < AnswerReveal.IN_MS) {
+            val centre = Offset((box.left + box.right) / 2f, (box.top + box.bottom) / 2f - (1f - p) * fall)
+            val radius = AnswerReveal.GLOW_DP.dp.toPx() * 1.4f + (box.right - box.left) / 2f
+            drawCircle(Brush.radialGradient(listOf(AnswerReveal.hue(i).copy(alpha = .30f * (1f - p)), Color.Transparent), centre, radius), radius, centre)
+        }
         clipRect(box.left - pad, top - fall - pad, box.right + pad, bottom + pad) {
-            translate(top = -(1f - p) * fall) {
-                drawText(full, color = c.copy(alpha = 1f), alpha = c.alpha,
-                    shadow = if (age < AnswerReveal.IN_MS) Shadow(AnswerReveal.hue(i).copy(alpha = .55f * (1f - p)), Offset.Zero, AnswerReveal.GLOW_DP.dp.toPx()) else null)
-            }
+            translate(top = -(1f - p) * fall) { drawText(full, color = c.copy(alpha = 1f), alpha = c.alpha) }
         }
     }
     // The letters settling: one stretch per line, its gradient giving each letter its colour and opacity.

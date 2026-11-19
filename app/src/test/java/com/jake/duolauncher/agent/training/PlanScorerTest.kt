@@ -10,7 +10,7 @@ import org.junit.Test
 
 class PlanScorerTest {
     private val tools = ToolRegistry.builtIn
-    private val timerRow = EvalRow("timer for 20 minutes", EvalRow.Expected.Steps(listOf("timer" to mapOf("seconds" to "1200"))))
+    private val timerRow = EvalRow("timer for 20 minutes", EvalRow.Expected.Steps(listOf("timer" to mapOf("length" to "20 minutes"))))
     private val clarifyRow = EvalRow("text Sam", EvalRow.Expected.Clarify)
 
     @Test fun theEvalSetsOwnReplyScoresExact() {
@@ -21,16 +21,22 @@ class PlanScorerTest {
     }
 
     @Test fun theWrongToolIsNotExact() {
-        val score = PlanScorer.scoreRow(timerRow, """{"steps":[{"tool":"stopwatch","params":{}}]}""", tools)
+        val score = PlanScorer.scoreRow(timerRow, """{"steps":[{"tool":"stopwatch","params":{"action":"start"}}]}""", tools)
         assertFalse(score.exact)
         assertFalse(score.toolMatch)
     }
 
     @Test fun theRightToolWithTheWrongValueIsNotExact() {
-        val score = PlanScorer.scoreRow(timerRow, """{"steps":[{"tool":"timer","params":{"seconds": 600}}]}""", tools)
+        val score = PlanScorer.scoreRow(timerRow, """{"steps":[{"tool":"timer","params":{"length": "10 minutes"}}]}""", tools)
         assertFalse(score.exact)
         assertTrue(score.toolMatch)
         assertFalse(score.paramMatch)
+    }
+
+    @Test fun aMadeUpNumberIsNotAPlan() {
+        val row = EvalRow("reply to Sam saying hi", EvalRow.Expected.Steps(listOf("message" to mapOf("number" to "555 0142", "text" to "hi"))))
+        val score = PlanScorer.scoreRow(row, """{"steps":[{"tool":"message","params":{"number":"unknown","text":"hi"}}]}""", tools)
+        assertFalse(score.exact)
     }
 
     @Test fun askingInsteadOfActingIsAMissedAction() {

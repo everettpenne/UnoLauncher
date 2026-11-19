@@ -12,6 +12,8 @@ internal class EvalRow(val query: String, val expected: Expected) {
         data class Steps(val steps: List<Pair<String, Map<String, String>>>) : Expected
         data object Clarify : Expected
         data object Refuse : Expected
+        /** The planner should offer a web search rather than act, ask or refuse. */
+        data object Search : Expected
     }
 }
 
@@ -35,6 +37,7 @@ internal object EvalSet {
                 }
                 row.has("clarify") -> EvalRow.Expected.Clarify
                 row.has("refuse") -> EvalRow.Expected.Refuse
+                row.has("search") -> EvalRow.Expected.Search
                 else -> null
             } ?: continue
             rows += EvalRow(query, expected)
@@ -51,6 +54,7 @@ internal object EvalSet {
             .toString()
         EvalRow.Expected.Clarify -> """{"clarify":"Which one do you mean?"}"""
         EvalRow.Expected.Refuse -> """{"refuse":"I can't do that with the tools I have."}"""
+        EvalRow.Expected.Search -> """{"search":"${row.query.filter { it.isLetterOrDigit() || it == ' ' }}"}"""
     }
 
     /** Null when the row passes, otherwise what went wrong. The row's own reply is parsed exactly as a model's would be. */
@@ -70,6 +74,7 @@ internal object EvalSet {
             }
             EvalRow.Expected.Clarify -> if (plan is Plan.Clarify) null else "expected a question, got ${plan::class.simpleName}"
             EvalRow.Expected.Refuse -> if (plan is Plan.Refuse) null else "expected a refusal, got ${plan::class.simpleName}"
+            EvalRow.Expected.Search -> if (plan is Plan.OfferSearch) null else "expected a search offer, got ${plan::class.simpleName}"
         }
     }
 

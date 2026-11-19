@@ -5,7 +5,7 @@
       {
         "tool": "timer",
         "params": {
-          "seconds": "1200"
+          "length": "20 minutes"
         }
       }
     ]
@@ -16,7 +16,7 @@
       {
         "tool": "timer",
         "params": {
-          "seconds": "300"
+          "length": "5 minutes"
         }
       }
     ]
@@ -27,7 +27,7 @@
       {
         "tool": "timer",
         "params": {
-          "seconds": "720",
+          "length": "12 minutes",
           "label": "pasta"
         }
       }
@@ -38,7 +38,9 @@
     "steps": [
       {
         "tool": "stopwatch",
-        "params": {}
+        "params": {
+          "action": "start"
+        }
       }
     ]
   },
@@ -47,7 +49,9 @@
     "steps": [
       {
         "tool": "stopwatch",
-        "params": {}
+        "params": {
+          "action": "start"
+        }
       }
     ]
   },
@@ -56,7 +60,9 @@
     "steps": [
       {
         "tool": "stopwatch",
-        "params": {}
+        "params": {
+          "action": "stop"
+        }
       }
     ]
   },
@@ -65,7 +71,9 @@
     "steps": [
       {
         "tool": "torch",
-        "params": {}
+        "params": {
+          "on": "true"
+        }
       }
     ]
   },
@@ -74,7 +82,9 @@
     "steps": [
       {
         "tool": "torch",
-        "params": {}
+        "params": {
+          "on": "false"
+        }
       }
     ]
   },
@@ -83,7 +93,9 @@
     "steps": [
       {
         "tool": "torch",
-        "params": {}
+        "params": {
+          "on": "true"
+        }
       }
     ]
   },
@@ -159,7 +171,7 @@
       {
         "tool": "alarm",
         "params": {
-          "at": "06:45"
+          "when": "06:45"
         }
       }
     ]
@@ -170,7 +182,7 @@
       {
         "tool": "alarm",
         "params": {
-          "in_minutes": "30"
+          "when": "in 30 minutes"
         }
       }
     ]
@@ -181,7 +193,7 @@
       {
         "tool": "alarm",
         "params": {
-          "at": "17:00"
+          "when": "17:00"
         }
       }
     ]
@@ -356,8 +368,8 @@
         "tool": "calendar_event",
         "params": {
           "title": "Dentist",
-          "in_minutes": "30",
-          "duration_minutes": "60"
+          "start": "in 30 minutes",
+          "length": "60 minutes"
         }
       }
     ]
@@ -369,8 +381,8 @@
         "tool": "calendar_event",
         "params": {
           "title": "Meeting",
-          "in_minutes": "15",
-          "duration_minutes": "30"
+          "start": "in 15 minutes",
+          "length": "30 minutes"
         }
       }
     ]
@@ -382,8 +394,8 @@
         "tool": "calendar_event",
         "params": {
           "title": "Lunch",
-          "in_minutes": "60",
-          "duration_minutes": "45"
+          "start": "in 60 minutes",
+          "length": "45 minutes"
         }
       }
     ]
@@ -482,5 +494,176 @@
         }
       }
     ]
+  },
+  {
+    "q": "cancel my timer",
+    "steps": [
+      {
+        "tool": "timer_cancel",
+        "params": {}
+      }
+    ]
+  },
+  {
+    "q": "stop the timer",
+    "steps": [
+      {
+        "tool": "timer_cancel",
+        "params": {}
+      }
+    ]
+  },
+  {
+    "q": "get rid of the countdown",
+    "steps": [
+      {
+        "tool": "timer_cancel",
+        "params": {}
+      }
+    ]
+  },
+  {
+    "q": "pause the song",
+    "steps": [
+      {
+        "tool": "media",
+        "params": {
+          "action": "pause"
+        }
+      }
+    ]
+  },
+  {
+    "q": "next track",
+    "steps": [
+      {
+        "tool": "media",
+        "params": {
+          "action": "next"
+        }
+      }
+    ]
+  },
+  {
+    "q": "resume the music",
+    "steps": [
+      {
+        "tool": "media",
+        "params": {
+          "action": "play"
+        }
+      }
+    ]
+  },
+  {
+    "q": "turn the volume up",
+    "steps": [
+      {
+        "tool": "volume",
+        "params": {
+          "level": "up"
+        }
+      }
+    ]
+  },
+  {
+    "q": "set the volume to 30 percent",
+    "steps": [
+      {
+        "tool": "volume",
+        "params": {
+          "level": "30"
+        }
+      }
+    ]
+  },
+  {
+    "q": "mute it",
+    "steps": [
+      {
+        "tool": "volume",
+        "params": {
+          "level": "mute"
+        }
+      }
+    ]
+  },
+  {
+    "q": "add bread to my shopping list",
+    "steps": [
+      {
+        "tool": "checklist_add",
+        "params": {
+          "item": "bread"
+        }
+      }
+    ]
+  },
+  {
+    "q": "put book the dentist on my list",
+    "steps": [
+      {
+        "tool": "checklist_add",
+        "params": {
+          "item": "book the dentist"
+        }
+      }
+    ]
+  },
+  {
+    "q": "add stamps to the checklist",
+    "steps": [
+      {
+        "tool": "checklist_add",
+        "params": {
+          "item": "stamps"
+        }
+      }
+    ]
+  },
+  {
+    "q": "directions to the train station",
+    "steps": [
+      {
+        "tool": "directions",
+        "params": {
+          "place": "the train station"
+        }
+      }
+    ]
+  },
+  {
+    "q": "navigate to 40 Park Road",
+    "steps": [
+      {
+        "tool": "directions",
+        "params": {
+          "place": "40 Park Road"
+        }
+      }
+    ]
+  },
+  {
+    "q": "take me to the nearest pharmacy",
+    "steps": [
+      {
+        "tool": "directions",
+        "params": {
+          "place": "the nearest pharmacy"
+        }
+      }
+    ]
+  },
+  {
+    "q": "what's the weather in Lisbon this weekend",
+    "search": true
+  },
+  {
+    "q": "who won the match last night",
+    "search": true
+  },
+  {
+    "q": "how much is a train ticket to Leeds",
+    "search": true
   }
 ]

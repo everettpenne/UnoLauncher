@@ -11,7 +11,8 @@ import java.io.File
  * Writes the corpus for training: `EMIT_TRAINING_SET=1 ./gradlew :app:testDebugUnitTest --tests '*EmitTrainingSet*'`.
  *
  * Output (in `app/build/agent-training/`): `system.txt` (the system turn, shared by every example), `train.jsonl`/`val.jsonl`
- * (`{"user":…,"completion":…}`, one example per line), `manifest.json` (what catalogue the corpus is for), and `rows.json` (the eval set).
+ * (`{"user":…,"completion":…}`, one example per line), `manifest.json` (what catalogue the corpus is for), `rows.json`, `rows-fresh.json` and `rows-followup.json` (the frozen eval sets) and
+ * `rows-dev.json` (the dev set), each with a `-turns.json` holding the prompt the phone would send for every row.
  * A test rather than a Gradle task so it reuses the app's unit-test classpath and the real registry with no build-file changes.
  */
 class EmitTrainingSet {
@@ -28,7 +29,9 @@ class EmitTrainingSet {
         File(dir, "train.jsonl").writeText(train.joinToString("\n") { line(it) } + "\n")
         File(dir, "val.jsonl").writeText(validation.joinToString("\n") { line(it) } + "\n")
 
-        for ((name, resource) in listOf("rows.json" to "/agent/phrases.json", "rows-fresh.json" to "/agent/phrases-fresh.json")) {
+        // rows-followup.json: a request, the question the planner asked and the person's answer; the plan should act on the answer.
+        for ((name, resource) in listOf("rows.json" to "/agent/phrases.json", "rows-fresh.json" to "/agent/phrases-fresh.json",
+                "rows-followup.json" to "/agent/phrases-followup.json")) {
             val text = javaClass.getResourceAsStream(resource)?.bufferedReader()?.readText()
                 ?: error("$resource is missing from the test resources")
             File(dir, name).writeText(text)
@@ -45,6 +48,25 @@ class EmitTrainingSet {
             }
             File(dir, name.removeSuffix(".json") + "-turns.json").writeText(turns.toString(1))
         }
+
+        // The dev set: rows built from names, values and phrasings the training set never uses, with the facts each was built with.
+        val dev = TrainingCorpus.dev(tools)
+        val devRows = JSONArray()
+        val devTurns = JSONArray()
+        for (example in dev) {
+            val reply = JSONObject(example.reply)
+            val row = JSONObject().put("q", example.query).put("family", example.family)
+            when {
+                reply.has("steps") -> row.put("steps", reply.getJSONArray("steps"))
+                reply.has("clarify") -> row.put("clarify", true)
+                reply.has("refuse") -> row.put("refuse", true)
+                reply.has("search") -> row.put("search", true)
+            }
+            devRows.put(row)
+            devTurns.put(JSONObject().put("q", example.query).put("user", TrainingFormat.turn(example.query, example.context, example.grounding)))
+        }
+        File(dir, "rows-dev.json").writeText(devRows.toString(1))
+        File(dir, "rows-dev-turns.json").writeText(devTurns.toString(1))
 
         val byFamily = all.groupingBy { it.family }.eachCount()
         val perTool = java.util.TreeMap<String, Int>()
@@ -69,6 +91,7 @@ class EmitTrainingSet {
             .put("examples", all.size)
             .put("train", train.size)
             .put("val", validation.size)
+            .put("dev", dev.size)
             .put("byFamily", JSONObject(byFamily))
             .put("perTool", JSONObject(perTool as Map<*, *>))
             .put("perPanel", JSONObject(perPanel as Map<*, *>))

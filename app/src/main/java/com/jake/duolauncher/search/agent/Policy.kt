@@ -17,18 +17,23 @@ internal object RequestKinds {
     /** A word (or two) of a request, and the tools that would be doing what it names. */
     private val table: List<Pair<Set<String>, Set<String>>> = listOf(
         setOf("alarm", "alarms", "wake") to setOf("alarm"),
-        setOf("timer", "timers", "countdown") to setOf("timer", "stopwatch"),
+        setOf("timer", "timers", "countdown") to setOf("timer", "stopwatch", "timer_cancel"),
         setOf("stopwatch") to setOf("stopwatch"),
         setOf("torch", "flashlight") to setOf("torch"),
         setOf("note", "notes", "remember") to setOf("note"),
         setOf("focus", "dnd") to setOf("focus"),
         setOf("call", "dial", "ring") to setOf("dial"),
         setOf("text", "sms", "message") to setOf("message", "reply"),
-        setOf("reply", "respond") to setOf("reply"),
+        // A text to them is a way of answering when nothing of theirs is waiting to be replied to.
+        setOf("reply", "respond") to setOf("reply", "message"),
         // Not "meeting" or "event": they are as often what something else is for ("start the stopwatch for the meeting").
         setOf("calendar", "appointment") to setOf("calendar_event"),
         setOf("wifi", "wi-fi", "bluetooth", "airplane", "nfc") to setOf("settings_panel"),
-        setOf("remind", "reminder") to setOf("alarm", "timer", "calendar_event", "note"),
+        setOf("music", "song", "track", "playback") to setOf("media", "volume"),
+        setOf("volume", "louder", "quieter") to setOf("volume"),
+        setOf("directions", "navigate", "route") to setOf("directions"),
+        setOf("checklist", "shopping") to setOf("checklist_add", "note"),
+        setOf("remind", "reminder") to setOf("alarm", "timer", "calendar_event", "note", "checklist_add"),
     )
 
     /** For each kind the request names, the tools that count as doing it. Empty when it names none. */
@@ -49,6 +54,27 @@ internal object RequestKinds {
             val naming = words.filter { it in said && it !in carried }
             naming.isNotEmpty() && tools.none { it in used }
         }
+    }
+}
+
+/** What a web search offered for a request looks for. Only the person's own words go to a search: nothing from the phone's facts. */
+internal object SearchOffer {
+    private val word = Regex("""[\p{L}\p{N}']+""")
+    private val polite = Regex("""^(?:hey|hi|ok|okay|please|can you|could you|would you|will you|i need you to|i want you to)[\s,]+""", RegexOption.IGNORE_CASE)
+    private val politeEnd = Regex("""[\s,]+(?:please|thanks|thank you|cheers|for me)[\s?.!]*$""", RegexOption.IGNORE_CASE)
+
+    /** The request as a search: its first line (an answered question's later lines are ours), without the courtesy. */
+    fun forRequest(request: String): String {
+        var t = request.lineSequence().firstOrNull().orEmpty().trim()
+        while (true) { val cut = politeEnd.replace(polite.replace(t, ""), ""); if (cut == t) break; t = cut }
+        return t.trimEnd('?', '.', '!', ',').trim().take(200)
+    }
+
+    /** The planner's [offered] query when every word of it is the person's; otherwise the request itself. */
+    fun query(offered: String, request: String): String {
+        val said = word.findAll(request.lowercase()).map { it.value }.toSet()
+        val words = word.findAll(offered.lowercase()).map { it.value }.toList()
+        return if (words.isNotEmpty() && words.all { it in said }) offered.trim().take(200) else forRequest(request)
     }
 }
 

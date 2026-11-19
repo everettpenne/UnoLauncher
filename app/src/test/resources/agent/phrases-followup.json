@@ -1,0 +1,181 @@
+[
+ {
+  "q": "set a timer for the cake\nYou asked: How long should the cake timer be?\nAnswer: 40 minutes",
+  "steps": [
+   {
+    "tool": "timer",
+    "params": {
+     "length": "40 minutes",
+     "label": "cake"
+    }
+   }
+  ]
+ },
+ {
+  "q": "wake me up\nYou asked: What time should the alarm be for?\nAnswer: half past seven",
+  "steps": [
+   {
+    "tool": "alarm",
+    "params": {
+     "when": "half past seven"
+    }
+   }
+  ]
+ },
+ {
+  "q": "add a haircut to my calendar\nYou asked: When does it start?\nAnswer: tomorrow at 3pm",
+  "steps": [
+   {
+    "tool": "calendar_event",
+    "params": {
+     "title": "haircut",
+     "start": "tomorrow at 3pm",
+     "length": ""
+    }
+   }
+  ]
+ },
+ {
+  "q": "search for the recipe\nYou asked: What should I search for?\nAnswer: banana bread",
+  "steps": [
+   {
+    "tool": "web_search",
+    "params": {
+     "query": "banana bread"
+    }
+   }
+  ]
+ },
+ {
+  "q": "navigate\nYou asked: Where to?\nAnswer: the train station",
+  "steps": [
+   {
+    "tool": "directions",
+    "params": {
+     "place": "the train station"
+    }
+   }
+  ]
+ },
+ {
+  "q": "open the app\nYou asked: Which app should I open?\nAnswer: Calculator",
+  "steps": [
+   {
+    "tool": "open_app",
+    "params": {
+     "app": "Calculator"
+    }
+   }
+  ]
+ },
+ {
+  "q": "call the surgery\nYou asked: I don't have a number for the surgery. What is it?\nAnswer: 020 7946 0000",
+  "steps": [
+   {
+    "tool": "dial",
+    "params": {
+     "number": "020 7946 0000"
+    }
+   }
+  ]
+ },
+ {
+  "q": "ring the garage\nYou asked: I don't have a number for the garage. What is it?\nAnswer: 01632 960123",
+  "steps": [
+   {
+    "tool": "dial",
+    "params": {
+     "number": "01632 960123"
+    }
+   }
+  ]
+ },
+ {
+  "q": "text Sam\nYou asked: I don't have a number for Sam. What is it?\nAnswer: +1 555 0100",
+  "steps": [
+   {
+    "tool": "message",
+    "params": {
+     "number": "+1 555 0100",
+     "text": ""
+    }
+   }
+  ]
+ },
+ {
+  "q": "message the team\nYou asked: I don't have a number for the team. What is it?\nAnswer: 555 0177",
+  "steps": [
+   {
+    "tool": "message",
+    "params": {
+     "number": "555 0177",
+     "text": ""
+    }
+   }
+  ]
+ },
+ {
+  "q": "reply to Sam saying I'm on my way\nYou asked: I don't have a number for Sam. What is it?\nAnswer: 555 0142",
+  "steps": [
+   {
+    "tool": "message",
+    "params": {
+     "number": "555 0142",
+     "text": "I'm on my way"
+    }
+   }
+  ]
+ },
+ {
+  "q": "note down that the spare key is with Ana\nYou asked: I don't have a number for Ana. What is it?\nAnswer: it's just a note",
+  "steps": [
+   {
+    "tool": "note",
+    "params": {
+     "text": "the spare key is with Ana"
+    }
+   }
+  ]
+ },
+ {
+  "q": "jot down call the plumber\nYou asked: I don't have a number for the plumber. What is it?\nAnswer: no, just the note",
+  "steps": [
+   {
+    "tool": "note",
+    "params": {
+     "text": "call the plumber"
+    }
+   }
+  ]
+ },
+ {
+  "q": "put book the dentist on my list\nYou asked: When does it start?\nAnswer: it's for my checklist",
+  "steps": [
+   {
+    "tool": "checklist_add",
+    "params": {
+     "item": "book the dentist"
+    }
+   }
+  ]
+ },
+ {
+  "q": "time my swim\nYou asked: How long should the swim timer be?\nAnswer: no, just start the stopwatch",
+  "steps": [
+   {
+    "tool": "stopwatch",
+    "params": {
+     "action": "start"
+    }
+   }
+  ]
+ },
+ {
+  "q": "tell Jo will call later\nYou asked: I don't have a number for Jo. What is it?\nAnswer: Jo in Messages",
+  "refuse": true
+ },
+ {
+  "q": "set a timer\nYou asked: How long should the timer be?\nAnswer: not too long",
+  "clarify": true
+ }
+]

@@ -171,12 +171,28 @@ internal object AnswerText {
 
     /** The answer to show, or null when [raw] is not one. */
     fun clean(raw: String): String? {
-        val t = raw.replace("**", "").replace("__", "").replace(Regex("""(?m)^#+\s*"""), "").trim()
+        val t = raw.replace("**", "").replace("__", "").replace(Regex("""(?m)^#+\s*"""), "")
+            // Single *emphasis* and _emphasis_ too ("*The Starry Night*"), but not a sum ("2 * 3") or a snake_case name.
+            .replace(Regex("""(?<![\w*])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![\w*])"""), "$1")
+            .replace(Regex("""(?<!\w)_(?=\S)([^_\n]+?)(?<=\S)_(?!\w)"""), "$1")
+            .trim()
         if (t.isEmpty() || meta.containsMatchIn(t)) return null
         return t
     }
 
     const val UNCLEAR = "Qwen couldn't answer that clearly. Try asking another way, or continue in Uno Lab."
+
+    // What a model on the phone cannot know: what is happening now, out in the world.
+    private val fresh = Regex("""\b(news|headlines?|weather|forecast|score|scores|results?|price|prices|cost|stock|shares|exchange rate|opening hours|open (?:today|now|tomorrow)|closes?|traffic|delays?|latest|today's|tonight's|this week|right now|currently|who won|near me|nearby|release date|showtimes?|timetable|schedule for)\b""", RegexOption.IGNORE_CASE)
+    private val unsure = Regex("""\b(i (?:don't|do not|can't|cannot|am not able to|'m not able to) (?:know|have|access|browse|look|check|provide|tell)|i'm not sure|i am not sure|no access to|real[- ]time|as of my|my knowledge|unable to (?:access|browse|provide|check))\b""", RegexOption.IGNORE_CASE)
+
+    /** Whether a question is about things only the web knows (today's news, the weather, a price, who won). */
+    fun wantsFreshFacts(question: String): Boolean = fresh.containsMatchIn(question)
+
+    /** What a "Search the web" row under [answer] would look for: the question as asked, when it is about the world now or the
+     *  answer says it does not know. Null when the answer stands on its own. Nothing is searched until the row is tapped. */
+    fun searchFor(question: String, answer: String): String? =
+        if (wantsFreshFacts(question) || unsure.containsMatchIn(answer)) com.jake.duolauncher.search.agent.SearchOffer.forRequest(question).takeIf { it.isNotBlank() } else null
 }
 
 /** When Spotlight offers to ask Uno Lab's assistant. Pure, so it is unit-tested. */

@@ -9,6 +9,8 @@ internal object WebSearchTool : Tool(
     effect = Effect.Local,
     examples = listOf("search for train times to York", "look online for a banana bread recipe"),
 ) {
+    override fun describe(params: Params, env: ToolEnv): String? = params.text("query")?.let { "Search the web for “$it”" }
+
     override suspend fun execute(params: Params, env: ToolEnv): ToolResult {
         val query = params.text("query") ?: return ToolResult(false, "There was nothing to search for.")
         env.openWebSearch(query)

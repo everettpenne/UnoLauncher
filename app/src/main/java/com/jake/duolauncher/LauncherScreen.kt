@@ -408,7 +408,18 @@ internal fun LauncherScreen(
     BackHandler(enabled = homeEditing && sheet.isEmpty() && !drag.active && selectedId == null && resizeSlot == null) { homeEditing = false }
     // Search is on top of all of the above, so its Back comes last: the handler registered last is asked first. Where it used to be, before
     // Home's own catch-all, that one took Back while search was open and search stayed.
-    BackHandler(enabled = spotlightOpen) { island.surface.back() }
+    // The gesture is followed as it is made (Android 14 and later): search eases back toward the pill with the finger, and closes when
+    // it is let go or springs out again when it is taken back. With something typed, Back only clears it, so nothing moves.
+    androidx.activity.compose.PredictiveBackHandler(enabled = spotlightOpen) { events ->
+        val closes = !island.surface.searchTyped
+        try {
+            events.collect { if (closes) island.surface.backPull = it.progress }
+            island.surface.back()
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            scope.launch { androidx.compose.animation.core.Animatable(island.surface.backPull).animateTo(0f, UnoMotion.settle()) { island.surface.backPull = value } }
+            throw cancelled
+        }
+    }
     val openFeed = { scope.launch { pager.animateScrollToPage(-1) }; Unit }
     val openLibrary = { scope.launch { pager.animateScrollToPage(homePages) }; Unit }
 

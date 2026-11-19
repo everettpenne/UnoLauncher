@@ -81,13 +81,16 @@ internal fun SearchPanel(
         onOpenFeedLink = { link -> close(); host.openFeedLink(link) },
         onOpenContact = { contact -> close(); host.openContact(contact) },
         initialQuery = initialQuery, autoAsk = autoAsk,
-        onDismiss = close, progress = progress, visible = visible, pill = pill, from = from,
+        // A back gesture in flight eases search back toward the pill under the finger.
+        onDismiss = close, progress = { progress() * com.jake.duolauncher.island.SurfaceGestures.backScale(surface.backPull) }, visible = visible, pill = pill, from = from,
         noteSlot = launcher.widgetPlacements.firstOrNull { it.id == UnoWidgets.NOTE }?.slot,
+        checklistSlot = launcher.widgetPlacements.firstOrNull { it.id == UnoWidgets.CHECKLIST }?.slot,
         focusOn = { latestExtras?.focusOn == true },
         onToggleFocus = host.toggleFocus,
         assistant = assistant, contextEnv = contextEnv,
         onOpenSearchSettings = { host.openSearchSettings?.let { open -> close(); open() } },
         seeThrough = seeThrough,
         // Back's first step in search with something typed: the surface asks this before it closes search (AssistantSurface.back).
-        onBackStep = { step -> surface.searchBackStep = step })
+        onBackStep = { step -> surface.searchBackStep = step },
+        onTyped = { surface.searchTyped = it })
 }

@@ -23,13 +23,18 @@ internal sealed interface AgentState {
     /** The end of a turn: what was done, in a sentence. */
     data class Done(val summary: String, val canUndo: Boolean) : AgentState
     data class Asking(val question: String) : AgentState
-    data class Failed(val why: String) : AgentState
+    /** [search]: what a web search for the request would look for, when one could help (a refusal is not a dead end). */
+    data class Failed(val why: String, val search: String? = null) : AgentState
 }
+
+/** A plan waiting on one value from the person: which step, and which of its parameters. */
+internal data class Fix(val plan: Plan.Steps, val step: Int, val param: String)
 
 /** How a turn ended. */
 internal sealed interface AgentOutcome {
     data class Done(val summary: String, val outcomes: List<Executor.Outcome>, val canUndo: Boolean) : AgentOutcome
-    data class Asks(val question: String) : AgentOutcome
+    /** [fix]: the plan is whole but for one value; the person's answer fills it and the turn carries on without planning again. */
+    data class Asks(val question: String, val fix: Fix? = null) : AgentOutcome
     data class Refused(val reason: String) : AgentOutcome
     data object Cancelled : AgentOutcome
     data class Failed(val why: String) : AgentOutcome
@@ -53,24 +58,86 @@ internal class AgentLoop(
     /** [planOnly]: stop once there is a plan and say what it would do; nothing is confirmed or run. */
     suspend fun run(query: String, context: String = "", grounding: String = "", planOnly: Boolean = false): AgentOutcome {
         onState(AgentState.Planning(query))
-        val parsed = runCatching { planner.plan(PlanRequest(query, context, tools, grounding)) }
-            .getOrElse { ParseResult.Failed("I couldn't reach the planner: ${it.message ?: "unknown error"}") }
-        return when (parsed) {
-            is ParseResult.Failed -> failed(parsed.why)
-            is ParseResult.Ok -> when (val plan = parsed.plan) {
+        var parsed = ask(query, context, grounding)
+        // A reply that broke a rule (a tool that does not exist, a value out of range) is sent back once with the reason.
+        (parsed as? ParseResult.Failed)?.takeIf { it.retry }?.let { first ->
+            parsed = ask("$query\n(Your last reply could not be used: ${first.why}. Reply again.)", context, grounding)
+        }
+        return when (val result = parsed) {
+            is ParseResult.Failed -> failed(result.why)
+            is ParseResult.Ok -> when (val plan = result.plan) {
                 is Plan.Clarify -> { onState(AgentState.Asking(plan.question)); AgentOutcome.Asks(plan.question) }
-                is Plan.Refuse -> { onState(AgentState.Failed(plan.reason)); AgentOutcome.Refused(plan.reason) }
-                is Plan.Steps -> {
-                    // Nothing the person did not give (an address, a number) is acted on: the plan becomes a question instead.
-                    val madeUp = executor.invented(plan, query + "\n" + grounding)
-                    when {
-                        madeUp != null -> { onState(AgentState.Asking(madeUp)); AgentOutcome.Asks(madeUp) }
-                        planOnly -> planned(plan)
-                        else -> runSteps(executor.bind(plan), unsure = RequestKinds.mismatch(query, plan))
-                    }
+                is Plan.Refuse -> {
+                    onState(AgentState.Failed(plan.reason, search = SearchOffer.forRequest(query).takeIf { searchTool != null }))
+                    AgentOutcome.Refused(plan.reason)
                 }
+                is Plan.OfferSearch -> offerSearch(plan.query, query, planOnly)
+                is Plan.Steps -> proceed(plan, query, grounding, planOnly)
             }
         }
+    }
+
+    /** Carries on a turn that stopped to ask for one value ([Fix]): the person's [answer] fills it, and nothing is planned again. */
+    suspend fun resume(fix: Fix, request: String, answer: String, grounding: String = "", planOnly: Boolean = false): AgentOutcome {
+        val step = fix.plan.steps.getOrNull(fix.step) ?: return failed("I lost track of what I was doing.")
+        val filled = when (val checked = step.tool.validate(step.params.values + (fix.param to answer.trim()))) {
+            is Validation.Ok -> checked.value
+            is Validation.Rejected -> return failed(checked.why)
+        }
+        val plan = Plan.Steps(fix.plan.steps.mapIndexed { i, s -> if (i == fix.step) Step(s.tool, filled) else s })
+        return proceed(plan, "$request\nAnswer: ${answer.trim()}", grounding, planOnly, mayAskAgain = false)
+    }
+
+    /** Runs a plan that needs no planning: the last task again, or with a value the person changed. [said] is everything they have
+     *  said for it, which the plan's values are still checked against. */
+    suspend fun rerun(plan: Plan.Steps, said: String, grounding: String = "", planOnly: Boolean = false): AgentOutcome =
+        proceed(plan, said, grounding, planOnly, mayAskAgain = false)
+
+    private val searchTool: Tool? get() = tools.firstOrNull { it.name == "web_search" }
+
+    private suspend fun ask(query: String, context: String, grounding: String): ParseResult =
+        runCatching { planner.plan(PlanRequest(query, context, tools, grounding)) }
+            // A turn that was dropped for a new one is not a planner that could not be reached: it ends, and says nothing.
+            .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+            .getOrElse { ParseResult.Failed("I couldn't reach the planner: ${it.message ?: "unknown error"}") }
+
+    private suspend fun proceed(planned: Plan.Steps, query: String, grounding: String, planOnly: Boolean, mayAskAgain: Boolean = true): AgentOutcome {
+        val said = query + "\n" + grounding
+        val plan = repaired(Plan.Steps(planned.steps.map { Step(it.tool, it.tool.mended(it.params, said)) }), query, said)
+        // Nothing the person did not give (an address, a number, a time) is acted on: the plan becomes a question instead.
+        executor.missing(plan, said)?.let { (index, missing) ->
+            onState(AgentState.Asking(missing.question))
+            return AgentOutcome.Asks(missing.question, missing.param?.takeIf { mayAskAgain }?.let { Fix(plan, index, it) })
+        }
+        if (planOnly) return planned(plan)
+        return runSteps(executor.bind(plan), unsure = RequestKinds.mismatch(query, plan))
+    }
+
+    /**
+     * "tell Priya I'll call tonight" with a message from Priya waiting is a reply to it, whatever number the planner wrote: a message
+     * step whose number nobody gave becomes a reply to the sender the request names. It still waits for a yes, as every reply does.
+     */
+    private fun repaired(plan: Plan.Steps, query: String, said: String): Plan.Steps {
+        val reply = tools.firstOrNull { it.name == "reply" } ?: return plan
+        return Plan.Steps(plan.steps.map { step ->
+            if (step.tool.name != "message" || step.tool.missing(step.params, said) == null) return@map step
+            val text = step.params.text("text") ?: return@map step
+            val sender = executor.replyTargets().sortedByDescending { it.postedAt }.firstOrNull { GroundingLogic.mentions(query.lineSequence().first(), it.who) }
+                ?: return@map step
+            Step(reply, Params(mapOf("to" to sender.who, "text" to text)))
+        })
+    }
+
+    /** The planner thinks a web search would help. It is put to the person; nothing is searched on the planner's word. */
+    private suspend fun offerSearch(offered: String, query: String, planOnly: Boolean): AgentOutcome {
+        val web = searchTool ?: return failed("I can't search the web from here.")
+        val words = SearchOffer.query(offered, query)
+        if (planOnly) {
+            val summary = "Would ask: Search the web for “$words”?"
+            onState(AgentState.Done(summary, false))
+            return AgentOutcome.Done(summary, emptyList(), false)
+        }
+        return runSteps(Plan.Steps(listOf(Step(web, Params(mapOf("query" to words))))), unsure = true)
     }
 
     /** Undoes the most recent undoable step of the last turn. */

@@ -23,7 +23,7 @@ import kotlin.random.Random
 internal object TrainingContext {
     private class Phone(val now: ZonedDateTime, val locale: Locale, val is24: Boolean, val firstDay: DayOfWeek, val apps: List<String>)
 
-    private val commonApps = listOf("Camera", "Messages", "Clock", "Phone", "Maps", "Photos", "Calendar", "Settings", "Files", "Contacts",
+    val commonApps = listOf("Camera", "Messages", "Clock", "Phone", "Maps", "Photos", "Calendar", "Settings", "Files", "Contacts",
         "Calculator", "Gallery", "Vanadium", "Signal", "Notes", "Music", "Weather", "Aurora Store", "F-Droid", "Uno Lab")
     private val phones = listOf(
         Phone(ZonedDateTime.of(2026, 11, 13, 12, 25, 0, 0, ZoneId.of("America/Chicago")), Locale.US, false, DayOfWeek.SUNDAY, commonApps),
@@ -38,12 +38,19 @@ internal object TrainingContext {
     private const val BARE = .12
 
     /** The `<context>` block for [query] on one of the phones, or "" for the share of requests that go without one. */
-    fun forQuery(query: String, rnd: Random): String {
-        if (rnd.nextDouble() < BARE) return ""
+    fun forQuery(query: String, rnd: Random, forced: Map<String, String?> = emptyMap()): String {
+        // A row that turns on what is running ("stop it") always has its facts: without them it is a different question.
+        if (forced.isEmpty() && rnd.nextDouble() < BARE) return ""
         val phone = phones[rnd.nextInt(phones.size)]
         val chosen = ContextPolicy.select(PhoneContext.sources, query, action = true, off = emptySet())
-        return ContextPolicy.assemble(chosen.map { source -> source to say(source.id, phone, rnd) })
+        val all = chosen + PhoneContext.sources.filter { it.id in forced && it !in chosen }
+        return ContextPolicy.assemble(all.map { source -> source to (if (source.id in forced) forced[source.id] else say(source.id, phone, rnd)) })
     }
+
+    /** The lines for what is running, for rows that depend on it. */
+    fun timerRunning(): String = ContextText.timer(4 * 60_000L + 30_000L, 10 * 60_000L, false)
+    fun stopwatchRunning(): String = ContextText.stopwatch(95_000L, true)
+    fun playing(): String = ContextText.nowPlaying("Blue in Green", "Miles Davis", true, null)!!
 
     /** What a source says. Null for one that has nothing to say (no timer running) or that this corpus does not imitate. */
     private fun say(id: String, phone: Phone, rnd: Random): String? = when (id) {

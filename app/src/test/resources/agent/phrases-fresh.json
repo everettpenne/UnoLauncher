@@ -1,75 +1,59 @@
 [
-  {"q": "start a 25 minute timer", "steps": [{"tool": "timer", "params": {"seconds": "1500"}}]},
-  {"q": "put on a timer for 8 minutes", "steps": [{"tool": "timer", "params": {"seconds": "480"}}]},
-  {"q": "timer for 3 minutes please", "steps": [{"tool": "timer", "params": {"seconds": "180"}}]},
-
-  {"q": "begin timing this lap", "steps": [{"tool": "stopwatch", "params": {}}]},
-  {"q": "stop the lap timer", "steps": [{"tool": "stopwatch", "params": {}}]},
-  {"q": "start the watch for me", "steps": [{"tool": "stopwatch", "params": {}}]},
-
-  {"q": "light up the room", "steps": [{"tool": "torch", "params": {}}]},
-  {"q": "kill the light", "steps": [{"tool": "torch", "params": {}}]},
-  {"q": "turn the light on", "steps": [{"tool": "torch", "params": {}}]},
-
+  {"q": "start a 25 minute timer", "steps": [{"tool": "timer", "params": {"length": "25 minutes"}}]},
+  {"q": "put on a timer for 8 minutes", "steps": [{"tool": "timer", "params": {"length": "8 minutes"}}]},
+  {"q": "timer for 3 minutes please", "steps": [{"tool": "timer", "params": {"length": "3 minutes"}}]},
+  {"q": "begin timing this lap", "steps": [{"tool": "stopwatch", "params": {"action": "start"}}]},
+  {"q": "stop the lap timer", "steps": [{"tool": "stopwatch", "params": {"action": "stop"}}]},
+  {"q": "start the watch for me", "steps": [{"tool": "stopwatch", "params": {"action": "start"}}]},
+  {"q": "light up the room", "steps": [{"tool": "torch", "params": {"on": "true"}}]},
+  {"q": "kill the light", "steps": [{"tool": "torch", "params": {"on": "false"}}]},
+  {"q": "turn the light on", "steps": [{"tool": "torch", "params": {"on": "true"}}]},
   {"q": "start focus mode", "steps": [{"tool": "focus", "params": {"on": "true"}}]},
   {"q": "let my notifications through", "steps": [{"tool": "focus", "params": {"on": "false"}}]},
   {"q": "unsilence the phone", "steps": [{"tool": "focus", "params": {"on": "false"}}]},
-
   {"q": "note that the spare key is under the mat", "steps": [{"tool": "note", "params": {"text": "the spare key is under the mat"}}]},
   {"q": "remember the boiler is serviced in May", "steps": [{"tool": "note", "params": {"text": "the boiler is serviced in May"}}]},
   {"q": "jot down call the plumber", "steps": [{"tool": "note", "params": {"text": "call the plumber"}}]},
-
-  {"q": "wake me at 05:30", "steps": [{"tool": "alarm", "params": {"at": "05:30"}}]},
-  {"q": "alarm in 25 minutes", "steps": [{"tool": "alarm", "params": {"in_minutes": "25"}}]},
-  {"q": "set an alarm for 13:15", "steps": [{"tool": "alarm", "params": {"at": "13:15"}}]},
-
+  {"q": "wake me at 05:30", "steps": [{"tool": "alarm", "params": {"when": "05:30"}}]},
+  {"q": "alarm in 25 minutes", "steps": [{"tool": "alarm", "params": {"when": "in 25 minutes"}}]},
+  {"q": "set an alarm for 13:15", "steps": [{"tool": "alarm", "params": {"when": "13:15"}}]},
   {"q": "grab the calculator", "steps": [{"tool": "open_app", "params": {"app": "Calculator"}}]},
   {"q": "take me to photos", "steps": [{"tool": "open_app", "params": {"app": "Photos"}}]},
   {"q": "open files", "steps": [{"tool": "open_app", "params": {"app": "Files"}}]},
-
   {"q": "ring 555 0188", "steps": [{"tool": "dial", "params": {"number": "555 0188"}}]},
   {"q": "dial the number 020 7946 0000", "steps": [{"tool": "dial", "params": {"number": "020 7946 0000"}}]},
   {"q": "phone 555 0155", "steps": [{"tool": "dial", "params": {"number": "555 0155"}}]},
-
   {"q": "text 555 0155", "steps": [{"tool": "message", "params": {"number": "555 0155"}}]},
   {"q": "send 555 0166 a text", "steps": [{"tool": "message", "params": {"number": "555 0166"}}]},
   {"q": "message 555 0177", "steps": [{"tool": "message", "params": {"number": "555 0177"}}]},
-
   {"q": "open https://docs.example.net/guide?page=2", "steps": [{"tool": "open_url", "params": {"url": "https://docs.example.net/guide?page=2"}}]},
   {"q": "go to https://weather.example.org", "steps": [{"tool": "open_url", "params": {"url": "https://weather.example.org"}}]},
   {"q": "open the site https://example.org", "steps": [{"tool": "open_url", "params": {"url": "https://example.org"}}]},
-
-  {"q": "put the eye test in my calendar in 240 minutes for 30 minutes", "steps": [{"tool": "calendar_event", "params": {"title": "Eye test", "in_minutes": "240", "duration_minutes": "30"}}]},
-  {"q": "schedule gym in 30 minutes for 90 minutes", "steps": [{"tool": "calendar_event", "params": {"title": "Gym", "in_minutes": "30", "duration_minutes": "90"}}]},
-  {"q": "add book club in 1440 minutes for 120 minutes", "steps": [{"tool": "calendar_event", "params": {"title": "Book club", "in_minutes": "1440", "duration_minutes": "120"}}]},
-
+  {"q": "put the eye test in my calendar in 240 minutes for 30 minutes", "steps": [{"tool": "calendar_event", "params": {"title": "Eye test", "start": "in 240 minutes", "length": "30 minutes"}}]},
+  {"q": "schedule gym in 30 minutes for 90 minutes", "steps": [{"tool": "calendar_event", "params": {"title": "Gym", "start": "in 30 minutes", "length": "90 minutes"}}]},
+  {"q": "add book club in 1440 minutes for 120 minutes", "steps": [{"tool": "calendar_event", "params": {"title": "Book club", "start": "in 1440 minutes", "length": "120 minutes"}}]},
   {"q": "search for the offside rule", "steps": [{"tool": "web_search", "params": {"query": "the offside rule"}}]},
   {"q": "look up how to descale a kettle", "steps": [{"tool": "web_search", "params": {"query": "how to descale a kettle"}}]},
   {"q": "google symptoms of a cold", "steps": [{"tool": "web_search", "params": {"query": "symptoms of a cold"}}]},
-
   {"q": "open the battery page", "steps": [{"tool": "settings_panel", "params": {"panel": "battery"}}]},
   {"q": "turn on nfc", "steps": [{"tool": "settings_panel", "params": {"panel": "nfc"}}]},
   {"q": "show me sound settings", "steps": [{"tool": "settings_panel", "params": {"panel": "sound"}}]},
-
   {"q": "reply to Alex saying on my way", "steps": [{"tool": "reply", "params": {"to": "Alex", "text": "on my way"}}]},
   {"q": "tell Jo will call later", "steps": [{"tool": "reply", "params": {"to": "Jo", "text": "will call later"}}]},
   {"q": "answer that with thanks", "steps": [{"tool": "reply", "params": {"to": "that", "text": "thanks"}}]},
-
   {"q": "message the team", "clarify": true},
   {"q": "set a timer for the cake", "clarify": true},
   {"q": "add a haircut to my calendar", "clarify": true},
   {"q": "note the code", "clarify": true},
   {"q": "call the surgery", "clarify": true},
   {"q": "search for the recipe", "clarify": true},
-
   {"q": "send a telegram to Ana", "refuse": true},
   {"q": "unlock my car", "refuse": true},
   {"q": "check my heart rate", "refuse": true},
   {"q": "turn on the projector", "refuse": true},
   {"q": "order more coffee pods", "refuse": true},
   {"q": "move the appointment to Friday", "refuse": true},
-
-  {"q": "set a 12 minute timer and turn off the wifi", "steps": [{"tool": "timer", "params": {"seconds": "720"}}, {"tool": "settings_panel", "params": {"panel": "wifi"}}]},
-  {"q": "open the camera and start timing", "steps": [{"tool": "open_app", "params": {"app": "Camera"}}, {"tool": "stopwatch", "params": {}}]},
-  {"q": "note that I am on my way and set an alarm in 15 minutes", "steps": [{"tool": "note", "params": {"text": "I am on my way"}}, {"tool": "alarm", "params": {"in_minutes": "15"}}]}
+  {"q": "set a 12 minute timer and turn off the wifi", "steps": [{"tool": "timer", "params": {"length": "12 minutes"}}, {"tool": "settings_panel", "params": {"panel": "wifi"}}]},
+  {"q": "open the camera and start timing", "steps": [{"tool": "open_app", "params": {"app": "Camera"}}, {"tool": "stopwatch", "params": {"action": "start"}}]},
+  {"q": "note that I am on my way and set an alarm in 15 minutes", "steps": [{"tool": "note", "params": {"text": "I am on my way"}}, {"tool": "alarm", "params": {"when": "in 15 minutes"}}]}
 ]

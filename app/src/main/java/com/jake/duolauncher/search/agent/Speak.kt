@@ -17,4 +17,16 @@ internal object Speak {
 
     /** "06:45", from a 24-hour clock time. */
     fun clock(hour: Int, minute: Int): String = "%02d:%02d".format(hour, minute)
+
+    /** "today at 15:00", "tomorrow at 09:30", "on Friday at 12:00", "on 3 December at 10:00": a moment, relative to [now]. */
+    fun dayTime(at: java.time.LocalDateTime, now: java.time.LocalDateTime): String {
+        val days = java.time.temporal.ChronoUnit.DAYS.between(now.toLocalDate(), at.toLocalDate())
+        val day = when {
+            days == 0L -> "today"
+            days == 1L -> "tomorrow"
+            days in 2..7 -> "on " + at.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH)
+            else -> "on ${at.dayOfMonth} " + at.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH)
+        }
+        return "$day at ${clock(at.hour, at.minute)}"
+    }
 }

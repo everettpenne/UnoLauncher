@@ -72,6 +72,8 @@ internal object TrainingFormat {
 
     fun refuse(reason: String): String = "{\"refuse\":" + quoted(reason) + "}"
 
+    fun search(query: String): String = "{\"search\":" + quoted(query) + "}"
+
     /** The catalogue's own id: a corpus is only usable with the catalogue it was generated for. */
     fun catalogueHash(tools: List<Tool> = ToolRegistry.builtIn): String = Catalogue.hash(tools)
 

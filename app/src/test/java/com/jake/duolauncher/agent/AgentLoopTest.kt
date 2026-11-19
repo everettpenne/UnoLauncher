@@ -34,7 +34,7 @@ class AgentLoopTest {
         override suspend fun plan(request: PlanRequest) = ParseResult.Ok(plan)
     }
 
-    private fun timerPlan() = Plan.Steps(listOf(Step(TimerTool, Params(mapOf("seconds" to "1200")))))
+    private fun timerPlan() = Plan.Steps(listOf(Step(TimerTool, Params(mapOf("length" to "20 minutes")))))
 
     private val sendTool = object : Tool("send_message", "sends a message", effect = Effect.LeavesPhone) {
         override suspend fun execute(params: Params, env: ToolEnv) = ToolResult(true, "Message sent to Sam")
@@ -78,8 +78,8 @@ class AgentLoopTest {
         // Seen on the phone: "order me a pizza" planned as opening a pizza site the model made up.
         assertEquals(AgentOutcome.Asks("Which web address should I open?"),
             AgentLoop(plannerFor(url("https://www.pizzerias.com/")), Executor(counting)).run("order me a pizza"))
-        assertEquals(AgentOutcome.Asks("What number should I call?"),
-            AgentLoop(plannerFor(dial("5550199")), Executor(counting)).run("call my dentist"))
+        assertEquals("What number should I call?",
+            (AgentLoop(plannerFor(dial("5550199")), Executor(counting)).run("call my dentist") as AgentOutcome.Asks).question)
         assertEquals(0, opened); assertEquals(0, dialled)
         // What the person gave, or what Uno resolved for a name they gave, is used.
         assertTrue(AgentLoop(plannerFor(url("https://www.example.com/news")), Executor(counting)).run("open example.com") is AgentOutcome.Done)
@@ -93,10 +93,10 @@ class AgentLoopTest {
 
     @Test fun aMultiStepLocalPlanReadsAsOneSentence() = runBlocking {
         val plan = Plan.Steps(listOf(
-            Step(TimerTool, Params(mapOf("seconds" to "1200"))),
+            Step(TimerTool, Params(mapOf("length" to "20 minutes"))),
             Step(FocusTool, Params(mapOf("on" to "true"))),
         ))
-        val done = loop(plannerFor(plan)).run("timer and focus") as AgentOutcome.Done
+        val done = loop(plannerFor(plan)).run("timer for 20 minutes and focus") as AgentOutcome.Done
         assertEquals("Timer set for 20 minutes · Focus on", done.summary)
     }
 
@@ -137,8 +137,8 @@ class AgentLoopTest {
     }
 
     @Test fun aStepThatFailsIsSaidOutLoudAndStopsTheRest() = runBlocking {
-        val plan = Plan.Steps(listOf(Step(TimerTool, Params(mapOf("seconds" to "60"))), Step(OpenAppTool, Params(mapOf("app" to "Nope")))))
-        val done = loop(plannerFor(plan)).run("timer then open nope") as AgentOutcome.Done
+        val plan = Plan.Steps(listOf(Step(TimerTool, Params(mapOf("length" to "1 minute"))), Step(OpenAppTool, Params(mapOf("app" to "Nope")))))
+        val done = loop(plannerFor(plan)).run("timer for 1 minute then open nope") as AgentOutcome.Done
         assertTrue(done.summary.contains("Timer set for 1 minute"))
         assertTrue(done.summary.contains("but"))
         assertEquals(2, done.outcomes.size)
@@ -147,7 +147,7 @@ class AgentLoopTest {
 
     @Test fun theStateStreamSaysWhatIsHappening() = runBlocking {
         val states = mutableListOf<AgentState>()
-        loop(plannerFor(timerPlan()), states = states).run("timer")
+        loop(plannerFor(timerPlan()), states = states).run("timer for 20 minutes")
         assertTrue(states.first() is AgentState.Planning)
         assertTrue(states.any { it is AgentState.Acting })
         assertEquals("Timer set for 20 minutes", (states.last() as AgentState.Done).summary)
@@ -170,13 +170,13 @@ class AgentLoopTest {
         val counting = object : ToolEnv by env { override fun startTimer(seconds: Long) { started++ } }
         val asked = ArrayList<List<String>>()
         // The model's own mistake, as seen on a phone: an alarm request planned as a timer.
-        val wrong = Plan.Steps(listOf(Step(TimerTool, Params(mapOf("seconds" to "3600", "label" to "6am tomorrow")))))
-        val declined = AgentLoop(plannerFor(wrong), Executor(counting), confirm = { asked += it; false }).run("set an alarm for 6am tomorrow")
+        val wrong = Plan.Steps(listOf(Step(TimerTool, Params(mapOf("length" to "1 hour", "label" to "6am tomorrow")))))
+        val declined = AgentLoop(plannerFor(wrong), Executor(counting), confirm = { asked += it; false }).run("set an alarm for 1 hour from now")
         assertEquals(AgentOutcome.Cancelled, declined)
         assertEquals(listOf(listOf("Start a timer for 1 hour")), asked)
         assertEquals(0, started)
         // Said yes to, it runs; and a label that only repeats a time is not shown as the timer's name.
-        val done = AgentLoop(plannerFor(wrong), Executor(counting), confirm = { true }).run("set an alarm for 6am tomorrow") as AgentOutcome.Done
+        val done = AgentLoop(plannerFor(wrong), Executor(counting), confirm = { true }).run("set an alarm for 1 hour from now") as AgentOutcome.Done
         assertEquals("Timer set for 1 hour", done.summary)
         assertEquals(1, started)
         // The same plan for a request that is a timer runs with no question.

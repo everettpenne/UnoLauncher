@@ -14,9 +14,11 @@ internal object Catalogue {
         appendLine("Every parameter must be present; give an unused optional one as an empty string.")
         appendLine("If you must ask the person something first: {\"clarify\":\"<question>\"}")
         appendLine("If it cannot be done: {\"refuse\":\"<one sentence saying what is missing>\"}")
+        appendLine("If it is a question you cannot answer from the phone, or a web search would help: {\"search\":\"<what to search for, in the person's words>\"}")
         appendLine("Rules:")
         appendLine("- Use only the steps the request asks for, three at most. Most requests are one step.")
         appendLine("- Never invent a detail. If a time, a length, a number or a name is missing, ask with clarify.")
+        appendLine("- Copy times and lengths as the person said them (\"an hour and a half\", \"tomorrow 3pm\"). Do not convert or calculate.")
         appendLine("- Never make up a web address. If no tool does what is asked (ordering, booking, paying), refuse.")
         appendLine()
         appendLine("Tools:")
@@ -41,12 +43,13 @@ internal object Catalogue {
 
     /** A grammar for the same shape: tool names and parameter names are fixed, values are validated afterwards. */
     fun grammar(tools: List<Tool>): String = buildString {
-        appendLine("root ::= plan | clarify | refuse")
+        appendLine("root ::= plan | clarify | refuse | search")
         appendLine("plan ::= " + lit("{\"steps\":[") + " step (" + lit(",") + " step)? (" + lit(",") + " step)? " + lit("]}"))
         appendLine("step ::= " + tools.joinToString(" | ") { rule(it.name) })
         for (tool in tools) appendLine(rule(tool.name) + " ::= " + body(tool))
         appendLine("clarify ::= " + lit("{\"clarify\":") + " " + lit("\"") + " text " + lit("\"") + " " + lit("}"))
         appendLine("refuse ::= " + lit("{\"refuse\":") + " " + lit("\"") + " text " + lit("\"") + " " + lit("}"))
+        appendLine("search ::= " + lit("{\"search\":") + " " + lit("\"") + " text " + lit("\"") + " " + lit("}"))
         appendLine("digits ::= [0-9] [0-9]? [0-9]? [0-9]? [0-9]? [0-9]?")
         appendLine("bool ::= " + lit("true") + " | " + lit("false"))
         appendLine("text ::= [a-zA-Z0-9 .,:;/?_=&%+#'-]{0,200}")

@@ -74,6 +74,26 @@ internal object GroundingLogic {
         }
     }
 
+    private val contactVerb = setOf("call", "dial", "ring", "phone", "text", "message", "sms", "tell", "ask", "msg")
+    private val notNames = setOf("the", "a", "an", "my", "to", "at", "on", "in", "and", "that", "this", "it", "him", "her", "them", "back", "saying",
+        "please", "now", "up", "me", "for", "with", "i", "i'll", "i'm") + contactVerb
+
+    /**
+     * The words of a request that may be a person's name, to look up in contacts: one that follows a verb for reaching someone
+     * ("text sam"), and any capitalised word that is not the first. At most [MAX_PEOPLE]; nothing is looked up for a request with neither.
+     */
+    fun namesIn(query: String): List<String> {
+        val words = Regex("""[\p{L}']+""").findAll(query).map { it.value }.toList()
+        val out = LinkedHashSet<String>()
+        words.forEachIndexed { i, w ->
+            val lower = w.lowercase()
+            if (lower.length < 2 || lower in notNames) return@forEachIndexed
+            val afterVerb = i > 0 && words[i - 1].lowercase() in contactVerb
+            if (afterVerb || (i > 0 && w.first().isUpperCase())) out += w
+        }
+        return out.take(MAX_PEOPLE)
+    }
+
     /** The request the loop runs, with the grounded names folded in. */
     fun planning(
         query: String,

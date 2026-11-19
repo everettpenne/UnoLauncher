@@ -1,5 +1,9 @@
 package com.jake.duolauncher.agent.training
 
+import com.jake.duolauncher.search.agent.EvalRow
+import com.jake.duolauncher.search.agent.ParseResult
+import com.jake.duolauncher.search.agent.Plan
+import com.jake.duolauncher.search.agent.PlanParser
 import com.jake.duolauncher.search.agent.EvalSet
 import com.jake.duolauncher.search.agent.ToolRegistry
 import org.json.JSONArray
@@ -27,7 +31,24 @@ class ScorePlans {
             obj.getString("query") to obj.optString("reply")
         }
         val report = PlanScorer.score(rows, replies, ToolRegistry.builtIn)
+        // Per family, for a rows file that says which family each row is (the dev set): one number hides which kind of row moved.
+        val families = runCatching {
+            val array = JSONArray(File(dir, rowsFile).readText())
+            (0 until array.length()).associate { i -> array.getJSONObject(i).let { it.getString("q").trim() to it.optString("family") } }
+        }.getOrDefault(emptyMap()).filterValues { it.isNotEmpty() }
+        val byFamily = JSONObject()
+        report.rows.groupBy { families[it.query] }.filterKeys { it != null }.toSortedMap(compareBy { it }).forEach { (family, scored) ->
+            byFamily.put(family, JSONObject().put("exact", scored.count { it.exact }).put("total", scored.size))
+        }
+        // A row that should have asked, and acted on something nobody gave: the launcher's own check turns that into the question.
+        val caught = report.rows.count { score ->
+            score.expected is EvalRow.Expected.Clarify && !score.exact && score.reply != null &&
+                ((PlanParser.parse(score.reply, ToolRegistry.builtIn) as? ParseResult.Ok)?.plan as? Plan.Steps)
+                    ?.steps?.any { it.tool.missing(it.params, score.query) != null } == true
+        }
         val out = JSONObject()
+            .put("byFamily", byFamily)
+            .put("askedByTheLauncherAnyway", caught)
             .put("exact", report.exact)
             .put("total", report.total)
             .put("exactRate", report.exactRate)

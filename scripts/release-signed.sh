@@ -2,7 +2,12 @@
 set -euo pipefail
 
 repository_root=$(cd "$(dirname "$0")/.." && pwd -P)
-version=0.131.1-uno01
+# The version is the app's own (app/build.gradle.kts), so the package is never named for an older release.
+version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' "$repository_root/app/build.gradle.kts" | head -1)
+if [[ -z "$version" ]]; then
+    echo "Could not read versionName from app/build.gradle.kts." >&2
+    exit 1
+fi
 output_dir=${1:-"$repository_root/dist/UnoLauncher-$version"}
 
 for variable_name in DUO_RELEASE_STORE_FILE DUO_RELEASE_STORE_PASSWORD DUO_RELEASE_KEY_ALIAS DUO_RELEASE_KEY_PASSWORD; do

@@ -66,7 +66,9 @@ class KeyboardExtrasTest {
         assertEquals(FieldKind.TEXT, KeyboardModel.fieldKind(0x12))                    // a number field's variation bits mean something else
         fun labels(row: List<Key>) = row.map { when (it) { is Key.Char -> it.label; Key.Space -> "space"; Key.Enter -> "enter"; Key.Emoji -> "emoji"; Key.Globe -> "globe"; is Key.Page -> it.label; else -> "?" } }
         assertEquals(listOf("123", "emoji", "@", "space", ".", "enter"), labels(KeyboardModel.bottomRow(KeyPage.LETTERS, globe = false, field = FieldKind.EMAIL)))
-        assertEquals(listOf("123", "globe", "/", "space", ".", ".com", "enter"), labels(KeyboardModel.bottomRow(KeyPage.LETTERS, globe = true, field = FieldKind.URL)))
+        // A web address field has the ordinary row and its full space bar: the address bar is where searches are typed too.
+        assertEquals(labels(KeyboardModel.bottomRow(KeyPage.LETTERS, globe = true)), labels(KeyboardModel.bottomRow(KeyPage.LETTERS, globe = true, field = FieldKind.URL)))
+        assertEquals(listOf("123", "emoji", "globe", "space", "enter"), labels(KeyboardModel.bottomRow(KeyPage.LETTERS, globe = true, field = FieldKind.URL)))
         // The number page has its own punctuation, so only the letters page changes.
         assertEquals(listOf("ABC", "emoji", "space", "enter"), labels(KeyboardModel.bottomRow(KeyPage.NUMBERS, globe = false, field = FieldKind.EMAIL)))
     }

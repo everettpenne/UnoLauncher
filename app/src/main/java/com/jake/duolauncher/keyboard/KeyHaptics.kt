@@ -44,24 +44,27 @@ internal object HapticProfile {
     internal const val CLICK = 1; internal const val THUD = 2; internal const val QUICK_FALL = 6; internal const val TICK = 7; internal const val LOW_TICK = 8
     private const val EFFECT_TICK = 2; private const val EFFECT_CLICK = 0
 
-    /** Letters are the lightest, since they are tapped most. Delete is a shade sharper, its held repeat lighter again and
-     * faster (the cadence is in the key's repeat loop); space and Return are a marginally deeper click; shift, page and
-     * symbol-layer switches feel like a soft toggle; a popup (the accent strip) pops very softly. */
+    /** Crisp means short. On a Pixel 10a's motor a tick is over, start to stop, in about 35 ms, the low tick in 41 and a click in 68
+     * (read from the phone's own vibrator log), so every key that types is the tick: a run of fast letters is felt as separate taps
+     * and not as one buzz. Letters are the lightest, since they are tapped most; Delete is a shade stronger and its held repeat
+     * lighter; the space bar is the same short tick, firmer, so the end of a word is felt without the click's length; Return alone is
+     * the deeper click; Shift and the page keys are a single firm tick (two close together blurred into a buzz); a strip opening
+     * pops softly on the rounder low tick. */
     private fun crisp(kind: HapticKind): HapticPlan = when (kind) {
-        HapticKind.LETTER -> HapticPlan(LOW_TICK, .55f, EFFECT_TICK)
-        HapticKind.DELETE -> HapticPlan(TICK, .60f, EFFECT_TICK)
-        HapticKind.DELETE_REPEAT -> HapticPlan(LOW_TICK, .48f, EFFECT_TICK)
-        HapticKind.DELETE_WORD -> HapticPlan(TICK, .70f, EFFECT_TICK)
-        HapticKind.SPACE -> HapticPlan(CLICK, .58f, EFFECT_CLICK)
-        HapticKind.RETURN -> HapticPlan(CLICK, .64f, EFFECT_CLICK)
-        HapticKind.MODIFIER -> HapticPlan(TICK, .62f, EFFECT_TICK, secondPrimitive = TICK, secondScale = .50f, secondDelayMs = 18)
+        HapticKind.LETTER -> HapticPlan(TICK, .50f, EFFECT_TICK)
+        HapticKind.DELETE -> HapticPlan(TICK, .62f, EFFECT_TICK)
+        HapticKind.DELETE_REPEAT -> HapticPlan(TICK, .38f, EFFECT_TICK)
+        HapticKind.DELETE_WORD -> HapticPlan(TICK, .80f, EFFECT_TICK)
+        HapticKind.SPACE -> HapticPlan(TICK, .78f, EFFECT_TICK)
+        HapticKind.RETURN -> HapticPlan(CLICK, .55f, EFFECT_CLICK)
+        HapticKind.MODIFIER -> HapticPlan(TICK, .68f, EFFECT_TICK)
         HapticKind.SHIFT_LOCK -> HapticPlan(CLICK, .62f, EFFECT_CLICK, secondPrimitive = CLICK, secondScale = .62f, secondDelayMs = 40)
-        HapticKind.SELECT -> HapticPlan(TICK, .60f, EFFECT_TICK)
-        HapticKind.CURSOR -> HapticPlan(LOW_TICK, .35f, EFFECT_TICK)
+        HapticKind.SELECT -> HapticPlan(TICK, .55f, EFFECT_TICK)
+        HapticKind.CURSOR -> HapticPlan(TICK, .30f, EFFECT_TICK)
         HapticKind.PREVIEW -> HapticPlan(LOW_TICK, .42f, EFFECT_TICK)
         HapticKind.AUTOCORRECT -> HapticPlan(LOW_TICK, .50f, EFFECT_TICK, secondPrimitive = TICK, secondScale = .45f, secondDelayMs = 55)
-        HapticKind.SWIPE_KEY -> HapticPlan(LOW_TICK, .28f, EFFECT_TICK)
-        HapticKind.SWIPE_DONE -> HapticPlan(CLICK, .58f, EFFECT_CLICK)
+        HapticKind.SWIPE_KEY -> HapticPlan(TICK, .22f, EFFECT_TICK)
+        HapticKind.SWIPE_DONE -> HapticPlan(TICK, .78f, EFFECT_TICK)
     }
 
     /** The plan for [kind] at [strength] (0 is off; the default setting reproduces the base feel) and [feel], or null for silence. */
@@ -69,14 +72,17 @@ internal object HapticProfile {
         if (strength <= 0.01f) return null
         val b = when (feel) {
             HapticFeel.CRISP -> crisp(kind)
-            // Soft: every tick becomes the rounder low tick, a little quieter; clicks stay clicks but gentler.
-            HapticFeel.SOFT -> crisp(kind).let { p -> p.copy(primitive = if (p.primitive == TICK) LOW_TICK else p.primitive, scale = p.scale * .85f,
+            // Soft: every tick becomes the rounder low tick at the same strength (the keys as they felt before the tick), and clicks
+            // stay clicks but gentler.
+            HapticFeel.SOFT -> crisp(kind).let { p -> p.copy(primitive = if (p.primitive == TICK) LOW_TICK else p.primitive,
+                scale = if (p.primitive == CLICK) p.scale * .85f else p.scale,
                 secondPrimitive = if (p.secondPrimitive == TICK) LOW_TICK else p.secondPrimitive, secondScale = p.secondScale * .85f) }
-            // Firm: ticks become clicks and Return and space land with a short thud underneath.
+            // Firm: the keys that type land as a click, Return and space with a short thud underneath; the light running cues (the
+            // cursor, a swipe crossing a key, Delete repeating) stay ticks, a little stronger.
             HapticFeel.FIRM -> crisp(kind).let { p -> when (kind) {
-                HapticKind.SPACE, HapticKind.RETURN -> p.copy(scale = (p.scale * 1.1f), secondPrimitive = THUD, secondScale = .35f, secondDelayMs = 0)
-                HapticKind.CURSOR, HapticKind.SWIPE_KEY, HapticKind.DELETE_REPEAT -> p.copy(primitive = TICK, scale = p.scale * 1.1f)
-                else -> p.copy(primitive = if (p.primitive == LOW_TICK) TICK else p.primitive, scale = p.scale * 1.1f)
+                HapticKind.SPACE, HapticKind.RETURN -> p.copy(primitive = CLICK, scale = .62f, secondPrimitive = THUD, secondScale = .35f, secondDelayMs = 0)
+                HapticKind.CURSOR, HapticKind.SWIPE_KEY, HapticKind.DELETE_REPEAT -> p.copy(scale = p.scale * 1.2f)
+                else -> if (p.primitive == TICK) p.copy(primitive = CLICK, scale = p.scale * .85f) else p.copy(primitive = if (p.primitive == LOW_TICK) TICK else p.primitive, scale = p.scale * 1.1f)
             } }
         }
         val s = (b.scale * strength / DEFAULT_STRENGTH).coerceAtMost(1f)
@@ -85,13 +91,15 @@ internal object HapticProfile {
         return b.copy(scale = s, secondScale = s2)
     }
 
-    /** Fast typing can overlap two fingers; two vibrations within [MIN_GAP_NS] blur into one, so the second is skipped. */
-    const val MIN_GAP_NS = 12_000_000L
+    /** Fast typing can overlap two fingers; two vibrations within [MIN_GAP_NS] blur into one, so the second is skipped. A tick is over
+     * in less than this, so two keys struck 10 ms apart are still felt as two. */
+    const val MIN_GAP_NS = 8_000_000L
     fun allow(lastNs: Long, nowNs: Long) = nowNs - lastNs >= MIN_GAP_NS
 }
 
 /** Plays key haptics. The vibrator call is a round trip to a system service, so it happens on its own thread and a
- * key press never waits for it. Honours Android's "touch feedback" (haptic feedback) setting.
+ * key press never waits for it; that thread runs at display priority so the tick is not held up behind background work, and each
+ * key's effect is built once when the settings are read, not as the key is struck. Honours Android's "touch feedback" setting.
  */
 internal object KeyHaptics {
     @Volatile private var strength = HapticProfile.DEFAULT_STRENGTH
@@ -103,6 +111,9 @@ internal object KeyHaptics {
     private var primitives = false
     private var handler: Handler? = null
     private var lastNs = 0L
+    /** The effect for each kind of key at the settings in force, ready to play; a kind that is silent has none. */
+    @Volatile private var effects: Map<HapticKind, VibrationEffect> = emptyMap()
+    private val touch: VibrationAttributes? = if (Build.VERSION.SDK_INT >= 33) VibrationAttributes.createForUsage(VibrationAttributes.USAGE_TOUCH) else null
 
     fun configure(context: Context, strengthSetting: Float, feelSetting: Int = feel.ordinal) {
         strength = strengthSetting
@@ -120,33 +131,36 @@ internal object KeyHaptics {
             }.getOrDefault(false)
             supported = if (!primitives) emptySet() else listOf(HapticProfile.CLICK, HapticProfile.THUD, HapticProfile.QUICK_FALL, HapticProfile.TICK,
                 HapticProfile.LOW_TICK).filter { id -> runCatching { v!!.areAllPrimitivesSupported(id) }.getOrDefault(false) }.toSet()
-            handler = Handler(HandlerThread("uno-key-haptics").apply { start() }.looper)
+            handler = Handler(HandlerThread("uno-key-haptics", android.os.Process.THREAD_PRIORITY_DISPLAY).apply { start() }.looper)
         }
+        effects = HapticKind.entries.mapNotNull { kind ->
+            val plan = HapticProfile.plan(kind, strength, feel) ?: return@mapNotNull null
+            runCatching { kind to build(plan) }.getOrNull()
+        }.toMap()
     }
 
     // WrongConstant: the plans carry HapticProfile's inlined primitive ids (TICK/LOW_TICK/CLICK), which lint cannot
     // prove are Composition constants; they are the same three ids validated by areAllPrimitivesSupported in configure().
     @android.annotation.SuppressLint("WrongConstant")
+    private fun build(plan: HapticPlan): VibrationEffect {
+        if (!primitives) return VibrationEffect.createPredefined(plan.fallbackEffect)
+        fun usable(id: Int) = if (id in supported) id else HapticProfile.CLICK
+        val composition = VibrationEffect.startComposition().addPrimitive(usable(plan.primitive), plan.scale)
+        // A THUD the motor cannot play is left out rather than turned into a second click.
+        if (plan.secondScale > 0f && (plan.secondPrimitive != HapticProfile.THUD || HapticProfile.THUD in supported))
+            composition.addPrimitive(usable(plan.secondPrimitive), plan.secondScale, plan.secondDelayMs)
+        return composition.compose()
+    }
+
     fun fire(kind: HapticKind) {
         if (!systemAllows) return
-        val plan = HapticProfile.plan(kind, strength, feel) ?: return
+        val effect = effects[kind] ?: return
         val now = System.nanoTime()
         if (!HapticProfile.allow(lastNs, now)) return
         lastNs = now
         handler?.post {
             val v = vibrator ?: return@post
-            runCatching {
-                val effect = if (primitives) {
-                    fun usable(id: Int) = if (id in supported) id else HapticProfile.CLICK
-                    val composition = VibrationEffect.startComposition().addPrimitive(usable(plan.primitive), plan.scale)
-                    // A THUD the motor cannot play is left out rather than turned into a second click.
-                    if (plan.secondScale > 0f && (plan.secondPrimitive != HapticProfile.THUD || HapticProfile.THUD in supported))
-                        composition.addPrimitive(usable(plan.secondPrimitive), plan.secondScale, plan.secondDelayMs)
-                    composition.compose()
-                } else VibrationEffect.createPredefined(plan.fallbackEffect)
-                if (Build.VERSION.SDK_INT >= 33) v.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_TOUCH))
-                else v.vibrate(effect)
-            }
+            runCatching { if (Build.VERSION.SDK_INT >= 33 && touch != null) v.vibrate(effect, touch) else v.vibrate(effect) }
         }
     }
 }

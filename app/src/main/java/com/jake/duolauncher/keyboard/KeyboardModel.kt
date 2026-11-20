@@ -114,15 +114,15 @@ internal object KeyboardModel {
      */
     fun bottomRow(page: KeyPage, globe: Boolean, emojiKey: Boolean = true, field: FieldKind = FieldKind.TEXT): List<Key> {
         val letters = page == KeyPage.LETTERS
-        // As on iOS, an address field has its punctuation beside the space bar on the letters page: "@" and "." for an email
-        // address; "/", "." and ".com" for a web address, which has no use for the emoji key.
+        // As on iOS, an email field has "@" and "." beside the space bar on the letters page. A web address field has the ordinary
+        // row: a browser's address bar is also where a search is typed, and "/", "." and ".com" beside the space bar left it too
+        // small to hit.
         val (left, right) = when (if (letters) field else FieldKind.TEXT) {
             FieldKind.EMAIL -> listOf(Key.Char("@")) to listOf(Key.Char("."))
-            FieldKind.URL -> listOf(Key.Char("/")) to listOf(Key.Char("."), Key.Char(".com", weight = 1.6f))
-            FieldKind.TEXT -> emptyList<Key>() to emptyList()
+            FieldKind.URL, FieldKind.TEXT -> emptyList<Key>() to emptyList()
         }
         return listOfNotNull(if (letters) Key.Page(KeyPage.NUMBERS, "123") else Key.Page(KeyPage.LETTERS, "ABC"),
-            if (emojiKey && !(letters && field == FieldKind.URL)) Key.Emoji else null, if (globe) Key.Globe else null) +
+            if (emojiKey) Key.Emoji else null, if (globe) Key.Globe else null) +
             left + Key.Space + right + Key.Enter
     }
 
@@ -134,12 +134,13 @@ internal object KeyboardModel {
         else -> ShiftState.OFF
     }
 
-    /** As on iOS, typing a symbol from the numbers or symbols page (an apostrophe, a full stop, an at sign) takes you straight back to
-     * the letters, so the next word is not typed as gibberish; digits and the space bar stay put so a number can be finished.
+    /** How soon after one tap on Shift a second locks caps. */
+    const val SHIFT_DOUBLE_TAP_MS = 350L
+
+    /** Whether a tap on Shift at [nowMs] is the second of a double tap: the first was let go less than [SHIFT_DOUBLE_TAP_MS] before.
+     * Measured from release to release (the second tap acts as it is let go), however long each press was held.
      */
-    fun pageAfterTyping(page: KeyPage, text: String): KeyPage =
-        if ((page == KeyPage.NUMBERS || page == KeyPage.SYMBOLS) && text.isNotEmpty() && text.none { it.isDigit() || it.isWhitespace() }) KeyPage.LETTERS
-        else page
+    fun isShiftDoubleTap(lastReleaseMs: Long, nowMs: Long): Boolean = nowMs - lastReleaseMs in 0 until SHIFT_DOUBLE_TAP_MS
 
     /** After typing a letter a one-shot shift ends; caps lock stays. */
     fun afterLetter(state: ShiftState) = if (state == ShiftState.ONCE) ShiftState.OFF else state

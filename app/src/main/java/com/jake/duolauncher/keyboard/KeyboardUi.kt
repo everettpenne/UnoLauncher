@@ -1,7 +1,7 @@
 package com.jake.duolauncher.keyboard
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -53,11 +53,13 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.*
-import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -72,6 +74,9 @@ import com.jake.duolauncher.appearance.ContinuousShape
 import com.jake.duolauncher.appearance.Corner
 import com.jake.duolauncher.appearance.DuoTypography
 import com.jake.duolauncher.appearance.continuousPath
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.hypot
@@ -127,6 +132,8 @@ private class KeyPalette(val dark: Boolean, accent: Int?, blurred: Boolean, val 
 
 private val LocalKeyboardActions = staticCompositionLocalOf<KeyboardActions?> { null }
 private val LocalKeyHeight = staticCompositionLocalOf { 46.dp }
+/** The order of overlapping fingers (see [KeyTouches]); the keyboard's own, shared by every key on it. */
+private val LocalKeyTouches = staticCompositionLocalOf { KeyTouches() }
 
 private val KeyGap = 6.dp
 /** The gap between rows; the classic style's was a point tighter. Provided with the palette. */
@@ -152,11 +159,11 @@ internal fun KeyboardScreen(ui: KeyboardUiState, actions: KeyboardActions, inSet
     val rows = remember(ui.page, ui.shift, ui.numberRow, ui.globe, ui.layout, ui.emojiKey, ui.field) {
         KeyboardModel.rows(ui.page, ui.shift, ui.numberRow, ui.globe, ui.layout, ui.emojiKey, ui.field)
     }
-    val rootTopLeft = remember { mutableStateOf(Offset.Zero) }
     // The classic panel is square-topped, as it was; the glass one has rounded corners the window's blur follows.
     val corner = if (ui.classic) 0.dp else PANEL_CORNER_DP.dp
     androidx.compose.material3.MaterialTheme(typography = DuoTypography) {
-        CompositionLocalProvider(LocalKeyboardActions provides actions, LocalKeyHeight provides keyHeight, LocalRowGap provides palette.rowGap) {
+        CompositionLocalProvider(LocalKeyboardActions provides actions, LocalKeyHeight provides keyHeight, LocalRowGap provides palette.rowGap,
+            LocalKeyTouches provides ui.touches) {
             BoxWithConstraints(Modifier.fillMaxWidth()
                 .clip(remember(corner, inSettings) { val bottom = if (inSettings) corner else 0.dp
                     ContinuousShape(CornerSize(corner), CornerSize(corner), CornerSize(bottom), CornerSize(bottom)) })
@@ -172,7 +179,7 @@ internal fun KeyboardScreen(ui: KeyboardUiState, actions: KeyboardActions, inSet
                         else if (palette.rim) drawPath(edge, rim, style = Stroke(1.dp.toPx()))
                     }
                 }
-                .onGloballyPositioned { rootTopLeft.value = it.positionInWindow(); ui.width = it.size.width.toFloat() }) {
+                .onGloballyPositioned { ui.width = it.size.width.toFloat(); ui.root = it }) {
                 val oneHanded = ui.oneHanded
                 val full = minOf(maxWidth, MaxKeyboardWidth)
                 val contentWidth = if (oneHanded != 0) full * .8f else full
@@ -200,7 +207,7 @@ internal fun KeyboardScreen(ui: KeyboardUiState, actions: KeyboardActions, inSet
                 // child of a window that wraps its content grows to the whole screen).
                 if (oneHanded != 0) Row(Modifier.matchParentSize()) {
                     val side: @Composable RowScope.() -> Unit = {
-                        Box(Modifier.weight(1f).fillMaxHeight().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.setOneHanded(0) }
+                        Box(Modifier.weight(1f).fillMaxHeight().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.haptic(HapticKind.MODIFIER); actions.setOneHanded(0) }
                             .testTag("one-handed-expand"), contentAlignment = Alignment.Center) {
                             Icon(if (oneHanded == 1) Icons.Rounded.KeyboardDoubleArrowRight else Icons.Rounded.KeyboardDoubleArrowLeft, "Full width keyboard",
                                 tint = palette.sub, modifier = Modifier.size(28.dp))
@@ -212,29 +219,72 @@ internal fun KeyboardScreen(ui: KeyboardUiState, actions: KeyboardActions, inSet
                 }
                 // The magnified key preview, the accent strip and the swipe trail are drawn here, in the keyboard's own window, each in a
                 // layer of its own so a key press redraws that and nothing else. They used to be Popups, which create a window per key.
-                TrailLayer(ui, palette, rootTopLeft)
-                PreviewLayer(ui, palette, rootTopLeft)
-                AccentLayer(ui, palette, rootTopLeft)
+                TrailLayer(ui, palette)
+                PreviewLayer(ui, palette)
+                AccentLayer(ui, palette)
             }
         }
     }
 }
 
+/** How far a key's touch reaches beyond its face. The faces have gaps between them and a thumb does not: every point of the key area
+ * belongs to the nearest key, so each key's touch runs to the middle of the gap around it, and the keys at the ends of a row run to
+ * the edge of the panel (past the half-key inset of QWERTY's middle row, [leftFaces] and [rightFaces] being that inset in widths of
+ * the key itself). Only where a touch counts changes; the faces are drawn where they were.
+ */
+@Immutable
+private data class KeyReach(val left: Dp = 0.dp, val top: Dp = 0.dp, val right: Dp = 0.dp, val bottom: Dp = 0.dp, val leftFaces: Float = 0f, val rightFaces: Float = 0f) {
+    companion object { val None = KeyReach() }
+}
+
+/** Lays what follows out larger than the key by [r], centred so the key's face is where it was. */
+private fun Modifier.reach(r: KeyReach): Modifier = if (r == KeyReach.None) this else layout { measurable, c ->
+    val w = c.maxWidth; val h = c.maxHeight
+    val l = r.left.roundToPx() + (r.leftFaces * w).toInt(); val rt = r.right.roundToPx() + (r.rightFaces * w).toInt()
+    val t = r.top.roundToPx(); val b = r.bottom.roundToPx()
+    val p = measurable.measure(Constraints.fixed(w + l + rt, h + t + b))
+    layout(w, h) { p.place(-l, -t) }
+}
+
+/** How far below the bottom row a touch still counts for it (the room under the keys is there to keep a thumb off the navigation bar). */
+private val BottomReach = 10.dp
+/** The shortest time a key's card stays up, so the quickest tap still shows which key it was. A later key's card replaces it at once. */
+private const val CARD_MIN_MS = 70L
+/** How long a key's pressed look takes to fade once the finger lifts: it comes on at once and leaves softly. */
+private const val RELEASE_FADE_MS = 130
+
+private val NotPressed: () -> Boolean = { false }
+
 @Composable
 private fun KeyRows(ui: KeyboardUiState, actions: KeyboardActions, palette: KeyPalette, rows: List<List<Key>>) {
-    Column(verticalArrangement = Arrangement.spacedBy(RowGap)) {
-        val rowOffset = if (ui.numberRow && ui.page == KeyPage.LETTERS) 1 else 0
-        val widest = rows.drop(rowOffset).take(2).maxOfOrNull { r -> r.count { it is Key.Char } } ?: 10
-        rows.forEachIndexed { rawIndex, row ->
-            val index = rawIndex - rowOffset
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(KeyGap)) {
-                // A shorter letter row is inset by half the difference on each side (the middle row of QWERTY by half a key), so every
-                // letter key is the same width, as on every phone keyboard.
-                val letters = row.count { it is Key.Char }
-                val inset = if (ui.page == KeyPage.LETTERS && index in 0..1) (widest - letters) / 2f else 0f
-                if (inset > 0f) Spacer(Modifier.weight(inset))
-                row.forEach { key -> KeyView(key, ui, actions, palette, Modifier.weight(weightFor(key, ui, rawIndex, rows.size, widest, letters, row))) }
-                if (inset > 0f) Spacer(Modifier.weight(inset))
+    // Each page's keys are its own: a key is never reused as another page's key in the same place, so a finger still on a key when the
+    // page changes (the page keys act as they are touched) is not left holding a different key.
+    key(ui.page) {
+        Column(verticalArrangement = Arrangement.spacedBy(RowGap)) {
+            val rowOffset = if (ui.numberRow && ui.page == KeyPage.LETTERS) 1 else 0
+            val widest = rows.drop(rowOffset).take(2).maxOfOrNull { r -> r.count { it is Key.Char } } ?: 10
+            val half = RowGap / 2; val side = KeyGap / 2
+            val edge = if (palette.classic) 3.dp else 4.dp
+            rows.forEachIndexed { rawIndex, row ->
+                val index = rawIndex - rowOffset
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(KeyGap)) {
+                    // A shorter letter row is inset by half the difference on each side (the middle row of QWERTY by half a key), so every
+                    // letter key is the same width, as on every phone keyboard.
+                    val letters = row.count { it is Key.Char }
+                    val inset = if (ui.page == KeyPage.LETTERS && index in 0..1) (widest - letters) / 2f else 0f
+                    if (inset > 0f) Spacer(Modifier.weight(inset))
+                    row.forEachIndexed { i, key ->
+                        val weight = weightFor(key, ui, rawIndex, rows.size, widest, letters, row)
+                        val first = i == 0; val last = i == row.lastIndex
+                        val reach = KeyReach(
+                            left = if (first) edge + (if (inset > 0f) KeyGap else 0.dp) else side,
+                            right = if (last) edge + (if (inset > 0f) KeyGap else 0.dp) else side,
+                            top = half, bottom = if (rawIndex == rows.lastIndex) BottomReach else half,
+                            leftFaces = if (first) inset / weight else 0f, rightFaces = if (last) inset / weight else 0f)
+                        KeyView(key, ui, actions, palette, Modifier.weight(weight), reach)
+                    }
+                    if (inset > 0f) Spacer(Modifier.weight(inset))
+                }
             }
         }
     }
@@ -253,31 +303,50 @@ private fun weightFor(key: Key, ui: KeyboardUiState, row: Int, rowCount: Int, wi
 }
 
 @Composable
-private fun KeyView(key: Key, ui: KeyboardUiState, actions: KeyboardActions, palette: KeyPalette, modifier: Modifier) {
+private fun KeyView(key: Key, ui: KeyboardUiState, actions: KeyboardActions, palette: KeyPalette, modifier: Modifier, reach: KeyReach) {
     when (key) {
-        is Key.Char -> LetterKey(key, ui, actions, palette, modifier)
+        is Key.Char -> LetterKey(key, ui, actions, palette, modifier, reach)
         Key.Shift -> {
             val on = ui.shift != ShiftState.OFF
-            GlassKey(palette, modifier, if (on) KeyRole.LETTER else KeyRole.SPECIAL, tag = "key-shift", hapticDown = HapticKind.MODIFIER, onTap = { actions.shift() }) {
+            // Shift acts as it is touched, and held it is a modifier: letters typed while it is down are capitals and it turns off
+            // when it is let go. A shift that is already on for one letter (a new sentence) waits to see which it is: let go with
+            // nothing typed it was a tap (off, or caps lock on a quick second tap), and with a letter typed it was a hold.
+            val hold = remember { IntArray(2) }
+            DownKey(palette, modifier, if (on) KeyRole.LETTER else KeyRole.SPECIAL, "key-shift", reach, HapticKind.MODIFIER,
+                onDown = {
+                    hold[0] = ui.touches.count
+                    hold[1] = if (ui.shift != ShiftState.ONCE) 1 else 0
+                    if (hold[1] == 1) actions.shift()
+                    ui.shiftHeld = true
+                },
+                onUp = {
+                    ui.shiftHeld = false
+                    if (ui.touches.count != hold[0]) { if (ui.shift == ShiftState.ONCE) ui.shift = ShiftState.OFF }
+                    else if (hold[1] == 0) actions.shift() else actions.shiftReleased()
+                }) {
                 ShiftGlyph(filled = on, color = palette.ink)
                 if (ui.shift == ShiftState.LOCKED) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp).size(width = 14.dp, height = 2.dp).background(palette.ink, Corner.pill))
             }
         }
-        Key.Backspace -> RepeatingKey(palette, modifier, onHaptic = actions::haptic, onStep = { held -> actions.backspace(held) })
-        is Key.Page -> GlassKey(palette, modifier, KeyRole.SPECIAL, tag = "key-page", hapticDown = HapticKind.MODIFIER, onTap = { actions.page(key.target) }) {
+        Key.Backspace -> RepeatingKey(palette, modifier, onHaptic = actions::haptic, onStep = { held -> actions.backspace(held) }, reach = reach)
+        // The page keys change the keys as they are touched, like the keys that type: the next key is there a touch sooner.
+        is Key.Page -> DownKey(palette, modifier, KeyRole.SPECIAL, "key-page", reach, HapticKind.MODIFIER, onDown = { actions.page(key.target) }) {
             Text(key.label, color = palette.ink, fontSize = 16.sp, fontWeight = FontWeight.Normal)
         }
-        Key.Emoji -> GlassKey(palette, modifier, KeyRole.SPECIAL, tag = "key-emoji", hapticDown = HapticKind.MODIFIER, onTap = { actions.page(KeyPage.EMOJI) }) {
+        Key.Emoji -> GlassKey(palette, modifier, KeyRole.SPECIAL, tag = "key-emoji", hapticDown = HapticKind.MODIFIER, onTap = { actions.page(KeyPage.EMOJI) }, reach = reach) {
             Icon(Icons.Rounded.EmojiEmotions, "Emoji", tint = palette.ink, modifier = Modifier.size(22.dp))
         }
         Key.Globe -> GlassKey(palette, modifier, KeyRole.SPECIAL, tag = "key-globe", hapticDown = HapticKind.MODIFIER, onTap = { actions.globe() },
-            onLongPress = { actions.haptic(HapticKind.PREVIEW); actions.keyboardPicker() }) {
+            onLongPress = { actions.haptic(HapticKind.PREVIEW); actions.keyboardPicker() }, reach = reach) {
             Icon(Icons.Rounded.Language, "Switch keyboard", tint = palette.ink, modifier = Modifier.size(22.dp))
         }
-        Key.Space -> SpaceKey(ui, actions, palette, modifier)
+        Key.Space -> SpaceKey(ui, actions, palette, modifier, reach)
         Key.Enter -> {
             val accent = ui.enter.sendsAction || ui.emojiSearch != null
-            GlassKey(palette, modifier, if (accent) KeyRole.ACTION else KeyRole.SPECIAL, tag = "key-enter", hapticDown = HapticKind.RETURN, onTap = { actions.enter() }) {
+            GlassKey(palette, modifier, if (accent) KeyRole.ACTION else KeyRole.SPECIAL, tag = "key-enter", hapticDown = HapticKind.RETURN, onTap = { actions.enter() }, reach = reach,
+                // A Return that sends, searches or goes is never fired by the next key landing: that calls it off. A plain new line is
+                // typed in order, like the space.
+                early = !ui.enter.sendsAction) {
                 if (ui.enter == EnterKind.RETURN && ui.emojiSearch == null && palette.classic) Text(ui.enter.label, color = palette.ink, fontSize = 16.sp)
                 else if (ui.enter == EnterKind.RETURN && ui.emojiSearch == null) Icon(Icons.AutoMirrored.Rounded.KeyboardReturn, ui.enter.label, tint = palette.ink, modifier = Modifier.size(22.dp))
                 else Text(if (ui.emojiSearch != null) stringResource(R.string.kb_done) else ui.enter.label, color = Color.White, fontSize = 16.sp,
@@ -301,56 +370,131 @@ private fun ShiftGlyph(filled: Boolean, color: Color) {
     }
 }
 
+/** Where a key's face is: the key keeps it up to date as it is laid out, and what draws over the keys (the card, the strip of
+ * alternatives) asks it where the face is at the moment the key is touched, in the keyboard's own coordinates. It is also the key's
+ * identity for the card: the key whose face this is hides under the card while it is up.
+ */
+internal class KeyFaceRef {
+    var coords: LayoutCoordinates? = null
+    /** The face in [root]'s coordinates, not cut by anything that clips, or null while either is not on screen. */
+    fun rectIn(root: LayoutCoordinates?): Rect? {
+        val c = coords ?: return null
+        if (root == null || !c.isAttached || !root.isAttached) return null
+        return root.localBoundingBoxOf(c, clipBounds = false)
+    }
+}
+
+/** The card for a key whose face is [key] (in the keyboard's coordinates), or null where there is no room for one above it. */
+private fun balloonFor(key: Rect, panelWidth: Float, density: Density): Balloon? = with(density) {
+    KeyBalloon.place(key.left, key.top, key.right, panelWidth, full = 58.dp.toPx(), least = 34.dp.toPx(), grow = 20.dp.toPx(), margin = 2.dp.toPx())
+}
+
 /** A letter key. It types the moment the finger lands (not when it lifts), which is the fastest a key can respond, and
  * shows a magnified preview while held (never in password fields), the key itself hiding under it as on iOS. Holding a key
  * that has alternatives (its digit on the top row, accented letters, symbol variants) opens a strip; sliding to one and lifting swaps
  * the character just typed for it. Sliding across the letters instead swipes a word. Each key handles its own finger, so two fingers
  * can type at once; the key also reports where it is, for autocorrect's touch model and the swipe decoder.
+ *
+ * A tap that lands on the line between this key and the next may be read as the next (see [KeyboardActions.aim]); that key then
+ * shows the card and is the one typed. Everything that amends the letter just typed (the flick to punctuation, the alternatives,
+ * the start of a swipe) only happens while no other key has acted since, so with two fingers down neither edits the other's letter.
  */
 @Composable
-private fun LetterKey(key: Key.Char, ui: KeyboardUiState, actions: KeyboardActions, palette: KeyPalette, modifier: Modifier) {
-    var pressed by remember { mutableStateOf(false) }
-    // Where the key is, kept for the preview and the accent strip. Only read when a key is pressed, so it is not observable state:
-    // writing it on every layout would invalidate the key for nothing.
-    val bounds = remember { arrayOf(Rect.Zero) }
+private fun LetterKey(key: Key.Char, ui: KeyboardUiState, actions: KeyboardActions, palette: KeyPalette, modifier: Modifier, reach: KeyReach) {
+    val pressedState = remember { mutableStateOf(false) }
+    var pressed by pressedState
+    val face = remember { KeyFaceRef() }
+    // Where touches are measured from: the key's touch area, which is larger than its face (see KeyReach). Its place is read as the
+    // key is touched, with every key's centre (KeyboardUiState.refreshCentres), all in the keyboard view's own coordinates.
+    val cell = remember { arrayOfNulls<LayoutCoordinates>(1) }
     // Whether this key has its alternatives strip open (the strip itself is drawn by AccentLayer).
-    var accenting by remember { mutableStateOf(false) }
+    val accentingState = remember { mutableStateOf(false) }
+    var accenting by accentingState
+    val scope = rememberCoroutineScope()
     val density = LocalDensity.current
-    val cell = with(density) { 40.dp.toPx() }
+    val cellWidth = with(density) { 40.dp.toPx() }
     val flingSlop = with(density) { 22.dp.toPx() }
     val moveSlop = with(density) { 9.dp.toPx() }
     // The key's label changes with shift. Reading the latest through State keeps the touch handler alive across that change:
     // keying it on the label restarted every key's handler on the first keystroke after shift, dropping an overlapping tap.
     val current by rememberUpdatedState(key)
     val passwordField by rememberUpdatedState(ui.password)
-    val showPreview = ui.keyPreviews && !ui.password
-    val previews by rememberUpdatedState(showPreview)
+    val previews by rememberUpdatedState(ui.keyPreviews && !ui.password)
+    val onLetters by rememberUpdatedState(ui.page == KeyPage.LETTERS)
     val swipeOn by rememberUpdatedState(ui.swipe && ui.page == KeyPage.LETTERS && ui.layout.english && ui.emojiSearch == null)
     val layout by rememberUpdatedState(ui.layout)
+    val numberRow by rememberUpdatedState(ui.numberRow)
+    val classic by rememberUpdatedState(ui.classic)
     val digitHint = if (ui.page == KeyPage.LETTERS && !ui.numberRow && key.label.length == 1) KeyLayouts.digitFor(ui.layout, key.label[0]) else null
-    val lift by animateFloatAsState(if (pressed && !showPreview && !ui.classic) 1f else 0f, spring(dampingRatio = .55f, stiffness = 900f), label = "key-lift")
+    // The card is up for this key (its own touch, or its neighbour's that was meant for it): the key hides under it. Read where the
+    // key is drawn, never where it is composed, so a key press redraws two keys and composes none.
+    val carded = remember { derivedStateOf { ui.preview?.owner === face && !accentingState.value } }
+    val held = remember { derivedStateOf { pressedState.value || ui.proxy === face } }
+    // With no card (they are off, this is a password, or there is no room for one) the key itself rises a little instead.
+    val lift = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { held.value && !carded.value && !classic }.collectLatest { lift.animateTo(if (it) 1f else 0f, spring(dampingRatio = .55f, stiffness = 900f)) }
+    }
+    val letterKey = key.label.length == 1 && key.label[0].isLetter()
+    DisposableEffect(key.label, ui.page) {
+        val ch = key.label.lowercase()[0]
+        if (letterKey && ui.page == KeyPage.LETTERS) ui.faces[ch] = face
+        onDispose { if (ui.faces[ch] === face) ui.faces.remove(ch) }
+    }
+    DisposableEffect(Unit) {
+        // A key that goes away while it is held (the page changed under it) takes its card and its strip with it.
+        onDispose {
+            if (ui.preview?.owner === face) ui.preview = null
+            if (ui.proxy === face) ui.proxy = null
+            if (accentingState.value) ui.accents = null
+        }
+    }
     Box(modifier) {
-        GlassKey(palette, Modifier.fillMaxWidth().graphicsLayer { val s = 1f + .08f * lift; scaleX = s; scaleY = s }, KeyRole.LETTER,
-            pressed = pressed, hidden = pressed && showPreview && !accenting,
-            tag = "key-${key.label}", onTap = null,
-            pointer = Modifier.onGloballyPositioned {
-                val b = it.boundsInWindow(); bounds[0] = b
-                if (ui.page == KeyPage.LETTERS && key.label.length == 1) {
-                    ui.keyCentres[key.label.lowercase()[0]] = Pt(b.center.x, b.center.y); ui.keyWidth = b.width; ui.keyHeight = b.height
-                }
-            }.pointerInput(Unit) {
+        // The face's place is taken outside the layer that lifts the key, so it is the key at rest.
+        GlassKey(palette, Modifier.onGloballyPositioned { face.coords = it }.fillMaxWidth().graphicsLayer { val s = 1f + .08f * lift.value; scaleX = s; scaleY = s }, KeyRole.LETTER,
+            pressed = { held.value }, hidden = { carded.value },
+            tag = "key-${key.label}", onTap = null, reach = reach,
+            pointer = Modifier.onGloballyPositioned { cell[0] = it }.pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    val typed = current
-                    val origin = bounds[0].topLeft
+                    ui.touches.landed()
+                    ui.refreshCentres()
+                    val origin = cell[0]?.takeIf { it.isAttached }?.positionInRoot() ?: Offset.Zero
+                    val rootX = ui.root?.takeIf { it.isAttached }?.positionInRoot()?.x ?: 0f
                     val downPt = Pt(origin.x + down.position.x, origin.y + down.position.y)
-                    pressed = true
+                    var typed = current
+                    var target = face
+                    val single = typed.label.length == 1
+                    val letter = single && typed.label[0].isLetter()
+                    if (letter && onLetters) {
+                        val aimed = actions.aim(typed.label, downPt)
+                        if (aimed != typed.label) ui.faces[aimed.lowercase()[0]]?.let { other -> target = other; typed = Key.Char(aimed) }
+                    }
+                    if (target === face) pressed = true else ui.proxy = target
                     actions.haptic(HapticKind.LETTER)
                     actions.type(typed.output, downPt)
-                    if (previews && typed.label.length == 1) ui.preview = KeyPreview(typed.label, bounds[0])
-                    val letter = typed.label.length == 1 && typed.label[0].isLetter()
-                    val digit = if (letter && ui.page == KeyPage.LETTERS && !ui.numberRow) KeyLayouts.digitFor(layout, typed.label[0]) else null
-                    val options = if (typed.label.length == 1) listOfNotNull(digit) + KeyboardModel.alternates(typed.label) else emptyList()
+                    ui.touches.acted()
+                    val stamp = ui.touches.count
+                    // Whether this is still the last key to have acted: only then is the last character typed this key's own.
+                    fun alone() = ui.touches.count == stamp
+                    val anchor = target.rectIn(ui.root)
+                    val balloon = if (previews && single && anchor != null) balloonFor(anchor, ui.width, density) else null
+                    var card: KeyPreview? = if (balloon != null && anchor != null) KeyPreview(typed.label, anchor, balloon, target).also { ui.preview = it } else null
+                    val shownAt = android.os.SystemClock.uptimeMillis()
+                    /** Takes the card down now (something else is about to be drawn there). */
+                    fun dropCard() { card?.let { if (ui.preview === it) ui.preview = null }; card = null }
+                    /** The finger has lifted: the pressed look goes, and the card with it once it has been up long enough to be seen. */
+                    fun release() {
+                        pressed = false
+                        if (ui.proxy === target) ui.proxy = null
+                        val c = card ?: return
+                        card = null
+                        if (ui.preview !== c) return
+                        val left = CARD_MIN_MS - (android.os.SystemClock.uptimeMillis() - shownAt)
+                        if (left <= 0L) ui.preview = null else scope.launch { delay(left); if (ui.preview === c) ui.preview = null }
+                    }
+                    val digit = if (letter && onLetters && !numberRow) KeyLayouts.digitFor(layout, typed.label[0]) else null
+                    val options = if (single) listOfNotNull(digit) + KeyboardModel.alternates(typed.label) else emptyList()
                     val canSwipe = swipeOn && letter
                     val geometry = if (canSwipe) KeyGeometry(HashMap(ui.keyCentres), ui.keyWidth, ui.keyHeight) else KeyGeometry.EMPTY
                     val path = arrayListOf(downPt)
@@ -372,9 +516,10 @@ private fun LetterKey(key: Key.Char, ui: KeyboardUiState, actions: KeyboardActio
                         if (!moved) continue
                         if (canSwipe) {
                             path += p
-                            if (!swiping && GestureDecoder.isSwipe(path, geometry)) {
+                            if (!swiping && alone() && GestureDecoder.isSwipe(path, geometry)) {
                                 swiping = true; fling = null
-                                ui.preview = null; pressed = false
+                                dropCard(); pressed = false
+                                if (ui.proxy === target) ui.proxy = null
                                 actions.swipeStart()
                                 ui.trail.clear(); path.forEach { ui.trail.add(Offset(it.x, it.y)) }
                             }
@@ -395,62 +540,61 @@ private fun LetterKey(key: Key.Char, ui: KeyboardUiState, actions: KeyboardActio
                     }
                     if (swiping) {
                         actions.swipeEnd(path.toList())
-                        ui.trail.clear(); ui.preview = null; pressed = false
+                        ui.trail.clear(); release()
                         return@awaitEachGesture
                     }
                     val symbol = fling
                     if (symbol != null) {
-                        actions.replaceLast(symbol)                                  // the letter already typed becomes the punctuation
-                        ui.preview = null; pressed = false
+                        if (alone()) actions.replaceLast(symbol)                     // the letter already typed becomes the punctuation
+                        release()
                         return@awaitEachGesture
                     }
-                    if (ended || options.isEmpty() || moved) { ui.preview = null; pressed = false; return@awaitEachGesture }
+                    if (ended || options.isEmpty() || moved || anchor == null || !alone()) { release(); return@awaitEachGesture }
                     // Held still past the delay with alternatives: open the strip, with a soft pop.
-                    ui.preview = null
+                    dropCard()
                     accenting = true
                     actions.haptic(HapticKind.PREVIEW)
                     var chosen = if (digit != null) 0 else -1
-                    ui.accents = AccentState(options, chosen, bounds[0])
-                    val layoutRect = accentLayout(bounds[0], ui.width, options.size, cell)
+                    ui.accents = AccentState(options, chosen, anchor)
+                    val strip = accentLayout(anchor, ui.width, options.size, cellWidth)
                     while (true) {
                         val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                        val index = ((bounds[0].left + change.position.x - layoutRect.left) / cell).toInt().coerceIn(0, options.lastIndex)
-                        if (index != chosen) { chosen = index; ui.accents = AccentState(options, chosen, bounds[0]); actions.haptic(HapticKind.SELECT) }
+                        val index = ((origin.x - rootX + change.position.x - strip.left) / cellWidth).toInt().coerceIn(0, options.lastIndex)
+                        if (index != chosen) { chosen = index; ui.accents = AccentState(options, chosen, anchor); actions.haptic(HapticKind.SELECT) }
                         change.consume()
                         if (!change.pressed) break
                     }
-                    options.getOrNull(chosen)?.let(actions::replaceLast)
-                    ui.accents = null; accenting = false; pressed = false
+                    if (alone()) options.getOrNull(chosen)?.let(actions::replaceLast)
+                    ui.accents = null; accenting = false; release()
                 }
             }) {
-            val hide = pressed && showPreview && !accenting
-            Text(key.label, color = if (hide) Color.Transparent else palette.ink, fontSize = 23.sp, fontWeight = FontWeight.Normal)
-            // Fossify's digit hints: the top row's digits, small in the corner, when there is no number row. Hidden in password fields too.
-            if (digitHint != null && !passwordField) Text(digitHint, color = if (hide) Color.Transparent else palette.sub, fontSize = 10.sp,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 4.dp))
+            // Hidden under its card by fading the layer it is drawn in, which redraws the key and composes nothing.
+            Box(Modifier.matchParentSize().graphicsLayer { alpha = if (carded.value) 0f else 1f }, contentAlignment = Alignment.Center) {
+                Text(key.label, color = palette.ink, fontSize = 23.sp, fontWeight = FontWeight.Normal)
+                // Fossify's digit hints: the top row's digits, small in the corner, when there is no number row. Hidden in password fields too.
+                if (digitHint != null && !passwordField) Text(digitHint, color = palette.sub, fontSize = 10.sp,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 4.dp))
+            }
         }
     }
 }
 
-private fun accentLayout(anchor: Rect, windowWidth: Float, count: Int, cell: Float): Rect {
+/** Where the strip of alternatives for the key at [anchor] goes, left to right, in the keyboard's coordinates. */
+private fun accentLayout(anchor: Rect, panelWidth: Float, count: Int, cell: Float): Rect {
     val width = count * cell
-    val left = (anchor.center.x - width / 2f).coerceIn(4f, (windowWidth - width - 4f).coerceAtLeast(4f))
+    val left = (anchor.center.x - width / 2f).coerceIn(4f, (panelWidth - width - 4f).coerceAtLeast(4f))
     return Rect(left, anchor.top - 60f, left + width, anchor.top - 8f)
 }
 
-/** The magnified key: a glass balloon rising out of the key, like iOS's. It sits in the lane above the top row. */
+/** The magnified key: a glass balloon rising out of the key, like iOS's. It sits in the lane above the top row. Where it goes was
+ * worked out when the key was touched ([KeyBalloon]), from where the key's face was then, so it is always over the key that typed.
+ */
 @Composable
-private fun BoxScope.PreviewLayer(ui: KeyboardUiState, palette: KeyPalette, origin: State<Offset>) {
+private fun BoxScope.PreviewLayer(ui: KeyboardUiState, palette: KeyPalette) {
     val p = ui.preview ?: return
     val density = LocalDensity.current
-    val o = origin.value
-    val key = Rect(p.bounds.left - o.x, p.bounds.top - o.y, p.bounds.right - o.x, p.bounds.bottom - o.y)
-    val minHead = with(density) { 34.dp.toPx() }
-    val headH = minOf(with(density) { 58.dp.toPx() }, key.top - with(density) { 2.dp.toPx() })
-    if (headH < minHead) return                       // no room above this key, so nothing is drawn rather than something clipped
-    val headW = key.width * 1.5f
-    val headLeft = (key.center.x - headW / 2f).coerceIn(2f, (ui.width - headW - 2f).coerceAtLeast(2f))
-    val headTop = key.top - headH
+    val key = p.key
+    val headLeft = p.balloon.left; val headTop = p.balloon.top; val headW = p.balloon.width; val headH = p.balloon.height
     val r = with(density) { (if (palette.classic) 8.dp else 12.dp).toPx() }
     // matchParentSize, not fillMaxSize: the keyboard window wraps its content, and a child that fills a wrapping window makes it as
     // tall as the screen, which Android reads as a keyboard covering everything and hides it the moment a key is held.
@@ -469,8 +613,8 @@ private fun BoxScope.PreviewLayer(ui: KeyboardUiState, palette: KeyPalette, orig
         if (!palette.classic && palette.rim) drawPath(head, Brush.verticalGradient(listOf(palette.rimTop, Color.Transparent), startY = headTop, endY = headTop + headH * .5f),
             style = Stroke(1.dp.toPx()))
     }.testTag("key-preview")) {
-        Box(Modifier.offset { IntOffset(headLeft.toInt(), headTop.toInt()) }.size(width = with(density) { headW.toDp() }, height = with(density) { headH.toDp() }),
-            contentAlignment = Alignment.Center) { Text(p.label, color = palette.ink, fontSize = 34.sp) }
+        Box(Modifier.offset { IntOffset(headLeft.toInt(), headTop.toInt()) }.size(width = with(density) { headW.toDp() }, height = with(density) { headH.toDp() })
+            .testTag("key-preview-head"), contentAlignment = Alignment.Center) { Text(p.label, color = palette.ink, fontSize = 34.sp) }
     }
 }
 
@@ -478,18 +622,17 @@ private fun BoxScope.PreviewLayer(ui: KeyboardUiState, palette: KeyPalette, orig
  * and below it otherwise (the top row of a password field has no lane above it).
  */
 @Composable
-private fun BoxScope.AccentLayer(ui: KeyboardUiState, palette: KeyPalette, origin: State<Offset>) {
+private fun BoxScope.AccentLayer(ui: KeyboardUiState, palette: KeyPalette) {
     val a = ui.accents ?: return
     val density = LocalDensity.current
     val cell = with(density) { 40.dp.toPx() }
-    val o = origin.value
     val layout = accentLayout(a.bounds, ui.width, a.options.size, cell)
     val height = with(density) { 52.dp.toPx() }
-    val above = a.bounds.top - o.y - height - 8f
-    val top = if (above >= 2f) above else a.bounds.bottom - o.y + 6f
+    val above = a.bounds.top - height - 8f
+    val top = if (above >= 2f) above else a.bounds.bottom + 6f
     val solid = palette.balloon
     Box(Modifier.matchParentSize()) {
-        Row(Modifier.offset { IntOffset((layout.left - o.x).toInt(), top.toInt()) }.height(52.dp)
+        Row(Modifier.offset { IntOffset(layout.left.toInt(), top.toInt()) }.height(52.dp)
             .drawWithCache {
                 val outline = continuousPath(0f, 0f, size.width, size.height, 12.dp.toPx())
                 onDrawBehind {
@@ -508,10 +651,11 @@ private fun BoxScope.AccentLayer(ui: KeyboardUiState, palette: KeyPalette, origi
 
 /** The trail a swiping finger leaves: a ribbon in the accent colour with a bright core, thinning and fading toward its tail. */
 @Composable
-private fun BoxScope.TrailLayer(ui: KeyboardUiState, palette: KeyPalette, origin: State<Offset>) {
+private fun BoxScope.TrailLayer(ui: KeyboardUiState, palette: KeyPalette) {
     if (ui.trail.isEmpty()) return
     Box(Modifier.matchParentSize().drawBehind {
-        val o = origin.value
+        // The trail's points are in the keyboard view's coordinates, as every touch is; the panel's place in it is read as it is drawn.
+        val o = ui.root?.takeIf { it.isAttached }?.positionInRoot() ?: Offset.Zero
         val pts = ui.trail.takeLast(48)
         val n = pts.size
         if (n < 2) return@drawBehind
@@ -529,20 +673,23 @@ private fun BoxScope.TrailLayer(ui: KeyboardUiState, palette: KeyPalette, origin
 @Composable
 private fun RepeatingKey(palette: KeyPalette, modifier: Modifier, onHaptic: (HapticKind) -> Unit, onStep: (Int) -> Unit,
     role: KeyRole = KeyRole.SPECIAL, tag: String = "key-backspace", firstHaptic: HapticKind = HapticKind.DELETE,
-    repeatHaptic: HapticKind = HapticKind.DELETE_REPEAT, icon: (@Composable (pressed: Boolean) -> Unit)? = null) {
+    repeatHaptic: HapticKind = HapticKind.DELETE_REPEAT, reach: KeyReach = KeyReach.None, icon: (@Composable (pressed: Boolean) -> Unit)? = null) {
     var pressed by remember { mutableStateOf(false) }
-    GlassKey(palette, modifier, role, pressed = pressed, tag = tag, onTap = null,
+    val touches = LocalKeyTouches.current
+    val step by rememberUpdatedState(onStep)
+    GlassKey(palette, modifier, role, pressed = { pressed }, tag = tag, onTap = null, reach = reach,
         pointer = Modifier.pointerInput(Unit) {
             awaitEachGesture {
                 awaitFirstDown(requireUnconsumed = false)
-                pressed = true; onHaptic(firstHaptic); onStep(0)
+                touches.landed(); touches.acted()
+                pressed = true; onHaptic(firstHaptic); step(0)
                 // Held long enough, it repeats, faster the longer it is held; released or cancelled, it stops.
                 var held = 0
                 while (true) {
                     val up = withTimeoutOrNull(if (held == 0) 420L else if (held < 8) 90L else 45L) { waitForUpOrCancellation() }
                     if (up != null || !currentEvent.changes.any { it.pressed }) break
                     held++
-                    onHaptic(repeatHaptic); onStep(held)
+                    touches.acted(); onHaptic(repeatHaptic); step(held)
                 }
                 pressed = false
             }
@@ -552,31 +699,80 @@ private fun RepeatingKey(palette: KeyPalette, modifier: Modifier, onHaptic: (Hap
     }
 }
 
+/** A key that acts the moment it is touched (Shift, the page keys), and is told when it is let go: [onUp] also runs if the key goes
+ * away while it is held, so what [onDown] began is always ended.
+ */
+@Composable
+private fun DownKey(palette: KeyPalette, modifier: Modifier, role: KeyRole, tag: String, reach: KeyReach, haptic: HapticKind,
+    onDown: () -> Unit, onUp: () -> Unit = {}, content: @Composable BoxScope.() -> Unit) {
+    var pressed by remember { mutableStateOf(false) }
+    val touches = LocalKeyTouches.current
+    val actions = LocalKeyboardActions.current
+    val downNow by rememberUpdatedState(onDown)
+    val upNow by rememberUpdatedState(onUp)
+    GlassKey(palette, modifier, role, pressed = { pressed }, tag = tag, onTap = null, reach = reach,
+        pointer = Modifier.pointerInput(Unit) {
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false)
+                touches.landed()
+                pressed = true; actions?.haptic(haptic); downNow()
+                try {
+                    // Held until every finger on it has lifted: sliding a little off a held Shift does not let it go.
+                    do { val event = awaitPointerEvent() } while (event.changes.any { it.pressed })
+                } finally { pressed = false; upNow() }
+            }
+        }, content = content)
+}
+
+/** A key's face with its touch. [pressed] and [hidden] are asked as the key is drawn, so a press redraws the key and composes nothing;
+ * the pressed look comes on with the touch and fades when it lifts. A key with [onTap] acts when it is released, unless another key
+ * lands first, in which case it acts then (see [KeyTouches]); the keys that act as they are touched bring their own [pointer].
+ * The touch reaches beyond the face by [reach].
+ */
 @Composable
 private fun GlassKey(palette: KeyPalette, modifier: Modifier, role: KeyRole, tag: String, onTap: (() -> Unit)?,
-    pressed: Boolean = false, hidden: Boolean = false, pointer: Modifier = Modifier, hapticDown: HapticKind? = null,
-    onLongPress: (() -> Unit)? = null, height: Dp = LocalKeyHeight.current,
+    pressed: () -> Boolean = NotPressed, hidden: () -> Boolean = NotPressed, pointer: Modifier = Modifier, hapticDown: HapticKind? = null,
+    onLongPress: (() -> Unit)? = null, height: Dp = LocalKeyHeight.current, reach: KeyReach = KeyReach.None, early: Boolean = true,
     content: @Composable BoxScope.() -> Unit) {
     val actions0 = LocalKeyboardActions.current
-    var down by remember { mutableStateOf(false) }
+    val touches = LocalKeyTouches.current
+    val downState = remember { mutableStateOf(false) }
+    var down by downState
     val longPress by rememberUpdatedState(onLongPress)
-    val tapModifier = if (onTap != null) Modifier.pointerInput(onTap) {
+    val tap by rememberUpdatedState(onTap)
+    val haptic by rememberUpdatedState(hapticDown)
+    val actsEarly by rememberUpdatedState(early)
+    val isPressed by rememberUpdatedState(pressed)
+    // Keyed on nothing: the tap is read through State, so a key whose action is a new lambda on every composition (all of them) does
+    // not have its touch handling restarted, and a touch lost, each time the keyboard recomposes.
+    val tapModifier = if (onTap != null) Modifier.pointerInput(Unit) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false); down = true
-            hapticDown?.let { actions0?.haptic(it) }
+            haptic?.let { actions0?.haptic(it) }
             val held = longPress
             if (held != null) {
+                touches.landed()
                 val up = withTimeoutOrNull(450L) { waitForUpOrCancellation() }
                 if (up == null && currentEvent.changes.any { it.pressed }) { held(); waitForUpOrCancellation(); down = false; return@awaitEachGesture }
                 down = false
-                if (up != null) onTap()
+                if (up != null) { touches.acted(); tap?.invoke() }
                 return@awaitEachGesture
             }
+            val ticket = touches.wait(actsEarly) { tap?.invoke() }
             val up = waitForUpOrCancellation(); down = false
-            if (up != null) onTap()
+            if (up != null) touches.release(ticket) else touches.cancel(ticket)
         }
     } else Modifier
-    Box(modifier.height(height).keyFace(palette, role) { if (hidden) null else pressed || down }.then(tapModifier).then(pointer).testTag(tag), contentAlignment = Alignment.Center, content = content)
+    val glow = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { isPressed() || downState.value }.collectLatest { if (it) glow.snapTo(1f) else glow.animateTo(0f, tween(RELEASE_FADE_MS)) }
+    }
+    Box(modifier.height(height).keyFace(palette, role) { if (hidden()) null else if (isPressed() || downState.value) 1f else glow.value }.testTag(tag),
+        contentAlignment = Alignment.Center) {
+        // The touch is a layer of its own under the label, larger than the face by the key's reach.
+        Box(Modifier.matchParentSize().reach(reach).then(tapModifier).then(pointer))
+        content()
+    }
 }
 
 /** A key's outlines at one size, with the launcher's continuous corner: built once for the size (see [keyFace]) and drawn every frame. */
@@ -587,22 +783,25 @@ private class KeyOutlines(size: Size, radius: Float, val lift: Float, inset: Flo
     val rim = continuousPath(inset, inset, size.width - 2 * inset, h - 2 * inset, (radius - inset).coerceAtLeast(0f))
 }
 
-/** Draws a key's face behind its content. [state] says, at draw time, whether it is pressed, or null while it is hidden (under its preview). */
-private fun Modifier.keyFace(palette: KeyPalette, role: KeyRole, radius: Dp = palette.keyRadius, state: () -> Boolean?): Modifier = drawWithCache {
+/** Draws a key's face behind its content. [state] says, at draw time, how pressed it is (0 at rest, 1 under a finger, between the two
+ * as the press fades), or null while it is hidden (under its card).
+ */
+private fun Modifier.keyFace(palette: KeyPalette, role: KeyRole, radius: Dp = palette.keyRadius, state: () -> Float?): Modifier = drawWithCache {
     val outlines = KeyOutlines(size, radius.toPx(), 1.dp.toPx(), .5.dp.toPx())
     onDrawBehind { state()?.let { drawKey(palette, role, it, outlines) } }
 }
 
 /** A glass key: a soft shadow beneath, a translucent body brightening toward its top, and a specular rim, brightest along the top edge
- * where light catches it (unless Edge Highlight is off). A pressed key glows.
+ * where light catches it (unless Edge Highlight is off). A pressed key glows, by [pressed] from 0 to 1.
  */
-private fun DrawScope.drawKey(palette: KeyPalette, role: KeyRole, pressed: Boolean, k: KeyOutlines) {
+private fun DrawScope.drawKey(palette: KeyPalette, role: KeyRole, pressed: Float, k: KeyOutlines) {
     if (palette.classic) {
-        // Uno 0.97's key: flat, with a thin darker line under it, as on iOS before glass. Special keys turn light while pressed.
+        // Uno 0.97's key: flat, with a thin darker line under it, as on iOS before glass. A pressed key swaps shades: a special key
+        // turns light and a letter key or the space bar turns the special keys' grey, so every key answers a touch.
         val body = when (role) {
-            KeyRole.ACTION -> if (pressed) palette.action.copy(alpha = .8f) else palette.action
-            KeyRole.LETTER -> palette.letter
-            KeyRole.SPECIAL -> if (pressed) palette.specialPressed else palette.special
+            KeyRole.ACTION -> palette.action.copy(alpha = 1f - .2f * pressed)
+            KeyRole.LETTER -> lerp(palette.letter, palette.special, pressed)
+            KeyRole.SPECIAL -> lerp(palette.special, palette.specialPressed, pressed)
         }
         drawPath(k.shadow, palette.shadow)
         drawPath(k.body, body)
@@ -615,7 +814,7 @@ private fun DrawScope.drawKey(palette: KeyPalette, role: KeyRole, pressed: Boole
     }
     drawPath(k.shadow, palette.shadow)
     drawPath(k.body, Brush.verticalGradient(listOf(lerpWhite(body, .10f), body), endY = k.h))
-    if (pressed) drawPath(k.body, if (role == KeyRole.ACTION) Color(0x33000000) else palette.pressedGlow)
+    if (pressed > 0f) (if (role == KeyRole.ACTION) Color(0x33000000) else palette.pressedGlow).let { glow -> drawPath(k.body, glow.copy(alpha = glow.alpha * pressed)) }
     if (palette.rim) drawPath(k.rim, Brush.verticalGradient(0f to palette.rimTop, .45f to Color.Transparent, 1f to palette.rimBottom, startY = 0f, endY = k.h),
         style = Stroke(1.dp.toPx()))
 }
@@ -625,24 +824,31 @@ private fun lerpWhite(c: Color, t: Float) = Color(c.red + (1f - c.red) * t, c.gr
 /** The space bar. A tap types a space; sliding a finger along it moves the cursor, a character for each few millimetres
  * (like FlorisBoard's space-bar cursor control), which is the quick way to fix a typo in the middle of a sentence. With more than one
  * layout on, it names the one in use, as Fossify Keyboard's does.
+ *
+ * The space is typed when the bar is let go (a slide must be able to become the cursor instead), or the moment another key is
+ * touched while it is still down: in fast typing the next letter lands before the thumb has left the bar, and the space must still
+ * come first.
  */
 @Composable
-private fun SpaceKey(ui: KeyboardUiState, actions: KeyboardActions, palette: KeyPalette, modifier: Modifier) {
+private fun SpaceKey(ui: KeyboardUiState, actions: KeyboardActions, palette: KeyPalette, modifier: Modifier, reach: KeyReach) {
     val density = LocalDensity.current
     var pressed by remember { mutableStateOf(false) }
     var sliding by remember { mutableStateOf(false) }
     val slop = with(density) { 10.dp.toPx() }
     val step = with(density) { 14.dp.toPx() }
-    GlassKey(palette, modifier, KeyRole.LETTER, pressed = pressed, tag = "key-space", onTap = null,
+    val touches = ui.touches
+    GlassKey(palette, modifier, KeyRole.LETTER, pressed = { pressed }, tag = "key-space", onTap = null, reach = reach,
         pointer = Modifier.pointerInput(ui.spaceCursor) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 pressed = true; actions.haptic(HapticKind.SPACE)
+                val ticket = touches.wait { actions.space() }
                 var moved: Float; var emitted = 0; var dragging = false
                 while (true) {
                     val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
                     moved = change.position.x - down.position.x
-                    if (ui.spaceCursor && !dragging && abs(moved) > slop) { dragging = true; sliding = true }
+                    // A slide becomes the cursor only while the space is still waiting: once another key has typed it, it is typed.
+                    if (ui.spaceCursor && !dragging && abs(moved) > slop && touches.isWaiting(ticket)) { dragging = true; sliding = true; touches.cancel(ticket) }
                     if (dragging) {
                         val target = ((moved - kotlin.math.sign(moved) * slop) / step).toInt()
                         if (target != emitted) { actions.moveCursor(target - emitted); emitted = target; actions.haptic(HapticKind.CURSOR) }
@@ -650,7 +856,7 @@ private fun SpaceKey(ui: KeyboardUiState, actions: KeyboardActions, palette: Key
                     }
                     if (!change.pressed) break
                 }
-                if (!dragging) actions.space()
+                if (!dragging) touches.release(ticket)
                 pressed = false; sliding = false
             }
         }) {
@@ -663,13 +869,23 @@ private fun SpaceKey(ui: KeyboardUiState, actions: KeyboardActions, palette: Key
     }
 }
 
-/** A round glass button for the lane: the tools, Paste, the emoji search's close. */
+/** A round glass button for the lane: the tools, Paste, the emoji search's close. Like the keys it answers the touch (the tick and a
+ * brighter pill) and acts when it is let go.
+ */
 @Composable
 private fun LaneButton(icon: ImageVector, description: String, palette: KeyPalette, tag: String, actions: KeyboardActions, active: Boolean = false,
     onClick: () -> Unit) {
+    val touches = LocalKeyTouches.current
+    val click by rememberUpdatedState(onClick)
+    var pressed by remember { mutableStateOf(false) }
     Box(Modifier.size(LaneHeight).padding(3.dp).clip(Corner.pill)
         .background(if (active) palette.action.copy(alpha = .9f) else palette.pill)
-        .pointerInput(onClick) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false); val up = waitForUpOrCancellation(); if (up != null) { actions.haptic(HapticKind.MODIFIER); onClick() } } }
+        .drawBehind { if (pressed) drawRect(palette.pressedGlow) }
+        .pointerInput(Unit) { awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false); pressed = true; actions.haptic(HapticKind.MODIFIER)
+            val up = waitForUpOrCancellation(); pressed = false
+            if (up != null) { touches.landed(); click() }
+        } }
         .testTag(tag), contentAlignment = Alignment.Center) {
         Icon(icon, description, tint = if (active) Color.White else palette.ink, modifier = Modifier.size(20.dp))
     }
@@ -702,21 +918,27 @@ private fun SuggestionSlots(ui: KeyboardUiState, palette: KeyPalette, actions: K
     // Always three slots, so the keys below never change height while you type.
     val suggestions = if (ui.showStrip) ui.suggestions else emptyList()
     val slots = suggestions.take(3)
+    // The slot under a finger, which shows the pill a correction has: every touch on the keyboard is answered as it lands.
+    var pressedSlot by remember { mutableIntStateOf(-1) }
     Row(modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
         repeat(3) { index ->
             val s = slots.getOrNull(index)
             val highlight = s != null && (s.kind == SuggestionKind.CORRECTION || (s.kind == SuggestionKind.GESTURE && index == 0 && ui.swiping))
             Box(Modifier.weight(1f).fillMaxHeight().padding(vertical = 3.dp, horizontal = 2.dp)
-                .then(if (highlight) Modifier.clip(Corner.pill).background(palette.pill) else Modifier)
+                .then(if (highlight || pressedSlot == index) Modifier.clip(Corner.pill).background(palette.pill) else Modifier)
                 .then(if (s != null) Modifier.pointerInput(s) {
                     // A tap picks it; a long press forgets it, when it is something the keyboard learned from you (Gboard's drag-to-remove).
                     awaitEachGesture {
                         awaitFirstDown(requireUnconsumed = false)
+                        pressedSlot = index; actions.haptic(HapticKind.MODIFIER)
                         val up = withTimeoutOrNull(550L) { waitForUpOrCancellation() }
                         val held = up == null && currentEvent.changes.any { it.pressed }
-                        if (held && actions.forget(s)) { waitForUpOrCancellation(); return@awaitEachGesture }
+                        if (held && actions.forget(s)) { waitForUpOrCancellation(); pressedSlot = -1; return@awaitEachGesture }
                         // Held but nothing to forget: it is still picked when the finger lifts.
-                        if ((if (held) waitForUpOrCancellation() else up) != null) { actions.haptic(HapticKind.MODIFIER); actions.pick(s) }
+                        val picked = (if (held) waitForUpOrCancellation() else up) != null
+                        pressedSlot = -1
+                        // A key still held (the space bar, in fast typing) acts before the word that was picked after it.
+                        if (picked) { ui.touches.landed(); actions.pick(s) }
                     }
                 } else Modifier).testTag("suggestion-$index"), contentAlignment = Alignment.Center) {
                 if (s != null) when (s.kind) {
@@ -818,7 +1040,7 @@ private fun ClipboardPanel(ui: KeyboardUiState, actions: KeyboardActions, palett
             Text(stringResource(R.string.kb_clipboard_empty), color = palette.sub, fontSize = 14.sp, textAlign = TextAlign.Center)
         } else LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 4.dp)) {
             items(ui.clips, key = { it.text }) { clip ->
-                Row(Modifier.fillMaxWidth().clip(ContinuousShape(12.dp)).keyFace(palette, KeyRole.LETTER, 12.dp) { false }
+                Row(Modifier.fillMaxWidth().clip(ContinuousShape(12.dp)).keyFace(palette, KeyRole.LETTER, 12.dp) { 0f }
                     .clickable { actions.haptic(HapticKind.MODIFIER); actions.pasteClip(clip.text) }.padding(start = 12.dp).testTag("clip"),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(ClipHistory.preview(clip.text, 120), color = palette.ink, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
@@ -938,7 +1160,7 @@ private fun EmojiPanel(ui: KeyboardUiState, actions: KeyboardActions, palette: K
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(KeyGap), verticalAlignment = Alignment.CenterVertically) {
-            GlassKey(palette, Modifier.weight(1.5f), KeyRole.SPECIAL, tag = "key-page", hapticDown = HapticKind.MODIFIER, onTap = { actions.page(KeyPage.LETTERS) }) {
+            DownKey(palette, Modifier.weight(1.5f), KeyRole.SPECIAL, "key-page", KeyReach.None, HapticKind.MODIFIER, onDown = { actions.page(KeyPage.LETTERS) }) {
                 Text(stringResource(R.string.abc), color = palette.ink, fontSize = 16.sp)
             }
             Row(Modifier.weight(7f).height(keyHeight), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {

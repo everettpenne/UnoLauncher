@@ -202,7 +202,10 @@ class KeyboardSmartsTest {
         val soft = HapticProfile.plan(HapticKind.DELETE, .6f, HapticFeel.SOFT)!!
         val crisp = HapticProfile.plan(HapticKind.DELETE, .6f, HapticFeel.CRISP)!!
         val firm = HapticProfile.plan(HapticKind.SPACE, .6f, HapticFeel.FIRM)!!
-        assertEquals(HapticProfile.LOW_TICK, soft.primitive); assertTrue(soft.scale < crisp.scale)
+        // Soft is the rounder primitive at the same strength (the low tick is the softer of the two as it is); its clicks are gentler.
+        assertEquals(HapticProfile.LOW_TICK, soft.primitive); assertEquals(crisp.scale, soft.scale)
+        assertTrue(HapticProfile.plan(HapticKind.RETURN, .6f, HapticFeel.SOFT)!!.scale < HapticProfile.plan(HapticKind.RETURN, .6f)!!.scale)
+        assertEquals(HapticProfile.CLICK, firm.primitive)
         assertEquals(HapticProfile.THUD, firm.secondPrimitive)
         assertTrue("caps lock is a double click", HapticProfile.plan(HapticKind.SHIFT_LOCK, .6f)!!.secondScale > 0f)
         assertTrue("a correction is felt as a double pulse", HapticProfile.plan(HapticKind.AUTOCORRECT, .6f)!!.secondDelayMs > 0)

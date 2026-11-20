@@ -1,5 +1,6 @@
 package com.jake.duolauncher.keyboard
 
+import androidx.compose.ui.layout.positionInRoot
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
@@ -114,6 +115,8 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
 
     /** Where each letter of the word being typed was touched, oldest first: the touch model for autocorrect. */
     private val touches = ArrayList<Pt?>()
+    /** Delete was the last key: the next letter is typed exactly as it was hit (see [KeyboardActions.aim]). */
+    private var aimRest = false
     /** After a swipe, a space is owed before the next word (and not before punctuation): Gboard's "phantom space". */
     private var phantomSpace = false
     /** The space after a picked suggestion was put there by the keyboard, so a full stop or comma typed next takes its place. */
@@ -531,7 +534,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         return true
     }
 
-    private fun refreshShift() { ui.shift = KeyboardModel.shiftFor(if (capsNow()) 1 else 0, ui.shift) }
+    private fun refreshShift() { if (!ui.shiftHeld) ui.shift = KeyboardModel.shiftFor(if (capsNow()) 1 else 0, ui.shift) }
 
     /** Ends the word being typed: corrects it if it needs it and learns it. Returns whether it was corrected. */
     private fun finishWord(): Boolean {
@@ -676,7 +679,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
     internal val actions = object : KeyboardActions {
         override fun type(text: String, at: Pt?) {
             val search = ui.emojiSearch
-            if (search != null) { ui.emojiSearch = search + text; ui.shift = KeyboardModel.afterLetter(ui.shift); return }
+            if (search != null) { ui.emojiSearch = search + text; if (!ui.shiftHeld) ui.shift = KeyboardModel.afterLetter(ui.shift); return }
             val ic = currentInputConnection ?: return
             shiftBeforeType = ui.shift
             val before = textBefore()
@@ -700,11 +703,23 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
                 if (first?.isLetter() == true && text.length == 1) touches += at else touches.clear()
             }
             lastTypeLength = typed
-            phantomSpace = false; autoSpace = false; lastSwipe = null
-            ui.shift = KeyboardModel.afterLetter(ui.shift)
-            ui.page = KeyboardModel.pageAfterTyping(ui.page, text)
+            phantomSpace = false; autoSpace = false; lastSwipe = null; aimRest = false
+            if (!ui.shiftHeld) ui.shift = KeyboardModel.afterLetter(ui.shift)
             if (first?.isLetter() != true) refreshShift()
             refreshSuggestions()
+        }
+        override fun aim(label: String, at: Pt): String {
+            // Only in prose, in English, with autocorrect on, and from the keyboard's own copy of the text: a key never waits on the app.
+            if (!autocorrectOn || !allowAutocorrect || !ui.layout.english || ui.password || ui.emojiSearch != null) return label
+            // Straight after Delete the next key is taken at its word: whoever just rubbed a letter out is aiming.
+            if (aimRest || phantomSpace || !mirror.valid || label.length != 1 || !label[0].isLetter()) return label
+            val e = english ?: return label
+            val ctx = Suggest.parse(mirror.get())
+            if (!ctx.plainWord || ctx.current.isEmpty() || ctx.current.length > 24 || ctx.current.any { !it.isLetter() }) return label
+            val prefix = ctx.current.lowercase()
+            val hit = label[0].lowercaseChar()
+            val meant = TouchModel.aim(geometry(), at, hit) { c -> e.prefixStrength(prefix + c) }
+            return if (meant == hit) label else if (label[0].isUpperCase()) meant.uppercase() else meant.toString()
         }
         override fun replaceLast(text: String) {
             val search = ui.emojiSearch
@@ -718,6 +733,7 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
             val search = ui.emojiSearch
             if (search != null) { ui.emojiSearch = search.dropLast(1); return }
             val ic = currentInputConnection ?: return
+            aimRest = true
             if (held == KeyboardModel.WORD_DELETE_AFTER) KeyHaptics.fire(HapticKind.DELETE_WORD)
             val fix = lastFix
             if (fix != null && held == 0) {
@@ -849,10 +865,12 @@ class UnoKeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegis
         override fun chooseLayout(id: String) { KeyLayouts.byId(id)?.let { setLayout(it); rememberLayout(); ui.panel = KeyPanel.NONE; refreshSuggestions() } }
         override fun shift() {
             val now = System.currentTimeMillis()
-            ui.shift = KeyboardModel.tapShift(ui.shift, doubleTap = now - lastShiftTapAt < 350L)
+            ui.shift = KeyboardModel.tapShift(ui.shift, doubleTap = KeyboardModel.isShiftDoubleTap(lastShiftTapAt, now))
             if (ui.shift == ShiftState.LOCKED) KeyHaptics.fire(HapticKind.SHIFT_LOCK)
             lastShiftTapAt = now
         }
+        // Shift acts as it is touched, so the tap's time is stamped again as it is let go: a double tap is two releases close together.
+        override fun shiftReleased() { lastShiftTapAt = System.currentTimeMillis() }
         override fun page(target: KeyPage) { ui.page = target; ui.panel = KeyPanel.NONE; if (target != KeyPage.LETTERS) ui.emojiSearch = null }
         override fun emoji(text: String) {
             val ic = currentInputConnection ?: return
@@ -998,7 +1016,12 @@ internal enum class EditOp { LEFT, RIGHT, UP, DOWN, HOME, END, SELECT, SELECT_AL
 internal interface KeyboardActions {
     /** Types [text]; [at] is where on the screen the key was touched, for autocorrect's touch model. */
     fun type(text: String, at: Pt? = null)
+    /** Which key a tap at [at] on the letter key [label] was meant for: [label], or the key beside it when the tap fell on the line
+     * between them and the word so far goes on much better with the other (see [TouchModel.aim]). Asked before the key types. */
+    fun aim(label: String, at: Pt): String = label
     fun replaceLast(text: String); fun backspace(held: Int); fun space(); fun enter(); fun globe(); fun shift(); fun page(target: KeyPage); fun haptic(kind: HapticKind)
+    /** Shift was tapped and let go with nothing typed meanwhile (it had already acted as it was touched). */
+    fun shiftReleased() {}
     fun pick(suggestion: Suggestion); fun moveCursor(delta: Int)
     /** Long-press on a suggestion: stop offering it (only what was learned from the person). Returns whether it did. */
     fun forget(suggestion: Suggestion): Boolean = false
@@ -1021,12 +1044,14 @@ internal interface KeyboardActions {
 }
 
 /** The alternatives strip shown while a key with accents or symbol variants is held: the choices, the one under the finger (-1 for
- * none yet) and where the key is in the window. Drawn in the keyboard's own window, never as a popup window of its own.
+ * none yet) and where the key is in the keyboard's own coordinates. Drawn in the keyboard's own window, never as a popup window of its own.
  */
 internal data class AccentState(val options: List<String>, val index: Int, val bounds: androidx.compose.ui.geometry.Rect)
 
-/** The key being held, for the magnified preview: its label and where it is in the window. */
-internal data class KeyPreview(val label: String, val bounds: androidx.compose.ui.geometry.Rect)
+/** The card over the key just typed: its label, where the key's face and the card are (in the keyboard's own coordinates, as they
+ * were when the key was touched), and the key it belongs to, which hides under it. One at a time: the latest key touched has it.
+ */
+internal class KeyPreview(val label: String, val key: androidx.compose.ui.geometry.Rect, val balloon: Balloon, val owner: KeyFaceRef)
 
 /** The keyboard's observable state. Marked stable (every field that changes is observable state) so the keys are skipped, not
  * recomposed, when it is passed down and an unrelated field changes.
@@ -1040,6 +1065,16 @@ internal class KeyboardUiState {
     var preview by mutableStateOf<KeyPreview?>(null)
     var accents by mutableStateOf<AccentState?>(null)
     var width = 0f
+    /** The keyboard's panel, which the card and the strip of alternatives are placed in. Not observable: read as a key is touched. */
+    var root: androidx.compose.ui.layout.LayoutCoordinates? = null
+    /** The order of overlapping fingers, and a count of what the keys have done (see [KeyTouches]). */
+    val touches = KeyTouches()
+    /** Shift is down: letters typed meanwhile are capitals and do not end it; it ends when it is let go. Read as a key is typed. */
+    var shiftHeld = false
+    /** Each letter key's face on the letters page, by its lower-case letter, so a tap read as its neighbour can show on that key. */
+    val faces = HashMap<Char, KeyFaceRef>()
+    /** The key shown pressed for a tap that landed on its neighbour but was meant for it, when there is no card to show it. */
+    var proxy by mutableStateOf<KeyFaceRef?>(null)
     var suggestions by mutableStateOf<List<Suggestion>>(emptyList())
     var showStrip by mutableStateOf(false)
     var numberRow by mutableStateOf(false)
@@ -1080,12 +1115,26 @@ internal class KeyboardUiState {
     var inline by mutableStateOf<List<View>>(emptyList())
     var swipe by mutableStateOf(false)
     var swiping by mutableStateOf(false)
-    /** The swipe trail being drawn, in window pixels. */
+    /** The swipe trail being drawn, in pixels of the keyboard view's own coordinates. */
     val trail = mutableStateListOf<androidx.compose.ui.geometry.Offset>()
-    /** Where each letter key is, reported by the keys as they are laid out (not observable: read when a word is checked). */
+    /** Where each letter key is, in the keyboard view's own coordinates: read afresh from the keys each time one is touched
+     * ([refreshCentres]), so it is never a place the keys used to be (not observable: read when a word is checked). */
     val keyCentres = ConcurrentHashMap<Char, Pt>()
     @Volatile var keyWidth = 0f
     @Volatile var keyHeight = 0f
+
+    /** Reads where every letter key is now. A keyboard's window is moved and resized by the system, and a place remembered from when
+     * the keys were laid out can be out of date by the time one is touched; a touch is compared with these places (which key was
+     * meant, autocorrect's touch model, the swipe decoder), so both are read at the same moment, in the same coordinates. Main thread.
+     */
+    fun refreshCentres() {
+        for ((ch, face) in faces) {
+            val c = face.coords?.takeIf { it.isAttached } ?: continue
+            val o = c.positionInRoot()
+            keyCentres[ch] = Pt(o.x + c.size.width / 2f, o.y + c.size.height / 2f)
+            keyWidth = c.size.width.toFloat(); keyHeight = c.size.height.toFloat()
+        }
+    }
 
     /** Whether the globe key is shown: there is another layout or another keyboard to go to. */
     val globe get() = layoutCount > 1 || otherKeyboards

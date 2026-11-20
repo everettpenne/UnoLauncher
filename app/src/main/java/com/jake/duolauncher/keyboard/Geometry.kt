@@ -3,7 +3,7 @@ package com.jake.duolauncher.keyboard
 import kotlin.math.hypot
 import kotlin.math.min
 
-/** A point on the keyboard, in window pixels. Plain numbers so the touch arithmetic is unit-tested. */
+/** A point on the keyboard, in pixels of the keyboard view's own coordinates. Plain numbers so the touch arithmetic is unit-tested. */
 internal data class Pt(val x: Float, val y: Float)
 
 /** Where each letter key is on screen: its centre, and the size of a key. The keys report their own positions as they are laid out. */
@@ -36,6 +36,94 @@ internal object TouchModel {
         if (touch == null || !geometry.usable) return null
         val d = geometry.distance(touch, key) ?: return null
         return min(far, .15 + .45 * d * d)
+    }
+
+    /** How much further from a key's centre than from the centre of the key it landed on a tap may be and still be read as that
+     * key, in key sizes (a key's width across, its height up and down). At .25 a tap must be in the gap between two keys of a row or
+     * within a few pixels of the edge it shares with the other; between rows, where the keys are staggered and the nearest key above
+     * or below is half a key to one side, only a tap around the middle of the gap is in doubt. A tap on a key's face, away from
+     * its very edge, is never in doubt. */
+    const val AIM_CLOSENESS = .25f
+    /** How much commoner (on the dictionary's scale) the words down the other key must be before a tap near the edge is read as it. */
+    const val AIM_MARGIN = 50
+
+    /** Which key a tap at [touch] was meant for, when it landed on [hit] about as close to another key: the other key, if the
+     * letters typed so far go on to much commoner words with it than with [hit] (or to no word at all with [hit]). It is what makes a
+     * thumb that lands on the line between two keys type the one that was meant. A tap well inside its key is always that key.
+     * [strength] says how common the commonest word is that the word so far, with that letter added, begins (0 for none).
+     */
+    fun aim(geometry: KeyGeometry, touch: Pt, hit: Char, strength: (Char) -> Int): Char {
+        val centre = geometry.centres[hit] ?: return hit
+        if (!geometry.usable) return hit
+        val w = geometry.keyWidth; val h = geometry.keyHeight.coerceAtLeast(1f)
+        fun far(c: Pt) = hypot((touch.x - c.x) / w, (touch.y - c.y) / h)
+        val limit = far(centre) + AIM_CLOSENESS
+        var best = hit; var bestStrength = Int.MIN_VALUE
+        var own = Int.MIN_VALUE
+        for ((key, c) in geometry.centres) {
+            if (key == hit || far(c) > limit) continue
+            // The words are only looked up once there is a key in doubt, which for most taps there is not.
+            if (own == Int.MIN_VALUE) { own = strength(hit); bestStrength = own + AIM_MARGIN - 1 }
+            val s = strength(key)
+            if (s > bestStrength) { best = key; bestStrength = s }
+        }
+        return best
+    }
+}
+
+/** The order of things when fingers overlap, which they do in fast typing: the second finger lands before the first has lifted. A key
+ * that acts when it is released (the space bar, Return) waits here, and any key landing after it makes it act first, so what is typed
+ * comes out in the order the fingers came down. Keys that act as they land count themselves, which is how a key that was held knows
+ * another key acted meanwhile (Shift held while a letter is typed is a capital, not a tap). Plain Kotlin, used on the main thread only.
+ */
+internal class KeyTouches {
+    private class Waiting(val act: () -> Unit, val early: Boolean)
+    private var waiting: Waiting? = null
+    /** How many times a key has acted. */
+    var count = 0; private set
+
+    /** A key was touched: a key still waiting for its release acts now, ahead of it. */
+    fun landed() { val w = waiting; waiting = null; if (w != null && w.early) { count++; w.act() } }
+
+    /** A key acted as it landed. */
+    fun acted() { count++ }
+
+    /** A key that acts on release was touched; [act] is what it will do. Returns its ticket for [release] and [cancel]. With [early]
+     * false it never acts ahead of its own release: another key landing first calls it off instead (a Return that sends a message
+     * must be let go on purpose, not fired by the next key).
+     */
+    fun wait(early: Boolean = true, act: () -> Unit): Any { landed(); return Waiting(act, early).also { waiting = it } }
+
+    /** The waiting key was released: it acts now, unless a later key already made it act. Returns whether it acted now. */
+    fun release(ticket: Any): Boolean {
+        val w = waiting
+        if (w !== ticket || w == null) return false
+        waiting = null; count++; w.act(); return true
+    }
+
+    /** The waiting key will not act after all (the finger slid off it, or turned to something else). */
+    fun cancel(ticket: Any) { if (waiting === ticket) waiting = null }
+
+    fun isWaiting(ticket: Any) = waiting === ticket
+}
+
+/** Where the magnified key (the card that rises out of a key as it is typed) goes, as plain numbers so it is unit-tested for every key. */
+internal data class Balloon(val left: Float, val top: Float, val width: Float, val height: Float)
+
+internal object KeyBalloon {
+    /** The card's head for a key whose face runs from [keyLeft] to [keyRight] with its top at [keyTop], in a panel [panelWidth] wide
+     * (all in the panel's own pixels). It is centred on the key, wider than it by half its width but never by more than [grow] (so a
+     * wide key's card is not enormous), [full] tall when there is room above the key and shorter when there is less, and kept inside
+     * the panel. Null when there is less than [least] above the key: a clipped card is worse than none.
+     */
+    fun place(keyLeft: Float, keyTop: Float, keyRight: Float, panelWidth: Float, full: Float, least: Float, grow: Float, margin: Float): Balloon? {
+        val keyWidth = keyRight - keyLeft
+        if (keyWidth <= 0f) return null
+        val height = min(full, keyTop - margin)
+        if (height < least) return null
+        val width = keyWidth + min(keyWidth * .5f, grow)
+        val left = ((keyLeft + keyRight) / 2f - width / 2f).coerceIn(margin, (panelWidth - width - margin).coerceAtLeast(margin))
+        return Balloon(left, keyTop - height, width, height)
     }
 }
 

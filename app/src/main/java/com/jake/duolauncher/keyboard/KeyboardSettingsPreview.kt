@@ -43,8 +43,7 @@ internal fun KeyboardSettingsPreview(look: KeyboardLook, modifier: Modifier = Mo
         object : KeyboardActions {
             override fun type(text0: String, at: Pt?) {
                 text += text0
-                ui.shift = KeyboardModel.afterLetter(ui.shift)
-                ui.page = KeyboardModel.pageAfterTyping(ui.page, text0)
+                if (!ui.shiftHeld) ui.shift = KeyboardModel.afterLetter(ui.shift)
             }
             override fun replaceLast(text0: String) { text = text.dropLast(1) + text0 }
             override fun backspace(held: Int) {

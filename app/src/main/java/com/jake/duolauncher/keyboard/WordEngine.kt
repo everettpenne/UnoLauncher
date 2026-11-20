@@ -49,6 +49,18 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
         return dict + own
     }
 
+    /** How common the commonest word is that begins with [prefix] (the prefix itself included), on the dictionary's scale; 0 when no
+     * word does. A walk along the sorted list with no sorting or lists made, so it is cheap enough to ask as a key is touched.
+     */
+    fun prefixStrength(prefix: String): Int {
+        if (prefix.isEmpty()) return 0
+        var best = personal?.completions(prefix, { it in score }, 1)?.firstOrNull()?.second ?: 0
+        if (personal?.knows(prefix) == true) best = maxOf(best, PERSONAL_PREFIX_SCORE)
+        var i = sorted.binarySearch(prefix).let { if (it < 0) -it - 1 else it }
+        while (i < sorted.size && sorted[i].startsWith(prefix)) { val s = score[sorted[i]] ?: 0; if (s > best) best = s; i++ }
+        return best
+    }
+
     private fun dictionaryCompletions(prefix: String, limit: Int): List<String> {
         if (prefix.isEmpty()) return emptyList()
         // A short prefix matches thousands of words and is typed over and over, so its best few are kept: the next keystroke that
@@ -272,6 +284,8 @@ internal class WordEngine(scores: Map<String, Int>, private val followers: Map<S
     }
 
     companion object {
+        /** A word of the person's own counts as a common one when judging which key a tap was meant for. */
+        const val PERSONAL_PREFIX_SCORE = 160
         private const val COST_WEIGHT = 4.0
         /** From this much caution on, a real word is never replaced just because another fits the sentence better. */
         private const val CONTEXT_FIX_CAUTION = .2

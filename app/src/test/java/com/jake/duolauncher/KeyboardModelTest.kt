@@ -115,21 +115,14 @@ class KeyboardModelTest {
         assertEquals("'", KeyboardModel.flingSymbol(-40f, slop))
     }
 
-    @Test fun aSymbolTypedFromTheNumbersPageReturnsToLetters() {
-        assertEquals(KeyPage.LETTERS, KeyboardModel.pageAfterTyping(KeyPage.NUMBERS, "'"))
-        assertEquals(KeyPage.LETTERS, KeyboardModel.pageAfterTyping(KeyPage.NUMBERS, "@"))
-        assertEquals(KeyPage.LETTERS, KeyboardModel.pageAfterTyping(KeyPage.SYMBOLS, "."))
-    }
-
-    @Test fun digitsAndSpaceStayOnTheNumbersPage() {
-        assertEquals(KeyPage.NUMBERS, KeyboardModel.pageAfterTyping(KeyPage.NUMBERS, "7"))
-        assertEquals(KeyPage.NUMBERS, KeyboardModel.pageAfterTyping(KeyPage.NUMBERS, " "))
-        assertEquals(KeyPage.SYMBOLS, KeyboardModel.pageAfterTyping(KeyPage.SYMBOLS, "4"))
-    }
-
-    @Test fun lettersAndEmojiPagesAreUnchanged() {
-        assertEquals(KeyPage.LETTERS, KeyboardModel.pageAfterTyping(KeyPage.LETTERS, "a"))
-        assertEquals(KeyPage.EMOJI, KeyboardModel.pageAfterTyping(KeyPage.EMOJI, "😀"))
-        assertEquals(KeyPage.NUMBERS, KeyboardModel.pageAfterTyping(KeyPage.NUMBERS, ""))
+    @Test fun aSecondTapOnShiftLocksCapsWhenItFollowsTheFirstReleaseClosely() {
+        // Measured from the first tap's release to the second's, however long either was held.
+        assertTrue(KeyboardModel.isShiftDoubleTap(lastReleaseMs = 1_000, nowMs = 1_200))
+        assertTrue(KeyboardModel.isShiftDoubleTap(1_000, 1_349))
+        assertFalse(KeyboardModel.isShiftDoubleTap(1_000, 1_350))
+        assertFalse(KeyboardModel.isShiftDoubleTap(1_000, 5_000))
+        assertFalse("never, before any tap", KeyboardModel.isShiftDoubleTap(0, 1_700_000_000_000))
+        assertEquals(ShiftState.LOCKED, KeyboardModel.tapShift(ShiftState.ONCE, doubleTap = true))
+        assertEquals(ShiftState.OFF, KeyboardModel.tapShift(ShiftState.ONCE, doubleTap = false))
     }
 }

@@ -25,19 +25,31 @@ class KeyHapticsTest {
         val ret = HapticProfile.plan(HapticKind.RETURN, .6f)!!
         val modifier = HapticProfile.plan(HapticKind.MODIFIER, .6f)!!
         val preview = HapticProfile.plan(HapticKind.PREVIEW, .6f)!!
-        // Letters use the softest primitive; delete is the sharper tick.
-        assertEquals(HapticProfile.LOW_TICK, letter.primitive)
+        // Letters and delete are the motor's shortest, sharpest primitive, so fast typing is felt as separate taps.
+        assertEquals(HapticProfile.TICK, letter.primitive)
         assertEquals(HapticProfile.TICK, delete.primitive)
         assertTrue(delete.scale >= letter.scale)
-        // Space and Return are a deeper click than the letter tick.
-        assertEquals(HapticProfile.CLICK, space.primitive)
+        // The space bar is the same short tick, firmer, so a word's end is felt without a click's length; Return alone is the click.
+        assertEquals(HapticProfile.TICK, space.primitive); assertTrue(space.scale > delete.scale)
         assertEquals(HapticProfile.CLICK, ret.primitive)
-        assertTrue(ret.scale >= space.scale)
-        // Shift / page / symbol-layer switches feel like a soft two-tick toggle.
+        // Shift and the page keys are one firmer tick: two close together blur into a buzz.
         assertEquals(HapticProfile.TICK, modifier.primitive)
-        assertTrue(modifier.secondScale > 0f && modifier.secondDelayMs > 0)
+        assertTrue(modifier.scale > letter.scale); assertEquals(0f, modifier.secondScale)
         // A popup appearing (the accent strip) pops softer than a letter.
         assertTrue(preview.scale < letter.scale)
+    }
+
+    @Test fun softIsTheRounderTickAndFirmIsAClick() {
+        val soft = HapticProfile.plan(HapticKind.LETTER, .6f, HapticFeel.SOFT)!!
+        val crisp = HapticProfile.plan(HapticKind.LETTER, .6f, HapticFeel.CRISP)!!
+        val firm = HapticProfile.plan(HapticKind.LETTER, .6f, HapticFeel.FIRM)!!
+        assertEquals(HapticProfile.LOW_TICK, soft.primitive); assertEquals(crisp.scale, soft.scale)
+        assertEquals(HapticProfile.CLICK, firm.primitive)
+        // No key that types plays two pulses in any feel, except the thud under Firm's space and Return.
+        for (feel in HapticFeel.entries) for (k in listOf(HapticKind.LETTER, HapticKind.DELETE, HapticKind.DELETE_REPEAT, HapticKind.MODIFIER, HapticKind.SELECT, HapticKind.CURSOR))
+            assertEquals("$k $feel", 0f, HapticProfile.plan(k, .6f, feel)!!.secondScale)
+        // The running cues stay the short tick even under Firm.
+        assertEquals(HapticProfile.TICK, HapticProfile.plan(HapticKind.CURSOR, .6f, HapticFeel.FIRM)!!.primitive)
     }
 
     @Test fun strengthScalesTheFeelAndZeroTurnsItOff() {
@@ -47,11 +59,13 @@ class KeyHapticsTest {
         assertTrue(soft < normal && normal < strong); assertTrue(strong <= 1f)
         assertNull(HapticProfile.plan(HapticKind.LETTER, 0f))
         assertNull(HapticProfile.plan(HapticKind.CURSOR, .06f))
+        assertNull(HapticProfile.plan(HapticKind.SWIPE_KEY, .1f))
     }
 
     @Test fun twoVibrationsTooCloseTogetherBecomeOne() {
         assertFalse(HapticProfile.allow(1_000_000_000L, 1_005_000_000L))
         assertTrue(HapticProfile.allow(1_000_000_000L, 1_020_000_000L))
+        assertTrue("two keys 10 ms apart are two taps", HapticProfile.allow(1_000_000_000L, 1_010_000_000L))
     }
 
     @Test fun theMirrorFollowsTypingAndGivesUpWhenItCannotKnow() {

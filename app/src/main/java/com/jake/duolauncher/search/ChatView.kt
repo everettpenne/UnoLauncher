@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,6 +24,10 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material.icons.rounded.ThumbDown
+import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -216,7 +221,7 @@ internal fun ChatHeader(ink: Color, m: ChatMetrics, listing: Boolean, onListing:
 @Composable
 internal fun ChatBody(modifier: Modifier, ink: Color, m: ChatMetrics, listing: Boolean, onListing: (Boolean) -> Unit, liveFor: String?, live: LazyListScope.() -> Unit) {
     val context = LocalContext.current
-    LaunchedEffect(Unit) { ChatStore.load(context) }
+    LaunchedEffect(Unit) { ChatStore.load(context); AssistantLog.load(context) }
     // What a first tap on a delete armed: a conversation's id, or ALL. A second tap on the same thing deletes.
     var armed by remember(listing) { mutableStateOf<Long?>(null) }
     val chat = ChatStore.active
@@ -280,6 +285,8 @@ internal fun ChatBody(modifier: Modifier, ink: Color, m: ChatMetrics, listing: B
                     Text(turn.reply, color = ink.copy(alpha = if (turn.kind == ChatTurn.Kind.REFUSED) .7f else 1f), style = UnoType.body)
                     // The time is said where it means something: after a pause, and on the last.
                     if (ChatLayout.stamped(past, i)) Text(ChatPull.ago(turn.atMs, now), color = ink.copy(alpha = .4f), style = UnoType.caption2)
+                    // A turn the log has can be judged here too, long after its card has gone (its entry has the turn's own time).
+                    RateButtons(turn.atMs, ink, Modifier.offset(x = (-(m.touch - m.icon) / 2f).dp), touchDp = m.touch, iconDp = m.icon)
                 }
             }
         }
@@ -288,6 +295,30 @@ internal fun ChatBody(modifier: Modifier, ink: Color, m: ChatMetrics, listing: B
             item("live-gap") { Spacer(Modifier.height(m.gapWithin.dp)) }
             live()
         }
+    }
+}
+
+/**
+ * The thumbs under a response: up for one that acted correctly or helpfully, down for one that was not what was meant. They are there
+ * only while the assistant log is on and has this response in it ([id] is its entry's), since the log is where the verdict goes; a
+ * second tap on a thumb takes it back. One place holds the verdict ([AssistantLog]), so the card in search and the same turn in the
+ * conversation always agree.
+ */
+@Composable
+internal fun RateButtons(id: Long?, ink: Color, modifier: Modifier = Modifier, touchDp: Float = 40f, iconDp: Float = 18f) {
+    val entry = AssistantLog.entry(id) ?: return
+    val context = LocalContext.current
+    Row(modifier.testTag("assistant-rate"), verticalAlignment = Alignment.CenterVertically) {
+        @Composable fun thumb(value: Int, on: androidx.compose.ui.graphics.vector.ImageVector, off: androidx.compose.ui.graphics.vector.ImageVector, label: Int, tag: String) {
+            val chosen = entry.rating == value
+            Box(Modifier.size(touchDp.dp).clip(Corner.medium)
+                .clickable(role = Role.Button, onClickLabel = stringResource(label)) { AssistantLog.rate(context, entry.id, value) }
+                .testTag(if (chosen) "$tag-on" else tag), contentAlignment = Alignment.Center) {
+                Icon(if (chosen) on else off, stringResource(label), Modifier.size(iconDp.dp), tint = ink.copy(alpha = if (chosen) 1f else .55f))
+            }
+        }
+        thumb(1, Icons.Rounded.ThumbUp, Icons.Outlined.ThumbUp, R.string.assistant_rate_up, "assistant-rate-up")
+        thumb(-1, Icons.Rounded.ThumbDown, Icons.Outlined.ThumbDown, R.string.assistant_rate_down, "assistant-rate-down")
     }
 }
 

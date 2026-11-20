@@ -38,7 +38,9 @@ internal object SettingsBackup {
     }
 
     private val EXCLUDED = mapOf(
-        EXTRAS to setOf("webPackage"),
+        // The assistant log's switch stays with the phone it was turned on for: restoring a backup must never start a log of what is
+        // asked on another phone.
+        EXTRAS to setOf("webPackage", "assistantLog"),
         APPEARANCE to setOf("debugCutout", "debugHud", "lat", "lon", "place", "locationTime", "deviceLocation"),
     )
     /**

@@ -64,8 +64,26 @@ internal object AssistantSession {
     /** The turn a new question has just replaced, while it stops: what it had written is kept (see [start]). */
     private var replaced: Job? = null
 
-    /** A turn's own record of what it asked and has written, and whether that is already in the conversation. */
-    private class Turn(val query: String) { val written = StringBuilder(); var kept = false }
+    /** The assistant log's id for the result on show, so it can be rated; null when there is none (or the log is off). */
+    var logId by mutableStateOf<Long?>(null)
+        private set
+
+    /** A turn's own record of what it asked and has written, and whether that is already in the conversation. For the assistant log
+     *  it also keeps what the model was shown and when it began, and the action reading the model wrote, if it was asked for one. */
+    private class Turn(val query: String, val shown: String = "", val t0: Long = System.currentTimeMillis()) {
+        val written = StringBuilder(); var kept = false; var actionJson: String? = null
+    }
+
+    /** Writes a turn into the chat history (when it has words to keep) and the assistant log under one id, and returns it. */
+    private fun keep(app: Context, t: Turn, route: String, outcome: String, reply: String, chat: Boolean): Long {
+        val id = AssistantLog.newId()
+        if (chat) ChatStore.record(app, t.query, reply, ChatTurn.Kind.ANSWER, id)
+        AssistantLog.record(app, LogEntry(id = id, route = route, said = t.query, context = t.shown,
+            // Word for word as the model wrote it: the action reading first, when one was asked for, then the answer.
+            raw = listOfNotNull(t.actionJson, t.written.toString().takeIf { it.isNotEmpty() }),
+            reply = reply, outcome = outcome, ms = System.currentTimeMillis() - t.t0))
+        return id
+    }
     private var current: Turn? = null
 
     /**
@@ -76,7 +94,7 @@ internal object AssistantSession {
     fun keepUnfinished(context: Context) {
         val t = current ?: return
         if (t.kept || state !is State.Running) return
-        AnswerText.clean(t.written.toString())?.let { ChatStore.record(context.applicationContext, t.query, "$it…", ChatTurn.Kind.ANSWER); t.kept = true }
+        AnswerText.clean(t.written.toString())?.let { keep(context.applicationContext, t, "answer", "cut_short", "$it…", chat = true); t.kept = true }
     }
     private var scope: CoroutineScope? = null
 
@@ -95,12 +113,13 @@ internal object AssistantSession {
         scope?.coroutineContext?.get(Job)?.cancel()
         val s = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).also { scope = it }
         asked = query
+        logId = null
         resetStream()
         state = State.Running(query)
         publish(app)
         // What this turn has written so far, kept here and not only in the shared stream, so a turn replaced mid-answer can still be
         // written into the conversation (the next question resets the stream before this one has stopped).
-        val turn = Turn(query).also { current = it }
+        val turn = Turn(query, phoneContext).also { current = it }
         val written = turn.written
         // Started only once it is [job], so every check below of whether it is still the current turn sees itself.
         lateinit var mine: Job
@@ -111,10 +130,14 @@ internal object AssistantSession {
                 // Only a possible action costs the extra round trip; a question goes straight to the answer.
                 if (AssistantIntent.mightBeAction(query)) {
                     json = buildString { c.ask(query, AskMode.ACTION).collect { append(it) } }
+                    turn.actionJson = json
                 }
                 val outcome = json?.let { AssistantIntent.read(it, query) }
                 if (outcome is AssistantIntent.Outcome.Act || outcome is AssistantIntent.Outcome.Cannot) {
                     state = State.Ready(query, null, json, System.currentTimeMillis() - t0)
+                    // An action offered (it runs only if it is tapped) or a reason it cannot be done: logged, and not a chat turn.
+                    logId = if (outcome is AssistantIntent.Outcome.Cannot) keep(app, turn, "action", "refused", outcome.why, chat = false)
+                        else keep(app, turn, "action", "suggested", "", chat = false)
                     publish(app)
                     return@launch
                 }
@@ -122,17 +145,21 @@ internal object AssistantSession {
                 val answer = written.toString()
                 state = State.Ready(query, answer, null, System.currentTimeMillis() - t0)
                 // The exchange goes into the chat history, which stays on this phone and can be deleted from the chat view.
-                if (!turn.kept) AnswerText.clean(answer)?.let { ChatStore.record(app, query, it, ChatTurn.Kind.ANSWER) }
+                val clean = AnswerText.clean(answer)
+                // A turn already kept unfinished (a follow-up overtook it) has its entry; an answer with nothing readable in it is still
+                // logged, as the failure it is.
+                if (!turn.kept) logId = keep(app, turn, "answer", if (clean != null) "answered" else "failed", clean ?: AnswerText.UNCLEAR, chat = clean != null)
                 publish(app)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 // Replaced by the next question (a follow-up sent while this was still being written) or cleared. The state is the
                 // next turn's now, so it is left alone; what was written so far still goes into the conversation, so the follow-up has
                 // the turn it follows. A turn cleared away (search dismissed, "seen") is not one the person moved on from mid-sentence.
-                if (replaced === mine && !turn.kept) AnswerText.clean(written.toString())?.let { ChatStore.record(app, query, "$it…", ChatTurn.Kind.ANSWER) }
+                if (replaced === mine && !turn.kept) AnswerText.clean(written.toString())?.let { keep(app, turn, "answer", "cut_short", "$it…", chat = true) }
                 throw e
             } catch (e: Exception) {
                 if (job === mine) {
                     state = State.Failed(query, e.message ?: "Uno Lab couldn't answer.")
+                    logId = keep(app, turn, if (turn.actionJson != null && written.isEmpty()) "action" else "answer", "failed", e.message ?: "Uno Lab couldn't answer.", chat = false)
                     publish(app)
                 }
             } finally {
@@ -162,6 +189,7 @@ internal object AssistantSession {
         current = null
         job?.cancel(); job = null
         asked = null
+        logId = null
         resetStream()
         state = State.Idle
         appContext?.let { publish(it) }   // takes the card off the island

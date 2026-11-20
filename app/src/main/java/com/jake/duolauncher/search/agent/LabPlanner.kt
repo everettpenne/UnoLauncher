@@ -12,12 +12,17 @@ import kotlinx.coroutines.withContext
  * The reply is untrusted like any other model output: [PlanParser] rejects unknown tools and out-of-range values before anything runs.
  */
 internal class LabPlanner(private val client: () -> AssistantClient?) : Planner {
+    override var lastReply: String? = null
+        private set
+
     override suspend fun plan(request: PlanRequest): ParseResult {
+        lastReply = null
         val assistant = client() ?: return ParseResult.Failed("Uno Lab isn't installed or isn't switched on.")
         val payload = PlannerRequest.json(request.query, request.context, request.grounding, request.tools)
         // The call blocks on the binder until the model has written the plan, so it must not run on the main thread.
         val reply = withContext(Dispatchers.IO) { runCatching { assistant.plan(payload) }.getOrNull() }
             ?: return ParseResult.Failed("I couldn't reach Uno Lab.")
+        lastReply = reply
         if (reply.isBlank()) return ParseResult.Failed("The planner didn't answer.")
         return PlanParser.parse(reply, request.tools)
     }

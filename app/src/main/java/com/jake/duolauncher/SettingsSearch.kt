@@ -90,6 +90,7 @@ internal object SettingsSearch {
         SettingEntry("App & Web Suggestions", CustomizationPage.SEARCH, "spotlight suggestions stores browser"),
         SettingEntry("Contacts", CustomizationPage.SEARCH, "people phone all apps app library"),
         SettingEntry("Local assistant (Uno Lab)", CustomizationPage.SEARCH, "ask qwen ai model on device offline uno lab question answer"),
+        SettingEntry("Keep an assistant log", CustomizationPage.SEARCH, "qwen log responses thumbs up down rate feedback tool use export save file improve training"),
         SettingEntry("Let Qwen do tasks", CustomizationPage.SEARCH, "assistant agent actions timer note open app reply do it for me"),
         SettingEntry("Ask before every action", CustomizationPage.SEARCH, "assistant agent confirm tap first permission"),
         // News feed

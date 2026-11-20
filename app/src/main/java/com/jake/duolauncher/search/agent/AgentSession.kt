@@ -33,8 +33,19 @@ internal class AgentSession(
     private val expiryMs: Long = EXPIRY_MS,
     private val clock: () -> Long = { System.currentTimeMillis() },
     /** Told each finished exchange (what was said, what came back, and which kind), for the chat history. */
-    private val record: (said: String, reply: String, kind: com.jake.duolauncher.search.ChatTurn.Kind) -> Unit = { _, _, _ -> },
+    private val record: (said: String, reply: String, kind: com.jake.duolauncher.search.ChatTurn.Kind, atMs: Long) -> Unit = { _, _, _, _ -> },
+    /** Told every turn as it ends, whole (what the planner was shown and wrote, the tools and what each did, how it ended), for the
+     *  assistant log. Its id is the time given to [record] for the same turn. */
+    private val log: (com.jake.duolauncher.search.LogEntry) -> Unit = {},
+    /** Told when the Undo beside a result is used, with that turn's log id. */
+    private val logUndone: (Long) -> Unit = {},
+    /** An id for a turn that is ending (the log's own, so it clashes with no other entry). */
+    private val newId: () -> Long = { System.currentTimeMillis() },
 ) {
+    /** The log id of the turn whose result is showing, so it can be rated; null when there is none. */
+    var logId by mutableStateOf<Long?>(null)
+        private set
+
     var state by mutableStateOf<AgentState>(AgentState.Idle)
         private set
 
@@ -72,7 +83,7 @@ internal class AgentSession(
     fun run(query: String, facts: String = "", grounding: Grounding = Grounding(), planOnly: Boolean = false) {
         awaiting = null
         groundingNow = grounding
-        turn(asked = query, request = query, mayAwait = true) { loop, block -> loop.run(query, facts, block(query), planOnly) }
+        turn(asked = query, request = query, mayAwait = true, route = "plan", facts = facts, planOnly = planOnly) { loop, block -> loop.run(query, facts, block(query), planOnly) }
     }
 
     /**
@@ -84,7 +95,8 @@ internal class AgentSession(
         awaiting = null
         groundingNow = grounding
         val fix = waiting.fix
-        turn(asked = answer, request = waiting.request, mayAwait = false) { loop, block ->
+        turn(asked = answer, request = waiting.request, mayAwait = false, route = if (fix != null) "resume" else "plan", facts = facts, planOnly = planOnly,
+            sent = "${waiting.request}\nYou asked: ${waiting.question}\nAnswer: ${answer.trim()}") { loop, block ->
             if (fix != null) loop.resume(fix, waiting.request, answer, block(waiting.request + " " + answer), planOnly)
             else {
                 val asked = "${waiting.request}\nYou asked: ${waiting.question}\nAnswer: ${answer.trim()}"
@@ -120,7 +132,8 @@ internal class AgentSession(
             FollowUp.Kind.Refers -> query
             else -> prev.request
         }
-        turn(asked = query, request = said, mayAwait = kind == FollowUp.Kind.Refers) { loop, block ->
+        val route = when (kind) { FollowUp.Kind.Undo -> "undo"; FollowUp.Kind.Again -> "again"; is FollowUp.Kind.Amend -> "amend"; else -> "refers" }
+        turn(asked = query, request = said, mayAwait = kind == FollowUp.Kind.Refers, route = route, facts = facts, planOnly = planOnly) { loop, block ->
             when (kind) {
                 FollowUp.Kind.Undo -> {
                     val result = prev.executor.undoLast()
@@ -137,7 +150,9 @@ internal class AgentSession(
         return true
     }
 
-    private fun turn(asked: String, request: String, mayAwait: Boolean, body: suspend (AgentLoop, (String) -> String) -> AgentOutcome) {
+    /** [route], [facts], [planOnly] and [sent] (what the planner is asked, when it is not [request]) are for the assistant log. */
+    private fun turn(asked: String, request: String, mayAwait: Boolean, route: String, facts: String, planOnly: Boolean, sent: String = request,
+        body: suspend (AgentLoop, (String) -> String) -> AgentOutcome) {
         job?.cancel()
         expiry?.cancel()
         gate?.complete(false)
@@ -145,6 +160,7 @@ internal class AgentSession(
         // A new question starts clean: the old turn's sentence and undo do not belong to it.
         summary = null
         canUndo = false
+        logId = null
         this.asked = asked.trim()
         val settings = settings()
         val env = env()
@@ -166,7 +182,9 @@ internal class AgentSession(
         )
         val grounding = groundingNow
         job = scope.launch {
-            val outcome = body(loop) { words -> GroundingLogic.block(words, grounding.people, grounding.apps, grounding.replies) }
+            val started = clock()
+            var known = ""
+            val outcome = body(loop) { words -> GroundingLogic.block(words, grounding.people, grounding.apps, grounding.replies).also { known = it } }
             summary = when (outcome) {
                 is AgentOutcome.Done -> outcome.summary
                 is AgentOutcome.Asks -> outcome.question
@@ -181,7 +199,23 @@ internal class AgentSession(
                 is AgentOutcome.Refused -> com.jake.duolauncher.search.ChatTurn.Kind.REFUSED
                 is AgentOutcome.Failed -> null
             }
-            if (kind != null) record(asked, summary.orEmpty(), kind)
+            val id = newId()
+            if (kind != null) record(asked, summary.orEmpty(), kind, id)
+            // The whole turn, for the log: steps that ran with what each did, and steps that were planned and never run.
+            val ran = (outcome as? AgentOutcome.Done)?.outcomes.orEmpty()
+            val planned = loop.plan?.steps.orEmpty()
+            val used = ran.map { com.jake.duolauncher.search.LoggedTool(it.step.tool.name, shown(it.step.params), it.result.ok, it.result.say, it.ms) } +
+                planned.drop(ran.size).map { com.jake.duolauncher.search.LoggedTool(it.tool.name, shown(it.params), null) }
+            log(com.jake.duolauncher.search.LogEntry(id = id, route = route, said = asked.trim(), request = sent, context = facts, grounding = known,
+                catalogue = Catalogue.hash(tools), raw = loop.replies.toList(), tools = used, reply = summary.orEmpty(),
+                outcome = when (outcome) {
+                    is AgentOutcome.Done -> if (planOnly && ran.isEmpty()) "planned" else "done"
+                    is AgentOutcome.Asks -> "asked"
+                    is AgentOutcome.Refused -> "refused"
+                    is AgentOutcome.Failed -> "failed"
+                    AgentOutcome.Cancelled -> "cancelled"
+                }, ms = clock() - started))
+            logId = id
             if (outcome is AgentOutcome.Asks && mayAwait) awaiting = Awaiting(request, outcome.question, outcome.fix)
             canUndo = outcome is AgentOutcome.Done && outcome.canUndo
             lastExecutor = executor
@@ -244,6 +278,7 @@ internal class AgentSession(
         // The turn's state is what the panel and the island draw: it now says what the undo did (or that it could not).
         state = AgentState.Done(result.say, canUndo)
         log("undo ${result.ok}: ${result.say}")
+        if (result.ok) logId?.let(logUndone)
         publish()
         expireUnseen()
         return result
@@ -260,6 +295,7 @@ internal class AgentSession(
         state = AgentState.Idle
         summary = null
         canUndo = false
+        logId = null
         lastExecutor = null
         publish()
     }
@@ -272,6 +308,9 @@ internal class AgentSession(
     private fun log(message: String) {
         runCatching { if (android.util.Log.isLoggable(LOG_TAG, android.util.Log.DEBUG)) android.util.Log.d(LOG_TAG, message) }
     }
+
+    /** A step's values as the log keeps them: what the plan gave, without the launcher's own working values (those begin with "_"). */
+    private fun shown(params: Params): Map<String, String> = params.values.filter { (k, v) -> v.isNotBlank() && !k.startsWith("_") }
 
     companion object {
         private const val LOG_TAG = "UnoAgent"

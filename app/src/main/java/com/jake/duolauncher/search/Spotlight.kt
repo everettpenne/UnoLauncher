@@ -571,6 +571,8 @@ internal fun Spotlight(
     // Uno Lab's assistant: bound (and the model warmed) only while search is open with the setting on, unbound as it closes.
     DisposableEffect(assistant, visible) {
         if (assistant != null && visible) ChatStore.load(context)
+        // The log too, so a response rated before the launcher was last closed still shows its thumb.
+        if (assistant != null && visible) AssistantLog.load(context)
         if (assistant != null && visible) assistant.open()
         onDispose { assistant?.close() }
     }
@@ -590,7 +592,8 @@ internal fun Spotlight(
                 publish = { NotificationFeed.publishAssistant(context, System.currentTimeMillis()) },
                 settings = { com.jake.duolauncher.search.agent.AgentRouting.settings(context) },
                 searchOpen = { com.jake.duolauncher.island.IslandRuntime.state.surface.state.mode == com.jake.duolauncher.island.SurfaceMode.SEARCH },
-                record = { said, reply, kind -> ChatStore.record(context, said, reply, kind) },
+                record = { said, reply, kind, at -> ChatStore.record(context, said, reply, kind, at) },
+                log = { AssistantLog.record(context, it) }, logUndone = { AssistantLog.markUndone(context, it) }, newId = { AssistantLog.newId() },
             )
         }
     }
@@ -977,13 +980,18 @@ internal fun Spotlight(
     // The Ask Qwen part of the results, the same cards wherever they are shown: in search's results, and as the turn in flight at
     // the bottom of the conversation.
     val askSection: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
-        askItems(askView, query, assistantState, ink, capCorner, askCopied,
+        // The response on show can be rated when the assistant log has it: the task's turn if there is one, else the answer's, and
+        // only when that entry is for the question the card is for (a greeting answered from the table has no entry).
+        val shownFor = (agentSession?.asked ?: (AssistantSession.state as? AssistantSession.State.Ready)?.query
+            ?: (AssistantSession.state as? AssistantSession.State.Failed)?.query)?.trim()
+        val rateId = (agentSession?.logId ?: AssistantSession.logId)?.takeIf { AssistantLog.entry(it)?.said == shownFor }
+        askItems(askView, query, assistantState, ink, capCorner, askCopied, rateId = rateId,
                     agent = agentSession, onUndo = { agentScope.launch { agentSession?.undo() } },
                     onDismissTask = { agentSession?.clear() },
                     onAsk = { askedFor = query },
-                    onRun = { action -> actions.run(action, focusOn(), onToggleFocus); onDismiss() },
-                    onLaunch = { app -> launch(app) },
-                    onContact = { kind, number -> actions.openContact(kind, number); onDismiss() },
+                    onRun = { action -> AssistantLog.markTapped(context, rateId); actions.run(action, focusOn(), onToggleFocus); onDismiss() },
+                    onLaunch = { app -> if (askView is AskView.Act) AssistantLog.markTapped(context, rateId); launch(app) },
+                    onContact = { kind, number -> AssistantLog.markTapped(context, rateId); actions.openContact(kind, number); onDismiss() },
                     onWeb = { q -> if (handoff.searchWeb(q)) onDismiss() },
                     onCopy = { text ->
                         context.getSystemService(android.content.ClipboardManager::class.java)
@@ -1341,7 +1349,7 @@ internal fun HandoffRow(target: HandoffTarget, ink: Color, modifier: Modifier = 
 
 /** The Ask Qwen part of the results: the row to ask, then what came back (an action row, or the answer card). */
 private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskView?, query: String, state: AssistantState, ink: Color,
-    capCorner: androidx.compose.ui.unit.Dp, copied: Boolean, onAsk: () -> Unit, onRun: (QuickAction) -> Unit, onLaunch: (AppEntry) -> Unit,
+    capCorner: androidx.compose.ui.unit.Dp, copied: Boolean, rateId: Long? = null, onAsk: () -> Unit, onRun: (QuickAction) -> Unit, onLaunch: (AppEntry) -> Unit,
     onContact: (ContactActionKind, String) -> Unit, onWeb: (String) -> Unit, onCopy: (String) -> Unit, onContinue: () -> Unit,
     onSettings: () -> Unit,
     agent: com.jake.duolauncher.search.agent.AgentSession? = null,
@@ -1367,7 +1375,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
             if (finished == null && live == null) SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_asking), stringResource(if (state == AssistantState.LOADING) com.jake.duolauncher.R.string.spotlight_ask_loading else com.jake.duolauncher.R.string.spotlight_ask_on_phone),
                 "spotlight-ask-thinking", false, ink, {}) { mark(Icons.Rounded.AutoAwesome) }
             else AnswerCard(rowMotion(), finished?.text ?: live.orEmpty(), done = finished?.done ?: false, error = finished?.error, ink = ink,
-                capCorner = capCorner, copied = copied, onCopy = onCopy, onContinue = onContinue)
+                capCorner = capCorner, copied = copied, onCopy = onCopy, onContinue = onContinue,
+                // Once it is finished, whatever it is: an answer, a question back, a refusal or a failure.
+                rateId = rateId.takeIf { finished?.done == true })
         }.also {
             val answer = view as? AskView.Answer
             if (answer?.awaiting == true && query.isNotBlank() && query.trim() != agent?.asked) item("ask-reply") {
@@ -1405,6 +1415,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
                     Text(view.summary, color = ink, style = UnoType.body, modifier = Modifier.testTag("spotlight-ask-done-text"))
                     // What can be said next, so following up is found without being told.
                     Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_follow), color = ink.copy(alpha = .5f), style = UnoType.caption2)
+                    RateButtons(rateId, ink, Modifier.offset(x = (-11).dp))
                 }
                 if (view.canUndo) {
                     val busy = agent?.undoing == true
@@ -1441,6 +1452,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
                     SpotlightRow(rowMotion(), action.label, action.detail, "spotlight-ask-action", true, ink, { onRun(action) }) { mark(actionIcon(action)) }
                 }
             }
+            // Whether this was the right thing to offer can be said without tapping it.
+            if (rateId != null) item("ask-rate") { RateButtons(rateId, ink, rowMotion().padding(start = 4.dp)) }
         }
         is AskView.Info -> item("ask-info") {
             Column(rowMotion().fillMaxWidth().emergingHere().clip(Corner.inside(capCorner, 16.dp)).background(ink.copy(alpha = .10f))
@@ -1449,6 +1462,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
                 Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_answer_by), color = ink.copy(alpha = .7f), style = UnoType.caption1)
                 Text(view.why, color = ink, style = UnoType.body)
                 if (view.settings) Text(stringResource(com.jake.duolauncher.R.string.spotlight_open_search_settings), color = ink.copy(alpha = .5f), style = UnoType.caption2)
+                RateButtons(rateId, ink, Modifier.offset(x = (-11).dp))
             }
         }
     }
@@ -1458,7 +1472,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
  *  one still being written, under the same list key, so the card carries on growing rather than being replaced when the answer completes. */
 @Composable
 private fun AnswerCard(modifier: Modifier, text: String, done: Boolean, error: String?, ink: Color, capCorner: androidx.compose.ui.unit.Dp,
-    copied: Boolean, onCopy: (String) -> Unit, onContinue: () -> Unit) {
+    copied: Boolean, onCopy: (String) -> Unit, onContinue: () -> Unit, rateId: Long? = null) {
             // Styled like the smart answer above it: a faint plate, tap to copy. While the answer is written, each word falls softly into place
             // and a faint glow turns round the card's edge (AnswerReveal); with Android's animations off, it simply appears.
             val context = LocalContext.current
@@ -1479,6 +1493,7 @@ private fun AnswerCard(modifier: Modifier, text: String, done: Boolean, error: S
                     if (done && text.isNotBlank()) Text(stringResource(if (copied) com.jake.duolauncher.R.string.spotlight_copied else com.jake.duolauncher.R.string.spotlight_tap_to_copy), Modifier.weight(1f),
                         color = ink.copy(alpha = .5f), style = UnoType.caption2)
                     else Spacer(Modifier.weight(1f))
+                    RateButtons(rateId, ink)
                     Text(stringResource(com.jake.duolauncher.R.string.spotlight_ask_continue), Modifier.clip(Corner.small).clickable(onClick = onContinue)
                         .padding(horizontal = 8.dp, vertical = 6.dp).testTag("spotlight-ask-continue"),
                         color = ink.copy(alpha = .8f), style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))

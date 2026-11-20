@@ -11,6 +11,8 @@ internal data class PlanRequest(
 /** Turns a question into a plan. The real one asks Uno Lab; the tests use a fake. */
 internal interface Planner {
     suspend fun plan(request: PlanRequest): ParseResult
+    /** What the model wrote for the last [plan], word for word and before it was read, for the assistant log; null when nothing came. */
+    val lastReply: String? get() = null
 }
 
 /** Where the loop is, for the island and the panel to show. */
@@ -55,6 +57,12 @@ internal class AgentLoop(
     private val confirm: suspend (steps: List<String>) -> Boolean = { true },
     private val onState: (AgentState) -> Unit = {},
 ) {
+    /** For the assistant log: every reply the planner wrote this turn (the one that was sent back as well as the one that was used),
+     *  and the plan as it stood last (after it was mended, and bound once it was to be run). */
+    val replies = ArrayList<String>()
+    var plan: Plan.Steps? = null
+        private set
+
     /** [planOnly]: stop once there is a plan and say what it would do; nothing is confirmed or run. */
     suspend fun run(query: String, context: String = "", grounding: String = "", planOnly: Boolean = false): AgentOutcome {
         onState(AgentState.Planning(query))
@@ -97,6 +105,7 @@ internal class AgentLoop(
 
     private suspend fun ask(query: String, context: String, grounding: String): ParseResult =
         runCatching { planner.plan(PlanRequest(query, context, tools, grounding)) }
+            .also { planner.lastReply?.let { reply -> replies += reply } }
             // A turn that was dropped for a new one is not a planner that could not be reached: it ends, and says nothing.
             .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
             .getOrElse { ParseResult.Failed("I couldn't reach the planner: ${it.message ?: "unknown error"}") }
@@ -104,6 +113,7 @@ internal class AgentLoop(
     private suspend fun proceed(planned: Plan.Steps, query: String, grounding: String, planOnly: Boolean, mayAskAgain: Boolean = true): AgentOutcome {
         val said = query + "\n" + grounding
         val plan = repaired(Plan.Steps(planned.steps.map { Step(it.tool, it.tool.mended(it.params, said)) }), query, said)
+        this.plan = plan
         // Nothing the person did not give (an address, a number, a time) is acted on: the plan becomes a question instead.
         executor.missing(plan, said)?.let { (index, missing) ->
             onState(AgentState.Asking(missing.question))
@@ -152,6 +162,7 @@ internal class AgentLoop(
     /** [unsure]: the plan is not the kind of thing the request named, so it is shown and asked about even though nothing in it
      *  leaves the phone. */
     private suspend fun runSteps(plan: Plan.Steps, unsure: Boolean = false): AgentOutcome {
+        this.plan = plan
         // A step that cannot be done as asked (nobody to reply to, two people it could mean) is a question, before anything runs
         // and before anyone is asked to approve it.
         executor.problem(plan)?.let { question -> onState(AgentState.Asking(question)); return AgentOutcome.Asks(question) }

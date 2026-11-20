@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -131,12 +132,56 @@ private fun SearchGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasSt
     if (labPresent && s.localAssistant) {
         com.jake.duolauncher.search.ChatStore.load(context)
         val kept = com.jake.duolauncher.search.ChatLog.listed(com.jake.duolauncher.search.ChatStore.chats).size
-        SettingsGroup(footer = "What you ask and what Qwen answers or does is kept on this phone, so a conversation can be read back and carried on: pull down under an answer in search. It is never backed up or sent anywhere. Delete one conversation there, or all of them here.") {
+        SettingsGroup(footer = "What you ask and what Qwen answers or does is kept on this phone, so a conversation can be read back and carried on: pull down under an answer in search. It is never backed up or sent anywhere. Delete one conversation there, or all of them here. The assistant log below, if you keep one, is separate and has its own delete.") {
             row { ValueRow("Conversations kept", kept.toString(), "chat-count") }
             row { ActionRow("Delete all conversations", "chat-delete-all", enabled = kept > 0, destructive = true) { com.jake.duolauncher.search.ChatStore.deleteAll(context) } }
         }
     }
+    if (labPresent && s.localAssistant) AssistantLogGroup()
     if (labPresent && s.localAssistant) AssistantContextGroups(actions, store, s)
+}
+
+/**
+ * The assistant log (search.AssistantLog): its switch, how much it holds, saving it to a file, and deleting it. Off until switched on.
+ */
+@Composable
+private fun AssistantLogGroup() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val log = com.jake.duolauncher.search.AssistantLog
+    LaunchedEffect(Unit) { log.load(context) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var saved by remember { mutableStateOf<String?>(null) }
+    val save = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/x-ndjson")) { uri ->
+        if (uri != null) scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            val text = log.exported(context)
+            val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) } }.isSuccess
+            }
+            saved = if (ok) "Saved" else "Couldn't save"
+        }
+    }
+    var armed by remember { mutableStateOf(false) }
+    val count = log.entries.size
+    val rated = log.entries.count { it.rating != 0 }
+    SettingsGroup(header = "Assistant log", footer = "For improving the assistant. While this is on, every response is written down whole: what you said, " +
+        "the facts from this phone that went with it, exactly what Qwen wrote, each tool it used with what it did, and how it ended. A thumbs-up " +
+        "and thumbs-down appear under each response in search and in the conversation: up for one that did the right or helpful thing, down for " +
+        "one that was not what you meant. The log stays in the launcher's private storage, is in no backup, and leaves the phone only when you " +
+        "save it to a file here. It is separate from your conversations: deleting those does not delete it. The newest " +
+        "${com.jake.duolauncher.search.AssistantLogRules.MAX_ENTRIES} responses are kept.") {
+        row { SettingsSwitch("Keep an assistant log", log.on, { log.setOn(context, it); armed = false }, "assistant-log-switch") }
+        if (log.on || count > 0) {
+            row { ValueRow("Responses logged", if (rated > 0) "$count · $rated rated" else count.toString(), "assistant-log-count") }
+            row { ActionRow(saved?.let { "Save log to a file · $it" } ?: "Save log to a file", "assistant-log-export", enabled = count > 0) {
+                saved = null
+                save.launch("uno-assistant-log-${java.time.LocalDate.now()}.jsonl")
+            } }
+            row { ActionRow(if (armed) "Delete $count logged responses?" else "Delete log", "assistant-log-delete", enabled = count > 0, destructive = true) {
+                if (armed) { log.deleteAll(context); armed = false; saved = null } else armed = true
+            } }
+        }
+    }
 }
 
 /**

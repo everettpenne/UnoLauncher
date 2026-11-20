@@ -128,6 +128,81 @@ class AgentSessionTest {
         assertTrue(seen!!.grounding.contains("Sam Patel (+15550100)"))
     }
 
+    // ---- the assistant log: every turn, whole ----
+
+    private class Logged { val entries = ArrayList<com.jake.duolauncher.search.LogEntry>(); val chat = ArrayList<Long>(); val undone = ArrayList<Long>() }
+
+    private fun loggedSession(planner: Planner, logged: Logged, toolEnv: ToolEnv = env): AgentSession {
+        var next = 1000L
+        return AgentSession(planner = { planner }, env = { toolEnv }, tools = ToolRegistry.builtIn + sendTool,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+            record = { _, _, _, at -> logged.chat += at }, log = { logged.entries += it }, logUndone = { logged.undone += it }, newId = { next++ })
+    }
+
+    private fun rawPlanner(reply: String, plan: Plan): Planner = object : Planner {
+        override val lastReply: String get() = reply
+        override suspend fun plan(request: PlanRequest) = ParseResult.Ok(plan)
+    }
+
+    @Test fun aTaskIsLoggedWithWhatThePlannerWroteAndWhatEachToolDid() = runBlocking {
+        val logged = Logged()
+        val raw = "{\"steps\":[{\"tool\":\"timer\",\"params\":{\"length\":\"20 minutes\"}}]}"
+        val s = loggedSession(rawPlanner(raw, timerPlan()), logged)
+        s.run("timer for 20 minutes", facts = "- Today: Monday")
+        s.awaitTurn()
+        val e = logged.entries.single()
+        assertEquals("plan", e.route); assertEquals("done", e.outcome); assertEquals("timer for 20 minutes", e.said)
+        assertEquals("- Today: Monday", e.context); assertEquals(listOf(raw), e.raw); assertEquals("Timer set for 20 minutes", e.reply)
+        assertEquals(Catalogue.hash(ToolRegistry.available(env.capabilities(), ToolRegistry.builtIn + sendTool)), e.catalogue)
+        val tool = e.tools.single()
+        assertEquals("timer", tool.tool); assertEquals("20 minutes", tool.params["length"]); assertEquals(true, tool.ok); assertEquals("Timer set for 20 minutes", tool.say)
+        // Its turn in the conversation has the same id, and so does the card that can be rated.
+        assertEquals(listOf(e.id), logged.chat); assertEquals(e.id, s.logId)
+    }
+
+    @Test fun aPlanTurnedDownAtTheConfirmationIsLoggedAsCancelledWithItsStepsNotRun() = runBlocking {
+        val logged = Logged()
+        val s = loggedSession(plannerFor(Plan.Steps(listOf(Step(sendTool, Params(mapOf("text" to "on my way")))))), logged)
+        s.run("text Sam on my way")
+        s.confirm(false)
+        s.awaitTurn()
+        val e = logged.entries.single()
+        assertEquals("the conversation calls it done; the log says what happened", "cancelled", e.outcome)
+        assertEquals("send_message", e.tools.single().tool); assertNull("planned, never run", e.tools.single().ok)
+    }
+
+    @Test fun aQuestionBackARefusalAndAFailureAreAllLogged() = runBlocking {
+        val logged = Logged()
+        loggedSession(plannerFor(Plan.Clarify("Which Sam?")), logged).apply { run("call Sam"); awaitTurn() }
+        loggedSession(plannerFor(Plan.Refuse("I can't order food.")), logged).apply { run("order a pizza"); awaitTurn() }
+        val failing = object : Planner { override suspend fun plan(request: PlanRequest) = ParseResult.Failed("I couldn't reach Uno Lab.") }
+        val s = loggedSession(failing, logged).apply { run("timer for 5 minutes"); awaitTurn() }
+        assertEquals(listOf("asked", "refused", "failed"), logged.entries.map { it.outcome })
+        assertEquals(listOf("Which Sam?", "I can't order food.", "I couldn't reach Uno Lab."), logged.entries.map { it.reply })
+        // A failure has no turn in the conversation, and can still be rated.
+        assertEquals(2, logged.chat.size); assertEquals(logged.entries.last().id, s.logId)
+    }
+
+    @Test fun aPlanOnlyRunIsLoggedAsPlannedAndAFollowUpByItsRoute() = runBlocking {
+        val logged = Logged()
+        val s = loggedSession(plannerFor(timerPlan()), logged)
+        s.run("timer for 20 minutes", planOnly = true); s.awaitTurn()
+        assertEquals("planned", logged.entries.single().outcome); assertNull(logged.entries.single().tools.single().ok)
+        s.run("timer for 20 minutes"); s.awaitTurn()
+        assertTrue(s.followUp("again")); s.awaitTurn()
+        assertEquals(listOf("plan", "plan", "again"), logged.entries.map { it.route })
+        assertTrue("a follow-up that needs no planner has nothing the model wrote", logged.entries.last().raw.isEmpty())
+        assertEquals("done", logged.entries.last().outcome)
+    }
+
+    @Test fun usingUndoIsWrittenAgainstTheTurnItTookBack() = runBlocking {
+        val logged = Logged()
+        val s = loggedSession(plannerFor(timerPlan()), logged, UndoEnv(env))
+        s.run("timer for 20 minutes"); s.awaitTurn()
+        s.undo()
+        assertEquals(listOf(logged.entries.single().id), logged.undone)
+    }
+
     // ---- a turn ends, and its undo shows ----
 
     private class UndoEnv(val base: ToolEnv, var cancels: Int = 0, var fail: Boolean = false) : ToolEnv by base {

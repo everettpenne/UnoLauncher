@@ -426,10 +426,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">One Style setting, in Appearance: Calm is the plain iOS look, Balanced adds bold titles and Material shapes, Expressive adds big display numbers in widgets and controls that change shape. Glass stays glass.</string>
-    <string name="whats_new_2">Widgets in shapes: long-press one of Uno\'s own square widgets, Edit Widget, then Shape. Set to Glass, a Cookie or Sunny widget bends the wallpaper along its own edge.</string>
-    <string name="whats_new_3">The open island\'s headline is yours: the time, a greeting, the day or the date, in a font you choose (Island, Style). Appearance also has Font: Inter or your phone\'s own.</string>
-    <string name="whats_new_4">Conversations with Qwen you can carry on: pull down under an answer in search. Settings use menus for choices, and open from Android\'s App info too.</string>
+    <string name="whats_new_1">A keyboard for fast typing: every touch between the keys now types, a letter that lands while your thumb is still on the space bar comes after the space, and Shift held down types capitals.</string>
+    <string name="whats_new_2">Crisper key haptics (Soft, in Keyboard settings, is the old feel). Typing a symbol no longer jumps back to the letters, and a browser\'s address bar has the full space bar.</string>
+    <string name="whats_new_3">Keep an assistant log (Settings, Search): every response from Qwen with the tools it used, saved on this phone, with a thumbs-up and thumbs-down under each to say whether it did what you meant.</string>
+    <string name="whats_new_4">The log is off until you switch it on, is in no backup, and leaves the phone only when you save it to a file.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>
@@ -538,4 +538,6 @@
     <string name="spotlight_ask_cancel">Cancel</string>
     <string name="spotlight_ask_undo">Undo</string>
     <string name="spotlight_ask_dismiss">Dismiss</string>
+    <string name="assistant_rate_up">Good response</string>
+    <string name="assistant_rate_down">Not what I meant</string>
 </resources>

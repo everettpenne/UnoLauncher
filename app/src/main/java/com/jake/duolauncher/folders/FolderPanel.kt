@@ -188,8 +188,11 @@ private fun FolderTitle(
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = remember { FocusRequester() }
     LaunchedEffect(editTitle, folder.id) { if (editTitle) runCatching { focus.requestFocus() } }
-    val style = TextStyle(color = Color.White, fontSize = 28.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, textAlign = TextAlign.Center,
-        shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = .35f), androidx.compose.ui.geometry.Offset(0f, 2f), 10f))
+    val shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = .35f), androidx.compose.ui.geometry.Offset(0f, 2f), 10f)
+    // At Expressive a folder is named in the display face, as the pages are.
+    val style = if (com.jake.duolauncher.appearance.Expression.now.displayHeads)
+        com.jake.duolauncher.appearance.Expressive.display(com.jake.duolauncher.appearance.DisplayFace.CHUNKY, 30).copy(color = Color.White, textAlign = TextAlign.Center, shadow = shadow)
+        else TextStyle(color = Color.White, fontSize = 28.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, textAlign = TextAlign.Center, shadow = shadow)
     BasicTextField(fieldValue, onFieldValue,
         Modifier.fillMaxWidth().focusRequester(focus).testTag("folder-name"),
         singleLine = true, textStyle = style, cursorBrush = SolidColor(Color.White),

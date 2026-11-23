@@ -213,6 +213,7 @@ object AssistOverlay {
                 LocalWallpaperLuma provides rememberWallpaperLuma(appearance.state.dark),
                 LocalWallpaperAccent provides rememberWallpaperAccent(appearance.state.wallpaperColor, appearance.state.dark),
             ) {
+                com.jake.duolauncher.appearance.KeepWallpaperPalette(appearance.state.dark)
                 DuoTheme(DuoAppearanceRuntime.dark) {
                     androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
                     // Light in from the screen's edges as the assistant arrives over the app; under the panel.

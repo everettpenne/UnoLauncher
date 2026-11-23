@@ -65,6 +65,24 @@ internal object Expression {
         val thickTracks get() = level == Personality.EXPRESSIVE
         /** A Material shape can be chosen for a small Uno widget. */
         val widgetShapes get() = level != Personality.CALM
+
+        // ---- the second round: search and the assistant, folders, menus and sheets, the island. All of it is Expressive's alone, so
+        // Balanced (the default) looks as it did; the one thing Balanced gains is named where it is used ([shapedBadges] for the
+        // loader while Qwen thinks, the same loader the feed already shows at Balanced).
+
+        /** How many colours the tonal roles draw on: the one accent, or three at Expressive (the accent and two more from the wallpaper). */
+        val palette get() = if (level == Personality.EXPRESSIVE) 3 else 1
+        /** The mark beside a row (a kind of search result, a section of Settings, an action in a menu) in a Material shape with a
+         *  tonal fill, not a plain glyph or a grey square. */
+        val shapedMarks get() = level == Personality.EXPRESSIVE
+        /** The names of things that open (a folder, a dialog, a section of results) in the display face. */
+        val displayHeads get() = level == Personality.EXPRESSIVE
+        /** What the person said in a conversation in tonal colour, and the chosen thumb. */
+        val tonalBubbles get() = level == Personality.EXPRESSIVE
+        /** The open island's large numbers (a timer, a stopwatch) in the display face. Never the pill's: its width is measured. */
+        val islandNumerals get() = level == Personality.EXPRESSIVE
+        /** Progress on the island as a thick rounded bar, as Material's, not a hairline. */
+        val islandThickProgress get() = level == Personality.EXPRESSIVE
     }
 
     private val calm = Values(Personality.CALM)

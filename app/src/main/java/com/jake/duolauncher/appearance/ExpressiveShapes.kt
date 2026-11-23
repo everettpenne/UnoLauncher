@@ -148,6 +148,8 @@ internal object ExpressiveShapes {
     val Sunny by lazy { PolygonShape(ExpressivePolygons.sunny) }
     val Flower by lazy { PolygonShape(ExpressivePolygons.flower) }
     val SoftBurst by lazy { PolygonShape(ExpressivePolygons.softBurst) }
+    val Pill by lazy { PolygonShape(ExpressivePolygons.pill) }
+    val Pentagon by lazy { PolygonShape(ExpressivePolygons.pentagon) }
 }
 
 /**

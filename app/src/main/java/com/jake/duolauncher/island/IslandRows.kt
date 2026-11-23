@@ -416,7 +416,7 @@ private fun WavyTrack(fraction: Float, played: Color, rest: Color, wavy: Boolean
     val amplitude by animateFloatAsState(if (wavy) 1f else 0f, tween(260), label = "wave amplitude")
     androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(10.dp)) {
         val y = size.height / 2f
-        val stroke = 3.dp.toPx()
+        val stroke = IslandCards.progressStroke(3f).dp.toPx()
         val split = size.width * fraction.coerceIn(0f, 1f)
         val gap = if (split > 0f && split < size.width) 4.dp.toPx() else 0f
         // To come: a straight line from just past the played part to the end.

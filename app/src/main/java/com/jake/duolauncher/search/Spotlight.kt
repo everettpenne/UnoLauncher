@@ -1,5 +1,8 @@
 package com.jake.duolauncher.search
 
+import com.jake.duolauncher.appearance.MarkKind
+import com.jake.duolauncher.appearance.Marks
+import com.jake.duolauncher.appearance.ShapedMark
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
@@ -1030,18 +1033,14 @@ internal fun Spotlight(
                         actions.run(singleQuick, focusOn(), onToggleFocus)
                         onDismiss()
                     }) {
-                        Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
-                            Icon(actionIcon(singleQuick), null, Modifier.size(22.dp))
-                        }
+                        ResultMark(actionIcon(singleQuick), MarkKind.DO, ink, .14f, 22.dp)
                     }
                 }
                 // "call mom" / "text alex" with contact search off has nothing to find: say what would make it work.
                 if (contactKind != null && actionContacts.isEmpty() && !contactsEnabled && typed) item("contact-hint") {
                     SpotlightRow(rowMotion(), ContactHint.OFF, stringResource(com.jake.duolauncher.R.string.spotlight_open_search_settings),
                         "spotlight-contact-hint", false, ink, { onOpenSearchSettings(); onDismiss() }) {
-                        Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
-                            Icon(if (contactKind == ContactActionKind.DIAL) Icons.Rounded.Call else Icons.Rounded.Sms, null, Modifier.size(22.dp))
-                        }
+                        ResultMark(if (contactKind == ContactActionKind.DIAL) Icons.Rounded.Call else Icons.Rounded.Sms, MarkKind.PERSON, ink, .14f, 22.dp)
                     }
                 }
                 if (actionContacts.isNotEmpty()) {
@@ -1053,9 +1052,7 @@ internal fun Spotlight(
                             actions.openContact(contactKind ?: ContactActionKind.DIAL, contact.number)
                             onDismiss()
                         }) {
-                            Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
-                                Icon(if (contactKind == ContactActionKind.DIAL) Icons.Rounded.Call else Icons.Rounded.Sms, null, Modifier.size(22.dp))
-                            }
+                            ResultMark(if (contactKind == ContactActionKind.DIAL) Icons.Rounded.Call else Icons.Rounded.Sms, MarkKind.PERSON, ink, .14f, 22.dp)
                         }
                     }
                 }
@@ -1089,9 +1086,7 @@ internal fun Spotlight(
                             actions.run(action, focusOn(), onToggleFocus)
                             onDismiss()
                         }) {
-                            Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
-                                Icon(actionIcon(action), null, Modifier.size(22.dp))
-                            }
+                            ResultMark(actionIcon(action), MarkKind.DO, ink, .14f, 22.dp)
                         }
                     }
                 }
@@ -1110,8 +1105,15 @@ internal fun Spotlight(
                 if (contacts.isNotEmpty()) item("contacts-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_contacts), ink) }
                 items(contacts, key = { "contact-${it.id}" }) { contact ->
                     SpotlightRow(rowMotion(), contact.name, null, "spotlight-contact-${contact.id}", false, ink, { onOpenContact(contact) }) {
-                        Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), CircleShape), contentAlignment = Alignment.Center) {
-                            Text(contact.name.firstOrNull()?.uppercase() ?: "?", fontWeight = FontWeight.SemiBold)
+                        val initial = contact.name.firstOrNull()?.uppercase() ?: "?"
+                        if (com.jake.duolauncher.appearance.Expression.now.shapedMarks) {
+                            // A person: the flower, in the palette's colour for people, with their initial in the display face.
+                            val tone = com.jake.duolauncher.appearance.UnoTones.kind(com.jake.duolauncher.appearance.launcherAccent().first, Marks.colour(MarkKind.PERSON))
+                            Box(Modifier.size(40.dp).background(tone.container, Marks.shape(MarkKind.PERSON)), contentAlignment = Alignment.Center) {
+                                Text(initial, color = tone.onContainer, style = com.jake.duolauncher.appearance.Expressive.badge.copy(fontSize = 17.sp))
+                            }
+                        } else Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), CircleShape), contentAlignment = Alignment.Center) {
+                            Text(initial, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -1121,17 +1123,13 @@ internal fun Spotlight(
                         runCatching { context.startActivity(android.content.Intent(page.action).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
                         onDismiss()
                     }) {
-                        Box(Modifier.size(40.dp).background(ink.copy(alpha = .12f), Corner.icon), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.Settings, null, Modifier.size(22.dp))
-                        }
+                        ResultMark(Icons.Rounded.Settings, MarkKind.SET, ink, .12f, 22.dp)
                     }
                 }
                 if (feedResults.isNotEmpty()) item("feed-header") { SpotlightHeader(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_headlines), ink) }
                 items(feedResults, key = { "feed-${it.link}" }) { entry ->
                     SpotlightRow(rowMotion(), entry.title, entry.sourceLabel, "spotlight-feed", false, ink, { onOpenFeedLink(entry.link) }, titleLines = 2) {
-                        Box(Modifier.size(40.dp).background(ink.copy(alpha = .10f), Corner.icon), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.RssFeed, null, Modifier.size(20.dp))
-                        }
+                        ResultMark(Icons.Rounded.RssFeed, MarkKind.KEEP, ink, .10f, 20.dp)
                     }
                 }
                 if (typed && nothing) item("none") {
@@ -1150,9 +1148,7 @@ internal fun Spotlight(
                 if (typed && !webOffered) item("web") {
                     SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_search_web, query.trim()), null, "spotlight-web", false, ink,
                         { if (handoff.searchWeb(query)) onDismiss() }) {
-                        Box(Modifier.size(40.dp).background(ink.copy(alpha = .12f), Corner.icon), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.Search, null, Modifier.size(20.dp))
-                        }
+                        ResultMark(Icons.Rounded.Search, MarkKind.GO, ink, .12f, 20.dp)
                     }
                 }
             }
@@ -1354,10 +1350,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
     onSettings: () -> Unit,
     agent: com.jake.duolauncher.search.agent.AgentSession? = null,
     onUndo: () -> Unit = {}, onDismissTask: () -> Unit = {}) {
+    // The assistant's own rows are asking; a yes, a no or an action is something to do; a search goes elsewhere.
     val mark: @Composable (ImageVector) -> Unit = { icon ->
-        Box(Modifier.size(40.dp).background(ink.copy(alpha = .14f), Corner.icon), contentAlignment = Alignment.Center) {
-            Icon(icon, null, Modifier.size(22.dp))
-        }
+        ResultMark(icon, when (icon) {
+            Icons.Rounded.AutoAwesome -> MarkKind.ASK
+            Icons.AutoMirrored.Rounded.OpenInNew, Icons.Rounded.Search -> MarkKind.GO
+            else -> MarkKind.DO
+        }, ink)
     }
     when (view) {
         null -> item("ask") {
@@ -1373,7 +1372,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.askItems(view: AskVie
             val live = if (finished != null) null else AssistantSession.streamed.takeIf { it.isNotBlank() }?.let { raw ->
                 AnswerText.clean(raw)?.let { if (raw.last().isWhitespace()) "$it " else it } }
             if (finished == null && live == null) SpotlightRow(rowMotion(), stringResource(com.jake.duolauncher.R.string.spotlight_asking), stringResource(if (state == AssistantState.LOADING) com.jake.duolauncher.R.string.spotlight_ask_loading else com.jake.duolauncher.R.string.spotlight_ask_on_phone),
-                "spotlight-ask-thinking", false, ink, {}) { mark(Icons.Rounded.AutoAwesome) }
+                "spotlight-ask-thinking", false, ink, {}) {
+                // While Qwen thinks, Material's shape-morphing loader where the mark was: the loader My feed already shows at these
+                // levels (the one thing this round gives Balanced). Calm keeps the still mark.
+                if (com.jake.duolauncher.appearance.Expression.now.shapedBadges) Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                    com.jake.duolauncher.appearance.ShapeLoader(ink.copy(alpha = .85f), Modifier.size(28.dp).testTag("spotlight-ask-loader"))
+                } else mark(Icons.Rounded.AutoAwesome)
+            }
             else AnswerCard(rowMotion(), finished?.text ?: live.orEmpty(), done = finished?.done ?: false, error = finished?.error, ink = ink,
                 capCorner = capCorner, copied = copied, onCopy = onCopy, onContinue = onContinue,
                 // Once it is finished, whatever it is: an answer, a question back, a refusal or a failure.
@@ -1507,8 +1512,20 @@ private fun androidx.compose.foundation.lazy.LazyItemScope.rowMotion(): Modifier
 
 @Composable
 private fun SpotlightHeader(modifier: Modifier, text: String, ink: Color) {
-    Text(text.uppercase(), modifier.emergingHere().padding(start = 8.dp, top = 12.dp, bottom = 4.dp), color = ink.copy(alpha = .6f),
+    // At Expressive a section of results is named in the display face, in its own case: a heading, not a label.
+    if (com.jake.duolauncher.appearance.Expression.now.displayHeads) Text(text, modifier.emergingHere().padding(start = 8.dp, top = 12.dp, bottom = 4.dp),
+        color = ink.copy(alpha = .85f), style = com.jake.duolauncher.appearance.Expressive.display(com.jake.duolauncher.appearance.DisplayFace.CHUNKY, 16))
+    else Text(text.uppercase(), modifier.emergingHere().padding(start = 8.dp, top = 12.dp, bottom = 4.dp), color = ink.copy(alpha = .6f),
         style = UnoType.caption1.copy(fontWeight = FontWeight.SemiBold))
+}
+
+/** A result's leading mark: at Expressive a Material shape in its kind's colour ([ShapedMark]); otherwise the faint plate it has always been. */
+@Composable
+private fun ResultMark(icon: ImageVector, kind: MarkKind, ink: Color, plate: Float = .14f, iconSize: androidx.compose.ui.unit.Dp = 22.dp) {
+    if (com.jake.duolauncher.appearance.Expression.now.shapedMarks) ShapedMark(icon, kind, iconSize = iconSize)
+    else Box(Modifier.size(40.dp).background(ink.copy(alpha = plate), Corner.icon), contentAlignment = Alignment.Center) {
+        Icon(icon, null, Modifier.size(iconSize))
+    }
 }
 
 /** The leading mark for a quick action row. */

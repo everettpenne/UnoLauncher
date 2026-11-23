@@ -171,7 +171,7 @@ internal fun LargeFolderEditor(slot: Int, apps: List<AppEntry>, onClose: () -> U
     val folder = LargeFolders.of(slot)
     Column(Modifier.fillMaxWidth().fillMaxHeight(.88f).padding(horizontal = 24.dp, vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(com.jake.duolauncher.R.string.large_folder), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(com.jake.duolauncher.R.string.large_folder), Modifier.weight(1f), style = com.jake.duolauncher.appearance.Heads.sheet)
             GlassButton(onClick = onClose, modifier = Modifier.testTag("large-folder-done")) { Text(stringResource(com.jake.duolauncher.R.string.done)) }
         }
         GlassField(folder.title, { LargeFolders.rename(slot, it) }, Modifier.fillMaxWidth().testTag("large-folder-name"),

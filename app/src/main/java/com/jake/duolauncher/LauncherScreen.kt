@@ -1254,7 +1254,7 @@ internal fun LauncherScreen(
                         "stackPick" -> Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)
                             .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(stringResource(com.jake.duolauncher.R.string.stack_which_widget), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+                                Text(stringResource(com.jake.duolauncher.R.string.stack_which_widget), Modifier.weight(1f), style = com.jake.duolauncher.appearance.Heads.sheet)
                                 IconButton(onClick = { sheet = "widgetActions" }) { Icon(Icons.Rounded.Close, "Cancel") }
                             }
                             Text(stringResource(com.jake.duolauncher.R.string.it_moves_into_this_widget_s),

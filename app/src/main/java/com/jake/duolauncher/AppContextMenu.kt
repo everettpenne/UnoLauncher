@@ -179,7 +179,11 @@ private fun MenuRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label
     GlassMenuItem(text = {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(label, Modifier.weight(1f), color = tint ?: LocalContentColor.current, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Icon(icon, null, tint = tint ?: LocalContentColor.current.copy(alpha = .85f), modifier = Modifier.padding(start = 10.dp).size(22.dp))
+            // At Expressive an action's glyph sits on the cookie that means "something to do", as it does in search. One that removes
+            // something keeps its plain red glyph: a warning is not decorated.
+            if (tint == null && com.jake.duolauncher.appearance.Expression.now.shapedMarks)
+                com.jake.duolauncher.appearance.ShapedMark(icon, com.jake.duolauncher.appearance.MarkKind.DO, Modifier.padding(start = 10.dp), size = 30.dp, iconSize = 17.dp)
+            else Icon(icon, null, tint = tint ?: LocalContentColor.current.copy(alpha = .85f), modifier = Modifier.padding(start = 10.dp).size(22.dp))
         }
     }, onClick = { UnoFeedback.play(Cue.TICK, haptic); onClick() }, modifier = Modifier.testTag(tag))
 }

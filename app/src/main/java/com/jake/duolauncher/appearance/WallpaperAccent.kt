@@ -115,16 +115,46 @@ internal object WallpaperAccents {
         return result
     }
 
-    private fun swatchOf(photo: android.graphics.Bitmap?, dark: Boolean): Int {
+    private var swatchKey: Triple<Int, Boolean, Int>? = null
+    private var swatchMemo: List<Int> = emptyList()
+
+    /** The wallpaper's colours, the most present first, for Expressive's wider palette ([UnoPalette]): read whatever Accent is set to,
+     *  since at Expressive the second and third colours are the wallpaper's own. The same wallpaper and theme give the same answer. */
+    fun swatches(context: Context, dark: Boolean): List<Int> {
+        val photo = cachedLauncherBackground(context)
+        val key = Triple(LauncherBackgroundCache.revision.intValue, dark, System.identityHashCode(photo))
+        synchronized(this) { if (key == swatchKey) return swatchMemo }
+        val result = paletteOf(photo, dark).swatches.sortedByDescending { it.population }.map { it.rgb }
+        synchronized(this) { swatchKey = key; swatchMemo = result }
+        return result
+    }
+
+    private fun paletteOf(photo: android.graphics.Bitmap?, dark: Boolean): Palette {
         val columns = 48; val rows = 104
         val bitmap = ImageBitmap(columns, rows)
         CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(bitmap), Size(columns.toFloat(), rows.toFloat())) {
             drawLauncherBackground(photo?.asImageBitmap(), dark)
         }
-        val palette = Palette.from(bitmap.asAndroidBitmap()).maximumColorCount(16).generate()
+        return Palette.from(bitmap.asAndroidBitmap()).maximumColorCount(16).generate()
+    }
+
+    private fun swatchOf(photo: android.graphics.Bitmap?, dark: Boolean): Int {
+        val palette = paletteOf(photo, dark)
         val swatch = palette.vibrantSwatch ?: palette.lightVibrantSwatch ?: palette.darkVibrantSwatch
             ?: palette.mutedSwatch ?: palette.dominantSwatch
         return swatch?.rgb ?: 0xFFB48A4A.toInt()
+    }
+}
+
+/** Keeps [UnoPalette]'s wallpaper colours current for as long as the caller is on screen: read when the wallpaper or the theme
+ *  changes, and only while the Style uses them. */
+@Composable
+internal fun KeepWallpaperPalette(dark: Boolean) {
+    val context = LocalContext.current
+    val revision = LauncherBackgroundCache.revision.intValue
+    val wanted = Expression.now.palette >= 3
+    androidx.compose.runtime.LaunchedEffect(wanted, dark, revision) {
+        if (wanted) UnoPalette.swatches = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { WallpaperAccents.swatches(context, dark) }
     }
 }
 

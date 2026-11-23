@@ -70,7 +70,7 @@ internal fun LauncherAppActionSheet(app: AppEntry, placed: Boolean, homePages: I
             if (moving) IconButton(onClick = { onMoving(false) }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
             Image(app.image, null, Modifier.size(48.dp).clip(Corner.icon))
             Spacer(Modifier.width(14.dp)); Column(Modifier.weight(1f)) {
-                Text(if (moving) "Move ${app.label}" else app.label, style = MaterialTheme.typography.titleLarge)
+                Text(if (moving) "Move ${app.label}" else app.label, style = com.jake.duolauncher.appearance.Heads.title)
                 Text("${app.profileLabel} profile", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -130,7 +130,7 @@ internal fun EmptySpaceActionSheet(onWidgets: () -> Unit, onWallpaper: () -> Uni
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
         .padding(horizontal = 24.dp).padding(bottom = 16.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(com.jake.duolauncher.R.string.home_options), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(com.jake.duolauncher.R.string.home_options), Modifier.weight(1f), style = com.jake.duolauncher.appearance.Heads.title)
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close empty space options") }
         }
         Text(stringResource(com.jake.duolauncher.R.string.rearrange_home_add_a_widget_change), style = MaterialTheme.typography.bodyMedium,

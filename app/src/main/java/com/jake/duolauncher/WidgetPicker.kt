@@ -434,7 +434,7 @@ private fun PreviewTile(label: String, detail: String, ratio: Float, tag: String
 /** A section's title in the gallery: large and semibold, as iOS's section headings are. */
 @Composable
 private fun PickerSection(text: String) {
-    Text(text, Modifier.padding(top = 16.dp, start = 4.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+    Text(text, Modifier.padding(top = 16.dp, start = 4.dp), style = if (com.jake.duolauncher.appearance.Expression.now.displayHeads) com.jake.duolauncher.appearance.Heads.title else MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold))
 }
 
 /** The small round plus on a widget in the gallery: the one affordance that says a tap adds it. */

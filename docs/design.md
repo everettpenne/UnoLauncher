@@ -608,6 +608,30 @@ which is unit-tested (`PhoneContextTest`).
 
 Showing results from F-Droid, Aurora or the web inside Uno would mean Uno contacting those servers (F-Droid by scraping search.f-droid.org or downloading its whole index; Aurora has no public API since it fronts Google Play; a web search needs an engine), which conflicts with the launcher's rule that it contacts only feed addresses the user adds. So `SearchHandoff.kt` hands the search to the user's own apps: `HandoffLogic` decides when to offer (nothing else matched or answered; stores need 3+ characters), which browser (the user's pick, else Vanadium, else any) and which installed stores, and builds the intents (`market://search?q=...`, and `ACTION_WEB_SEARCH` carrying only the words so the browser's own engine decides). `HandoffResolver.open` resolves the intent first and says so if nothing can handle it, falling back to any web-search handler for browsers. Stores always show their well-known name because some devices label the Play Store package oddly. Package visibility comes from `<queries>` in the manifest.
 
+## The Style dial, second round: search, sheets and the island
+
+The first round (0.135) took the dial to page titles, badges, widgets, controls and the control panel. The second takes it to search and the assistant, folders, menus and sheets, and the island's cards. The rule is the same: **glass is the material; type, shape, colour and motion inside it are what move toward Pixel.** Panels keep their rounded rectangles; shapes go on the marks inside them.
+
+Everything this round adds is Expressive's alone, behind its own token in `Expression.Values` (`PersonalityTest` holds every one off at Calm and Balanced, and holds Balanced's shipped values exactly). No new setting was added.
+
+| Surface | Calm | Balanced (default) | Expressive | Token |
+|---|---|---|---|---|
+| Colour | one accent | one accent and its tones | the accent and two colours from the wallpaper | `palette` |
+| Marks beside a row: search results, Settings' sections, a menu's actions | plain plate or glyph | as Calm | a Material shape in its kind's colour | `shapedMarks` |
+| Names of things that open: Settings, a sheet, a dialog, a folder, a section of results or of settings | Inter | Inter | the display face | `displayHeads` |
+| What you said in a conversation; the chosen thumb | faint plate | faint plate | the accent's tone; the thumb on a tonal cookie | `tonalBubbles` |
+| The island's cards: large numbers | the island's own | the island's own | display numerals, one width a digit | `islandNumerals` |
+| The island's cards: progress (bar, wave, timer ring) | fine | fine | 1.6 times as thick | `islandThickProgress` |
+| While Qwen thinks | a still mark | Material's shape-morphing loader | the loader | `shapedBadges` (already Balanced's) |
+
+**The one thing Balanced gains** is the last row: the loader My feed already showed at Balanced now also shows while Qwen thinks. Everything else at Balanced is what it was: Settings, search's results, the widget sheet and the island's stopwatch card were compared, screenshot against screenshot, with the build before this round.
+
+**Shapes are a vocabulary** (`MarkKind`, `Marks`, `ShapedMark` in `appearance/ExpressiveMarks.kt`). A kind has one shape and one place in the palette wherever it is met: the cookie is something the launcher does (a quick action, a menu's action), the soft burst is asking (the assistant), the pill is going elsewhere (a web search), the four-lobed cookie a setting, the flower a person, the pentagon something kept. The three kinds that sit side by side in search take the three different colours. A menu's destructive action keeps its plain red glyph: a warning is not decorated. In search a row's kind is read from what the row is for, which for a few is its glyph (calling someone from a contact's row is a person; "call" as a quick action is something to do). Settings' section tiles have no kind of their own and take the shapes in turn by their place in the list, so a section is the same every time and no two neighbours share a shape and colour.
+
+**One colour system.** `UnoPalette.hues` chooses three hues: the accent's, then the first two of the wallpaper's colours (read with the accent, `WallpaperAccents.swatches`, most present first) that are colourful and at least 35 degrees round the wheel from every hue already chosen; a wallpaper of one colour falls back to the accent's neighbours, as `TonalRamp` has always made them. The hues go through `TonalRamp.toneOf`, one lightness for all, so three colours never read as a rainbow, and `UnoTones.kind` is the one role every surface asks. `ExpressiveTest` holds 4.5:1 between each container and its ink for seven accents, four wallpapers and both depths. The wallpaper's colours are used at Expressive whatever Appearance › Accent is set to: this is the palette of small tonal fills, and the glass itself still takes no colour unless Accent is From Wallpaper.
+
+**The island's colours stay its theme's.** The dial moves only type and weight there. The pill is untouched (its width is measured from its text); the cards use the widgets' numeral style, since the wide titling cut did not fit a stopwatch beside the card's two buttons.
+
 ## Assistant log
 
 For improving the assistant from how it really did. `search/AssistantLog.kt`: with **Keep an assistant log** on (Search settings, off by default), every response is written down whole as a `LogEntry`, and the person's thumbs-up or thumbs-down is saved into it.

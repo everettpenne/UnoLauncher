@@ -311,10 +311,14 @@ internal fun RateButtons(id: Long?, ink: Color, modifier: Modifier = Modifier, t
     Row(modifier.testTag("assistant-rate"), verticalAlignment = Alignment.CenterVertically) {
         @Composable fun thumb(value: Int, on: androidx.compose.ui.graphics.vector.ImageVector, off: androidx.compose.ui.graphics.vector.ImageVector, label: Int, tag: String) {
             val chosen = entry.rating == value
+            // At Expressive the chosen thumb sits on a small tonal cookie: the verdict is a thing set, like a tile that is on.
+            val tone = if (chosen && com.jake.duolauncher.appearance.Expression.now.tonalBubbles)
+                com.jake.duolauncher.appearance.UnoTones.kind(com.jake.duolauncher.appearance.launcherAccent().first, if (value > 0) 0 else 2) else null
             Box(Modifier.size(touchDp.dp).clip(Corner.medium)
                 .clickable(role = Role.Button, onClickLabel = stringResource(label)) { AssistantLog.rate(context, entry.id, value) }
                 .testTag(if (chosen) "$tag-on" else tag), contentAlignment = Alignment.Center) {
-                Icon(if (chosen) on else off, stringResource(label), Modifier.size(iconDp.dp), tint = ink.copy(alpha = if (chosen) 1f else .55f))
+                if (tone != null) Box(Modifier.size((iconDp * 1.75f).dp).background(tone.container, com.jake.duolauncher.appearance.ExpressiveShapes.Cookie9))
+                Icon(if (chosen) on else off, stringResource(label), Modifier.size(iconDp.dp), tint = tone?.onContainer ?: ink.copy(alpha = if (chosen) 1f else .55f))
             }
         }
         thumb(1, Icons.Rounded.ThumbUp, Icons.Outlined.ThumbUp, R.string.assistant_rate_up, "assistant-rate-up")
@@ -325,9 +329,12 @@ internal fun RateButtons(id: Long?, ink: Color, modifier: Modifier = Modifier, t
 /** What the person said: a bubble against the trailing edge, no wider than reads as theirs. */
 @Composable
 private fun Said(modifier: Modifier, text: String, ink: Color, m: ChatMetrics, first: Boolean) {
+    // At Expressive what you said is in the accent's own tone, as a chat bubble on Pixel is; otherwise the faint plate.
+    val tone = if (com.jake.duolauncher.appearance.Expression.now.tonalBubbles)
+        com.jake.duolauncher.appearance.UnoTones.kind(com.jake.duolauncher.appearance.launcherAccent().first, 0) else null
     Row(modifier.fillMaxWidth().padding(top = if (first) 0.dp else m.gapBetween.dp), horizontalArrangement = Arrangement.End) {
-        Text(text, color = ink, style = UnoType.body,
-            modifier = Modifier.widthIn(max = m.bubbleMax.dp).background(ink.copy(alpha = .16f), com.jake.duolauncher.appearance.ContinuousShape(m.bubbleCorner.dp))
+        Text(text, color = tone?.onContainer ?: ink, style = UnoType.body,
+            modifier = Modifier.widthIn(max = m.bubbleMax.dp).background(tone?.container ?: ink.copy(alpha = .16f), com.jake.duolauncher.appearance.ContinuousShape(m.bubbleCorner.dp))
                 .padding(horizontal = m.bubblePadH.dp, vertical = m.bubblePadV.dp).testTag("spotlight-chat-said"))
     }
 }

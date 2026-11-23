@@ -63,7 +63,10 @@ internal fun SettingsGroup(modifier: Modifier = Modifier, header: String? = null
     val rows = SettingsRows().apply(build).rows
     val ink = MaterialTheme.colorScheme.onSurface
     Column(modifier.fillMaxWidth().padding(top = Space.S.dp).then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
-        if (header != null) Text(header.uppercase(), Modifier.padding(start = Space.L.dp, end = Space.L.dp, bottom = 6.dp),
+        // At Expressive a group is headed in the display face, in its own case (a heading, as search's sections are).
+        if (header != null && Expression.now.displayHeads) Text(header, Modifier.padding(start = Space.L.dp, end = Space.L.dp, bottom = 6.dp),
+            style = Expressive.display(DisplayFace.CHUNKY, 15), color = ink.copy(alpha = .85f))
+        else if (header != null) Text(header.uppercase(), Modifier.padding(start = Space.L.dp, end = Space.L.dp, bottom = 6.dp),
             style = UnoType.caption1.copy(fontWeight = FontWeight.Normal), color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (rows.isNotEmpty()) Column(Modifier.fillMaxWidth().clip(SettingsCardShape).background(SettingsPlate)) {
             rows.forEachIndexed { i, content ->
@@ -144,10 +147,11 @@ internal fun ToggleCheckRow(title: String, checked: Boolean, tag: String, enable
 /** A row that opens another page: an optional icon tile, the name, an optional current value, and a chevron. */
 @Composable
 internal fun NavRow(title: String, tag: String, value: String? = null, icon: ImageVector? = null, iconTint: Color? = null,
-    onClick: () -> Unit) {
+    /** Where this row comes in its list, for the shape and colour of its tile at Expressive, so no two neighbours are alike. */
+    order: Int = -1, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button, onClick = onClick).testTag(tag),
         verticalAlignment = Alignment.CenterVertically) {
-        if (icon != null) { IconTile(icon, iconTint ?: SettingsAccent); Spacer(Modifier.width(Space.M.dp)) }
+        if (icon != null) { IconTile(icon, iconTint ?: SettingsAccent, order); Spacer(Modifier.width(Space.M.dp)) }
         Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (value != null) Text(value, Modifier.padding(start = Space.S.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f))
@@ -186,7 +190,14 @@ internal fun <T> SegmentRow(options: List<T>, selected: T, label: (T) -> String,
 
 /** iOS Settings' coloured square behind a white glyph. iOS draws it as a small app icon, so it has the icon's superellipse. */
 @Composable
-internal fun IconTile(icon: ImageVector, colour: Color) {
+internal fun IconTile(icon: ImageVector, colour: Color, order: Int = -1) {
+    // At Expressive a section's tile is a Material shape in the palette's colours, not iOS's coloured square: which shape and
+    // colour follow from where it comes in its list ([order]), so a section is the same every time and no two neighbours are
+    // alike. A tile on its own, with no place in a list, takes them from its glyph.
+    if (Expression.now.shapedMarks) {
+        ShapedMark(icon, Marks.cycled(if (order >= 0) order else icon.name.hashCode() and 0xFFFF), size = 30.dp, iconSize = 17.dp)
+        return
+    }
     Box(Modifier.size(30.dp).clip(Corner.icon).background(colour), contentAlignment = Alignment.Center) {
         Icon(icon, null, Modifier.size(19.dp), tint = Color.White)
     }

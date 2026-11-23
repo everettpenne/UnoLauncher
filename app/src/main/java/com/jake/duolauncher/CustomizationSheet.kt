@@ -113,8 +113,9 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                 .padding(8.dp).semantics { contentDescription = "Close settings" }, color = SettingsAccentText,
                 style = UnoType.body.copy(fontWeight = FontWeight.SemiBold))
         }
+        // At Expressive the sheet is named as My feed and the App Library are: in the display face.
         if (page == CustomizationPage.OVERVIEW) Text(title, Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 10.dp).semantics { heading() },
-            style = UnoType.largeTitle.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+            style = if (Expression.now.displayHeads) Expressive.pageTitle else UnoType.largeTitle.copy(fontWeight = FontWeight.Bold), maxLines = 1)
         // The island page keeps a live copy of the island above its settings, so a change can be watched as it is made.
         val islandPreview = remember { com.jake.duolauncher.island.IslandPreviewController() }
         if ((page == CustomizationPage.ISLAND || page == CustomizationPage.ISLAND_STYLE) && appearance.island && extras != null) {
@@ -197,22 +198,22 @@ private fun OverviewPage(state: LauncherState, model: LauncherModel, isDefaultHo
         if (state.canUndoEdit) row { ActionRow(stringResource(com.jake.duolauncher.R.string.undo_last_layout_change), "undo-layout") { model.undoEdit(); onClose() } }
     }
     SettingsGroup {
-        row { NavRow("Appearance", "customization-wallpaper", icon = Icons.Rounded.Wallpaper, iconTint = Color(0xFF0A84FF)) { onPage(CustomizationPage.APPEARANCE) } }
-        row { NavRow("Home Screen", "customization-home", icon = Icons.Rounded.GridView, iconTint = Color(0xFF5E5CE6)) { onPage(CustomizationPage.HOME) } }
-        row { NavRow("Island", "customization-island", icon = IslandPillIcon, iconTint = Color(0xFF1C1C1E)) { onPage(CustomizationPage.ISLAND) } }
+        row { NavRow("Appearance", "customization-wallpaper", icon = Icons.Rounded.Wallpaper, iconTint = Color(0xFF0A84FF), order = 0) { onPage(CustomizationPage.APPEARANCE) } }
+        row { NavRow("Home Screen", "customization-home", icon = Icons.Rounded.GridView, iconTint = Color(0xFF5E5CE6), order = 1) { onPage(CustomizationPage.HOME) } }
+        row { NavRow("Island", "customization-island", icon = IslandPillIcon, iconTint = Color(0xFF1C1C1E), order = 2) { onPage(CustomizationPage.ISLAND) } }
     }
     SettingsGroup {
-        row { NavRow("Notifications & Privacy", "customization-privacy", icon = Icons.Rounded.Notifications, iconTint = Color(0xFFFF3B30)) { onPage(CustomizationPage.PRIVACY) } }
-        row { NavRow("Gestures", "customization-gestures", icon = Icons.Rounded.Gesture, iconTint = Color(0xFF8E8E93)) { onPage(CustomizationPage.GESTURES) } }
-        row { NavRow("Search", "customization-search", icon = Icons.Rounded.Search, iconTint = Color(0xFF8E8E93)) { onPage(CustomizationPage.SEARCH) } }
-        row { NavRow("Keyboard", "customization-keyboard", icon = Icons.Rounded.Keyboard, iconTint = Color(0xFF8E8E93)) { onPage(CustomizationPage.KEYBOARD) } }
-        row { NavRow("News Feed", "customization-feed", icon = Icons.Rounded.RssFeed, iconTint = IosOrange) { onPage(CustomizationPage.FEED) } }
+        row { NavRow("Notifications & Privacy", "customization-privacy", icon = Icons.Rounded.Notifications, iconTint = Color(0xFFFF3B30), order = 3) { onPage(CustomizationPage.PRIVACY) } }
+        row { NavRow("Gestures", "customization-gestures", icon = Icons.Rounded.Gesture, iconTint = Color(0xFF8E8E93), order = 4) { onPage(CustomizationPage.GESTURES) } }
+        row { NavRow("Search", "customization-search", icon = Icons.Rounded.Search, iconTint = Color(0xFF8E8E93), order = 5) { onPage(CustomizationPage.SEARCH) } }
+        row { NavRow("Keyboard", "customization-keyboard", icon = Icons.Rounded.Keyboard, iconTint = Color(0xFF8E8E93), order = 6) { onPage(CustomizationPage.KEYBOARD) } }
+        row { NavRow("News Feed", "customization-feed", icon = Icons.Rounded.RssFeed, iconTint = IosOrange, order = 7) { onPage(CustomizationPage.FEED) } }
     }
     val debuggable = androidx.compose.ui.platform.LocalContext.current.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
     SettingsGroup {
-        row { NavRow("General", "customization-backup", icon = Icons.Rounded.Settings, iconTint = Color(0xFF8E8E93)) { onPage(CustomizationPage.BACKUP) } }
+        row { NavRow("General", "customization-backup", icon = Icons.Rounded.Settings, iconTint = Color(0xFF8E8E93), order = 8) { onPage(CustomizationPage.BACKUP) } }
         // Only a debug build has the island debug page; a release build neither shows it nor reads anything it saved.
-        if (debuggable) row { NavRow("Island Debug", "customization-debug", icon = Icons.Rounded.BugReport, iconTint = Color(0xFF30D158)) { onPage(CustomizationPage.DEBUG) } }
+        if (debuggable) row { NavRow("Island Debug", "customization-debug", icon = Icons.Rounded.BugReport, iconTint = Color(0xFF30D158), order = 9) { onPage(CustomizationPage.DEBUG) } }
     }
     if (isDefaultHome) SettingsGroup { row { ActionRow(stringResource(com.jake.duolauncher.R.string.change_home_app), "default-home-settings", onClick = onMakeDefault) } }
 }

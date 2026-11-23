@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.jake.duolauncher.appearance.DisplayFace
 import com.jake.duolauncher.appearance.DisplayFonts
 import com.jake.duolauncher.appearance.TonalRamp
+import com.jake.duolauncher.appearance.UnoPalette
 import com.jake.duolauncher.island.HeroContent
 import com.jake.duolauncher.island.HeroTint
 import com.jake.duolauncher.island.IslandHero
@@ -28,6 +29,44 @@ class ExpressiveTest {
         for (accent in accents) for (dark in listOf(false, true)) TonalRamp.tones(accent, dark).forEach { t ->
             assertTrue("$accent dark=$dark ${contrast(t.container, t.onContainer)}", contrast(t.container, t.onContainer) >= 4.5)
         }
+    }
+
+    // ---- Expressive's three colours ----
+
+    private fun hueOf(c: Color) = TonalRamp.hsl(c).first
+    private fun apart(a: Float, b: Float): Float { val d = kotlin.math.abs(a - b) % 360f; return if (d > 180f) 360f - d else d }
+    private val orange = Color(0xFFFF9F0A)
+
+    @Test fun theSecondAndThirdColoursAreTheWallpapersWhenItHasThem() {
+        // A wallpaper of sky and sand under an orange accent: the sand is the accent's own hue, so it is passed over.
+        val sky = 0xFF4A7FB5.toInt(); val sand = 0xFFD9A066.toInt(); val leaf = 0xFF4E9A52.toInt()
+        val hues = UnoPalette.hues(orange, listOf(sand, sky, leaf))
+        assertEquals(3, hues.size)
+        assertEquals(hueOf(orange), hues[0].first, .5f)
+        assertEquals(hueOf(Color(sky)), hues[1].first, .5f); assertEquals(hueOf(Color(leaf)), hues[2].first, .5f)
+    }
+
+    @Test fun aWallpaperOfOneColourOrNoneStillGivesThreeDistinctHues() {
+        for (swatches in listOf(emptyList(), listOf(0xFF808080.toInt(), 0xFFEEEEEE.toInt()), listOf(0xFFFFA020.toInt(), 0xFFE08A10.toInt()), listOf(0xFF2040FF.toInt()))) {
+            for (accent in listOf(orange, Color(0xFF0A84FF), Color(0xFF30D158), Color(0xFFFF375F), Color(0xFF8E8E93))) {
+                val hues = UnoPalette.hues(accent, swatches).map { it.first }
+                assertEquals(3, hues.size)
+                for (i in hues.indices) for (j in i + 1 until hues.size)
+                    assertTrue("$accent $swatches: $hues", apart(hues[i], hues[j]) >= UnoPalette.MIN_APART / 2f)
+            }
+        }
+    }
+
+    @Test fun everyColourOfThePaletteIsReadablePlainAndDeep() {
+        val wallpapers = listOf(emptyList(), listOf(0xFF4A7FB5.toInt(), 0xFF4E9A52.toInt()), listOf(0xFFFFFF00.toInt(), 0xFF00FFFF.toInt(), 0xFFFF00FF.toInt()),
+            listOf(0xFF101030.toInt(), 0xFF301010.toInt()))
+        for (accent in listOf(orange, Color(0xFF0A84FF), Color(0xFFFFD60A), Color(0xFF30D158), Color(0xFFBF5AF2), Color.White, Color.Black))
+            for (swatches in wallpapers) for (index in 0..5) for (deep in listOf(false, true)) {
+                val t = UnoPalette.tone(accent, swatches, index, deep)
+                assertTrue("$accent $swatches $index deep=$deep ${contrast(t.container, t.onContainer)}", contrast(t.container, t.onContainer) >= 4.5)
+            }
+        // The index wraps: the fourth is the first again.
+        assertEquals(UnoPalette.tone(orange, emptyList(), 0).container, UnoPalette.tone(orange, emptyList(), 3).container)
     }
 
     @Test fun theRampHasDistinctTonesAndWrapsAround() {

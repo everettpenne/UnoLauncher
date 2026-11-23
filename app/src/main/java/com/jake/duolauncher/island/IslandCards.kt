@@ -71,6 +71,22 @@ import kotlinx.coroutines.delay
  * rounded square as they change meaning, wavy progress, a burst when something finishes. With it off the same cards are still.
  */
 internal object IslandCards {
+    /**
+     * A card's large number (the stopwatch, the charge). At Expressive it is in the display face, with figures of one width so the
+     * digits do not shuffle as they change; otherwise the island's own. Only the open island's cards use it: the pill's width is
+     * measured from its text, and the island's colours are its theme's whatever the Style.
+     */
+    fun bigNumber(): TextStyle = if (com.jake.duolauncher.appearance.Expression.now.islandNumerals) {
+        // The numeral style the widgets use (the display face at its ordinary width): the wide titling cut does not fit a stopwatch's
+        // six characters beside the card's two buttons.
+        val face = com.jake.duolauncher.appearance.DisplayFonts.numerals
+        // 24 sp, not the plain face's 30: the display face is wider, and "11:50.5" has to clear the card's two buttons.
+        TextStyle(fontFamily = face.family, fontWeight = face.weight, fontSize = 24.sp, lineHeight = 34.sp, letterSpacing = (face.trackingEm * 24f).sp, fontFeatureSettings = "tnum")
+    } else TextStyle(fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
+
+    /** How thick a card's progress is drawn: Material's thick bar at Expressive, the island's fine one otherwise. */
+    fun progressStroke(fineDp: Float): Float = if (com.jake.duolauncher.appearance.Expression.now.islandThickProgress) fineDp * 1.6f else fineDp
+
     /** Height the card adds to the island body, beyond the ordinary one-row notification card, for each kind. */
     const val CHARGING_EXTRA_DP = 30f
 
@@ -147,11 +163,11 @@ internal fun CardPill(label: String, modifier: Modifier = Modifier, icon: ImageV
 @Composable
 internal fun SegmentedBar(filled: Int, segments: Int, fraction: Float, accent: Color, playful: Boolean, modifier: Modifier = Modifier) {
     val rest = themeInk.copy(alpha = .16f)
-    Canvas(modifier.fillMaxWidth().height(14.dp)) {
+    Canvas(modifier.fillMaxWidth().height(if (com.jake.duolauncher.appearance.Expression.now.islandThickProgress) 20.dp else 14.dp)) {
         val gap = 4.dp.toPx()
         val seg = (size.width - gap * (segments - 1)) / segments
         val y = size.height / 2f
-        val stroke = 6.dp.toPx()
+        val stroke = IslandCards.progressStroke(6f).dp.toPx()
         for (i in 0 until segments) {
             val x0 = i * (seg + gap)
             // The segment being filled shows its own share, so the bar moves smoothly rather than in lumps.
@@ -183,7 +199,7 @@ internal fun TimerRing(remaining: Float, accent: Color, size: Dp, burst: Boolean
     val wave by animateFloatAsState(if (burst) 1f else 0f, tween(700), label = "timer burst")
     Box(Modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
-            val w = 5.dp.toPx()
+            val w = IslandCards.progressStroke(5f).dp.toPx()
             val inset = w / 2f
             val arc = Size(this.size.width - w, this.size.height - w)
             drawArc(rest, 0f, 360f, false, Offset(inset, inset), arc, style = Stroke(w, cap = StrokeCap.Round))
@@ -312,7 +328,7 @@ private fun StopwatchCard(nowMs: Long, playful: Boolean) {
             // The tenths change ten times a second, too fast to roll: only the whole seconds and up roll.
             val clock = IslandClock.stopwatch(IslandTools.elapsedMs(nowMs))
             val dot = clock.indexOf('.').takeIf { it >= 0 } ?: clock.length
-            val big = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
+            val big = IslandCards.bigNumber()
             Row(verticalAlignment = Alignment.Bottom) {
                 RollingText(clock.substring(0, dot), big, themeInk, playful)
                 Text(clock.substring(dot), style = big.copy(fontFeatureSettings = "tnum"), color = themeInk.copy(alpha = .6f), maxLines = 1)
@@ -422,7 +438,9 @@ internal fun ChargingCard(level: Int?, charging: Boolean, modifier: Modifier = M
         BatteryGlyph(level, charging, Modifier.graphicsLayer { scaleX = 2.6f; scaleY = 2.6f; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, .5f) })
         Spacer(Modifier.width(70.dp))
         Column(Modifier.weight(1f)) {
-            Text(level?.let { "$it%" } ?: "", color = if (charging) accent else themeInk, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            // Below Expressive this is the call it always was (the size and weight laid over the text style in force), not a new style.
+            if (com.jake.duolauncher.appearance.Expression.now.islandNumerals) Text(level?.let { "$it%" } ?: "", color = if (charging) accent else themeInk, style = IslandCards.bigNumber())
+            else Text(level?.let { "$it%" } ?: "", color = if (charging) accent else themeInk, fontSize = 30.sp, fontWeight = FontWeight.Bold)
             Text(if (charging) (if ((level ?: 0) >= 100) "Fully charged" else "Charging") else "On battery", color = themeInk.copy(alpha = .75f), style = UnoType.footnote.tight)
         }
     }

@@ -145,4 +145,35 @@ class PersonalityTest {
         // An app's widget is named by its provider, not here.
         assertNull(WidgetNames.builtIn(42))
     }
+
+    // ---- the second round: search and the assistant, folders, menus and sheets, the island ----
+
+    @Test fun everythingTheSecondRoundAddsIsExpressivesAlone() {
+        for (level in listOf(calm, balanced)) {
+            assertEquals(1, level.palette); assertFalse(level.shapedMarks); assertFalse(level.displayHeads)
+            assertFalse(level.tonalBubbles); assertFalse(level.islandNumerals); assertFalse(level.islandThickProgress)
+        }
+        assertEquals(3, expressive.palette); assertTrue(expressive.shapedMarks); assertTrue(expressive.displayHeads)
+        assertTrue(expressive.tonalBubbles); assertTrue(expressive.islandNumerals); assertTrue(expressive.islandThickProgress)
+    }
+
+    @Test fun balancedIsExactlyWhatItWasBeforeTheSecondRound() {
+        // The values Balanced shipped with in 0.135: any change here changes the look most people have.
+        assertTrue(balanced.displayTitles); assertTrue(balanced.shapedBadges); assertTrue(balanced.widgetShapes)
+        assertEquals(1, balanced.tonal); assertEquals(.35f, balanced.morph, 0f); assertEquals(.92f, balanced.bounce, 0f)
+        assertFalse(balanced.restsSquare); assertFalse(balanced.displayNumerals); assertFalse(balanced.thickTracks)
+    }
+
+    @Test fun everyKindOfMarkHasAShapeAndOneOfThePalettesThreeColours() {
+        val kinds = com.jake.duolauncher.appearance.MarkKind.entries
+        assertEquals("each kind its own shape", kinds.size, kinds.map { com.jake.duolauncher.appearance.Marks.shape(it) }.toSet().size)
+        assertTrue(kinds.all { com.jake.duolauncher.appearance.Marks.colour(it) in 0..2 })
+        // The three that sit side by side in search (something to do, asking, going elsewhere) take the three different colours.
+        assertEquals(setOf(0, 1, 2), listOf(com.jake.duolauncher.appearance.MarkKind.DO, com.jake.duolauncher.appearance.MarkKind.ASK,
+            com.jake.duolauncher.appearance.MarkKind.GO).map { com.jake.duolauncher.appearance.Marks.colour(it) }.toSet())
+        // Cycling through a list gives every kind and wraps, whatever number it is handed.
+        assertEquals(kinds.toSet(), (0 until kinds.size).map { com.jake.duolauncher.appearance.Marks.cycled(it) }.toSet())
+        assertEquals(com.jake.duolauncher.appearance.Marks.cycled(1), com.jake.duolauncher.appearance.Marks.cycled(1 + kinds.size))
+        assertNotNull(com.jake.duolauncher.appearance.Marks.cycled(-3))
+    }
 }

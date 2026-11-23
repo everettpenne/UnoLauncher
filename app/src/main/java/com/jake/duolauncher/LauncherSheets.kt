@@ -41,7 +41,7 @@ internal fun AppPicker(apps: List<AppEntry>, dockSlot: Int?, onSelect: (AppEntry
     var query by rememberSaveable { mutableStateOf("") }
     val filtered = remember(apps, query) { apps.filter { it.label.contains(query.trim(), ignoreCase = true) } }
     Column(Modifier.fillMaxWidth().fillMaxHeight(.88f).padding(horizontal = 24.dp).imePadding()) {
-        Text(title ?: if (dockSlot == null) "Your apps" else "Dock position ${dockSlot + 1}", style = MaterialTheme.typography.headlineSmall)
+        Text(title ?: if (dockSlot == null) "Your apps" else "Dock position ${dockSlot + 1}", style = com.jake.duolauncher.appearance.Heads.sheet)
         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(vertical = 16.dp).testTag("search-field"),
             placeholder = { Text(stringResource(com.jake.duolauncher.R.string.search_apps)) }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, singleLine = true,
             trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear search") } }, shape = Corner.medium)
@@ -114,7 +114,7 @@ internal fun WidgetActions(
         .padding(horizontal = 24.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(com.jake.duolauncher.R.string.widget_options), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(com.jake.duolauncher.R.string.widget_options), Modifier.weight(1f), style = com.jake.duolauncher.appearance.Heads.sheet)
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close widget options") }
         }
         onEditFolder?.let { ActionRow(Icons.Rounded.Folder, "Choose folder apps", it, Modifier.testTag("widget-folder-apps-${placement.slot}")) }

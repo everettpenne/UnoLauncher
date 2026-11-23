@@ -1,5 +1,7 @@
 package com.jake.duolauncher.appearance
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.ExperimentalTextApi
@@ -126,6 +128,15 @@ internal object Expressive {
  * The expressive layer's shapes: Material 3 Expressive's own (see ExpressiveShapes.kt), for badges and markers only. A panel keeps its
  * continuous corner, since the glass lens cannot bend round other outlines.
  */
+/** The names of things that open, in one place: a sheet's title and a dialog's. At Expressive they are in the display face (as the
+ *  pages' titles are); otherwise Material's own, as they were. */
+internal object Heads {
+    val sheet: TextStyle @androidx.compose.runtime.Composable get() =
+        if (Expression.now.displayHeads) Expressive.display(DisplayFace.CHUNKY, 23, lineHeight = 27) else androidx.compose.material3.MaterialTheme.typography.headlineSmall
+    val title: TextStyle @androidx.compose.runtime.Composable get() =
+        if (Expression.now.displayHeads) Expressive.display(DisplayFace.CHUNKY, 21, lineHeight = 25) else androidx.compose.material3.MaterialTheme.typography.titleLarge
+}
+
 internal object SoftShapes {
     /** The 9-sided cookie: counts and letters. */
     val Cookie9: Shape get() = ExpressiveShapes.Cookie9
@@ -154,6 +165,13 @@ internal object TonalRamp {
     }
 
     fun tone(accent: Color, dark: Boolean, index: Int): Tone = tones(accent, dark).let { it[((index % it.size) + it.size) % it.size] }
+
+    /** The tone for a colour of hue [h] and saturation [s]: the same lightness as every other, so a set of them never reads as a rainbow. */
+    fun toneOf(h: Float, s: Float, dark: Boolean, deep: Boolean = false): Tone {
+        val sat = s.coerceIn(.45f, .80f)
+        // [deep]: a shade further from white, for a small shape that has to stand out from a pale plate by its outline alone.
+        return Tone(fromHsl(h, sat, if (dark) .22f else if (deep) .72f else .80f), fromHsl(h, sat.coerceAtMost(.7f), if (dark) .94f else if (deep) .12f else .15f))
+    }
 
     internal fun hsl(c: Color): Triple<Float, Float, Float> {
         val max = maxOf(c.red, c.green, c.blue); val min = minOf(c.red, c.green, c.blue)
@@ -194,4 +212,62 @@ internal object UnoTones {
 
     /** A widget's accent (a ring, a bar, a mark): the accent's neighbours round the ramp, by [index], so two widgets side by side differ. */
     fun widgetAccent(accent: Color, index: Int): TonalRamp.Tone = TonalRamp.tone(accent, dark = false, index = 1 + index)
+
+    /**
+     * The colour for a kind of thing (a kind of search result, a section of Settings, an action): by [index], so the same kind is the
+     * same colour wherever it is met. At Expressive it is one of the three colours of [UnoPalette] (the accent and two from the
+     * wallpaper); below that, the accent's own ramp, as [widgetAccent].
+     */
+    fun kind(accent: Color, index: Int, deep: Boolean = false): TonalRamp.Tone =
+        if (Expression.now.palette >= 3) UnoPalette.tone(accent, UnoPalette.swatches, index, deep) else TonalRamp.tone(accent, dark = false, index = index)
+}
+
+/**
+ * Expressive's wider palette, as Pixel's: the launcher's accent, and a second and third colour taken from the wallpaper. Every tonal
+ * role draws on these three when [Expression.Values.palette] is 3 and on the accent alone otherwise; there is one tonal system
+ * ([TonalRamp]'s tones, one lightness for all), and this only chooses which hues go into it.
+ *
+ * The wallpaper's colours are read where its accent is ([WallpaperAccents]) and kept in [swatches]; the choosing is pure and tested.
+ */
+internal object UnoPalette {
+    /** The wallpaper's colours (ARGB), the most present first. Snapshot state: what draws with the palette redraws when it changes. */
+    var swatches by androidx.compose.runtime.mutableStateOf<List<Int>>(emptyList())
+
+    /** Two colours count as different when their hues are at least this far apart, in degrees. */
+    const val MIN_APART = 35f
+    /** A wallpaper colour greyer than this has no hue worth taking. */
+    const val MIN_SATURATION = .18f
+    /** Where the second and third colours are put when the wallpaper has none to give: the accent's neighbours, as [TonalRamp]'s. */
+    private val FALLBACK_TURNS = floatArrayOf(40f, -40f)
+
+    private fun apart(a: Float, b: Float): Float { val d = kotlin.math.abs(a - b) % 360f; return if (d > 180f) 360f - d else d }
+
+    /**
+     * The three hues, each with its saturation: the accent's, then the first two of [swatches] that are colourful and far enough
+     * round the wheel from every hue already chosen. A wallpaper of one colour (or none read yet) gives the accent's neighbours.
+     */
+    fun hues(accent: Color, swatches: List<Int>): List<Pair<Float, Float>> {
+        val (h0, s0, _) = TonalRamp.hsl(accent)
+        val chosen = arrayListOf(h0 to s0)
+        for (argb in swatches) {
+            if (chosen.size == 3) break
+            val (h, s, _) = TonalRamp.hsl(Color(argb))
+            if (s < MIN_SATURATION || chosen.any { apart(it.first, h) < MIN_APART }) continue
+            chosen += h to s
+        }
+        var turn = 0
+        while (chosen.size < 3 && turn < FALLBACK_TURNS.size) {
+            val h = ((h0 + FALLBACK_TURNS[turn++]) % 360f + 360f) % 360f
+            // A wallpaper colour already sitting where the fallback would go is passed over for the next place.
+            if (chosen.none { apart(it.first, h) < MIN_APART / 2f }) chosen += h to s0
+        }
+        while (chosen.size < 3) chosen += (((h0 + 150f + 50f * chosen.size) % 360f) to s0)
+        return chosen
+    }
+
+    /** The tone for [index] of the three (it wraps): a pastel container and the dark ink that reads on it, in either theme. */
+    fun tone(accent: Color, swatches: List<Int>, index: Int, deep: Boolean = false): TonalRamp.Tone {
+        val (h, s) = hues(accent, swatches).let { it[((index % it.size) + it.size) % it.size] }
+        return TonalRamp.toneOf(h, s, dark = false, deep = deep)
+    }
 }

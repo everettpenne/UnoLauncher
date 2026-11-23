@@ -122,7 +122,8 @@ internal fun GlassDialog(
                 .liquidGlass(glass.backdrop, shape, surface, GlassKind.REGULAR, glass.settings, exportedBackdrop = panelBackdrop)
                 .padding(16.dp)) {
                 CompositionLocalProvider(LocalPageGlass provides panelGlass, LocalContentColor provides GlassInkOnPanel) {
-                    Text(title, style = MaterialTheme.typography.titleLarge, color = GlassInkOnPanel)
+                    Text(title, style = Heads.title,
+                        color = GlassInkOnPanel)
                     Column(Modifier.weight(1f, fill = false).padding(top = 12.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
                     Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
@@ -438,7 +439,7 @@ internal fun GlassAlertDialog(onDismissRequest: () -> Unit, confirmButton: @Comp
         return
     }
     GlassDialog(onDismissRequest, "", modifier, actions = { dismissButton?.invoke(); confirmButton() }) {
-        if (title != null) androidx.compose.material3.ProvideTextStyle(MaterialTheme.typography.titleLarge) { title() }
+        if (title != null) androidx.compose.material3.ProvideTextStyle(Heads.title) { title() }
         if (text != null) text()
     }
 }

@@ -16,8 +16,9 @@ import com.jake.duolauncher.*
  *
  * The strengths are in [IconLighting] so they can be tuned in one place.
  */
-internal fun drawIconLighting(canvas: Canvas, size: Float) {
-    val shape = Path().also { Squircle.build(size, size, size * Corner.ICON_FRACTION, AndroidPathSink(it)) }
+internal fun drawIconLighting(canvas: Canvas, size: Float, outline: Path? = null) {
+    // The light follows the icon's own outline: the rounded square, or the Material shape it was cut to.
+    val shape = outline ?: Path().also { Squircle.build(size, size, size * Corner.ICON_FRACTION, AndroidPathSink(it)) }
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     fun white(alpha: Float) = ((alpha * 255f).toInt().coerceIn(0, 255) shl 24) or 0xFFFFFF
     fun black(alpha: Float) = ((alpha * 255f).toInt().coerceIn(0, 255) shl 24)

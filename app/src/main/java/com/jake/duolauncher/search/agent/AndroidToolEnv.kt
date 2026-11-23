@@ -67,15 +67,33 @@ internal class AndroidToolEnv(
         return torchOn
     }
 
-    override fun openAlarm(hour: Int?, minute: Int?, inMinutes: Int?) {
+    override fun openAlarm(hour: Int?, minute: Int?, inMinutes: Int?) = openAlarm(hour, minute, inMinutes, null)
+
+    override fun openAlarm(hour: Int?, minute: Int?, inMinutes: Int?, label: String?) {
         val now = LocalTime.now()
         val target = when {
             hour != null && minute != null -> hour to minute
             inMinutes != null -> ActionLogic.alarmAt(inMinutes, now.hour, now.minute)
             else -> return
         }
-        resolver.open(ActionLogic.alarmIntent(target.first, target.second))
+        val alarm = ActionLogic.alarmIntent(target.first, target.second)
+        // A reminder's alarm carries what it is for, which the clock app shows when it rings (AlarmClock.EXTRA_MESSAGE).
+        resolver.open(if (label.isNullOrBlank()) alarm else alarm.copy(stringExtras = alarm.stringExtras + (android.provider.AlarmClock.EXTRA_MESSAGE to label.take(80))))
     }
+
+    override fun style(): String = com.jake.duolauncher.appearance.UnoPersonality.level.name.lowercase()
+
+    override fun setStyle(level: String): Boolean {
+        val next = com.jake.duolauncher.appearance.Personality.entries.firstOrNull { it.name.equals(level, ignoreCase = true) } ?: return false
+        com.jake.duolauncher.appearance.UnoPersonality.set(context, next)
+        return true
+    }
+
+    override fun openUnoSettings(page: String): Boolean = runCatching {
+        context.startActivity(android.content.Intent(context, com.jake.duolauncher.MainActivity::class.java)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra("duo_destination", if (page == "keyboard") "keyboard" else "customize"))
+    }.isSuccess
 
     override fun openApp(entry: AppEntry): Boolean = runCatching {
         val user = context.getSystemService(UserManager::class.java).getUserForSerialNumber(entry.userSerial) ?: return@runCatching false

@@ -18,9 +18,16 @@ internal object IconFinish {
     var on: Boolean
         get() = onState.value
         set(value) { onState.value = value }
+
+    /** Icons are cut to a Material shape (Appearance › App Icons › Icon Shape), so their shadow is a round one, not the rounded square's. */
+    private val shapedState = mutableStateOf(false)
+    var shaped: Boolean
+        get() = shapedState.value
+        set(value) { shapedState.value = value }
 }
 
 /** The icon's shadow, in its own squircle ([Corner.icon]), when icon lighting is on. */
 internal fun Modifier.glassIcon(lift: Boolean = true): Modifier =
     if (!IconFinish.on || !lift) this
-    else shadow(5.dp, Corner.icon, clip = false, ambientColor = Color.Black.copy(alpha = .35f), spotColor = Color.Black.copy(alpha = .35f))
+    else shadow(5.dp, if (IconFinish.shaped) androidx.compose.foundation.shape.CircleShape else Corner.icon, clip = false,
+        ambientColor = Color.Black.copy(alpha = .35f), spotColor = Color.Black.copy(alpha = .35f))

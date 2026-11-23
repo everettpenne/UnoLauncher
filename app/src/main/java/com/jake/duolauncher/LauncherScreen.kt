@@ -395,7 +395,15 @@ internal fun LauncherScreen(
     val accentKey = if (iconStyleNow.usesWallpaper(appearance.wallpaperColor)) LauncherBackgroundCache.revision.intValue else -1
     val iconPackNow = extras?.store?.state?.iconPack.orEmpty()
     val iconLightingNow = extras?.store?.state?.iconLighting ?: true
-    LaunchedEffect(iconStyleNow, themedDarkNow, accentKey, iconPackNow, iconLightingNow) { if (iconsSeeded) model.refresh() else iconsSeeded = true }
+    val iconShapeNow = extras?.store?.state?.iconShape ?: AppIconShape.SQUIRCLE
+    // What a widget that offers apps may show and how it opens one: never a hidden app, nor one Focus is hiding while it is on.
+    val focusHides = extras?.store?.state?.let { if (it.focusOn) it.focusHidden else emptySet() }.orEmpty()
+    val homeApps = remember(state.visibleApps, focusHides) {
+        HomeApps(state.visibleApps.filter { it.id !in focusHides }, { app -> onLaunch(app) }, { customizationPage = CustomizationPage.HOME; sheet = "settings" })
+    }
+    // The shadow under an icon follows whether icons are shaped (it is drawn live, outside the icon's bitmap).
+    androidx.compose.runtime.SideEffect { com.jake.duolauncher.appearance.IconFinish.shaped = iconShapeNow != AppIconShape.SQUIRCLE && iconPackNow.isEmpty() }
+    LaunchedEffect(iconStyleNow, themedDarkNow, accentKey, iconPackNow, iconLightingNow, iconShapeNow) { if (iconsSeeded) model.refresh() else iconsSeeded = true }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { controlPanelOpen = false }
     BackHandler(enabled = controlPanelOpen) { controlPanelOpen = false }
     BackHandler(enabled = sheet == "widgets") { widgetPickerBack() }
@@ -856,7 +864,7 @@ internal fun LauncherScreen(
                     // PagerState remains the source of truth for snapping, accessibility state, and programmatic page requests.
                     HorizontalPager(nativePager, Modifier.fillMaxHeight().width(pagerWidth), userScrollEnabled = false,
                         key = { if (it < firstHome) "feed" else if (it - firstHome == visibleHomePages) "library" else "home-${it - firstHome}" }) { }
-                    CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalFrostedWallpaper provides frostedWallpaper, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions) { ExpandedWorkspace(
+                    CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalFrostedWallpaper provides frostedWallpaper, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions, LocalHomeApps provides homeApps) { ExpandedWorkspace(
                         nativePager = nativePager, motion = workspaceMotion!!, firstHome = firstHome,
                         viewportWidth = pagerWidth, trailingOverscan = pagerEndInset,
                         visibleHomePages = visibleHomePages, panelWidth = panelWidth,
@@ -893,7 +901,7 @@ internal fun LauncherScreen(
                     // column. Feed and All apps fill the whole width, so once the dock/rail have slid
                     // off with an edge (see EdgeDockShift) they use the space those controls vacated.
                     Box(Modifier.fillMaxSize()) {
-                    CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalFrostedWallpaper provides frostedWallpaper, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions) {
+                    CompositionLocalProvider(LocalPageGlass provides pageGlass, LocalFrostedWallpaper provides frostedWallpaper, LocalHomeEditing provides homeEditing, LocalHomeEditActions provides editActions, LocalHomeApps provides homeApps) {
                     if (page == -1) {
                         com.jake.duolauncher.feed.FeedPage(feed, onFeedRefresh, onFeedOpenEntry,
                             onAddFeed = { customizationPage = CustomizationPage.FEED; sheet = "settings" },

@@ -82,6 +82,14 @@ internal interface ToolEnv {
     /** Hands [place] to the maps app as a search. */
     fun openDirections(place: String) {}
     fun openAlarm(hour: Int?, minute: Int?, inMinutes: Int?)
+    /** The same, named [label] so it rings with its reason on it (a reminder). */
+    fun openAlarm(hour: Int?, minute: Int?, inMinutes: Int?, label: String?) = openAlarm(hour, minute, inMinutes)
+    /** The launcher's Style now ("calm", "balanced" or "expressive"), or null when it cannot be read from here. */
+    fun style(): String? = null
+    /** Sets the launcher's Style; false when it could not be set. */
+    fun setStyle(level: String): Boolean = false
+    /** Opens the launcher's own settings ("all") or its keyboard's ("keyboard"); false when it could not. */
+    fun openUnoSettings(page: String): Boolean = false
     /** Opens the app; false when Android would not start it (the entry is stale, the profile is gone, or it is not allowed). */
     fun openApp(entry: AppEntry): Boolean
     fun openDialer(number: String)

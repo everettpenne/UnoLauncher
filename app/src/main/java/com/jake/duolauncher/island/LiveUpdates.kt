@@ -29,10 +29,14 @@ internal data class LiveUpdate(
     /** A navigation instruction's turn arrow (the notification's large icon). Read only for navigation, never for other activities. */
     val largeIcon: Bitmap? = null,
     val source: ActivitySource = ActivitySource.PROMOTED,
+    /** The live score the notification is saying, when it is a sports app's ([SportsLogic]): the island then draws a scoreboard. */
+    val score: SportsScore? = null,
 )
 
 /** What kind of thing an island activity (a [LiveUpdate]) came from. */
-internal enum class ActivitySource { PROMOTED, NAVIGATION, PROGRESS }
+internal enum class ActivitySource { PROMOTED, NAVIGATION, PROGRESS,
+    /** A live score from a sports app's ongoing notification, which Android has not promoted to a Live Update itself. */
+    SPORTS }
 
 /** Pure rules for recognising and presenting Live Updates, so they are unit-tested apart from the notification service. */
 internal object LiveUpdateLogic {
@@ -129,6 +133,8 @@ internal object LiveUpdateLogic {
 
     /** What fits beside the camera: the app's own short text, else the timer, else the percentage, else the start of the title. */
     fun glance(update: LiveUpdate, nowMs: Long): String {
+        // A score is the scoreboard in a line; it is not cut to the length other activities' words are.
+        update.score?.let { return it.glance }
         update.shortText?.trim()?.takeIf { it.isNotEmpty() }?.let { return it.take(MAX_GLANCE_CHARS) }
         update.chronometerBase?.let { return timer(it, update.countDown, nowMs) }
         fraction(update.progress, update.progressMax, update.indeterminate)?.let { return "${(it * 100).toInt()}%" }

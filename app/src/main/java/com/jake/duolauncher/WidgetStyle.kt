@@ -87,7 +87,11 @@ internal fun cardInk(): AdaptiveInk = AdaptiveInk(
     if (DuoAppearanceRuntime.dark) Color.White else Color(0xFF0B0B0D), Modifier)
 
 /** A Material shape a small Uno widget can take in place of its rounded square (Appearance › Style set to Balanced or Expressive). */
-enum class WidgetShape(val label: String) { DEFAULT("Default"), COOKIE("Cookie"), SUNNY("Sunny") }
+enum class WidgetShape(val label: String) {
+    DEFAULT("Default"), COOKIE("Cookie"), SUNNY("Sunny"),
+    // Added after the first two, whose saved names are kept: a layout that names one of these on an older Uno reads as Default there.
+    CLOVER("Clover"), FLOWER("Flower"), BURST("Burst"), PENTAGON("Pentagon")
+}
 
 /** Which widgets may take a shape, and how far in their content must sit to stay inside it. Pure, so it is unit-tested. */
 internal object WidgetShapeRules {
@@ -95,10 +99,21 @@ internal object WidgetShapeRules {
     fun key(slot: Int) = "$PREFIX$slot"
     fun parse(value: String?): WidgetShape? = WidgetShape.entries.firstOrNull { it.name == value }
 
-    /** Widgets that paint to their very edge (the liquid battery's liquid, a photo) or sit bare on the wallpaper: drawn smaller inside a shape
-     *  they would be a rectangle floating in it, so they keep their rounded square. */
-    private val edgeToEdge = setOf(com.jake.duolauncher.widgets.UnoWidgets.LIQUID_BATTERY, com.jake.duolauncher.widgets.UnoWidgets.PHOTOS,
-        com.jake.duolauncher.widgets.UnoWidgets.LOCK_CLOCK)
+    /** Widgets that paint to their very edge (the liquid battery's liquid) or sit bare on the wallpaper: drawn smaller inside a shape
+     *  they would be a rectangle floating in it, so they keep their rounded square. The Photos widget also paints to its edge, and is
+     *  let in: its picture fills the shape (see GlassCard's `bleed`), which is what a photo in a cookie is on Pixel. */
+    private val edgeToEdge = setOf(com.jake.duolauncher.widgets.UnoWidgets.LIQUID_BATTERY, com.jake.duolauncher.widgets.UnoWidgets.LOCK_CLOCK)
+
+    /** The outline for a shape, or null for the usual rounded square. */
+    fun outline(shape: WidgetShape): com.jake.duolauncher.appearance.LobedShape? = when (shape) {
+        WidgetShape.DEFAULT -> null
+        WidgetShape.COOKIE -> com.jake.duolauncher.appearance.LobedShapes.cookie12
+        WidgetShape.SUNNY -> com.jake.duolauncher.appearance.LobedShapes.sunny
+        WidgetShape.CLOVER -> com.jake.duolauncher.appearance.LobedShapes.clover
+        WidgetShape.FLOWER -> com.jake.duolauncher.appearance.LobedShapes.flower
+        WidgetShape.BURST -> com.jake.duolauncher.appearance.LobedShapes.burst
+        WidgetShape.PENTAGON -> com.jake.duolauncher.appearance.LobedShapes.pentagon
+    }
 
     /** Uno's own widgets only (an app's widget draws its own background), and not the folder, a widget waiting to be restored, or one that paints to its edge. */
     fun eligible(id: Int): Boolean = id <= CLOCK_WIDGET && id != NEEDS_BINDING_WIDGET && id != FOLDER_WIDGET && id !in edgeToEdge

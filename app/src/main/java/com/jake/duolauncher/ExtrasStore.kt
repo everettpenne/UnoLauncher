@@ -40,6 +40,7 @@ internal data class ExtrasState(
     val iconStyle: IconStyle = IconStyle.ORIGINAL,
     /** Light and shade painted over the original icons, so they look raised like iOS's; themed icons have their own lighting. */
     val iconLighting: Boolean = true,
+    val iconShape: AppIconShape = AppIconShape.SQUIRCLE,
     /** The icon pack chosen in Icons, as its package name; empty for none. */
     val iconPack: String = "",
     val focusOn: Boolean = false,
@@ -85,6 +86,8 @@ internal data class ExtrasState(
     /** Minutes that paused media worth returning to stays on the open island (and glows round the camera): 1, 2, 10 or 30. */
     val mediaResumeMinutes: Int = 2,
     val progressTasks: Boolean = true,
+    /** Live scores from sports apps' ongoing notifications, as a scoreboard on the island. */
+    val liveScores: Boolean = true,
     val navigationTasks: Boolean = true,
     /** The island drops down briefly for each turn instruction (a new arrow or street, or the turn coming close). */
     val navigationCues: Boolean = true,
@@ -168,6 +171,7 @@ internal class ExtrasStore(context: Context) {
         shortcuts = PanelLayout.parseIds(prefs.getString("shortcuts", null)),
         iconStyle = IconStyle.fromPreference(prefs.getString("iconStyle", null)),
         iconLighting = prefs.getBoolean("iconLighting", true),
+        iconShape = AppIconShape.fromPreference(prefs.getString("iconShape", null)),
         iconPack = prefs.getString("iconPack", "") ?: "",
         focusOn = prefs.getBoolean("focusOn", false),
         focusHidden = PanelLayout.parseIds(prefs.getString("focusHidden", null)).toSet(),
@@ -197,6 +201,7 @@ internal class ExtrasStore(context: Context) {
         islandCameraOnly = prefs.getBoolean(ISLAND_CAMERA_ONLY, false),
         mediaResumeMinutes = prefs.getInt("mediaResumeMinutes", 2),
         progressTasks = prefs.getBoolean("progressTasks", true),
+        liveScores = prefs.getBoolean("liveScores", true),
         navigationTasks = prefs.getBoolean("navigationTasks", true),
         navigationCues = prefs.getBoolean("navigationCues", true),
         peekLevel = prefs.getInt("peekLevel", 0).coerceIn(0, 2),
@@ -247,6 +252,7 @@ internal class ExtrasStore(context: Context) {
             .putString("shortcuts", PanelLayout.serializeIds(next.shortcuts))
             .putString("iconStyle", next.iconStyle.name)
             .putBoolean("iconLighting", next.iconLighting)
+            .putString("iconShape", next.iconShape.name)
             .putString("iconPack", next.iconPack)
             .putBoolean("focusOn", next.focusOn)
             .putString("focusHidden", PanelLayout.serializeIds(next.focusHidden.toList()))
@@ -275,6 +281,7 @@ internal class ExtrasStore(context: Context) {
             .putBoolean(ISLAND_CAMERA_ONLY, next.islandCameraOnly)
             .putInt("mediaResumeMinutes", next.mediaResumeMinutes)
             .putBoolean("progressTasks", next.progressTasks)
+            .putBoolean("liveScores", next.liveScores)
             .putBoolean("navigationTasks", next.navigationTasks)
             .putBoolean("navigationCues", next.navigationCues)
             .putInt("peekLevel", next.peekLevel)
@@ -326,6 +333,7 @@ internal class ExtrasStore(context: Context) {
     fun toggleShortcut(id: String) = save(state.copy(shortcuts = PanelLayout.toggleShortcut(state.shortcuts, id)))
     fun setIconStyle(value: IconStyle) = save(state.copy(iconStyle = value))
     fun setIconLighting(value: Boolean) = save(state.copy(iconLighting = value))
+    fun setIconShape(value: AppIconShape) = save(state.copy(iconShape = value))
     fun setIconPack(value: String) = save(state.copy(iconPack = value.take(200)))
     fun setFocusOn(value: Boolean) = save(state.copy(focusOn = value))
     fun toggleFocusHidden(id: String) =
@@ -348,6 +356,7 @@ internal class ExtrasStore(context: Context) {
     fun setIslandCameraOnly(value: Boolean) = save(state.copy(islandCameraOnly = value))
     fun setMediaResumeMinutes(value: Int) = save(state.copy(mediaResumeMinutes = value))
     fun setProgressTasks(value: Boolean) = save(state.copy(progressTasks = value))
+    fun setLiveScores(value: Boolean) = save(state.copy(liveScores = value))
     fun setNavigationTasks(value: Boolean) = save(state.copy(navigationTasks = value))
     fun setNavigationCues(value: Boolean) = save(state.copy(navigationCues = value))
     fun setPeekLevel(value: Int) = save(state.copy(peekLevel = value.coerceIn(0, 2)))

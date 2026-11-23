@@ -110,6 +110,25 @@ internal class PolygonShape(private val polygon: RoundedPolygon) : Shape {
     }
 }
 
+/** The outline an app icon is cut to for an [com.jake.duolauncher.AppIconShape], as an Android path filling a [size]-pixel square; null for the
+ *  launcher's rounded square. Built once a size and shape. */
+internal object IconOutlines {
+    private val cache = HashMap<Pair<String, Int>, android.graphics.Path>()
+    fun of(shape: com.jake.duolauncher.AppIconShape?, size: Float): android.graphics.Path? {
+        val polygon = when (shape) {
+            null, com.jake.duolauncher.AppIconShape.SQUIRCLE, com.jake.duolauncher.AppIconShape.MIXED -> return null
+            com.jake.duolauncher.AppIconShape.COOKIE -> ExpressivePolygons.cookie9
+            com.jake.duolauncher.AppIconShape.CLOVER -> ExpressivePolygons.cookie4
+            com.jake.duolauncher.AppIconShape.FLOWER -> ExpressivePolygons.flower
+            com.jake.duolauncher.AppIconShape.SUNNY -> ExpressivePolygons.sunny
+            com.jake.duolauncher.AppIconShape.PENTAGON -> ExpressivePolygons.pentagon
+        }
+        return synchronized(cache) {
+            cache.getOrPut(shape.name to size.toInt()) { polygon.toPath().apply { transform(android.graphics.Matrix().apply { setScale(size, size) }) } }
+        }
+    }
+}
+
 /**
  * Material 3 Expressive's loading indicator, as on Pixel: a shape that turns as it morphs from one of Material's shapes into the next. The
  * polygons and morphs are built once and one path is reused for every frame. With Android's animations off it is a still cookie.
@@ -123,11 +142,14 @@ internal fun ShapeLoader(color: Color, modifier: Modifier = Modifier) {
     val path = remember { android.graphics.Path() }
     val matrix = remember { android.graphics.Matrix() }
     val composePath = remember(path) { path.asComposePath() }
-    val phase = if (animate) {
+    // The phase is read where the loader is drawn, not where it is composed: it turns for as long as the model works (a plan can take
+    // most of a minute, on the island over another app), and each frame then redraws one path and composes nothing.
+    val phaseState = if (animate) {
         val t = rememberInfiniteTransition(label = "shape loader")
-        t.animateFloat(0f, shapes.size.toFloat(), infiniteRepeatable(tween(650 * shapes.size, easing = LinearEasing), RepeatMode.Restart), label = "phase").value
-    } else 1f
+        t.animateFloat(0f, shapes.size.toFloat(), infiniteRepeatable(tween(650 * shapes.size, easing = LinearEasing), RepeatMode.Restart), label = "phase")
+    } else null
     Canvas(modifier) {
+        val phase = phaseState?.value ?: 1f
         val step = phase.toInt().coerceIn(0, morphs.lastIndex)
         // Each step eases: a quick change, then a moment held in the new shape, as Material's indicator does.
         val raw = (phase - step).coerceIn(0f, 1f)
@@ -157,7 +179,10 @@ internal object ExpressiveShapes {
  * lens bends what is behind it along a curve fitted to that polygon, a circle whose radius swells [lobes] times. The centre and the two radii
  * are measured from the polygon itself, so the fit follows Google's outline (an odd-lobed cookie does not sit dead centre in its box).
  */
-internal class LobedShape(val polygon: RoundedPolygon, val lobes: Int, val phase: Float, val sharp: Float) {
+internal class LobedShape(val polygon: RoundedPolygon, val lobes: Int, val phase: Float, val sharp: Float,
+    /** Whether glass in this shape bends what is behind it along the outline. Only the shapes whose bend has been seen to follow the
+     *  outline do; the others are glass in the same outline (blur, tint, edge light) without the bend. */
+    val bends: Boolean = true) {
     val shape: Shape = PolygonShape(polygon)
     val centerX: Float = polygon.centerX
     val centerY: Float = polygon.centerY
@@ -191,4 +216,10 @@ internal object LobedShapes {
     val cookie9 by lazy { LobedShape(ExpressivePolygons.cookie9, 9, UP, sharp = .15f) }
     val cookie12 by lazy { LobedShape(ExpressivePolygons.cookie12, 12, UP, sharp = .15f) }
     val sunny by lazy { LobedShape(ExpressivePolygons.sunny, 8, 0f, sharp = .7f) }
+    // The second set. Their glass has no bend: the lens is a circle whose radius swells evenly, which the clover's four deep
+    // leaves, the flower's petals and the pentagon's straight sides are not, and a bend that leaves the outline is worse than none.
+    val clover by lazy { LobedShape(ExpressivePolygons.cookie4, 4, UP, sharp = .15f, bends = false) }
+    val flower by lazy { LobedShape(ExpressivePolygons.flower, 8, UP, sharp = .3f, bends = false) }
+    val burst by lazy { LobedShape(ExpressivePolygons.softBurst, 10, UP, sharp = .5f, bends = false) }
+    val pentagon by lazy { LobedShape(ExpressivePolygons.pentagon, 5, UP, sharp = .1f, bends = false) }
 }

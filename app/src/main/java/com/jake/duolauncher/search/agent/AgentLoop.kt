@@ -98,8 +98,10 @@ internal class AgentLoop(
 
     /** Runs a plan that needs no planning: the last task again, or with a value the person changed. [said] is everything they have
      *  said for it, which the plan's values are still checked against. */
-    suspend fun rerun(plan: Plan.Steps, said: String, grounding: String = "", planOnly: Boolean = false): AgentOutcome =
-        proceed(plan, said, grounding, planOnly, mayAskAgain = false)
+    /** [recognised]: the launcher read the request itself and the plan is exactly what it read ([DirectSkills]), so it is not
+     *  checked again against what kind of thing the request named: that check is for a plan a model wrote. */
+    suspend fun rerun(plan: Plan.Steps, said: String, grounding: String = "", planOnly: Boolean = false, recognised: Boolean = false): AgentOutcome =
+        proceed(plan, said, grounding, planOnly, mayAskAgain = false, recognised = recognised)
 
     private val searchTool: Tool? get() = tools.firstOrNull { it.name == "web_search" }
 
@@ -110,7 +112,8 @@ internal class AgentLoop(
             .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
             .getOrElse { ParseResult.Failed("I couldn't reach the planner: ${it.message ?: "unknown error"}") }
 
-    private suspend fun proceed(planned: Plan.Steps, query: String, grounding: String, planOnly: Boolean, mayAskAgain: Boolean = true): AgentOutcome {
+    private suspend fun proceed(planned: Plan.Steps, query: String, grounding: String, planOnly: Boolean, mayAskAgain: Boolean = true,
+        recognised: Boolean = false): AgentOutcome {
         val said = query + "\n" + grounding
         val plan = repaired(Plan.Steps(planned.steps.map { Step(it.tool, it.tool.mended(it.params, said)) }), query, said)
         this.plan = plan
@@ -120,7 +123,7 @@ internal class AgentLoop(
             return AgentOutcome.Asks(missing.question, missing.param?.takeIf { mayAskAgain }?.let { Fix(plan, index, it) })
         }
         if (planOnly) return planned(plan)
-        return runSteps(executor.bind(plan), unsure = RequestKinds.mismatch(query, plan))
+        return runSteps(executor.bind(plan), unsure = !recognised && RequestKinds.mismatch(query, plan))
     }
 
     /**

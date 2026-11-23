@@ -576,6 +576,10 @@ internal fun DynamicIsland(
             leading == LiveKind.MEDIA -> 16f
             leading == LiveKind.UPDATE && updates.firstOrNull()?.source == ActivitySource.NAVIGATION -> measuredDp(liveDetailText(leading, clockMs,
                 updates.firstOrNull(), liveCompactLevel, compact), androidx.compose.ui.text.TextStyle(fontSize = NavigationText.PILL_SP.sp, fontWeight = FontWeight.Bold)) + 4f
+            // A game: each side of the camera holds a team's mark and its score, so each needs the mark, the gap and the wider score.
+            leading == LiveKind.UPDATE && updates.firstOrNull()?.score != null -> updates.first().score!!.let { score ->
+                pillDp * GLYPH_FRACTION + SCORE_GAP_DP + measuredDp(maxOf(score.left.score, score.right.score).toString(), slot) + 4f
+            }
             leading != null -> measuredDp(liveDetailText(leading, clockMs, updates.firstOrNull(), liveCompactLevel, compact), slot) + 4f
             else -> 0f
         }

@@ -157,6 +157,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         val themedDark = DuoAppearanceRuntime.dark
         val iconStyle = IconStyle.fromPreference(getApplication<Application>().getSharedPreferences("extras", 0).getString("iconStyle", null)).resolve(themedDark)
         val iconLighting = getApplication<Application>().getSharedPreferences("extras", 0).getBoolean("iconLighting", true)
+        val iconShape = AppIconShape.fromPreference(getApplication<Application>().getSharedPreferences("extras", 0).getString("iconShape", null))
         val iconPackName = getApplication<Application>().getSharedPreferences("extras", 0).getString("iconPack", "").orEmpty()
         val iconPackVersion = if (iconPackName.isEmpty()) 0L else IconPacks.version(getApplication(), iconPackName)
         val themedAccent = if (iconStyle.usesWallpaper(getApplication<Application>().getSharedPreferences("appearance", 0).getBoolean("wallpaperColor", false)))
@@ -164,7 +165,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         // The icon style and, only while themed, the light/dark palette are part of what an icon looks
         // like, so changing either rebuilds every cached icon.
         val configuration = resources.configuration.let {
-            "${it.densityDpi}|${it.locales.toLanguageTags()}|${it.uiMode}|$iconStyle|$iconLighting|$iconPackName:$iconPackVersion|${if (iconStyle.recolours) themedDark else ""}|${themedAccent?.accent?.toArgb() ?: ""}"
+            "${it.densityDpi}|${it.locales.toLanguageTags()}|${it.uiMode}|$iconStyle|$iconLighting|$iconShape|$iconPackName:$iconPackVersion|${if (iconStyle.recolours) themedDark else ""}|${themedAccent?.accent?.toArgb() ?: ""}"
         }
         viewModelScope.launch {
             try {
@@ -218,7 +219,9 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
                                 val description = runCatching {
                                     info.applicationInfo.loadDescription(application.packageManager)?.toString()?.trim()?.takeIf { it.isNotEmpty() }
                                 }.getOrNull()
-                                AppEntry(id, label, launcherIcon(icon, if (packIcon != null) IconStyle.ORIGINAL else iconStyle, themedDark, themedAccent, lit = iconLighting && packIcon == null), component, profile, serial, descriptor.label,
+                                AppEntry(id, label, launcherIcon(icon, if (packIcon != null) IconStyle.ORIGINAL else iconStyle, themedDark, themedAccent, lit = iconLighting && packIcon == null,
+                                    // An icon pack's icons are drawn in their own outlines and are left in them.
+                                    shape = if (packIcon != null) null else iconShape.forApp(id)), component, profile, serial, descriptor.label,
                                     descriptor.isWork, available = true, description = description).also { iconCache[id] = it }
                             }
                         }
@@ -735,7 +738,9 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
  * than hard-clipping, so the curved edge is smooth at every size.
  */
 private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGINAL, dark: Boolean = false,
-    accent: WallpaperAccent? = null, lit: Boolean = false): Bitmap {
+    accent: WallpaperAccent? = null, lit: Boolean = false, shape: AppIconShape? = null): Bitmap {
+    // Cut to a Material shape instead of the rounded square (Icon Shape): the same layers, the same smooth mask, another outline.
+    val cut = com.jake.duolauncher.appearance.IconOutlines.of(shape, 144f)
     val bitmap = Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     if (drawable !is AdaptiveIconDrawable) drawLegacyIcon(canvas, drawable, style == IconStyle.DARK)
@@ -757,7 +762,8 @@ private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGIN
         } else null
         if (style == IconStyle.DARK) drawDarkTile(canvas) else drawable.background?.draw(canvas)
         canvas.save()
-        val grow = IconArt.fillScale(stats?.extent ?: 1f)
+        // In a scalloped outline the art is drawn a little smaller, so a logo that reached the rounded square's edge clears the dips.
+        val grow = IconArt.fillScale(stats?.extent ?: 1f) * (if (cut != null) IconArt.SHAPED_ART else 1f)
         canvas.scale(grow, grow, 72f, 72f)
         val monochrome = if (android.os.Build.VERSION.SDK_INT >= 33) drawable.monochrome else null
         // Dark art is lifted only when it is neutral: dark but coloured art (a red button) keeps its colour.
@@ -777,13 +783,13 @@ private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGIN
         canvas.restore()
     }
     }
-    val outside = Path().also { Squircle.build(144f, 144f, 144f * Corner.ICON_FRACTION, AndroidPathSink(it)) }
+    val outside = if (cut != null) Path(cut) else Path().also { Squircle.build(144f, 144f, 144f * Corner.ICON_FRACTION, AndroidPathSink(it)) }
     outside.fillType = Path.FillType.INVERSE_WINDING
     canvas.drawPath(outside, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR)
     })
     // Themed icons are painted as glass with their own light; original icons get the raised look here, inside the same silhouette.
-    if (lit && !style.recolours) drawIconLighting(canvas, 144f)
+    if (lit && !style.recolours) drawIconLighting(canvas, 144f, cut)
     return bitmap
 }
 
@@ -893,6 +899,8 @@ internal object IconArt {
     /** How much of the tile (its larger side) the artwork should span at least; smaller artwork is enlarged up to [MAX_GROW]. */
     const val TARGET_EXTENT = .6f
     const val MAX_GROW = 1.2f
+    /** How much smaller the artwork is drawn inside a Material shape than inside the rounded square, so it clears the outline's dips. */
+    const val SHAPED_ART = .9f
     /** Artwork darker than this (mean luminance of its opaque pixels) would vanish on the Dark style's tile, so it is lifted. */
     const val DARK_ART = .28f
     /** How much of the tile a legacy icon with transparent corners takes. */

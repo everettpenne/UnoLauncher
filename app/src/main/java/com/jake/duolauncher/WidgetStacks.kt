@@ -70,9 +70,19 @@ internal object WidgetStacks {
         if (prefs != null) return
         prefs = context.applicationContext.getSharedPreferences("widget_stacks", Context.MODE_PRIVATE)
         stacks = StackRules.parse(runCatching { prefs?.getString("stacks", "") }.getOrNull())
+        smart = runCatching { prefs?.getString("smart", "") }.getOrNull().orEmpty().split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
     }
 
     fun members(slot: Int): List<Int> = stacks[slot].orEmpty()
+
+    /** The stacks that turn themselves to the widget usually looked at about now (their options' Smart Rotate). Off for every stack
+     *  until switched on for it. */
+    var smart by mutableStateOf<Set<Int>>(emptySet()); private set
+
+    fun setSmart(slot: Int, on: Boolean) {
+        smart = if (on) smart + slot else smart - slot
+        prefs?.edit()?.putString("smart", smart.joinToString(","))?.apply()
+    }
 
     /** Slots of Uno widgets stacked behind widgets that are placed: not free for a new widget, and their data is kept. */
     fun unoMemberSlots(placedSlots: Set<Int>): Set<Int> = StackRules.memberSlots(stacks, placedSlots)

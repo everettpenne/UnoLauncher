@@ -426,10 +426,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Style at Expressive goes further (Settings, Appearance, Style): three colours, your accent and two from the wallpaper, in the small tonal fills.</string>
-    <string name="whats_new_2">Shapes that mean something: in search, menus and Settings a cookie is something Uno does, a soft burst is asking Qwen, a pill goes elsewhere, a flower is a person.</string>
-    <string name="whats_new_3">Titles of Settings, sheets, dialogs and folders in the display face; a tonal bubble for what you say to Qwen; bolder numbers and thicker progress on the island\'s cards.</string>
-    <string name="whats_new_4">Balanced, the default, looks as it did. Calm is untouched.</string>
+    <string name="whats_new_1">Live scores on the island: with a sports app\'s live-score notification up, a team and its score sit each side of the camera, and the card is a scoreboard. Island, Live Scores turns it off.</string>
+    <string name="whats_new_2">A Home that learns, if you let it (Home Screen, Learn from How You Use Home): a Suggested apps widget for the apps you open about now, and Smart Rotate for widget stacks.</string>
+    <string name="whats_new_3">More shapes: Clover, Flower, Burst and Pentagon widgets, a shaped Photos widget, and Icon Shape for app icons (Appearance, App Icons).</string>
+    <string name="whats_new_4">Ask Qwen: “remind me to call Sam at 5”, “use the expressive style”, “open uno settings”. Done at once, with no model.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>
@@ -538,6 +538,9 @@
     <string name="spotlight_ask_cancel">Cancel</string>
     <string name="spotlight_ask_undo">Undo</string>
     <string name="spotlight_ask_dismiss">Dismiss</string>
+    <string name="stack_smart_rotate">Smart Rotate</string>
+    <string name="stack_smart_rotate_detail">Turns to the widget you usually look at about now. Learns from the turns you make, on this phone only.</string>
+    <string name="suggestions_turn_on">By time of day: turn on in Home Screen settings</string>
     <string name="assistant_rate_up">Good response</string>
     <string name="assistant_rate_down">Not what I meant</string>
 </resources>

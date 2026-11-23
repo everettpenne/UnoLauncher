@@ -34,7 +34,10 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 /** Every Uno widget's card. Its content sits 16 dp in from each edge, the margin iOS gives a widget's content. */
-internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.ui.unit.Dp = 16.dp, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.ui.unit.Dp = 16.dp,
+    /** The content is a picture that paints to the widget's edge: in a Material shape it fills the shape (the slot clips it) and is
+     *  not drawn smaller to sit inside the dips, as text must be. */
+    bleed: Boolean = false, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val glass = LocalPageGlass.current
     val previewing = LocalWidgetPreview.current
     val cardStyle = LocalWidgetStyle.current == WidgetStyle.CARD
@@ -45,7 +48,9 @@ internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.
     // On a card there is no glass: a button inside it is the flat kind. As glass it took the wallpaper's colour through an opaque card, and on
     // a dark wallpaper came out dark under the card's dark ink ("Allow" on the Screen time widget).
     CompositionLocalProvider(LocalGlassInk provides ink.glassInk, LocalPageGlass provides (if (cardStyle) null else glass)) {
-        if (lobed != null && slotPaints) {
+        if (lobed != null && slotPaints && bleed) {
+            Column(modifier.fillMaxSize().then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)), content = content)
+        } else if (lobed != null && slotPaints) {
             // In a Material shape: the slot has painted and clipped it (card or glass). The content is kept inside the shape's dips and centred,
             // since a corner of the usual layout would fall outside a scalloped outline.
             BoxWithConstraints(modifier.fillMaxSize().then(if (cardStyle) Modifier else ink.track)

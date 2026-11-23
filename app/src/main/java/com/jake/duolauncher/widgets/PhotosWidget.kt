@@ -86,7 +86,9 @@ internal fun PhotosFace(slot: Int, onOptions: () -> Unit) {
     var previewOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     GlassCard(onClick = { previewOpen = true }, modifier = Modifier.testTag("uno-photos-$slot"),
-        padding = if (sourceUris.isEmpty() && !LocalWidgetPreview.current) 14.dp else 0.dp) {
+        padding = if (sourceUris.isEmpty() && !LocalWidgetPreview.current) 14.dp else 0.dp,
+        // A picture fills whatever shape the widget has; the words shown when there is none are fitted inside it like any widget's.
+        bleed = !(sourceUris.isEmpty() && !LocalWidgetPreview.current)) {
         val ink = LocalGlassInk.current
         when {
             sourceUris.isEmpty() && LocalWidgetPreview.current -> {

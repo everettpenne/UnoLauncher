@@ -31,7 +31,7 @@ class DebugLiveUpdateReceiver : BroadcastReceiver() {
             inject(context, it, intent)
             // --ez card true then opens that activity's long-press card at once (the same card a long press on the pill opens), for a steady screenshot.
             if (intent.getBooleanExtra("card", false)) {
-                val kind = when (it) { "call" -> com.jake.duolauncher.island.LiveKind.CALL; "nav", "download", "update" -> com.jake.duolauncher.island.LiveKind.UPDATE; else -> null }
+                val kind = when (it) { "call" -> com.jake.duolauncher.island.LiveKind.CALL; "nav", "download", "update", "score", "assistant" -> com.jake.duolauncher.island.LiveKind.UPDATE; else -> null }
                 com.jake.duolauncher.island.IslandQuickActions.card(context, kind, System.currentTimeMillis())?.let { card ->
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ com.jake.duolauncher.island.IslandRuntime.state.showPeekCard(card) }, 600L)
                 }
@@ -50,6 +50,8 @@ class DebugLiveUpdateReceiver : BroadcastReceiver() {
             .setContentTitle(intent.getStringExtra("title") ?: "Ride to the airport")
             .setContentText(intent.getStringExtra("text") ?: "Driver is 4 minutes away")
             .setOngoing(true).setContentIntent(open)
+        // --ez plain true: an ordinary ongoing notification, not promoted and with no progress, as a sports app's live score is.
+        if (!intent.getBooleanExtra("plain", false)) builder
             // What Notification.Builder.setRequestPromotedOngoing(true) (API 37) sets; written directly as the SDK built against lacks it.
             .addExtras(android.os.Bundle().apply { putBoolean("android.requestPromotedOngoing", true) })
             .setStyle(Notification.ProgressStyle().setProgress(intent.getIntExtra("progress", 40)).setProgressSegments(
@@ -70,6 +72,17 @@ class DebugLiveUpdateReceiver : BroadcastReceiver() {
                 intent.getStringExtra("text") ?: "Turn right onto Main Street", 0, turnArrow(), "12 min"))
             "download" -> feed.liveUpdates = listOf(update(com.jake.duolauncher.island.ActivitySource.PROGRESS, intent.getStringExtra("title") ?: "Downloading episode", null,
                 intent.getIntExtra("progress", 60), null, null))
+            // score --es title "Lakers 98 @ Celtics 101 · Q3 4:21": a sports app's live score, read by the same parser a real one is.
+            "score" -> {
+                val title = intent.getStringExtra("title") ?: "Lakers 98 @ Celtics 101 · Q3 4:21"
+                val text = intent.getStringExtra("text")
+                feed.liveUpdates = listOf(update(com.jake.duolauncher.island.ActivitySource.SPORTS, title, text, 0, null, null)
+                    .copy(progressMax = 0, appLabel = "Sports", score = com.jake.duolauncher.island.SportsLogic.parse(title, text)))
+            }
+            // assistant: Qwen's turn while it thinks, as the island shows it.
+            "assistant" -> feed.liveUpdates = listOf(com.jake.duolauncher.island.LiveUpdate(com.jake.duolauncher.search.AssistantLive.KEY, context.packageName, "Uno", "Ask Qwen",
+                "Planning what to do", "Thinking…", 0, 0, intent.getBooleanExtra("working", true), null, false, null, 0, System.currentTimeMillis(), null,
+                source = com.jake.duolauncher.island.ActivitySource.PROGRESS))
             "update" -> feed.liveUpdates = listOf(update(com.jake.duolauncher.island.ActivitySource.PROMOTED, intent.getStringExtra("title") ?: "Ride to the airport",
                 intent.getStringExtra("text") ?: "Driver is 4 minutes away", intent.getIntExtra("progress", 40), null, intent.getStringExtra("short") ?: "4 min"))
         }

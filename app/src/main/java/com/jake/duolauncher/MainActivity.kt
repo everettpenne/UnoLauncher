@@ -150,6 +150,7 @@ class MainActivity : ComponentActivity() {
         // Before anything can prune widget ids: stacked widgets are not on the grid but must stay bound.
         UpdateSecurity.appVersion = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "unknown"
         WidgetStacks.init(this)
+        HomeHabits.init(this)
         LargeFolders.init(this)
         WidgetData.init(this)
         IslandThemes.init(this)
@@ -436,6 +437,8 @@ class MainActivity : ComponentActivity() {
 
     private fun launchApp(app: AppEntry, bounds: android.graphics.Rect? = null) {
         UnoFeedback.play(Cue.LAUNCH, window.decorView)
+        // Which app, at which hour: kept only while Home is learning (Home Screen settings), for the Suggested apps widget.
+        HomeHabits.noteLaunch(this, app.id)
         island.showLaunch(app)
         try {
             val user = getSystemService(UserManager::class.java).getUserForSerialNumber(app.userSerial)

@@ -68,11 +68,7 @@ internal fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifi
     // A small Uno widget can take one of Material's shapes (its options, with Appearance › Style at Balanced or Expressive).
     val shapeContext = androidx.compose.ui.platform.LocalContext.current
     remember { WidgetShapes.load(shapeContext); true }
-    val lobed = when (WidgetShapeRules.resolve(WidgetShapes.own(slot), id, WidgetStacks.stacks[slot].orEmpty().isNotEmpty(), Expression.now.widgetShapes)) {
-        WidgetShape.COOKIE -> LobedShapes.cookie12
-        WidgetShape.SUNNY -> LobedShapes.sunny
-        WidgetShape.DEFAULT -> null
-    }
+    val lobed = WidgetShapeRules.outline(WidgetShapeRules.resolve(WidgetShapes.own(slot), id, WidgetStacks.stacks[slot].orEmpty().isNotEmpty(), Expression.now.widgetShapes))
     CompositionLocalProvider(LocalWidgetStyle provides style, LocalSlotPaints provides true, LocalWidgetShape provides lobed) {
         WidgetSlotBody(id, slot, controller, modifier, onAdd, fallback, style)
     }
@@ -87,6 +83,17 @@ private fun WidgetSlotBody(id: Int, slot: Int, controller: WidgetController, mod
     val members = WidgetStacks.stacks[slot].orEmpty()
     var stackPage by rememberSaveable(slot) { mutableIntStateOf(0) }
     val shown = StackRules.clampPage(stackPage, members.size)
+    // A stack set to Smart Rotate turns, as Home comes to the front, to the widget usually looked at about now (learned from the
+    // turns made by hand, while Home is learning). A turn by hand always wins: it is not undone until Home next comes to the front.
+    val smartStack = members.isNotEmpty() && slot in WidgetStacks.smart
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        if (smartStack) HomeHabits.stackPage(slot, listOf(id) + members)?.let { stackPage = it }
+    }
+    val turnedByHand: (Int) -> Unit = { page ->
+        stackPage = page
+        // Learned against the widget itself (the one on Home, or the member's own code), not its place in the stack.
+        if (members.isNotEmpty()) (listOf(id) + members).getOrNull(page)?.let { HomeHabits.noteStackView(slot, it) }
+    }
     val stackHaptic = LocalHapticFeedback.current
     val rootView = LocalView.current.rootView
     // What a screen reader says about a stack, and the actions it offers in place of the swipe and the rail's dots.
@@ -106,7 +113,7 @@ private fun WidgetSlotBody(id: Int, slot: Int, controller: WidgetController, mod
         // The Lock Screen clock sits bare on the wallpaper: a card behind its white type made it unreadable.
         if (WidgetStyleRules.bare(id) && members.isEmpty()) Modifier
         else if (lobed != null && style == WidgetStyle.CARD) Modifier.widgetCard(lobed.shape)
-        else if (lobed != null && glass != null) Modifier.shapedGlass(glass, lobed.shape, lobed,
+        else if (lobed != null && glass != null) Modifier.shapedGlass(glass, lobed.shape, lobed.takeIf { it.bends },
             surface = GlassFinish.tint(glass.tint.copy(alpha = GlassKind.CLEAR.tintAlpha)))
         else if (style == WidgetStyle.CARD) Modifier.widgetCard(Corner.widget)
         else if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.widget,
@@ -118,7 +125,7 @@ private fun WidgetSlotBody(id: Int, slot: Int, controller: WidgetController, mod
         }
         // Swiping up or down on a stack moves through its widgets, as on iOS. Sideways swipes are left to the pager, and a
         // provider's own vertical scrolling (a list widget) keeps its touches: the dots still switch those.
-        .stackSwipe(members.isNotEmpty(), { shown }, members.size + 1, { page -> stackPage = page },
+        .stackSwipe(members.isNotEmpty(), { shown }, members.size + 1, turnedByHand,
             blockedByProvider = { down ->
                 val onScreen = IntArray(2).also(rootView::getLocationOnScreen)
                 val pageId = if (shown == 0) id else members.getOrElse(shown - 1) { 0 }
@@ -196,7 +203,7 @@ private fun WidgetSlotBody(id: Int, slot: Int, controller: WidgetController, mod
         LaunchedEffect(shown, members.size) { if (members.isNotEmpty()) { railVisible = true; delay(STACK_DOTS_SHOWN_MS); railVisible = false } }
         androidx.compose.animation.AnimatedVisibility(railVisible && members.isNotEmpty(), Modifier.align(Alignment.CenterEnd).padding(end = 5.dp),
             enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(400))) {
-            StackRail(shown, members.size + 1, { stackPage = it; railVisible = true })
+            StackRail(shown, members.size + 1, { turnedByHand(it); railVisible = true })
         }
     }
 }

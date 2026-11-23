@@ -84,10 +84,12 @@ private fun GesturesGroups(store: ExtrasStore, s: ExtrasState, apps: List<AppEnt
 
 @Composable
 private fun IconGroups(store: ExtrasStore, s: ExtrasState) {
-    SettingsGroup(header = "App Icons", footer = "Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Dark puts each app's colours on a near-black tile, and Auto does that while Uno is dark. Icon Lighting gives original icons a soft lit edge, like iOS.") {
+    SettingsGroup(header = "App Icons", footer = "Icon Shape cuts every app's icon to one of Material's shapes, as on Pixel, or with Mixed gives each app its own; an icon pack's icons keep their own outlines. Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Dark puts each app's colours on a near-black tile, and Auto does that while Uno is dark. Icon Lighting gives original icons a soft lit edge, like iOS.") {
         row { DropdownRow("Icon Style", IconStyle.entries, s.iconStyle, { when (it) { IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark"; IconStyle.AUTOMATIC -> "Auto" } },
             "icons-style", optionTag = { when (it) { IconStyle.ORIGINAL -> "icons-original"; IconStyle.THEMED -> "icons-themed"; IconStyle.TINTED -> "icons-tinted"; IconStyle.DARK -> "icons-dark"; IconStyle.AUTOMATIC -> "icons-auto" } },
             onSelect = store::setIconStyle) }
+        row { DropdownRow("Icon Shape", AppIconShape.entries, s.iconShape, { it.label }, "icons-shape", optionTag = { "icons-shape-${it.name.lowercase()}" },
+            onSelect = store::setIconShape) }
         row { SettingsSwitch("Icon Lighting", s.iconLighting, store::setIconLighting, "icons-lit") }
     }
     IconPackSettings(s.iconPack, store::setIconPack)
@@ -270,9 +272,10 @@ internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) 
     fun demo(scene: PreviewScene) { preview?.show(scene) }
     val systemAlerts = s.securityAlerts
     SettingsGroup(header = "Shows",
-        footer = "Live Updates are Android 16's ongoing notifications (a ride, a delivery). Navigation drops the island down for each turn. System Alerts flash for VPN, USB data, headphones and Bluetooth devices; Bluetooth names need Android's Nearby devices permission.") {
+        footer = "Live Updates are Android 16's ongoing notifications (a ride, a delivery). Live Scores shows a game's score as a scoreboard when a sports app has its live-score notification up: Uno reads that notification's title and text, and fetches nothing itself. Navigation drops the island down for each turn. System Alerts flash for VPN, USB data, headphones and Bluetooth devices; Bluetooth names need Android's Nearby devices permission.") {
         row { SettingsSwitch("Live Updates", s.liveUpdates, { store.setLiveUpdates(it); demo(PreviewScene.LIVE) }, "live-updates-switch") }
         row { SettingsSwitch("Downloads & Progress", s.progressTasks, store::setProgressTasks, "progress-tasks-switch") }
+        row { SettingsSwitch("Live Scores", s.liveScores, store::setLiveScores, "live-scores-switch") }
         row { SettingsSwitch("Navigation", s.navigationTasks, { store.setNavigationTasks(it); store.setNavigationCues(it) }, "navigation-tasks-switch") }
         row { SettingsSwitch("Calls", s.callDetails, store::setCallDetails, "call-details-switch") }
         row { SettingsSwitch("Camera & Mic Indicators", s.privacyIndicators, { store.setPrivacyIndicators(it); demo(PreviewScene.PRIVACY) }, "privacy-indicators-switch") }

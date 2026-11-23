@@ -350,9 +350,14 @@ private fun UpdateCard(peek: PeekNotification, nowMs: Long, playful: Boolean) {
     val fraction = if (update == null || max <= 0) 0f else (update.progress.toFloat() / max).coerceIn(0f, 1f)
     val animated by animateFloatAsState(fraction, IslandThemes.active.spring(.8f, 120f), label = "update fraction")
     if (update?.source == ActivitySource.NAVIGATION) { NavigationCard(update, accent, playful); return }
+    // A game's score is a scoreboard, not a notification's line of text.
+    update?.score?.let { score -> ScoreCard(update, score, accent) { sendTapAction(context, update.openIntent) }; return }
+    val assistant = update?.key == com.jake.duolauncher.search.AssistantLive.KEY
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            update?.icon?.let { Image(remember(it) { it.asImageBitmap() }, null, Modifier.size(36.dp).clip(IslandThemes.active.iconShape.shape())) }
+            // The assistant's turn has its own glyph: the turning loader while it works (see AssistantGlyph).
+            if (assistant) AssistantGlyph(working = update?.indeterminate == true, 36.dp, accent)
+            else update?.icon?.let { Image(remember(it) { it.asImageBitmap() }, null, Modifier.size(36.dp).clip(IslandThemes.active.iconShape.shape())) }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(update?.title ?: peek.title.orEmpty(), color = themeInk, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)

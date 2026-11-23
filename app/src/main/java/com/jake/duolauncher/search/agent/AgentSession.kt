@@ -105,6 +105,16 @@ internal class AgentSession(
         }
     }
 
+    /**
+     * Runs a plan the launcher recognised by itself ([DirectSkills]): no planner is asked. It goes through the same loop as any plan,
+     * so a missing value is asked for, Undo works, and the turn is kept and logged (route `direct`).
+     */
+    fun direct(query: String, plan: Plan.Steps, planOnly: Boolean = false) {
+        awaiting = null
+        groundingNow = Grounding()
+        turn(asked = query, request = query, mayAwait = false, route = "direct", facts = "", planOnly = planOnly) { loop, _ -> loop.rerun(plan, query, "", planOnly, recognised = true) }
+    }
+
     private var groundingNow: Grounding = Grounding()
 
     private var last: LastTurn? = null

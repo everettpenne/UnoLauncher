@@ -660,6 +660,13 @@ internal fun Spotlight(
             (com.jake.duolauncher.search.agent.AgentRouting.planOnly && scriptedAsk))
         // A request that will be planned and acted on gets the phone's own facts only. What others wrote (a message, a headline, the
         // clipboard, the screen) goes with a question to be answered, never with one that may act: it was being sent to the planner too.
+        // What the launcher recognises by itself (a reminder, its own Style, its own settings) is done at once, with no model asked.
+        if (agent != null && com.jake.duolauncher.search.agent.AgentRouting.enabled(context)) {
+            com.jake.duolauncher.search.agent.DirectSkills.read(q)?.let { plan ->
+                agent.direct(q, plan, planOnly = com.jake.duolauncher.search.agent.AgentRouting.planOnly)
+                return@ask
+            }
+        }
         val facts = contextEnv?.let { env ->
             withContext(Dispatchers.IO) {
                 runCatching { com.jake.duolauncher.search.context.PhoneContext.build(q, action = planned, env) }.getOrDefault("")

@@ -50,6 +50,26 @@ internal enum class IconStyle {
     companion object { fun fromPreference(raw: String?): IconStyle = entries.firstOrNull { it.name == raw } ?: ORIGINAL }
 }
 
+/**
+ * The outline app icons are cut to: the launcher's own rounded square, or one of Material's shapes, as Pixel's icon shapes. [MIXED]
+ * gives each app one of the shapes, always the same one for that app. An option of its own (Appearance › App Icons), whatever Style is.
+ */
+internal enum class AppIconShape(val label: String) {
+    SQUIRCLE("Default"), COOKIE("Cookie"), CLOVER("Clover"), FLOWER("Flower"), SUNNY("Sunny"), PENTAGON("Pentagon"), MIXED("Mixed");
+
+    /** The shape the app [id] takes: this one, or for [MIXED] one of the five by the app's id. Null is the rounded square. Pure. */
+    fun forApp(id: String): AppIconShape? = when (this) {
+        SQUIRCLE -> null
+        MIXED -> SHAPED[(id.hashCode() and 0x7FFFFFFF) % SHAPED.size]
+        else -> this
+    }
+
+    companion object {
+        private val SHAPED = listOf(COOKIE, CLOVER, FLOWER, SUNNY, PENTAGON)
+        fun fromPreference(raw: String?): AppIconShape = entries.firstOrNull { it.name == raw } ?: SQUIRCLE
+    }
+}
+
 /** Every tile the control panel can show. The order here is the default order. */
 internal enum class PanelTile(val label: String) {
     MEDIA("Media"),

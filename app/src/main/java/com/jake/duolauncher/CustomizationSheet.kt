@@ -532,6 +532,16 @@ private fun HelpSection(icon: ImageVector, title: String, detail: String) {
         if (!p.dockAlignToGrid) row { CustomizationSlider("Dock Position", "${(p.dockPosition * 100).toInt()}%", p.dockPosition, .25f.. .75f) { model.setPreset(wide, p.copy(dockPosition = it)) } }
         row { ActionRow("Reset Layout", "home-reset-layout") { model.setPreset(wide, LayoutPreset()) } }
     }
+    val habitContext = androidx.compose.ui.platform.LocalContext.current
+    remember { HomeHabits.init(habitContext); true }
+    val learned = remember(HomeHabits.revision, HomeHabits.learning) { HomeHabits.learned() }
+    SettingsGroup(header = "Smarter Home", footer = "While this is on, Uno counts which apps you open from it in each hour of the day, and which widget of a " +
+        "stack you turn to when. The Suggested apps widget then offers the apps you usually open about now, and a stack set to Smart Rotate (in its " +
+        "options) turns itself to the widget you usually look at. The counts fade over a few weeks, stay on this phone, are in no backup, and are " +
+        "gone when you forget them here. Hidden apps, and apps Focus is hiding, are never suggested.") {
+        row { SettingsSwitch("Learn from How You Use Home", HomeHabits.learning, { HomeHabits.setLearning(habitContext, it) }, "home-learn-switch") }
+        if (learned > 0) row { ActionRow("Forget What Home Has Learned", "home-learn-forget", destructive = true) { HomeHabits.forget() } }
+    }
     val placements = state.widgetPlacements.filter { it.page == homePage || (wide && it.page == -1) }
     SettingsGroup(header = "Widgets · Page ${homePage + 1}") {
         placements.forEach { placement -> row {

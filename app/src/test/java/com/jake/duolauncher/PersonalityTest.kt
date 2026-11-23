@@ -89,7 +89,17 @@ class PersonalityTest {
         assertEquals(WidgetShape.SUNNY, WidgetShapeRules.parse("SUNNY")); assertNull(WidgetShapeRules.parse("HEXAGON"))
         // A widget that paints to its edge would be a rectangle floating in the shape; the Lock Screen clock has no card at all.
         assertFalse(WidgetShapeRules.eligible(com.jake.duolauncher.widgets.UnoWidgets.LIQUID_BATTERY))
-        assertFalse(WidgetShapeRules.eligible(com.jake.duolauncher.widgets.UnoWidgets.PHOTOS))
+        assertTrue("a photo fills its shape", WidgetShapeRules.eligible(com.jake.duolauncher.widgets.UnoWidgets.PHOTOS))
+        // Every shape but Default has an outline, the first two bend glass along it, and the saved names of the first two are unchanged.
+        WidgetShape.entries.forEach { assertEquals(it == WidgetShape.DEFAULT, WidgetShapeRules.outline(it) == null) }
+        assertTrue(WidgetShapeRules.outline(WidgetShape.COOKIE)!!.bends); assertTrue(WidgetShapeRules.outline(WidgetShape.SUNNY)!!.bends)
+        listOf(WidgetShape.CLOVER, WidgetShape.FLOWER, WidgetShape.BURST, WidgetShape.PENTAGON).forEach { assertFalse("$it", WidgetShapeRules.outline(it)!!.bends) }
+        assertEquals(listOf("DEFAULT", "COOKIE", "SUNNY"), WidgetShape.entries.take(3).map { it.name })
+        // Every outline leaves its content room: nothing is shrunk below the floor.
+        WidgetShape.entries.mapNotNull { WidgetShapeRules.outline(it) }.forEach { o ->
+            val fit = WidgetShapeRules.contentScale(160f, o.outer, o.inner, 16f)
+            assertTrue("${o.lobes} lobes: $fit", fit > .4f && fit <= 1f)
+        }
         assertFalse(WidgetShapeRules.eligible(com.jake.duolauncher.widgets.UnoWidgets.LOCK_CLOCK))
         assertTrue(WidgetStyleRules.bare(com.jake.duolauncher.widgets.UnoWidgets.LOCK_CLOCK)); assertFalse(WidgetStyleRules.bare(CLOCK_WIDGET))
     }
@@ -175,5 +185,16 @@ class PersonalityTest {
         assertEquals(kinds.toSet(), (0 until kinds.size).map { com.jake.duolauncher.appearance.Marks.cycled(it) }.toSet())
         assertEquals(com.jake.duolauncher.appearance.Marks.cycled(1), com.jake.duolauncher.appearance.Marks.cycled(1 + kinds.size))
         assertNotNull(com.jake.duolauncher.appearance.Marks.cycled(-3))
+    }
+
+    @Test fun anIconShapeIsTheSameForAnAppEveryTimeAndMixedUsesThemAll() {
+        assertNull("the default is the rounded square", AppIconShape.SQUIRCLE.forApp("com.example/.Main"))
+        assertEquals(AppIconShape.COOKIE, AppIconShape.COOKIE.forApp("anything"))
+        val ids = (1..200).map { "com.example.app$it/.Main" }
+        val mixed = ids.map { AppIconShape.MIXED.forApp(it)!! }
+        assertEquals("an app keeps its shape", mixed, ids.map { AppIconShape.MIXED.forApp(it)!! })
+        assertEquals(setOf(AppIconShape.COOKIE, AppIconShape.CLOVER, AppIconShape.FLOWER, AppIconShape.SUNNY, AppIconShape.PENTAGON), mixed.toSet())
+        assertEquals(AppIconShape.SQUIRCLE, AppIconShape.fromPreference(null)); assertEquals(AppIconShape.SQUIRCLE, AppIconShape.fromPreference("HEXAGON"))
+        assertEquals(AppIconShape.FLOWER, AppIconShape.fromPreference("FLOWER"))
     }
 }

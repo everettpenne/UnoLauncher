@@ -21,6 +21,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Usb
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Headphones
@@ -221,7 +222,10 @@ internal fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Bo
         LiveKind.STOPWATCH -> if (glyph) Icon(Icons.Rounded.Timer, null, tint = themeInk, modifier = Modifier.size(glyphSize))
             else Text(liveDetailText(kind, clockMs, update, liveCompactLevel, compact).orEmpty(), color = themeInk,
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
-        LiveKind.UPDATE -> if (update != null) {
+        LiveKind.UPDATE -> if (update?.score != null && !plain) {
+            // A game: one side and its score each side of the camera, as a scoreboard is.
+            ScoreSide(if (glyph) update.score.left else update.score.right, if (glyph) update.score.leftHue else update.score.rightHue, glyphSize, leading = glyph)
+        } else if (update != null) {
             val driving = update.source == ActivitySource.NAVIGATION
             if (glyph) UpdateGlyph(update, glyphSize, plain)
             else {
@@ -268,6 +272,8 @@ internal fun percentage(update: LiveUpdate): String {
 @Composable
 internal fun UpdateGlyph(update: LiveUpdate, size: androidx.compose.ui.unit.Dp, plain: Boolean = false) {
     val tint = updateTint(update)
+    // The assistant's own turn is not an app's activity: it has its own glyph wherever it is drawn (the pill, an extra capsule, the card).
+    if (update.key == com.jake.duolauncher.search.AssistantLive.KEY) { AssistantGlyph(working = update.indeterminate, size, tint); return }
     val fraction = LiveUpdateLogic.fraction(update.progress, update.progressMax, update.indeterminate)
     val ringColour = IslandThemes.active.progress(tint, fraction != null && fraction >= 1f)
     Box(Modifier.size(size).clip(IslandThemes.active.iconShape.shape()).background(tint.copy(alpha = .28f))
@@ -292,10 +298,87 @@ internal fun UpdateGlyph(update: LiveUpdate, size: androidx.compose.ui.unit.Dp, 
     }
 }
 
+/**
+ * A team's mark: its short name on a roundel of its own steady colour ([SportsLogic.hue]). It stands where a club's badge would: the
+ * launcher has no badges to show (they are the clubs' own, and a sports app's notification does not carry the two of them).
+ */
+@Composable
+internal fun TeamMark(side: SportsSide, hue: Float, size: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
+    val fill = remember(hue) { Color.hsl(hue, .62f, .40f) }
+    val short = side.short.take(3)
+    Box(modifier.size(size).background(fill, CircleShape).testTag("island-team-mark"), contentAlignment = Alignment.Center) {
+        Text(short, color = Color.White, fontSize = (size.value * (if (short.length >= 3) .34f else .42f)).sp, fontWeight = FontWeight.Bold, maxLines = 1,
+            style = androidx.compose.ui.text.TextStyle(platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)))
+    }
+}
+
+/** One side of a game on the pill: the team's mark and its score, the mark toward the pill's end and the score toward the camera. */
+@Composable
+internal fun ScoreSide(side: SportsSide, hue: Float, glyphSize: androidx.compose.ui.unit.Dp, leading: Boolean) {
+    Row(Modifier.testTag(if (leading) "island-score-leading" else "island-score-trailing"), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SCORE_GAP_DP.dp)) {
+        if (leading) TeamMark(side, hue, glyphSize)
+        Text(side.score.toString(), color = themeInk, fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"))
+        if (!leading) TeamMark(side, hue, glyphSize)
+    }
+}
+
+/** The space between a team's mark and its score on the pill. */
+internal const val SCORE_GAP_DP = 5f
+
+/**
+ * A game's score, as a scoreboard: each side's short name over its full one, the two scores large between them, and where the game is
+ * under those. The numbers are the island cards' own large numerals (the display face at Expressive). A tap opens the sports app.
+ */
+@Composable
+internal fun ScoreCard(update: LiveUpdate, score: SportsScore, tint: Color, onOpen: () -> Unit) {
+    val big = IslandCards.bigNumber()
+    Row(Modifier.fillMaxWidth().islandRowPress(onOpen).semantics(mergeDescendants = true) {
+        contentDescription = "${score.left.name} ${score.left.score}, ${score.right.name} ${score.right.score}" + (score.status?.let { ", $it" } ?: "")
+    }.testTag("island-score"), verticalAlignment = Alignment.CenterVertically) {
+        // Each side: its mark at the card's edge with its name under it, as a scoreboard has a team at each end.
+        @Composable fun side(s: SportsSide, end: Boolean) = Column(Modifier.weight(1f), horizontalAlignment = if (end) Alignment.End else Alignment.Start) {
+            TeamMark(s, if (end) score.rightHue else score.leftHue, 34.dp)
+            Text(s.name, Modifier.padding(top = 3.dp), color = themeInk.copy(alpha = .75f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        side(score.left, end = false)
+        Column(Modifier.padding(horizontal = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(score.left.score.toString(), style = big, color = themeInk, maxLines = 1, modifier = Modifier.testTag("island-score-left"))
+                Text(SportsLogic.BETWEEN, style = big, color = themeInk.copy(alpha = .45f), modifier = Modifier.padding(horizontal = 6.dp))
+                Text(score.right.score.toString(), style = big, color = themeInk, maxLines = 1, modifier = Modifier.testTag("island-score-right"))
+            }
+            Text(score.status ?: update.appLabel, color = tint, style = UnoType.caption1.tight, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        side(score.right, end = true)
+    }
+}
+
+/**
+ * The assistant on the island. While the model works (thinking, or carrying a task out) it is Material's shape-morphing loader,
+ * turning, drawn bare in the theme's colour: the same loader search shows for the same moment, at the same Style levels
+ * ([com.jake.duolauncher.appearance.Expression.Values.shapedBadges]). Otherwise, and at Calm, it is the assistant's sparkle on the plate
+ * every activity's glyph sits on. (It was the feed's glyph, which every activity without an icon of its own fell back to.)
+ */
+@Composable
+internal fun AssistantGlyph(working: Boolean, size: androidx.compose.ui.unit.Dp, tint: Color) {
+    if (working && com.jake.duolauncher.appearance.Expression.now.shapedBadges) {
+        Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+            com.jake.duolauncher.appearance.ShapeLoader(tint, Modifier.size(size * .86f).testTag("island-assistant-loader"))
+        }
+        return
+    }
+    Box(Modifier.size(size).clip(IslandThemes.active.iconShape.shape()).background(tint.copy(alpha = .28f)).testTag("island-assistant-glyph"), contentAlignment = Alignment.Center) {
+        Icon(Icons.Rounded.AutoAwesome, null, tint = tint, modifier = Modifier.size(size * .6f))
+    }
+}
+
 /** The open island's card for a Live Update: the app's icon, its title and text, its short status or clock, and a progress bar. */
 @Composable
 internal fun UpdateCard(update: LiveUpdate, clockMs: Long, onOpen: () -> Unit) {
     val tint = updateTint(update)
+    update.score?.let { score -> ScoreCard(update, score, tint, onOpen); return }
     Column(Modifier.fillMaxWidth().islandRowPress(onOpen).testTag("island-update")) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             val navigating = update.source == ActivitySource.NAVIGATION && update.largeIcon != null

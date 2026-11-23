@@ -119,6 +119,20 @@ internal fun WidgetActions(
         }
         onEditFolder?.let { ActionRow(Icons.Rounded.Folder, "Choose folder apps", it, Modifier.testTag("widget-folder-apps-${placement.slot}")) }
         onStackWith?.let { ActionRow(Icons.Rounded.Layers, "Stack another widget here", it, Modifier.testTag("widget-stack-${placement.slot}")) }
+        // A stack can turn itself to the widget usually looked at about now. It learns from the turns made by hand, so switching it on
+        // also switches Home's learning on (Home Screen settings says what that keeps, and forgets it).
+        if (stackMembers.isNotEmpty()) {
+            val smartContext = androidx.compose.ui.platform.LocalContext.current
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("widget-smart-${placement.slot}")) {
+                val smart = placement.slot in WidgetStacks.smart
+                GlassChip(smart, onClick = {
+                    WidgetStacks.setSmart(placement.slot, !smart)
+                    if (!smart && !HomeHabits.learning) HomeHabits.setLearning(smartContext, true)
+                }, label = { Text(stringResource(com.jake.duolauncher.R.string.stack_smart_rotate)) }, modifier = Modifier.testTag("widget-smart-chip-${placement.slot}"))
+            }
+            Text(stringResource(com.jake.duolauncher.R.string.stack_smart_rotate_detail),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         stackMembers.forEach { (memberId, label) ->
             ActionRow(Icons.Rounded.RemoveCircleOutline, "Remove $label from this stack", { onRemoveFromStack(memberId) },
                 Modifier.testTag("widget-unstack-$memberId"), tint = MaterialTheme.colorScheme.error)

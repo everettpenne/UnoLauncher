@@ -255,7 +255,8 @@ class UnoNotificationListener : NotificationListenerService() {
         val liveOn = prefs.getBoolean("liveUpdates", true)
         val navOn = prefs.getBoolean("navigationTasks", true)
         val tasksOn = prefs.getBoolean("progressTasks", true)
-        if (!liveOn && !navOn && !tasksOn) { NotificationFeed.liveUpdates = emptyList(); return }
+        val scoresOn = prefs.getBoolean("liveScores", true)
+        if (!liveOn && !navOn && !tasksOn && !scoresOn) { NotificationFeed.liveUpdates = emptyList(); return }
         val active = runCatching { activeNotifications }.getOrNull() ?: return
         val presentKeys = active.map { it.key }.toSet()
         // Debug builds also show their own (the test poster); a release build never lists its own notifications.
@@ -265,9 +266,16 @@ class UnoNotificationListener : NotificationListenerService() {
             .mapNotNull { sbn -> runCatching {
                 val n = sbn.notification; val e = n.extras
                 val promoted = LiveUpdateLogic.isLiveUpdate(n.flags)
-                val source = LiveUpdateLogic.classify(promoted, n.category, LiveUpdateLogic.isOngoing(n.flags),
+                val classified = LiveUpdateLogic.classify(promoted, n.category, LiveUpdateLogic.isOngoing(n.flags),
                     e.getInt(Notification.EXTRA_PROGRESS, 0), e.getInt(Notification.EXTRA_PROGRESS_MAX, 0),
-                    e.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false), liveOn, navOn, tasksOn) ?: return@runCatching null
+                    e.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false), liveOn, navOn, tasksOn)
+                // A live score (Island settings › Live Scores): an ongoing notification that is not a conversation, a call or a
+                // transfer has its title and text looked at for one, and is shown as a scoreboard only if they say one. Nothing is read
+                // from any other notification for this, and nothing is kept.
+                val mayScore = scoresOn && (classified == ActivitySource.PROMOTED ||
+                    (classified == null && SportsLogic.mayBeScore(n.category, LiveUpdateLogic.isOngoing(n.flags), e.getInt(Notification.EXTRA_PROGRESS_MAX, 0))))
+                val score = if (mayScore) SportsLogic.parse(e.getCharSequence(Notification.EXTRA_TITLE)?.toString(), e.getCharSequence(Notification.EXTRA_TEXT)?.toString()) else null
+                val source = classified ?: (if (score != null) ActivitySource.SPORTS else null) ?: return@runCatching null
                 val title = e.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
                 if (title.isEmpty()) return@runCatching null
                 val label = appLabelOf(sbn) ?: sbn.packageName
@@ -293,6 +301,7 @@ class UnoNotificationListener : NotificationListenerService() {
                     // The app's own colour if it gave one, else the colour of its icon.
                     color = n.color.takeIf { it != 0 } ?: AppTints.of(sbn.packageName) { appIconOf(sbn, 48) } ?: 0,
                 ).copy(
+                    score = score,
                     icon = smallIconOf(n),
                     openIntent = n.contentIntent,
                     // The turn arrow of a navigation instruction is its large icon; no other kind of activity has its large icon read.

@@ -215,7 +215,8 @@ object AssistOverlay {
             ) {
                 com.jake.duolauncher.appearance.KeepWallpaperPalette(appearance.state.dark)
                 DuoTheme(DuoAppearanceRuntime.dark) {
-                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                    // The finished-answer wave crosses this window too: the panel and, where there is one, the picture of the app behind it.
+                    AnswerAberration {
                     // Light in from the screen's edges as the assistant arrives over the app; under the panel.
                     AssistArrival(open)
                     // The panel is the surface's, the same one Home shows (SearchPanel); this window gives it how to open things from here.

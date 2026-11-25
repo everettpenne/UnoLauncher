@@ -27,6 +27,17 @@ class DebugLiveUpdateReceiver : BroadcastReceiver() {
         if (intent.hasExtra("mic")) com.jake.duolauncher.island.IslandRuntime.state.micActive = intent.getBooleanExtra("mic", false)
         // --es inject call|nav|download|clear puts that activity straight into the island's state (no notification, so no listener or Android 16 needed),
         // to see its card on any phone: call --es caller "Mina Okafor"; nav --es title "300 m" --es text "Turn right onto Main Street"; download --ei progress 60.
+        // --es inject list: says in the log what the island holds now (each activity, and a game's score), changing nothing.
+        // --es inject show --ei at 1: opens the card of the activity at that place, as it is, for a look at a real notification's card.
+        when (intent.getStringExtra("inject")) {
+            "list" -> { com.jake.duolauncher.NotificationFeed.liveUpdates.forEachIndexed { i, u -> android.util.Log.i("UnoDebug", "live $i ${u.source} ${u.packageName} \"${u.title}\" " +
+                "score=${u.score?.let { s -> "${s.left.name} ${s.left.score} / ${s.right.name} ${s.right.score} / ${s.status}" }} badges=${u.leftMark != null},${u.rightMark != null}") }; return }
+            "show" -> { val feed = com.jake.duolauncher.NotificationFeed; val at = intent.getIntExtra("at", 0)
+                feed.liveUpdates.getOrNull(at)?.let { chosen -> feed.liveUpdates = listOf(chosen) + (feed.liveUpdates - chosen) }
+                com.jake.duolauncher.island.IslandQuickActions.card(context, com.jake.duolauncher.island.LiveKind.UPDATE, System.currentTimeMillis())?.let { card ->
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ com.jake.duolauncher.island.IslandRuntime.state.showPeekCard(card) }, 300L) }
+                return }
+        }
         intent.getStringExtra("inject")?.let {
             inject(context, it, intent)
             // --ez card true then opens that activity's long-press card at once (the same card a long press on the pill opens), for a steady screenshot.
@@ -38,12 +49,27 @@ class DebugLiveUpdateReceiver : BroadcastReceiver() {
             }
             return
         }
-        if (!intent.hasExtra("title") && !intent.hasExtra("clear") && !intent.hasExtra("short")) return
+        if (!intent.hasExtra("title") && !intent.hasExtra("clear") && !intent.hasExtra("short") && !intent.hasExtra("drawn")) return
         if (android.os.Build.VERSION.SDK_INT < 36) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        if (intent.getBooleanExtra("clear", false)) { manager.cancel(ID); return }
+        if (intent.getBooleanExtra("clear", false)) { manager.cancel(ID); manager.cancel("game", ID + 1); manager.cancel("game2", ID + 1); return }
         manager.createNotificationChannel(NotificationChannel(CHANNEL, "Debug live updates", NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(context, 0, Intent(context, com.jake.duolauncher.MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        // --es drawn "BKN 9 MIN 18" [--es status "1st 5:47"]: a live game on a card the app drew itself, with no title and no text, as
+        // theScore's is. The island has only the words and the two pictures on the card to read.
+        intent.getStringExtra("drawn")?.split(' ')?.takeIf { it.size == 4 }?.let { (away, awayScore, home, homeScore) ->
+            val status = intent.getStringExtra("status").orEmpty().split(' ')
+            val card = android.widget.RemoteViews(context.packageName, com.jake.duolauncher.R.layout.debug_score_card).apply {
+                setTextViewText(com.jake.duolauncher.R.id.debug_away_name, away); setTextViewText(com.jake.duolauncher.R.id.debug_away_score, awayScore)
+                setTextViewText(com.jake.duolauncher.R.id.debug_home_name, home); setTextViewText(com.jake.duolauncher.R.id.debug_home_score, homeScore)
+                setTextViewText(com.jake.duolauncher.R.id.debug_status_1, status.getOrNull(0).orEmpty()); setTextViewText(com.jake.duolauncher.R.id.debug_status_2, status.getOrNull(1).orEmpty())
+                setImageViewBitmap(com.jake.duolauncher.R.id.debug_away_logo, badge(0xFF1F6FEB.toInt())); setImageViewBitmap(com.jake.duolauncher.R.id.debug_home_logo, badge(0xFF2DA44E.toInt()))
+            }
+            manager.notify(intent.getStringExtra("tag") ?: "game", ID + 1, Notification.Builder(context, CHANNEL)
+                .setSmallIcon(Icon.createWithResource(context, android.R.drawable.ic_menu_directions)).setOngoing(true).setContentIntent(open)
+                .setCategory(Notification.CATEGORY_EVENT).setStyle(Notification.DecoratedCustomViewStyle()).setCustomContentView(card).build())
+            return
+        }
         val max = intent.getIntExtra("max", 100)
         val builder = Notification.Builder(context, CHANNEL)
             .setSmallIcon(Icon.createWithResource(context, android.R.drawable.ic_menu_directions))
@@ -94,6 +120,13 @@ class DebugLiveUpdateReceiver : BroadcastReceiver() {
         val path = android.graphics.Path().apply { moveTo(80f, 200f); lineTo(80f, 110f); quadTo(80f, 70f, 120f, 70f); lineTo(140f, 70f); lineTo(140f, 40f); lineTo(196f, 90f)
             lineTo(140f, 140f); lineTo(140f, 110f); lineTo(120f, 110f); lineTo(120f, 200f); close() }
         c.drawPath(path, p)
+    }
+
+    /** A stand-in for a team's badge: a ring with a diamond in it, in one colour. */
+    private fun badge(color: Int): android.graphics.Bitmap = android.graphics.Bitmap.createBitmap(96, 96, android.graphics.Bitmap.Config.ARGB_8888).also { b ->
+        val c = android.graphics.Canvas(b); val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+        c.drawCircle(48f, 48f, 44f, p); p.color = android.graphics.Color.WHITE
+        c.drawPath(android.graphics.Path().apply { moveTo(48f, 18f); lineTo(76f, 48f); lineTo(48f, 78f); lineTo(20f, 48f); close() }, p)
     }
 
     private companion object { const val ID = 4242; const val CHANNEL = "debug-live" }

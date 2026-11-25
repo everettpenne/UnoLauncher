@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: a live game drawn the way a sports app draws its own notification card (theScore's is this shape), to try the island's reading of one. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical"
+    tools:ignore="HardcodedText,ContentDescription,UseCompoundDrawables">
+    <ImageView android:id="@+id/debug_away_logo" android:layout_width="40dp" android:layout_height="40dp" />
+    <LinearLayout android:layout_width="40dp" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center">
+        <TextView android:id="@+id/debug_away_name" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="12sp" />
+        <TextView android:id="@+id/debug_away_score" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="18sp" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center">
+        <TextView android:id="@+id/debug_status_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="12sp" />
+        <TextView android:id="@+id/debug_status_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="12sp" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="40dp" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center">
+        <TextView android:id="@+id/debug_home_name" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="12sp" />
+        <TextView android:id="@+id/debug_home_score" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="18sp" />
+    </LinearLayout>
+    <ImageView android:id="@+id/debug_home_logo" android:layout_width="40dp" android:layout_height="40dp" />
+</LinearLayout>

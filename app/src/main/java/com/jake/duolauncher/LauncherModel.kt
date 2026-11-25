@@ -142,7 +142,9 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    init { launcherApps.registerCallback(callback); refresh() }
+    // App changes are delivered on the main thread, said outright: with no handler given Android delivers them on the thread that
+    // registered, and fails if that thread has no looper, which is every device test that builds the model from the test's own thread.
+    init { launcherApps.registerCallback(callback, android.os.Handler(android.os.Looper.getMainLooper())); refresh() }
 
     fun refresh(invalidatedPackage: String? = null, user: UserHandle = Process.myUserHandle()) {
         invalidatedPackage?.let { invalidatedPackages += userManager.getSerialNumberForUser(user) to it }
@@ -740,6 +742,7 @@ class LauncherModel(application: Application) : AndroidViewModel(application) {
 private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGINAL, dark: Boolean = false,
     accent: WallpaperAccent? = null, lit: Boolean = false, shape: AppIconShape? = null): Bitmap {
     // Cut to a Material shape instead of the rounded square (Icon Shape): the same layers, the same smooth mask, another outline.
+    if (style.hyper) return hyperGlassIcon(drawable, style, accent, shape)
     val cut = com.jake.duolauncher.appearance.IconOutlines.of(shape, 144f)
     val bitmap = Bitmap.createBitmap(144, 144, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
@@ -791,6 +794,36 @@ private fun launcherIcon(drawable: Drawable, style: IconStyle = IconStyle.ORIGIN
     // Themed icons are painted as glass with their own light; original icons get the raised look here, inside the same silhouette.
     if (lit && !style.recolours) drawIconLighting(canvas, 144f, cut)
     return bitmap
+}
+
+/**
+ * An app's icon as hyper glass (appearance/HyperGlassIcon.kt), made once as a picture like every other icon style: the app's own
+ * picture with its plate taken off, inside glass cut to [shape], on the card [style] names. The picture is made by the same sums the
+ * live shader repeats, at the strength the glass has at rest, so it is the same on every Android version and costs nothing to show.
+ */
+private fun hyperGlassIcon(drawable: Drawable, style: IconStyle, accent: WallpaperAccent?, shape: AppIconShape?): Bitmap {
+    val glass = com.jake.duolauncher.appearance.HyperGlass
+    val card = when (style) {
+        IconStyle.HYPER_LIGHT -> 0xFFFFFFFF.toInt()
+        // The launcher's accent: the wallpaper's when "Color from wallpaper" is on, otherwise Uno's orange.
+        IconStyle.HYPER_ACCENT -> (accent?.accent ?: com.jake.duolauncher.panel.IosOrange).toArgb()
+        else -> 0xFF000000.toInt()
+    }
+    val mono = when (style) {
+        IconStyle.HYPER_COLOR -> null
+        IconStyle.HYPER_LIGHT -> 0xFF111114.toInt()
+        else -> 0xFFFFFFFF.toInt()
+    }
+    val size = 144
+    val textures = com.jake.duolauncher.appearance.HyperGlassTextures(
+        com.jake.duolauncher.appearance.HyperGlassTextures.unplated(drawable, size, mono, com.jake.duolauncher.appearance.HyperGlassShapes.fit(shape)))
+    val field = com.jake.duolauncher.appearance.HyperGlassShapes.of(shape, size, size * Corner.ICON_FRACTION).field
+    val pixels = glass.render(textures.texture, textures.frost, field, glass.REST, card)
+    // The sums give premultiplied colour, which is what a bitmap keeps.
+    val buffer = java.nio.ByteBuffer.allocate(pixels.size * 4)
+    for (c in pixels) { buffer.put((c shr 16).toByte()); buffer.put((c shr 8).toByte()); buffer.put(c.toByte()); buffer.put((c ushr 24).toByte()) }
+    buffer.rewind()
+    return Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).also { it.copyPixelsFromBuffer(buffer) }
 }
 
 /** Themed icons, painted as liquid glass. The icon is a translucent tinted tile (lighter at the top, so the

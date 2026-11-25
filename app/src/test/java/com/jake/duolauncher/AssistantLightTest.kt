@@ -55,4 +55,30 @@ class AssistantLightTest {
         // All the way toward one colour, it is that colour all round.
         assertTrue(AssistantLightLogic.palette(1f, AssistantLightLogic.amber).toSet().size == 1)
     }
+
+    @Test fun theWaveFiresOnceWhenAWorkingTurnEndsWell() {
+        val L = com.jake.duolauncher.search.AnswerAberrationLogic
+        assertTrue(L.fires(LightMood.WRITING, LightMood.READY))
+        assertTrue(L.fires(LightMood.THINKING, LightMood.READY))
+        // An answer already finished when the screen was drawn, a failure, a question back and a cleared answer do not.
+        for ((was, now) in listOf(LightMood.READY to LightMood.READY, LightMood.OFF to LightMood.READY, LightMood.WRITING to LightMood.OFF,
+            LightMood.THINKING to LightMood.WAITING, LightMood.READY to LightMood.OFF, LightMood.OFF to LightMood.THINKING)) assertTrue("$was to $now", !L.fires(was, now))
+    }
+
+    @Test fun theWaveComesUpFastFadesToNothingAndLeavesTheScreen() {
+        val L = com.jake.duolauncher.search.AnswerAberrationLogic
+        assertEquals(0f, L.strength(0f)); assertEquals(0f, L.strength(1f))
+        val peak = (0..100).maxByOrNull { L.strength(it / 100f) }!! / 100f
+        assertTrue("peaks early ($peak)", peak in .08f..(.2f))
+        assertTrue(L.strength(peak) > .95f)
+        for (i in 0..100) assertTrue(L.strength(i / 100f) in 0f..1f)
+        // Only falling after the peak, and nearly gone well before the end, so nothing snaps off.
+        var before = L.strength(peak)
+        for (i in (peak * 100).toInt() + 1..100) { val s = L.strength(i / 100f); assertTrue(s <= before + 1e-6f); before = s }
+        assertTrue(L.strength(.9f) < .02f)
+        // The front only moves outward and is past the farthest corner before the run ends.
+        var at = -1f
+        for (i in 0..100) { val f = L.front(i / 100f); assertTrue(f >= at); at = f }
+        assertEquals(0f, L.front(0f)); assertTrue(L.front(.75f) > 1f)
+    }
 }

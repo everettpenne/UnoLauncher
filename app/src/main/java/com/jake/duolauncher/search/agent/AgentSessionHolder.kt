@@ -1,5 +1,8 @@
 package com.jake.duolauncher.search.agent
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+
 /**
  * The agent's turn, owned by the app rather than by the panel — the same shape as the answer session, so search can be closed while a plan
  * runs and the island keeps saying what is happening.
@@ -17,7 +20,8 @@ internal object AgentSessionHolder {
     private var log: (com.jake.duolauncher.search.LogEntry) -> Unit = {}
     private var logUndone: (Long) -> Unit = {}
     private var newId: () -> Long = { System.currentTimeMillis() }
-    private var session: AgentSession? = null
+    /** Snapshot state, so what watches the agent's turn (the finished-answer wave) finds a session made after it first looked. */
+    private var session by androidx.compose.runtime.mutableStateOf<AgentSession?>(null)
 
     fun bind(planner: () -> Planner, env: () -> ToolEnv, publish: () -> Unit = {},
         settings: () -> AgentSettings = { AgentSettings() }, searchOpen: () -> Boolean = { false },

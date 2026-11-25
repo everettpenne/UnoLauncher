@@ -88,6 +88,8 @@ internal data class ExtrasState(
     val progressTasks: Boolean = true,
     /** Live scores from sports apps' ongoing notifications, as a scoreboard on the island. */
     val liveScores: Boolean = true,
+    /** The teams whose games lead on the island, as typed: names or scoreboard abbreviations set apart by commas. */
+    val scoreFavourites: String = "",
     val navigationTasks: Boolean = true,
     /** The island drops down briefly for each turn instruction (a new arrow or street, or the turn coming close). */
     val navigationCues: Boolean = true,
@@ -202,6 +204,7 @@ internal class ExtrasStore(context: Context) {
         mediaResumeMinutes = prefs.getInt("mediaResumeMinutes", 2),
         progressTasks = prefs.getBoolean("progressTasks", true),
         liveScores = prefs.getBoolean("liveScores", true),
+        scoreFavourites = prefs.getString("scoreFavourites", "") ?: "",
         navigationTasks = prefs.getBoolean("navigationTasks", true),
         navigationCues = prefs.getBoolean("navigationCues", true),
         peekLevel = prefs.getInt("peekLevel", 0).coerceIn(0, 2),
@@ -282,6 +285,7 @@ internal class ExtrasStore(context: Context) {
             .putInt("mediaResumeMinutes", next.mediaResumeMinutes)
             .putBoolean("progressTasks", next.progressTasks)
             .putBoolean("liveScores", next.liveScores)
+            .putString("scoreFavourites", next.scoreFavourites)
             .putBoolean("navigationTasks", next.navigationTasks)
             .putBoolean("navigationCues", next.navigationCues)
             .putInt("peekLevel", next.peekLevel)
@@ -357,6 +361,7 @@ internal class ExtrasStore(context: Context) {
     fun setMediaResumeMinutes(value: Int) = save(state.copy(mediaResumeMinutes = value))
     fun setProgressTasks(value: Boolean) = save(state.copy(progressTasks = value))
     fun setLiveScores(value: Boolean) = save(state.copy(liveScores = value))
+    fun setScoreFavourites(value: String) = save(state.copy(scoreFavourites = value.take(300)))
     fun setNavigationTasks(value: Boolean) = save(state.copy(navigationTasks = value))
     fun setNavigationCues(value: Boolean) = save(state.copy(navigationCues = value))
     fun setPeekLevel(value: Int) = save(state.copy(peekLevel = value.coerceIn(0, 2)))

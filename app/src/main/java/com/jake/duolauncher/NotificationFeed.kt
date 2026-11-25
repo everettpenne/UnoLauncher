@@ -250,7 +250,12 @@ class UnoNotificationListener : NotificationListenerService() {
     /** Reads what the island shows as activities out of the active notifications: Live Updates (the ones Android 16 has promoted),
      * navigation instructions, and progress tasks such as downloads. Only the title, body text, short status, progress, clock and small
      * icon are taken, each kind only while its own switch is on, and ordinary chat and message notifications are never read for their text.
+     * One more for a live score: when the notification has no title or text because the app drew its card itself, the words and
+     * pictures on that card are read (ScoreViews).
      */
+    /** When each live game's notification was first seen, by its key (see [LiveUpdate.since]). */
+    private val gamesSeen = HashMap<String, Long>()
+
     private fun syncLiveUpdates() {
         val liveOn = prefs.getBoolean("liveUpdates", true)
         val navOn = prefs.getBoolean("navigationTasks", true)
@@ -258,6 +263,7 @@ class UnoNotificationListener : NotificationListenerService() {
         val scoresOn = prefs.getBoolean("liveScores", true)
         if (!liveOn && !navOn && !tasksOn && !scoresOn) { NotificationFeed.liveUpdates = emptyList(); return }
         val active = runCatching { activeNotifications }.getOrNull() ?: return
+        val favourites = SportsLogic.favourites(prefs.getString("scoreFavourites", null))
         val presentKeys = active.map { it.key }.toSet()
         // Debug builds also show their own (the test poster); a release build never lists its own notifications.
         val debuggable = applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
@@ -274,10 +280,18 @@ class UnoNotificationListener : NotificationListenerService() {
                 // from any other notification for this, and nothing is kept.
                 val mayScore = scoresOn && (classified == ActivitySource.PROMOTED ||
                     (classified == null && SportsLogic.mayBeScore(n.category, LiveUpdateLogic.isOngoing(n.flags), e.getInt(Notification.EXTRA_PROGRESS_MAX, 0))))
-                val score = if (mayScore) SportsLogic.parse(e.getCharSequence(Notification.EXTRA_TITLE)?.toString(), e.getCharSequence(Notification.EXTRA_TEXT)?.toString()) else null
+                val said = e.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+                val saidText = e.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+                // A card the app drew itself, with no title and no text (theScore's live game): the words on the card are read
+                // instead, and its two pictures are the teams' badges (ScoreViews). Never a group's summary, which is not a card.
+                @Suppress("DEPRECATION") val card = if (mayScore && said.isEmpty() && saidText.isNullOrBlank() && n.flags and Notification.FLAG_GROUP_SUMMARY == 0) n.contentView else null
+                val drawn = card?.let { com.jake.duolauncher.island.ScoreViews.of(this, sbn.key, sbn.postTime, it) }
+                val score = drawn?.score ?: if (mayScore) SportsLogic.parse(said, saidText) else null
                 val source = classified ?: (if (score != null) ActivitySource.SPORTS else null) ?: return@runCatching null
-                val title = e.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+                // A drawn card has no title of its own; the score said in a line stands for one (a screen reader, the notification card).
+                val title = said.ifEmpty { drawn?.score?.let { "${it.left.name} ${it.left.score}${SportsLogic.BETWEEN}${it.right.score} ${it.right.name}" }.orEmpty() }
                 if (title.isEmpty()) return@runCatching null
+                val since = if (score != null) gamesSeen.getOrPut(sbn.key) { sbn.postTime } else null
                 val label = appLabelOf(sbn) ?: sbn.packageName
                 val chrono = if (e.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false)) n.`when` else null
                 // The short status exists only on Android 16; older versions have no such field to read.
@@ -302,12 +316,17 @@ class UnoNotificationListener : NotificationListenerService() {
                     color = n.color.takeIf { it != 0 } ?: AppTints.of(sbn.packageName) { appIconOf(sbn, 48) } ?: 0,
                 ).copy(
                     score = score,
+                    leftMark = drawn?.left,
+                    rightMark = drawn?.right,
+                    since = since,
+                    followed = score != null && SportsLogic.follows(score, favourites),
                     icon = smallIconOf(n),
                     openIntent = n.contentIntent,
                     // The turn arrow of a navigation instruction is its large icon; no other kind of activity has its large icon read.
                     largeIcon = if (source == ActivitySource.NAVIGATION) runCatching { n.getLargeIcon()?.loadDrawable(this)?.toBitmap(NavigationText.ARROW_PX, NavigationText.ARROW_PX) }.getOrNull() else null,
                 )
             }.getOrNull() }
+        gamesSeen.keys.retainAll(presentKeys); com.jake.duolauncher.island.ScoreViews.keep(presentKeys)
         NotificationFeed.liveUpdates = listOfNotNull(NotificationFeed.assistantUpdate) + LiveUpdateLogic.present(found, presentKeys)
         checkNavigationCue(found)
     }

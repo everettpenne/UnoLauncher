@@ -84,9 +84,11 @@ private fun GesturesGroups(store: ExtrasStore, s: ExtrasState, apps: List<AppEnt
 
 @Composable
 private fun IconGroups(store: ExtrasStore, s: ExtrasState) {
-    SettingsGroup(header = "App Icons", footer = "Icon Shape cuts every app's icon to one of Material's shapes, as on Pixel, or with Mixed gives each app its own; an icon pack's icons keep their own outlines. Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Dark puts each app's colours on a near-black tile, and Auto does that while Uno is dark. Icon Lighting gives original icons a soft lit edge, like iOS.") {
-        row { DropdownRow("Icon Style", IconStyle.entries, s.iconStyle, { when (it) { IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark"; IconStyle.AUTOMATIC -> "Auto" } },
-            "icons-style", optionTag = { when (it) { IconStyle.ORIGINAL -> "icons-original"; IconStyle.THEMED -> "icons-themed"; IconStyle.TINTED -> "icons-tinted"; IconStyle.DARK -> "icons-dark"; IconStyle.AUTOMATIC -> "icons-auto" } },
+    SettingsGroup(header = "App Icons", footer = "Icon Shape cuts every app's icon to one of Material's shapes, as on Pixel, or with Mixed gives each app its own; an icon pack's icons keep their own outlines. Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Dark puts each app's colours on a near-black tile, and Auto does that while Uno is dark. Hyper Glass is an experiment: each app's picture, without its plate, inside glass whose edge bends it (white on black, dark on white, on your accent, or in the app's own colours). Icon Lighting gives original icons a soft lit edge, like iOS.") {
+        row { DropdownRow("Icon Style", IconStyle.entries, s.iconStyle, { when (it) { IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark"; IconStyle.AUTOMATIC -> "Auto"
+                IconStyle.HYPER -> "Hyper Glass"; IconStyle.HYPER_LIGHT -> "Hyper Glass Light"; IconStyle.HYPER_ACCENT -> "Hyper Glass Accent"; IconStyle.HYPER_COLOR -> "Hyper Glass Color" } },
+            "icons-style", optionTag = { when (it) { IconStyle.ORIGINAL -> "icons-original"; IconStyle.THEMED -> "icons-themed"; IconStyle.TINTED -> "icons-tinted"; IconStyle.DARK -> "icons-dark"; IconStyle.AUTOMATIC -> "icons-auto"
+                IconStyle.HYPER -> "icons-hyper"; IconStyle.HYPER_LIGHT -> "icons-hyper-light"; IconStyle.HYPER_ACCENT -> "icons-hyper-accent"; IconStyle.HYPER_COLOR -> "icons-hyper-color" } },
             onSelect = store::setIconStyle) }
         row { DropdownRow("Icon Shape", AppIconShape.entries, s.iconShape, { it.label }, "icons-shape", optionTag = { "icons-shape-${it.name.lowercase()}" },
             onSelect = store::setIconShape) }
@@ -307,6 +309,12 @@ internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) 
                 ActionRow("Bring Back $label", "peek-quieted-$pkg") { PeekLearning.opened(context, pkg); quieted = PeekLearning.quieted(context) }
             } }
         }
+    }
+    if (s.liveScores) SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.favourite_teams), footer = stringResource(com.jake.duolauncher.R.string.favourite_teams_footer)) {
+        row { Box(Modifier.padding(vertical = Space.M.dp)) {
+            GlassField(s.scoreFavourites, { store.setScoreFavourites(it) }, Modifier.fillMaxWidth().testTag("score-favourites"), minLines = 1, maxLines = 2,
+                placeholder = { Text(stringResource(com.jake.duolauncher.R.string.favourite_teams_hint)) })
+        } }
     }
     if (s.notificationPeek) SettingsGroup(footer = stringResource(com.jake.duolauncher.R.string.separate_with_commas_a_match_shows)) {
         row { Box(Modifier.padding(vertical = Space.M.dp)) {

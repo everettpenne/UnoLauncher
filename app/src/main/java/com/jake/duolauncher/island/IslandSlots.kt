@@ -224,7 +224,8 @@ internal fun LiveSlot(kind: LiveKind, show: SlotShow, clockMs: Long, playing: Bo
                 fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.testTag("island-stopwatch"))
         LiveKind.UPDATE -> if (update?.score != null && !plain) {
             // A game: one side and its score each side of the camera, as a scoreboard is.
-            ScoreSide(if (glyph) update.score.left else update.score.right, if (glyph) update.score.leftHue else update.score.rightHue, glyphSize, leading = glyph)
+            ScoreSide(if (glyph) update.score.left else update.score.right, if (glyph) update.score.leftHue else update.score.rightHue, glyphSize, leading = glyph,
+                badge = if (glyph) update.leftMark else update.rightMark)
         } else if (update != null) {
             val driving = update.source == ActivitySource.NAVIGATION
             if (glyph) UpdateGlyph(update, glyphSize, plain)
@@ -299,11 +300,17 @@ internal fun UpdateGlyph(update: LiveUpdate, size: androidx.compose.ui.unit.Dp, 
 }
 
 /**
- * A team's mark: its short name on a roundel of its own steady colour ([SportsLogic.hue]). It stands where a club's badge would: the
- * launcher has no badges to show (they are the clubs' own, and a sports app's notification does not carry the two of them).
+ * A team's mark. When the sports app drew the two teams' badges on its own notification card they are shown ([ScoreViews]); otherwise
+ * it is the team's short name on a roundel of its own steady colour ([SportsLogic.hue]), since the launcher carries no badges itself.
  */
 @Composable
-internal fun TeamMark(side: SportsSide, hue: Float, size: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
+internal fun TeamMark(side: SportsSide, hue: Float, size: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier, badge: android.graphics.Bitmap? = null) {
+    // The team's own badge, when the sports app drew it on its card: shown as it is, on nothing, as the app shows it.
+    if (badge != null) {
+        Image(remember(badge) { badge.asImageBitmap() }, side.short, modifier.size(size).testTag("island-team-badge"),
+            contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+        return
+    }
     val fill = remember(hue) { Color.hsl(hue, .62f, .40f) }
     val short = side.short.take(3)
     Box(modifier.size(size).background(fill, CircleShape).testTag("island-team-mark"), contentAlignment = Alignment.Center) {
@@ -314,13 +321,13 @@ internal fun TeamMark(side: SportsSide, hue: Float, size: androidx.compose.ui.un
 
 /** One side of a game on the pill: the team's mark and its score, the mark toward the pill's end and the score toward the camera. */
 @Composable
-internal fun ScoreSide(side: SportsSide, hue: Float, glyphSize: androidx.compose.ui.unit.Dp, leading: Boolean) {
+internal fun ScoreSide(side: SportsSide, hue: Float, glyphSize: androidx.compose.ui.unit.Dp, leading: Boolean, badge: android.graphics.Bitmap? = null) {
     Row(Modifier.testTag(if (leading) "island-score-leading" else "island-score-trailing"), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SCORE_GAP_DP.dp)) {
-        if (leading) TeamMark(side, hue, glyphSize)
+        if (leading) TeamMark(side, hue, glyphSize, badge = badge)
         Text(side.score.toString(), color = themeInk, fontSize = SLOT_TEXT_SP.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
             style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"))
-        if (!leading) TeamMark(side, hue, glyphSize)
+        if (!leading) TeamMark(side, hue, glyphSize, badge = badge)
     }
 }
 
@@ -339,7 +346,7 @@ internal fun ScoreCard(update: LiveUpdate, score: SportsScore, tint: Color, onOp
     }.testTag("island-score"), verticalAlignment = Alignment.CenterVertically) {
         // Each side: its mark at the card's edge with its name under it, as a scoreboard has a team at each end.
         @Composable fun side(s: SportsSide, end: Boolean) = Column(Modifier.weight(1f), horizontalAlignment = if (end) Alignment.End else Alignment.Start) {
-            TeamMark(s, if (end) score.rightHue else score.leftHue, 34.dp)
+            TeamMark(s, if (end) score.rightHue else score.leftHue, 34.dp, badge = if (end) update.rightMark else update.leftMark)
             Text(s.name, Modifier.padding(top = 3.dp), color = themeInk.copy(alpha = .75f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         side(score.left, end = false)

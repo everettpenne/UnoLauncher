@@ -50,10 +50,15 @@ internal object SportsLogic {
     /** Words that say the numbers are not points: a transfer, a list, a place in something. */
     private val notATeam = Regex("""(?i)\b(download\w*|upload\w*|copy\w*|install\w*|updat\w*|sync\w*|files?|photos?|items?|messages?|step|page|part|track|episode|chapter|level|version|of|mb|gb|kb|min|mins|minutes?|hours?|sec|seconds?|left|remaining|battery|percent|am|pm|gate|terminal|flight|platform|seat|row|eta|arriving|arrives?|recording|order|room|table)\b|%""")
 
+    /** Capitals that are a unit or a time, never a team. */
+    private val NOT_ABBREVIATIONS = setOf("MB", "GB", "KB", "AM", "PM", "ETA", "OF")
+
     private fun side(name: String, score: String): SportsSide? {
         val n = name.trim().trim('-', '–', ',', '.').trim()
         // A team has letters in its name (at least two), and is not a count of something.
-        if (n.count { it.isLetter() } < 2 || notATeam.containsMatchIn(n)) return null
+        // A scoreboard's own abbreviation is a team even when it spells a word that counts something: "MIN" is Minnesota, not minutes.
+        val abbreviation = n.length in 2..4 && n.all { it in 'A'..'Z' } && n !in NOT_ABBREVIATIONS
+        if (n.count { it.isLetter() } < 2 || (!abbreviation && notATeam.containsMatchIn(n))) return null
         return SportsSide(n, score.toIntOrNull()?.takeIf { it in 0..999 } ?: return null)
     }
 
@@ -86,6 +91,51 @@ internal object SportsLogic {
         }
         return read(firstLine)
     }
+
+    /**
+     * The score in a notification the app drew itself, from the words on it in the order they are laid out. A sports app's live card is
+     * often its own drawing with no title or text at all (theScore's is "MIL", "19", "1st", "5:37", "TOR", "18"), so the words on it
+     * are all there is to read. It is a score when exactly two of the words are whole numbers and each has a team's name beside it,
+     * both names on the same side of their numbers. What is left over ("1st", "5:37") is where the game is.
+     */
+    fun fromWords(words: List<String>): SportsScore? {
+        val w = words.map { it.trim().replace(Regex("""\s+"""), " ") }.filter { it.isNotEmpty() }
+        if (w.size !in 4..CARD_WORDS) return null
+        val numbers = w.indices.filter { i -> w[i].length <= 3 && w[i].all { it in '0'..'9' } }
+        if (numbers.size != 2) return null
+        fun name(i: Int): String? = w.getOrNull(i)?.takeIf { t -> i !in numbers && t.length <= 28 && t.none { it.isDigit() } && t.count { it.isLetter() } >= 2 }
+        // The name before each number ("MIL 19"), else after each ("19 MIL"); never one of each, which would be two numbers side by side.
+        val names = listOf(-1, 1).firstNotNullOfOrNull { step ->
+            val (a, b) = numbers.map { it + step }
+            if (a != b && name(a) != null && name(b) != null) a to b else null
+        } ?: return null
+        val left = side(w[names.first], w[numbers[0]]) ?: return null
+        val right = side(w[names.second], w[numbers[1]]) ?: return null
+        val rest = w.indices.filter { it !in numbers && it != names.first && it != names.second }.joinToString(" ") { w[it] }
+        return SportsScore(left, right, rest.takeIf { it.length in 1..26 })
+    }
+
+    /** The teams the person follows, from what they typed (Island › Live Scores): names or scoreboard abbreviations, set apart by commas. */
+    fun favourites(typed: String?): List<String> =
+        typed.orEmpty().split(',', '\n', ';').map { it.trim().lowercase() }.filter { it.length >= 2 }.distinct().take(FAVOURITES)
+
+    /**
+     * Whether either side of [score] is one of [favourites]. A scoreboard often writes only an abbreviation ("MIN"), so a favourite
+     * matches a side when it is that side's name or short name, a whole word of its name ("timberwolves" in "Minnesota Timberwolves"),
+     * or a name the abbreviation begins ("minnesota" for "MIN").
+     */
+    fun follows(score: SportsScore, favourites: List<String>): Boolean = favourites.any { f ->
+        listOf(score.left, score.right).any { side ->
+            val name = side.name.trim().lowercase()
+            name == f || side.short.lowercase() == f || name.split(' ', '-').any { it == f } || (name.length in 2..4 && f.length > name.length && f.startsWith(name))
+        }
+    }
+
+    /** The most teams that can be followed. */
+    const val FAVOURITES = 24
+
+    /** The most words a drawn card may have and still be read as a score: a scoreboard is a few words, not a paragraph. */
+    const val CARD_WORDS = 8
 
     /** Whether a notification may be looked at for a score at all: one that stays up while something is going on, that is not a
      *  conversation, a call or a transfer with a progress bar. Only such a notification has its title and text read for this. */

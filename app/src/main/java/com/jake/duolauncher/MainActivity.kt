@@ -225,6 +225,8 @@ class MainActivity : ComponentActivity() {
                     LocalWallpaperLuma provides rememberWallpaperLuma(appearance.state.dark),
                     LocalWallpaperAccent provides rememberWallpaperAccent(appearance.state.wallpaperColor, appearance.state.dark)) {
                 KeepWallpaperPalette(appearance.state.dark)
+                // The wave of split colour that crosses the screen as the assistant finishes (AnswerAberration); nothing at rest.
+                com.jake.duolauncher.search.AnswerAberration {
                 LauncherScreen(state, model, widgets, homeRequests.intValue,
                     onLaunch = { launchApp(it) }, onMakeDefault = ::makeDefault, onAppInfo = ::appInfo,
                     isDefaultHome = defaultHome.value, deviceStatus = deviceStatus, onStatusMode = ::setStatusMode, onWallpaperPreview = ::previewWallpaper,
@@ -277,6 +279,7 @@ class MainActivity : ComponentActivity() {
                     onCheckUpdates = updates::checkNow,
                     onInstallRelease = updates::installRelease,
                     onAutoUpdate = updates::setAutoUpdate)
+                }
                 }
             }
         }

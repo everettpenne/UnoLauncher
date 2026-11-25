@@ -426,10 +426,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Live scores on the island: with a sports app\'s live-score notification up, a team and its score sit each side of the camera, and the card is a scoreboard. Island, Live Scores turns it off.</string>
-    <string name="whats_new_2">A Home that learns, if you let it (Home Screen, Learn from How You Use Home): a Suggested apps widget for the apps you open about now, and Smart Rotate for widget stacks.</string>
-    <string name="whats_new_3">More shapes: Clover, Flower, Burst and Pentagon widgets, a shaped Photos widget, and Icon Shape for app icons (Appearance, App Icons).</string>
-    <string name="whats_new_4">Ask Qwen: “remind me to call Sam at 5”, “use the expressive style”, “open uno settings”. Done at once, with no model.</string>
+    <string name="whats_new_1">Hyper Glass, an experimental Icon Style (Appearance, App Icons): each app\'s picture, without its plate, inside glass whose edge bends it. On black, on white, on your accent, or in the app\'s own colours, in every icon shape.</string>
+    <string name="whats_new_2">When the assistant finishes, one wave of split colour crosses the screen from the island.</string>
+    <string name="whats_new_3">Live scores now read theScore, with the teams\' own badges where the sports app draws them. Nothing is fetched.</string>
+    <string name="whats_new_4">Favourite Teams (Island, under Shows): with more than one game live, a game with one of your teams leads, and two games no longer swap places.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>
@@ -543,4 +543,7 @@
     <string name="suggestions_turn_on">By time of day: turn on in Home Screen settings</string>
     <string name="assistant_rate_up">Good response</string>
     <string name="assistant_rate_down">Not what I meant</string>
+    <string name="favourite_teams">Favourite Teams</string>
+    <string name="favourite_teams_hint">MIN, Timberwolves</string>
+    <string name="favourite_teams_footer">When more than one game is live, a game with one of these teams leads on the island. Separate with commas, and write a team the way the scoreboard does (MIN) or by its name.</string>
 </resources>

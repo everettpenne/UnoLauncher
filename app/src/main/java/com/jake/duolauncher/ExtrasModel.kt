@@ -37,7 +37,10 @@ internal object PullDownRouting {
  */
 internal enum class IconStyle {
     /** [DARK] is iOS's dark icons: each app's own artwork on a near-black tile. [AUTOMATIC] is Original while Uno is light and Dark while it is dark, as iOS's Automatic is. */
-    ORIGINAL, THEMED, TINTED, DARK, AUTOMATIC;
+    ORIGINAL, THEMED, TINTED, DARK, AUTOMATIC,
+    /** Hyper glass (appearance/HyperGlassIcon.kt): each app's picture, its plate taken off, inside glass whose edge bends it. White on a
+     *  black card, dark on a white one, white on the accent, or in the app's own colours on black. */
+    HYPER, HYPER_LIGHT, HYPER_ACCENT, HYPER_COLOR;
 
     /** The style actually drawn: [AUTOMATIC] follows light or dark; every other style is itself. */
     fun resolve(dark: Boolean): IconStyle = if (this == AUTOMATIC) (if (dark) DARK else ORIGINAL) else this
@@ -45,7 +48,9 @@ internal enum class IconStyle {
     /** Whether icons are redrawn as glass in the palette (so the light/dark palette matters). */
     val recolours: Boolean get() = this == THEMED || this == TINTED
     /** Whether the wallpaper's colours go into the icons, given the "Color from wallpaper" switch. */
-    fun usesWallpaper(wallpaperColor: Boolean): Boolean = this == TINTED || (this == THEMED && wallpaperColor)
+    fun usesWallpaper(wallpaperColor: Boolean): Boolean = this == TINTED || ((this == THEMED || this == HYPER_ACCENT) && wallpaperColor)
+    /** Whether icons are drawn as hyper glass. */
+    val hyper: Boolean get() = this == HYPER || this == HYPER_LIGHT || this == HYPER_ACCENT || this == HYPER_COLOR
 
     companion object { fun fromPreference(raw: String?): IconStyle = entries.firstOrNull { it.name == raw } ?: ORIGINAL }
 }

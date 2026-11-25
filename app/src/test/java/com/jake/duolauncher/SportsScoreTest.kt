@@ -4,6 +4,7 @@ import com.jake.duolauncher.island.ActivitySource
 import com.jake.duolauncher.island.LiveUpdate
 import com.jake.duolauncher.island.LiveUpdateLogic
 import com.jake.duolauncher.island.SportsLogic
+import com.jake.duolauncher.island.SportsSide
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -78,5 +79,63 @@ class SportsScoreTest {
         }
         // Without a score an activity's glance is what it was.
         assertEquals("Lakers 98 @ Ce", LiveUpdateLogic.glance(update.copy(score = null), 0L))
+    }
+
+    // What theScore's live game card says, word for word in the order it is laid out (read on a Pixel 10a, 23 November 2026).
+    @Test fun aDrawnCardIsReadFromItsWords() {
+        val a = SportsLogic.fromWords(listOf("MIL", "19", "1st", "5:37", "TOR", "18"))!!
+        assertEquals(SportsSide("MIL", 19), a.left); assertEquals(SportsSide("TOR", 18), a.right); assertEquals("1st 5:37", a.status)
+        val b = SportsLogic.fromWords(listOf("BKN", "9", "1st", "5:47", "MIN", "18"))!!
+        assertEquals("BKN", b.left.short); assertEquals(9, b.left.score); assertEquals(18, b.right.score); assertEquals("BKN 9–18 MIN", b.glance)
+    }
+
+    @Test fun anAbbreviationThatSpellsAWordIsStillATeam() {
+        // Minnesota is "MIN" on every scoreboard; it is not minutes.
+        assertEquals(18, SportsLogic.parse("BKN 9, MIN 18", null)!!.right.score)
+        assertNull(SportsLogic.parse("Copied 12, GB 30", null))
+    }
+
+    @Test fun aDrawnCardReadsOtherLayoutsToo() {
+        // The number first, and a finished game.
+        val a = SportsLogic.fromWords(listOf("2", "Arsenal", "Final", "1", "Chelsea"))!!
+        assertEquals(SportsSide("Arsenal", 2), a.left); assertEquals(SportsSide("Chelsea", 1), a.right); assertEquals("Final", a.status)
+        val b = SportsLogic.fromWords(listOf("Lakers", "98", "Celtics", "101"))!!
+        assertEquals(null, b.status); assertEquals(101, b.right.score)
+    }
+
+    @Test fun aDrawnCardThatIsNotAScoreIsNotRead() {
+        // One number, three numbers, no names, a paragraph, a transfer.
+        assertNull(SportsLogic.fromWords(listOf("MIL", "19", "TOR", "Tonight")))
+        assertNull(SportsLogic.fromWords(listOf("MIL", "19", "TOR", "18", "Q", "3")))
+        assertNull(SportsLogic.fromWords(listOf("12", "30", "5:37", "1st")))
+        assertNull(SportsLogic.fromWords(listOf("19", "18", "MIL", "TOR")))
+        assertNull(SportsLogic.fromWords(listOf("Downloading", "3", "files", "12", "remaining")))
+        assertNull(SportsLogic.fromWords(List(12) { "word" } + listOf("MIL", "19", "TOR", "18")))
+        assertNull(SportsLogic.fromWords(emptyList()))
+    }
+
+    @Test fun twoLiveGamesKeepTheirOrderHoweverOftenEachPosts() {
+        fun game(key: String, since: Long, post: Long) = LiveUpdate(key, "p", "theScore", key, null, null, 0, 0, false, null, false, null, 0, post, null,
+            source = ActivitySource.SPORTS, since = since)
+        // The game followed last leads, and stays leading when the other posts again.
+        assertEquals(listOf("b", "a"), LiveUpdateLogic.ordered(listOf(game("a", 1, 50), game("b", 2, 40))).map { it.key })
+        assertEquals(listOf("b", "a"), LiveUpdateLogic.ordered(listOf(game("a", 1, 90), game("b", 2, 60))).map { it.key })
+    }
+
+    @Test fun aFollowedTeamIsFoundHoweverTheScoreboardWritesIt() {
+        val drawn = SportsLogic.fromWords(listOf("BKN", "9", "1st", "5:47", "MIN", "18"))!!
+        for (typed in listOf("MIN", "min", "Minnesota", " lal , Min ")) assertTrue(typed, SportsLogic.follows(drawn, SportsLogic.favourites(typed)))
+        for (typed in listOf("", "MIL", "Timberwolves", "M", "Miami")) assertFalse(typed, SportsLogic.follows(drawn, SportsLogic.favourites(typed)))
+        val named = SportsLogic.parse("Brooklyn Nets 9, Minnesota Timberwolves 18", null)!!
+        for (typed in listOf("Timberwolves", "minnesota", "nets", "MT")) assertTrue(typed, SportsLogic.follows(named, SportsLogic.favourites(typed)))
+        assertFalse(SportsLogic.follows(named, SportsLogic.favourites("wolves, Bucks")))
+    }
+
+    @Test fun aFollowedGameLeadsTheOtherGamesAndNothingElse() {
+        fun item(key: String, at: Long, game: Boolean, followed: Boolean = false) = LiveUpdate(key, "p", "a", key, null, null, 0, 0, false, null, false, null, 0, at, null,
+            source = if (game) ActivitySource.SPORTS else ActivitySource.NAVIGATION, score = if (game) SportsLogic.parse("AAA 1, BBB 2", null) else null, followed = followed)
+        assertEquals(listOf("nav", "wolves", "bucks"), LiveUpdateLogic.ordered(listOf(item("wolves", 1, true, followed = true), item("bucks", 2, true), item("nav", 3, false))).map { it.key })
+        assertEquals(listOf("wolves", "nav", "bucks"), LiveUpdateLogic.ordered(listOf(item("wolves", 1, true, followed = true), item("bucks", 5, true), item("nav", 3, false))).map { it.key })
+        assertEquals(listOf("bucks", "wolves"), LiveUpdateLogic.ordered(listOf(item("wolves", 1, true), item("bucks", 5, true))).map { it.key })
     }
 }

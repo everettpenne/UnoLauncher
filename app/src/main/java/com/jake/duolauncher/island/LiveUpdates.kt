@@ -31,6 +31,15 @@ internal data class LiveUpdate(
     val source: ActivitySource = ActivitySource.PROMOTED,
     /** The live score the notification is saying, when it is a sports app's ([SportsLogic]): the island then draws a scoreboard. */
     val score: SportsScore? = null,
+    /** The two teams' badges, when the sports app drew them on its own card ([ScoreViews]); the island shows them in place of its
+     *  own marks. They are the app's pictures, shown only while its notification is up. */
+    val leftMark: Bitmap? = null,
+    val rightMark: Bitmap? = null,
+    /** When a game was first seen. Games are ordered by this, not by their newest post: two live games each post again every few
+     *  seconds, and ordering by the post would swap them on the pill each time. */
+    val since: Long? = null,
+    /** A game with a team the person follows (Island › Live Scores): it leads the other games. */
+    val followed: Boolean = false,
 )
 
 /** What kind of thing an island activity (a [LiveUpdate]) came from. */
@@ -108,6 +117,7 @@ internal object LiveUpdateLogic {
     val READ_FIELDS: List<String> = listOf(
         "title", "short status", "body text", "progress", "progress max", "indeterminate",
         "chronometer base", "count-down", "small icon", "color", "content intent", "category", "large icon",
+        "the words and pictures on its own drawn card",
     )
 
     /** [android.app.Notification.FLAG_PROMOTED_ONGOING], repeated so this file's logic needs no Android classes. */
@@ -141,9 +151,14 @@ internal object LiveUpdateLogic {
         return update.title.take(MAX_GLANCE_CHARS)
     }
 
-    /** Newest first, at most [MAX_SHOWN], one per notification key. */
+    /** Newest first (a game by when it was first seen, [LiveUpdate.since]), at most [MAX_SHOWN], one per notification key. */
     fun ordered(updates: List<LiveUpdate>): List<LiveUpdate> =
-        updates.distinctBy { it.key }.sortedByDescending { it.postTime }.take(MAX_SHOWN)
+        updates.distinctBy { it.key }.sortedByDescending { it.since ?: it.postTime }.let { newest ->
+            // Among the games, the ones with a followed team come first; the games keep the places games had, so a followed game never
+            // moves ahead of a navigation instruction or anything else that is not a game.
+            val games = newest.filter { it.score != null }.sortedByDescending { it.followed }.iterator()
+            newest.map { if (it.score != null) games.next() else it }
+        }.take(MAX_SHOWN)
 
     /** How often the listener re-reads the active notifications even when no post or removal event arrived. A Live
      * Update whose app ends or dies without a cancellation event reaching the listener (or whose notification is

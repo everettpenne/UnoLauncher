@@ -25,6 +25,7 @@ internal object SettingsSearch {
         SettingEntry("Wallpaper Depth", CustomizationPage.APPEARANCE, "parallax 3d"),
         SettingEntry("App Icons", CustomizationPage.APPEARANCE, "icon style original themed tinted dark"),
         SettingEntry("Icon Lighting", CustomizationPage.APPEARANCE, "icons lit flat glass shine"),
+        SettingEntry("Icon Style: Hyper Glass (experimental)", CustomizationPage.APPEARANCE, "app icons hyper glass refraction distortion liquid experimental"),
         SettingEntry("Icon Shape: Default, Cookie, Clover, Flower, Sunny, Pentagon or Mixed", CustomizationPage.APPEARANCE, "app icons shape material expressive pixel cookie clover mask"),
         SettingEntry("Icon Pack", CustomizationPage.APPEARANCE, "icons adw nova lawnchair"),
         // Home Screen
@@ -49,6 +50,7 @@ internal object SettingsSearch {
         SettingEntry("Each App's Own Colour", CustomizationPage.ISLAND_STYLE, "island app colours colors highlight"),
         SettingEntry("Show Percentage", CustomizationPage.ISLAND_STYLE, "island progress percent bar"),
         SettingEntry("Live Updates", CustomizationPage.ISLAND, "island ride delivery timer status android 16"),
+        SettingEntry("Favourite Teams", CustomizationPage.ISLAND, "sports score follow team favorite lead first game island live scores"),
         SettingEntry("Live Scores", CustomizationPage.ISLAND, "sports score scoreboard game match football basketball soccer island live activity"),
         SettingEntry("Downloads & Progress", CustomizationPage.ISLAND, "island upload install"),
         SettingEntry("Navigation", CustomizationPage.ISLAND, "island maps directions driving turn"),

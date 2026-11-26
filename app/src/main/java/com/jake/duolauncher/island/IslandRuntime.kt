@@ -35,6 +35,11 @@ internal object IslandRuntime {
     /** The package of the app in front, only while the person has chosen apps to hide the island over (the accessibility service reports it
      * then and only then); null otherwise. Nothing else about the app or its window is kept. */
     var foregroundPackage by mutableStateOf<String?>(null)
+    /** Step Aside in Its App (Island settings), as the accessibility service last read it: the one who reports [foregroundPackage]. */
+    var stepAsideInOwnApp by mutableStateOf(false)
+    /** The live updates the island shows now: all of them, less those of the app in front when activities step aside in their own app. */
+    val shownUpdates: List<LiveUpdate> get() =
+        IslandOwnApp.updates(com.jake.duolauncher.NotificationFeed.liveUpdates, foregroundPackage, stepAsideInOwnApp, launcherInFront)
     /** When the launcher last opened the notification shade (0 if never), so the island does not re-announce a
      * notification the shade has just presented (see [IslandEventArbiter.notificationSurface]). */
     @Volatile var shadeOpenedAtMs = 0L
@@ -144,4 +149,17 @@ internal object IslandOwnApp {
     /** [kinds] less those whose app ([packageOf]) is [foreground]; all of them when the setting is off or Home is in front. */
     fun visible(kinds: List<LiveKind>, packageOf: (LiveKind) -> String?, foreground: String?, on: Boolean, launcherInFront: Boolean): List<LiveKind> =
         if (!on || launcherInFront || foreground == null) kinds else kinds.filter { packageOf(it) != foreground }
+
+    /** [all] less the updates of the app in [foreground]: directions while the map is open, a ride while its app is. Each update is judged
+     *  by its own app, so another app's update still shows; all of them when the setting is off or Home is in front. */
+    fun updates(all: List<LiveUpdate>, foreground: String?, on: Boolean, launcherInFront: Boolean): List<LiveUpdate> =
+        if (!on || launcherInFront || foreground == null) all else all.filter { it.packageName != foreground }
+
+    const val PREF = "islandHideInOwnApp"
+    /** On unless turned off. It was off unless turned on until 0.141, and every save wrote it, so it is turned on once for those who have it. */
+    fun migrate(context: android.content.Context) {
+        val prefs = context.getSharedPreferences("extras", android.content.Context.MODE_PRIVATE)
+        if (prefs.getBoolean("islandOwnAppOnByDefault", false)) return
+        prefs.edit().putBoolean(PREF, true).putBoolean("islandOwnAppOnByDefault", true).apply()
+    }
 }

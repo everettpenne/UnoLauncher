@@ -56,7 +56,7 @@ internal data class ExtrasState(
     val islandHideOver: Set<String> = emptySet(),
     /** An activity steps off the pill while its own app is in front (music while in the player), as iOS does. Needs the same
      * accessibility service as [islandHideOver], which is then told which app is in front. */
-    val islandHideInOwnApp: Boolean = false,
+    val islandHideInOwnApp: Boolean = true,
     /** Only conversations (messages from people) drop the island down. */
     val peekPeopleOnly: Boolean = false,
     /** Keep a list, on this phone only, of when the camera, microphone and screen recording were in use ([com.jake.duolauncher.island.SensorLog]). */
@@ -182,7 +182,7 @@ internal class ExtrasStore(context: Context) {
         focusWithDnd = prefs.getBoolean("focusWithDnd", false),
         islandHideOverOn = prefs.getBoolean("islandHideOverOn", false),
         islandHideOver = IslandLinks.parse(prefs.getString("islandHideOver", null)),
-        islandHideInOwnApp = prefs.getBoolean("islandHideInOwnApp", false),
+        islandHideInOwnApp = prefs.getBoolean("islandHideInOwnApp", true),
         peekPeopleOnly = prefs.getBoolean("peekPeopleOnly", false),
         sensorLog = prefs.getBoolean("sensorLog", false),
         badges = prefs.getBoolean("badges", false),

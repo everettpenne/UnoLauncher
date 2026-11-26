@@ -51,7 +51,7 @@ internal object IslandQuickActions {
                     "End" to { call.hangUp?.let { runCatching { it.send() } } },
                     "Open" to { sendTapAction(context, call.openIntent) }), packageName = call.packageName, open = call.openIntent, tint = IosGreen.toArgb())
             }
-            LiveKind.UPDATE -> NotificationFeed.liveUpdates.firstOrNull()?.let { u ->
+            LiveKind.UPDATE -> IslandRuntime.shownUpdates.firstOrNull()?.let { u ->
                 card(u.title, u.text, mapOf("Open" to { openUpdate(context, u.key, u.openIntent) }), packageName = u.packageName, open = u.openIntent,
                     tint = u.color.takeIf { it != 0 })
             }

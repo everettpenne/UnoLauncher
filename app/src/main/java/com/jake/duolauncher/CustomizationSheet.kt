@@ -204,11 +204,31 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     }
 }
 
-/** An icon style's name, as the settings show it. */
+/** An icon style's name, as the settings show it. Every hyper glass look is "Hyper Glass" in the style menu; [hyperLookName] tells them apart. */
 internal fun iconStyleName(style: IconStyle): String = when (style) {
     IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark"; IconStyle.AUTOMATIC -> "Auto"
-    IconStyle.HYPER -> "Hyper Glass"; IconStyle.HYPER_LIGHT -> "Hyper Glass Light"; IconStyle.HYPER_ACCENT -> "Hyper Glass Accent"; IconStyle.HYPER_COLOR -> "Hyper Glass Color"
-    IconStyle.HYPER_CLEAR -> "Hyper Glass Clear"; IconStyle.HYPER_CLEAR_COLOR -> "Hyper Glass Clear Color"
+    else -> "Hyper Glass"
+}
+
+/** A hyper glass look's name: the picture, then what it is on. */
+internal fun hyperLookName(style: IconStyle): String = when (style) {
+    IconStyle.HYPER_LIGHT -> "Black on White"; IconStyle.HYPER_ACCENT -> "White on Accent"; IconStyle.HYPER_COLOR -> "App Colors on Black"
+    IconStyle.HYPER_CLEAR -> "White on Clear"; IconStyle.HYPER_CLEAR_COLOR -> "App Colors on Clear"; else -> "White on Black"
+}
+
+/** The two icon menus: styles (the hyper glass looks as one entry), and the looks. Pure, so it is unit-tested. */
+internal object IconStyleMenu {
+    val styles = listOf(IconStyle.ORIGINAL, IconStyle.THEMED, IconStyle.TINTED, IconStyle.DARK, IconStyle.AUTOMATIC, IconStyle.HYPER)
+    /** The app's own colours first: they are what is most often looked for. */
+    val looks = listOf(IconStyle.HYPER_COLOR, IconStyle.HYPER_CLEAR_COLOR, IconStyle.HYPER_CLEAR, IconStyle.HYPER, IconStyle.HYPER_LIGHT, IconStyle.HYPER_ACCENT)
+    /** Which entry of [styles] stands for [style]. */
+    fun styleOf(style: IconStyle): IconStyle = if (style.hyper) IconStyle.HYPER else style
+    /** What choosing [picked] from the style menu sets: Hyper Glass keeps the look already [current], and otherwise starts in app colours. */
+    fun chosen(picked: IconStyle, current: IconStyle): IconStyle = when {
+        picked != IconStyle.HYPER -> picked
+        current.hyper -> current
+        else -> IconStyle.HYPER_COLOR
+    }
 }
 
 /** The first page: search, then the pages in iOS's grouped rows, each with its coloured icon tile. */
@@ -274,7 +294,7 @@ private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> U
             sensorsAllowed == false -> append(" Sensors is off for Uno Launcher, so the highlight stays still. Allow it in App info › Permissions.")
             samples == 0 -> append(" No motion readings yet.")
         }
-        if (hyperCardsOffered) append(" Hyper Glass Cards is an experiment: the feed, the App Library, menus and search results turn nearly clear, with film grain and a faint split of colour at their edges.")
+        if (hyperCardsOffered) append(" Hyper Glass Cards is an experiment: the feed, the App Library, menus and search results turn nearly clear, with film grain, and what is on them (words, icons) is split a little into colour, more toward a card's edge, as through a lens.")
     }) {
         row { DropdownRow("Glass", GlassChoice.entries, appearance.glassKind, { when (it) { GlassChoice.CLEAR -> "Clear"; GlassChoice.FROSTED -> "Frosted"; GlassChoice.OFF -> "Off" } },
             "glass-style", optionTag = { "glass-${it.name.lowercase()}" }, onSelect = onGlass) }

@@ -625,7 +625,7 @@ internal fun FolderTile(folder: FolderEntry, apps: Map<String, AppEntry>, size: 
         // see-through look is used.
         val dark = DuoAppearanceRuntime.dark
         Box(Modifier.size(size.dp)
-            .frostedGlass(Corner.icon, if (dark) Color.Black.copy(alpha = .22f) else Color.White.copy(alpha = .26f), elevated = false) {
+            .frostedGlass(Corner.icon, if (dark) Color.Black.copy(alpha = .22f) else Color.White.copy(alpha = .26f), elevated = false, card = false) {
                 // The clear material the dock, the search pill and glass widgets are drawn in: the same tint, the same sheen, and an edge
                 // as fine as theirs. It had a recipe of its own (a heavier tint, a white wash and a 1.2 dp rim at 85 %), so a folder read
                 // as a milky tile beside the clear dock.

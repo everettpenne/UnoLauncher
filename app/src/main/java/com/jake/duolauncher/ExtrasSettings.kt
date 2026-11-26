@@ -90,11 +90,15 @@ private fun GesturesGroups(store: ExtrasStore, s: ExtrasState, apps: List<AppEnt
 
 @Composable
 private fun IconGroups(store: ExtrasStore, s: ExtrasState) {
-    SettingsGroup(header = "App Icons", footer = "Icon Shape cuts every app's icon to one of Material's shapes, as on Pixel, or with Mixed gives each app its own; an icon pack's icons keep their own outlines. Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Dark puts each app's colours on a near-black tile, and Auto does that while Uno is dark. Hyper Glass is an experiment: each app's picture, without its plate, inside glass whose edge bends it (white on black, dark on white, on your accent, or in the app's own colours; Clear has no card, and on Home bends the wallpaper behind it). Icon Lighting gives original icons a soft lit edge, like iOS.") {
-        row { DropdownRow("Icon Style", IconStyle.entries, s.iconStyle, { iconStyleName(it) },
+    SettingsGroup(header = "App Icons", footer = "Icon Shape cuts every app's icon to one of Material's shapes, as on Pixel, or with Mixed gives each app its own; an icon pack's icons keep their own outlines. Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Dark puts each app's colours on a near-black tile, and Auto does that while Uno is dark. Hyper Glass is an experiment: each app's picture, without its plate, inside glass whose edge bends it. Choose it, then Hyper Glass Look for the picture and the card: white or the app's own colours, on black, white, your accent, or clear glass, which has no card and on Home bends the wallpaper behind it. Icon Lighting gives original icons a soft lit edge, like iOS.") {
+        // Two short menus, so every choice is seen without scrolling: the style, and for Hyper Glass its look.
+        row { DropdownRow("Icon Style", IconStyleMenu.styles, IconStyleMenu.styleOf(s.iconStyle), { iconStyleName(it) },
             "icons-style", optionTag = { when (it) { IconStyle.ORIGINAL -> "icons-original"; IconStyle.THEMED -> "icons-themed"; IconStyle.TINTED -> "icons-tinted"; IconStyle.DARK -> "icons-dark"; IconStyle.AUTOMATIC -> "icons-auto"
-                IconStyle.HYPER -> "icons-hyper"; IconStyle.HYPER_LIGHT -> "icons-hyper-light"; IconStyle.HYPER_ACCENT -> "icons-hyper-accent"; IconStyle.HYPER_COLOR -> "icons-hyper-color"
-                IconStyle.HYPER_CLEAR -> "icons-hyper-clear"; IconStyle.HYPER_CLEAR_COLOR -> "icons-hyper-clear-color" } },
+                else -> "icons-hyper-glass" } },
+            onSelect = { store.setIconStyle(IconStyleMenu.chosen(it, s.iconStyle)) }) }
+        if (s.iconStyle.hyper) row { DropdownRow("Hyper Glass Look", IconStyleMenu.looks, s.iconStyle, { hyperLookName(it) },
+            "icons-hyper-look", optionTag = { when (it) { IconStyle.HYPER_LIGHT -> "icons-hyper-light"; IconStyle.HYPER_ACCENT -> "icons-hyper-accent"; IconStyle.HYPER_COLOR -> "icons-hyper-color"
+                IconStyle.HYPER_CLEAR -> "icons-hyper-clear"; IconStyle.HYPER_CLEAR_COLOR -> "icons-hyper-clear-color"; else -> "icons-hyper" } },
             onSelect = store::setIconStyle) }
         row { DropdownRow("Icon Shape", AppIconShape.entries, s.iconShape, { it.label }, "icons-shape", optionTag = { "icons-shape-${it.name.lowercase()}" },
             onSelect = store::setIconShape) }

@@ -21,14 +21,23 @@ class HyperGlassCardsTest {
     }
 
     @Test fun aKickPartsTheColoursAndComesBack() {
-        assertEquals(HyperGlassCards.SPLIT, HyperGlassCards.split(0f), 0f)
-        assertEquals(HyperGlassCards.SPLIT_KICKED, HyperGlassCards.split(1f), 1e-7f)
-        assertEquals(HyperGlassCards.SPLIT_KICKED, HyperGlassCards.split(4f), 1e-7f)
-        assertTrue(HyperGlassCards.fringeDp(1f) > HyperGlassCards.fringeDp(.5f) && HyperGlassCards.fringeDp(.5f) > HyperGlassCards.fringeDp(0f))
+        assertEquals(HyperGlassCards.SPLIT_DP, HyperGlassCards.splitDp(0f), 0f)
+        assertEquals(HyperGlassCards.SPLIT_KICKED_DP, HyperGlassCards.splitDp(1f), 1e-6f)
+        assertEquals(HyperGlassCards.SPLIT_KICKED_DP, HyperGlassCards.splitDp(4f), 1e-6f)
+        assertTrue(HyperGlassCards.splitDp(1f) > HyperGlassCards.splitDp(.5f) && HyperGlassCards.splitDp(.5f) > HyperGlassCards.splitDp(0f))
+        // Enough to be seen (the first try was under a pixel), and a word must still read.
+        assertTrue(HyperGlassCards.SPLIT_DP in .75f..2f)
     }
 
     @Test fun theCardStaysNearlyBare() {
         assertTrue(HyperGlassCards.FILL in .06f..(.10f))
         assertTrue(HyperGlassCards.SHADE_SHARE < .5f)
+    }
+
+    @Test fun theGrainDoesNotComeRoundAgainWithinAScreen() {
+        fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
+        assertEquals(1, gcd(HyperGlassCards.GRAIN_A, HyperGlassCards.GRAIN_B))
+        assertTrue(HyperGlassCards.GRAIN_A * HyperGlassCards.GRAIN_B > 4000)
+        assertTrue(HyperGlassCards.GRAIN_TURN % 90f != 0f)
     }
 }

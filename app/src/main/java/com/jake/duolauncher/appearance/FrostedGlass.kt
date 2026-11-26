@@ -106,11 +106,12 @@ internal object FrostedBlur {
  * ready yet, or glass is off, it is [fallback] (the live glass it replaces).
  */
 @Composable
-internal fun Modifier.frostedGlass(shape: Shape, tint: Color, elevated: Boolean = true, fallback: @Composable Modifier.() -> Modifier): Modifier {
+internal fun Modifier.frostedGlass(shape: Shape, tint: Color, elevated: Boolean = true, card: Boolean = true, fallback: @Composable Modifier.() -> Modifier): Modifier {
     val frosted = LocalFrostedWallpaper.current
     val image = frosted?.image ?: return fallback()
     // Hyper glass cards (see HyperGlassCards): the same blurred picture, nearly bare, with grain. A third of the tint is kept to hold the ink up.
-    if (HyperGlassCards.on && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU)
+    // Only for a panel that holds text ([card]): a folder's small tile on Home stays frosted.
+    if (card && HyperGlassCards.on && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU)
         return hyperFrostedCard(shape, image, tint.copy(alpha = tint.alpha * HyperGlassCards.SHADE_SHARE), elevated)
     val root = LocalWindowInfo.current.containerSize
     var origin by remember { mutableStateOf(Offset.Zero) }

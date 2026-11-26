@@ -37,4 +37,22 @@ class IconStyleTest {
         assertFalse(IconStyle.HYPER_ACCENT.usesWallpaper(false))
         assertFalse(IconStyle.HYPER.usesWallpaper(true))
     }
+
+    @Test fun theTwoIconMenusHoldEveryStyleBetweenThemAndNeitherNeedsScrolling() {
+        assertEquals(IconStyle.entries.toSet(), (IconStyleMenu.styles + IconStyleMenu.looks).toSet())
+        // The menu shows about eight rows before it scrolls, which hid the last three of eleven.
+        assertTrue(IconStyleMenu.styles.size <= 7 && IconStyleMenu.looks.size <= 7)
+        assertTrue(IconStyleMenu.looks.all { it.hyper })
+        assertEquals(IconStyleMenu.looks.size, IconStyleMenu.looks.map { hyperLookName(it) }.toSet().size)
+        assertEquals("App Colors on Black", hyperLookName(IconStyle.HYPER_COLOR))
+        assertEquals("App Colors on Clear", hyperLookName(IconStyle.HYPER_CLEAR_COLOR))
+    }
+
+    @Test fun choosingHyperGlassKeepsTheLookOrStartsInAppColours() {
+        assertEquals(IconStyle.HYPER, IconStyleMenu.styleOf(IconStyle.HYPER_CLEAR_COLOR))
+        assertEquals(IconStyle.DARK, IconStyleMenu.styleOf(IconStyle.DARK))
+        assertEquals(IconStyle.HYPER_COLOR, IconStyleMenu.chosen(IconStyle.HYPER, IconStyle.ORIGINAL))
+        assertEquals(IconStyle.HYPER_CLEAR, IconStyleMenu.chosen(IconStyle.HYPER, IconStyle.HYPER_CLEAR))
+        assertEquals(IconStyle.TINTED, IconStyleMenu.chosen(IconStyle.TINTED, IconStyle.HYPER_CLEAR))
+    }
 }

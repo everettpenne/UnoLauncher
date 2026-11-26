@@ -426,10 +426,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Hyper Glass, an experimental Icon Style (Appearance, App Icons): each app\'s picture, without its plate, inside glass whose edge bends it. On black, on white, on your accent, or in the app\'s own colours, in every icon shape.</string>
-    <string name="whats_new_2">When the assistant finishes, one wave of split colour crosses the screen from the island.</string>
-    <string name="whats_new_3">Live scores now read theScore, with the teams\' own badges where the sports app draws them. Nothing is fetched.</string>
-    <string name="whats_new_4">Favourite Teams (Island, under Shows): with more than one game live, a game with one of your teams leads, and two games no longer swap places.</string>
+    <string name="whats_new_1">Hyper Glass icons have a menu of their own: choose Hyper Glass as the Icon Style (Appearance, App Icons), then Hyper Glass Look for app colours or white, on black, white, your accent or clear glass.</string>
+    <string name="whats_new_2">Hyper Glass Cards (Appearance, Glass): words and icons on a card are now split a little into colour, more toward its edge; the red and blue border is gone, and the grain no longer repeats.</string>
+    <string name="whats_new_3">With the island over other apps, an app\'s live activity steps off it while that app is open: directions no longer cover the map. It comes back when you leave the app.</string>
+    <string name="whats_new_4">To keep an activity on the island in its own app, turn off Step Aside in Its App (Island, Notifications).</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

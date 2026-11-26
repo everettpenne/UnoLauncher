@@ -15,8 +15,9 @@ internal enum class ShadeOpenResult { OPENED, SERVICE_DISABLED, SERVICE_STARTING
 
 /**
  * The platform exposes shade expansion to third-party apps only as accessibility global actions.
- * This service observes no events and cannot inspect windows or inject gestures, with one opt-in exception: while the person has chosen
- * apps to hide the island over, it receives window-change events and keeps only the package name of the app in front (see [syncEvents]).
+ * This service observes no events and cannot inspect windows or inject gestures, with one exception: while the island is shown over
+ * other apps and either activities step aside in their own app (on unless turned off) or the person has chosen apps to hide the island
+ * over, it receives window-change events and keeps only the package name of the app in front (see [syncEvents]).
  */
 class SystemShadeAccessibilityService : AccessibilityService() {
     private var islandHost: IslandOverlayHost? = null
@@ -45,12 +46,13 @@ class SystemShadeAccessibilityService : AccessibilityService() {
      */
     private fun syncEvents() {
         val wanted = prefs.getBoolean("islandEverywhere", false) && ((prefs.getBoolean("islandHideOverOn", false) &&
-            !prefs.getString("islandHideOver", null).isNullOrBlank()) || prefs.getBoolean("islandHideInOwnApp", false))
+            !prefs.getString("islandHideOver", null).isNullOrBlank()) || prefs.getBoolean("islandHideInOwnApp", true))
         serviceInfo = serviceInfo.apply {
             eventTypes = if (wanted) AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED else 0
             // The declaration limits events to Uno itself; the window changes wanted here are other apps', so the limit is lifted only then.
             packageNames = if (wanted) null else arrayOf(packageName)
         }
+        IslandRuntime.stepAsideInOwnApp = wanted && prefs.getBoolean("islandHideInOwnApp", true)
         if (!wanted) IslandRuntime.foregroundPackage = null
     }
 
@@ -77,13 +79,15 @@ class SystemShadeAccessibilityService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
         val keyboard = runCatching { android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.DEFAULT_INPUT_METHOD) }
             .getOrNull()?.substringBefore('/')
-        if (HideOverApps.ignored(pkg, keyboard)) return
+        // Uno's own windows (the island, search over an app) open over the app in front without replacing it. Home itself is known
+        // another way (IslandRuntime.launcherInFront).
+        if (pkg == packageName || HideOverApps.ignored(pkg, keyboard)) return
         IslandRuntime.foregroundPackage = pkg
     }
     override fun onInterrupt() = Unit
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         runCatching { prefs.unregisterOnSharedPreferenceChangeListener(prefListener); appearancePrefs.unregisterOnSharedPreferenceChangeListener(prefListener) }
-        IslandRuntime.foregroundPackage = null
+        IslandRuntime.foregroundPackage = null; IslandRuntime.stepAsideInOwnApp = false
         islandHost?.stop(); islandHost = null
         // Search over an app lives in this service's window: when the service goes, so does the window, and search must know it is closed.
         com.jake.duolauncher.search.AssistOverlay.hide(animated = false)

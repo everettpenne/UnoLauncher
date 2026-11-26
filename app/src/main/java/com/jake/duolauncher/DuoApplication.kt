@@ -8,6 +8,7 @@ class DuoApplication : Application() {
         com.jake.duolauncher.appearance.UnoFonts.load(this)
         com.jake.duolauncher.appearance.UnoPersonality.load(this)
         com.jake.duolauncher.appearance.SystemWallpaperSync.start(this)
+        com.jake.duolauncher.island.IslandOwnApp.migrate(this)
     }
 
     /** The system's light/dark switch: keep Android's lock screen wallpaper in step with the launcher (see SystemWallpaperSync). */

@@ -344,7 +344,7 @@ private fun StopwatchCard(nowMs: Long, playful: Boolean) {
 @Composable
 private fun UpdateCard(peek: PeekNotification, nowMs: Long, playful: Boolean) {
     val context = LocalContext.current
-    val update = NotificationFeed.liveUpdates.firstOrNull()
+    val update = IslandRuntime.shownUpdates.firstOrNull()
     val accent = peek.tint?.let { Color(it) } ?: IslandThemes.active.progressActive ?: IslandThemes.active.highlight
     val max = update?.progressMax ?: 0
     val fraction = if (update == null || max <= 0) 0f else (update.progress.toFloat() / max).coerceIn(0f, 1f)

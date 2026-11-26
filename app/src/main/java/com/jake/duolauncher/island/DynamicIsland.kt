@@ -386,7 +386,6 @@ internal fun DynamicIsland(
     StatusBarCalibration.init(context)
     val forced = IslandDebug.forced
     val callActive = NotificationFeed.ongoingCall != null || LiveKind.CALL in forced
-    val updates = if (LiveKind.UPDATE in forced) listOf(IslandDebug.dummyUpdate(clockMs)) + NotificationFeed.liveUpdates else NotificationFeed.liveUpdates
     // How much the collapsed pill shows of a Live Update: 0 glyph only, 1 the short status, 2 the title (see ExtrasStore.liveCompactLevel).
     // Read straight from the extras prefs, the way the overlay host reads the other island choices, so it follows a settings change.
     val liveCompactLevel by produceState(initialValue = 1) {
@@ -402,13 +401,16 @@ internal fun DynamicIsland(
     // Step Aside in Its App (Island settings), read the same way.
     val hideInOwnApp by produceState(initialValue = false) {
         val prefs = context.getSharedPreferences("extras", Context.MODE_PRIVATE)
-        value = prefs.getBoolean("islandHideInOwnApp", false)
+        value = prefs.getBoolean("islandHideInOwnApp", true)
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == "islandHideInOwnApp") value = prefs.getBoolean("islandHideInOwnApp", false)
+            if (key == "islandHideInOwnApp") value = prefs.getBoolean("islandHideInOwnApp", true)
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         awaitDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
+    // An app's updates step off the island while that app is in front (directions while the map is open), each judged by its own app.
+    val updates = IslandOwnApp.updates(NotificationFeed.liveUpdates, IslandRuntime.foregroundPackage, hideInOwnApp, IslandRuntime.launcherInFront)
+        .let { if (LiveKind.UPDATE in forced) listOf(IslandDebug.dummyUpdate(clockMs)) + it else it }
     // Everything live on the collapsed pill, most important first, and which goes in which slot (see IslandLive).
     val canonicalKinds = IslandOwnApp.visible(IslandLive.active(call = callActive,
         timer = IslandTools.timerActive || LiveKind.TIMER in forced, stopwatch = IslandTools.swRunning || LiveKind.STOPWATCH in forced,

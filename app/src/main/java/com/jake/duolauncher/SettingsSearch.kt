@@ -26,6 +26,7 @@ internal object SettingsSearch {
         SettingEntry("Wallpaper Depth", CustomizationPage.APPEARANCE, "parallax 3d"),
         SettingEntry("App Icons", CustomizationPage.APP_ICONS, "icon style original themed tinted dark"),
         SettingEntry("Icon Lighting", CustomizationPage.APP_ICONS, "icons lit flat glass shine"),
+        SettingEntry("Hyper Glass Look", CustomizationPage.APP_ICONS, "app icons hyper glass color colour app colors coloured logo clear transparent white black accent experimental"),
         SettingEntry("Icon Style: Hyper Glass (experimental)", CustomizationPage.APP_ICONS, "app icons hyper glass refraction distortion liquid experimental"),
         SettingEntry("Icon Shape: Default, Cookie, Clover, Flower, Sunny, Pentagon or Mixed", CustomizationPage.APP_ICONS, "app icons shape material expressive pixel cookie clover mask"),
         SettingEntry("Icon Pack", CustomizationPage.APP_ICONS, "icons adw nova lawnchair"),

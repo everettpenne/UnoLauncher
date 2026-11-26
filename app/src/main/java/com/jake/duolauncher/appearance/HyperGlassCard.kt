@@ -18,26 +18,26 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ShaderBrush
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -58,13 +58,14 @@ import kotlinx.coroutines.flow.collectLatest
  * the search results) as a nearly clear pane with film grain, in place of the frosted tint. What makes it:
  *
  *  - the wallpaper behind, well blurred, with almost no fill over it ([FILL] of white, where regular glass paints 44 %);
- *  - a fixed grain over the whole pane, one small tile of noise repeated in screen pixels, so it is the same size on every card;
- *  - light split into colour: red and blue read a hair to either side of green in the picture behind ([SPLIT] of the card's width), and
- *    the card's fine border is drawn once per colour, a little apart, which is where the split is seen (a blurred picture has no edges
- *    for it to show on);
+ *  - a fixed grain over the whole pane, in screen pixels, so it is the same size on every card: two tiles of noise of different sizes, one
+ *    turned, so the pattern does not come round again within a screen;
+ *  - chromatic aberration, as a lens has: everything on the card (its words, its icons, the grain, the picture behind) has its red and
+ *    blue read a little to either side of its green, by nothing at the card's middle and by [SPLIT_DP] at its edge, so a word near the
+ *    edge has a fringe of colour and one in the middle is clean. The border is drawn over that, plain, so there is no coloured rim;
  *  - a slow drift of the picture behind ([DRIFT] of the card, round a loop every [PERIOD_MS]), stepped a few times a second, and only
  *    while a card is on screen;
- *  - a kick as Home changes page: the split and the border's colours part further while the pages move, and come back as they land
+ *  - a kick as Home changes page: the colours part further while the pages move ([SPLIT_KICKED_DP]), and come back as they land
  *    ([KICK_MS]).
  *
  * The numbers and the clock's sums are pure, so they are unit-tested.
@@ -78,8 +79,12 @@ internal object HyperGlassCards {
     /** The blur of the live backdrop under a menu or the search results, in dp. 30 px (11 dp) left the icons behind a menu as plain
      *  shapes that its words had to be read across, so it is a little more. */
     const val BLUR_DP = 18f
-    const val SPLIT = .0008f
-    const val SPLIT_KICKED = .0015f
+    /** How far red and blue sit from green at the card's edge, at rest and at the height of a kick, in dp. Nothing at the middle. It was
+     *  .0008 of the card's width, read from the blurred picture alone: under a pixel, of something with no edges, so it was never seen. */
+    const val SPLIT_DP = 1.1f
+    const val SPLIT_KICKED_DP = 4f
+    /** A little of the split is sideways everywhere, so the middle of a wide card is not left wholly without it. */
+    const val SPLIT_FLOOR = .22f
     const val DRIFT = .003f
     const val PERIOD_MS = 20_000L
     /** How often the drift is stepped. It moves a few pixels over seconds, so more often would only cost frames. */
@@ -88,10 +93,6 @@ internal object HyperGlassCards {
     const val KICK_IN_MS = 90
     /** How strongly the grain is laid over the pane. */
     const val GRAIN = .4f
-    /** How far apart the border's red and blue sit from its green, at rest and at the height of a kick, in dp. */
-    const val FRINGE_DP = 1f
-    const val FRINGE_KICKED_DP = 3.5f
-    const val FRINGE_ALPHA = .34f
     /** How much of a panel's own tint is kept under the grain, so its ink still reads on a wallpaper that is the wrong way round for it. */
     const val SHADE_SHARE = .35f
     /** The same for a card over Home's icons (a menu), which has more behind it to be read across. */
@@ -106,8 +107,7 @@ internal object HyperGlassCards {
     var showing by mutableIntStateOf(0)
 
     fun phaseAt(ms: Long): Float = ((ms % PERIOD_MS + PERIOD_MS) % PERIOD_MS).toFloat() / PERIOD_MS * (2f * Math.PI.toFloat())
-    fun split(kick: Float): Float = SPLIT + (SPLIT_KICKED - SPLIT) * kick.coerceIn(0f, 1f)
-    fun fringeDp(kick: Float): Float = FRINGE_DP + (FRINGE_KICKED_DP - FRINGE_DP) * kick.coerceIn(0f, 1f)
+    fun splitDp(kick: Float): Float = SPLIT_DP + (SPLIT_KICKED_DP - SPLIT_DP) * kick.coerceIn(0f, 1f)
 
     internal fun step(ms: Long) { phase = phaseAt(ms) }
 
@@ -117,23 +117,33 @@ internal object HyperGlassCards {
         if (moving) kick.animateTo(1f, tween(KICK_IN_MS, easing = LinearEasing)) else kick.animateTo(0f, tween(KICK_MS, easing = LinearEasing))
     }
 
-    /** The grain: one tile of grey noise, the same every time (a fixed seed), so a screenshot test sees the same picture twice. */
-    val grain: ShaderBrush by lazy {
-        val side = 128
-        val random = java.util.Random(7)
+    /** The sides of the two grain tiles, in pixels: primes, so laid over one another they line up again only every [GRAIN_A] x [GRAIN_B]
+     *  pixels, far more than a screen. One tile of 128 repeated showed its pattern across a card. */
+    const val GRAIN_A = 181
+    const val GRAIN_B = 149
+    /** The second tile is turned, so its rows do not run along the first's. */
+    const val GRAIN_TURN = 31f
+
+    private fun grainTile(side: Int, seed: Long, turn: Float): ShaderBrush {
+        val random = java.util.Random(seed)
         val pixels = IntArray(side * side) { val v = (128 + random.nextGaussian() * 46).toInt().coerceIn(0, 255); (0xFF shl 24) or (v shl 16) or (v shl 8) or v }
-        val tile = Bitmap.createBitmap(pixels, side, side, Bitmap.Config.ARGB_8888).asImageBitmap()
-        ShaderBrush(ImageShader(tile, TileMode.Repeated, TileMode.Repeated))
+        val tile = Bitmap.createBitmap(pixels, side, side, Bitmap.Config.ARGB_8888)
+        val shader = android.graphics.BitmapShader(tile, android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT)
+        if (turn != 0f) shader.setLocalMatrix(android.graphics.Matrix().apply { setRotate(turn) })
+        return ShaderBrush(shader)
     }
+
+    /** The grain: two tiles of grey noise of different sizes, one turned, each laid over at [GRAIN] / sqrt 2 so together they are as strong
+     *  as one was. The same every time (fixed seeds), so a screenshot test sees the same picture twice. */
+    val grain: List<ShaderBrush> by lazy { listOf(grainTile(GRAIN_A, 7, 0f), grainTile(GRAIN_B, 11, GRAIN_TURN)) }
 }
 
-/** The picture behind a card: drifted a little, and its red and blue read a hair to either side. */
+/** The picture behind a card, drifted a little. */
 private const val CARD_AGSL = """
 uniform shader content;
 uniform float2 size;
 uniform float2 offset;
 uniform float phase;
-uniform float split;
 uniform float drift;
 
 half4 main(float2 coord) {
@@ -142,28 +152,77 @@ half4 main(float2 coord) {
     uv += float2(sin(uv.y * 2.0 + phase), cos(uv.x * 2.0 + phase)) * drift;
     float2 lo = float2(0.5);
     float2 hi = size - offset * 2.0 - float2(0.5);
-    float2 at = clamp(uv * size - offset, lo, hi);
-    float dx = split * size.x;
-    half4 g = content.eval(at);
-    half r = content.eval(float2(max(at.x - dx, lo.x), at.y)).r;
-    half b = content.eval(float2(min(at.x + dx, hi.x), at.y)).b;
-    return half4(r, g.g, b, g.a);
+    return content.eval(clamp(uv * size - offset, lo, hi));
 }
 """
 
-/** What is drawn over the picture behind, the same on every card: the fill, the grain, and the border once per colour. */
-private fun DrawScope.hyperCardFace(outline: Outline, kick: Float, clipped: Boolean) {
+/**
+ * The aberration, over the whole card: red is read from a little further out from the card's middle than green and blue from a little
+ * further in, by an amount that grows from the middle to the edge, as through a simple lens. Where a reading falls off the card (past its
+ * edge, or outside a rounded corner) the middle one stands in, so the card's own outline gains no colour.
+ */
+private const val SPLIT_AGSL = """
+uniform shader content;
+uniform float2 size;
+uniform float split;
+uniform float side;
+
+half4 main(float2 coord) {
+    float2 q = (coord - size * 0.5) / (max(size.x, size.y) * 0.5);
+    float2 apart = q * split + float2(split * side, 0.0);
+    float2 lo = float2(0.5);
+    float2 hi = size - float2(0.5);
+    half4 g = content.eval(coord);
+    half4 r = content.eval(clamp(coord + apart, lo, hi));
+    half4 b = content.eval(clamp(coord - apart, lo, hi));
+    half red = r.r + (1.0 - r.a) * g.r;
+    half blue = b.b + (1.0 - b.a) * g.b;
+    return half4(min(red, g.a), g.g, min(blue, g.a), g.a);
+}
+"""
+
+/** The aberration as a layer's effect, made again only when its amount changes (a render effect keeps the numbers it was made with). */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+private class SplitEffect {
+    private val shader = android.graphics.RuntimeShader(SPLIT_AGSL)
+    private var made: androidx.compose.ui.graphics.RenderEffect? = null
+    private var w = 0f; private var h = 0f; private var amount = -1f
+
+    fun of(width: Float, height: Float, splitPx: Float): androidx.compose.ui.graphics.RenderEffect? {
+        if (width <= 0f || height <= 0f) return null
+        made?.let { if (width == w && height == h && splitPx == amount) return it }
+        shader.setFloatUniform("size", width, height)
+        shader.setFloatUniform("split", splitPx)
+        shader.setFloatUniform("side", HyperGlassCards.SPLIT_FLOOR)
+        w = width; h = height; amount = splitPx
+        return android.graphics.RenderEffect.createRuntimeShaderEffect(shader, "content").asComposeRenderEffect().also { made = it }
+    }
+}
+
+/** Everything drawn after this in the chain, and the card's own content, through the aberration. */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Composable
+private fun Modifier.hyperSplit(): Modifier {
+    val effect = remember { SplitEffect() }
+    return graphicsLayer {
+        renderEffect = effect.of(size.width, size.height, HyperGlassCards.splitDp(HyperGlassCards.kick.value).dp.toPx())
+    }
+}
+
+/** The card's fine border, plain white, drawn over the content and outside the aberration. */
+private fun Modifier.hyperBorder(shape: Shape): Modifier = drawWithContent {
+    drawContent()
+    drawOutline(shape.createOutline(size, layoutDirection, this), Color.White.copy(alpha = HyperGlassCards.BORDER + .1f * HyperGlassCards.kick.value),
+        style = Stroke(1.dp.toPx().coerceAtLeast(1f)))
+}
+
+/** What is drawn over the picture behind, the same on every card: the fill and the grain. */
+private fun DrawScope.hyperCardFace(outline: Outline, clipped: Boolean) {
     fun face() {
         drawRect(Color.White.copy(alpha = HyperGlassCards.FILL))
-        drawRect(HyperGlassCards.grain, alpha = HyperGlassCards.GRAIN, blendMode = BlendMode.Overlay)
+        HyperGlassCards.grain.forEach { drawRect(it, alpha = HyperGlassCards.GRAIN * .7071f, blendMode = BlendMode.Overlay) }
     }
     if (clipped) face() else clipPath(Path().apply { addOutline(outline) }) { face() }
-    val line = Stroke(1.dp.toPx().coerceAtLeast(1f))
-    val apart = HyperGlassCards.fringeDp(kick).dp.toPx()
-    val alpha = HyperGlassCards.FRINGE_ALPHA
-    translate(left = -apart) { drawOutline(outline, Color(1f, .1f, .2f, alpha), style = line, blendMode = BlendMode.Plus) }
-    translate(left = apart) { drawOutline(outline, Color(.1f, .35f, 1f, alpha), style = line, blendMode = BlendMode.Plus) }
-    drawOutline(outline, Color.White.copy(alpha = HyperGlassCards.BORDER + .1f * kick), style = line)
 }
 
 /** Counts this card as on screen while [shown] is last told so, and not once it has left the composition. */
@@ -202,7 +261,6 @@ private class FrostedCardShader {
         shader.setFloatUniform("size", scope.size.width, scope.size.height)
         shader.setFloatUniform("offset", 0f, 0f)
         shader.setFloatUniform("phase", HyperGlassCards.phase)
-        shader.setFloatUniform("split", HyperGlassCards.split(HyperGlassCards.kick.value))
         shader.setFloatUniform("drift", HyperGlassCards.DRIFT)
         paint.shader = shader
         paint.colorFilter = filter
@@ -228,6 +286,8 @@ internal fun Modifier.hyperFrostedCard(shape: Shape, image: ImageBitmap, shade: 
     return this
         .then(if (!elevated) Modifier else Modifier.shadow(16.dp, shape, clip = false, ambientColor = Color.Black.copy(alpha = if (dark) .26f else .10f),
             spotColor = Color.Black.copy(alpha = if (dark) .34f else .16f)))
+        .hyperBorder(shape)
+        .hyperSplit()
         .onGloballyPositioned {
             origin = it.positionInRoot()
             presence.set(origin.x < root.width && origin.x + it.size.width > 0f && origin.y < root.height && origin.y + it.size.height > 0f)
@@ -237,7 +297,7 @@ internal fun Modifier.hyperFrostedCard(shape: Shape, image: ImageBitmap, shade: 
             path.rewind(); path.addOutline(outline)
             shader.draw(this, image, origin, root.width, root.height, filter, path)
             clipPath(path) { drawRect(shade) }
-            hyperCardFace(outline, HyperGlassCards.kick.value, clipped = false)
+            hyperCardFace(outline, clipped = false)
         }
 }
 
@@ -251,7 +311,14 @@ internal fun Modifier.hyperLiveCard(backdrop: Backdrop, shape: Shape, shade: Col
     val tone = rememberGlassTone()
     val presence = rememberCardPresence()
     LaunchedEffect(presence) { presence.set(true) }
-    return drawBackdrop(
+    val dark = DuoAppearanceRuntime.dark
+    // The shadow is drawn here, outside the aberration's layer, which holds only what is inside the card.
+    return this
+        .then(if (!depth) Modifier else Modifier.shadow(16.dp, shape, clip = false, ambientColor = Color.Black.copy(alpha = if (dark) .26f else .10f),
+            spotColor = Color.Black.copy(alpha = if (dark) .34f else .16f)))
+        .hyperBorder(shape)
+        .hyperSplit()
+        .drawBackdrop(
         backdrop = backdrop,
         shape = { shape },
         effects = {
@@ -263,16 +330,15 @@ internal fun Modifier.hyperLiveCard(backdrop: Backdrop, shape: Shape, shade: Col
             // The blur before this one has asked for a margin round the card (see the library's lens, which does the same).
             shader.setFloatUniform("offset", -padding * s, -padding * s)
             shader.setFloatUniform("phase", HyperGlassCards.phase)
-            shader.setFloatUniform("split", HyperGlassCards.split(HyperGlassCards.kick.value))
             shader.setFloatUniform("drift", HyperGlassCards.DRIFT)
             effect(android.graphics.RenderEffect.createRuntimeShaderEffect(shader, "content"))
         },
         highlight = { null },
-        shadow = { if (depth) GlassDepth.shadow() else null },
+        shadow = { null },
         exportedBackdrop = exportedBackdrop,
         onDrawSurface = {
             drawRect(shade)
-            hyperCardFace(shape.createOutline(size, layoutDirection, this), HyperGlassCards.kick.value, clipped = true)
+            hyperCardFace(shape.createOutline(size, layoutDirection, this), clipped = true)
         },
         renderScale = GlassKind.REGULAR.renderScale,
     )

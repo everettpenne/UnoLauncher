@@ -41,6 +41,21 @@ class IslandSecurityTest {
         assertTrue(row(inputs().copy(hideOverApps = true), "accessibility").canSee.contains("name of the app in front"))
     }
 
+    private fun update(pkg: String) = LiveUpdate(key = pkg, packageName = pkg, appLabel = pkg, title = "t", text = null, shortText = null, progress = 0,
+        progressMax = 0, indeterminate = false, chronometerBase = null, countDown = false, icon = null, color = 0, postTime = 0L, openIntent = null)
+
+    @Test fun anAppsUpdatesStepAsideWhileItIsInFrontAndOthersStay() {
+        val maps = update("com.maps"); val ride = update("com.ride")
+        val all = listOf(maps, ride)
+        assertEquals("directions go while the map is open; the ride stays", listOf(ride), IslandOwnApp.updates(all, "com.maps", on = true, launcherInFront = false))
+        assertEquals("judged one by one, not by the first", listOf(maps), IslandOwnApp.updates(all, "com.ride", on = true, launcherInFront = false))
+        assertEquals("back when another app is in front", all, IslandOwnApp.updates(all, "com.mail", on = true, launcherInFront = false))
+        assertEquals("and on Home", all, IslandOwnApp.updates(all, "com.maps", on = true, launcherInFront = true))
+        assertEquals(all, IslandOwnApp.updates(all, "com.maps", on = false, launcherInFront = false))
+        assertEquals("nothing known about what is in front", all, IslandOwnApp.updates(all, null, on = true, launcherInFront = false))
+        assertTrue("on unless turned off", ExtrasState().islandHideInOwnApp)
+    }
+
     @Test fun anActivityStepsAsideOnlyInItsOwnAppAndOnlyWhenAsked() {
         val pkg = { k: LiveKind -> when (k) { LiveKind.MEDIA -> "com.player"; LiveKind.UPDATE -> "com.ride"; else -> null } }
         val kinds = listOf(LiveKind.TIMER, LiveKind.UPDATE, LiveKind.MEDIA)

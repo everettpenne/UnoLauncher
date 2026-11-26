@@ -318,7 +318,11 @@ internal fun Modifier.liquidGlass(
     depth: Boolean = true,
     /** A backdrop this surface records itself into, for controls on it to bend (a panel's switches and sliders). */
     exportedBackdrop: LayerBackdrop? = null,
+    /** A card that turns to hyper glass when that is chosen (see [HyperGlassCards]): menus and the search results. */
+    hyper: Boolean = false,
 ): Modifier {
+    if (hyper && HyperGlassCards.on && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU)
+        return hyperLiveCard(backdrop, shape, tint.copy(alpha = kind.tintAlpha * HyperGlassCards.LIVE_SHADE_SHARE), depth, exportedBackdrop)
     val tone = rememberGlassTone()
     val surface = tint.copy(alpha = kind.tintAlpha)
     val clear = kind == GlassKind.CLEAR

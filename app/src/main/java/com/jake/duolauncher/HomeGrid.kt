@@ -676,6 +676,8 @@ internal fun AppTile(app: AppEntry, size: Float, labels: Boolean, modifier: Modi
             Image(app.image, null, Modifier.size(iconSize).onGloballyPositioned { bounds.set(it.boundsInWindow().toAndroidBounds()) }
                 .graphicsLayer { scaleX = 1f - .08f * progress; scaleY = 1f - .08f * progress }
                 .glassIcon()
+                // Clear hyper glass: the wallpaper behind this icon, bent by its glass (nothing for any other icon style).
+                .hyperGlassWallpaper(app.id)
                 .pressGlow(progress, Corner.icon))
             AppBadge(badgeCount(app), Modifier.align(Alignment.TopEnd))
         }

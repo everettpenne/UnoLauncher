@@ -120,7 +120,7 @@ internal fun AppContextMenu(
                 scaleX = grow; scaleY = grow; alpha = appear.value.coerceIn(0f, 1f)
                 transformOrigin = TransformOrigin(pivotX, if (flip) 1f else 0f)
             }
-            .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.large, tint, GlassKind.REGULAR, glass.settings)
+            .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.large, tint, GlassKind.REGULAR, glass.settings, hyper = true)
                 else Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = .97f), Corner.large))
             .padding(vertical = 6.dp)
         Column(panel.testTag("app-context-panel")) {
@@ -238,7 +238,7 @@ internal fun HoldMenu(anchor: Rect, glass: PageGlass?, items: List<HoldMenuItem>
                 scaleX = grow; scaleY = grow; alpha = appear.value.coerceIn(0f, 1f)
                 transformOrigin = TransformOrigin(pivotX, if (flip) 1f else 0f)
             }
-            .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.large, tint, GlassKind.REGULAR, glass.settings)
+            .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.large, tint, GlassKind.REGULAR, glass.settings, hyper = true)
                 else Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = .97f), Corner.large))
             .padding(vertical = 6.dp)
         Column(panel.testTag("hold-menu-panel")) {

@@ -807,14 +807,16 @@ private fun hyperGlassIcon(drawable: Drawable, style: IconStyle, accent: Wallpap
         IconStyle.HYPER_LIGHT -> 0xFFFFFFFF.toInt()
         // The launcher's accent: the wallpaper's when "Color from wallpaper" is on, otherwise Uno's orange.
         IconStyle.HYPER_ACCENT -> (accent?.accent ?: com.jake.duolauncher.panel.IosOrange).toArgb()
+        // No card: the glass's own faint tint, and see-through. On Home the wallpaper behind it is drawn live (HyperGlassHome).
+        IconStyle.HYPER_CLEAR, IconStyle.HYPER_CLEAR_COLOR -> glass.clear.toArgb()
         else -> 0xFF000000.toInt()
     }
     val mono = when (style) {
-        IconStyle.HYPER_COLOR -> null
+        IconStyle.HYPER_COLOR, IconStyle.HYPER_CLEAR_COLOR -> null
         IconStyle.HYPER_LIGHT -> 0xFF111114.toInt()
         else -> 0xFFFFFFFF.toInt()
     }
-    val size = 144
+    val size = com.jake.duolauncher.appearance.HyperGlassHome.ICON_PX
     val textures = com.jake.duolauncher.appearance.HyperGlassTextures(
         com.jake.duolauncher.appearance.HyperGlassTextures.unplated(drawable, size, mono, com.jake.duolauncher.appearance.HyperGlassShapes.fit(shape)))
     val field = com.jake.duolauncher.appearance.HyperGlassShapes.of(shape, size, size * Corner.ICON_FRACTION).field

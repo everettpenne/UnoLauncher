@@ -55,4 +55,30 @@ class ElasticEdgeTest {
         val back = ElasticEdgeMath.resist(ElasticEdgeMath.unresist(midOffset, dim) - 10f, dim)
         assertTrue("recedes smoothly: $back < $midOffset", back < midOffset)
     }
+
+    @Test fun `a drag back towards the content lets the band go slack before anything scrolls`() {
+        val band = ElasticOverscrollState { false }
+        // Pulled past the bottom: the band is stretched upwards (negative).
+        band.applyDrag(-300f, 1000f)
+        val stretched = band.offset
+        assertTrue(stretched < 0f)
+        // A small move back is all taken by the band; a pull further the same way is not its business here.
+        assertEquals(10f, band.relax(10f), delta)
+        assertEquals(stretched + 10f, band.offset, delta)
+        assertEquals(0f, band.relax(-25f), 0f)
+        // A big move back takes only what brings the band to rest, and leaves the rest to scroll the page.
+        val left = -band.offset
+        assertEquals(left, band.relax(500f), delta)
+        assertEquals(0f, band.offset, 0f)
+        assertEquals(0f, band.relax(40f), 0f)
+    }
+
+    @Test fun `a fling throws the band by a capped share of its speed`() {
+        assertEquals(0f, ElasticEdgeMath.flingShare(0f), 0f)
+        assertEquals(-180f, ElasticEdgeMath.flingShare(-1000f), delta)
+        assertEquals(ElasticEdgeMath.FLING_MAX, ElasticEdgeMath.flingShare(50_000f), 0f)
+        assertEquals(-ElasticEdgeMath.FLING_MAX, ElasticEdgeMath.flingShare(-50_000f), 0f)
+        assertEquals(125f, ElasticEdgeMath.flingLimit(1000f), 0f)
+        assertEquals(0f, ElasticEdgeMath.flingLimit(0f), 0f)
+    }
 }

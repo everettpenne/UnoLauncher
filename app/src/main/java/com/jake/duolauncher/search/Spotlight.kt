@@ -1290,8 +1290,9 @@ internal fun Spotlight(
                     alpha = p; scaleX = .94f + .06f * p; scaleY = .94f + .06f * p
                     translationY = -(1f - p) * 28.dp.toPx(); transformOrigin = TransformOrigin(.5f, 0f)
                 }
-                .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, cardShape, Color.Black, GlassKind.REGULAR, glass.settings) else Modifier.clip(cardShape).background(Color(0xFF1C1C1E).copy(alpha = if (seeThrough) .94f else 1f)))
-                .background(Color.Black.copy(alpha = .52f), cardShape)
+                .then(if (glass != null) Modifier.liquidGlass(glass.backdrop, cardShape, Color.Black, GlassKind.REGULAR, glass.settings, hyper = true) else Modifier.clip(cardShape).background(Color(0xFF1C1C1E).copy(alpha = if (seeThrough) .94f else 1f)))
+                // Hyper glass keeps the card nearly bare: a lighter dim, so its grain and the picture behind it still show.
+                .background(Color.Black.copy(alpha = if (glass != null && com.jake.duolauncher.appearance.HyperGlassCards.on) .24f else .52f), cardShape)
                 .clickable(interactionSource = quiet, indication = null) {}.then(swipeToClose).testTag("spotlight-results")
                 // Inside the glass, so the glass itself is the size that is moving. A letter typed mid-way carries on from the card's current speed.
                 .then(if (animationsOn) Modifier.animateContentSize(SpotlightBar.cardResize) else Modifier)

@@ -40,7 +40,9 @@ internal enum class IconStyle {
     ORIGINAL, THEMED, TINTED, DARK, AUTOMATIC,
     /** Hyper glass (appearance/HyperGlassIcon.kt): each app's picture, its plate taken off, inside glass whose edge bends it. White on a
      *  black card, dark on a white one, white on the accent, or in the app's own colours on black. */
-    HYPER, HYPER_LIGHT, HYPER_ACCENT, HYPER_COLOR;
+    HYPER, HYPER_LIGHT, HYPER_ACCENT, HYPER_COLOR,
+    /** Clear hyper glass: no card, the wallpaper seen (and on Home, bent) through the glass. In white, or in the app's own colours. */
+    HYPER_CLEAR, HYPER_CLEAR_COLOR;
 
     /** The style actually drawn: [AUTOMATIC] follows light or dark; every other style is itself. */
     fun resolve(dark: Boolean): IconStyle = if (this == AUTOMATIC) (if (dark) DARK else ORIGINAL) else this
@@ -50,7 +52,9 @@ internal enum class IconStyle {
     /** Whether the wallpaper's colours go into the icons, given the "Color from wallpaper" switch. */
     fun usesWallpaper(wallpaperColor: Boolean): Boolean = this == TINTED || ((this == THEMED || this == HYPER_ACCENT) && wallpaperColor)
     /** Whether icons are drawn as hyper glass. */
-    val hyper: Boolean get() = this == HYPER || this == HYPER_LIGHT || this == HYPER_ACCENT || this == HYPER_COLOR
+    val hyper: Boolean get() = this == HYPER || this == HYPER_LIGHT || this == HYPER_ACCENT || this == HYPER_COLOR || clear
+    /** Whether icons are clear hyper glass, with no card of their own. */
+    val clear: Boolean get() = this == HYPER_CLEAR || this == HYPER_CLEAR_COLOR
 
     companion object { fun fromPreference(raw: String?): IconStyle = entries.firstOrNull { it.name == raw } ?: ORIGINAL }
 }

@@ -9,5 +9,7 @@
         <activity android:name=".EqualizerHostActivity" android:exported="true" />
         <!-- Debug builds only: a page of the experimental hyper glass icons, to look at and press. -->
         <activity android:name=".HyperGlassLabActivity" android:exported="true" />
+        <!-- Debug builds only: pages of clear hyper glass icons, to measure what a page swipe costs. -->
+        <activity android:name=".HyperGlassPagerLabActivity" android:exported="true" />
     </application>
 </manifest>

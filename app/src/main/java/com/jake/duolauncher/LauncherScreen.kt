@@ -155,6 +155,7 @@ internal fun LauncherScreen(
     onStatusIconsDark: (Boolean) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onEdgeHighlight: (Boolean) -> Unit = {},
+    onHyperCards: (Boolean) -> Unit = {},
     island: IslandState = IslandState(),
     onIsland: (Boolean) -> Unit = {},
     onIslandHeight: (Float) -> Unit = {},
@@ -293,6 +294,10 @@ internal fun LauncherScreen(
     val iosLayout = appearance.homeStyle == HomeStyle.IOS && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 650
     val railShown = state.verticalStatus && !iosLayout
     SideEffect { GlassFinish.clear = appearance.clearGlass; GlassRim.enabled = appearance.edgeHighlight; IconFinish.on = extras?.store?.state?.iconLighting ?: true }
+    // Hyper glass cards (Appearance › Glass): the drift's clock, and the kick as Home changes page.
+    SideEffect { com.jake.duolauncher.appearance.HyperGlassCards.on = appearance.hyperCards && appearance.liquidGlass && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU }
+    com.jake.duolauncher.appearance.HyperGlassCardClock()
+    LaunchedEffect(nativePager) { snapshotFlow { nativePager.isScrollInProgress }.collect { moving -> launch { com.jake.duolauncher.appearance.HyperGlassCards.kicked(moving) } } }
     // The status bar's icons follow the wallpaper under them: dark on a light top strip, light on a dark one (they were always light, and
     // faded out over a pale sky beside the black island). The same contrast rule and dead band as the glass ink, so it never flickers.
     val wallpaperLuma = LocalWallpaperLuma.current
@@ -402,7 +407,13 @@ internal fun LauncherScreen(
         HomeApps(state.visibleApps.filter { it.id !in focusHides }, { app -> onLaunch(app) }, { customizationPage = CustomizationPage.HOME; sheet = "settings" })
     }
     // The shadow under an icon follows whether icons are shaped (it is drawn live, outside the icon's bitmap).
-    androidx.compose.runtime.SideEffect { com.jake.duolauncher.appearance.IconFinish.shaped = iconShapeNow != AppIconShape.SQUIRCLE && iconPackNow.isEmpty() }
+    androidx.compose.runtime.SideEffect {
+        com.jake.duolauncher.appearance.IconFinish.shaped = iconShapeNow != AppIconShape.SQUIRCLE && iconPackNow.isEmpty()
+        // Clear hyper glass: Home draws the wallpaper behind each icon, and an icon you can see through has no shadow under it.
+        com.jake.duolauncher.appearance.HyperGlassHome.on = iconStyleNow.clear && iconPackNow.isEmpty()
+        com.jake.duolauncher.appearance.HyperGlassHome.shape = iconShapeNow
+        com.jake.duolauncher.appearance.HyperGlassHome.moving = { nativePager.isScrollInProgress }
+    }
     LaunchedEffect(iconStyleNow, themedDarkNow, accentKey, iconPackNow, iconLightingNow, iconShapeNow) { if (iconsSeeded) model.refresh() else iconsSeeded = true }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { controlPanelOpen = false }
     BackHandler(enabled = controlPanelOpen) { controlPanelOpen = false }
@@ -1195,6 +1206,7 @@ internal fun LauncherScreen(
                             onHomeStyle = onHomeStyle,
                             onTiltHighlight = onTiltHighlight,
                             onEdgeHighlight = onEdgeHighlight,
+                            onHyperCards = onHyperCards,
                             backgrounds = launcherActivity.backgrounds,
                             onWallpaperPreview = { sheet = ""; onWallpaperPreview() }, homePage = pager.currentPage.coerceIn(0, homePages - 1),
                             feed = feed, onFeedRefresh = onFeedRefresh,

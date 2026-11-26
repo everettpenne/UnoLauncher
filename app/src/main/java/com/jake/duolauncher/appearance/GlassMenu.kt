@@ -90,7 +90,7 @@ internal fun GlassDropdownMenu(
                 scaleX = grow; scaleY = grow; alpha = open.value.coerceIn(0f, 1f); transformOrigin = origin
             }
             .widthIn(min = 200.dp, max = 300.dp).width(IntrinsicSize.Max)
-            .liquidGlass(shifted, shape, tint, GlassKind.REGULAR, glass.settings)
+            .liquidGlass(shifted, shape, tint, GlassKind.REGULAR, glass.settings, hyper = true)
             .padding(vertical = 8.dp)) {
             CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface, content = { content() })
         }

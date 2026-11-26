@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.Velocity
  *             atEnd = { !listState.canScrollForward })
  *     ) { ... }
  *
- * The connection consumes the overscroll before Android's own stretch/glow edge effect sees it, so
- * this is the only rubber band shown. With Android's animations switched off the overscroll snaps
+ * This is the only rubber band shown: Android's own stretch effect is switched off for the whole launcher (DuoTheme). It used to take
+ * a fling that reached an edge, and stretching a page of glass through a filter on every frame made the page stutter there. With Android's animations switched off the overscroll snaps
  * straight back instead of springing.
  */
 internal object ElasticEdgeMath {
@@ -62,6 +62,14 @@ internal object ElasticEdgeMath {
      * from zero. The magnitude is capped just under [dimension] (the curve's asymptote), where the inverse
      * runs away.
      */
+    /** How much of a fling's speed throws the band when the fling runs into an edge, and the most it may be thrown (pixels a second). */
+    const val FLING_SHARE = 0.18f
+    const val FLING_MAX = 1400f
+    fun flingShare(velocity: Float): Float = (velocity * FLING_SHARE).coerceIn(-FLING_MAX, FLING_MAX)
+
+    /** The furthest a fling may throw the band: an eighth of the viewport. */
+    fun flingLimit(dimension: Float): Float = if (dimension <= 0f) 0f else dimension / 8f
+
     fun unresist(offset: Float, dimension: Float): Float {
         if (dimension <= 0f) return 0f
         val magnitude = kotlin.math.abs(offset).coerceIn(0f, dimension * .999f)
@@ -96,13 +104,33 @@ internal class ElasticOverscrollState internal constructor(
         return consumed
     }
 
-    /** Springs (or snaps, with animations off) the edge back to rest and forgets the accumulated drag. */
-    internal suspend fun release() {
+    /**
+     * Lets the band go slack under a drag back towards the content: [delta] is taken up by the band until it is at rest, and what it
+     * took is returned (nothing if the band is at rest or [delta] pulls it further). Without this a finger that pulled past the end and
+     * then moved back a little scrolled the list while the band stayed stretched, and letting go made the page jump.
+     */
+    internal fun relax(delta: Float): Float {
+        val at = offsetState.floatValue
+        if (at == 0f || delta == 0f || (at > 0f) == (delta > 0f)) return 0f
+        val taken = if (kotlin.math.abs(delta) >= kotlin.math.abs(at)) -at else delta
+        offsetState.floatValue = at + taken
+        raw = 0f
+        return taken
+    }
+
+    /**
+     * Springs (or snaps, with animations off) the edge back to rest and forgets the accumulated drag. [velocity] (pixels a second) is
+     * a fling that ran into the edge: the band is thrown by a share of it ([ElasticEdgeMath.flingShare]) and comes back on the same
+     * spring, so a fling that reaches the end lands on the band a drag would stretch, and not on Android's own stretch effect.
+     */
+    internal suspend fun release(velocity: Float = 0f, dimension: Float = 0f) {
         raw = 0f
         val from = offsetState.floatValue
-        if (snapOnRelease() || from == 0f) { offsetState.floatValue = 0f; return }
-        animate(from, 0f, animationSpec = spring(dampingRatio = ElasticEdgeMath.DAMPING_RATIO, stiffness = ElasticEdgeMath.STIFFNESS)) { value, _ ->
-            offsetState.floatValue = value
+        if (snapOnRelease() || (from == 0f && velocity == 0f)) { offsetState.floatValue = 0f; return }
+        val limit = ElasticEdgeMath.flingLimit(dimension)
+        animate(from, 0f, initialVelocity = ElasticEdgeMath.flingShare(velocity),
+            animationSpec = spring(dampingRatio = ElasticEdgeMath.DAMPING_RATIO, stiffness = ElasticEdgeMath.STIFFNESS)) { value, _ ->
+            offsetState.floatValue = if (limit > 0f) value.coerceIn(-limit, limit) else value
         }
     }
 }
@@ -124,6 +152,9 @@ private class ElasticVerticalOverscroll(
         if (source != NestedScrollSource.UserInput || available.y == 0f) return Offset.Zero
         val dim = dimension()
         if (dim <= 0f) return Offset.Zero
+        // A drag back towards the content first lets a stretched band go slack; only what is left scrolls.
+        val relaxed = state.relax(available.y)
+        if (relaxed != 0f) return Offset(0f, relaxed)
         // Dragging a finger down while at the very top pulls the content past its start edge.
         return if (available.y > 0f && atStart()) Offset(0f, state.applyDrag(available.y, dim)) else Offset.Zero
     }
@@ -138,7 +169,14 @@ private class ElasticVerticalOverscroll(
 
     // A drag end (fling or not) dispatches these, so the spring-back lives here and never races the finger.
     override suspend fun onPreFling(available: Velocity): Velocity { state.release(); return Velocity.Zero }
-    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity { state.release(); return Velocity.Zero }
+    // What is left of a fling when it reaches an edge throws the band. At the end the speed is used up here, so nothing above (a sheet)
+    // is moved by it; at the start it is passed on as before, since a hard flick down is how a sheet is thrown away.
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+        val intoEnd = available.y < 0f && atEnd()
+        val intoStart = available.y > 0f && atStart()
+        state.release(if (intoEnd || intoStart) available.y else 0f, dimension())
+        return if (intoEnd) available else Velocity.Zero
+    }
 }
 
 /** Opt-in elastic edges for a vertical scrollable. See [ElasticEdgeMath] for the tuning. */

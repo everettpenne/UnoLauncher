@@ -38,11 +38,19 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-internal enum class CustomizationPage { OVERVIEW, APPEARANCE, HOME, GESTURES, SEARCH, ISLAND, KEYBOARD, PRIVACY, FEED, BACKUP, DEBUG, STATUS_GRID, ISLAND_STYLE }
+/**
+ * The settings' pages. [PRIVACY] is Notifications & Focus; [PRIVACY_DATA] is Privacy (what Uno keeps and may read). The pages inside
+ * another (see [parent]): App Icons in Appearance; and in Island, its style, its place by the status bar, what it shows, its notifications,
+ * and its widget and apps.
+ */
+internal enum class CustomizationPage { OVERVIEW, APPEARANCE, HOME, GESTURES, SEARCH, ISLAND, KEYBOARD, PRIVACY, FEED, BACKUP, DEBUG, STATUS_GRID, ISLAND_STYLE,
+    APP_ICONS, ASSISTANT, PRIVACY_DATA, ISLAND_SHOWS, ISLAND_NOTIFICATIONS, ISLAND_EXTRAS }
 
 /** Where the back arrow goes from a page: a sub-page goes back to its parent, every other page to the overview. */
 internal fun CustomizationPage.parent(): CustomizationPage = when (this) {
-    CustomizationPage.STATUS_GRID, CustomizationPage.ISLAND_STYLE -> CustomizationPage.ISLAND
+    CustomizationPage.STATUS_GRID, CustomizationPage.ISLAND_STYLE, CustomizationPage.ISLAND_SHOWS, CustomizationPage.ISLAND_NOTIFICATIONS,
+    CustomizationPage.ISLAND_EXTRAS -> CustomizationPage.ISLAND
+    CustomizationPage.APP_ICONS -> CustomizationPage.APPEARANCE
     else -> CustomizationPage.OVERVIEW
 }
 
@@ -75,6 +83,7 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
     onHomeStyle: (HomeStyle) -> Unit = {},
     onTiltHighlight: (Boolean) -> Unit = {},
     onEdgeHighlight: (Boolean) -> Unit = {},
+    onHyperCards: (Boolean) -> Unit = {},
     onIsland: (Boolean) -> Unit = {},
     onIslandHeight: (Float) -> Unit = {},
     islandEverywhere: Boolean = false,
@@ -118,21 +127,40 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
             style = if (Expression.now.displayHeads) Expressive.pageTitle else UnoType.largeTitle.copy(fontWeight = FontWeight.Bold), maxLines = 1)
         // The island page keeps a live copy of the island above its settings, so a change can be watched as it is made.
         val islandPreview = remember { com.jake.duolauncher.island.IslandPreviewController() }
-        if ((page == CustomizationPage.ISLAND || page == CustomizationPage.ISLAND_STYLE) && appearance.island && extras != null) {
+        if ((page == CustomizationPage.ISLAND || page == CustomizationPage.ISLAND_STYLE || page == CustomizationPage.ISLAND_SHOWS ||
+                page == CustomizationPage.ISLAND_NOTIFICATIONS) && appearance.island && extras != null) {
             val es = extras.store.state
             com.jake.duolauncher.island.IslandSettingsPreview(islandPreview, com.jake.duolauncher.island.PreviewSettings(appearance.islandScale, es.islandWideMode,
                 es.liveCompactLevel, es.peekLevel, es.peekActions, es.islandShortcuts, es.privacyIndicators, es.liveUpdates, es.islandCameraOnly), Modifier.padding(bottom = 8.dp))
         }
         CompositionLocalProvider(com.jake.duolauncher.island.LocalIslandPreview provides islandPreview) {
-        Column(Modifier.weight(1f).verticalScroll(bodyScroll).padding(bottom = 24.dp),
+        // The launcher's own rubber band at the top and bottom of every settings page.
+        val elastic = rememberElasticOverscrollState()
+        Column(Modifier.weight(1f).elasticVerticalEdges(elastic, atStart = { !bodyScroll.canScrollBackward }, atEnd = { !bodyScroll.canScrollForward })
+            .verticalScroll(bodyScroll).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(Space.L.dp)) {
             when (page) {
                 CustomizationPage.OVERVIEW -> OverviewPage(state, model, isDefaultHome, onMakeDefault, onPage, onClose)
                 CustomizationPage.APPEARANCE -> {
                     WallpaperGroups(backgrounds, state, appearance.dark, onWallpaperPreview)
                     AppearanceSettings(appearance, onAppearanceMode, onAppearanceManual, onAppearanceDeviceLocation, onAppearanceClear, onAppearanceCancelLocation)
-                    GlassGroups(appearance, onGlass, onEdgeHighlight, onTiltHighlight, onWallpaperColor, onWallpaperDepth, onWidgetStyle)
-                    if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.ICONS)
+                    GlassGroups(appearance, onGlass, onEdgeHighlight, onHyperCards, onTiltHighlight, onWallpaperColor, onWallpaperDepth, onWidgetStyle)
+                    // App icons have a page of their own: a style, a shape, lighting and icon packs are a subject in themselves.
+                    if (extras != null) SettingsGroup(footer = "Icon style and shape, lighting, and icon packs.") {
+                        row { NavRow("App Icons", "customization-app-icons", value = iconStyleName(extras.store.state.iconStyle)) { onPage(CustomizationPage.APP_ICONS) } }
+                    }
+                }
+                CustomizationPage.APP_ICONS -> if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.ICONS)
+                CustomizationPage.ASSISTANT -> if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.ASSISTANT)
+                CustomizationPage.ISLAND_SHOWS -> if (extras != null) IslandSettingsGroups(extras, apps, IslandPart.SHOWS)
+                CustomizationPage.ISLAND_NOTIFICATIONS -> if (extras != null) IslandSettingsGroups(extras, apps, IslandPart.NOTIFICATIONS)
+                CustomizationPage.ISLAND_EXTRAS -> if (extras != null) IslandSettingsGroups(extras, apps, IslandPart.EXTRAS)
+                CustomizationPage.PRIVACY_DATA -> {
+                    if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.SENSORS)
+                    val hiddenState = model.state.collectAsState().value
+                    SettingsGroup { row { Column(Modifier.padding(vertical = Space.M.dp)) {
+                        HiddenAppsSetting(hiddenState.apps.filter { it.id in hiddenState.hiddenApps }) { model.unhideApp(it.id) } } } }
+                    if (extras != null) SettingsGroup { row { Column(Modifier.padding(vertical = Space.M.dp)) { PermissionLedgerSection(extras) } } }
                 }
                 CustomizationPage.HOME -> HomeLayoutSettings(state, wide, { wide = it }, model, homePage,
                     onEditPins, onWidget, onAddWidget, onRemoveWidget, appearance.homeStyle, onHomeStyle)
@@ -149,17 +177,15 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
                         row { SettingsSwitch("Search Button Opens Google", state.googleSearch, model::setGoogleSearch, "google-search-switch") }
                     }
                     if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.SEARCH)
+                    // Qwen has a page of its own; from here it is one tap.
+                    SettingsGroup(footer = "Ask Qwen, tasks, conversations and what the assistant is told about this phone.") {
+                        row { NavRow("Assistant", "customization-assistant-from-search") { onPage(CustomizationPage.ASSISTANT) } }
+                    }
                 }
                 CustomizationPage.ISLAND -> IslandPage(appearance, extras, apps, islandEverywhere, onIsland, onIslandEverywhere, onIslandHeight, onPage)
                 CustomizationPage.ISLAND_STYLE -> IslandStyleSection(IslandThemeController.current)
                 CustomizationPage.KEYBOARD -> if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.KEYBOARD)
-                CustomizationPage.PRIVACY -> {
-                    if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.PRIVACY)
-                    val hiddenState = model.state.collectAsState().value
-                    SettingsGroup { row { Column(Modifier.padding(vertical = Space.M.dp)) {
-                        HiddenAppsSetting(hiddenState.apps.filter { it.id in hiddenState.hiddenApps }) { model.unhideApp(it.id) } } } }
-                    if (extras != null) SettingsGroup { row { Column(Modifier.padding(vertical = Space.M.dp)) { PermissionLedgerSection(extras) } } }
-                }
+                CustomizationPage.PRIVACY -> if (extras != null) ExtrasSettingsPage(extras, apps, ExtrasSection.PRIVACY)
                 CustomizationPage.DEBUG -> IslandDebugSettings()
                 CustomizationPage.STATUS_GRID -> StatusBarCalibrationSettings()
                 CustomizationPage.FEED -> FeedSettings(feed, onFeedRefresh, onAddFeed, onRemoveFeed, onSourceEnabled, onImportOpml, onKeepPerFeed)
@@ -176,6 +202,13 @@ internal fun CustomizationSheet(state: LauncherState, initiallyWide: Boolean, mo
         }
         }
     }
+}
+
+/** An icon style's name, as the settings show it. */
+internal fun iconStyleName(style: IconStyle): String = when (style) {
+    IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark"; IconStyle.AUTOMATIC -> "Auto"
+    IconStyle.HYPER -> "Hyper Glass"; IconStyle.HYPER_LIGHT -> "Hyper Glass Light"; IconStyle.HYPER_ACCENT -> "Hyper Glass Accent"; IconStyle.HYPER_COLOR -> "Hyper Glass Color"
+    IconStyle.HYPER_CLEAR -> "Hyper Glass Clear"; IconStyle.HYPER_CLEAR_COLOR -> "Hyper Glass Clear Color"
 }
 
 /** The first page: search, then the pages in iOS's grouped rows, each with its coloured icon tile. */
@@ -202,30 +235,36 @@ private fun OverviewPage(state: LauncherState, model: LauncherModel, isDefaultHo
         row { NavRow("Home Screen", "customization-home", icon = Icons.Rounded.GridView, iconTint = Color(0xFF5E5CE6), order = 1) { onPage(CustomizationPage.HOME) } }
         row { NavRow("Island", "customization-island", icon = IslandPillIcon, iconTint = Color(0xFF1C1C1E), order = 2) { onPage(CustomizationPage.ISLAND) } }
     }
+    // How it looks (above); what you do with it; what it may see and how it answers a touch; and the rest.
     SettingsGroup {
-        row { NavRow("Notifications & Privacy", "customization-privacy", icon = Icons.Rounded.Notifications, iconTint = Color(0xFFFF3B30), order = 3) { onPage(CustomizationPage.PRIVACY) } }
-        row { NavRow("Gestures", "customization-gestures", icon = Icons.Rounded.Gesture, iconTint = Color(0xFF8E8E93), order = 4) { onPage(CustomizationPage.GESTURES) } }
-        row { NavRow("Search", "customization-search", icon = Icons.Rounded.Search, iconTint = Color(0xFF8E8E93), order = 5) { onPage(CustomizationPage.SEARCH) } }
-        row { NavRow("Keyboard", "customization-keyboard", icon = Icons.Rounded.Keyboard, iconTint = Color(0xFF8E8E93), order = 6) { onPage(CustomizationPage.KEYBOARD) } }
-        row { NavRow("News Feed", "customization-feed", icon = Icons.Rounded.RssFeed, iconTint = IosOrange, order = 7) { onPage(CustomizationPage.FEED) } }
+        row { NavRow("Search", "customization-search", icon = Icons.Rounded.Search, iconTint = Color(0xFF8E8E93), order = 3) { onPage(CustomizationPage.SEARCH) } }
+        row { NavRow("Assistant", "customization-assistant", icon = Icons.Rounded.AutoAwesome, iconTint = Color(0xFFBF5AF2), order = 4) { onPage(CustomizationPage.ASSISTANT) } }
+        row { NavRow("Keyboard", "customization-keyboard", icon = Icons.Rounded.Keyboard, iconTint = Color(0xFF8E8E93), order = 5) { onPage(CustomizationPage.KEYBOARD) } }
+        row { NavRow("News Feed", "customization-feed", icon = Icons.Rounded.RssFeed, iconTint = IosOrange, order = 6) { onPage(CustomizationPage.FEED) } }
+    }
+    SettingsGroup {
+        row { NavRow("Notifications & Focus", "customization-privacy", icon = Icons.Rounded.Notifications, iconTint = Color(0xFFFF3B30), order = 7) { onPage(CustomizationPage.PRIVACY) } }
+        row { NavRow("Privacy", "customization-privacy-data", icon = Icons.Rounded.Lock, iconTint = Color(0xFF0A84FF), order = 8) { onPage(CustomizationPage.PRIVACY_DATA) } }
+        row { NavRow("Gestures", "customization-gestures", icon = Icons.Rounded.Gesture, iconTint = Color(0xFF8E8E93), order = 9) { onPage(CustomizationPage.GESTURES) } }
     }
     val debuggable = androidx.compose.ui.platform.LocalContext.current.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
     SettingsGroup {
-        row { NavRow("General", "customization-backup", icon = Icons.Rounded.Settings, iconTint = Color(0xFF8E8E93), order = 8) { onPage(CustomizationPage.BACKUP) } }
+        row { NavRow("General", "customization-backup", icon = Icons.Rounded.Settings, iconTint = Color(0xFF8E8E93), order = 10) { onPage(CustomizationPage.BACKUP) } }
         // Only a debug build has the island debug page; a release build neither shows it nor reads anything it saved.
-        if (debuggable) row { NavRow("Island Debug", "customization-debug", icon = Icons.Rounded.BugReport, iconTint = Color(0xFF30D158), order = 9) { onPage(CustomizationPage.DEBUG) } }
+        if (debuggable) row { NavRow("Island Debug", "customization-debug", icon = Icons.Rounded.BugReport, iconTint = Color(0xFF30D158), order = 11) { onPage(CustomizationPage.DEBUG) } }
     }
     if (isDefaultHome) SettingsGroup { row { ActionRow(stringResource(com.jake.duolauncher.R.string.change_home_app), "default-home-settings", onClick = onMakeDefault) } }
 }
 
 /** Glass, accent and depth: Appearance's groups below the wallpaper and light and dark. */
 @Composable
-private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> Unit, onEdgeHighlight: (Boolean) -> Unit, onTiltHighlight: (Boolean) -> Unit,
+private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> Unit, onEdgeHighlight: (Boolean) -> Unit, onHyperCards: (Boolean) -> Unit, onTiltHighlight: (Boolean) -> Unit,
     onWallpaperColor: (Boolean) -> Unit, onWallpaperDepth: (Boolean) -> Unit, onWidgetStyle: (WidgetStyle) -> Unit) {
     val samples = GlassRim.samples.intValue
     val context = androidx.compose.ui.platform.LocalContext.current
     // Read when the page opens and when the switch changes; reopening the page after allowing Sensors clears the note.
     val sensorsAllowed = remember(appearance.tiltHighlight) { GrapheneSensors.allowed(context) }
+    val hyperCardsOffered = appearance.liquidGlass && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU
     SettingsGroup(header = "Glass", footer = buildString {
         append("Clear is iOS's Liquid Glass: see-through, with a bright edge. Frosted keeps a soft tint behind text. Sheets stay frosted either way.")
         if (appearance.liquidGlass) append(" Edge Highlight is the light along the edge of every glass surface.")
@@ -235,11 +274,13 @@ private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> U
             sensorsAllowed == false -> append(" Sensors is off for Uno Launcher, so the highlight stays still. Allow it in App info › Permissions.")
             samples == 0 -> append(" No motion readings yet.")
         }
+        if (hyperCardsOffered) append(" Hyper Glass Cards is an experiment: the feed, the App Library, menus and search results turn nearly clear, with film grain and a faint split of colour at their edges.")
     }) {
         row { DropdownRow("Glass", GlassChoice.entries, appearance.glassKind, { when (it) { GlassChoice.CLEAR -> "Clear"; GlassChoice.FROSTED -> "Frosted"; GlassChoice.OFF -> "Off" } },
             "glass-style", optionTag = { "glass-${it.name.lowercase()}" }, onSelect = onGlass) }
         if (appearance.liquidGlass) row { SettingsSwitch("Edge Highlight", appearance.edgeHighlight, onEdgeHighlight, "edge-highlight-switch") }
         if (appearance.liquidGlass && appearance.edgeHighlight) row { SettingsSwitch("Tilt Highlight", appearance.tiltHighlight, onTiltHighlight, "tilt-highlight-switch") }
+        if (hyperCardsOffered) row { SettingsSwitch("Hyper Glass Cards", appearance.hyperCards, onHyperCards, "hyper-cards-switch") }
     }
     SettingsGroup(header = "Widgets", footer = "Card is a soft, plain widget like iOS's, and keeps swiping between pages smooth. Glass bends the wallpaper behind each widget, but pages swipe less smoothly with it. Each widget can choose its own from its options.") {
         row { SegmentRow(WidgetStyle.entries, appearance.widgetStyle, { when (it) { WidgetStyle.CARD -> "Card"; WidgetStyle.GLASS -> "Glass" } },
@@ -287,7 +328,13 @@ private fun IslandPage(appearance: AppearanceState, extras: ExtrasActions?, apps
         if (appearance.island) row { NavRow("Line Up with Status Bar", "customization-status-grid") { onPage(CustomizationPage.STATUS_GRID) } }
         if (appearance.island) row { NavRow("Style", "customization-island-style", value = IslandThemes.active.name) { onPage(CustomizationPage.ISLAND_STYLE) } }
     }
-    if (extras != null) IslandSettingsGroups(extras, apps)
+    // The rest of the island's settings, by subject: one long page of fifteen groups was hard to find anything on.
+    if (appearance.island && extras != null) SettingsGroup(footer = "What It Shows: live updates, scores, navigation, calls, paused media and the timer. Notifications: the cards that drop down, and when the island steps aside. Widget & Apps: a widget inside the island and the apps on its shortcuts.") {
+        row { NavRow("What It Shows", "customization-island-shows") { onPage(CustomizationPage.ISLAND_SHOWS) } }
+        row { NavRow("Notifications", "customization-island-notifications", value = if (extras.store.state.notificationPeek) "On" else "Off") { onPage(CustomizationPage.ISLAND_NOTIFICATIONS) } }
+        row { NavRow("Widget & Apps", "customization-island-extras") { onPage(CustomizationPage.ISLAND_EXTRAS) } }
+    }
+    if (extras != null) IslandSettingsGroups(extras, apps, IslandPart.MAIN)
 }
 
 @Composable

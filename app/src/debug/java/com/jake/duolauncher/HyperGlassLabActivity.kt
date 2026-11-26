@@ -37,9 +37,10 @@ import com.jake.duolauncher.appearance.HyperGlyphs
  * `adb shell am start -n com.jake.duolauncher.dev/com.jake.duolauncher.HyperGlassLabActivity`. The experiment is not on Home.
  */
 class HyperGlassLabActivity : ComponentActivity() {
+    companion object {
     /** A stand-in wallpaper with plenty in it to bend: dunes under a sky, a sun, and a few hard lines. It fills the window and stays put
      *  while the page scrolls over it, as a wallpaper does. */
-    private fun wallpaper(w: Int, h: Int): Bitmap {
+        fun wallpaper(w: Int, h: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bitmap)
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
@@ -62,6 +63,7 @@ class HyperGlassLabActivity : ComponentActivity() {
         var x = -h.toFloat()
         while (x < w) { canvas.drawLine(x, h.toFloat(), x + h * .5f, 0f, paint); x += w * .16f }
         return bitmap
+    }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

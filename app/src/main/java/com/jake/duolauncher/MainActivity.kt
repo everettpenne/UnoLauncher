@@ -270,6 +270,7 @@ class MainActivity : ComponentActivity() {
                     onStatusIconsDark = ::setStatusIconsDark,
                     onTiltHighlight = appearance::setTiltHighlight,
                     onEdgeHighlight = appearance::setEdgeHighlight,
+                    onHyperCards = appearance::setHyperCards,
                     island = island,
                     onIsland = appearance::setIsland,
                     onIslandHeight = appearance::setIslandHeight,

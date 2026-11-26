@@ -16,6 +16,7 @@ internal object SettingsSearch {
         SettingEntry("Wallpaper Folders", CustomizationPage.APPEARANCE, "add folder directory pictures images gallery memory card downloads"),
         SettingEntry("Light & Dark", CustomizationPage.APPEARANCE, "dark mode night theme sunset sunrise appearance automatic"),
         SettingEntry("Glass: Clear, Frosted or Off", CustomizationPage.APPEARANCE, "liquid glass blur frosted transparent ios edge tint dock material"),
+        SettingEntry("Hyper Glass Cards", CustomizationPage.APPEARANCE, "experimental grain noise chromatic aberration feed library menu search experimental"),
         SettingEntry("Text Replacement", CustomizationPage.KEYBOARD, "keyboard shortcut phrase expand abbreviation omw snippet"),
         SettingEntry("Edge Highlight", CustomizationPage.APPEARANCE, "glass rim edge light outline shine border"),
         SettingEntry("Tilt Highlight", CustomizationPage.APPEARANCE, "glass shine light gyroscope motion sensor"),
@@ -23,11 +24,11 @@ internal object SettingsSearch {
         SettingEntry("Font: Inter or System", CustomizationPage.APPEARANCE, "text typeface roboto system font inter"),
         SettingEntry("Accent: Uno Orange or From Wallpaper", CustomizationPage.APPEARANCE, "theme colour color material you dynamic orange"),
         SettingEntry("Wallpaper Depth", CustomizationPage.APPEARANCE, "parallax 3d"),
-        SettingEntry("App Icons", CustomizationPage.APPEARANCE, "icon style original themed tinted dark"),
-        SettingEntry("Icon Lighting", CustomizationPage.APPEARANCE, "icons lit flat glass shine"),
-        SettingEntry("Icon Style: Hyper Glass (experimental)", CustomizationPage.APPEARANCE, "app icons hyper glass refraction distortion liquid experimental"),
-        SettingEntry("Icon Shape: Default, Cookie, Clover, Flower, Sunny, Pentagon or Mixed", CustomizationPage.APPEARANCE, "app icons shape material expressive pixel cookie clover mask"),
-        SettingEntry("Icon Pack", CustomizationPage.APPEARANCE, "icons adw nova lawnchair"),
+        SettingEntry("App Icons", CustomizationPage.APP_ICONS, "icon style original themed tinted dark"),
+        SettingEntry("Icon Lighting", CustomizationPage.APP_ICONS, "icons lit flat glass shine"),
+        SettingEntry("Icon Style: Hyper Glass (experimental)", CustomizationPage.APP_ICONS, "app icons hyper glass refraction distortion liquid experimental"),
+        SettingEntry("Icon Shape: Default, Cookie, Clover, Flower, Sunny, Pentagon or Mixed", CustomizationPage.APP_ICONS, "app icons shape material expressive pixel cookie clover mask"),
+        SettingEntry("Icon Pack", CustomizationPage.APP_ICONS, "icons adw nova lawnchair"),
         // Home Screen
         SettingEntry("Home Layout: Side Dock or iPhone", CustomizationPage.HOME, "ios iphone dock bottom side grid foldable"),
         SettingEntry("Pinned Apps", CustomizationPage.HOME, "dock favourites favorites home apps"),
@@ -49,22 +50,22 @@ internal object SettingsSearch {
         SettingEntry("Playful", CustomizationPage.ISLAND_STYLE, "island calm morph bursts rolling digits"),
         SettingEntry("Each App's Own Colour", CustomizationPage.ISLAND_STYLE, "island app colours colors highlight"),
         SettingEntry("Show Percentage", CustomizationPage.ISLAND_STYLE, "island progress percent bar"),
-        SettingEntry("Live Updates", CustomizationPage.ISLAND, "island ride delivery timer status android 16"),
-        SettingEntry("Favourite Teams", CustomizationPage.ISLAND, "sports score follow team favorite lead first game island live scores"),
-        SettingEntry("Live Scores", CustomizationPage.ISLAND, "sports score scoreboard game match football basketball soccer island live activity"),
-        SettingEntry("Downloads & Progress", CustomizationPage.ISLAND, "island upload install"),
-        SettingEntry("Navigation", CustomizationPage.ISLAND, "island maps directions driving turn"),
-        SettingEntry("Calls", CustomizationPage.ISLAND, "island phone call"),
-        SettingEntry("Camera & Mic Indicators", CustomizationPage.ISLAND, "island privacy dots recording microphone"),
-        SettingEntry("System Alerts", CustomizationPage.ISLAND, "island vpn usb headphones bluetooth earbuds connect"),
-        SettingEntry("App Shortcuts", CustomizationPage.ISLAND, "island quick apps"),
-        SettingEntry("Show Notifications", CustomizationPage.ISLAND, "island card peek"),
-        SettingEntry("Action Buttons", CustomizationPage.ISLAND, "island reply notification"),
-        SettingEntry("What a Notification Card Shows", CustomizationPage.ISLAND, "island app name title text privacy"),
-        SettingEntry("Hide Words", CustomizationPage.ISLAND, "island block filter peek notifications containing"),
-        SettingEntry("Paused Media", CustomizationPage.ISLAND, "island resume minutes music podcasts"),
-        SettingEntry("Island Widget", CustomizationPage.ISLAND, "widget in the island"),
-        SettingEntry("Island Apps", CustomizationPage.ISLAND, "apps allowed linked timeout"),
+        SettingEntry("Live Updates", CustomizationPage.ISLAND_SHOWS, "island ride delivery timer status android 16"),
+        SettingEntry("Favourite Teams", CustomizationPage.ISLAND_SHOWS, "sports score follow team favorite lead first game island live scores"),
+        SettingEntry("Live Scores", CustomizationPage.ISLAND_SHOWS, "sports score scoreboard game match football basketball soccer island live activity"),
+        SettingEntry("Downloads & Progress", CustomizationPage.ISLAND_SHOWS, "island upload install"),
+        SettingEntry("Navigation", CustomizationPage.ISLAND_SHOWS, "island maps directions driving turn"),
+        SettingEntry("Calls", CustomizationPage.ISLAND_SHOWS, "island phone call"),
+        SettingEntry("Camera & Mic Indicators", CustomizationPage.ISLAND_SHOWS, "island privacy dots recording microphone"),
+        SettingEntry("System Alerts", CustomizationPage.ISLAND_SHOWS, "island vpn usb headphones bluetooth earbuds connect"),
+        SettingEntry("App Shortcuts", CustomizationPage.ISLAND_SHOWS, "island quick apps"),
+        SettingEntry("Show Notifications", CustomizationPage.ISLAND_NOTIFICATIONS, "island card peek"),
+        SettingEntry("Action Buttons", CustomizationPage.ISLAND_NOTIFICATIONS, "island reply notification"),
+        SettingEntry("What a Notification Card Shows", CustomizationPage.ISLAND_NOTIFICATIONS, "island app name title text privacy"),
+        SettingEntry("Hide Words", CustomizationPage.ISLAND_NOTIFICATIONS, "island block filter peek notifications containing"),
+        SettingEntry("Paused Media", CustomizationPage.ISLAND_SHOWS, "island resume minutes music podcasts"),
+        SettingEntry("Island Widget", CustomizationPage.ISLAND_EXTRAS, "widget in the island"),
+        SettingEntry("Island Apps", CustomizationPage.ISLAND_EXTRAS, "apps allowed linked timeout"),
         SettingEntry("Island Preview", CustomizationPage.ISLAND, "demo try see watch example"),
         SettingEntry("Line Up with Status Bar", CustomizationPage.STATUS_GRID, "island icons clipped cut calibrate align gaps"),
         SettingEntry("Tidy the Status Bar", CustomizationPage.STATUS_GRID, "hide icons adb icon_blacklist alarm bluetooth nfc rotate"),
@@ -75,13 +76,13 @@ internal object SettingsSearch {
         SettingEntry("Focus", CustomizationPage.PRIVACY, "do not disturb dnd quiet hide apps"),
         SettingEntry("Vibrate Only", CustomizationPage.PRIVACY, "focus silent ringer"),
         SettingEntry("With Do Not Disturb", CustomizationPage.PRIVACY, "focus dnd schedule automatic"),
-        SettingEntry("Hide Over Chosen Apps", CustomizationPage.ISLAND, "hide island apps banking games"),
+        SettingEntry("Hide Over Chosen Apps", CustomizationPage.ISLAND_NOTIFICATIONS, "hide island apps banking games"),
         SettingEntry("Widget Style", CustomizationPage.APPEARANCE, "widgets card glass ios look smooth swipe"),
-        SettingEntry("Keep a Camera & Mic Log", CustomizationPage.PRIVACY, "privacy camera microphone history log recent use"),
-        SettingEntry("People Only", CustomizationPage.ISLAND, "notifications messages people conversations drop down"),
-        SettingEntry("Step Aside in Its App", CustomizationPage.ISLAND, "hide music player activity own app"),
-        SettingEntry("Hidden Apps", CustomizationPage.PRIVACY, "hide unhide"),
-        SettingEntry("Permission Ledger", CustomizationPage.PRIVACY, "permissions privacy access log"),
+        SettingEntry("Keep a Camera & Mic Log", CustomizationPage.PRIVACY_DATA, "privacy camera microphone history log recent use"),
+        SettingEntry("People Only", CustomizationPage.ISLAND_NOTIFICATIONS, "notifications messages people conversations drop down"),
+        SettingEntry("Step Aside in Its App", CustomizationPage.ISLAND_NOTIFICATIONS, "hide music player activity own app"),
+        SettingEntry("Hidden Apps", CustomizationPage.PRIVACY_DATA, "hide unhide"),
+        SettingEntry("Permission Ledger", CustomizationPage.PRIVACY_DATA, "permissions privacy access log"),
         // Gestures
         SettingEntry("Status at Upper Right", CustomizationPage.GESTURES, "battery clock rail status"),
         SettingEntry("Haptics", CustomizationPage.GESTURES, "vibration feedback"),
@@ -94,10 +95,10 @@ internal object SettingsSearch {
         SettingEntry("Search Button Opens Google", CustomizationPage.SEARCH, "web google"),
         SettingEntry("App & Web Suggestions", CustomizationPage.SEARCH, "spotlight suggestions stores browser"),
         SettingEntry("Contacts", CustomizationPage.SEARCH, "people phone all apps app library"),
-        SettingEntry("Local assistant (Uno Lab)", CustomizationPage.SEARCH, "ask qwen ai model on device offline uno lab question answer"),
-        SettingEntry("Keep an assistant log", CustomizationPage.SEARCH, "qwen log responses thumbs up down rate feedback tool use export save file improve training"),
-        SettingEntry("Let Qwen do tasks", CustomizationPage.SEARCH, "assistant agent actions timer note open app reply do it for me"),
-        SettingEntry("Ask before every action", CustomizationPage.SEARCH, "assistant agent confirm tap first permission"),
+        SettingEntry("Local assistant (Uno Lab)", CustomizationPage.ASSISTANT, "ask qwen ai model on device offline uno lab question answer"),
+        SettingEntry("Keep an assistant log", CustomizationPage.ASSISTANT, "qwen log responses thumbs up down rate feedback tool use export save file improve training"),
+        SettingEntry("Let Qwen do tasks", CustomizationPage.ASSISTANT, "assistant agent actions timer note open app reply do it for me"),
+        SettingEntry("Ask before every action", CustomizationPage.ASSISTANT, "assistant agent confirm tap first permission"),
         // News feed
         SettingEntry("News Feed", CustomizationPage.FEED, "rss headlines my feed articles opml"),
         // Keyboard
@@ -146,11 +147,17 @@ internal object SettingsSearch {
         CustomizationPage.SEARCH -> "Search"
         CustomizationPage.ISLAND -> "Island"
         CustomizationPage.KEYBOARD -> "Keyboard"
-        CustomizationPage.PRIVACY -> "Notifications & Privacy"
+        CustomizationPage.PRIVACY -> "Notifications & Focus"
         CustomizationPage.FEED -> "News Feed"
         CustomizationPage.BACKUP -> "General"
         CustomizationPage.DEBUG -> "Island Debug"
         CustomizationPage.STATUS_GRID -> "Line Up with Status Bar"
         CustomizationPage.ISLAND_STYLE -> "Island Style"
+        CustomizationPage.APP_ICONS -> "App Icons"
+        CustomizationPage.ASSISTANT -> "Assistant"
+        CustomizationPage.PRIVACY_DATA -> "Privacy"
+        CustomizationPage.ISLAND_SHOWS -> "What It Shows"
+        CustomizationPage.ISLAND_NOTIFICATIONS -> "Island Notifications"
+        CustomizationPage.ISLAND_EXTRAS -> "Widget & Apps"
     }
 }

@@ -25,7 +25,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 /** Which part of the extras a Customize page shows (each is its own page, reached from the overview). */
-internal enum class ExtrasSection { KEYBOARD, GESTURES, ICONS, SEARCH, PRIVACY }
+/** [PRIVACY] is notifications and Focus; [SENSORS] the camera and microphone log; [ASSISTANT] everything about Qwen, apart from search's own. */
+internal enum class ExtrasSection { KEYBOARD, GESTURES, ICONS, SEARCH, ASSISTANT, PRIVACY, SENSORS }
+
+/** Which of the island's groups a page shows: what it shows, its notifications, its widget and apps, or the rest (its main page). */
+internal enum class IslandPart { MAIN, SHOWS, NOTIFICATIONS, EXTRAS }
 
 /** One of the extras pages of the Customize sheet, as grouped lists (see SettingsGroup): short names, the detail in each group's footer. */
 @Composable
@@ -37,6 +41,8 @@ internal fun ExtrasSettingsPage(actions: ExtrasActions, apps: List<AppEntry>, se
         ExtrasSection.GESTURES -> GesturesGroups(store, s, apps)
         ExtrasSection.ICONS -> IconGroups(store, s)
         ExtrasSection.SEARCH -> SearchGroups(actions, store, s)
+        ExtrasSection.ASSISTANT -> AssistantGroups(actions, store, s)
+        ExtrasSection.SENSORS -> SensorLogGroup(store, s)
         ExtrasSection.PRIVACY -> PrivacyGroups(actions, store, s, apps)
     }
 }
@@ -84,11 +90,11 @@ private fun GesturesGroups(store: ExtrasStore, s: ExtrasState, apps: List<AppEnt
 
 @Composable
 private fun IconGroups(store: ExtrasStore, s: ExtrasState) {
-    SettingsGroup(header = "App Icons", footer = "Icon Shape cuts every app's icon to one of Material's shapes, as on Pixel, or with Mixed gives each app its own; an icon pack's icons keep their own outlines. Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Dark puts each app's colours on a near-black tile, and Auto does that while Uno is dark. Hyper Glass is an experiment: each app's picture, without its plate, inside glass whose edge bends it (white on black, dark on white, on your accent, or in the app's own colours). Icon Lighting gives original icons a soft lit edge, like iOS.") {
-        row { DropdownRow("Icon Style", IconStyle.entries, s.iconStyle, { when (it) { IconStyle.ORIGINAL -> "Original"; IconStyle.THEMED -> "Themed"; IconStyle.TINTED -> "Tinted"; IconStyle.DARK -> "Dark"; IconStyle.AUTOMATIC -> "Auto"
-                IconStyle.HYPER -> "Hyper Glass"; IconStyle.HYPER_LIGHT -> "Hyper Glass Light"; IconStyle.HYPER_ACCENT -> "Hyper Glass Accent"; IconStyle.HYPER_COLOR -> "Hyper Glass Color" } },
+    SettingsGroup(header = "App Icons", footer = "Icon Shape cuts every app's icon to one of Material's shapes, as on Pixel, or with Mixed gives each app its own; an icon pack's icons keep their own outlines. Themed uses each app's own one-colour icon where it has one. Tinted takes its colour from your wallpaper. Dark puts each app's colours on a near-black tile, and Auto does that while Uno is dark. Hyper Glass is an experiment: each app's picture, without its plate, inside glass whose edge bends it (white on black, dark on white, on your accent, or in the app's own colours; Clear has no card, and on Home bends the wallpaper behind it). Icon Lighting gives original icons a soft lit edge, like iOS.") {
+        row { DropdownRow("Icon Style", IconStyle.entries, s.iconStyle, { iconStyleName(it) },
             "icons-style", optionTag = { when (it) { IconStyle.ORIGINAL -> "icons-original"; IconStyle.THEMED -> "icons-themed"; IconStyle.TINTED -> "icons-tinted"; IconStyle.DARK -> "icons-dark"; IconStyle.AUTOMATIC -> "icons-auto"
-                IconStyle.HYPER -> "icons-hyper"; IconStyle.HYPER_LIGHT -> "icons-hyper-light"; IconStyle.HYPER_ACCENT -> "icons-hyper-accent"; IconStyle.HYPER_COLOR -> "icons-hyper-color" } },
+                IconStyle.HYPER -> "icons-hyper"; IconStyle.HYPER_LIGHT -> "icons-hyper-light"; IconStyle.HYPER_ACCENT -> "icons-hyper-accent"; IconStyle.HYPER_COLOR -> "icons-hyper-color"
+                IconStyle.HYPER_CLEAR -> "icons-hyper-clear"; IconStyle.HYPER_CLEAR_COLOR -> "icons-hyper-clear-color" } },
             onSelect = store::setIconStyle) }
         row { DropdownRow("Icon Shape", AppIconShape.entries, s.iconShape, { it.label }, "icons-shape", optionTag = { "icons-shape-${it.name.lowercase()}" },
             onSelect = store::setIconShape) }
@@ -123,9 +129,15 @@ private fun SearchGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasSt
             else store.setContactSearch(false)
         }, "contact-search-switch") }
     }
+}
+
+/** The assistant's own page: switching Qwen on, what it may do, what is kept of it, and what it is told about the phone. */
+@Composable
+private fun AssistantGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasState) {
     // Only when Uno Lab (signed with its own key) is installed: without it there is nothing to switch on.
     val context = androidx.compose.ui.platform.LocalContext.current
     val labPresent = remember { com.jake.duolauncher.search.LocalAssistant.isAvailable(context) }
+    if (!labPresent) SettingsGroup(footer = "The assistant is Qwen, a model that runs on this phone inside Uno Lab, a separate app. Uno Lab is not installed, so there is nothing to switch on here yet.") {}
     if (labPresent) SettingsGroup(footer = "Adds an Ask Qwen row to search for questions nothing else answers. Only when you tap it, the words you typed go to Uno Lab, which answers on this phone with no network. A suggested action runs only when you tap it.") {
         row { SettingsSwitch("Local assistant (Uno Lab)", s.localAssistant, store::setLocalAssistant, "local-assistant-switch") }
     }
@@ -250,7 +262,6 @@ private fun PrivacyGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasS
         }
         row { SettingsSwitch("Media Details", s.mediaDetails, store::setMediaDetails, "media-details-switch") }
     }
-    SensorLogGroup(store, s)
     val focusOpen = rememberChecklistOpen("focus")
     SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.focus),
         footer = "Focus hides the apps you pick from Home and the App Library until it is off. Nothing is uninstalled and your layout does not change. With Do Not Disturb, it turns on and off with Android's Do Not Disturb (and its schedules).") {
@@ -267,13 +278,13 @@ private fun PrivacyGroups(actions: ExtrasActions, store: ExtrasStore, s: ExtrasS
  * shows it, so the change can be seen before leaving the page.
  */
 @Composable
-internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) {
+internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>, part: IslandPart) {
     val store = actions.store
     val s = store.state
     val preview = com.jake.duolauncher.island.LocalIslandPreview.current
     fun demo(scene: PreviewScene) { preview?.show(scene) }
     val systemAlerts = s.securityAlerts
-    SettingsGroup(header = "Shows",
+    if (part == IslandPart.SHOWS) SettingsGroup(header = "Shows",
         footer = "Live Updates are Android 16's ongoing notifications (a ride, a delivery). Live Scores shows a game's score as a scoreboard when a sports app has its live-score notification up: Uno reads that notification's title and text, and fetches nothing itself. Navigation drops the island down for each turn. System Alerts flash for VPN, USB data, headphones and Bluetooth devices; Bluetooth names need Android's Nearby devices permission.") {
         row { SettingsSwitch("Live Updates", s.liveUpdates, { store.setLiveUpdates(it); demo(PreviewScene.LIVE) }, "live-updates-switch") }
         row { SettingsSwitch("Downloads & Progress", s.progressTasks, store::setProgressTasks, "progress-tasks-switch") }
@@ -289,7 +300,7 @@ internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) 
     }
     // Without notification access nothing below can happen, and the switches look like they work: say so here, with the way to fix it.
     val accessOff = !actions.hasNotificationAccess()
-    SettingsGroup(header = "Notifications", footer = (if (accessOff) "Notification access is off, so nothing can drop down yet. Turning it on in Android's settings is the only step. " else "") + "How much a new notification shows when the island drops down for it. To show the text, Uno reads it and keeps nothing. People Only lets just messages from people drop it down. A chat that floods is quieted for a couple of minutes, and an app whose drop-downs you never open stops dropping down; it is listed below to bring back.") {
+    if (part == IslandPart.NOTIFICATIONS) SettingsGroup(header = "Notifications", footer = (if (accessOff) "Notification access is off, so nothing can drop down yet. Turning it on in Android's settings is the only step. " else "") + "How much a new notification shows when the island drops down for it. To show the text, Uno reads it and keeps nothing. People Only lets just messages from people drop it down. A chat that floods is quieted for a couple of minutes, and an app whose drop-downs you never open stops dropping down; it is listed below to bring back.") {
         if (accessOff) row { ActionRow("Turn On Notification Access", "island-notification-access", onClick = actions.openNotificationAccess) }
         row { SettingsSwitch("Show Notifications", s.notificationPeek, { store.setNotificationPeek(it); demo(PreviewScene.NOTIFICATION) }, "peek-switch") }
         if (s.notificationPeek) {
@@ -300,7 +311,7 @@ internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) 
         }
     }
     // Apps quieted for never being opened (PeekSmarts): each can be brought back, which forgets what was learned about it.
-    if (s.notificationPeek) {
+    if (s.notificationPeek && part == IslandPart.NOTIFICATIONS) {
         val context = androidx.compose.ui.platform.LocalContext.current
         var quieted by remember { mutableStateOf(PeekLearning.quieted(context)) }
         if (quieted.isNotEmpty()) SettingsGroup(header = "Quieted Automatically", footer = "These apps' drop-downs were never opened, so they stopped. Tap one to bring it back.") {
@@ -310,25 +321,24 @@ internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) 
             } }
         }
     }
-    if (s.liveScores) SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.favourite_teams), footer = stringResource(com.jake.duolauncher.R.string.favourite_teams_footer)) {
+    if (s.liveScores && part == IslandPart.SHOWS) SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.favourite_teams), footer = stringResource(com.jake.duolauncher.R.string.favourite_teams_footer)) {
         row { Box(Modifier.padding(vertical = Space.M.dp)) {
             GlassField(s.scoreFavourites, { store.setScoreFavourites(it) }, Modifier.fillMaxWidth().testTag("score-favourites"), minLines = 1, maxLines = 2,
                 placeholder = { Text(stringResource(com.jake.duolauncher.R.string.favourite_teams_hint)) })
         } }
     }
-    if (s.notificationPeek) SettingsGroup(footer = stringResource(com.jake.duolauncher.R.string.separate_with_commas_a_match_shows)) {
+    if (s.notificationPeek && part == IslandPart.NOTIFICATIONS) SettingsGroup(footer = stringResource(com.jake.duolauncher.R.string.separate_with_commas_a_match_shows)) {
         row { Box(Modifier.padding(vertical = Space.M.dp)) {
             GlassField(s.peekBlocked, { store.setPeekBlocked(it) }, Modifier.fillMaxWidth().testTag("peek-blocked"), minLines = 1, maxLines = 3,
                 placeholder = { Text(stringResource(com.jake.duolauncher.R.string.island_hide_words)) })
         } }
     }
-    SettingsGroup(header = "Paused Media", footer = "How long paused music or a podcast stays in the island.") {
+    if (part == IslandPart.SHOWS) SettingsGroup(header = "Paused Media", footer = "How long paused music or a podcast stays in the island.") {
         row { DropdownRow("Keep For", IslandPlayback.RESUME_CHOICES_MIN.toList(), s.mediaResumeMinutes, { if (it == 1) "1 Minute" else "$it Minutes" }, "media-resume",
             optionTag = { "media-resume-$it" }) { store.setMediaResumeMinutes(it) } }
     }
-    IslandWidgetSetting(actions.islandWidget)
-    IslandLinksSetting(actions, apps)
-    if (s.islandEverywhere) {
+    if (part == IslandPart.EXTRAS) { IslandWidgetSetting(actions.islandWidget); IslandLinksSetting(actions, apps) }
+    if (s.islandEverywhere && part == IslandPart.NOTIFICATIONS) {
         val hideOpen = rememberChecklistOpen("island-hide-over")
         val serviceOn = SystemShadeAccessibilityService.isConnected()
         SettingsGroup(header = "Hide Over Apps", footer = buildString {
@@ -347,19 +357,19 @@ internal fun IslandSettingsGroups(actions: ExtrasActions, apps: List<AppEntry>) 
     }
     val context = androidx.compose.ui.platform.LocalContext.current
     val exact = IslandTools.exactAlarmsAllowed(context)
-    SettingsGroup(header = "Timer", footer = if (exact) "Exact alarms are allowed, so the timer ends on time even with Home closed."
+    if (part == IslandPart.SHOWS) SettingsGroup(header = "Timer", footer = if (exact) "Exact alarms are allowed, so the timer ends on time even with Home closed."
         else "The timer ends on time while the launcher is running, and within a minute or so otherwise. Allow exact alarms for to-the-second timing.") {
         if (!exact) row { ActionRow(stringResource(com.jake.duolauncher.R.string.allow_exact_alarms), "exact-alarm") {
             context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
                 android.net.Uri.parse("package:${context.packageName}")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
         } }
     }
-    SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.what_shows_where), footer = listOf(
+    if (part == IslandPart.SHOWS) SettingsGroup(header = stringResource(com.jake.duolauncher.R.string.what_shows_where), footer = listOf(
         com.jake.duolauncher.R.string.what_shows_where_intro, com.jake.duolauncher.R.string.what_shows_where_ongoing,
         com.jake.duolauncher.R.string.what_shows_where_notification, com.jake.duolauncher.R.string.what_shows_where_system,
         com.jake.duolauncher.R.string.what_shows_where_privacy, com.jake.duolauncher.R.string.what_shows_where_time).map { stringResource(it) }.joinToString("\n")) {}
     // Developer HUD: only offered by debuggable builds, so a release build has neither the switch nor the overlay.
-    if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+    if (part == IslandPart.MAIN && context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
         val hudPrefs = remember { context.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE) }
         var hudOn by remember { mutableStateOf(hudPrefs.getBoolean("debugHud", false)) }
         SettingsGroup(footer = stringResource(com.jake.duolauncher.R.string.shows_frame_times_jank_the_island)) {

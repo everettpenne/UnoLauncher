@@ -28,6 +28,6 @@ internal object IconFinish {
 
 /** The icon's shadow, in its own squircle ([Corner.icon]), when icon lighting is on. */
 internal fun Modifier.glassIcon(lift: Boolean = true): Modifier =
-    if (!IconFinish.on || !lift) this
+    if (!IconFinish.on || !lift || HyperGlassHome.on) this
     else shadow(5.dp, if (IconFinish.shaped) androidx.compose.foundation.shape.CircleShape else Corner.icon, clip = false,
         ambientColor = Color.Black.copy(alpha = .35f), spotColor = Color.Black.copy(alpha = .35f))

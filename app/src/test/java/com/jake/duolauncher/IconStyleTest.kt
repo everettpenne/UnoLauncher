@@ -29,7 +29,8 @@ class IconStyleTest {
     }
 
     @Test fun hyperGlassStylesAreTheirOwnKindAndOnlyTheAccentOneFollowsTheWallpaper() {
-        val hyper = listOf(IconStyle.HYPER, IconStyle.HYPER_LIGHT, IconStyle.HYPER_ACCENT, IconStyle.HYPER_COLOR)
+        val hyper = listOf(IconStyle.HYPER, IconStyle.HYPER_LIGHT, IconStyle.HYPER_ACCENT, IconStyle.HYPER_COLOR, IconStyle.HYPER_CLEAR, IconStyle.HYPER_CLEAR_COLOR)
+        for (style in IconStyle.entries) assertEquals(style.name, style == IconStyle.HYPER_CLEAR || style == IconStyle.HYPER_CLEAR_COLOR, style.clear)
         for (style in IconStyle.entries) assertEquals(style.name, style in hyper, style.hyper)
         for (style in hyper) { assertFalse(style.recolours); assertEquals(style, style.resolve(true)); assertEquals(style, IconStyle.fromPreference(style.name)) }
         assertTrue(IconStyle.HYPER_ACCENT.usesWallpaper(true))

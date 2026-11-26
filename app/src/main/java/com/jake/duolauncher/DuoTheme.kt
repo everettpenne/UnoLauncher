@@ -32,6 +32,8 @@ fun DuoTheme(dark: Boolean = false, content: @Composable () -> Unit) {
             secondaryContainer = Color(0xFFDCE8ED), onSecondaryContainer = palette.ink,
             error = Color(0xFFFF3B30), onError = Color.White),
             // MaterialTheme installs its own ripple as LocalIndication, so the no-op has to be provided inside it.
-            content = { CompositionLocalProvider(LocalIndication provides NoIndication, content = content) })
+            // No Android stretch at the end of a scroll, anywhere in the launcher: it draws the whole scrolling page through a filter on
+            // every frame it is stretched, which stuttered on pages of glass. Pages that bounce use the launcher's own band (ElasticEdge).
+            content = { CompositionLocalProvider(LocalIndication provides NoIndication, androidx.compose.foundation.LocalOverscrollFactory provides null, content = content) })
     }
 }

@@ -40,6 +40,8 @@ data class AppearanceState(val mode: AppearanceMode = AppearanceMode.LIGHT, val 
     /** Home's glass (the dock, the status rail, widgets, the page dots and the search pill) is clear, with a bright edge, as iOS's Liquid
      * Glass is; off, it keeps its light frosted tint. Sheets and panels keep their tint either way, since their text sits on them. */
     val clearGlass: Boolean = true,
+    /** The panels that hold text (the feed, the App Library, menus, search results) as hyper glass: nearly clear, with grain ([HyperGlassCards]). */
+    val hyperCards: Boolean = false,
     /** The island's height at rest, 0..1: 0 is the camera's own height (as an iPhone's island is its cutout), 1 the most the screen
      * allows above and below it. The width stays the island's physical width (IslandGeometry.REST_WIDTH_MM) at every height. */
     val islandHeight: Float = 0f) {
@@ -79,6 +81,7 @@ class AppearanceStore(private val context: Context) {
             wallpaperDepth = runCatching { prefs.getBoolean("wallpaperDepth", true) }.getOrDefault(true),
             homeStyle = runCatching { HomeStyle.valueOf(prefs.getString("homeStyle", null) ?: "SIDE") }.getOrDefault(HomeStyle.SIDE),
             clearGlass = runCatching { prefs.getBoolean("clearGlass", true) }.getOrDefault(true),
+            hyperCards = runCatching { prefs.getBoolean("hyperCards", false) }.getOrDefault(false),
             islandHeight = prefs.lenientFloat("islandHeight", 0f).coerceIn(0f, 1f),
             tiltHighlight = runCatching { prefs.getBoolean("tiltHighlight", false) }.getOrDefault(false),
             edgeHighlight = runCatching { prefs.getBoolean("edgeHighlight", true) }.getOrDefault(true),
@@ -89,6 +92,7 @@ class AppearanceStore(private val context: Context) {
     fun setWidgetStyle(value: WidgetStyle) { save(state.copy(widgetStyle = value), currentSystemDark()) }
     fun setWallpaperDepth(value: Boolean) { save(state.copy(wallpaperDepth = value), currentSystemDark()) }
     fun setHomeStyle(value: HomeStyle) { save(state.copy(homeStyle = value), currentSystemDark()) }
+    fun setHyperCards(value: Boolean) { save(state.copy(hyperCards = value), currentSystemDark()) }
     fun setClearGlass(value: Boolean) { save(state.copy(clearGlass = value), currentSystemDark()) }
     fun setGlass(value: GlassChoice) { save(state.copy(liquidGlass = value != GlassChoice.OFF, clearGlass = value != GlassChoice.FROSTED), currentSystemDark()) }
     fun setWallpaperColor(value: Boolean) { save(state.copy(wallpaperColor = value), currentSystemDark()) }
@@ -125,7 +129,7 @@ class AppearanceStore(private val context: Context) {
             .putBoolean("wallpaperColor", value.wallpaperColor).putBoolean("tiltHighlight", value.tiltHighlight)
             .putBoolean("edgeHighlight", value.edgeHighlight)
             .putBoolean("wallpaperDepth", value.wallpaperDepth)
-            .putString("homeStyle", value.homeStyle.name).putBoolean("clearGlass", value.clearGlass).putFloat("islandHeight", value.islandHeight)
+            .putString("homeStyle", value.homeStyle.name).putBoolean("clearGlass", value.clearGlass).putBoolean("hyperCards", value.hyperCards).putFloat("islandHeight", value.islandHeight)
             .remove("unoStatusBar")
             .remove("materialYou").remove("refraction").remove("refractionHeight").remove("refractionAmount").remove("refractionChroma")
             .remove("tiltStrength").remove("islandScale").apply()

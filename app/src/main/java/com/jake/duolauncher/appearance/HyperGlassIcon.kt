@@ -24,6 +24,9 @@ import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -76,8 +79,8 @@ import kotlin.math.sqrt
  */
 internal object HyperGlass {
     /** How far into the icon its very edge looks, at rest and at the height of a press, as a share of the icon's width. */
-    const val REST = .34f
-    const val PRESSED = .5f
+    const val REST = .38f
+    const val PRESSED = .55f
     const val PRESS_MS = 300
     /** The white line on the top edge: its width in pixels and its opacity. */
     const val HIGHLIGHT_PX = 1.5f
@@ -97,7 +100,7 @@ internal object HyperGlass {
     /** How far outside the outline the field still knows its distance, in pixels (for the soft edge), and how it is packed in a texture. */
     const val FIELD_MARGIN = 4f
     /** How much of the icon a vector glyph fills. */
-    const val GLYPH_FILL = .78f
+    const val GLYPH_FILL = .94f
     /** The soft light over the top half of the glass. */
     const val GLOSS = .05f
     /** Clear glass (no card): the glass's own faint tint. */
@@ -535,8 +538,8 @@ internal class HyperGlassTextures(val picture: Bitmap) {
             }
             val foreground = adaptive?.foreground
             if (foreground != null) {
-                // The whole layer at 1.5 times the icon would be the launcher's own framing (the middle two thirds showing), which
-                // runs the picture into the frosted edge; a little less keeps it whole and still large in the glass.
+                // The whole layer at 1.5 times the icon is the launcher's own framing (the middle two thirds showing); a little more,
+                // so the picture runs out into the glass's thick edge, which is where it is bent and pooled.
                 val side = (px * 1.5f * UNPLATED_ZOOM * fit).toInt()
                 val inset = (px - side) / 2
                 foreground.mutate().setBounds(inset, inset, inset + side, inset + side)
@@ -571,7 +574,7 @@ internal class HyperGlassTextures(val picture: Bitmap) {
             return picture
         }
 
-        const val UNPLATED_ZOOM = .84f
+        const val UNPLATED_ZOOM = 1.04f
         private const val PLATE_TOLERANCE = 34
 
         /**
@@ -639,7 +642,7 @@ internal object HyperGlassShapes {
     private val cache = android.util.LruCache<String, HyperGlassShape>(24)
 
     /** How much smaller a picture is drawn in one of Material's shapes, which have less room in them than the squircle. */
-    fun fit(shape: com.jake.duolauncher.AppIconShape?): Float = if (IconOutlines.of(shape, 8f) == null) 1f else .84f
+    fun fit(shape: com.jake.duolauncher.AppIconShape?): Float = if (IconOutlines.of(shape, 8f) == null) 1f else .86f
 
     fun of(shape: com.jake.duolauncher.AppIconShape?, px: Int, cornerRadiusPx: Float): HyperGlassShape {
         val outline = IconOutlines.of(shape, px.toFloat())
@@ -828,4 +831,143 @@ private fun argbToBuffer(pixels: IntArray): java.nio.ByteBuffer {
     for (c in pixels) { buffer.put((c shr 16).toByte()); buffer.put((c shr 8).toByte()); buffer.put(c.toByte()); buffer.put((c ushr 24).toByte()) }
     buffer.rewind()
     return buffer
+}
+
+
+/**
+ * Clear hyper glass on a page of apps. An icon of clear glass is two things: its own layer (the picture pooled at the rim, the haze, the
+ * light), which never changes and is made once as a picture with every other icon; and the wallpaper seen through the glass, bent by
+ * the same rim, which changes whenever the icon moves over the wallpaper. Only the second is drawn live, and it is as little as it can
+ * be: one shader program for every icon in the window ([Lens], as the launcher's own glass has one), two texture reads a pixel (the
+ * shape's bend, worked out once as a picture, and the wallpaper), from the picture of the wallpaper Home already keeps for its glass ([SharedWallpaper]: blurred once,
+ * a third of the size). Nothing is made as an icon is composed, and an icon that has not moved is not drawn again.
+ */
+internal object HyperGlassHome {
+    /** Whether Home's icons are clear hyper glass, and the icon shape in use; set by Home as its settings change. Snapshot state. */
+    var on by mutableStateOf(false)
+    var shape by mutableStateOf(com.jake.duolauncher.AppIconShape.SQUIRCLE)
+    /**
+     * Whether the wallpaper behind an icon follows it frame by frame while a page is swiped (right, and the default), or is held as it
+     * was and caught up when the page settles (for a phone that cannot keep up). Measured on an emulator, three pages of 24 icons:
+     * following costs about a third more frame time than plain icons, and holding saves little of that, because the graphics chip
+     * runs each icon's bend on every frame whether or not it was drawn again. Keeping each icon's result in a layer of its own, so
+     * that an icon not drawn again would cost nothing, was four times slower when the icons did move (dozens of off-screen
+     * layers redone a frame), and taking turns among them only partly made that up; so there are no layers.
+     */
+    var follow by mutableStateOf(true)
+    /** Whether a page is being swiped just now; Home's pager says. */
+    var moving: () -> Boolean = { false }
+    /** The size icons are made at (LauncherModel's), which is the size their shape is measured at. */
+    const val ICON_PX = 144
+
+    const val LENS_AGSL = """
+uniform shader wallpaper;
+uniform shader bendTexture;
+uniform float2 size;
+uniform float2 textureSize;
+uniform float reach;
+
+half4 main(float2 coord) {
+    half4 bend = bendTexture.eval(coord * textureSize / size);
+    if (bend.b <= 0.0) { return half4(0.0); }
+    float2 at = coord - (bend.rg * 2.0 - 1.0) * reach * size;
+    return half4(wallpaper.eval(at).rgb * bend.b, bend.b);
+}
+"""
+
+    /**
+     * A shape's bend as one picture, so the live shader has nothing to work out: for each pixel, how far and which way the glass looks
+     * (red and green, as a share of [reach] of the icon's width, -1..1 as 0..1) and how much of the pixel is inside the outline (blue).
+     * The same numbers [HyperGlass.shade] uses, at the strength the glass has at rest. Unpremultiplied ARGB, opaque.
+     */
+    fun bendMap(field: HyperGlass.Field, strength: Float): IntArray = IntArray(field.width * field.height) {
+        val d = field.d[it]
+        val t = 1f - (kotlin.math.max(d, 0f) / (field.depth * HyperGlass.EDGE_REACH)).coerceIn(0f, 1f)
+        val pull = t * t
+        val nl = kotlin.math.max(kotlin.math.sqrt(field.nx[it] * field.nx[it] + field.ny[it] * field.ny[it]), .001f)
+        val r = ((field.nx[it] / nl * pull * .5f + .5f) * 255f + .5f).toInt().coerceIn(0, 255)
+        val g = ((field.ny[it] / nl * pull * .5f + .5f) * 255f + .5f).toInt().coerceIn(0, 255)
+        val b = ((d + .5f).coerceIn(0f, 1f) * 255f + .5f).toInt()
+        (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+    }
+
+    /** The one program and paint for every icon in a window. Used from the UI thread only. */
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    class Lens {
+        private val shader = android.graphics.RuntimeShader(LENS_AGSL)
+        private val paint = android.graphics.Paint()
+        private val matrix = android.graphics.Matrix()
+        private var image: Bitmap? = null
+        private var imageShader: android.graphics.BitmapShader? = null
+        private val bends = HashMap<HyperGlassShape, android.graphics.BitmapShader>()
+
+        /** Fills [width] by [height] at the canvas's origin with [image] as seen through glass of [shape]. A point of the image lands
+         *  at (x * [scale] + [translateX], y * [scale] + [translateY]), as [SharedWallpaperMap.place] gives it. */
+        fun draw(canvas: android.graphics.Canvas, width: Float, height: Float, image: Bitmap, scale: Float, translateX: Float, translateY: Float,
+            shape: HyperGlassShape, strength: Float) {
+            val source = imageShader?.takeIf { this.image === image }
+                ?: android.graphics.BitmapShader(image, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP).also {
+                    it.filterMode = android.graphics.BitmapShader.FILTER_MODE_LINEAR; imageShader = it; this.image = image
+                }
+            matrix.setScale(scale, scale); matrix.postTranslate(translateX, translateY)
+            source.setLocalMatrix(matrix)
+            val bend = bends.getOrPut(shape) {
+                val w = shape.field.width; val h = shape.field.height
+                val map = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { it.setPixels(bendMap(shape.field, 1f), 0, w, 0, 0, w, h) }
+                android.graphics.BitmapShader(map, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP)
+                    .apply { filterMode = android.graphics.BitmapShader.FILTER_MODE_LINEAR }
+            }
+            shader.setInputShader("wallpaper", source)
+            shader.setInputShader("bendTexture", bend)
+            shader.setFloatUniform("size", width, height)
+            shader.setFloatUniform("textureSize", shape.field.width.toFloat(), shape.field.height.toFloat())
+            shader.setFloatUniform("reach", strength)
+            paint.shader = shader
+            canvas.drawRect(0f, 0f, width, height, paint)
+        }
+    }
+
+    private var lens: Any? = null
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    fun lens(): Lens = (lens as? Lens) ?: Lens().also { lens = it }
+
+    /** How many times an icon's wallpaper has been drawn, for tests and for measuring. */
+    var draws = 0L
+}
+
+/**
+ * The wallpaper seen through the clear hyper glass icon of the app [id], drawn behind the icon's own picture. Nothing at all unless
+ * Home's icons are clear glass, there are runtime shaders, and Home has its picture of the wallpaper; until then (and with the
+ * launcher's glass off) the icon's own picture sits on the wallpaper as it is.
+ */
+@Composable
+internal fun Modifier.hyperGlassWallpaper(id: String): Modifier {
+    if (!HyperGlassHome.on || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return this
+    val shared = SharedWallpaperRuntime.current ?: return this
+    val image = shared.image ?: return this
+    val shape = HyperGlassHome.shape.forApp(id)
+    val glass = remember(shape) { HyperGlassShapes.of(shape, HyperGlassHome.ICON_PX, HyperGlassHome.ICON_PX * Corner.ICON_FRACTION) }
+    // Where the icon is in the window. [latest] is always the newest place; [origin] is the one that asks for a redraw when it
+    // changes (read as the icon is drawn, so a move redraws the icon and recomposes nothing), and is not written while a page is
+    // swiped unless the wallpaper is being followed.
+    val latest = remember { floatArrayOf(Float.NaN, 0f) }
+    var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Unspecified) }
+    val held = remember { floatArrayOf(Float.NaN, 0f, 0f) }
+    return onGloballyPositioned {
+        val at = it.positionInWindow()
+        val first = latest[0].isNaN()
+        latest[0] = at.x; latest[1] = at.y
+        if (at != origin && (first || HyperGlassHome.follow || !HyperGlassHome.moving())) origin = at
+    }.drawBehind {
+        // Read both, so the icon is drawn again when it has moved and when a swipe ends.
+        val moving = HyperGlassHome.moving()
+        if (origin == androidx.compose.ui.geometry.Offset.Unspecified || shared.artWidth <= 0) return@drawBehind
+        if (HyperGlassHome.follow || !moving || held[0].isNaN()) {
+            val drift = shared.drift(shared.artWidth.toFloat())
+            val place = SharedWallpaperMap.place(image.width, shared.artWidth, shared.artHeight, drift?.scale ?: 1f, drift?.translationX ?: 0f, latest[0], latest[1])
+            held[0] = place.scale; held[1] = place.translateX; held[2] = place.translateY
+        }
+        HyperGlassHome.draws++
+        drawIntoCanvas { canvas -> HyperGlassHome.lens().draw(canvas.nativeCanvas, size.width, size.height, image, held[0], held[1], held[2], glass, HyperGlass.REST) }
+    }
 }

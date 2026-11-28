@@ -40,4 +40,14 @@ class HyperGlassCardsTest {
         assertTrue(HyperGlassCards.GRAIN_A * HyperGlassCards.GRAIN_B > 4000)
         assertTrue(HyperGlassCards.GRAIN_TURN % 90f != 0f)
     }
+
+    @Test fun theCardsEdgeBendsAndItsMiddleDoesNot() {
+        val d = 2.75f
+        assertEquals(HyperGlassCards.BEND_DP * d, HyperGlassCards.bendPx(0f, d), 1e-3f)
+        assertEquals(0f, HyperGlassCards.bendPx(HyperGlassCards.BEND_REACH_DP * d, d), 0f)
+        assertEquals(0f, HyperGlassCards.bendPx(500f * d, d), 0f)
+        assertTrue(HyperGlassCards.bendPx(5f * d, d) > HyperGlassCards.bendPx(20f * d, d))
+        // The bend is steepest at the edge (2 x BEND / REACH); at 1 or more it folds the picture over itself, which showed as streaks.
+        assertTrue(2f * HyperGlassCards.BEND_DP / HyperGlassCards.BEND_REACH_DP < .8f)
+    }
 }

@@ -124,19 +124,63 @@ internal object HyperGlassCards {
     /** The second tile is turned, so its rows do not run along the first's. */
     const val GRAIN_TURN = 31f
 
-    private fun grainTile(side: Int, seed: Long, turn: Float): ShaderBrush {
+    private fun grainTile(side: Int, seed: Long, turn: Float): android.graphics.Shader {
         val random = java.util.Random(seed)
         val pixels = IntArray(side * side) { val v = (128 + random.nextGaussian() * 46).toInt().coerceIn(0, 255); (0xFF shl 24) or (v shl 16) or (v shl 8) or v }
         val tile = Bitmap.createBitmap(pixels, side, side, Bitmap.Config.ARGB_8888)
         val shader = android.graphics.BitmapShader(tile, android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT)
         if (turn != 0f) shader.setLocalMatrix(android.graphics.Matrix().apply { setRotate(turn) })
-        return ShaderBrush(shader)
+        return shader
     }
 
     /** The grain: two tiles of grey noise of different sizes, one turned, each laid over at [GRAIN] / sqrt 2 so together they are as strong
      *  as one was. The same every time (fixed seeds), so a screenshot test sees the same picture twice. */
-    val grain: List<ShaderBrush> by lazy { listOf(grainTile(GRAIN_A, 7, 0f), grainTile(GRAIN_B, 11, GRAIN_TURN)) }
+    val grainShaders: List<android.graphics.Shader> by lazy { listOf(grainTile(GRAIN_A, 7, 0f), grainTile(GRAIN_B, 11, GRAIN_TURN)) }
+    val grain: List<ShaderBrush> by lazy { grainShaders.map { ShaderBrush(it) } }
+
+    /** The glass's thick edge on the feed and the App Library, as on the hyper glass icons: within [BEND_REACH_DP] of the outline each
+     *  point looks inwards, straight across the edge, by up to [BEND_DP] at the edge itself, falling away as a square, so the wallpaper
+     *  and the grain under the card are drawn in towards its edge; the middle is untouched. The words and pictures on the card are not.
+ *  Steepest at the edge, 2 x BEND / REACH: kept under 1, or the picture folds over itself (26 dp of 40 showed streaks). */
+    const val BEND_REACH_DP = 40f
+    const val BEND_DP = 14f
+    /** The most of a card's shorter side the edge may reach in. */
+    const val SMALL_REACH = .1f
+    /** The icons' narrow blue light just inside the rim: how far in it reaches and how strong it is. */
+    const val RIM_REACH_DP = 7f
+    const val RIM_ALPHA = .32f
+
+    /** How far a point [insidePx] inside the outline looks inwards: [BEND_DP] at the edge, nothing past [BEND_REACH_DP]. Pure, for the tests. */
+    fun bendPx(insidePx: Float, density: Float): Float {
+        val t = 1f - (insidePx / (BEND_REACH_DP * density)).coerceIn(0f, 1f)
+        return BEND_DP * density * t * t
+    }
 }
+
+/** The glass's edge on a card with round corners: where a point looks, bent inwards across the nearest edge (see HyperGlassCards.BEND_DP). */
+private const val BEND_AGSL = """
+uniform float2 size;
+uniform float radius;
+uniform float reach;
+uniform float bend;
+
+// How far inside the card the point is (0 on the outline), and which way its nearest edge faces.
+float2 bent(float2 coord, out float inside) {
+    float2 hs = size * 0.5;
+    float2 p = coord - hs;
+    float2 q = abs(p) - (hs - float2(radius));
+    float2 n;
+    if (q.x > 0.0 && q.y > 0.0) {
+        inside = radius - length(q);
+        n = normalize(q) * sign(p);
+    } else {
+        inside = radius - max(q.x, q.y);
+        n = q.x > q.y ? float2(sign(p.x), 0.0) : float2(0.0, sign(p.y));
+    }
+    float t = 1.0 - clamp(inside / reach, 0.0, 1.0);
+    return coord - n * (bend * t * t);
+}
+"""
 
 /** The picture behind a card, drifted a little. */
 private const val CARD_AGSL = """
@@ -153,6 +197,36 @@ half4 main(float2 coord) {
     float2 lo = float2(0.5);
     float2 hi = size - offset * 2.0 - float2(0.5);
     return content.eval(clamp(uv * size - offset, lo, hi));
+}
+"""
+
+/** The picture behind a feed or library card: bent at the edge as the icons' glass is, then drifted, with a narrow blue light inside the rim. */
+private const val BENT_CARD_AGSL = BEND_AGSL + """
+uniform shader content;
+uniform float phase;
+uniform float drift;
+uniform float rimReach;
+uniform float rimAlpha;
+
+half4 main(float2 coord) {
+    float inside;
+    float2 at = bent(coord, inside);
+    float2 uv = at / size;
+    uv += float2(sin(uv.y * 2.0 + phase), cos(uv.x * 2.0 + phase)) * drift;
+    half4 c = content.eval(clamp(uv * size, float2(0.5), size - float2(0.5)));
+    float rim = 1.0 - clamp(inside / rimReach, 0.0, 1.0);
+    rim = rimAlpha * rim * rim;
+    return half4(mix(c.rgb, half3(0.24, 0.44, 1.0), rim), c.a);
+}
+"""
+
+/** The grain under the same bend, so the film grain is drawn in towards the edge with the picture behind it. */
+private const val BENT_GRAIN_AGSL = BEND_AGSL + """
+uniform shader grain;
+
+half4 main(float2 coord) {
+    float inside;
+    return grain.eval(bent(coord, inside));
 }
 """
 
@@ -240,13 +314,27 @@ private fun rememberCardPresence(): CardPresence {
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 private class FrostedCardShader {
-    private val shader = android.graphics.RuntimeShader(CARD_AGSL)
+    private val shader = android.graphics.RuntimeShader(BENT_CARD_AGSL)
+    private val grains = HyperGlassCards.grainShaders.map { android.graphics.RuntimeShader(BENT_GRAIN_AGSL).apply { setInputShader("grain", it) } }
     private val paint = android.graphics.Paint()
+    private val grainPaint = android.graphics.Paint().apply { blendMode = android.graphics.BlendMode.OVERLAY }
     private val matrix = android.graphics.Matrix()
     private var picture: android.graphics.BitmapShader? = null
     private var pictureOf: ImageBitmap? = null
 
-    fun draw(scope: DrawScope, image: ImageBitmap, origin: Offset, rootWidth: Int, rootHeight: Int, filter: android.graphics.ColorFilter?, path: Path) {
+    private fun android.graphics.RuntimeShader.edge(width: Float, height: Float, radius: Float, density: Float) {
+        // On something small (a widget) the edge reaches in only a little ([HyperGlassCards.SMALL_REACH] of its side) and bends as much
+        // less, keeping its slope: a quarter of the side turned the grain into streaks across most of a widget.
+        val reach = minOf(HyperGlassCards.BEND_REACH_DP * density, minOf(width, height) * HyperGlassCards.SMALL_REACH)
+        setFloatUniform("size", width, height)
+        setFloatUniform("radius", radius)
+        setFloatUniform("reach", reach)
+        setFloatUniform("bend", HyperGlassCards.BEND_DP / HyperGlassCards.BEND_REACH_DP * reach)
+    }
+
+    /** The picture behind, bent and drifted, with the rim's light; then [shade]; then the plain fill and the grain, bent the same way. */
+    fun draw(scope: DrawScope, image: ImageBitmap, origin: Offset, rootWidth: Int, rootHeight: Int, filter: android.graphics.ColorFilter?, path: Path,
+        radius: Float, shade: Color) = with(scope) {
         if (pictureOf !== image) {
             picture = android.graphics.BitmapShader(image.asAndroidBitmap(), android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP)
                 .apply { filterMode = android.graphics.BitmapShader.FILTER_MODE_LINEAR }
@@ -258,13 +346,24 @@ private class FrostedCardShader {
         matrix.postTranslate(-origin.x, -origin.y)
         source.setLocalMatrix(matrix)
         shader.setInputShader("content", source)
-        shader.setFloatUniform("size", scope.size.width, scope.size.height)
-        shader.setFloatUniform("offset", 0f, 0f)
+        shader.edge(size.width, size.height, radius, density)
         shader.setFloatUniform("phase", HyperGlassCards.phase)
         shader.setFloatUniform("drift", HyperGlassCards.DRIFT)
+        shader.setFloatUniform("rimReach", HyperGlassCards.RIM_REACH_DP * density)
+        shader.setFloatUniform("rimAlpha", HyperGlassCards.RIM_ALPHA)
         paint.shader = shader
         paint.colorFilter = filter
-        with(scope) { clipPath(path) { drawIntoCanvas { it.nativeCanvas.drawRect(0f, 0f, size.width, size.height, paint) } } }
+        clipPath(path) {
+            drawIntoCanvas { it.nativeCanvas.drawRect(0f, 0f, size.width, size.height, paint) }
+            drawRect(shade)
+            drawRect(Color.White.copy(alpha = HyperGlassCards.FILL))
+            grainPaint.alpha = (HyperGlassCards.GRAIN * .7071f * 255f).toInt()
+            for (g in grains) {
+                g.edge(size.width, size.height, radius, density)
+                grainPaint.shader = g
+                drawIntoCanvas { it.nativeCanvas.drawRect(0f, 0f, size.width, size.height, grainPaint) }
+            }
+        }
     }
 }
 
@@ -274,7 +373,7 @@ private class FrostedCardShader {
  */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-internal fun Modifier.hyperFrostedCard(shape: Shape, image: ImageBitmap, shade: Color, elevated: Boolean): Modifier {
+internal fun Modifier.hyperFrostedCard(shape: Shape, image: ImageBitmap, shade: Color, elevated: Boolean, drifts: Boolean = true): Modifier {
     val root = LocalWindowInfo.current.containerSize
     var origin by remember { mutableStateOf(Offset.Zero) }
     val presence = rememberCardPresence()
@@ -290,15 +389,28 @@ internal fun Modifier.hyperFrostedCard(shape: Shape, image: ImageBitmap, shade: 
         .hyperSplit()
         .onGloballyPositioned {
             origin = it.positionInRoot()
-            presence.set(origin.x < root.width && origin.x + it.size.width > 0f && origin.y < root.height && origin.y + it.size.height > 0f)
+            // A widget ([drifts] false) does not run the drift's clock: it is on Home at rest, where nothing should be redrawn.
+            presence.set(drifts && origin.x < root.width && origin.x + it.size.width > 0f && origin.y < root.height && origin.y + it.size.height > 0f)
         }
         .drawBehind {
             val outline = shape.createOutline(size, layoutDirection, this)
             path.rewind(); path.addOutline(outline)
-            shader.draw(this, image, origin, root.width, root.height, filter, path)
-            clipPath(path) { drawRect(shade) }
-            hyperCardFace(outline, clipped = false)
+            // The corner as a plain round one: near enough to the continuous corner for where the edge bends.
+            val radius = (shape as? androidx.compose.foundation.shape.CornerBasedShape)?.topStart?.toPx(size, this)
+                ?: (Corner.XLARGE_DP.dp.toPx())
+            shader.draw(this, image, origin, root.width, root.height, filter, path, radius.coerceAtMost(size.minDimension / 2f), shade)
         }
+}
+
+/**
+ * A Home widget drawn as hyper glass (its style, Hyper Glass): the same as a feed or library card, with a third of the glass's [tint] kept so
+ * the widget's ink still reads. Until the wallpaper's blurred picture is ready it is [fallback].
+ */
+@Composable
+internal fun Modifier.hyperWidget(shape: Shape, tint: Color, fallback: @Composable Modifier.() -> Modifier): Modifier {
+    val image = LocalFrostedWallpaper.current?.image
+    if (image == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return fallback()
+    return hyperFrostedCard(shape, image, tint.copy(alpha = GlassKind.CLEAR.tintAlpha * HyperGlassCards.SHADE_SHARE), elevated = false, drifts = false)
 }
 
 /**

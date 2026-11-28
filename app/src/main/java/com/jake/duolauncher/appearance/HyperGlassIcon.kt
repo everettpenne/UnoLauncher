@@ -544,13 +544,28 @@ internal class HyperGlassTextures(val picture: Bitmap) {
                 val inset = (px - side) / 2
                 foreground.mutate().setBounds(inset, inset, inset + side, inset + side)
                 foreground.draw(canvas)
-                return if (mono == null) bitmap else oneColour(bitmap, mono)
+                if (mono != null) return oneColour(bitmap, mono)
+                // In the app's own colours: a white or grey logo takes back the colour its background layer gave it.
+                val back = adaptive.background ?: return bitmap
+                val behind = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+                back.mutate().setBounds(inset, inset, inset + side, inset + side)
+                back.draw(android.graphics.Canvas(behind))
+                val pixels = IntArray(px * px).also { bitmap.getPixels(it, 0, px, 0, 0, px, px) }
+                val under = IntArray(px * px).also { behind.getPixels(it, 0, px, 0, 0, px, px) }
+                behind.recycle()
+                if (restoreColour(pixels, under)) bitmap.setPixels(pixels, 0, px, 0, 0, px, px)
+                return bitmap
             }
             val whole = (px * fit).toInt(); val edge = (px - whole) / 2
             icon.mutate().setBounds(edge, edge, edge + whole, edge + whole)
             icon.draw(canvas)
             val pixels = IntArray(px * px).also { bitmap.getPixels(it, 0, px, 0, 0, px, px) }
-            if (clearPlate(pixels, px, px)) bitmap.setPixels(pixels, 0, px, 0, 0, px, px)
+            val plate = IntArray(1)
+            if (clearPlate(pixels, px, px, plate)) {
+                // In the app's own colours, a white or grey picture takes back its plate's colour.
+                if (mono == null) restoreColour(pixels, IntArray(pixels.size) { plate[0] })
+                bitmap.setPixels(pixels, 0, px, 0, 0, px, px)
+            }
             return if (mono == null) bitmap else oneColour(bitmap, mono)
         }
 
@@ -574,6 +589,66 @@ internal class HyperGlassTextures(val picture: Bitmap) {
             return picture
         }
 
+        /** A pixel's saturation (0 for grey, 1 for a pure colour) and value (its brightest channel), from 0 to 1. Pure, for the tests. */
+        private fun saturation(c: Int): Float {
+            val r = (c shr 16) and 255; val g = (c shr 8) and 255; val b = c and 255
+            val hi = maxOf(r, g, b); val lo = minOf(r, g, b)
+            return if (hi == 0) 0f else (hi - lo).toFloat() / hi
+        }
+
+        /** [c] made vivid enough to read on black or clear glass: its hue kept, saturation at least [RESTORE_SATURATION], value at least
+         *  [RESTORE_VALUE]. In plain sums, not Android's colour class, so it runs in a unit test. */
+        fun vivid(c: Int): Int {
+            val r = ((c shr 16) and 255) / 255f; val g = ((c shr 8) and 255) / 255f; val b = (c and 255) / 255f
+            val hi = maxOf(r, g, b); val lo = minOf(r, g, b); val d = hi - lo
+            val hue = when { d == 0f -> 0f; hi == r -> ((g - b) / d).mod(6f); hi == g -> (b - r) / d + 2f; else -> (r - g) / d + 4f } * 60f
+            val s = (if (hi == 0f) 0f else d / hi).coerceAtLeast(RESTORE_SATURATION); val v = hi.coerceAtLeast(RESTORE_VALUE)
+            val k = { n: Float -> val x = (n + hue / 60f).mod(6f); v - v * s * maxOf(0f, minOf(x, 4f - x, 1f)) }
+            return (0xFF shl 24) or ((k(5f) * 255f + .5f).toInt() shl 16) or ((k(3f) * 255f + .5f).toInt() shl 8) or (k(1f) * 255f + .5f).toInt()
+        }
+
+        const val RESTORE_SATURATION = .55f
+        const val RESTORE_VALUE = .9f
+
+        /**
+         * Gives a logo back the colour its plate gave it, in place, and says whether it did. Many icons draw a white or grey logo on a
+         * coloured plate (Settings' gear on blue, a white eye on a blue-to-purple gradient), so with the plate taken off the logo is
+         * white. Here each grey part of the logo ([pixels], unpremultiplied ARGB) takes the colour of the plate under it ([under], the
+         * same size), made vivid, and shaded by how light the logo is there; parts of the logo that have colour of their own keep it,
+         * and so does a logo whose plate is itself grey (black on white).
+         */
+        fun restoreColour(pixels: IntArray, under: IntArray): Boolean {
+            // The plate's colour overall: unless it has some, there is nothing to give back.
+            var sat = 0f; var n = 0
+            for (c in under) if ((c ushr 24) > 200) { sat += saturation(c); n++ }
+            if (n == 0 || sat / n < RESTORE_MIN_PLATE) return false
+            var fallback = 0; var best = -1f
+            for (c in under) if ((c ushr 24) > 200) { val s = saturation(c); if (s > best) { best = s; fallback = c } }
+            var changed = false
+            for (i in pixels.indices) {
+                val c = pixels[i]; val a = c ushr 24
+                if (a == 0) continue
+                // Grey takes the colour fully; a part with colour of its own keeps it.
+                val keep = ((saturation(c) - .12f) / .2f).coerceIn(0f, 1f)
+                if (keep >= 1f) continue
+                val u = under[i].takeIf { (it ushr 24) > 200 && saturation(it) >= RESTORE_MIN_PLATE } ?: fallback
+                val tint = vivid(u)
+                val light = (((c shr 16) and 255) * 54 + ((c shr 8) and 255) * 183 + (c and 255) * 19) / 256 / 255f
+                val shade = .45f + .55f * light
+                fun ch(shift: Int): Int {
+                    val own = (c shr shift) and 255
+                    val given = ((tint shr shift) and 255) * shade
+                    return (own * keep + given * (1f - keep) + .5f).toInt().coerceIn(0, 255)
+                }
+                pixels[i] = (a shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
+                changed = true
+            }
+            return changed
+        }
+
+        /** How colourful a plate must be, on average, for its colour to be given back to a grey logo. */
+        const val RESTORE_MIN_PLATE = .2f
+
         const val UNPLATED_ZOOM = 1.04f
         private const val PLATE_TOLERANCE = 34
 
@@ -582,7 +657,7 @@ internal class HyperGlassTextures(val picture: Bitmap) {
          * colour is the commonest one a few pixels inside the picture's outline; if most of that ring is that colour, everything of
          * that colour that can be reached from the outline is made transparent, so the same colour inside the picture stays.
          */
-        fun clearPlate(pixels: IntArray, w: Int, h: Int): Boolean {
+        fun clearPlate(pixels: IntArray, w: Int, h: Int, found: IntArray? = null): Boolean {
             fun close(a: Int, b: Int) = abs(((a shr 16) and 0xFF) - ((b shr 16) and 0xFF)) + abs(((a shr 8) and 0xFF) - ((b shr 8) and 0xFF)) +
                 abs((a and 0xFF) - (b and 0xFF)) <= PLATE_TOLERANCE
             // The ring: opaque pixels with a transparent (or outside) pixel within three steps of them, along rows and columns.
@@ -599,6 +674,7 @@ internal class HyperGlassTextures(val picture: Bitmap) {
             val top = counts.maxByOrNull { it.value }!!.key
             val plate = ring.map { pixels[it] }.first { c -> (((c shr 20) and 0xF shl 8) or ((c shr 12) and 0xF shl 4) or ((c shr 4) and 0xF)) == top }
             if (ring.count { close(pixels[it], plate) } < ring.size * 6 / 10) return false
+            found?.set(0, plate)
             // From the ring inwards, through everything of the plate's colour.
             val queue = ArrayDeque<Int>()
             val seen = BooleanArray(w * h)
@@ -642,7 +718,12 @@ internal object HyperGlassShapes {
     private val cache = android.util.LruCache<String, HyperGlassShape>(24)
 
     /** How much smaller a picture is drawn in one of Material's shapes, which have less room in them than the squircle. */
-    fun fit(shape: com.jake.duolauncher.AppIconShape?): Float = if (IconOutlines.of(shape, 8f) == null) 1f else .86f
+    fun fit(shape: com.jake.duolauncher.AppIconShape?): Float = when {
+        IconOutlines.of(shape, 8f) == null -> 1f
+        // A circle loses only the squircle's corners; the scalloped shapes also have dips to clear.
+        shape == com.jake.duolauncher.AppIconShape.CIRCLE -> .93f
+        else -> .86f
+    }
 
     fun of(shape: com.jake.duolauncher.AppIconShape?, px: Int, cornerRadiusPx: Float): HyperGlassShape {
         val outline = IconOutlines.of(shape, px.toFloat())

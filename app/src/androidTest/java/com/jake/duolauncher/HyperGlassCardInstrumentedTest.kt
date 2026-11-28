@@ -86,8 +86,9 @@ class HyperGlassCardInstrumentedTest {
         // The card's own edge has no colour: the border is plain (it was drawn once in red and once in blue). Averaged down the edge,
         // since the grain, split like everything else, gives single pixels a little colour of their own.
         val left = tint(picture, 0, 8); val right = tint(picture, picture.width - 8, picture.width)
-        assertTrue("no coloured rim on the left ($left)", kotlin.math.abs(left) < 10f)
-        assertTrue("nor on the right ($right)", kotlin.math.abs(right) < 10f)
+        // The rim's narrow blue light is the same all round (as on the icons); what is gone is red at one side and blue at the other.
+        assertTrue("the two edges are tinted alike ($left, $right)", kotlin.math.abs(left - right) < 10f)
+        assertTrue("and not red at either ($left, $right)", left < 6f && right < 6f)
     }
 
     /** How far red leads blue on average over columns [from] until [to], in the middle half of the card's height. */

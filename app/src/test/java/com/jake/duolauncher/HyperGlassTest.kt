@@ -185,4 +185,41 @@ class HyperGlassTest {
         val unpacked = ((r(c) + g(c) + b(c)) / 3f / 255f + .0013f) * (field.packedReach + HyperGlass.FIELD_MARGIN) - HyperGlass.FIELD_MARGIN
         assertEquals(field.d[i], unpacked, .06f)
     }
+
+    /** A white logo on a coloured plate takes the plate's colour back, under each part of it; colour of its own stays. */
+    @Test fun aWhiteLogoTakesBackItsPlatesColour() {
+        val T = com.jake.duolauncher.appearance.HyperGlassTextures
+        val white = 0xFFFFFFFF.toInt(); val orange = 0xFFFF7A33.toInt(); val blue = 0xFF19B4F2.toInt(); val purple = 0xFF7A45C4.toInt()
+        val logo = intArrayOf(white, white, orange, 0)
+        val under = intArrayOf(blue, purple, blue, blue)
+        assertTrue(T.restoreColour(logo, under))
+        assertTrue("white over blue is blue (${Integer.toHexString(logo[0])})", b(logo[0]) > 200 && r(logo[0]) < 80)
+        assertTrue("white over purple is purple (${Integer.toHexString(logo[1])})", r(logo[1]) > 120 && b(logo[1]) > 200 && g(logo[1]) < 120)
+        assertEquals("the logo's own orange stays", orange, logo[2])
+        assertEquals("clear stays clear", 0, logo[3])
+    }
+
+    @Test fun aLogoOnAGreyPlateIsLeftAlone() {
+        val T = com.jake.duolauncher.appearance.HyperGlassTextures
+        val logo = intArrayOf(0xFF202020.toInt(), 0xFFFFFFFF.toInt())
+        assertTrue(!T.restoreColour(logo, intArrayOf(0xFFFFFFFF.toInt(), 0xFFF0F0F0.toInt())))
+        assertEquals(0xFF202020.toInt(), logo[0])
+    }
+
+    @Test fun aGivenColourIsVividEnoughToReadOnBlack() {
+        val T = com.jake.duolauncher.appearance.HyperGlassTextures
+        val navy = T.vivid(0xFF1A0B55.toInt())
+        assertTrue("brightened (${Integer.toHexString(navy)})", maxOf(r(navy), g(navy), b(navy)) >= 229)
+        assertTrue("still blue-purple", b(navy) > r(navy) && r(navy) > g(navy))
+        assertEquals(0xFFFF0000.toInt(), T.vivid(0xFFFF0000.toInt()))
+    }
+
+    @Test fun aFlatIconsPlateColourIsReported() {
+        val T = com.jake.duolauncher.appearance.HyperGlassTextures
+        val w = 64; val plate = 0xFF2060D0.toInt()
+        val pixels = IntArray(w * w) { val x = it % w - 32; val y = it / w - 32; val d = x * x + y * y; if (d > 30 * 30) 0 else if (d < 12 * 12) -1 else plate }
+        val found = IntArray(1)
+        assertTrue(T.clearPlate(pixels, w, w, found))
+        assertEquals(plate, found[0])
+    }
 }

@@ -28,7 +28,7 @@ internal object SettingsSearch {
         SettingEntry("Icon Lighting", CustomizationPage.APP_ICONS, "icons lit flat glass shine"),
         SettingEntry("Hyper Glass Look", CustomizationPage.APP_ICONS, "app icons hyper glass color colour app colors coloured logo clear transparent white black accent experimental"),
         SettingEntry("Icon Style: Hyper Glass (experimental)", CustomizationPage.APP_ICONS, "app icons hyper glass refraction distortion liquid experimental"),
-        SettingEntry("Icon Shape: Default, Cookie, Clover, Flower, Sunny, Pentagon or Mixed", CustomizationPage.APP_ICONS, "app icons shape material expressive pixel cookie clover mask"),
+        SettingEntry("Icon Shape: Default, Circle, Cookie, Clover, Flower, Sunny, Pentagon or Mixed", CustomizationPage.APP_ICONS, "app icons shape material expressive pixel circle round cookie clover mask"),
         SettingEntry("Icon Pack", CustomizationPage.APP_ICONS, "icons adw nova lawnchair"),
         // Home Screen
         SettingEntry("Home Layout: Side Dock or iPhone", CustomizationPage.HOME, "ios iphone dock bottom side grid foldable"),

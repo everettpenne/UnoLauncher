@@ -77,7 +77,8 @@ internal fun FeedPage(
             // Glass over the wallpaper is dark in both themes, so text on it uses the light ink the
             // other glass panels use; Material's default content color is dark in the light theme.
             CompositionLocalProvider(LocalContentColor provides Ink) {
-                FeedPageBody(feed, onRefresh, onOpenEntry, onAddFeed, onToggleSave, Modifier.fillMaxSize().background(GlassFinish.PanelSheen))
+                // Clipped to the panel's corners: the sheen was a plain rectangle, so it showed as a pale square past each rounded top corner.
+                FeedPageBody(feed, onRefresh, onOpenEntry, onAddFeed, onToggleSave, Modifier.fillMaxSize().clip(Corner.xlarge).background(GlassFinish.PanelSheen))
             }
         }
         return

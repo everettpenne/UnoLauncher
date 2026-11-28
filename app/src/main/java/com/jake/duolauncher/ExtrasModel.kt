@@ -64,7 +64,7 @@ internal enum class IconStyle {
  * gives each app one of the shapes, always the same one for that app. An option of its own (Appearance › App Icons), whatever Style is.
  */
 internal enum class AppIconShape(val label: String) {
-    SQUIRCLE("Default"), COOKIE("Cookie"), CLOVER("Clover"), FLOWER("Flower"), SUNNY("Sunny"), PENTAGON("Pentagon"), MIXED("Mixed");
+    SQUIRCLE("Default"), CIRCLE("Circle"), COOKIE("Cookie"), CLOVER("Clover"), FLOWER("Flower"), SUNNY("Sunny"), PENTAGON("Pentagon"), MIXED("Mixed");
 
     /** The shape the app [id] takes: this one, or for [MIXED] one of the five by the app's id. Null is the rounded square. Pure. */
     fun forApp(id: String): AppIconShape? = when (this) {
@@ -74,6 +74,7 @@ internal enum class AppIconShape(val label: String) {
     }
 
     companion object {
+        /** Mixed's shapes. Circle is not one of them, so each app keeps the shape it had under Mixed. */
         private val SHAPED = listOf(COOKIE, CLOVER, FLOWER, SUNNY, PENTAGON)
         fun fromPreference(raw: String?): AppIconShape = entries.firstOrNull { it.name == raw } ?: SQUIRCLE
     }

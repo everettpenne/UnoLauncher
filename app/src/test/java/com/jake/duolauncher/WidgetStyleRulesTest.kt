@@ -25,4 +25,12 @@ class WidgetStyleRulesTest {
         assertTrue(SettingsBackup.exportable(SettingsBackup.APPEARANCE, WidgetStyleRules.key(12)))
         assertTrue(SettingsBackup.exportable(SettingsBackup.APPEARANCE, "widgetStyle"))
     }
+
+    @Test fun hyperGlassIsGlassWhereItCannotBeDrawn() {
+        assertEquals(WidgetStyle.HYPER, WidgetStyleRules.resolve(WidgetStyle.HYPER, WidgetStyle.CARD, true))
+        assertEquals(WidgetStyle.HYPER, WidgetStyleRules.resolve(null, WidgetStyle.HYPER, true))
+        assertEquals("below Android 13", WidgetStyle.GLASS, WidgetStyleRules.resolve(WidgetStyle.HYPER, WidgetStyle.CARD, true, hyperAvailable = false))
+        assertEquals("glass off everywhere", WidgetStyle.CARD, WidgetStyleRules.resolve(WidgetStyle.HYPER, WidgetStyle.CARD, false))
+        assertEquals(WidgetStyle.HYPER, WidgetStyleRules.parse("HYPER"))
+    }
 }

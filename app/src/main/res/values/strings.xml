@@ -382,6 +382,7 @@
     <string name="widget_style_default">Default (%1$s)</string>
     <string name="widget_style_card">Card</string>
     <string name="widget_style_glass">Glass</string>
+    <string name="widget_style_hyper">Hyper Glass</string>
     <string name="home_preview_label">Home screen preview</string>
     <string name="setup_continue">Continue</string>
     <string name="setup_back">Back</string>
@@ -426,10 +427,10 @@
     <!-- What's new (WhatsNew.kt): rewrite these with each release -->
     <string name="whats_new_title">What\'s new in Uno %1$s</string>
     <string name="whats_new_done">Got it</string>
-    <string name="whats_new_1">Hyper Glass icons have a menu of their own: choose Hyper Glass as the Icon Style (Appearance, App Icons), then Hyper Glass Look for app colours or white, on black, white, your accent or clear glass.</string>
-    <string name="whats_new_2">Hyper Glass Cards (Appearance, Glass): words and icons on a card are now split a little into colour, more toward its edge; the red and blue border is gone, and the grain no longer repeats.</string>
-    <string name="whats_new_3">With the island over other apps, an app\'s live activity steps off it while that app is open: directions no longer cover the map. It comes back when you leave the app.</string>
-    <string name="whats_new_4">To keep an activity on the island in its own app, turn off Step Aside in Its App (Island, Notifications).</string>
+    <string name="whats_new_1">Hyper Glass icons in App Colors take back the colour of the plate their logo sat on, so a white logo is no longer white. Icon Shape gains Circle.</string>
+    <string name="whats_new_2">Hyper Glass Cards: the edges of My feed and the App Library bend what is behind them, as the icons\' glass does.</string>
+    <string name="whats_new_3">A Hyper Glass widget style, beside Card and Glass: the grain, bent edge and split of colour of the cards. In a widget\'s options, or for all under Appearance, Widgets.</string>
+    <string name="whats_new_4">My feed no longer shows a pale square past its top corners.</string>
     <!-- Island theme sharing as text -->
     <string name="island_theme_copy">Copy this theme as text</string>
     <string name="island_theme_paste">Paste a theme from text</string>

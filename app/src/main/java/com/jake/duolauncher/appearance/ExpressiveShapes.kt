@@ -113,10 +113,16 @@ internal class PolygonShape(private val polygon: RoundedPolygon) : Shape {
 /** The outline an app icon is cut to for an [com.jake.duolauncher.AppIconShape], as an Android path filling a [size]-pixel square; null for the
  *  launcher's rounded square. Built once a size and shape. */
 internal object IconOutlines {
+    const val CIRCLE_RADIUS = .485f
     private val cache = HashMap<Pair<String, Int>, android.graphics.Path>()
     fun of(shape: com.jake.duolauncher.AppIconShape?, size: Float): android.graphics.Path? {
         val polygon = when (shape) {
             null, com.jake.duolauncher.AppIconShape.SQUIRCLE, com.jake.duolauncher.AppIconShape.MIXED -> return null
+            // A true circle, as many Android launchers draw icons: a path of its own, not a polygon. A hair inside the square, so the glass's
+            // edge has room past it all round (touching the square, its rim was notched at the top, bottom and sides).
+            com.jake.duolauncher.AppIconShape.CIRCLE -> return synchronized(cache) {
+                cache.getOrPut(shape.name to size.toInt()) { android.graphics.Path().apply { addCircle(size / 2f, size / 2f, size * CIRCLE_RADIUS, android.graphics.Path.Direction.CW) } }
+            }
             com.jake.duolauncher.AppIconShape.COOKIE -> ExpressivePolygons.cookie9
             com.jake.duolauncher.AppIconShape.CLOVER -> ExpressivePolygons.cookie4
             com.jake.duolauncher.AppIconShape.FLOWER -> ExpressivePolygons.flower

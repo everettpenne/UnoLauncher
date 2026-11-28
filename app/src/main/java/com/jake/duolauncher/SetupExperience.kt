@@ -241,7 +241,7 @@ private fun LookStep(mode: com.jake.duolauncher.appearance.AppearanceMode, onMod
         onMode, Modifier.fillMaxWidth(), tagPrefix = "setup-mode", key = { it.name.lowercase() })
     Text(stringResource(com.jake.duolauncher.R.string.setup_look_widgets), Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
     val card = stringResource(com.jake.duolauncher.R.string.setup_widget_card); val glass = stringResource(com.jake.duolauncher.R.string.setup_widget_glass)
-    GlassChips(WidgetStyle.entries, widgetStyle, { if (it == WidgetStyle.CARD) card else glass }, onWidgetStyle, Modifier.fillMaxWidth(),
+    GlassChips(listOf(WidgetStyle.CARD, WidgetStyle.GLASS), widgetStyle, { if (it == WidgetStyle.CARD) card else glass }, onWidgetStyle, Modifier.fillMaxWidth(),
         tagPrefix = "setup-widgets", key = { it.name.lowercase() })
 }
 

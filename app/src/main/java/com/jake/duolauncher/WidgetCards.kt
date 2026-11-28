@@ -41,6 +41,7 @@ internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.
     val glass = LocalPageGlass.current
     val previewing = LocalWidgetPreview.current
     val cardStyle = LocalWidgetStyle.current == WidgetStyle.CARD
+    val hyper = LocalWidgetStyle.current == WidgetStyle.HYPER
     val slotPaints = LocalSlotPaints.current
     // Built-in widget text follows the wallpaper behind it: white on dark, dark ink on pale. On a card it follows light or dark only.
     val ink = if (cardStyle) cardInk() else rememberAdaptiveInk(glass?.tint ?: Glass, if (glass != null) .14f else .24f)
@@ -68,6 +69,11 @@ internal fun GlassCard(modifier: Modifier = Modifier, padding: androidx.compose.
             Column(modifier.fillMaxSize().then(if (slotPaints) Modifier else Modifier.widgetCard(Corner.widget)).clip(Corner.widget)
                 .then(if (previewing) Modifier else Modifier.clickable(onClick = onClick)).padding(padding),
                 verticalArrangement = Arrangement.SpaceBetween, content = content)
+        } else if (hyper && slotPaints) {
+            // Hyper glass: the slot has painted it (see Modifier.hyperWidget). A second layer of live glass here drew its own rim, which the
+            // split of colour turned into a red and green outline.
+            Column(modifier.fillMaxSize().then(ink.track).clip(Corner.widget).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick))
+                .padding(padding), verticalArrangement = Arrangement.SpaceBetween, content = content)
         } else if (glass != null) {
             Column(modifier.fillMaxSize().then(ink.track).liquidGlass(glass.backdrop, Corner.widget, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings).clip(Corner.widget)
                 .background(GlassVeil.behind(ink.color)).then(if (previewing) Modifier else Modifier.clickable(onClick = onClick))

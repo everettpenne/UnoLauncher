@@ -163,7 +163,7 @@ class HyperGlassIconInstrumentedTest {
      *  say for that shape too. */
     @Test fun everyIconShapeIsHyperGlass() {
         assumeTrue(android.os.Build.VERSION.SDK_INT >= 33)
-        val shapes = listOf(null, AppIconShape.COOKIE, AppIconShape.CLOVER, AppIconShape.FLOWER, AppIconShape.SUNNY, AppIconShape.PENTAGON)
+        val shapes = listOf(null, AppIconShape.CIRCLE, AppIconShape.COOKIE, AppIconShape.CLOVER, AppIconShape.FLOWER, AppIconShape.SUNNY, AppIconShape.PENTAGON)
         // A green block in the middle, white bars reaching out to the edges.
         val texture = Bitmap.createBitmap(160, 160, Bitmap.Config.ARGB_8888).also { bitmap ->
             for (y in 0 until 160) for (x in 0 until 160) bitmap.setPixel(x, y, when {
@@ -174,21 +174,21 @@ class HyperGlassIconInstrumentedTest {
         }.asImageBitmap()
         compose.setContent {
             androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().background(Color(0xFF808080)).padding(top = 120.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                Row(Modifier.requiredSize(360.dp, 56.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Row(Modifier.requiredSize(420.dp, 56.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                     shapes.forEach { HyperGlassIcon(texture, size = 56.dp, background = Color.Black, shape = it, strength = HyperGlass.REST) }
                 }
-                Row(Modifier.requiredSize(360.dp, 56.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Row(Modifier.requiredSize(420.dp, 56.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                     shapes.forEach { HyperGlassIcon(texture, size = 56.dp, background = Color.Black, shape = it, strength = HyperGlass.REST, forceFallback = true) }
                 }
             }
         }
         compose.waitUntil(15_000) {
-            (6 until 12).all { i -> val p = icons()[i].captureToImage().asAndroidBitmap(); r(p.getPixel(p.width / 2, p.height / 2)) != 0x80 }
+            (shapes.size until shapes.size * 2).all { i -> val p = icons()[i].captureToImage().asAndroidBitmap(); r(p.getPixel(p.width / 2, p.height / 2)) != 0x80 }
         }
         compose.waitForIdle()
         for ((i, shape) in shapes.withIndex()) {
             val name = shape?.name?.lowercase() ?: "squircle"
-            val drawn = picture(i, "shape-$name"); val made = picture(i + 6, "shape-$name-fallback")
+            val drawn = picture(i, "shape-$name"); val made = picture(i + shapes.size, "shape-$name-fallback")
             val total = drawn.width * drawn.height
             val middle = drawn.getPixel(drawn.width / 2, drawn.height / 2)
             assertTrue("$name: the middle is the picture's green", kotlin.math.abs(r(middle) - 0x30) < 14 && kotlin.math.abs(g(middle) - 0xC0) < 14)

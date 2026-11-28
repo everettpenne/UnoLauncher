@@ -16,15 +16,21 @@ import com.jake.duolauncher.appearance.DuoAppearanceRuntime
 /**
  * How a Home widget is drawn. [CARD] is a plain, softly translucent card like an iOS widget: it costs almost nothing to draw, so pages swipe
  * smoothly. [GLASS] is the live liquid glass that bends the wallpaper behind the widget; because that is redone every frame while the widget
- * moves, a page swipe with glass widgets missed about a quarter of its frames on a Pixel 10a (about 1% with no glass).
+ * moves, a page swipe with glass widgets missed about a quarter of its frames on a Pixel 10a (about 1% with no glass). [HYPER] is the hyper
+ * glass of the feed and the App Library (appearance/HyperGlassCard.kt): the wallpaper's blurred picture, nearly bare, with film grain, an edge
+ * that bends it as the hyper glass icons' does, and the split of colour; drawn from the picture Home already keeps. Its cost while pages
+ * move has not been measured. It does not drift. Android 13 or later; below that it is [GLASS].
  */
-enum class WidgetStyle { CARD, GLASS }
+enum class WidgetStyle { CARD, GLASS, HYPER }
 
 /** What decides a widget's style, pure so it is unit-tested. */
 internal object WidgetStyleRules {
     /** The widget's own choice if it made one, else the global default; with glass switched off everywhere a widget is always a card. */
-    fun resolve(own: WidgetStyle?, default: WidgetStyle, glassAvailable: Boolean): WidgetStyle =
-        if (!glassAvailable) WidgetStyle.CARD else own ?: default
+    fun resolve(own: WidgetStyle?, default: WidgetStyle, glassAvailable: Boolean, hyperAvailable: Boolean = true): WidgetStyle =
+        if (!glassAvailable) WidgetStyle.CARD else (own ?: default).let { if (it == WidgetStyle.HYPER && !hyperAvailable) WidgetStyle.GLASS else it }
+
+    /** A style's name as the settings show it. */
+    fun label(style: WidgetStyle): String = when (style) { WidgetStyle.CARD -> "Card"; WidgetStyle.GLASS -> "Glass"; WidgetStyle.HYPER -> "Hyper Glass" }
 
     const val PREFIX = "widgetStyle_"
     fun key(slot: Int) = "$PREFIX$slot"

@@ -139,14 +139,18 @@ internal fun WidgetActions(
         }
         onStyle?.let { change ->
             Text(stringResource(com.jake.duolauncher.R.string.widget_style), style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState()).testTag("widget-style-${placement.slot}")) {
+            // Wrapped, not scrolled sideways: with four styles the last was hidden past the sheet's edge.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("widget-style-${placement.slot}")) {
                 GlassChip(ownStyle == null, onClick = { change(null) },
-                    label = { Text(stringResource(com.jake.duolauncher.R.string.widget_style_default, if (defaultStyle == WidgetStyle.CARD) "Card" else "Glass")) },
+                    label = { Text(stringResource(com.jake.duolauncher.R.string.widget_style_default, WidgetStyleRules.label(defaultStyle))) },
                     modifier = Modifier.testTag("widget-style-default-${placement.slot}"))
                 GlassChip(ownStyle == WidgetStyle.CARD, onClick = { change(WidgetStyle.CARD) }, label = { Text(stringResource(com.jake.duolauncher.R.string.widget_style_card)) },
                     modifier = Modifier.testTag("widget-style-card-${placement.slot}"))
                 GlassChip(ownStyle == WidgetStyle.GLASS, onClick = { change(WidgetStyle.GLASS) }, label = { Text(stringResource(com.jake.duolauncher.R.string.widget_style_glass)) },
                     modifier = Modifier.testTag("widget-style-glass-${placement.slot}"))
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU)
+                    GlassChip(ownStyle == WidgetStyle.HYPER, onClick = { change(WidgetStyle.HYPER) }, label = { Text(stringResource(com.jake.duolauncher.R.string.widget_style_hyper)) },
+                        modifier = Modifier.testTag("widget-style-hyper-${placement.slot}"))
             }
         }
         // A Material shape for a small square Uno widget (Appearance › Style at Balanced or Expressive). Kept here, with the widget's own
@@ -156,7 +160,7 @@ internal fun WidgetActions(
             val shapeContext = androidx.compose.ui.platform.LocalContext.current
             val ownShape = WidgetShapes.own(placement.slot) ?: WidgetShape.DEFAULT
             Text(stringResource(com.jake.duolauncher.R.string.widget_shape), style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState()).testTag("widget-shape-${placement.slot}")) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("widget-shape-${placement.slot}")) {
                 WidgetShape.entries.forEach { shape ->
                     GlassChip(ownShape == shape, onClick = { WidgetShapes.set(shapeContext, placement.slot, shape) }, label = { Text(shape.label) },
                         modifier = Modifier.testTag("widget-shape-${shape.name.lowercase()}-${placement.slot}"))

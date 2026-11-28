@@ -64,7 +64,8 @@ internal fun WidgetSlot(id: Int, slot: Int, controller: WidgetController, modifi
     /** Draws a built-in widget: its id and the slot that owns its saved data (a stacked widget keeps the slot it had). */
     fallback: @Composable (faceId: Int, faceSlot: Int) -> Unit) {
     // The widget's own style, else the default (Appearance › Widgets); a card needs no glass behind it, a glass widget keeps today's.
-    val style = WidgetStyleRules.resolve(WidgetStyles.own(slot), LocalPageGlass.current?.widgetStyle ?: WidgetStyle.CARD, LocalPageGlass.current != null)
+    val style = WidgetStyleRules.resolve(WidgetStyles.own(slot), LocalPageGlass.current?.widgetStyle ?: WidgetStyle.CARD, LocalPageGlass.current != null,
+        hyperAvailable = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU)
     // A small Uno widget can take one of Material's shapes (its options, with Appearance › Style at Balanced or Expressive).
     val shapeContext = androidx.compose.ui.platform.LocalContext.current
     remember { WidgetShapes.load(shapeContext); true }
@@ -116,6 +117,9 @@ private fun WidgetSlotBody(id: Int, slot: Int, controller: WidgetController, mod
         else if (lobed != null && glass != null) Modifier.shapedGlass(glass, lobed.shape, lobed.takeIf { it.bends },
             surface = GlassFinish.tint(glass.tint.copy(alpha = GlassKind.CLEAR.tintAlpha)))
         else if (style == WidgetStyle.CARD) Modifier.widgetCard(Corner.widget)
+        // Hyper glass, as the feed and the App Library are drawn with Hyper Glass Cards on; the live glass until the wallpaper's picture is ready.
+        else if (style == WidgetStyle.HYPER && glass != null) Modifier.hyperWidget(Corner.widget, glass.tint) {
+            liquidGlass(glass.backdrop, Corner.widget, glass.tint, kind = GlassKind.CLEAR, settings = glass.settings) }
         else if (glass != null) Modifier.liquidGlass(glass.backdrop, Corner.widget,
             glass.tint, kind = GlassKind.CLEAR, settings = glass.settings) else Modifier)
         .clip(lobed?.shape ?: Corner.widget)

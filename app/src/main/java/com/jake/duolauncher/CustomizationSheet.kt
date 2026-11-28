@@ -302,8 +302,10 @@ private fun GlassGroups(appearance: AppearanceState, onGlass: (GlassChoice) -> U
         if (appearance.liquidGlass && appearance.edgeHighlight) row { SettingsSwitch("Tilt Highlight", appearance.tiltHighlight, onTiltHighlight, "tilt-highlight-switch") }
         if (hyperCardsOffered) row { SettingsSwitch("Hyper Glass Cards", appearance.hyperCards, onHyperCards, "hyper-cards-switch") }
     }
-    SettingsGroup(header = "Widgets", footer = "Card is a soft, plain widget like iOS's, and keeps swiping between pages smooth. Glass bends the wallpaper behind each widget, but pages swipe less smoothly with it. Each widget can choose its own from its options.") {
-        row { SegmentRow(WidgetStyle.entries, appearance.widgetStyle, { when (it) { WidgetStyle.CARD -> "Card"; WidgetStyle.GLASS -> "Glass" } },
+    SettingsGroup(header = "Widgets", footer = "Card is a soft, plain widget like iOS's, and keeps swiping between pages smooth. Glass bends the wallpaper behind each widget, but pages swipe less smoothly with it. Hyper Glass is an experiment, the look of Hyper Glass Cards: nearly clear, with film grain, an edge that bends what is behind it, and a split of colour. Each widget can choose its own from its options.") {
+        row { SegmentRow(WidgetStyle.entries.filter { it != WidgetStyle.HYPER || android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU },
+            // "Hyper Glass" does not fit a third of the row; the footer names it in full.
+            appearance.widgetStyle, { if (it == WidgetStyle.HYPER) "Hyper" else WidgetStyleRules.label(it) },
             { "widget-style-${it.name.lowercase()}" }, onWidgetStyle) }
     }
     val fontContext = androidx.compose.ui.platform.LocalContext.current

@@ -216,7 +216,10 @@ internal object CorpusV2 {
 
     private class Draft(val family: String, val query: String, val reply: String, val uses: List<String>, val context: String? = null, val grounding: String = "",
         /** Tools that must not be in this row's list (a request whose tool is missing is refused). */
-        val without: Set<String> = emptySet(), val extra: List<Tool> = emptyList())
+        val without: Set<String> = emptySet(), val extra: List<Tool> = emptyList(),
+        /** What some of the phone's sources say for this row (a source id to its words; null for "says nothing"). The rest of the
+         *  facts are made as for any request, so the row is seen with different facts around the one that matters. */
+        val forced: Map<String, String?>? = null)
 
     private fun steps(vararg steps: Pair<Tool, Map<String, String>>) = TrainingFormat.steps(steps.toList())
     private fun look(vararg sources: LookSource) = "{\"look\":[" + sources.joinToString(",") { "\"${it.id}\"" } + "]}"
@@ -356,72 +359,88 @@ internal object CorpusV2 {
                 drafts += Draft(if (d.family == "unseen-tool") "unseen-tool-absent" else "tool-absent", d.query, refuse(refusalFor(lacking)), emptyList(), d.context, d.grounding, without = setOf(name))
             }
 
-        // ---- A fact that was given is used; one that was not is looked for; what was found is planned from.
-        val today = "- Today: Friday 27 November 2026, 7:40 PM (UTC-06:00, America/Chicago)"
-        fun ctx(vararg lines: String) = "Phone context (from this phone, now):\n" + (listOf(today) + lines.toList()).joinToString("\n")
+        // ---- Facts. What the phone holds reaches the planner in two ways, and the rows follow what a phone really does.
+        // A fact the request's own words point at is sent with the request (the same selection the launcher makes, ContextPolicy):
+        // it is used, and nothing is looked for. A fact the words do not point at was not sent: it is looked for, and what comes back
+        // (in the words the phone's own formatter writes, ContextText) is planned from. What is playing is always sent when
+        // something is, so a request about it with nothing there is told so, never looked for.
+        fun sent(query: String, source: String) = com.jake.duolauncher.search.context.ContextPolicy
+            .select(com.jake.duolauncher.search.context.PhoneContext.sources, query.lineSequence().first(), action = true, off = emptySet()).any { it.id == source }
+        fun found(source: LookSource, said: String?) = ContextText.found(source.id, said)
+
         val noteSong = ask("make a note of this song | note down what's playing | save this song to my notes | remember this track | write down this song",
             "jot down this tune | note what i'm listening to", "keep a note of this track | put this song in my notes")
         noteSong.of(split).forEachIndexed { i, base ->
             for (k in 0 until 4) {
                 val (title, artist) = w.songs.at(i + k); val q = said(i + k, base)
-                val playing = "- " + ContextText.nowPlaying(title, artist, true, null)
-                // Given: used. Not given: looked for, then used, or said to be missing.
-                drafts += Draft("fact-given", q, steps(real("note") to mapOf("text" to "$title by $artist")), listOf("note"), ctx(playing))
-                drafts += Draft("look", q, look(LookSource.PLAYING), listOf("note"), ctx())
-                drafts += Draft("found", AgentTurns.found(q, listOf(LookSource.PLAYING), "- playing: \"$title\" by $artist"), steps(real("note") to mapOf("text" to "$title by $artist")), listOf("note"), ctx())
-                if (k == 0) drafts += Draft("found-nothing", AgentTurns.found(q, listOf(LookSource.PLAYING), ""), refuse("Nothing is playing right now."), listOf("note"), ctx())
+                drafts += Draft("fact-given", q, steps(real("note") to mapOf("text" to "$title by $artist")), listOf("note"), forced = mapOf("playing" to ContextText.nowPlaying(title, artist, true, null)))
+                if (k < 2) drafts += Draft("fact-missing", q, refuse("Nothing is playing right now."), listOf("note"), forced = mapOf("playing" to null))
             }
         }
-        val listNext = ask("add my next meeting to my list | put my next appointment on my to-do list | add the next thing in my calendar to my checklist",
+
+        val listNext = ask("add my next meeting to my list | put my next appointment on my to-do list | add the next event in my calendar to my checklist",
             "stick my next meeting on my list", "get my next appointment onto my checklist")
         val goNext = ask("directions to my next meeting | navigate to my next appointment | take me to my next meeting | how do i get to my next appointment",
             "route to my next meeting", "get me to my next appointment")
         val textTime = ask("text {p} the time of my {e} | message {p} when my {e} is | tell {p} what time my {e} starts", "let {p} know when my {e} is", "send {p} the time of my {e}")
         for (i in 0 until if (split == Split2.TRAIN) 24 else 8) {
             val (event, time) = w.events.at(i); val place = w.places.at(i); val person = w.people.at(i)
-            val calendar = "- calendar: Sat 28 Nov $time: $event at $place; Mon 30 Nov 10:00 AM: Offsite"
-            val bare = "- calendar: Sat 28 Nov $time: $event; Mon 30 Nov 10:00 AM: Offsite"
-            listNext.of(split).at(i).let { base -> val q = said(i, base)
-                drafts += Draft("look", q, look(LookSource.CALENDAR), listOf("checklist_add"), ctx())
-                drafts += Draft("found", AgentTurns.found(q, listOf(LookSource.CALENDAR), calendar), steps(real("checklist_add") to mapOf("item" to event)), listOf("checklist_add"), ctx())
-                if (i % 6 == 0) drafts += Draft("found-nothing", AgentTurns.found(q, listOf(LookSource.CALENDAR), "- calendar: nothing in the next 7 days"), refuse("There is nothing in your calendar in the next 7 days."), listOf("checklist_add"), ctx())
+            val day = listOf("Sat 28 Nov", "Mon 30 Nov", "Tue 1 Dec", "Wed 2 Dec").at(i)
+            val withPlace = ContextText.calendar(listOf(Triple("$day $time", event, place), Triple("Thu 3 Dec 10:00 AM", "Offsite", null)))
+            val noPlace = ContextText.calendar(listOf(Triple("$day $time", event, null), Triple("Thu 3 Dec 10:00 AM", "Offsite", "Harbour House")))
+            val empty = ContextText.calendar(emptyList())
+            // "my next meeting" and "appointment" are words the launcher sends the calendar for: it is there, and it is used.
+            listNext.of(split).at(i).let { base -> val q = said(i, base); check(sent(q, "calendar")) { q }
+                drafts += Draft("fact-given", q, steps(real("checklist_add") to mapOf("item" to event)), listOf("checklist_add"), forced = mapOf("calendar" to withPlace))
+                if (i % 4 == 0) drafts += Draft("fact-missing", q, refuse("There is nothing in your calendar in the next 7 days."), listOf("checklist_add"), forced = mapOf("calendar" to empty))
             }
-            goNext.of(split).at(i).let { base -> val q = said(i, base)
-                drafts += Draft("look", q, look(LookSource.CALENDAR), listOf("directions"), ctx())
-                drafts += Draft("found", AgentTurns.found(q, listOf(LookSource.CALENDAR), calendar), steps(real("directions") to mapOf("place" to place)), listOf("directions"), ctx())
-                // The event is there and says nothing of where: that is asked, not made up.
-                drafts += Draft("found-ask", AgentTurns.found(q, listOf(LookSource.CALENDAR), bare), clarify("Where is $event?"), listOf("directions"), ctx())
+            goNext.of(split).at(i).let { base -> val q = said(i, base); check(sent(q, "calendar")) { q }
+                drafts += Draft("fact-given", q, steps(real("directions") to mapOf("place" to place)), listOf("directions"), forced = mapOf("calendar" to withPlace))
+                // The event is there and does not say where: that is asked, not made up.
+                drafts += Draft("fact-ask", q, clarify("Where is $event?"), listOf("directions"), forced = mapOf("calendar" to noPlace))
             }
+            // An event by its own name ("my dentist", "physio") is not a word the calendar is sent for: it is looked for.
             textTime.of(split).at(i).let { base -> val q = said(i, base.replace("{p}", person.name).replace("{e}", event.lowercase()))
                 val known = "People: ${person.name} (${person.number})"
-                drafts += Draft("look", q, look(LookSource.CALENDAR), listOf("message"), ctx(), known)
-                drafts += Draft("found", AgentTurns.found(q, listOf(LookSource.CALENDAR), calendar), steps(real("message") to mapOf("number" to person.number, "text" to "$event is at $time")), listOf("message"), ctx(), known)
+                val plan = steps(real("message") to mapOf("number" to person.number, "text" to "$event is at $time"))
+                if (sent(q, "calendar")) drafts += Draft("fact-given", q, plan, listOf("message"), grounding = known, forced = mapOf("calendar" to withPlace))
+                else {
+                    drafts += Draft("look", q, look(LookSource.CALENDAR), listOf("message"), grounding = known, forced = mapOf("calendar" to null))
+                    drafts += Draft("found", AgentTurns.found(q, listOf(LookSource.CALENDAR), found(LookSource.CALENDAR, withPlace)), plan, listOf("message"), grounding = known, forced = mapOf("calendar" to null))
+                    if (i % 3 == 0) drafts += Draft("found-nothing", AgentTurns.found(q, listOf(LookSource.CALENDAR), found(LookSource.CALENDAR, empty)),
+                        refuse("I don't see ${event.lowercase()} in your calendar."), listOf("message"), grounding = known, forced = mapOf("calendar" to null))
+                }
             }
         }
-        // Someone Uno has no number for yet: looked up, then called or texted, or asked about.
-        val reach = ask("call {p} | ring {p} | phone {p} | text {p} saying {b} | message {p}: {b}", "give {p} a call | send {p} a text saying {b}", "get {p} on the phone | drop {p} a text: {b}")
+        // Someone named in a way the launcher's own lookup misses (no capital, no "call" or "text" before the name): the planner asks
+        // for the contacts, and is told who was found with their number, or nobody.
+        val reach = ask("give {p} a ring | get {p} on the phone | write back to {p} saying {b} | drop {p} a line saying {b} | let {p} know {b}",
+            "buzz {p} | fire off a note to {p} saying {b}", "get hold of {p} by phone | pass on to {p} that {b}")
         reach.of(split).forEachIndexed { i, t ->
-            for (k in 0 until if (split == Split2.TRAIN) 5 else 2) {
+            for (k in 0 until if (split == Split2.TRAIN) 6 else 2) {
                 val p = w.people.at(i + k); val b = listOf("on my way", "running late", "call me when you can", "see you at 6").at(i + k)
-                val q = said(i + k, t.replace("{p}", p.name).replace("{b}", b)); val texting = "{b}" in t
+                val name = p.name.lowercase()
+                val q = said(i + k, t.replace("{p}", name).replace("{b}", b)); val texting = "{b}" in t
                 val step = if (texting) real("message") to mapOf("number" to p.number, "text" to b) else real("dial") to mapOf("number" to p.number)
                 val tool = if (texting) "message" else "dial"
-                drafts += Draft("look", q, look(LookSource.CONTACTS), listOf(tool), ctx())
-                drafts += Draft("found", AgentTurns.found(q, listOf(LookSource.CONTACTS), "- contacts: ${p.name} (${p.number})"), steps(step), listOf(tool), ctx())
-                drafts += Draft("found-ask", AgentTurns.found(q, listOf(LookSource.CONTACTS), ""), clarify("I don't have a number for ${p.name}. What is it?"), listOf(tool), ctx())
-                // Already known: no look.
-                drafts += Draft("fact-given", q, steps(step), listOf(tool), ctx(), "People: ${p.name} (${p.number})")
+                drafts += Draft("look", q, look(LookSource.CONTACTS), listOf(tool))
+                drafts += Draft("found", AgentTurns.found(q, listOf(LookSource.CONTACTS), found(LookSource.CONTACTS, ContextText.people(listOf(p.name to p.number)))), steps(step), listOf(tool))
+                drafts += Draft("found-ask", AgentTurns.found(q, listOf(LookSource.CONTACTS), found(LookSource.CONTACTS, null)), clarify("I don't have a number for ${p.name}. What is it?"), listOf(tool))
+                // Two it could be: asked, not guessed.
+                if (k == 0) drafts += Draft("found-ask", AgentTurns.found(q, listOf(LookSource.CONTACTS), found(LookSource.CONTACTS, ContextText.people(listOf(p.name to p.number, "${p.name.substringBefore(' ')} Okonkwo" to "555 0190")))),
+                    clarify("Which one: ${p.name} or ${p.name.substringBefore(' ')} Okonkwo?"), listOf(tool))
+                // Already resolved by the launcher: no look.
+                drafts += Draft("fact-given", q, steps(step), listOf(tool), grounding = "People: ${p.name} (${p.number})")
             }
         }
-        // A condition on a fact: looked at, then acted on or not.
-        val saver = ask("if my battery is under 20 percent open battery settings | open battery saver if i'm below 20 percent", "should the battery be under 20 percent, open battery settings",
-            "when the battery is below 20 percent open the battery saver page")
-        saver.of(split).forEachIndexed { i, base -> val q = said(i, base)
-            drafts += Draft("look", q, look(LookSource.BATTERY), listOf("settings_panel"), ctx())
-            drafts += Draft("found", AgentTurns.found(q, listOf(LookSource.BATTERY), "- battery: 14%, not charging"), steps(real("settings_panel") to mapOf("panel" to "battery")), listOf("settings_panel"), ctx())
-            drafts += Draft("found-nothing", AgentTurns.found(q, listOf(LookSource.BATTERY), "- battery: 82%, charging"), refuse("The battery is at 82 percent, so I left it."), listOf("settings_panel"), ctx())
-            drafts += Draft("fact-given", q, steps(real("settings_panel") to mapOf("panel" to "battery")), listOf("settings_panel"), ctx("- Battery: 11%, not charging"))
-        }
+        // A condition on a fact the request names: the battery is sent for the word "battery", and is acted on or not.
+        val saver = ask("if my battery is under 20 percent open battery settings | open the battery settings if my battery is below 20 percent", "should the battery be under 20 percent, open battery settings",
+            "when the battery is below 20 percent open the battery page")
+        saver.of(split).forEachIndexed { i, base -> for (k in 0 until 3) { val q = said(i + k, base); check(sent(q, "battery")) { q }
+            val low = listOf(14, 9, 18).at(i + k); val high = listOf(82, 55, 97).at(i + k)
+            drafts += Draft("fact-given", q, steps(real("settings_panel") to mapOf("panel" to "battery")), listOf("settings_panel"), forced = mapOf("battery" to ContextText.battery(low, false, null)))
+            drafts += Draft("fact-missing", q, refuse("The battery is at $high percent, so I left it."), listOf("settings_panel"), forced = mapOf("battery" to ContextText.battery(high, k % 2 == 0, null)))
+        } }
         // A time given by the calendar is copied as it was said: the launcher works it out (EventTime), the planner does not.
         ask("wake me {n} before my first meeting tomorrow | set an alarm {n} before my next meeting | alarm {n} before the {e} tomorrow", "get me up {n} before my first meeting tomorrow",
             "alarm for {n} before my next appointment").of(split).forEachIndexed { i, t ->
@@ -433,9 +452,9 @@ internal object CorpusV2 {
         }
 
         // ---- A step that failed: another way, a question, or a refusal that says why. Never the same step again.
-        fun failedRow(q: String, tried: Pair<Tool, Map<String, String>>, why: String, reply: String, uses: List<String>, context: String? = null, grounding: String = "") {
+        fun failedRow(q: String, tried: Pair<Tool, Map<String, String>>, why: String, reply: String, uses: List<String>, grounding: String = "", forced: Map<String, String?>? = null) {
             val step = Step(tried.first, Params(tried.second))
-            drafts += Draft("failed", AgentTurns.failed(q, step, why), reply, uses, context, grounding)
+            drafts += Draft("failed", AgentTurns.failed(q, step, why), reply, uses, null, grounding, forced = forced)
         }
         ask("open {a} | launch {a} | start {a}", "fire up {a}", "bring up {a}").of(split).forEachIndexed { i, t ->
             for (k in 0 until if (split == Split2.TRAIN) 6 else 2) {
@@ -443,9 +462,9 @@ internal object CorpusV2 {
                 val q = said(i + k, t.replace("{a}", near.first))
                 val tried = real("open_app") to mapOf("app" to near.first); val why = "I couldn't find an app called \"${near.first}\"."
                 // Something like it is installed: offered, not opened unasked.
-                failedRow(q, tried, why, clarify("${near.first} is not installed. Open ${near.second} instead?"), listOf("open_app"), ctx("- Installed apps (most used first): Camera, ${near.second}, Clock, Files"))
+                failedRow(q, tried, why, clarify("${near.first} is not installed. Open ${near.second} instead?"), listOf("open_app"), forced = mapOf("apps" to ContextText.list("Installed apps (most used first)", listOf("Camera", near.second, "Clock", "Files"), 40)))
                 // Nothing like it: said plainly.
-                if (k % 2 == 0) failedRow(q, tried, why, refuse("${near.first} is not installed on this phone."), listOf("open_app"), ctx("- Installed apps (most used first): Camera, Clock, Files"))
+                if (k % 2 == 0) failedRow(q, tried, why, refuse("${near.first} is not installed on this phone."), listOf("open_app"), forced = mapOf("apps" to ContextText.list("Installed apps (most used first)", listOf("Camera", "Clock", "Files"), 40)))
             }
         }
         w.items.forEachIndexed { i, item ->
@@ -527,7 +546,7 @@ internal object CorpusV2 {
                 repeat(r.nextInt(4)) { decoys[r.nextInt(decoys.size)].let { t -> if (t.name !in d.without && mine.none { it.name == t.name }) mine += t } }
                 // The usual order half the time; otherwise shuffled, so position says nothing.
                 val listed = if (r.nextBoolean()) mine.sortedBy { t -> allReal.indexOfFirst { it.name == t.name }.let { if (it < 0) 999 else it } } else mine.shuffled(r)
-                val context = d.context ?: TrainingContext.forQuery(d.query.lineSequence().first(), r)
+                val context = d.context ?: TrainingContext.forQuery(d.query.lineSequence().first(), r, d.forced.orEmpty())
                 val user = TrainingFormat.turn(d.query, context, d.grounding)
                 if (!seen.add(listed.joinToString(",") { it.name } + user + d.completionKey())) return@repeat
                 val reply = canonical(d.reply, listed) ?: error("a reply its own list does not allow: ${d.family}: ${d.query} -> ${d.reply}")
@@ -588,7 +607,8 @@ internal object CorpusV2 {
             val row = rows.getJSONObject(i)
             val reply = when {
                 row.has("steps") -> org.json.JSONObject().put("steps", row.getJSONArray("steps")).toString()
-                row.has("clarify") -> "{\"clarify\":\"\"}"; row.has("refuse") -> "{\"refuse\":\"\"}"; row.has("search") -> "{\"search\":\"\"}"
+                // What is scored is that it asked, refused or offered a search; the words are a stand-in.
+                row.has("clarify") -> clarify("Which one do you mean?"); row.has("refuse") -> refuse("I can't do that with the tools I have."); row.has("search") -> TrainingFormat.search("that")
                 else -> return@mapNotNull null
             }
             val dressed = TrainingCorpus.dressed(Example(row.getString("q"), if (row.has("steps")) reply else "", "eval"), rnd)

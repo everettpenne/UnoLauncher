@@ -20,17 +20,18 @@ internal sealed interface Plan {
  * What the planner may ask to look at before it plans: the phone's own facts, by kind. Each is something the launcher already reads
  * for a question about it (search.context.PhoneContext), and only facts the phone itself holds: nothing written by other people (a
  * notification's words, a web page) can be asked for, so nothing other people wrote can steer a plan.
+ *
+ * What is always sent when there is something to say is not here, because there is never anything more to find: what is playing, a
+ * running timer, the battery, the date. A request about those is planned from the facts beside it, or told there is nothing.
  */
 internal enum class LookSource(val id: String, val holds: String, /** The PhoneContext source it reads. */ val context: String) {
-    CALENDAR("calendar", "events in the next 7 days, with their times and places", "calendar"),
-    CONTACTS("contacts", "people the request names, with their numbers", "contacts"),
+    CALENDAR("calendar", "events in the next 7 days, with their times and where they are", "calendar"),
+    /** Not a context source: the launcher looks the request's words up in the contacts and says who it found, with their numbers. */
+    CONTACTS("contacts", "people the request names, with their numbers", ""),
     APPS("apps", "the apps that are installed", "apps"),
     ALARMS("alarms", "the next alarm", "alarm"),
-    TIMERS("timers", "a running timer or stopwatch", "timer"),
-    PLAYING("playing", "what is playing now", "playing"),
     NOTES("notes", "the note, the checklist and the counters on Home", "notes"),
-    BATTERY("battery", "the battery level and whether it is charging", "battery"),
-    PLACE("place", "the place set as home, and the last known location", "location");
+    PLACE("place", "the last known location", "location");
 
     companion object { fun of(id: String): LookSource? = entries.firstOrNull { it.id == id.trim().lowercase() } }
 }

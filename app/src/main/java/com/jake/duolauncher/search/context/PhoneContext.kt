@@ -135,8 +135,7 @@ internal object PhoneContext {
         val lines = ArrayList<String>(ids.size)
         for ((name, id) in ids) {
             val source = sources.firstOrNull { it.id == id && !it.untrusted && it.id !in off }
-            val said = source?.let { runCatching { read(it.id, question, env) }.getOrNull() }?.trim().orEmpty()
-            lines += "- $name: " + said.replace("\n", "; ").ifEmpty { "nothing" }.take(600)
+            lines += ContextText.found(name, source?.let { runCatching { read(it.id, question, env) }.getOrNull() })
         }
         lines.joinToString("\n")
     }
@@ -343,9 +342,9 @@ internal object PhoneContext {
         val uri = CalendarContract.Instances.CONTENT_URI.buildUpon().also {
             android.content.ContentUris.appendId(it, from); android.content.ContentUris.appendId(it, to)
         }.build()
-        val rows = ArrayList<String>()
-        c.contentResolver.query(uri, arrayOf(CalendarContract.Instances.TITLE, CalendarContract.Instances.BEGIN, CalendarContract.Instances.ALL_DAY),
-            null, null, "${CalendarContract.Instances.BEGIN} ASC")?.use { cur ->
+        val rows = ArrayList<Triple<String, String, String?>>()
+        c.contentResolver.query(uri, arrayOf(CalendarContract.Instances.TITLE, CalendarContract.Instances.BEGIN, CalendarContract.Instances.ALL_DAY,
+            CalendarContract.Instances.EVENT_LOCATION), null, null, "${CalendarContract.Instances.BEGIN} ASC")?.use { cur ->
             val f = DateTimeFormatter.ofPattern(if (is24(c)) "EEE d MMM HH:mm" else "EEE d MMM h:mm a", Locale.ENGLISH)
             val day = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
             while (cur.moveToNext() && rows.size < 10) {
@@ -353,9 +352,10 @@ internal object PhoneContext {
                 val begin = Instant.ofEpochMilli(cur.getLong(1))
                 val allDay = cur.getInt(2) == 1
                 val at = if (allDay) begin.atZone(ZoneId.of("UTC")).toLocalDate().format(day) + ", all day" else begin.atZone(now.zone).format(f)
-                rows += "$at: $title"
+                // Where it is, when the event says: "directions to my next meeting" has somewhere to go. One line, not long.
+                rows += Triple(at, title, cur.getString(3)?.replace('\n', ' ')?.trim()?.take(80))
             }
         }
-        return if (rows.isEmpty()) "Calendar: nothing in the next 7 days" else "Calendar (next 7 days):\n" + rows.joinToString("\n")
+        return ContextText.calendar(rows)
     }
 }

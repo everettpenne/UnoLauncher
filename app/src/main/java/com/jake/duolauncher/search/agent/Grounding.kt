@@ -100,6 +100,14 @@ internal object GroundingLogic {
         return out.take(MAX_PEOPLE)
     }
 
+    /** Every word of a request that could be part of a name, for a planner that asked to look someone up: more than [namesIn]
+     *  tries, which wants a verb for reaching someone or a capital letter ("write back to mateo" has neither). */
+    fun wordsToLookUp(query: String): List<String> = Regex("""[\p{L}']+""").findAll(query.lineSequence().first()).map { it.value }
+        .filter { it.length >= 3 && it.lowercase() !in notNames && it.lowercase() !in lookStop }.distinctBy { it.lowercase() }.take(4).toList()
+
+    private val lookStop = setOf("write", "send", "give", "get", "drop", "line", "ring", "saying", "say", "says", "phone", "text", "call", "message", "email", "note",
+        "back", "when", "you", "can", "way", "late", "running", "see", "the", "and", "for", "with", "about")
+
     /** The request the loop runs, with the grounded names folded in. */
     fun planning(
         query: String,

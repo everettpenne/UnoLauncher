@@ -62,6 +62,17 @@ internal object ContextText {
         else -> "${n / 1000} KB"
     }
 
+    /** The calendar as the assistant is told it: a line an event, "<when>: <title>", with where it is when the event says. */
+    fun calendar(events: List<Triple<String, String, String?>>): String =
+        if (events.isEmpty()) "Calendar: nothing in the next 7 days"
+        else "Calendar (next 7 days):\n" + events.joinToString("\n") { (at, title, place) -> "$at: $title" + (place?.trim()?.takeIf { it.isNotEmpty() }?.let { " (at $it)" } ?: "") }
+
+    /** People with their numbers, for a planner that asked to look them up: "Sam Patel (555 0142); Ana (555 0177)". Null for nobody. */
+    fun people(found: List<Pair<String, String>>): String? = found.distinct().take(5).takeIf { it.isNotEmpty() }?.joinToString("; ") { (name, number) -> "$name ($number)" }
+
+    /** What one source said, as a planner that asked to look is told it: one line, and "nothing" when it said nothing. */
+    fun found(source: String, said: String?): String = "- $source: " + (said?.trim()?.replace("\n", "; ")?.take(600)?.takeIf { it.isNotEmpty() } ?: "nothing")
+
     fun storage(free: Long, total: Long): String = "Storage: ${bytes(free)} free of ${bytes(total)}"
 
     fun list(label: String, items: List<String>, max: Int): String? {

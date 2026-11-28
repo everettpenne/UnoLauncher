@@ -28,7 +28,7 @@ internal object AgentTurns {
 
     /** What looking found, a line a source, or that it found nothing. */
     fun found(query: String, sources: List<LookSource>, found: String): String =
-        "$query\nFound:\n" + found.ifBlank { sources.joinToString("\n") { "- ${it.id}: nothing" } }
+        "$query\nFound:\n" + found.ifBlank { sources.joinToString("\n") { com.jake.duolauncher.search.context.ContextText.found(it.id, null) } }
 
     /** The step that was tried, as the planner would write it, and why it failed. */
     fun failed(query: String, step: Step, why: String): String =

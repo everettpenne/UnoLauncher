@@ -604,7 +604,16 @@ internal fun Spotlight(
     androidx.compose.runtime.SideEffect {
         com.jake.duolauncher.search.agent.AgentSessionHolder.protocol = { com.jake.duolauncher.search.agent.AgentRouting.protocol(context) }
         com.jake.duolauncher.search.agent.AgentSessionHolder.look = { sources, question ->
-            contextEnv?.let { env -> com.jake.duolauncher.search.context.PhoneContext.look(sources.map { it.id to it.context }, question, env) }.orEmpty()
+            sources.map { source ->
+                if (source == com.jake.duolauncher.search.agent.LookSource.CONTACTS) {
+                    // The request's words looked up in the contacts, and who was found with their numbers; nothing without the permission.
+                    val people = if (!contactsEnabled) emptyList() else withContext(Dispatchers.IO) {
+                        com.jake.duolauncher.search.agent.GroundingLogic.wordsToLookUp(question).flatMap { word -> ContactActions.search(context, word, limit = 3) }.map { it.name to it.number }
+                    }
+                    com.jake.duolauncher.search.context.ContextText.found(source.id, com.jake.duolauncher.search.context.ContextText.people(people))
+                } else contextEnv?.let { env -> com.jake.duolauncher.search.context.PhoneContext.look(listOf(source.id to source.context), question, env) }
+                    ?: com.jake.duolauncher.search.context.ContextText.found(source.id, null)
+            }.joinToString("\n")
         }
     }
     val agentScope = androidx.compose.runtime.rememberCoroutineScope()

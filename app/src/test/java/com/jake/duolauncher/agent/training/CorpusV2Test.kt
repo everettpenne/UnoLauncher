@@ -59,7 +59,7 @@ class CorpusV2Test {
         val used = train.flatMap { row -> Regex("\"tool\":\"([a-z_]+)\"").findAll(row.completion).map { it.groupValues[1] }.toList() }.groupingBy { it }.eachCount()
         for (tool in ToolRegistry.next) assertTrue("${tool.name}: ${used[tool.name]} rows", (used[tool.name] ?: 0) >= 30)
         val families = train.groupingBy { it.family }.eachCount()
-        for (family in listOf("new-tool", "made-up-tool", "tool-absent", "look", "found", "found-nothing", "found-ask", "fact-given", "failed", "retry", "multi-4", "multi-5", "event-time", "clarify"))
+        for (family in listOf("new-tool", "made-up-tool", "tool-absent", "look", "found", "found-nothing", "found-ask", "fact-given", "fact-missing", "fact-ask", "failed", "retry", "multi-4", "multi-5", "event-time", "clarify"))
             assertTrue("$family: ${families[family]}", (families[family] ?: 0) >= 20)
         assertTrue("a list is rarely the whole list", train.map { it.tools.toSet() }.toSet().size > train.size / 2)
         assertTrue(train.size > 20_000)
@@ -75,6 +75,32 @@ class CorpusV2Test {
         assertTrue(name in same.tools)
     }
 
+    /** The frozen sets of the first contract, as rows of this one: every one a reply the scorer can read, the questions and refusals too. */
+    @Test fun theRegressionRowsAreAllReadable() {
+        val rows = listOf("/agent/phrases.json", "/agent/phrases-fresh.json", "/agent/phrases-followup.json").flatMap { CorpusV2.regression(it) }
+        assertEquals(140, rows.size)
+        for (row in rows) {
+            val plan = (PlanParser.parse(row.completion, row.listed, Catalogue.V2) as? ParseResult.Ok)?.plan
+            assertTrue("${row.query} -> ${row.completion}", plan != null)
+            if (plan is Plan.Clarify) assertTrue(plan.question.isNotBlank())
+            if (plan is Plan.Refuse) assertTrue(plan.reason.isNotBlank())
+        }
+        assertTrue(rows.any { it.completion.startsWith("{\"clarify\"") } && rows.any { it.completion.startsWith("{\"refuse\"") })
+    }
+
+    /** A fact the launcher sends with the request is never looked for, and what is found is in the words the phone's formatter writes. */
+    @Test fun aFactIsLookedForOnlyWhenThePhoneWouldNotHaveSentIt() {
+        fun sent(query: String, source: String) = com.jake.duolauncher.search.context.ContextPolicy
+            .select(com.jake.duolauncher.search.context.PhoneContext.sources, query.lineSequence().first(), action = true, off = emptySet()).any { it.id == source }
+        for (row in train + dev + test) {
+            if (row.family == "look" && row.completion == "{\"look\":[\"calendar\"]}") assertFalse("the calendar was sent with: ${row.query}", sent(row.query, "calendar"))
+            if (row.family == "look") assertFalse("a look with the fact already there: ${row.query}", "Calendar (next 7 days)" in row.user || "Calendar today" in row.user)
+            if (row.family.startsWith("found") && "- calendar: " in row.user) assertTrue(row.user, "- calendar: Calendar (next 7 days):; " in row.user || "- calendar: Calendar: nothing in the next 7 days" in row.user)
+        }
+        assertTrue(train.any { it.family == "fact-given" && "- Calendar (next 7 days):" in it.user })
+        assertTrue(train.any { it.family == "found" && "- contacts: " in it.user })
+    }
+
     // ---------------------------------------------------------------------------------------------- the contract in the loop
 
     private val tools = ToolRegistry.next
@@ -85,18 +111,18 @@ class CorpusV2Test {
 
     @Test fun aPlannerThatLooksIsAskedAgainWithWhatWasFound() = runBlocking {
         val env = RecordingEnv(); val asked = ArrayList<String>()
-        val outcome = loop(listOf("""{"look":["playing"]}""", """{"steps":[{"tool":"note","params":{"text":"Blue in Green by Miles Davis"}}]}"""), env, asked,
-            facts = "- playing: \"Blue in Green\" by Miles Davis").run("make a note of this song")
+        val outcome = loop(listOf("""{"look":["contacts"]}""", """{"steps":[{"tool":"dial","params":{"number":"555 0144"}}]}"""), env, asked,
+            facts = "- contacts: Mateo (555 0144)").run("give mateo a ring")
         assertTrue("$outcome", outcome is AgentOutcome.Done)
-        assertEquals(listOf("note blue in green by miles davis"), env.did)
-        assertEquals("make a note of this song\nFound:\n- playing: \"Blue in Green\" by Miles Davis", asked[1])
+        assertEquals("a number that was found is one the launcher may dial", listOf("dial 5550144"), env.did)
+        assertEquals("give mateo a ring\nFound:\n- contacts: Mateo (555 0144)", asked[1])
         // It may not look twice.
-        val twice = loop(listOf("""{"look":["playing"]}""", """{"look":["calendar"]}"""), RecordingEnv(), ArrayList()).run("make a note of this song")
+        val twice = loop(listOf("""{"look":["contacts"]}""", """{"look":["calendar"]}"""), RecordingEnv(), ArrayList()).run("give mateo a ring")
         assertTrue(twice is AgentOutcome.Failed)
         // Nothing found is said as nothing, per source.
         val nothing = ArrayList<String>()
-        loop(listOf("""{"look":["calendar","playing"]}""", """{"refuse":"Nothing is playing right now."}"""), RecordingEnv(), nothing).run("x")
-        assertEquals("x\nFound:\n- calendar: nothing\n- playing: nothing", nothing[1])
+        loop(listOf("""{"look":["calendar","contacts"]}""", """{"refuse":"I can't see that."}"""), RecordingEnv(), nothing).run("x")
+        assertEquals("x\nFound:\n- calendar: nothing\n- contacts: nothing", nothing[1])
     }
 
     @Test fun aFirstStepThatFailedIsPlannedAgainOnce() = runBlocking {
@@ -112,7 +138,7 @@ class CorpusV2Test {
     }
 
     @Test fun theFirstContractKnowsNoneOfThis() {
-        assertTrue(PlanParser.parse("""{"look":["playing"]}""", ToolRegistry.builtIn) is ParseResult.Failed)
+        assertTrue(PlanParser.parse("""{"look":["calendar"]}""", ToolRegistry.builtIn) is ParseResult.Failed)
         assertFalse("look" in Catalogue.grammar(ToolRegistry.builtIn))
         assertTrue(Catalogue.grammar(tools, Catalogue.V2).contains("look ::= "))
         assertTrue((PlanParser.parse("""{"look":["everything"]}""", tools, Catalogue.V2) as ParseResult.Failed).retry)
@@ -120,5 +146,5 @@ class CorpusV2Test {
         assertTrue(PlanParser.parse(six, tools, Catalogue.V2) is ParseResult.Failed)
     }
 
-    private companion object { const val PINNED = "3ddf06ce285ee7a7" }
+    private companion object { const val PINNED = "81b67dca241ba53c" }
 }

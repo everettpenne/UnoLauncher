@@ -29,6 +29,18 @@ internal object ToolRegistry {
         DirectionsTool,
     )
 
+    /**
+     * The list from protocol 2 on (the 4B planner): the first nineteen, the three the launcher used to recognise itself (a reminder,
+     * Uno's Style, Uno's settings), and the everyday things that were missing. [builtIn] is left exactly as the first planners were
+     * trained on it; which list a phone uses follows the planner it has (AgentRouting.protocol).
+     */
+    val next: List<Tool> = builtIn.map { if (it === SettingsPanelTool) SettingsPagesTool else it } + listOf(
+        ReminderTool, CameraTool, EmailTool, RingerTool, PlayTool, BrightnessTool, DeviceTool, ContactAddTool, AppInfoTool,
+        AlarmsShowTool, CalendarOpenTool, StyleTool, UnoSettingsTool,
+    )
+
+    fun forProtocol(protocol: Int): List<Tool> = if (protocol >= Catalogue.V2) next else builtIn
+
     /** The tools whose capabilities are present right now: a tool that needs contacts is not offered without them. */
     fun available(capabilities: Set<Capability>, tools: List<Tool> = builtIn): List<Tool> =
         tools.filter { tool -> tool.needs.all { it in capabilities } }

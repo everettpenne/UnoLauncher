@@ -26,6 +26,12 @@ internal object GroundingLogic {
     private val word = Regex("""[\p{L}\p{N}']+""")
 
     private const val MAX_REPLIES = 4
+    private val peopleLine = Regex("""(?m)^People: (.*)$""")
+    private val person = Regex("""^(.*) \(([^()]*)\)$""")
+
+    /** The people a `<known>` block names, read back from it ("People: Sam Patel (555 0142); Ana (555 0177)"). */
+    fun peopleIn(known: String): List<KnownPerson> = peopleLine.find(known)?.groupValues?.get(1).orEmpty().split("; ")
+        .mapNotNull { each -> person.find(each.trim())?.let { KnownPerson(it.groupValues[1].trim(), it.groupValues[2].trim()) } }
     private val replyWords = setOf("reply", "respond", "answer", "tell", "say", "write", "text", "message")
 
     /** Whether a request reads as wanting to answer a message. */

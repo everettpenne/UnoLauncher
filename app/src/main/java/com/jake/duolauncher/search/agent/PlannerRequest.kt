@@ -7,14 +7,14 @@ package com.jake.duolauncher.search.agent
 internal object PlannerRequest {
     const val VERSION = 1
 
-    fun json(query: String, context: String, grounding: String, tools: List<Tool>): String = buildString {
+    fun json(query: String, context: String, grounding: String, tools: List<Tool>, protocol: Int = Catalogue.V1): String = buildString {
         append("{\"v\":").append(VERSION)
         append(",\"query\":").append(quote(query))
         append(",\"context\":").append(quote(context))
         append(",\"grounding\":").append(quote(grounding))
-        append(",\"catalogue\":").append(quote(Catalogue.prompt(tools)))
-        append(",\"grammar\":").append(quote(Catalogue.grammar(tools)))
-        append(",\"hash\":").append(quote(Catalogue.hash(tools)))
+        append(",\"catalogue\":").append(quote(Catalogue.prompt(tools, protocol)))
+        append(",\"grammar\":").append(quote(Catalogue.grammar(tools, protocol)))
+        append(",\"hash\":").append(quote(Catalogue.hash(tools, protocol)))
         append('}')
     }
 

@@ -48,5 +48,10 @@ internal object AgentSessionHolder {
         ).also { session = it }
     }
 
+    /** The contract the connected planner was trained on, read for each turn (AgentRouting.protocol), and how a fact it asks for is
+     *  read (protocol 2's "look"). Set by the panel that binds the session; until then, the first contract and nothing to look at. */
+    @Volatile var protocol: () -> Int = { Catalogue.V1 }
+    @Volatile var look: suspend (List<LookSource>, String) -> String = { _, _ -> "" }
+
     fun current(): AgentSession? = session
 }

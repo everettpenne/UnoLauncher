@@ -174,7 +174,7 @@ internal class LocalAssistant(context: Context) : AssistantClient {
         }
         try {
             withContext(binderThread) {
-                val version = labVersion?.takeIf { it.first === svc }?.second ?: runCatching { svc.version() }.getOrDefault(0).also { labVersion = svc to it }
+                val version = labVersion?.takeIf { it.first === svc }?.second ?: runCatching { svc.version() }.getOrDefault(0).also { labVersion = svc to it; com.jake.duolauncher.search.agent.AgentRouting.labVersion(it) }
                 if (context.isNotBlank() && version >= 1) svc.askWithContext(query.take(AskPolicy.MAX_QUERY), context, mode.wire, sink)
                 else svc.ask(query.take(AskPolicy.MAX_QUERY), mode.wire, sink)
             }
@@ -194,7 +194,7 @@ internal class LocalAssistant(context: Context) : AssistantClient {
         val svc = withTimeoutOrNull(15_000) { service.filterNotNull().first() } ?: return null
         // A Lab from before the planner has no plan(): version() reads 0 there, and the call is unknown.
         val version = labVersion?.takeIf { it.first === svc }?.second
-            ?: runCatching { svc.version() }.getOrDefault(0).also { labVersion = svc to it }
+            ?: runCatching { svc.version() }.getOrDefault(0).also { labVersion = svc to it; com.jake.duolauncher.search.agent.AgentRouting.labVersion(it) }
         if (version < 2) return null
         return withContext(binderThread) { runCatching { svc.plan(request) }.getOrNull() }
     }

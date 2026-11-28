@@ -19,6 +19,8 @@ import java.time.LocalTime
  * why every tool is testable without a phone.
  */
 private const val TAG = "UnoAgent"
+private const val EVENT_DAYS = 3
+private const val MAX_EVENTS = 60
 
 internal class AndroidToolEnv(
     private val context: Context,
@@ -33,9 +35,111 @@ internal class AndroidToolEnv(
     /** Best effort: the camera's torch callback reports only when it is already on, so the tool keeps its own idea. */
     private var torchOn = false
 
-    /** Replies need the notification listener (the person's opt-in notification access) to be connected. */
-    override fun capabilities(): Set<Capability> =
-        if (com.jake.duolauncher.NotificationFeed.connected) setOf(Capability.Notifications) else emptySet()
+    private fun start(intent: android.content.Intent): Boolean =
+        runCatching { context.startActivity(intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)); true }.getOrElse { Log.w(TAG, "could not start ${intent.action}", it); false }
+
+    override fun openCamera(mode: String): Boolean = start(when (mode) {
+        "video" -> android.content.Intent(android.provider.MediaStore.INTENT_ACTION_VIDEO_CAMERA)
+        // There is no public way to ask for the front camera; these extras are the ones camera apps commonly honour, and are ignored otherwise.
+        "selfie" -> android.content.Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
+            .putExtra("android.intent.extras.CAMERA_FACING", 1).putExtra("android.intent.extra.USE_FRONT_CAMERA", true)
+        else -> android.content.Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
+    })
+
+    override fun composeEmail(to: String, subject: String, body: String): Boolean = start(
+        android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:" + android.net.Uri.encode(to)))
+            .putExtra(android.content.Intent.EXTRA_SUBJECT, subject).putExtra(android.content.Intent.EXTRA_TEXT, body))
+
+    private val ringerAudio get() = context.getSystemService(android.media.AudioManager::class.java)
+    private fun dndAllowed() = context.getSystemService(android.app.NotificationManager::class.java)?.isNotificationPolicyAccessGranted == true
+
+    override fun ringer(): String? = when (ringerAudio?.ringerMode) {
+        android.media.AudioManager.RINGER_MODE_NORMAL -> "ring"; android.media.AudioManager.RINGER_MODE_VIBRATE -> "vibrate"
+        android.media.AudioManager.RINGER_MODE_SILENT -> "silent"; else -> null
+    }
+
+    override fun setRinger(mode: String): Boolean = runCatching {
+        ringerAudio?.ringerMode = when (mode) { "ring" -> android.media.AudioManager.RINGER_MODE_NORMAL; "vibrate" -> android.media.AudioManager.RINGER_MODE_VIBRATE
+            else -> android.media.AudioManager.RINGER_MODE_SILENT }
+        ringer() == mode
+    }.getOrDefault(false)
+
+    override fun playFromSearch(what: String): Boolean = start(android.content.Intent(android.provider.MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH)
+        .putExtra(android.provider.MediaStore.EXTRA_MEDIA_FOCUS, "vnd.android.cursor.item/*").putExtra(android.app.SearchManager.QUERY, what))
+
+    private fun mayWriteSettings() = android.provider.Settings.System.canWrite(context)
+
+    override fun brightness(): Int? = runCatching {
+        android.provider.Settings.System.getInt(context.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS) * 100 / 255
+    }.getOrNull()
+
+    override fun setBrightness(percent: Int): Boolean = mayWriteSettings() && runCatching {
+        // A level set by hand only holds with adaptive brightness off.
+        android.provider.Settings.System.putInt(context.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE,
+            android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
+        android.provider.Settings.System.putInt(context.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS, (percent * 255 / 100).coerceIn(1, 255))
+    }.getOrDefault(false)
+
+    override fun deviceAction(action: String): Boolean {
+        val service = com.jake.duolauncher.SystemShadeAccessibilityService.connected() ?: return false
+        val global = when (action) {
+            "screenshot" -> android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT
+            "lock" -> android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN
+            "notifications" -> android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS
+            "quick_settings" -> android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS
+            "recents" -> android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS
+            else -> return false
+        }
+        return runCatching { service.performGlobalAction(global) }.getOrDefault(false)
+    }
+
+    override fun addContact(name: String, number: String): Boolean = start(android.content.Intent(android.provider.ContactsContract.Intents.Insert.ACTION)
+        .setType(android.provider.ContactsContract.RawContacts.CONTENT_TYPE)
+        .putExtra(android.provider.ContactsContract.Intents.Insert.NAME, name).putExtra(android.provider.ContactsContract.Intents.Insert.PHONE, number))
+
+    override fun openAppInfo(entry: AppEntry): Boolean = runCatching {
+        context.getSystemService(LauncherApps::class.java).startAppDetailsActivity(entry.component, entry.user, null, null); true
+    }.getOrDefault(false)
+
+    override fun showAlarms(): Boolean = start(android.content.Intent(android.provider.AlarmClock.ACTION_SHOW_ALARMS))
+
+    override fun openCalendarAt(day: java.time.LocalDate): Boolean = start(android.content.Intent(android.content.Intent.ACTION_VIEW,
+        android.provider.CalendarContract.CONTENT_URI.buildUpon().appendPath("time")
+            .appendPath(day.atTime(9, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli().toString()).build()))
+
+    private fun calendarAllowed() =
+        context.checkSelfPermission(android.Manifest.permission.READ_CALENDAR) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    /** Replies need the notification listener (the person's opt-in notification access) to be connected; a time given by the
+     *  calendar needs the calendar permission the person may have given Uno for its widgets and its facts. */
+    override fun capabilities(): Set<Capability> = buildSet {
+        if (com.jake.duolauncher.NotificationFeed.connected) add(Capability.Notifications)
+        if (calendarAllowed()) add(Capability.CalendarRead)
+        if (com.jake.duolauncher.SystemShadeAccessibilityService.isConnected()) add(Capability.Accessibility)
+        if (dndAllowed()) add(Capability.Ringer)
+        if (mayWriteSettings()) add(Capability.SystemSettings)
+    }
+
+    /** The next few days of the calendar: titles and start times only, read when a step points at the calendar and kept nowhere. */
+    override fun events(): List<CalendarEvent> {
+        if (!calendarAllowed()) return emptyList()
+        return runCatching {
+            val zone = java.time.ZoneId.systemDefault()
+            val from = System.currentTimeMillis()
+            val uri = android.provider.CalendarContract.Instances.CONTENT_URI.buildUpon().also {
+                android.content.ContentUris.appendId(it, from); android.content.ContentUris.appendId(it, from + EVENT_DAYS * 24L * 60 * 60 * 1000)
+            }.build()
+            val found = ArrayList<CalendarEvent>()
+            context.contentResolver.query(uri, arrayOf(android.provider.CalendarContract.Instances.TITLE, android.provider.CalendarContract.Instances.BEGIN,
+                android.provider.CalendarContract.Instances.ALL_DAY), null, null, "${android.provider.CalendarContract.Instances.BEGIN} ASC")?.use { rows ->
+                while (rows.moveToNext() && found.size < MAX_EVENTS) {
+                    val start = java.time.Instant.ofEpochMilli(rows.getLong(1)).atZone(zone).toLocalDateTime()
+                    found += CalendarEvent(rows.getString(0).orEmpty(), start, rows.getInt(2) == 1)
+                }
+            }
+            found
+        }.getOrElse { Log.w(TAG, "calendar could not be read", it); emptyList() }
+    }
 
     override fun replyTargets(): List<ReplyTarget> = com.jake.duolauncher.NotificationFeed.replyable.map { it.target }
 
@@ -164,6 +268,16 @@ internal class AndroidToolEnv(
             "display" -> android.provider.Settings.ACTION_DISPLAY_SETTINGS
             "sound" -> android.provider.Settings.ACTION_SOUND_SETTINGS
             "battery" -> android.provider.Settings.ACTION_BATTERY_SAVER_SETTINGS
+            "mobile_data" -> android.provider.Settings.ACTION_DATA_ROAMING_SETTINGS
+            "hotspot" -> android.provider.Settings.ACTION_WIRELESS_SETTINGS
+            "location" -> android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS
+            "storage" -> android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS
+            "apps" -> android.provider.Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS
+            "notifications" -> android.provider.Settings.ACTION_ALL_APPS_NOTIFICATION_SETTINGS
+            "security" -> android.provider.Settings.ACTION_SECURITY_SETTINGS
+            "accessibility" -> android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS
+            "date" -> android.provider.Settings.ACTION_DATE_SETTINGS
+            "vpn" -> android.provider.Settings.ACTION_VPN_SETTINGS
             else -> return
         }
         resolver.open(ActionLogic.settingsIntent(action))

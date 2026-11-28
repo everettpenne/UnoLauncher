@@ -18,12 +18,12 @@ internal class LabPlanner(private val client: () -> AssistantClient?) : Planner 
     override suspend fun plan(request: PlanRequest): ParseResult {
         lastReply = null
         val assistant = client() ?: return ParseResult.Failed("Uno Lab isn't installed or isn't switched on.")
-        val payload = PlannerRequest.json(request.query, request.context, request.grounding, request.tools)
+        val payload = PlannerRequest.json(request.query, request.context, request.grounding, request.tools, request.protocol)
         // The call blocks on the binder until the model has written the plan, so it must not run on the main thread.
         val reply = withContext(Dispatchers.IO) { runCatching { assistant.plan(payload) }.getOrNull() }
             ?: return ParseResult.Failed("I couldn't reach Uno Lab.")
         lastReply = reply
         if (reply.isBlank()) return ParseResult.Failed("The planner didn't answer.")
-        return PlanParser.parse(reply, request.tools)
+        return PlanParser.parse(reply, request.tools, request.protocol)
     }
 }

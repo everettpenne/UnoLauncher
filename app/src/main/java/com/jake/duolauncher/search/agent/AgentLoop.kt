@@ -6,6 +6,8 @@ internal data class PlanRequest(
     val context: String,
     val tools: List<Tool>,
     val grounding: String = "",
+    /** Which contract the planner is asked under ([Catalogue.V1] or [Catalogue.V2]): the prompt, the grammar and the parser follow it. */
+    val protocol: Int = Catalogue.V1,
 )
 
 /** Turns a question into a plan. The real one asks Uno Lab; the tests use a fake. */
@@ -13,6 +15,27 @@ internal interface Planner {
     suspend fun plan(request: PlanRequest): ParseResult
     /** What the model wrote for the last [plan], word for word and before it was read, for the assistant log; null when nothing came. */
     val lastReply: String? get() = null
+}
+
+/**
+ * The words a request is sent back to the planner with, when a turn takes more than one question. They are part of what the planner is
+ * trained on, so they are written in one place and the training set is built from the same functions. Each goes after the request,
+ * inside the same turn, so Uno Lab needs to know nothing about them.
+ */
+internal object AgentTurns {
+    /** The reply broke a rule: the reason, and "Reply again". (The first planners were trained on exactly this line.) */
+    fun retry(query: String, why: String): String = "$query\n(Your last reply could not be used: $why. Reply again.)"
+
+    /** What looking found, a line a source, or that it found nothing. */
+    fun found(query: String, sources: List<LookSource>, found: String): String =
+        "$query\nFound:\n" + found.ifBlank { sources.joinToString("\n") { "- ${it.id}: nothing" } }
+
+    /** The step that was tried, as the planner would write it, and why it failed. */
+    fun failed(query: String, step: Step, why: String): String =
+        "$query\nTried: " + stepJson(step) + "\nFailed: " + why.replace('\n', ' ').take(200)
+
+    fun stepJson(step: Step): String = org.json.JSONObject().put("tool", step.tool.name)
+        .put("params", org.json.JSONObject(step.params.values.filterKeys { !it.startsWith("_") })).toString()
 }
 
 /** Where the loop is, for the island and the panel to show. */
@@ -56,6 +79,11 @@ internal class AgentLoop(
     /** Asked only when a step leaves the phone; returns false and nothing runs. */
     private val confirm: suspend (steps: List<String>) -> Boolean = { true },
     private val onState: (AgentState) -> Unit = {},
+    /** The contract the planner was trained on. Under [Catalogue.V2] it may ask to look something up first ([facts]) and is asked
+     *  again when a plan's first step fails. */
+    private val protocol: Int = Catalogue.V1,
+    /** What the phone holds of the kinds asked for, as lines for the planner; "" when there is nothing. Read only when the planner asks. */
+    private val facts: suspend (sources: List<LookSource>, query: String) -> String = { _, _ -> "" },
 ) {
     /** For the assistant log: every reply the planner wrote this turn (the one that was sent back as well as the one that was used),
      *  and the plan as it stood last (after it was mended, and bound once it was to be run). */
@@ -66,11 +94,27 @@ internal class AgentLoop(
     /** [planOnly]: stop once there is a plan and say what it would do; nothing is confirmed or run. */
     suspend fun run(query: String, context: String = "", grounding: String = "", planOnly: Boolean = false): AgentOutcome {
         onState(AgentState.Planning(query))
-        var parsed = ask(query, context, grounding)
-        // A reply that broke a rule (a tool that does not exist, a value out of range) is sent back once with the reason.
-        (parsed as? ParseResult.Failed)?.takeIf { it.retry }?.let { first ->
-            parsed = ask("$query\n(Your last reply could not be used: ${first.why}. Reply again.)", context, grounding)
+        var parsed = asked(query, context, grounding)
+        // The planner wants a fact first (protocol 2): it is read, and the planner is asked once more with it. It may not look twice.
+        var request = query
+        ((parsed as? ParseResult.Ok)?.plan as? Plan.Look)?.let { look ->
+            val found = runCatching { facts(look.sources, query) }.getOrDefault("").trim()
+            request = AgentTurns.found(query, look.sources, found)
+            parsed = asked(request, context, grounding)
+            if ((parsed as? ParseResult.Ok)?.plan is Plan.Look) parsed = ParseResult.Failed("I couldn't find what I needed for that.")
         }
+        return finish(parsed, request, context, grounding, planOnly, mayRecover = true)
+    }
+
+    /** One question to the planner, and once more with the reason when its reply broke a rule (a tool that does not exist, a value
+     *  out of range). */
+    private suspend fun asked(query: String, context: String, grounding: String): ParseResult {
+        val first = ask(query, context, grounding)
+        val failed = (first as? ParseResult.Failed)?.takeIf { it.retry } ?: return first
+        return ask(AgentTurns.retry(query, failed.why), context, grounding)
+    }
+
+    private suspend fun finish(parsed: ParseResult, query: String, context: String, grounding: String, planOnly: Boolean, mayRecover: Boolean): AgentOutcome {
         return when (val result = parsed) {
             is ParseResult.Failed -> failed(result.why)
             is ParseResult.Ok -> when (val plan = result.plan) {
@@ -80,7 +124,17 @@ internal class AgentLoop(
                     AgentOutcome.Refused(plan.reason)
                 }
                 is Plan.OfferSearch -> offerSearch(plan.query, query, planOnly)
-                is Plan.Steps -> proceed(plan, query, grounding, planOnly)
+                is Plan.Look -> failed("I couldn't find what I needed for that.")
+                is Plan.Steps -> {
+                    val outcome = proceed(plan, query, grounding, planOnly)
+                    // A plan whose first step failed, with nothing done (protocol 2): the planner is told what was tried and why
+                    // it failed, once, and may plan another way, ask, or refuse. Nothing is retried after a step has changed anything.
+                    val broke = (outcome as? AgentOutcome.Done)?.outcomes?.takeIf { protocol >= Catalogue.V2 && mayRecover && !planOnly }
+                        ?.singleOrNull()?.takeIf { !it.result.ok }
+                    if (broke == null) outcome
+                    else finish(asked(AgentTurns.failed(query, broke.step, broke.result.say), context, grounding), query, context, grounding, planOnly, mayRecover = false)
+                        .let { second -> if (second is AgentOutcome.Failed) outcome else second }
+                }
             }
         }
     }
@@ -106,7 +160,7 @@ internal class AgentLoop(
     private val searchTool: Tool? get() = tools.firstOrNull { it.name == "web_search" }
 
     private suspend fun ask(query: String, context: String, grounding: String): ParseResult =
-        runCatching { planner.plan(PlanRequest(query, context, tools, grounding)) }
+        runCatching { planner.plan(PlanRequest(query, context, tools, grounding, protocol)) }
             .also { planner.lastReply?.let { reply -> replies += reply } }
             // A turn that was dropped for a new one is not a planner that could not be reached: it ends, and says nothing.
             .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
@@ -115,7 +169,9 @@ internal class AgentLoop(
     private suspend fun proceed(planned: Plan.Steps, query: String, grounding: String, planOnly: Boolean, mayAskAgain: Boolean = true,
         recognised: Boolean = false): AgentOutcome {
         val said = query + "\n" + grounding
-        val plan = repaired(Plan.Steps(planned.steps.map { Step(it.tool, it.tool.mended(it.params, said)) }), query, said)
+        // Each step put right from the person's own words (Tool.mended), then swapped for the step that was plainly meant where a
+        // tool says so (Tool.instead). The rules are the tools' own: the loop knows none of them.
+        val plan = executor.instead(Plan.Steps(planned.steps.map { Step(it.tool, it.tool.mended(it.params, said)) }), query, said, tools)
         this.plan = plan
         // Nothing the person did not give (an address, a number, a time) is acted on: the plan becomes a question instead.
         executor.missing(plan, said)?.let { (index, missing) ->
@@ -124,21 +180,6 @@ internal class AgentLoop(
         }
         if (planOnly) return planned(plan)
         return runSteps(executor.bind(plan), unsure = !recognised && RequestKinds.mismatch(query, plan))
-    }
-
-    /**
-     * "tell Priya I'll call tonight" with a message from Priya waiting is a reply to it, whatever number the planner wrote: a message
-     * step whose number nobody gave becomes a reply to the sender the request names. It still waits for a yes, as every reply does.
-     */
-    private fun repaired(plan: Plan.Steps, query: String, said: String): Plan.Steps {
-        val reply = tools.firstOrNull { it.name == "reply" } ?: return plan
-        return Plan.Steps(plan.steps.map { step ->
-            if (step.tool.name != "message" || step.tool.missing(step.params, said) == null) return@map step
-            val text = step.params.text("text") ?: return@map step
-            val sender = executor.replyTargets().sortedByDescending { it.postedAt }.firstOrNull { GroundingLogic.mentions(query.lineSequence().first(), it.who) }
-                ?: return@map step
-            Step(reply, Params(mapOf("to" to sender.who, "text" to text)))
-        })
     }
 
     /** The planner thinks a web search would help. It is put to the person; nothing is searched on the planner's word. */

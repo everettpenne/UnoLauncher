@@ -21,6 +21,19 @@ internal object MessageTool : Tool(
         return Missing(if (who != null) "I don't have a number for $who. What is it?" else "What number should I message?", "number")
     }
 
+    /**
+     * "tell Priya I'll call tonight" with a message from Priya waiting is a reply to it, whatever number the planner wrote: a message
+     * whose number nobody gave becomes a reply to the sender the request names. It still waits for a yes, as every reply does.
+     */
+    override fun instead(params: Params, request: String, said: String, env: ToolEnv, tools: List<Tool>): Step? {
+        val reply = tools.firstOrNull { it.name == "reply" } ?: return null
+        if (missing(params, said) == null) return null
+        val text = params.text("text") ?: return null
+        val sender = env.replyTargets().sortedByDescending { it.postedAt }.firstOrNull { GroundingLogic.mentions(request.lineSequence().first(), it.who) }
+            ?: return null
+        return Step(reply, Params(mapOf("to" to sender.who, "text" to text)))
+    }
+
     override fun describe(params: Params, env: ToolEnv): String? {
         val number = params.text("number") ?: return null
         return params.text("text")?.let { "Open Messages to $number with “$it”" } ?: "Open Messages to $number"

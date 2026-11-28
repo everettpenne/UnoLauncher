@@ -45,6 +45,8 @@ internal object CalendarTool : Tool(
 
     override fun mended(params: Params, said: String): Params {
         var values = params.values
+        // "pencil in physio at 3" is an event called physio.
+        params.text("title")?.let { values = values + ("title" to LeadIn.stripped(it, said, listOf("pencil in"))) }
         val now = java.time.LocalDateTime.of(2026, 1, 5, 9, 0)
         val start = params.text("start")?.let { SpokenTime.start(it, now) }
         if (start == null || !SpokenTime.saidWhole(said, start) { SpokenTime.start(it, now) }) {

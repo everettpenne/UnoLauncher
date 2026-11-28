@@ -31,4 +31,15 @@ class AgentRoutingTest {
         assertTrue(AgentRouting.plans("wake me when the kettle boils", enabled = true))
         assertFalse(AgentRouting.plans("please explain compound interest", enabled = true))
     }
+
+    @Test fun aLabTooOldToPlanIsNoticedAndANewerOneIsSeenAgain() {
+        try {
+            AgentRouting.labVersion(1)
+            assertTrue(AgentRouting.plannerMissing)
+            AgentRouting.labVersion(AgentRouting.PLANNER_VERSION)
+            assertFalse(AgentRouting.plannerMissing)
+            AgentRouting.labVersion(0)
+            assertTrue("a Lab from before versions says 0", AgentRouting.plannerMissing)
+        } finally { AgentRouting.labVersion(AgentRouting.PLANNER_VERSION) }
+    }
 }

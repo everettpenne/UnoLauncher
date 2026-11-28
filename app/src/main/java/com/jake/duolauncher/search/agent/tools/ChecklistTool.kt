@@ -10,6 +10,14 @@ internal object ChecklistTool : Tool(
     effect = Effect.Local,
     examples = listOf("add milk to my list", "put call the vet on my to-do list", "add batteries to the shopping list"),
 ) {
+    private val ontoTheList = Regex("""\b(?:on|onto|in|to)\s+(?:my|the|our)\s+(?:[\p{L}-]+\s+)?(?:list|checklist)\b""", RegexOption.IGNORE_CASE)
+
+    /** "stick lemons on my list" adds lemons. Only for a request that goes on to name the list, so the word is a way of asking. */
+    override fun mended(params: Params, said: String): Params {
+        val item = params.text("item") ?: return params
+        return Params(params.values + ("item" to LeadIn.stripped(item, said, listOf("stick", "pop", "chuck")) { ontoTheList.containsMatchIn(it) }))
+    }
+
     override fun problem(params: Params, env: ToolEnv): String? =
         if (env.checklistSlot == null) "Add a Checklist widget to Home and I can keep a list there." else null
 

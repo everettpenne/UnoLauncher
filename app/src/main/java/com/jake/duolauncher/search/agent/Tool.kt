@@ -7,7 +7,11 @@ import com.jake.duolauncher.AppEntry
 internal enum class Effect { Local, LeavesPhone }
 
 /** What a tool needs from the phone before it can be offered at all. Tools whose capability is missing are simply not listed. */
-internal enum class Capability { Contacts, CalendarRead, Notifications, Accessibility, OwnApp }
+internal enum class Capability { Contacts, CalendarRead, Notifications, Accessibility, OwnApp,
+    /** May change the ringer (ring, vibrate, silent): needs Do Not Disturb access for silent. */
+    Ringer,
+    /** May write Android's own settings (screen brightness): "Modify system settings", given by the person. */
+    SystemSettings }
 
 internal enum class Kind { Int, Text, Bool, Enum }
 
@@ -102,6 +106,29 @@ internal interface ToolEnv {
     fun openSettingsPanel(panel: String)
     /** Writes the note, returning what it held before (for undo); null when there is no Note widget on Home. */
     fun writeNote(text: String): String?
+    /** What is in the calendar from now for the next few days, soonest first; empty when it cannot be read. Read only for a step that
+     *  points at the calendar ("before my first meeting"), never to fill a prompt. */
+    fun events(): List<CalendarEvent> = emptyList()
+    // ---- Protocol 2's tools (tools/MoreTools.kt). Each says no until a phone says otherwise, so a tool is offered only where it works.
+    /** Opens the camera for a "photo", a "selfie" or a "video"; false when there is no camera app. */
+    fun openCamera(mode: String): Boolean = false
+    /** Opens a draft email; false when there is no mail app. */
+    fun composeEmail(to: String, subject: String, body: String): Boolean = false
+    /** "ring", "vibrate" or "silent"; null when it cannot be read. */
+    fun ringer(): String? = null
+    fun setRinger(mode: String): Boolean = false
+    /** Asks the music app to play [what] by name; false when no app takes the request. */
+    fun playFromSearch(what: String): Boolean = false
+    /** Screen brightness as a percentage; null when it cannot be read. */
+    fun brightness(): Int? = null
+    fun setBrightness(percent: Int): Boolean = false
+    /** "screenshot", "lock", "notifications", "quick_settings" or "recents". */
+    fun deviceAction(action: String): Boolean = false
+    /** Opens the new-contact form filled in; false when there is no contacts app. */
+    fun addContact(name: String, number: String): Boolean = false
+    fun openAppInfo(entry: AppEntry): Boolean = false
+    fun showAlarms(): Boolean = false
+    fun openCalendarAt(day: java.time.LocalDate): Boolean = false
     /** What the phone can offer right now; a tool that needs something not in here is not offered (ToolRegistry.available). */
     fun capabilities(): Set<Capability> = emptySet()
     /** The messages that can be answered from their notification, newest first: who sent each and in which app. Never their words. */
@@ -113,6 +140,32 @@ internal interface ToolEnv {
 /** Something a step needs that only the person can give: the [question] to ask, and the [param] their answer fills, when one value
  *  is all that is missing (the turn then carries on from the answer without planning again). */
 internal data class Missing(val question: String, val param: String? = null)
+
+/**
+ * A value with the request's own command words taken off its front. A small model asked to "pencil in physio at 3" may call the event
+ * "pencil in physio": the first words of the value are the first words of the request, and they are a way of asking, not part of
+ * what was asked for. Only the phrases a tool lists are taken off, and only when the request itself begins with them, so "add pop
+ * tarts to my list" keeps its "pop". Pure, so it is unit-tested.
+ */
+internal object LeadIn {
+    private val polite = Regex("""^(?:(?:ok|okay|hey|hi|please|can you|could you|would you|will you)[\s,]+)+""", RegexOption.IGNORE_CASE)
+
+    /** The first line of [said] (the request) without its opening courtesies. */
+    fun request(said: String): String = said.lineSequence().firstOrNull().orEmpty().trim().replace(polite, "")
+
+    /** [value] without the one of [phrases] that both it and the request begin with; [value] itself when there is none, when nothing
+     *  would be left, or when [only] says the request is not of the kind the phrase belongs to. */
+    fun stripped(value: String, said: String, phrases: List<String>, only: (String) -> Boolean = { true }): String {
+        val request = request(said)
+        val text = value.trim()
+        if (!only(request)) return value
+        for (phrase in phrases) {
+            if (!text.startsWith("$phrase ", ignoreCase = true) || !request.startsWith("$phrase ", ignoreCase = true)) continue
+            return text.substring(phrase.length).trim().ifEmpty { return value }
+        }
+        return value
+    }
+}
 
 /** A message that can be answered from its notification: the notification's key, who it is from, the app, and when it came. */
 internal data class ReplyTarget(val key: String, val who: String, val app: String, val postedAt: Long)
@@ -147,6 +200,9 @@ internal object ReplyLogic {
             else -> Found.Many(conversations)
         }
     }
+
+    /** Whether [to] is a word for "the newest one" and not a name. */
+    fun isNewest(to: String): Boolean = to.trim().lowercase() in newest
 
     fun nobody(to: String): String =
         if (to.isBlank() || to.trim().lowercase() in newest) "I don't see a message to reply to."
@@ -223,6 +279,14 @@ internal abstract class Tool(
      * model that turns "tomorrow at 3pm" into "03:00" is corrected, not obeyed and not questioned. Most tools have nothing to mend.
      */
     open fun mended(params: Params, said: String): Params = params
+
+    /**
+     * A different step that is plainly what was meant, where this one cannot be: a message to a number nobody gave, when a message
+     * from the person named is waiting, is a reply to it. Null when the step stands, which is nearly always. The loop asks every step
+     * once, after [mended] and before anything is checked, shown or run, so what replaces a step is checked like any other. [request]
+     * is the person's own words; [said] is those and what Uno resolved for them; [tools] are the ones on offer.
+     */
+    open fun instead(params: Params, request: String, said: String, env: ToolEnv, tools: List<Tool>): Step? = null
 
     /** Settles, once and before anything is shown or run, what the step will act on (which message a reply is for). The loop shows
      *  and runs the returned values, so what was confirmed is what is done. Most tools have nothing to settle. */

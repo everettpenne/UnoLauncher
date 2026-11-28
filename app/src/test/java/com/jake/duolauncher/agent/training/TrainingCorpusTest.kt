@@ -33,6 +33,7 @@ class TrainingCorpusTest {
                         is Plan.Clarify -> TrainingFormat.clarify(plan.question)
                         is Plan.Refuse -> TrainingFormat.refuse(plan.reason)
                         is Plan.OfferSearch -> TrainingFormat.search(plan.query)
+                        is Plan.Look -> example.reply
                     }
                     if (again != example.reply) "${example.query}: canonical form changed\n  was ${example.reply}\n  now $again" else null
                 }
@@ -50,6 +51,7 @@ class TrainingCorpusTest {
                     is Plan.Clarify -> !TrainingFormat.grammarSafe(plan.question)
                     is Plan.Refuse -> !TrainingFormat.grammarSafe(plan.reason)
                     is Plan.OfferSearch -> !TrainingFormat.grammarSafe(plan.query)
+                    is Plan.Look -> false
                 }
             }
         }

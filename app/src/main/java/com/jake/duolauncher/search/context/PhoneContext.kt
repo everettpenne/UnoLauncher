@@ -126,6 +126,21 @@ internal object PhoneContext {
         ContextPolicy.assemble(parts)
     }
 
+    /**
+     * What the sources named by [ids] say now, a line each ("- calendar: …"), for a planner that asked to look (protocol 2). Only
+     * sources that are switched on and hold nothing written by other people; one that says nothing is said to hold nothing.
+     */
+    suspend fun look(ids: List<Pair<String, String>>, question: String, env: ContextEnv): String = withContext(Dispatchers.IO) {
+        val off = env.extras()?.contextOff.orEmpty()
+        val lines = ArrayList<String>(ids.size)
+        for ((name, id) in ids) {
+            val source = sources.firstOrNull { it.id == id && !it.untrusted && it.id !in off }
+            val said = source?.let { runCatching { read(it.id, question, env) }.getOrNull() }?.trim().orEmpty()
+            lines += "- $name: " + said.replace("\n", "; ").ifEmpty { "nothing" }.take(600)
+        }
+        lines.joinToString("\n")
+    }
+
     private fun granted(c: Context, permission: String) = c.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 
     private fun is24(c: Context) = android.text.format.DateFormat.is24HourFormat(c)

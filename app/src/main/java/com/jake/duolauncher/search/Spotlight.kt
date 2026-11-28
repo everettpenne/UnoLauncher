@@ -600,6 +600,13 @@ internal fun Spotlight(
             )
         }
     }
+    // The planner's contract and what it may look at follow the phone, read for each turn.
+    androidx.compose.runtime.SideEffect {
+        com.jake.duolauncher.search.agent.AgentSessionHolder.protocol = { com.jake.duolauncher.search.agent.AgentRouting.protocol(context) }
+        com.jake.duolauncher.search.agent.AgentSessionHolder.look = { sources, question ->
+            contextEnv?.let { env -> com.jake.duolauncher.search.context.PhoneContext.look(sources.map { it.id to it.context }, question, env) }.orEmpty()
+        }
+    }
     val agentScope = androidx.compose.runtime.rememberCoroutineScope()
     // Whether what is typed follows on from the task the assistant just did: then it is offered to it, however short ("again").
     val followsNow = remember(query, agentSession) {

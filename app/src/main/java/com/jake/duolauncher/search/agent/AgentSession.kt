@@ -21,7 +21,10 @@ internal class AgentSession(
     private val planner: () -> Planner,
     /** The environment for this turn: re-read per run, because the panel that supplies it can be rebuilt between turns. */
     private val env: () -> ToolEnv,
-    private val tools: List<Tool> = ToolRegistry.builtIn,
+    /** The tools on offer; null for the list the planner's contract goes with ([ToolRegistry.forProtocol]). */
+    private val tools: List<Tool>? = null,
+    private val protocol: () -> Int = { AgentSessionHolder.protocol() },
+    private val look: suspend (List<LookSource>, String) -> String = { sources, query -> AgentSessionHolder.look(sources, query) },
     /** Read for each turn, so a switch flipped in settings holds from the next question. */
     private val settings: () -> AgentSettings = { AgentSettings() },
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
@@ -175,8 +178,9 @@ internal class AgentSession(
         val settings = settings()
         val env = env()
         // Only what the phone can do right now is offered: a tool whose capability is missing is not in the catalogue at all.
-        val tools = ToolRegistry.available(env.capabilities(), tools)
-        val executor = Executor(env, settings)
+        val protocol = protocol()
+        val tools = ToolRegistry.available(env.capabilities(), tools ?: ToolRegistry.forProtocol(protocol))
+        val executor = if (protocol >= Catalogue.V2) Executor(env, settings, maxSteps = Catalogue.MAX_STEPS_V2, maxPerTool = Executor.MAX_PER_TOOL_V2) else Executor(env, settings)
         val loop = AgentLoop(
             planner = planner(),
             executor = executor,
@@ -189,6 +193,8 @@ internal class AgentSession(
                 waiting.await()
             },
             onState = { state = it; log("state ${it::class.simpleName}: $it"); publish() },
+            protocol = protocol,
+            facts = look,
         )
         val grounding = groundingNow
         job = scope.launch {
@@ -217,7 +223,7 @@ internal class AgentSession(
             val used = ran.map { com.jake.duolauncher.search.LoggedTool(it.step.tool.name, shown(it.step.params), it.result.ok, it.result.say, it.ms) } +
                 planned.drop(ran.size).map { com.jake.duolauncher.search.LoggedTool(it.tool.name, shown(it.params), null) }
             log(com.jake.duolauncher.search.LogEntry(id = id, route = route, said = asked.trim(), request = sent, context = facts, grounding = known,
-                catalogue = Catalogue.hash(tools), raw = loop.replies.toList(), tools = used, reply = summary.orEmpty(),
+                catalogue = Catalogue.hash(tools, protocol), raw = loop.replies.toList(), tools = used, reply = summary.orEmpty(),
                 outcome = when (outcome) {
                     is AgentOutcome.Done -> if (planOnly && ran.isEmpty()) "planned" else "done"
                     is AgentOutcome.Asks -> "asked"

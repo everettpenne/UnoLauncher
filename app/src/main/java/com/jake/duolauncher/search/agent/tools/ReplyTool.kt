@@ -32,6 +32,21 @@ internal object ReplyTool : Tool(
             else -> params
         }
 
+    /**
+     * The other way round from [MessageTool.instead]: "write back to Mateo saying call you after lunch" with nothing from Mateo
+     * waiting, and Mateo someone Uno found a number for, is a message to that number, opened with the words typed and not sent.
+     * Only for a name: "reply to that" with nothing waiting stays a reply with nobody to go to, and says so.
+     */
+    override fun instead(params: Params, request: String, said: String, env: ToolEnv, tools: List<Tool>): Step? {
+        val message = tools.firstOrNull { it.name == "message" } ?: return null
+        val to = params.text("to") ?: return null
+        if (ReplyLogic.isNewest(to)) return null
+        if (ReplyLogic.resolve(to, env.replyTargets()) != ReplyLogic.Found.None) return null
+        val people = GroundingLogic.peopleIn(said).filter { GroundingLogic.mentions(to, it.name) }
+        val person = people.singleOrNull() ?: return null
+        return Step(message, Params(mapOf("number" to person.number) + (params.text("text")?.let { mapOf("text" to it) } ?: emptyMap())))
+    }
+
     override fun problem(params: Params, env: ToolEnv): String? {
         if (params.values[KEY] != null) return null
         return when (val found = ReplyLogic.resolve(params.text("to").orEmpty(), env.replyTargets())) {

@@ -8,6 +8,9 @@ internal class Executor(
     private val env: ToolEnv,
     private val settings: AgentSettings = AgentSettings(),
     private val clock: () -> Long = { System.currentTimeMillis() },
+    /** How many steps a plan may have, and how many of one tool: three and two for the first planners, five and three from protocol 2. */
+    private val maxSteps: Int = MAX_STEPS,
+    private val maxPerTool: Int = MAX_PER_TOOL,
 ) {
     data class Outcome(val step: Step, val result: ToolResult, val ms: Long)
 
@@ -19,9 +22,9 @@ internal class Executor(
     suspend fun run(plan: Plan.Steps, onStep: suspend (Step) -> Unit = {}): List<Outcome> {
         val outcomes = ArrayList<Outcome>(plan.steps.size)
         val perTool = HashMap<String, Int>()
-        for (step in plan.steps.take(MAX_STEPS)) {
+        for (step in plan.steps.take(maxSteps)) {
             val seen = (perTool[step.tool.name] ?: 0) + 1
-            if (seen > MAX_PER_TOOL) {
+            if (seen > maxPerTool) {
                 outcomes += Outcome(step, ToolResult(false, "I stopped: that plan used ${step.tool.name} too many times."), 0)
                 break
             }
@@ -50,7 +53,7 @@ internal class Executor(
 
     /** What the plan would run, without running it: the dry run the tests and the "what would you do?" mode use. A tool's own
      *  wording where it has one; otherwise the tool and the values the plan gave it (not what [bind] settled, which is not the plan's). */
-    fun describe(plan: Plan.Steps): List<String> = plan.steps.take(MAX_STEPS).map { step ->
+    fun describe(plan: Plan.Steps): List<String> = plan.steps.take(maxSteps).map { step ->
         step.tool.describe(step.params, env) ?: run {
             val params = step.params.values.filter { (k, v) -> v.isNotBlank() && !k.startsWith("_") }.entries.joinToString(", ") { "${it.key}=${it.value}" }
             step.tool.name + if (params.isEmpty()) "" else " ($params)"
@@ -61,20 +64,22 @@ internal class Executor(
     fun bind(plan: Plan.Steps): Plan.Steps = Plan.Steps(plan.steps.map { Step(it.tool, it.tool.bind(it.params, env)) })
 
     /** The first thing a step made up that only the person can supply (Tool.invented), as a question; or null. */
-    fun invented(plan: Plan.Steps, said: String): String? = plan.steps.take(MAX_STEPS).firstNotNullOfOrNull { it.tool.invented(it.params, said) }
+    fun invented(plan: Plan.Steps, said: String): String? = plan.steps.take(maxSteps).firstNotNullOfOrNull { it.tool.invented(it.params, said) }
 
     /** The first step missing something only the person can give (Tool.missing), with where it is in the plan; or null. */
     fun missing(plan: Plan.Steps, said: String): Pair<Int, Missing>? =
-        plan.steps.take(MAX_STEPS).withIndex().firstNotNullOfOrNull { (i, step) -> step.tool.missing(step.params, said)?.let { i to it } }
+        plan.steps.take(maxSteps).withIndex().firstNotNullOfOrNull { (i, step) -> step.tool.missing(step.params, said)?.let { i to it } }
 
-    /** The messages that could be replied to right now. */
-    fun replyTargets(): List<ReplyTarget> = env.replyTargets()
+    /** Each step, or the step that is plainly what was meant in its place (Tool.instead). */
+    fun instead(plan: Plan.Steps, request: String, said: String, tools: List<Tool>): Plan.Steps =
+        Plan.Steps(plan.steps.map { it.tool.instead(it.params, request, said, env, tools) ?: it })
 
     /** The first reason a step cannot be done as asked (Tool.problem), or null. */
-    fun problem(plan: Plan.Steps): String? = plan.steps.take(MAX_STEPS).firstNotNullOfOrNull { it.tool.problem(it.params, env) }
+    fun problem(plan: Plan.Steps): String? = plan.steps.take(maxSteps).firstNotNullOfOrNull { it.tool.problem(it.params, env) }
 
     companion object {
         const val MAX_STEPS = 3
         const val MAX_PER_TOOL = 2
+        const val MAX_PER_TOOL_V2 = 3
     }
 }
